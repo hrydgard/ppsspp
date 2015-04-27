@@ -53,7 +53,7 @@ SceUID threadAdhocID;
 recursive_mutex adhocEvtMtx;
 std::vector<std::pair<u32, u32>> adhocctlEvents;
 std::vector<u64> matchingEvents;
-u32 dummyThreadHackAddr;
+u32 dummyThreadHackAddr = 0;
 u32_le dummyThreadCode[3];
 
 std::map<int, AdhocctlHandler> adhocctlHandlers;
@@ -84,11 +84,14 @@ void __NetAdhocShutdown() {
 	if (netAdhocInited) {
 		sceNetAdhocTerm();
 	}
-	kernelMemory.Free(dummyThreadHackAddr);
+	if (dummyThreadHackAddr) {
+		kernelMemory.Free(dummyThreadHackAddr);
+		dummyThreadHackAddr = 0;
+	}
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1);
+	auto s = p.Section("sceNetAdhoc", 1, 2);
 	if (!s)
 		return;
 
@@ -97,12 +100,21 @@ void __NetAdhocDoState(PointerWrap &p) {
 	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
 
-	//p.Do(actionAfterMatchingMipsCall); // This could cause incompatibility with old savestate right?
-	//__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
+	if (s >= 2) {
+		p.Do(actionAfterMatchingMipsCall);
+		__KernelRestoreActionType(actionAfterMatchingMipsCall, AfterMatchingMipsCall::Create);
 
-	//u32 blockSize = sizeof(dummyThreadCode);
-	//dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
-	Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
+		p.Do(dummyThreadHackAddr);
+	} else if (p.mode == p.MODE_READ) {
+		// Previously, this wasn't being saved.  It needs its own space.
+		if (strcmp("dummythreadhack", kernelMemory.GetBlockTag(dummyThreadHackAddr)) != 0) {
+			u32 blockSize = sizeof(dummyThreadCode);
+			dummyThreadHackAddr = kernelMemory.Alloc(blockSize, false, "dummythreadhack");
+		}
+	}
+	if (dummyThreadHackAddr) {
+		Memory::Memcpy(dummyThreadHackAddr, dummyThreadCode, sizeof(dummyThreadCode));
+	}
 }
 
 void __UpdateAdhocctlHandlers(u32 flag, u32 error) {

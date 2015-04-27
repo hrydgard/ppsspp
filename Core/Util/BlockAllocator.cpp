@@ -330,6 +330,11 @@ void BlockAllocator::CheckBlocks() const
 	}
 }
 
+const char *BlockAllocator::GetBlockTag(u32 addr) const {
+	const Block *b = GetBlockFromAddress(addr);
+	return b->tag;
+}
+
 inline BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
 {
 	for (Block *bp = bottom_; bp != NULL; bp = bp->next)
