@@ -54,6 +54,8 @@ public:
 	u32 GetLargestFreeBlockSize() const;
 	u32 GetTotalFreeBytes() const;
 
+	const char *GetBlockTag(u32 addr) const;
+
 	void DoState(PointerWrap &p);
 
 private:
