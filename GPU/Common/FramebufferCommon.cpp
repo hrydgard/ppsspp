@@ -420,6 +420,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->last_frame_used = 0;
 		vfb->last_frame_attached = 0;
 		vfb->last_frame_displayed = 0;
+		vfb->last_frame_clut = 0;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
@@ -571,6 +572,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				srcBuffer = vfb;
 				srcY = yOffset;
 				srcH = 1;
+			} else if (yOffset == 0 && yOffset < srcY) {
+				// Okay, last try - it might be a clut.
+				if (vfb->usageFlags & FB_USAGE_CLUT) {
+					srcBuffer = vfb;
+					srcY = yOffset;
+					srcH = 1;
+				}
 			}
 		}
 	}
@@ -664,7 +672,13 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
 				if (width != dstStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
-					match = false;
+					// However, some other games write cluts to framebuffers.
+					// Let's catch this and upload.  Otherwise reject the match.
+					match = (vfb->usageFlags & FB_USAGE_CLUT) != 0;
+					if (match) {
+						dstWidth = byteStride * height / vfb_bpp;
+						dstHeight = 1;
+					}
 				} else {
 					dstWidth = byteStride * height / vfb_bpp;
 					dstHeight = 1;
@@ -866,6 +880,7 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	checkFlag(FB_USAGE_DISPLAYED_FRAMEBUFFER, vfb->last_frame_displayed);
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
 	checkFlag(FB_USAGE_RENDERTARGET, vfb->last_frame_render);
+	checkFlag(FB_USAGE_CLUT, vfb->last_frame_clut);
 }
 
 void FramebufferManagerCommon::ShowScreenResolution() {

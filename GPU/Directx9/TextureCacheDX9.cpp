@@ -779,10 +779,27 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 }
 
 void TextureCacheDX9::LoadClut(u32 clutAddr, u32 loadBytes) {
+	// Clear the uncached bit, etc. to match framebuffers.
+	clutAddr = clutAddr & 0x3FFFFFFF;
+	bool foundFramebuffer = false;
+
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
+			framebuffer->last_frame_clut = gpuStats.numFlips;
+			framebuffer->usageFlags |= FB_USAGE_CLUT;
+			foundFramebuffer = true;
+		}
+	}
+
 	clutTotalBytes_ = loadBytes;
 	if (Memory::IsValidAddress(clutAddr)) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		if (foundFramebuffer) {
+			gpu->PerformMemoryDownload(clutAddr, bytes);
+		}
+
 #ifdef _M_SSE
 		int numBlocks = bytes / 16;
 		if (bytes == loadBytes) {
