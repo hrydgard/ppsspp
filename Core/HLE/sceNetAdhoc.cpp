@@ -391,6 +391,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
+	Sleep(20);
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
 	uint16 dport = (uint16)port;
 	
