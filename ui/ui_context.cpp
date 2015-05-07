@@ -152,6 +152,12 @@ void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int 
 	}
 }
 
+void UIContext::DrawTextShadow(const char *str, float x, float y, uint32_t color, int align) {
+	uint32_t alpha = (color >> 1) & 0xFF000000;
+	DrawText(str, x + 2, y + 2, alpha, align);
+	DrawText(str, x, y, color, align);
+}
+
 void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
