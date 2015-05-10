@@ -68,10 +68,12 @@ static void RotateUV(TransformedVertex v[4], float flippedMatrix[16]) {
 	Vec4f br;
 	Vec3ByMatrix44(br.AsArray(), v[0].pos, flippedMatrix);
 
-	float x1 = tl.x / tl.w;
-	float x2 = br.x / br.w;
-	float y1 = tl.y / tl.w;
-	float y2 = br.y / br.w;
+	const float invtlw = 1.0f / tl.w;
+	const float invbrw = 1.0f / br.w;
+	const float x1 = tl.x * invtlw;
+	const float x2 = br.x * invbrw;
+	const float y1 = tl.y * invtlw;
+	const float y2 = br.y * invbrw;
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
