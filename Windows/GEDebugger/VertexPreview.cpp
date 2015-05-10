@@ -125,8 +125,8 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 		vert[3].u = orig_tl.u;
 
 		// That's the four corners. Now process UV rotation.
-		if (throughMode)
-			RotateUVThrough(vert);
+		// This is the same for through and non-through, since it's already transformed.
+		RotateUVThrough(vert);
 
 		// Build the two 3 point triangles from our 4 coordinates.
 		*ind++ = v + 0;
