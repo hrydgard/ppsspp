@@ -125,7 +125,7 @@ static inline int CalcClipMask(const ClipCoords& v)
 	}															\
 }
 
-static void RotateUVThrough(VertexData &tl, VertexData &tr, VertexData &bl, VertexData &br) {
+static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
 	const fixed16 x1 = tl.screenpos.x;
 	const fixed16 x2 = br.screenpos.x;
 	const fixed16 y1 = tl.screenpos.y;
@@ -211,7 +211,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 				bottomright = &buf[i];
 		}
 
-		RotateUVThrough(*topleft, *topright, *bottomleft, *bottomright);
+		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
