@@ -22,6 +22,7 @@
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
+#include "profiler/profiler.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -179,6 +180,7 @@ void GPU_SwapBuffers() {
 		D3D9_SwapBuffers();
 		break;
 	}
+	PROFILE_END_FRAME();
 }
 
 #endif
