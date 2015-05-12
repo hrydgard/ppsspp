@@ -39,4 +39,4 @@ struct SoftwareTransformResult {
 };
 
 void SoftwareTransform(int prim, u8 *decoded, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer,
-	int &numTrans, bool &drawIndexed, SoftwareTransformResult *result);
+	int &numTrans, bool &drawIndexed, SoftwareTransformResult *result, float ySign);

@@ -60,7 +60,7 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], float flippedMatrix[16]) {
+static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], float ySign) {
 	// Transform these two coordinates to figure out whether they're flipped or not.
 	Vec4f tl;
 	Vec3ByMatrix44(tl.AsArray(), v[2].pos, flippedMatrix);
@@ -72,8 +72,8 @@ static void RotateUV(TransformedVertex v[4], float flippedMatrix[16]) {
 	const float invbrw = 1.0f / br.w;
 	const float x1 = tl.x * invtlw;
 	const float x2 = br.x * invbrw;
-	const float y1 = tl.y * invtlw;
-	const float y2 = br.y * invbrw;
+	const float y1 = tl.y * invtlw * ySign;
+	const float y2 = br.y * invbrw * ySign;
 
 	if ((x1 < x2 && y1 < y2) || (x1 > x2 && y1 > y2))
 		SwapUVs(v[1], v[3]);
@@ -130,7 +130,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 
 void SoftwareTransform(
 	int prim, u8 *decoded, int vertexCount, u32 vertType, u16 *&inds, int indexType,
-	const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result) {
+	const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result, float ySign) {
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -540,7 +540,7 @@ void SoftwareTransform(
 			if (throughmode)
 				RotateUVThrough(trans);
 			else
-				RotateUV(trans, flippedMatrix);
+				RotateUV(trans, flippedMatrix, ySign);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
