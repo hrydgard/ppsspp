@@ -47,7 +47,7 @@ void TouchButton::draw(DrawBuffer &db, uint32_t color, uint32_t colorOverlay)
 }
 
 TouchCrossPad::TouchCrossPad(const Atlas *atlas, int arrowIndex, int overlayIndex)
-	: atlas_(atlas), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex)
+	: atlas_(atlas), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex), down_(0)
 {
 
 }

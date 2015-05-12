@@ -1,38 +1,48 @@
 #pragma once
 
-// WIP - very preliminary.
-// #define USE_PROFILER
+#define USE_PROFILER
 
 #ifdef USE_PROFILER
 
 class DrawBuffer;
 
-void _profiler_init();
-void _profiler_begin_frame();
-void _profiler_end_frame();
+struct Category {
+	const char *name;
+	uint32_t color;
+};
 
-void _profiler_log();
-void _profiler_draw(DrawBuffer *draw2d, int font);
+void internal_profiler_init();
+void internal_profiler_end_frame();
 
-void _profiler_enter(const char *section);
-void _profiler_leave(const char *section);
+int internal_profiler_enter(const char *section);  // Returns the category number.
+void internal_profiler_leave(int category);
 
-#define PROFILER_INIT() _profiler_init();
-#define PROFILER_ENTER(section) _profiler_enter(section);
-#define PROFILER_LEAVE(section) _profiler_leave(section);
-#define PROFILER_LOG() _profiler_log();
-#define PROFILER_DRAW(draw, font) _profiler_draw(draw, font);
-#define PROFILER_BEGIN_FRAME() _profiler_begin_frame();
-#define PROFILER_END_FRAME() _profiler_end_frame();
+float internal_profiler_gethistory(const char *section, float *data, int count);
+const char *GetSectionName(int i);
+int GetNumSections();
+
+class ProfileThis {
+public:
+	ProfileThis(const char *category) {
+		cat_ = internal_profiler_enter(category);
+	}
+	~ProfileThis() {
+		internal_profiler_leave(cat_);
+	}
+private:
+	int cat_;
+};
+
+#define PROFILE_INIT() internal_profiler_init();
+#define PROFILE_THIS_SCOPE(cat) ProfileThis _profile_scoped(cat);
+#define PROFILE_END_FRAME() internal_profiler_end_frame();
+#define PROFILE_GET_HISTORY(section, data, count) internal_profiler_gethistory(section, data, count);
 
 #else
 
-#define PROFILER_INIT()
-#define PROFILER_ENTER(section)
-#define PROFILER_LEAVE(section)
-#define PROFILER_LOG()
-#define PROFILER_DRAW(draw, font)
-#define PROFILER_BEGIN_FRAME()
-#define PROFILER_END_FRAME()
+#define PROFILE_INIT()
+#define PROFILE_THIS_SCOPE(cat) ProfileThis _profile_scoped(cat);
+#define PROFILE_END_FRAME()
+#define PROFILE_GET_HISTORY(section, data, count) internal_profiler_gethistory(section, data, count);
 
 #endif
