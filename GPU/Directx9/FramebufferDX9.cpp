@@ -200,8 +200,9 @@ namespace DX9 {
 		// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, g_Config.iInternalScreenRotation);
+		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, uvRotation);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, int uvRotation) {
@@ -741,7 +742,8 @@ namespace DX9 {
 
 			// Output coordinates
 			float x, y, w, h;
-			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+			int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
 
 			const float u0 = offsetX / (float)vfb->bufferWidth;
 			const float v0 = offsetY / (float)vfb->bufferHeight;
@@ -767,7 +769,7 @@ namespace DX9 {
 					}
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1, g_Config.iInternalScreenRotation);
+					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1, uvRotation);
 				}
 			}
 			/* 

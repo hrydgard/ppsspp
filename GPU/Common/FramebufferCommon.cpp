@@ -26,11 +26,11 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH) {
+void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
 	float outH;
 
-	bool rotated = g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
+	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
 	if (g_Config.bStretchToDisplay) {
 		outW = frameW;

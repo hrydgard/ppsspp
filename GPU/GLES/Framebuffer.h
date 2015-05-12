@@ -38,9 +38,6 @@ class TextureCache;
 class TransformDrawEngine;
 class ShaderManager;
 
-void CenterRect(float *x, float *y, float *w, float *h,
-								float origW, float origH, float frameW, float frameH);
-
 #ifndef USING_GLES2
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {

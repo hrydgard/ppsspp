@@ -50,7 +50,7 @@ u32 clut[4096];
 
 // TODO: This one lives in GPU/GLES/Framebuffer.cpp, move it to somewhere common.
 void CenterRect(float *x, float *y, float *w, float *h,
-								float origW, float origH, float frameW, float frameH);
+								float origW, float origH, float frameW, float frameH, int rotation);
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -247,7 +247,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	glUseProgram(program);
 
 	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight);
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
 
 	x /= 0.5f * dstwidth;
 	y /= 0.5f * dstheight;

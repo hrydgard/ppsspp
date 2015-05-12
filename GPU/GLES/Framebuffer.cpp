@@ -227,7 +227,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 				float v_pixel_delta = v_delta;
 				if (postShaderAtOutputResolution_) {
 					float x, y, w, h;
-					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, ROTATION_LOCKED_HORIZONTAL);
 					u_pixel_delta = 1.0f / w;
 					v_pixel_delta = 1.0f / h;
 				}
@@ -419,8 +419,8 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	int uvRotation = g_Config.iInternalScreenRotation;
+	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
@@ -1049,9 +1049,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		GLuint colorTexture = fbo_get_color_texture(vfb->fbo);
 
+		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
+
 		// Output coordinates
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 
@@ -1072,7 +1074,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, g_Config.iInternalScreenRotation);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1103,7 +1105,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1123,7 +1125,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, postShaderProgram_, g_Config.iInternalScreenRotation);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 			}
 		}
 

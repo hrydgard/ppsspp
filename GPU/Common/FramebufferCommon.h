@@ -237,4 +237,4 @@ protected:
 	};
 };
 
-void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH);
+void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);

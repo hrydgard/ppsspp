@@ -184,9 +184,9 @@ void GameSettingsScreen::CreateViews() {
 
 	// Not sure if we should call this one something different? For now we call it the same as the Android screen rotation option and just put it on the graphics tab.
 	static const char *screenRotation[] = {"Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
-	PopupMultiChoice *rot = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalScreenRotation, c->T("Screen Rotation"), screenRotation, 1, ARRAY_SIZE(screenRotation), c, screenManager()));
-	rot->OnChoice.Handle(this, &GameSettingsScreen::OnScreenRotation);
-
+	PopupMultiChoice *scrRotChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalScreenRotation, c->T("Screen Rotation"), screenRotation, 1, ARRAY_SIZE(screenRotation), c, screenManager()));
+	scrRotChoice->SetEnabledPtr(&screenRotEnable_);
+	screenRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 #ifdef ANDROID
 	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -656,6 +656,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	screenRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;
