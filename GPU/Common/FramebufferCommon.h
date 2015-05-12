@@ -236,3 +236,5 @@ protected:
 		FBO_OLD_USAGE_FLAG = 15,
 	};
 };
+
+void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH);

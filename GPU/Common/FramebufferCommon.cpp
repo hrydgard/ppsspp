@@ -26,6 +26,55 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH) {
+	float outW;
+	float outH;
+
+	bool rotated = g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
+
+	if (g_Config.bStretchToDisplay) {
+		outW = frameW;
+		outH = frameH;
+	} else {
+		// Add special case for 1080p displays, cutting off the bottom and top 1-pixel rows from the original 480x272.
+		// This will be what 99.9% of users want.
+		if (origW == 480 && origH == 272 && frameW == 1920 && frameH == 1080 && !rotated) {
+			*x = 0;
+			*y = -4;
+			*w = 1920;
+			*h = 1088;
+			return;
+		}
+
+		float origRatio = !rotated ? origW / origH : origH / origW;
+		float frameRatio = frameW / frameH;
+
+		if (origRatio > frameRatio) {
+			// Image is wider than frame. Center vertically.
+			outW = frameW;
+			outH = frameW / origRatio;
+			// Stretch a little bit
+			if (!rotated && g_Config.bPartialStretch)
+				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+		} else {
+			// Image is taller than frame. Center horizontally.
+			outW = frameH * origRatio;
+			outH = frameH;
+		}
+	}
+
+	if (g_Config.bSmallDisplay) {
+		outW /= 2.0f;
+		outH /= 2.0f;
+	}
+
+	*x = (frameW - outW) / 2.0f;
+	*y = (frameH - outH) / 2.0f;
+	*w = outW;
+	*h = outH;
+}
+
+
 FramebufferManagerCommon::FramebufferManagerCommon() :
 	displayFramebufPtr_(0),
 	displayStride_(0),
@@ -179,31 +228,6 @@ void FramebufferManagerCommon::EstimateDrawingSize(int &drawing_width, int &draw
 }
 
 void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
-	/*
-	if (useBufferedRendering_ && currentRenderVfb_) {
-		// Hack is enabled, and there was a previous framebuffer.
-		// Before we switch, let's do a series of trickery to copy one bit of stencil to
-		// destination alpha. Or actually, this is just a bunch of hackery attempts on Wipeout.
-		// Ignore for now.
-		glstate.depthTest.disable();
-		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_KEEP, GL_KEEP, GL_KEEP);  // don't modify stencil§
-		glstate.stencilFunc.set(GL_GEQUAL, 0xFE, 0xFF);
-		DrawPlainColor(0x00000000);
-		//glstate.stencilFunc.set(GL_LESS, 0x80, 0xFF);
-		//DrawPlainColor(0xFF000000);
-		glstate.stencilTest.disable();
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-		glstate.depthTest.disable();
-		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-		DrawPlainColor(0x00000000);
-		shaderManager_->DirtyLastShader();  // dirty lastShader_
-	}
-	*/
-
-
 	gstate_c.framebufChanged = false;
 
 	// Get parameters

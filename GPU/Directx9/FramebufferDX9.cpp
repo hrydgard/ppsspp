@@ -42,39 +42,6 @@
 namespace DX9 {
 	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-	void CenterRect(float *x, float *y, float *w, float *h,
-                float origW, float origH, float frameW, float frameH) {
-		if (g_Config.bStretchToDisplay) {
-			*x = 0;
-			*y = 0;
-			*w = frameW;
-			*h = frameH;
-			return;
-		}
-
-		float origRatio = origW/origH;
-		float frameRatio = frameW/frameH;
-
-		if (origRatio > frameRatio) {
-			// Image is wider than frame. Center vertically.
-			float scale = origW / frameW;
-			*x = 0.0f;
-			*w = frameW;
-			*h = frameW / origRatio;
-			// Stretch a little bit
-			if (g_Config.bPartialStretch)
-				*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
-			*y = (frameH - *h) / 2.0f;
-		} else {
-			// Image is taller than frame. Center horizontally.
-			float scale = origH / frameH;
-			*y = 0.0f;
-			*h = frameH;
-			*w = frameH * origRatio;
-			*x = (frameW - *w) / 2.0f;
-		}
-	}
-
 	void FramebufferManagerDX9::ClearBuffer() {
 		dxstate.scissorTest.disable();
 		dxstate.depthWrite.set(TRUE);
@@ -234,10 +201,10 @@ namespace DX9 {
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, g_Config.iInternalScreenRotation);
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1) {
+	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, int uvRotation) {
 		if (flip) {
 			std::swap(v0, v1);
 		}
@@ -250,6 +217,28 @@ namespace DX9 {
 			x,y+h,0, u0,v1,
 		};
 
+		static const short indices[4] = { 0, 1, 3, 2 };
+
+		if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
+			float temp[8];
+			int rotation = 0;
+			switch (uvRotation) {
+			case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
+			case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
+			case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
+			}
+
+			for (int i = 0; i < 4; i++) {
+				temp[i * 2] = coord[((i + rotation) & 3) * 5 + 3];
+				temp[i * 2 + 1] = coord[((i + rotation) & 3) * 5 + 4];
+			}
+
+			for (int i = 0; i < 4; i++) {
+				coord[i * 5 + 3] = temp[i * 2];
+				coord[i * 5 + 4] = temp[i * 2 + 1];
+			}
+		}
+
 		float invDestW = 1.0f / (destW * 0.5f);
 		float invDestH = 1.0f / (destH * 0.5f);
 		float halfPixelX = invDestW * 0.5f;
@@ -259,7 +248,6 @@ namespace DX9 {
 			coord[i * 5 + 1] = -(coord[i * 5 + 1] * invDestH - 1.0f - halfPixelY);
 		}
 
-		//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 		pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
@@ -779,7 +767,7 @@ namespace DX9 {
 					}
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1);
+					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1, g_Config.iInternalScreenRotation);
 				}
 			}
 			/* 
