@@ -1228,7 +1228,6 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 }
 
 void TextureCache::SetTexture(bool force) {
-	PROFILE_THIS_SCOPE("settexture");
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -2003,6 +2002,8 @@ TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelDat
 }
 
 void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
+	PROFILE_THIS_SCOPE("loadtex");
+
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
