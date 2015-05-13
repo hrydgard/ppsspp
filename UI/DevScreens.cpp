@@ -781,6 +781,17 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+static const uint32_t nice_colors[8] = {
+	0xFF8040,
+	0x80FF40,
+	0x8040FF,
+	0xFFFF40,
+	0x40FFFF,
+	0xFF40FF,
+	0xc0c0c0,
+	0x8040c0,
+};
+
 void DrawProfile(UIContext &ui) {
 #ifdef USE_PROFILER
 	int numCategories = Profiler_GetNumCategories();
@@ -790,13 +801,14 @@ void DrawProfile(UIContext &ui) {
 	float legendStartX = ui.GetBounds().x2() - 100;
 
 	float rowH = 30;
+	const uint32_t opacity = 140 << 24;
 
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
-		uint32_t color = Profiler_GetCategoryColor(i);
+		uint32_t color = nice_colors[i % ARRAY_SIZE(nice_colors)];
 
 		float y = legendStartY + i * rowH;
-		ui.FillRect(UI::Drawable(color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
+		ui.FillRect(UI::Drawable(opacity | color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
 		ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
 	}
 
@@ -840,9 +852,9 @@ void DrawProfile(UIContext &ui) {
 		Profiler_GetHistory(i, &history[0], historyLength);
 
 		float x = 10;
-		uint32_t col = Profiler_GetCategoryColor(i);
+		uint32_t col = nice_colors[i % ARRAY_SIZE(nice_colors)];
 		if (area)
-			col &= 0x7FFFFFFF;
+			col = opacity | (col & 0xFFFFFF);
 		UI::Drawable color(col);
 
 		if (area) {
