@@ -1,25 +1,25 @@
 #pragma once
 
-#define USE_PROFILER
+#include <inttypes.h>
+
+// #define USE_PROFILER
 
 #ifdef USE_PROFILER
 
 class DrawBuffer;
 
-struct Category {
-	const char *name;
-	uint32_t color;
-};
-
 void internal_profiler_init();
 void internal_profiler_end_frame();
 
-int internal_profiler_enter(const char *section);  // Returns the category number.
+int internal_profiler_enter(const char *category_name);  // Returns the category number.
 void internal_profiler_leave(int category);
 
-float internal_profiler_gethistory(const char *section, float *data, int count);
-const char *GetSectionName(int i);
-int GetNumSections();
+
+const char *Profiler_GetCategoryName(int i);
+uint32_t Profiler_GetCategoryColor(int i);
+int Profiler_GetNumCategories();
+int Profiler_GetHistoryLength();
+void Profiler_GetHistory(int i, float *data, int count);
 
 class ProfileThis {
 public:
@@ -36,13 +36,11 @@ private:
 #define PROFILE_INIT() internal_profiler_init();
 #define PROFILE_THIS_SCOPE(cat) ProfileThis _profile_scoped(cat);
 #define PROFILE_END_FRAME() internal_profiler_end_frame();
-#define PROFILE_GET_HISTORY(section, data, count) internal_profiler_gethistory(section, data, count);
 
 #else
 
 #define PROFILE_INIT()
-#define PROFILE_THIS_SCOPE(cat) ProfileThis _profile_scoped(cat);
+#define PROFILE_THIS_SCOPE(cat)
 #define PROFILE_END_FRAME()
-#define PROFILE_GET_HISTORY(section, data, count) internal_profiler_gethistory(section, data, count);
 
 #endif
