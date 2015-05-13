@@ -761,6 +761,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(LOADER, "Loading config: %s", iniFilename_.c_str());
 	bSaveSettings = true;
 
+	bShowFrameProfiler = true;
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
