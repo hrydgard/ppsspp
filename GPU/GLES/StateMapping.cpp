@@ -569,7 +569,6 @@ void TransformDrawEngine::ApplyBlendState() {
 }
 
 void TransformDrawEngine::ApplyDrawState(int prim) {
-	PROFILE_THIS_SCOPE("applydrawstate");
 
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
@@ -582,6 +581,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
 		}
 	}
+
+	// Start profiling here to skip SetTexture which is already accounted for
+	PROFILE_THIS_SCOPE("applydrawstate");
 
 	// Set blend - unless we need to do it in the shader.
 	ApplyBlendState();
