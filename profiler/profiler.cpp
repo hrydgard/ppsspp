@@ -21,7 +21,6 @@
 
 struct Category {
 	const char *name;
-	uint32_t color;
 };
 
 struct CategoryFrame {
@@ -45,9 +44,6 @@ static CategoryFrame *history;
 void internal_profiler_init() {
 	memset(&profiler, 0, sizeof(profiler));
 	history = new CategoryFrame[HISTORY_SIZE];
-	for (int i = 0; i < MAX_CATEGORIES; i++) {
-		categories[i].color = 0xFF000000 | (0x358236 * (i+4));
-	}
 }
 
 int internal_profiler_enter(const char *category_name) {
@@ -96,10 +92,6 @@ void internal_profiler_end_frame() {
 
 const char *Profiler_GetCategoryName(int i) {
 	return i >= 0 ? categories[i].name : "N/A";
-}
-
-uint32_t Profiler_GetCategoryColor(int i) {
-	return i >= 0 ? categories[i].color : 0xFFFF00FF;
 }
 
 int Profiler_GetHistoryLength() {

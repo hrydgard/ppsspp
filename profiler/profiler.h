@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 
-// #define USE_PROFILER
+#define USE_PROFILER
 
 #ifdef USE_PROFILER
 
@@ -16,7 +16,6 @@ void internal_profiler_leave(int category);
 
 
 const char *Profiler_GetCategoryName(int i);
-uint32_t Profiler_GetCategoryColor(int i);
 int Profiler_GetNumCategories();
 int Profiler_GetHistoryLength();
 void Profiler_GetHistory(int i, float *data, int count);
