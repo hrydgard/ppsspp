@@ -24,6 +24,7 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "profiler/profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -69,6 +70,9 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(new Choice(de->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
 	parent->Add(new Choice(de->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 	parent->Add(new Choice(de->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenu::OnToggleAudioDebug);
+#ifdef USE_PROFILER
+	parent->Add(new CheckBox(&g_Config.bShowFrameProfiler, de->T("Frame Profiler"), ""));
+#endif
 
 	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
 	if (ring) {
@@ -775,4 +779,72 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	}
 	UpdateDisasm();
 	return UI::EVENT_DONE;
+}
+
+void DrawProfile(UIContext &ui) {
+	int numCategories = Profiler_GetNumCategories();
+	int historyLength = Profiler_GetHistoryLength();
+
+	float legendStartY = ui.GetBounds().centerY();
+	float legendStartX = ui.GetBounds().x2() - 100;
+
+	float rowH = 30;
+
+	for (int i = 0; i < numCategories; i++) {
+		const char *name = Profiler_GetCategoryName(i);
+		uint32_t color = Profiler_GetCategoryColor(i);
+
+		float y = legendStartY + i * rowH;
+		ui.FillRect(UI::Drawable(color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
+		ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
+	}
+
+	float graphWidth = ui.GetBounds().x2() - 120;
+	float graphHeight = ui.GetBounds().h * 0.8f;
+
+	std::vector<float> history;
+	std::vector<float> total;
+	history.resize(historyLength);
+	total.resize(historyLength);
+
+	float dx = graphWidth / historyLength;
+
+	/*
+	ui.Flush();
+
+	ui.BeginNoTex();
+	*/
+
+	bool area = true;
+
+	for (int i = 0; i < numCategories; i++) {
+		Profiler_GetHistory(i, &history[0], historyLength);
+
+		float x = 10;
+		float minVal = 0.0f;
+		float maxVal = 1.0f / 60.0f;  // TODO - adjust to frame length
+		float scale = (graphHeight) / (maxVal - minVal);
+		uint32_t col = Profiler_GetCategoryColor(i);
+		if (area)
+			col &= 0x7FFFFFFF;
+		UI::Drawable color(col);
+
+		if (area) {
+			for (int n = 0; n < historyLength; n++) {
+				float val = history[n];
+				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
+				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
+				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
+				x += dx;
+				total[n] += val;
+			}
+		} else {
+			for (int n = 0; n < historyLength; n++) {
+				float val = history[n];
+				float valY = ui.GetBounds().y2() - 10 - history[n] * scale;
+				ui.FillRect(color, Bounds(x, valY, dx, 5));
+				x += dx;
+			}
+		}
+	}
 }

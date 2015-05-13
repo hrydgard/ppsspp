@@ -811,7 +811,7 @@ void EmuScreen::render() {
 	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 
-	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE) {
+	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {
 		Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
 		// This sets up some important states but not the viewport.
@@ -843,6 +843,10 @@ void EmuScreen::render() {
 
 		if (g_Config.iShowFPSCounter) {
 			DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
+		}
+
+		if (g_Config.bShowFrameProfiler) {
+			// DrawProfile(*screenManager()->getUIContext());
 		}
 
 		screenManager()->getUIContext()->End();

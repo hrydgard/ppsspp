@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+#include "profiler/profiler.h"
+
 #include "Globals.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
@@ -525,6 +527,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
+	PROFILE_THIS_SCOPE("mixer");
+
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {

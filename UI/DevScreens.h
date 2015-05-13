@@ -141,3 +141,6 @@ private:
 	UI::LinearLayout *leftDisasm_;	
 	UI::LinearLayout *rightDisasm_;	
 };
+
+
+void DrawProfile(UIContext &ui);

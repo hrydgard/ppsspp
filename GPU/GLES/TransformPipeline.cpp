@@ -72,7 +72,8 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "native/gfx_es2/gl_state.h"
+#include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -334,6 +335,8 @@ void TransformDrawEngine::DecodeVerts() {
 }
 
 void TransformDrawEngine::DecodeVertsStep() {
+	PROFILE_THIS_SCOPE("vertdec");
+
 	const int i = decodeCounter_;
 
 	const DeferredDrawCall &dc = drawCalls[i];

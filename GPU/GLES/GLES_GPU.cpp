@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
 

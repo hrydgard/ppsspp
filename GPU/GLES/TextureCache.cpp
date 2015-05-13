@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "profiler/profiler.h"
+
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -1226,6 +1228,7 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 }
 
 void TextureCache::SetTexture(bool force) {
+	PROFILE_THIS_SCOPE("settexture");
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.

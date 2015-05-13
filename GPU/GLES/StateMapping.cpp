@@ -21,7 +21,8 @@
 
 
 #include "StateMapping.h"
-#include "native/gfx_es2/gl_state.h"
+#include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -568,6 +569,8 @@ void TransformDrawEngine::ApplyBlendState() {
 }
 
 void TransformDrawEngine::ApplyDrawState(int prim) {
+	PROFILE_THIS_SCOPE("applydrawstate");
+
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

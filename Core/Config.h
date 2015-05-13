@@ -372,6 +372,9 @@ public:
 	bool bSkipDeadbeefFilling;
 	bool bFuncHashMap;
 
+	// Volatile development settings
+	bool bShowFrameProfiler;
+
 	std::string currentDirectory;
 	std::string externalDirectory; 
 	std::string memStickDirectory;
