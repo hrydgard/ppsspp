@@ -782,6 +782,7 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 }
 
 void DrawProfile(UIContext &ui) {
+#ifdef USE_PROFILER
 	int numCategories = Profiler_GetNumCategories();
 	int historyLength = Profiler_GetHistoryLength();
 
@@ -816,14 +817,29 @@ void DrawProfile(UIContext &ui) {
 	*/
 
 	bool area = true;
+	static float lastMaxVal = 1.0f / 60.0f;
+	float minVal = 0.0f;
+	float maxVal = lastMaxVal;  // TODO - adjust to frame length
+	if (maxVal < 0.001f)
+		maxVal = 0.001f;
+	if (maxVal > 1.0f / 30.0f)
+		maxVal = 1.0f / 30.0f;
 
+	float scale = (graphHeight) / (maxVal - minVal);
+
+	float y_60th = ui.GetBounds().y2() - 10 - (1.0f / 60.0f) * scale;
+	float y_1ms = ui.GetBounds().y2() - 10 - (1.0f / 1000.0f) * scale;
+
+	ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_60th, graphWidth, 2));
+	ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_1ms, graphWidth, 2));
+	ui.DrawTextShadow("1/60s", 5, y_60th, 0x80FFFF00);
+	ui.DrawTextShadow("1ms", 5, y_1ms, 0x80FFFF00);
+
+	maxVal = 0.0f;
 	for (int i = 0; i < numCategories; i++) {
 		Profiler_GetHistory(i, &history[0], historyLength);
 
 		float x = 10;
-		float minVal = 0.0f;
-		float maxVal = 1.0f / 60.0f;  // TODO - adjust to frame length
-		float scale = (graphHeight) / (maxVal - minVal);
 		uint32_t col = Profiler_GetCategoryColor(i);
 		if (area)
 			col &= 0x7FFFFFFF;
@@ -832,6 +848,8 @@ void DrawProfile(UIContext &ui) {
 		if (area) {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
+				if (val > maxVal)
+					maxVal = val;
 				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
 				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
 				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
@@ -847,4 +865,7 @@ void DrawProfile(UIContext &ui) {
 			}
 		}
 	}
+
+	lastMaxVal = lastMaxVal * 0.95f + maxVal * 0.05f;
+#endif
 }

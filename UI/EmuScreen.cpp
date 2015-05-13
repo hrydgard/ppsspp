@@ -21,6 +21,7 @@
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "profiler/profiler.h"
 
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
@@ -908,9 +909,11 @@ void EmuScreen::render() {
 			DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
 		}
 
+#ifdef USE_PROFILER
 		if (g_Config.bShowFrameProfiler) {
-			// DrawProfile(*screenManager()->getUIContext());
+			DrawProfile(*screenManager()->getUIContext());
 		}
+#endif
 
 		screenManager()->getUIContext()->End();
 	}
