@@ -415,7 +415,10 @@ public:
 	void ResetControlLayout();
 
 	void GetReportingInfo(UrlEncoder &data);
-	
+
+	bool IsPortrait() const {
+		return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
+	}
 	
 private:
 	std::string gameId_;
