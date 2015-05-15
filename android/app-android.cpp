@@ -20,6 +20,7 @@
 #include "base/timeutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
+#include "profiler/profiler.h"
 #include "audio/mixer.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
@@ -193,6 +194,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	jniEnvUI = env;
 
 	ILOG("NativeApp.init() -- begin");
+	PROFILE_INIT();
 
 	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;

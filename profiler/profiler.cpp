@@ -28,6 +28,7 @@ struct CategoryFrame {
 		memset(time_taken, 0, sizeof(time_taken));
 	}
 	float time_taken[MAX_CATEGORIES];
+	int count[MAX_CATEGORIES];
 };
 
 struct Profiler {
@@ -76,10 +77,15 @@ int internal_profiler_enter(const char *category_name) {
 }
 
 void internal_profiler_leave(int category) {
-	if (category < 0)
+	if (category == -1 || !history) {
 		return;
+	}
+	if (category < 0 || category >= MAX_CATEGORIES) {
+		ELOG("Bad category index %d", category);
+	}
 	double diff = real_time_now() - profiler.eventStart[category];
 	history[profiler.historyPos].time_taken[category] += (float)diff;
+	history[profiler.historyPos].count[category]++;
 	profiler.eventStart[category] = 0.0;
 }
 
@@ -108,7 +114,7 @@ int Profiler_GetNumCategories() {
 
 void Profiler_GetHistory(int category, float *data, int count) {
 	for (int i = 0; i < HISTORY_SIZE; i++) {
-		int x = i - count + profiler.historyPos;
+		int x = i - count + profiler.historyPos + 1;
 		if (x < 0)
 			x += HISTORY_SIZE;
 		if (x >= HISTORY_SIZE)
