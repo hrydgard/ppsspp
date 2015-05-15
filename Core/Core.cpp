@@ -180,7 +180,6 @@ void GPU_SwapBuffers() {
 		D3D9_SwapBuffers();
 		break;
 	}
-	PROFILE_END_FRAME();
 }
 
 #endif

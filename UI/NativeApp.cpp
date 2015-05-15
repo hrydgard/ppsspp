@@ -48,7 +48,6 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"  // should've been only for screenshot - but actually not, cleanup?
 #include "gfx_es2/draw_text.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
@@ -57,6 +56,7 @@
 #include "math/fast/fast_math.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
+#include "profiler/profiler.h"
 #include "thin3d/thin3d.h"
 #include "ui/ui.h"
 #include "ui/screen.h"
@@ -762,6 +762,8 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 }
 
 void NativeUpdate(InputState &input) {
+	PROFILE_END_FRAME();
+
 	{
 		lock_guard lock(pendingMutex);
 		for (size_t i = 0; i < pendingMessages.size(); i++) {
