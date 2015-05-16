@@ -797,8 +797,18 @@ void DrawProfile(UIContext &ui) {
 	int numCategories = Profiler_GetNumCategories();
 	int historyLength = Profiler_GetHistoryLength();
 
+	float legendWidth = 100.0f;
+	for (int i = 0; i < numCategories; i++) {
+		const char *name = Profiler_GetCategoryName(i);
+		float w = 0.0f, h = 0.0f;
+		ui.MeasureText(ui.GetFontStyle(), name, &w, &h);
+		if (w > legendWidth) {
+			legendWidth = w;
+		}
+	}
+
 	float legendStartY = ui.GetBounds().centerY();
-	float legendStartX = ui.GetBounds().x2() - 100;
+	float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
 
 	float rowH = 30;
 	const uint32_t opacity = 140 << 24;
