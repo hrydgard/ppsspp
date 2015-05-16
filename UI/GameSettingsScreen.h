@@ -109,7 +109,7 @@ private:
 	bool postProcEnable_;
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
-	bool screenRotEnable_;
+	bool displayRotEnable_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
