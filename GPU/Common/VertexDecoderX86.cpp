@@ -191,7 +191,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// Later we might want to do this when the matrices are loaded instead.
 	// This is mostly proof of concept.
 	int boneCount = 0;
-	if (dec.weighttype && g_Config.bSoftwareSkinning) {
+	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
 		MOVAPS(XMM4, M(&threeMasks));
 		for (int i = 0; i < 8; i++) {
 			MOVUPS(XMM0, M((gstate.boneMatrix + 12 * i)));
