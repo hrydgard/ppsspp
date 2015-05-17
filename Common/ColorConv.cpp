@@ -275,8 +275,51 @@ void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, const u32 numPixels) {
 }
 
 void ConvertRGBA565ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i mask5 = _mm_set1_epi16(0x001f);
+	const __m128i mask6 = _mm_set1_epi16(0x003f);
+	const __m128i mask8 = _mm_set1_epi16(0x00ff);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst32;
+	u32 sseChunks = numPixels / 8;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst32 & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		const __m128i c = _mm_load_si128(&srcp[i]);
+
+		// Swizzle, resulting in RR00 RR00.
+		__m128i r = _mm_and_si128(c, mask5);
+		r = _mm_or_si128(_mm_slli_epi16(r, 3), _mm_srli_epi16(r, 2));
+		r = _mm_and_si128(r, mask8);
+
+		// This one becomes 00GG 00GG.
+		__m128i g = _mm_and_si128(_mm_srli_epi16(c, 5), mask6);
+		g = _mm_or_si128(_mm_slli_epi16(g, 2), _mm_srli_epi16(g, 4));
+		g = _mm_slli_epi16(g, 8);
+
+		// Almost done, we aim for BB00 BB00 again here.
+		__m128i b = _mm_and_si128(_mm_srli_epi16(c, 11), mask5);
+		b = _mm_or_si128(_mm_slli_epi16(b, 3), _mm_srli_epi16(b, 2));
+		b = _mm_and_si128(b, mask8);
+
+		// Always set to 00FF 00FF.
+		__m128i a = _mm_slli_epi16(mask8, 8);
+
+		// Now combine them, RRGG RRGG and BBAA BBAA, and then interleave.
+		const __m128i rg = _mm_or_si128(r, g);
+		const __m128i ba = _mm_or_si128(b, a);
+		_mm_store_si128(&dstp[i * 2 + 0], _mm_unpacklo_epi16(rg, ba));
+		_mm_store_si128(&dstp[i * 2 + 1], _mm_unpackhi_epi16(rg, ba));
+	}
+	u32 i = sseChunks * 8;
+#else
+	u32 i = 0;
+#endif
+
 	u8 *dst = (u8 *)dst32;
-	for (u32 x = 0; x < numPixels; x++) {
+	for (u32 x = i; x < numPixels; x++) {
 		u16 col = src[x];
 		dst[x * 4] = Convert5To8((col) & 0x1f);
 		dst[x * 4 + 1] = Convert6To8((col >> 5) & 0x3f);
@@ -290,7 +333,6 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	const __m128i mask5 = _mm_set1_epi16(0x001f);
 	const __m128i mask8 = _mm_set1_epi16(0x00ff);
 	const __m128i one = _mm_set1_epi16(0x0001);
-	const __m128i zero = _mm_set1_epi16(0x0000);
 
 	const __m128i *srcp = (const __m128i *)src;
 	__m128i *dstp = (__m128i *)dst32;
@@ -341,9 +383,50 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	}
 }
 
+// TODO: This seems to be BGRA4444 -> RGBA888?
 void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i mask4 = _mm_set1_epi16(0x000f);
+	const __m128i mask8 = _mm_set1_epi16(0x00ff);
+	const __m128i one = _mm_set1_epi16(0x0001);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst32;
+	u32 sseChunks = numPixels / 8;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst32 & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		const __m128i c = _mm_load_si128(&srcp[i]);
+
+		// Let's just grab R000 R000, without swizzling yet.
+		__m128i r = _mm_and_si128(_mm_srli_epi16(c, 8), mask4);
+		// And then 00G0 00G0.
+		__m128i g = _mm_and_si128(_mm_srli_epi16(c, 4), mask4);
+		g = _mm_slli_epi16(g, 8);
+		// Now B000 B000.
+		__m128i b = _mm_and_si128(c, mask4);
+		// And lastly 00A0 00A0.  No mask needed, we have a wall.
+		__m128i a = _mm_srli_epi16(c, 12);
+		a = _mm_slli_epi16(g, 8);
+
+		// We swizzle after combining - R0G0 R0G0 and B0A0 B0A0 -> RRGG RRGG and BBAA BBAA.
+		__m128i rg = _mm_or_si128(r, g);
+		__m128i ba = _mm_or_si128(b, a);
+		rg = _mm_or_si128(rg, _mm_slli_epi16(rg, 4));
+		ba = _mm_or_si128(ba, _mm_slli_epi16(ba, 4));
+
+		// And then we can store.
+		_mm_store_si128(&dstp[i * 2 + 0], _mm_unpacklo_epi16(rg, ba));
+		_mm_store_si128(&dstp[i * 2 + 1], _mm_unpackhi_epi16(rg, ba));
+	}
+	u32 i = sseChunks * 8;
+#else
+	u32 i = 0;
+#endif
+
 	u8 *dst = (u8 *)dst32;
-	for (u32 x = 0; x < numPixels; x++) {
+	for (u32 x = i; x < numPixels; x++) {
 		u16 col = src[x];
 		dst[x * 4] = Convert4To8((col >> 8) & 0xf);
 		dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
@@ -352,6 +435,7 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	}
 }
 
+// TODO: This seems to be ABGR4444 -> RGBA888?
 void ConvertBGRA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
 	u8 *dst = (u8 *)dst32;
 	for (u32 x = 0; x < numPixels; x++) {
