@@ -43,6 +43,8 @@ win32 {
 	HEADERS += $$P/Common/MemArena.h
 }
 
+armv7: SOURCES += $$P/Common/ColorConvNEON.cpp
+
 SOURCES += $$P/Common/ChunkFile.cpp \
 	$$P/Common/ColorConv.cpp \
 	$$P/Common/ConsoleListener.cpp \

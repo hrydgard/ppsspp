@@ -58,6 +58,7 @@ ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ArmThunk.cpp \
+  $(SRC)/Common/ColorConvNEON.cpp.neon \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \

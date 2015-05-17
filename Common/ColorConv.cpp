@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ColorConv.h"
+// NEON is in a separate file so that it can be compiled with a runtime check.
+#include "ColorConvNEON.h"
 #include "Common.h"
 #include "CPUDetect.h"
 
