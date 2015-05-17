@@ -337,3 +337,134 @@ void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
 		ARGB8From565(col0, &dst[x]);
 	}
 }
+
+void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i maskB = _mm_set1_epi16(0x00F0);
+	const __m128i maskG = _mm_set1_epi16(0x0F00);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = numPixels / 8;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		const __m128i c = _mm_load_si128(&srcp[i]);
+		__m128i v = _mm_srli_epi16(c, 12);
+		v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 4), maskB));
+		v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 4), maskG));
+		v = _mm_or_si128(v, _mm_slli_epi16(c, 12));
+		_mm_store_si128(&dstp[i], v);
+	}
+	// The remainder is done in chunks of 2, SSE was chunks of 8.
+	u32 i = sseChunks * 8 / 2;
+#else
+	u32 i = 0;
+#endif
+
+	const u32 *src32 = (const u32 *)src;
+	u32 *dst32 = (u32 *)dst;
+	for (; i < numPixels / 2; i++) {
+		const u32 c = src32[i];
+		dst32[i] = ((c >> 12) & 0x000F000F) |
+		           ((c >> 4)  & 0x00F000F0) |
+		           ((c << 4)  & 0x0F000F00) |
+		           ((c << 12) & 0xF000F000);
+	}
+
+	if (numPixels & 1) {
+		const u32 i = numPixels - 1;
+		const u16 c = src[i];
+		dst[i] = ((c >> 12) & 0x000F) |
+		         ((c >> 4)  & 0x00F0) |
+		         ((c << 4)  & 0x0F00) |
+		         ((c << 12) & 0xF000);
+	}
+}
+
+void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i maskB = _mm_set1_epi16(0x003E);
+	const __m128i maskG = _mm_set1_epi16(0x07C0);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = numPixels / 8;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		const __m128i c = _mm_load_si128(&srcp[i]);
+		__m128i v = _mm_srli_epi16(c, 15);
+		v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 9), maskB));
+		v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 1), maskG));
+		v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
+		_mm_store_si128(&dstp[i], v);
+	}
+	// The remainder is done in chunks of 2, SSE was chunks of 8.
+	u32 i = sseChunks * 8 / 2;
+#else
+	u32 i = 0;
+#endif
+
+	const u32 *src32 = (const u32 *)src;
+	u32 *dst32 = (u32 *)dst;
+	for (; i < numPixels / 2; i++) {
+		const u32 c = src32[i];
+		dst32[i] = ((c >> 15) & 0x00010001) |
+		           ((c >> 9)  & 0x003E003E) |
+		           ((c << 1)  & 0x07C007C0) |
+		           ((c << 11) & 0xF800F800);
+	}
+
+	if (numPixels & 1) {
+		const u32 i = numPixels - 1;
+		const u16 c = src[i];
+		dst[i] = ((c >> 15) & 0x0001) |
+		         ((c >> 9)  & 0x003E) |
+		         ((c << 1)  & 0x07C0) |
+		         ((c << 11) & 0xF800);
+	}
+}
+
+void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
+#ifdef _M_SSE
+	const __m128i maskG = _mm_set1_epi16(0x07E0);
+
+	const __m128i *srcp = (const __m128i *)src;
+	__m128i *dstp = (__m128i *)dst;
+	u32 sseChunks = numPixels / 8;
+	if (((intptr_t)src & 0xF) || ((intptr_t)dst & 0xF)) {
+		sseChunks = 0;
+	}
+	for (u32 i = 0; i < sseChunks; ++i) {
+		const __m128i c = _mm_load_si128(&srcp[i]);
+		__m128i v = _mm_srli_epi16(c, 11);
+		v = _mm_or_si128(v, _mm_and_si128(c, maskG));
+		v = _mm_or_si128(v, _mm_slli_epi16(c, 11));
+		_mm_store_si128(&dstp[i], v);
+	}
+	// The remainder is done in chunks of 2, SSE was chunks of 8.
+	u32 i = sseChunks * 8 / 2;
+#else
+	u32 i = 0;
+#endif
+
+	const u32 *src32 = (const u32 *)src;
+	u32 *dst32 = (u32 *)dst;
+	for (; i < numPixels / 2; i++) {
+		const u32 c = src32[i];
+		dst32[i] = ((c >> 11) & 0x001F001F) |
+		           ((c >> 0)  & 0x07E007E0) |
+		           ((c << 11) & 0xF800F800);
+	}
+
+	if (numPixels & 1) {
+		const u32 i = numPixels - 1;
+		const u16 c = src[i];
+		dst[i] = ((c >> 11) & 0x001F) |
+		         ((c >> 0)  & 0x07E0) |
+		         ((c << 11) & 0xF800);
+	}
+}
