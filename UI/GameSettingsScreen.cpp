@@ -182,6 +182,11 @@ void GameSettingsScreen::CreateViews() {
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
 
+	static const char *displayRotation[] = {"Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
+	PopupMultiChoice *dispRotChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalScreenRotation, gs->T("Display Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), c, screenManager()));
+	dispRotChoice->SetEnabledPtr(&displayRotEnable_);
+	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+
 #ifdef ANDROID
 	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 	int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
@@ -650,6 +655,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 
 	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;

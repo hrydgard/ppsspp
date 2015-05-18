@@ -725,10 +725,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
 		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
 	} else {
-		// TODO: Aspect-ratio aware and centered
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
+		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}

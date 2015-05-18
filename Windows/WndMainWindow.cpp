@@ -71,7 +71,6 @@
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
-#include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
 
@@ -231,16 +230,32 @@ namespace MainWindow
 	static void UpdateRenderResolution() {
 		RECT rc;
 		GetClientRect(hwndMain, &rc);
+
+		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
-			zoom = (rc.right - rc.left + 479) / 480;
+		if (zoom == 0) { // auto mode
+			// Use the longest dimension
+			if (g_Config.IsPortrait()) {
+				zoom = (rc.bottom - rc.top + 479) / 480;
+			} else {
+				zoom = (rc.right - rc.left + 479) / 480;
+			}
+		}
 		if (zoom <= 1)
 			zoom = 1;
 
-		// Actually, auto mode should be more granular...
-		PSP_CoreParameter().renderWidth = 480 * zoom;
-		PSP_CoreParameter().renderHeight = 272 * zoom;
+		if (g_Config.IsPortrait()) {
+			PSP_CoreParameter().renderWidth = 480 * zoom;
+			PSP_CoreParameter().renderHeight = 272 * zoom;
+		} else {
+			PSP_CoreParameter().renderWidth = 272 * zoom;
+			PSP_CoreParameter().renderHeight = 480 * zoom;
+		}
+	}
+
+	static bool IsWindowSmall() {
+		return g_Config.IsPortrait() ? (g_Config.iWindowHeight < 480 + 80) : (g_Config.iWindowWidth < 480 + 80);
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
@@ -251,7 +266,7 @@ namespace MainWindow
 		if (!noWindowMovement) {
 			width = rc.right - rc.left;
 			height = rc.bottom - rc.top;
-			// Moves the internal window, not the frame. TODO: Get rid of the internal window.
+			// Moves the internal window, not the frame. TODO: Get rid of the internal window. Tried before but Intel drivers screw up when minimizing, or something?
 			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
 			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
 			// Need to clean all of this up...
@@ -262,7 +277,7 @@ namespace MainWindow
 		UpdateRenderResolution();
 		
 		if (!noWindowMovement) {
-			if (UpdateScreenScale(width, height)) {
+			if (UpdateScreenScale(width, height, IsWindowSmall())) {
 				NativeMessageReceived("gpu resized", "");
 			}
 		}
@@ -271,7 +286,13 @@ namespace MainWindow
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
-		GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
+
+		// Actually, auto mode should be more granular...
+		if (g_Config.IsPortrait()) {
+			GetWindowRectAtResolution(272 * (int)zoom, 480 * (int)zoom, rc, rcOuter);
+		} else {
+			GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
+		}
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
 		ResizeDisplay(false);
 		ShowScreenResolution();
@@ -403,7 +424,8 @@ namespace MainWindow
 		// First, get the w/h right.
 		if (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0) {
 			RECT rcInner = rc, rcOuter;
-			GetWindowRectAtResolution(2 * 480, 2 * 272, rcInner, rcOuter);
+			bool portrait = g_Config.IsPortrait();
+			GetWindowRectAtResolution(2 * (portrait ? 272 : 480), 2 * (portrait ? 480 : 272), rcInner, rcOuter);
 			rc.right = rc.left + (rcOuter.right - rcOuter.left);
 			rc.bottom = rc.top + (rcOuter.bottom - rcOuter.top);
 			g_Config.iWindowWidth = rc.right - rc.left;
@@ -941,9 +963,8 @@ namespace MainWindow
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 		// Only apply a factor > 1 in windowed mode.
-		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && g_Config.iWindowWidth < (480 + 80) ? 2 : 1;
+		int factor = !IsZoomed(GetHWND()) && !g_Config.bFullScreen && IsWindowSmall() ? 2 : 1;
 		static bool firstErase = true;
-
 
 		switch (message) {
 		case WM_ACTIVATE:
@@ -1071,8 +1092,9 @@ namespace MainWindow
 			{
 				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
 				RECT rc = { 0 };
-				rc.right = 480;
-				rc.bottom = 272;
+				bool portrait = g_Config.IsPortrait();
+				rc.right = portrait ? 272 : 480;
+				rc.bottom = portrait ? 480 : 272;
 				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
 				minmax->ptMinTrackSize.x = rc.right - rc.left;
 				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
@@ -1819,8 +1841,11 @@ namespace MainWindow
 		RECT rc;
 		GetClientRect(GetHWND(), &rc);
 
+		int checkW = g_Config.IsPortrait() ? 272 : 480;
+		int checkH = g_Config.IsPortrait() ? 480 : 272;
+
 		for (int i = 0; i < ARRAY_SIZE(windowSizeItems); i++) {
-			bool check = (i + 1) * 480 == rc.right - rc.left || (i + 1) * 272 == rc.bottom - rc.top;
+			bool check = (i + 1) * checkW == rc.right - rc.left || (i + 1) * checkH == rc.bottom - rc.top;
 			CheckMenuItem(menu, windowSizeItems[i], MF_BYCOMMAND | (check ? MF_CHECKED : MF_UNCHECKED));
 		}
 

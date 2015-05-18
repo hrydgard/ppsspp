@@ -32,16 +32,13 @@
 #include "Globals.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "Core/Config.h"
 
 namespace DX9 {
 
 class TextureCacheDX9;
 class TransformDrawEngineDX9;
 class ShaderManagerDX9;
-
-void CenterRect(float *x, float *y, float *w, float *h,
-								float origW, float origH, float frameW, float frameH);
-
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
 public:
@@ -62,7 +59,7 @@ public:
 	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 	
-	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f);
+	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f, int uvRotation = ROTATION_LOCKED_HORIZONTAL);
 
 	void DestroyAllFBOs();
 

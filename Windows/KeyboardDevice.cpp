@@ -3,7 +3,6 @@
 #include "input/keycodes.h"
 #include "util/const_map.h"
 #include "KeyMap.h"
-#include "ControlMapping.h"
 #include "KeyboardDevice.h"
 #include "../Common/CommonTypes.h"
 #include "WinUser.h"

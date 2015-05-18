@@ -7,7 +7,6 @@
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "XinputDevice.h"
-#include "ControlMapping.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
 

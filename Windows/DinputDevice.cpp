@@ -20,7 +20,6 @@
 
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
-#include "ControlMapping.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
