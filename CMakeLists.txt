@@ -290,7 +290,8 @@ set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
 		Common/ArmCPUDetect.cpp
-		Common/ArmThunk.cpp)
+		Common/ArmThunk.cpp
+		Common/ColorConvNEON.cpp)
 elseif(X86)
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp

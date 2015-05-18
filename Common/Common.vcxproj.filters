@@ -46,6 +46,7 @@
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="CodeBlock.h" />
     <ClInclude Include="ColorConv.h" />
+    <ClInclude Include="ColorConvNEON.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -81,6 +82,7 @@
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />
+    <ClCompile Include="ColorConvNEON.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
