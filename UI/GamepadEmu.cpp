@@ -52,6 +52,9 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 	if (input.flags & TOUCH_UP) {
 		pointerDownMask_ &= ~(1 << input.id);
 	}
+	if (input.flags & TOUCH_RELEASE_ALL) {
+		pointerDownMask_ = 0;
+	}
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
@@ -250,6 +253,14 @@ void PSPStick::Draw(UIContext &dc) {
 }
 
 void PSPStick::Touch(const TouchInput &input) {
+	if (input.flags & TOUCH_RELEASE_ALL) {
+		dragPointerId_ = -1;
+		centerX_ = bounds_.centerX();
+		centerY_ = bounds_.centerY();
+		__CtrlSetAnalogX(0.0f, stick_);
+		__CtrlSetAnalogY(0.0f, stick_);
+		return;
+	}
 	if (input.flags & TOUCH_DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
 			if (g_Config.bAutoCenterTouchAnalog) {

@@ -189,7 +189,10 @@ static void AfterStateLoad(bool success, void *ignored) {
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (!strcmp(message, "pause")) {
+		releaseButtons();
 		screenManager()->push(new GamePauseScreen(gamePath_));
+	} else if (!strcmp(message, "lost_focus")) {
+		releaseButtons();
 	} else if (!strcmp(message, "stop")) {
 		// We will push MainScreen in update().
 		PSP_Shutdown();
@@ -220,9 +223,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 	} else if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
+		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
+		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else if (!strcmp(message, "gpu resized") || !strcmp(message, "gpu clear cache")) {
 		if (gpu) {
@@ -232,7 +237,8 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		Reporting::UpdateConfig();
 		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
-		if (gpu) gpu->DumpNextFrame();
+		if (gpu)
+			gpu->DumpNextFrame();
 	} else if (!strcmp(message, "clear jit")) {
 		currentMIPS->ClearJitCache();
 		if (PSP_IsInited()) {
@@ -657,6 +663,7 @@ void EmuScreen::CreateViews() {
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
+	releaseButtons();
 	screenManager()->push(new DevMenu());
 	return UI::EVENT_DONE;
 }
@@ -752,6 +759,7 @@ void EmuScreen::update(InputState &input) {
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
+		releaseButtons();
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 
@@ -934,4 +942,13 @@ void EmuScreen::autoLoad() {
 		SaveState::LoadSlot(lastSlot, SaveState::Callback(), 0);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
+}
+
+// TODO: Add generic loss-of-focus handling for Screens, use this.
+void EmuScreen::releaseButtons() {
+	TouchInput input;
+	input.flags = TOUCH_RELEASE_ALL;
+	input.timestamp = time_now_d();
+	input.id = 0;
+	touch(input);
 }

@@ -1119,7 +1119,11 @@ namespace MainWindow
 					}
 				}
 
+				if (wParam == WA_ACTIVE) {
+					NativeMessageReceived("got_focus", "");
+				}
 				if (wParam == WA_INACTIVE) {
+					NativeMessageReceived("lost_focus", "");
 					WindowsRawInput::LoseFocus();
 					InputDevice::LoseFocus();
 				}
