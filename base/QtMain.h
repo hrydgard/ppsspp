@@ -80,7 +80,7 @@ signals:
 protected:
 	void resizeEvent(QResizeEvent * e)
 	{
-		UpdateScreenScale(e->size().width(), e->size().height());
+		UpdateScreenScale(e->size().width(), e->size().height(), false);
 		PSP_CoreParameter().pixelWidth = pixel_xres;
 		PSP_CoreParameter().pixelHeight = pixel_yres;
 	}
