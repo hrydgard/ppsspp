@@ -246,11 +246,11 @@ namespace MainWindow
 			zoom = 1;
 
 		if (g_Config.IsPortrait()) {
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-		} else {
 			PSP_CoreParameter().renderWidth = 272 * zoom;
 			PSP_CoreParameter().renderHeight = 480 * zoom;
+		} else {
+			PSP_CoreParameter().renderWidth = 480 * zoom;
+			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
 	}
 
