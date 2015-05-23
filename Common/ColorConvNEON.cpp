@@ -50,7 +50,7 @@ void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, const u32 numPixels
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > simdable) {
 		// Note that we've already moved srcp/dstp forward.
-		ConvertRGBA4444ToABGR4444Basic(dst, src, numPixels - simdable);
+		ConvertRGBA4444ToABGR4444Basic(dstp, srcp, numPixels - simdable);
 	}
 }
 
@@ -79,7 +79,7 @@ void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, const u32 numPixels
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > simdable) {
 		// Note that we've already moved srcp/dstp forward.
-		ConvertRGBA5551ToABGR1555Basic(dst, src, numPixels - simdable);
+		ConvertRGBA5551ToABGR1555Basic(dstp, srcp, numPixels - simdable);
 	}
 }
 
@@ -106,6 +106,6 @@ void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, const u32 numPixels) {
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > simdable) {
 		// Note that we've already moved srcp/dstp forward.
-		ConvertRGB565ToBGR565Basic(dst, src, numPixels - simdable);
+		ConvertRGB565ToBGR565Basic(dstp, srcp, numPixels - simdable);
 	}
 }
