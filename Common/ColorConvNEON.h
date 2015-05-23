@@ -18,3 +18,5 @@
 #pragma once
 
 #include "ColorConv.h"
+
+void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, const u32 numPixels);

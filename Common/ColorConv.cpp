@@ -514,7 +514,7 @@ void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskB = _mm_set1_epi16(0x003E);
 	const __m128i maskG = _mm_set1_epi16(0x07C0);
@@ -598,4 +598,16 @@ void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
 		         ((c >> 0)  & 0x07E0) |
 		         ((c << 11) & 0xF800);
 	}
+}
+
+#ifndef ConvertRGBA5551ToABGR1555
+Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555Basic;
+#endif
+
+void SetupColorConv() {
+#if defined(HAVE_ARMV7) && !defined(ARM64)
+	if (cpu_info.bNEON) {
+		ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555NEON;
+	}
+#endif
 }
