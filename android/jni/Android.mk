@@ -82,6 +82,7 @@ ARCH_FILES := \
   $(SRC)/Core/Util/AudioFormatNEON.cpp \
   $(SRC)/Common/Arm64Emitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
+  $(SRC)/Common/ColorConvNEON.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \

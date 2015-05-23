@@ -469,10 +469,9 @@ void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
-	const __m128i maskB = _mm_set1_epi16(0x00F0);
-	const __m128i maskG = _mm_set1_epi16(0x0F00);
+	const __m128i mask0040 = _mm_set1_epi16(0x00F0);
 
 	const __m128i *srcp = (const __m128i *)src;
 	__m128i *dstp = (__m128i *)dst;
@@ -483,8 +482,8 @@ void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels) {
 	for (u32 i = 0; i < sseChunks; ++i) {
 		const __m128i c = _mm_load_si128(&srcp[i]);
 		__m128i v = _mm_srli_epi16(c, 12);
-		v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 4), maskB));
-		v = _mm_or_si128(v, _mm_and_si128(_mm_slli_epi16(c, 4), maskG));
+		v = _mm_or_si128(v, _mm_and_si128(_mm_srli_epi16(c, 4), mask0040));
+		v = _mm_or_si128(v, _mm_slli_epi16(_mm_and_si128(c, mask0040), 4));
 		v = _mm_or_si128(v, _mm_slli_epi16(c, 12));
 		_mm_store_si128(&dstp[i], v);
 	}
@@ -514,7 +513,7 @@ void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskB = _mm_set1_epi16(0x003E);
 	const __m128i maskG = _mm_set1_epi16(0x07C0);
@@ -559,7 +558,7 @@ void ConvertRGBA5551ToABGR1555(u16 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskG = _mm_set1_epi16(0x07E0);
 
@@ -598,4 +597,21 @@ void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
 		         ((c >> 0)  & 0x07E0) |
 		         ((c << 11) & 0xF800);
 	}
+}
+
+// Reuse the logic from the header - if these aren't defined, we need externs.
+#ifndef ConvertRGBA4444ToABGR4444
+Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444Basic;
+Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555Basic;
+Convert16bppTo16bppFunc ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565Basic;
+#endif
+
+void SetupColorConv() {
+#if defined(HAVE_ARMV7) && !defined(ARM64)
+	if (cpu_info.bNEON) {
+		ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444NEON;
+		ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555NEON;
+		ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565NEON;
+	}
+#endif
 }

@@ -1,9 +1,10 @@
 #include <algorithm>
 #include "native/base/mutex.h"
 #include "native/base/timeutil.h"
-#include "GeDisasm.h"
-#include "GPUCommon.h"
-#include "GPUState.h"
+#include "Common/ColorConv.h"
+#include "GPU/GeDisasm.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/GPUState.h"
 #include "ChunkFile.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -21,6 +22,7 @@ GPUCommon::GPUCommon() :
 	dumpThisFrame_(false)
 {
 	Reinitialize();
+	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
 }
 
