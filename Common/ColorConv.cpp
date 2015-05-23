@@ -559,7 +559,7 @@ void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, const u32 numPixel
 	}
 }
 
-void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i maskG = _mm_set1_epi16(0x07E0);
 
@@ -602,12 +602,14 @@ void ConvertRGB565ToBGR565(u16 *dst, const u16 *src, const u32 numPixels) {
 
 #ifndef ConvertRGBA5551ToABGR1555
 Convert16bppTo16bppFunc ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555Basic;
+Convert16bppTo16bppFunc ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565Basic;
 #endif
 
 void SetupColorConv() {
 #if defined(HAVE_ARMV7) && !defined(ARM64)
 	if (cpu_info.bNEON) {
 		ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555NEON;
+		ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565NEON;
 	}
 #endif
 }
