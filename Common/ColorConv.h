@@ -130,9 +130,17 @@ void ConvertBGRA4444ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 void ConvertBGRA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 
-void ConvertRGBA4444ToABGR4444(u16 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, const u32 numPixels);
 void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, const u32 numPixels);
 void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, const u32 numPixels);
+
+#if defined(ARM64)
+#define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444NEON
+#elif !defined(ARM)
+#define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444Basic
+#else
+extern Convert16bppTo16bppFunc ConvertRGBA4444ToABGR4444;
+#endif
 
 #if defined(ARM64)
 #define ConvertRGBA5551ToABGR1555 ConvertRGBA5551ToABGR1555NEON

@@ -26,6 +26,34 @@
 
 // TODO: More NEON color conversion funcs.
 
+void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, const u32 numPixels) {
+	const uint16x8_t mask0040 = vdupq_n_u16(0x00F0);
+
+	u32 simdable = (numPixels / 8) * 8;
+	const u16 *srcp = src;
+	u16 *dstp = dst;
+	for (u32 i = 0; i < simdable; i += 8) {
+		uint16x8_t c = vld1q_u16(srcp);
+
+		const uint16x8_t a = vshrq_n_u16(c, 12);
+		const uint16x8_t b = vandq_u16(vshrq_n_u16(c, 4), mask0040);
+		const uint16x8_t g = vshlq_n_u16(vandq_u16(c, mask0040), 4);
+		const uint16x8_t r = vshlq_n_u16(c, 12);
+
+		uint16x8_t res = vorrq_u16(vorrq_u16(r, g), vorrq_u16(b, a));
+		vst1q_u16(dstp, res);
+
+		srcp += 8;
+		dstp += 8;
+	}
+
+	// Finish off the rest, if there were any outside the simdable range.
+	if (numPixels > simdable) {
+		// Note that we've already moved srcp/dstp forward.
+		ConvertRGBA4444ToABGR4444Basic(dst, src, numPixels - simdable);
+	}
+}
+
 void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, const u32 numPixels) {
 	const uint16x8_t maskB = vdupq_n_u16(0x003E);
 	const uint16x8_t maskG = vdupq_n_u16(0x07C0);
