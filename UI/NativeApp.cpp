@@ -48,6 +48,7 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
+#include "gfx_es2/gl_state.h"  // TODO: Get rid of this from here
 #include "gfx_es2/draw_text.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
