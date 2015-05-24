@@ -1701,6 +1701,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			// Special case: if we don't need to deal with packing, we don't need to copy.
 			if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) || w == bufw) {
 				if (UseBGRA8888()) {
+					tmpTexBuf32.resize(std::max(bufw, w) * h);
 					finalBuf = tmpTexBuf32.data();
 					ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
 				} else {
