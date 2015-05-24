@@ -12,6 +12,7 @@
 #include "profiler/profiler.h"
 
 #define MAX_CATEGORIES 16 // Can be any number
+#define MAX_DEPTH 16      // Can be any number
 #define HISTORY_SIZE 256  // Must be power of 2
 
 #ifndef _DEBUG
@@ -34,6 +35,8 @@ struct CategoryFrame {
 struct Profiler {
 	int frameCount;
 	int historyPos;
+	int depth;
+	int parentCategory[MAX_DEPTH];
 	double eventStart[MAX_CATEGORIES];
 	double curFrameStart;
 };
@@ -47,7 +50,7 @@ void internal_profiler_init() {
 	history = new CategoryFrame[HISTORY_SIZE];
 }
 
-int internal_profiler_enter(const char *category_name) {
+int internal_profiler_find_cat(const char *category_name) {
 	int i;
 	for (i = 0; i < MAX_CATEGORIES; i++) {
 		const char *catname = categories[i].name;
@@ -58,22 +61,47 @@ int internal_profiler_enter(const char *category_name) {
 #else
 		if (!strcmp(catname, category_name)) {
 #endif
-			if (profiler.eventStart[i] == 0.0f) {
-				profiler.eventStart[i] = real_time_now();
-			}
 			return i;
 		}
 	}
 
 	if (i < MAX_CATEGORIES && category_name) {
 		categories[i].name = category_name;
-		if (profiler.eventStart[i] == 0.0f) {
-			profiler.eventStart[i] = real_time_now();
-		}
 		return i;
 	}
 
 	return -1;
+}
+
+// Suspend, also used to prepare for leaving.
+static void internal_profiler_suspend(int category) {
+	double diff = real_time_now() - profiler.eventStart[category];
+	history[profiler.historyPos].time_taken[category] += (float)diff;
+	profiler.eventStart[category] = 0.0;
+}
+
+// Resume, also used as part of entering.
+static void internal_profiler_resume(int category) {
+	profiler.eventStart[category] = real_time_now();
+}
+
+int internal_profiler_enter(const char *category_name) {
+	int category = internal_profiler_find_cat(category_name);
+	if (category != -1) {
+		if (profiler.eventStart[category] == 0.0f) {
+			int parent = profiler.parentCategory[profiler.depth];
+			// Temporarily suspend the parent on entering a child.
+			if (parent != 0) {
+				internal_profiler_suspend(parent);
+			}
+			internal_profiler_resume(category);
+
+			profiler.depth++;
+			profiler.parentCategory[profiler.depth] = category;
+		}
+	}
+
+	return category;
 }
 
 void internal_profiler_leave(int category) {
@@ -83,10 +111,15 @@ void internal_profiler_leave(int category) {
 	if (category < 0 || category >= MAX_CATEGORIES) {
 		ELOG("Bad category index %d", category);
 	}
-	double diff = real_time_now() - profiler.eventStart[category];
-	history[profiler.historyPos].time_taken[category] += (float)diff;
+	internal_profiler_suspend(category);
 	history[profiler.historyPos].count[category]++;
-	profiler.eventStart[category] = 0.0;
+
+	profiler.depth--;
+	int parent = profiler.parentCategory[profiler.depth];
+	if (parent != 0) {
+		// Resume tracking the parent.
+		internal_profiler_resume(parent);
+	}
 }
 
 void internal_profiler_end_frame() {
