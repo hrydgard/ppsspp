@@ -433,37 +433,40 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	}
 }
 
-// TODO: This seems to be ABGR4444 -> RGBA888?
-void ConvertBGRA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
+void ConvertRGBA4444ToBGRA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
 	u8 *dst = (u8 *)dst32;
 	for (u32 x = 0; x < numPixels; x++) {
-		u16 col = src[x];
-		dst[x * 4 + 0] = (col >> 12) << 4;
-		dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
-		dst[x * 4 + 2] = ((col >> 4) & 0xf) << 4;
-		dst[x * 4 + 3] = (col & 0xf) << 4;
+		u16 c = src[x];
+		u32 r = c & 0x000f;
+		u32 g = (c >> 4) & 0x000f;
+		u32 b = (c >> 8) & 0x000f;
+		u32 a = (c >> 12) & 0x000f;
+
+		dst[x] = (r << (16 + 4)) | (g << (8 + 4)) | (b << 4) | (a << (24 + 4));
 	}
 }
 
-inline void ARGB8From565(u16 c, u32 * dst) {
-	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x003f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-}
-
-inline void ARGB8From5551(u16 c, u32 * dst) {
-	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
-}
-
-void ConvertBGRA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, const u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
-		u16 col0 = src[x];
-		ARGB8From5551(col0, &dst[x]);
+		u16 c = src[x];
+		u32 r = c & 0x001f;
+		u32 g = (c >> 5) & 0x001f;
+		u32 b = (c >> 10) & 0x001f;
+		// We force an arithmetic shift to get the sign bits/
+		u32 a = ((s32)(s16)c) & 0xff000000;
+
+		dst[x] = (r << (16 + 3)) | (g << (8 + 3)) | (b << 3) | a;
 	}
 }
 
-void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, const u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
-		u16 col0 = src[x];
-		ARGB8From565(col0, &dst[x]);
+		u16 c = src[x];
+		u32 r = c & 0x001f;
+		u32 g = (c >> 5) & 0x003f;
+		u32 b = (c >> 11) & 0x001f;
+
+		dst[x] = (r << (16 + 3)) | (g << (8 + 2)) | (b << 3) | 0xFF000000;
 	}
 }
 
