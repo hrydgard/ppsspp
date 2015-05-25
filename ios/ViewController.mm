@@ -560,21 +560,23 @@ ViewController* sharedViewController;
         NativeAxis(axisInput);
     };
     
-    // Map right thumbstick as 4 extra buttons
-    extendedProfile.rightThumbstick.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-        [self controllerButtonPressed:(value > 0.5) keyCode:NKCODE_BUTTON_5];
+    // Map right thumbstick as another analog stick, particularly useful for controllers like the DualShock 3/4 when connected to an iOS device
+    extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+        AxisInput axisInput;
+        axisInput.deviceId = DEVICE_ID_PAD_0;
+        axisInput.flags = 0;
+        axisInput.axisId = JOYSTICK_AXIS_Z;
+        axisInput.value = value;
+        NativeAxis(axisInput);
     };
     
-    extendedProfile.rightThumbstick.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-        [self controllerButtonPressed:(value < -0.5) keyCode:NKCODE_BUTTON_6];
-    };
-    
-    extendedProfile.rightThumbstick.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-        [self controllerButtonPressed:(value < -0.5) keyCode:NKCODE_BUTTON_11];
-    };
-    
-    extendedProfile.rightThumbstick.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-        [self controllerButtonPressed:(value > 0.5) keyCode:NKCODE_BUTTON_12];
+    extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+        AxisInput axisInput;
+        axisInput.deviceId = DEVICE_ID_PAD_0;
+        axisInput.flags = 0;
+        axisInput.axisId = JOYSTICK_AXIS_RZ;
+        axisInput.value = -value;
+        NativeAxis(axisInput);
     };
 }
 #endif
