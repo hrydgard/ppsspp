@@ -140,7 +140,7 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertBGR565ToRGBA8888(dst, src, width);
+						ConvertRGB565ToBGRA8888(dst, src, width);
 					}
 					break;
 					// faster
@@ -148,14 +148,14 @@ namespace DX9 {
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertBGRA5551ToRGBA8888(dst, src, width);
+						ConvertRGBA5551ToBGRA8888(dst, src, width);
 					}
 					break;
 				case GE_FORMAT_4444:
 					{
 						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
 						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
-						ConvertBGRA4444ToRGBA8888((u32 *)dst, src, width);
+						ConvertRGBA4444ToBGRA8888((u32 *)dst, src, width);
 					}
 					break;
 
@@ -163,7 +163,7 @@ namespace DX9 {
 					{
 						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertBGRA8888ToRGBA8888(dst, src, width);
+						ConvertRGBA8888ToBGRA8888(dst, src, width);
 					}
 					break;
 				}
@@ -172,7 +172,7 @@ namespace DX9 {
 			for (int y = 0; y < height; y++) {
 				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
 				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-				ConvertBGRA8888ToRGBA8888(dst, src, width);
+				ConvertRGBA8888ToBGRA8888(dst, src, width);
 			}
 		}
 

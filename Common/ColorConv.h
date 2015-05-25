@@ -126,9 +126,9 @@ void ConvertRGBA565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 void ConvertRGBA4444ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
 
-void ConvertBGRA4444ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
-void ConvertBGRA5551ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
-void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGBA4444ToBGRA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, const u32 numPixels);
+void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, const u32 numPixels);
 
 void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, const u32 numPixels);
 void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, const u32 numPixels);
