@@ -332,7 +332,7 @@ void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 }
 
 #ifdef _M_SSE
-static inline u32 CombineSSEBits(const __m128i &v) {
+static inline u32 CombineSSEBitsToDWORD(const __m128i &v) {
 	__m128i temp;
 	temp = _mm_or_si128(v, _mm_srli_si128(v, 8));
 	temp = _mm_or_si128(temp, _mm_srli_si128(temp, 4));
@@ -366,13 +366,13 @@ CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w,
 		p += stride4;
 
 		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBits(hasAnyCursor) != 0) {
+		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
 			return CHECKALPHA_ANY;
 		}
 	}
 
 	// Now let's sum up the bits.
-	if (CombineSSEBits(hasZeroCursor) != 0) {
+	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
 		return CHECKALPHA_ZERO;
 	} else {
 		return CHECKALPHA_FULL;
@@ -381,7 +381,7 @@ CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w,
 
 CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w, int h) {
 	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi16(0x000F);
+	const __m128i full = _mm_set1_epi16(0xF000);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w8 = w / 8;
@@ -392,7 +392,7 @@ CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w,
 		__m128i hasAnyCursor = _mm_setzero_si128();
 
 		for (int i = 0; i < w8; ++i) {
-			const __m128i a = _mm_and_si128(_mm_load_si128(&p[i]), full);
+			const __m128i a = _mm_slli_epi16(_mm_load_si128(&p[i]), 12);
 
 			const __m128i isZero = _mm_cmpeq_epi16(a, zero);
 			hasZeroCursor = _mm_or_si128(hasZeroCursor, isZero);
@@ -406,13 +406,13 @@ CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w,
 		p += stride8;
 
 		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBits(hasAnyCursor) != 0) {
+		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
 			return CHECKALPHA_ANY;
 		}
 	}
 
 	// Now let's sum up the bits.
-	if (CombineSSEBits(hasZeroCursor) != 0) {
+	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
 		return CHECKALPHA_ZERO;
 	} else {
 		return CHECKALPHA_FULL;
@@ -438,7 +438,7 @@ CheckAlphaResult CheckAlphaABGR1555SSE2(const u32 *pixelData, int stride, int w,
 	}
 
 	// Now let's sum up the bits.
-	if (CombineSSEBits(hasZeroCursor) != 0) {
+	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
 		return CHECKALPHA_ZERO;
 	} else {
 		return CHECKALPHA_FULL;
@@ -472,13 +472,13 @@ CheckAlphaResult CheckAlphaRGBA4444SSE2(const u32 *pixelData, int stride, int w,
 		p += stride8;
 
 		// We check any early, in case we can skip the rest of the rows.
-		if (CombineSSEBits(hasAnyCursor) != 0) {
+		if (CombineSSEBitsToDWORD(hasAnyCursor) != 0) {
 			return CHECKALPHA_ANY;
 		}
 	}
 
 	// Now let's sum up the bits.
-	if (CombineSSEBits(hasZeroCursor) != 0) {
+	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
 		return CHECKALPHA_ZERO;
 	} else {
 		return CHECKALPHA_FULL;
@@ -487,7 +487,6 @@ CheckAlphaResult CheckAlphaRGBA4444SSE2(const u32 *pixelData, int stride, int w,
 
 CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w, int h) {
 	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi16(0x0001);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w8 = w / 8;
@@ -505,7 +504,7 @@ CheckAlphaResult CheckAlphaRGBA5551SSE2(const u32 *pixelData, int stride, int w,
 	}
 
 	// Now let's sum up the bits.
-	if (CombineSSEBits(hasZeroCursor) != 0) {
+	if (CombineSSEBitsToDWORD(hasZeroCursor) != 0) {
 		return CHECKALPHA_ZERO;
 	} else {
 		return CHECKALPHA_FULL;
