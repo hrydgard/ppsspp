@@ -1826,68 +1826,24 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 }
 
 TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h) {
-	// TODO: Could probably be optimized more.
-	u32 hitZeroAlpha = 0;
-	u32 hitSomeAlpha = 0;
-
+	CheckAlphaResult res;
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		{
-			const u32 *p = pixelData;
-			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
-				for (int i = 0; i < (w + 1) / 2; ++i) {
-					u32 a = p[i] & 0x000F000F;
-					hitZeroAlpha |= a ^ 0x000F000F;
-					if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
-						hitSomeAlpha = 1;
-						break;
-					}
-				}
-				p += stride/2;
-			}
-		}
+		res = CheckAlphaABGR4444Basic(pixelData, stride, w, h);
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		{
-			const u32 *p = pixelData;
-			for (int y = 0; y < h; ++y) {
-				for (int i = 0; i < (w + 1) / 2; ++i) {
-					u32 a = p[i] & 0x00010001;
-					hitZeroAlpha |= a ^ 0x00010001;
-				}
-				p += stride/2;
-			}
-		}
+		res = CheckAlphaABGR1555Basic(pixelData, stride, w, h);
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
-		{
-			// Never has any alpha.
-		}
+		// Never has any alpha.
+		res = CHECKALPHA_FULL;
 		break;
 	default:
-		{
-			const u32 *p = pixelData;
-			for (int y = 0; y < h && hitSomeAlpha == 0; ++y) {
-				for (int i = 0; i < w; ++i) {
-					u32 a = p[i] & 0xFF000000;
-					hitZeroAlpha |= a ^ 0xFF000000;
-					if (a != 0xFF000000 && a != 0) {
-						hitSomeAlpha = 1;
-						break;
-					}
-				}
-				p += stride;
-			}
-		}
+		res = CheckAlphaRGBA8888Basic(pixelData, stride, w, h);
 		break;
 	}
 
-	if (hitSomeAlpha != 0)
-		return TexCacheEntry::STATUS_ALPHA_UNKNOWN;
-	else if (hitZeroAlpha != 0)
-		return TexCacheEntry::STATUS_ALPHA_SIMPLE;
-	else
-		return TexCacheEntry::STATUS_ALPHA_FULL;
+	return (TexCacheEntry::Status)res;
 }
 
 void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {

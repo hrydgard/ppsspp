@@ -75,6 +75,19 @@ extern ReliableHash64Func DoReliableHash64;
 typedef u32 ReliableHashType;
 #endif
 
+enum CheckAlphaResult {
+	// These are intended to line up with TexCacheEntry::STATUS_ALPHA_UNKNOWN, etc.
+	CHECKALPHA_FULL = 0,
+	CHECKALPHA_ANY = 4,
+	CHECKALPHA_ZERO = 8,
+};
+
+CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h);
+
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
 
