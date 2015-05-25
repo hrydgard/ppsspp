@@ -19,6 +19,7 @@
 
 #include "Common/ChunkFile.h"
 #include "base/logging.h"
+#include "profiler/profiler.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -601,6 +602,7 @@ void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("gpuloop");
 	const CommandInfo *cmdInfo = cmdInfo_;
 	for (; downcount > 0; --downcount) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer

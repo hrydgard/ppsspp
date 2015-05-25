@@ -29,6 +29,7 @@
 #include "math/math_util.h"
 #include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
+#include "profiler/profiler.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -42,6 +43,7 @@
 #include "i18n/i18n.h"
 
 Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID) : failed_(false), useHWTransform_(useHWTransform), id_(shaderID) {
+	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugStringUTF8(code);
@@ -82,6 +84,8 @@ Shader::~Shader() {
 
 LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
+	PROFILE_THIS_SCOPE("shaderlink");
+
 	program = glCreateProgram();
 	vs_ = vs;
 	glAttachShader(program, vs->shader);

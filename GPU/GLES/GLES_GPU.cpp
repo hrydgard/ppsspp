@@ -682,6 +682,7 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("gpuloop");
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {
