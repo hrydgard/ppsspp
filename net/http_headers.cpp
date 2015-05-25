@@ -1,11 +1,5 @@
 #include "net/http_headers.h"
 
-#ifdef _WIN32
-
-#include <winsock2.h>   // for timeval
-
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -132,11 +126,6 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 }
 
 void RequestHeader::ParseHeaders(int fd) {
-  // Get the request, with a timeout.
-  struct ::timeval tv;
-  tv.tv_sec = 5;
-  tv.tv_usec = 0;
-
   int line_count = 0;
   // Loop through request headers.
   while (true) {
