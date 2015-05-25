@@ -858,6 +858,7 @@ void DrawProfile(UIContext &ui) {
 	ui.DrawTextShadow("1ms", 5, y_1ms, 0x80FFFF00);
 
 	maxVal = 0.0f;
+	float maxTotal = 0.0f;
 	for (int i = 0; i < numCategories; i++) {
 		Profiler_GetHistory(i, &history[0], historyLength);
 
@@ -870,8 +871,6 @@ void DrawProfile(UIContext &ui) {
 		if (area) {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
-				if (val > maxVal)
-					maxVal = val;
 				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
 				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
 				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
@@ -881,11 +880,22 @@ void DrawProfile(UIContext &ui) {
 		} else {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
+				if (val > maxVal)
+					maxVal = val;
 				float valY = ui.GetBounds().y2() - 10 - history[n] * scale;
 				ui.FillRect(color, Bounds(x, valY, dx, 5));
 				x += dx;
 			}
 		}
+	}
+
+	for (int n = 0; n < historyLength; n++) {
+		if (total[n] > maxTotal)
+			maxTotal = total[n];
+	}
+
+	if (area) {
+		maxVal = maxTotal;
 	}
 
 	lastMaxVal = lastMaxVal * 0.95f + maxVal * 0.05f;
