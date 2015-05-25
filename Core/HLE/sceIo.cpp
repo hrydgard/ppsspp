@@ -20,6 +20,8 @@
 
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
+#include "profiler/profiler.h"
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -760,6 +762,7 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 }
 
 static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
+	PROFILE_THIS_SCOPE("ioread");
 	// Low estimate, may be improved later from the ReadFile result.
 	us = size / 100;
 	if (us < 100) {

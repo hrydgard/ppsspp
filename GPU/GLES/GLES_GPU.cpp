@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
 
@@ -681,6 +682,7 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 
 // Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("gpuloop");
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {

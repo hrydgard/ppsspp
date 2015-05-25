@@ -22,6 +22,7 @@
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "input/input_state.h"
+#include "profiler/profiler.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"

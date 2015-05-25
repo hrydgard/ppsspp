@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "profiler/profiler.h"
+
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -1847,6 +1849,15 @@ TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelDat
 }
 
 void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+	bool useUnpack = false;
+	bool useBGRA;
+	u32 *pixelData;
+	{
+
+	PROFILE_THIS_SCOPE("decodetex");
+
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -1857,13 +1868,9 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		return;
 	}
 
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
 	gpuStats.numTexturesDecoded++;
 
 	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-	bool useUnpack = false;
 	if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 		useUnpack = true;
@@ -1871,9 +1878,9 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
-	bool useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+	useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
 
-	u32 *pixelData = (u32 *)finalBuf;
+	pixelData = (u32 *)finalBuf;
 	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
@@ -1882,6 +1889,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		entry.SetAlphaStatus(alphaStatus, level);
 	} else {
 		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+	}
 	}
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
@@ -1892,8 +1900,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	}
 
 	if (replaceImages) {
+		PROFILE_THIS_SCOPE("repltex");
 		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
+		PROFILE_THIS_SCOPE("loadtex");
 		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
 		if (!lowMemoryMode_) {
 			GLenum err = glGetError();

@@ -25,6 +25,8 @@
 #include <string.h>
 #include <algorithm>
 
+#include "profiler/profiler.h"
+
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 
@@ -752,6 +754,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
+	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
 
 	// TODO: Verify correct functionality with < 4.
@@ -830,6 +833,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 }
 
 void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
+	PROFILE_THIS_SCOPE("bezier");
+
 	DispatchFlush();
 
 	// TODO: Verify correct functionality with < 4.

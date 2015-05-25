@@ -134,7 +134,6 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
 		return match;
 	}
 
-	DEBUG_LOG(SCEGE, "Finding no FBO matching address %08x", addr);
 	return 0;
 }
 
