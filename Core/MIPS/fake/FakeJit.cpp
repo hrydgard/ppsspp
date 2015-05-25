@@ -130,7 +130,7 @@ void FakeJit::RunLoopUntil(u64 globalticks)
 	((void (*)())enterCode)();
 }
 
-const u8 *FakeJit::DoFakeJit(u32 em_address, FakeJitBlock *b)
+const u8 *FakeJit::DoJit(u32 em_address, JitBlock *b)
 {
 	return b->normalEntry;
 }
