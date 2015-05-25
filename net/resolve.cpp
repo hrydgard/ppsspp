@@ -14,11 +14,8 @@
 #undef min
 #undef max
 #else
-#if defined(__FreeBSD__)
 #include <netinet/in.h>
-#else
 #include <arpa/inet.h>
-#endif
 #include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
