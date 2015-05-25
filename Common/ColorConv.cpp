@@ -382,7 +382,6 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	}
 }
 
-// TODO: This seems to be BGRA4444 -> RGBA888?
 void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i mask4 = _mm_set1_epi16(0x000f);
@@ -399,12 +398,12 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 		const __m128i c = _mm_load_si128(&srcp[i]);
 
 		// Let's just grab R000 R000, without swizzling yet.
-		__m128i r = _mm_and_si128(_mm_srli_epi16(c, 8), mask4);
+		__m128i r = _mm_and_si128(c, mask4);
 		// And then 00G0 00G0.
 		__m128i g = _mm_and_si128(_mm_srli_epi16(c, 4), mask4);
 		g = _mm_slli_epi16(g, 8);
 		// Now B000 B000.
-		__m128i b = _mm_and_si128(c, mask4);
+		__m128i b = _mm_and_si128(_mm_srli_epi16(c, 8), mask4);
 		// And lastly 00A0 00A0.  No mask needed, we have a wall.
 		__m128i a = _mm_srli_epi16(c, 12);
 		a = _mm_slli_epi16(g, 8);
@@ -427,9 +426,9 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 	u8 *dst = (u8 *)dst32;
 	for (u32 x = i; x < numPixels; x++) {
 		u16 col = src[x];
-		dst[x * 4] = Convert4To8((col >> 8) & 0xf);
+		dst[x * 4] = Convert4To8(col & 0xf);
 		dst[x * 4 + 1] = Convert4To8((col >> 4) & 0xf);
-		dst[x * 4 + 2] = Convert4To8(col & 0xf);
+		dst[x * 4 + 2] = Convert4To8((col >> 8) & 0xf);
 		dst[x * 4 + 3] = Convert4To8(col >> 12);
 	}
 }
