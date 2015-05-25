@@ -781,15 +781,26 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-static const uint32_t nice_colors[8] = {
+static const uint32_t nice_colors[] = {
 	0xFF8040,
 	0x80FF40,
 	0x8040FF,
 	0xFFFF40,
+
 	0x40FFFF,
 	0xFF40FF,
 	0xc0c0c0,
 	0x8040c0,
+
+	0x990099,
+	0xCC3333,
+	0xFF99CC,
+	0x3399CC,
+
+	0x003366,
+	0x990000,
+	0x33FFFF,
+	0xF8F8F8,
 };
 
 void DrawProfile(UIContext &ui) {
@@ -844,8 +855,8 @@ void DrawProfile(UIContext &ui) {
 	float maxVal = lastMaxVal;  // TODO - adjust to frame length
 	if (maxVal < 0.001f)
 		maxVal = 0.001f;
-	if (maxVal > 1.0f / 30.0f)
-		maxVal = 1.0f / 30.0f;
+	if (maxVal > 1.0f / 15.0f)
+		maxVal = 1.0f / 15.0f;
 
 	float scale = (graphHeight) / (maxVal - minVal);
 
