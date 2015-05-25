@@ -42,9 +42,8 @@
 #include <stdlib.h>
 #endif
 
-#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
 #include <sys/sysctl.h>		// KERN_PROC_PATHNAME
-#include <unistd.h>		// getpid
 #endif
 
 #if defined(__APPLE__)
@@ -767,9 +766,15 @@ const std::string &GetExeDirectory()
 #elif defined(KERN_PROC_PATHNAME)
 		int mib[4] = {
 			CTL_KERN,
+#if defined(__NetBSD__)
+			KERN_PROC_ARGS,
+			-1,
+			KERN_PROC_PATHNAME,
+#else
 			KERN_PROC,
 			KERN_PROC_PATHNAME,
-			getpid()
+			-1,
+#endif
 		};
 		size_t sz = program_path_size;
 
