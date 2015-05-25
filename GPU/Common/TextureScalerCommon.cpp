@@ -35,8 +35,8 @@
 #include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
 
-#if _M_SSE >= 0x402
-#include <nmmintrin.h>
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
 #endif
 
 // Report the time and throughput for each larger scaling operation in the log

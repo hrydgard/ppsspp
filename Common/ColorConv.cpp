@@ -25,6 +25,10 @@
 #include <xmmintrin.h>
 #endif
 
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
+#endif
+
 inline u16 RGBA8888toRGB565(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 }
