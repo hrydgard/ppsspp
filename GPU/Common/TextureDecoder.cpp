@@ -381,7 +381,7 @@ CheckAlphaResult CheckAlphaRGBA8888SSE2(const u32 *pixelData, int stride, int w,
 
 CheckAlphaResult CheckAlphaABGR4444SSE2(const u32 *pixelData, int stride, int w, int h) {
 	const __m128i zero = _mm_setzero_si128();
-	const __m128i full = _mm_set1_epi16(0xF000);
+	const __m128i full = _mm_set1_epi16((short)0xF000);
 
 	const __m128i *p = (const __m128i *)pixelData;
 	const int w8 = w / 8;
