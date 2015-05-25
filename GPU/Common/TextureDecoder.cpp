@@ -565,7 +565,7 @@ CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w
 				return CHECKALPHA_ANY;
 			}
 		}
-		p += stride;
+		p += stride2;
 	}
 
 	if (hitZeroAlpha) {
@@ -594,7 +594,7 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 			u32 a = p[i] & 0x00010001;
 			hitZeroAlpha |= a ^ 0x00010001;
 		}
-		p += stride;
+		p += stride2;
 	}
 
 	if (hitZeroAlpha) {
@@ -627,7 +627,7 @@ CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w
 				return CHECKALPHA_ANY;
 			}
 		}
-		p += stride;
+		p += stride2;
 	}
 
 	if (hitZeroAlpha) {
