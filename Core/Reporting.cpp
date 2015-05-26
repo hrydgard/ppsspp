@@ -269,6 +269,8 @@ namespace Reporting
 		return "DragonFly";
 #elif defined(__FreeBSD__)
 		return "FreeBSD";
+#elif defined(__FreeBSD_kernel__) && defined(__GLIBC__)
+		return "GNU/kFreeBSD";
 #elif defined(__NetBSD__)
 		return "NetBSD";
 #elif defined(__OpenBSD__)
