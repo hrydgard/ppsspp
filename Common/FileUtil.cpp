@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #endif
 
-#if defined(__DragonFly__) || defined(__FreeBSD__)
+#if defined(__DragonFly__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <sys/sysctl.h>		// KERN_PROC_PATHNAME
 #include <unistd.h>		// getpid
 #endif
