@@ -738,7 +738,7 @@ if(ANDROID)
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
 		ios/main.mm
-		ios/AppDelegate.m
+		ios/AppDelegate.mm
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h
@@ -752,7 +752,7 @@ elseif(IOS)
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
 
-	set_source_files_properties(ios/AppDelegate.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
 	set(TargetBin PPSSPP)
