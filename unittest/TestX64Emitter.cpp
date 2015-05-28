@@ -1,4 +1,4 @@
-#include "Common/X64Emitter.h"
+#include "Common/x64Emitter.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/JitCommon/JitState.h"
