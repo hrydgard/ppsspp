@@ -34,8 +34,10 @@ namespace MIPSComp {
 	ArmJit *jit;
 #elif defined(ARM64)
 	Arm64Jit *jit;
-#else
+#elif defined(_M_IX86) || defined(_M_X64) || defined(MIPS)
 	Jit *jit;
+#else
+	FakeJit *jit;
 #endif
 	void JitAt() {
 		jit->Compile(currentMIPS->pc);
@@ -138,7 +140,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 }
 #endif
 
-#if !defined(ARM) && !defined(ARM64)
+#if defined(_M_IX86) || defined(_M_X64)
 
 const char *ppsspp_resolver(struct ud*,
 	uint64_t addr,

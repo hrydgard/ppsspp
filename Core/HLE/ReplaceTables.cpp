@@ -1031,6 +1031,8 @@ static int Hook_youkosohitsujimura_download_frame() {
 #define JITFUNC(f) (&MIPSComp::Jit::f)
 #elif defined(MIPS)
 #define JITFUNC(f) (&MIPSComp::Jit::f)
+#else
+#define JITFUNC(f) (&MIPSComp::FakeJit::f)
 #endif
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.

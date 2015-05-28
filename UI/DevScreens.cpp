@@ -622,12 +622,14 @@ void JitCompareScreen::UpdateDisasm() {
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
 #elif defined(ARM64)
 	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
-#else
+#elif defined(_M_IX86) || defined(_M_X64)
 	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	for (size_t i = 0; i < targetDis.size(); i++) {
 		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
 	}
+#endif
 
 	int numMips = leftDisasm_->GetNumSubviews();
 	int numHost = rightDisasm_->GetNumSubviews();

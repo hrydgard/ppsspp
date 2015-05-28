@@ -160,7 +160,7 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 	// printf("Mapped executable memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
 
-#if defined(__FreeBSD__)
+#if !defined(_WIN32) && !defined(__SYMBIAN32__)
 	if (ptr == MAP_FAILED)
 	{
 		ptr = NULL;
