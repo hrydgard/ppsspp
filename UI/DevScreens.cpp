@@ -880,14 +880,14 @@ void DrawProfile(UIContext &ui) {
 		if (area)
 			col = opacity | (col & 0xFFFFFF);
 		UI::Drawable color(col);
-		UI::Drawable outline(opacity | 0xFFFFFF);
+		UI::Drawable outline((opacity >> 1) | 0xFFFFFF);
 
 		if (area) {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
 				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
 				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
-				ui.FillRect(outline, Bounds(x, valY1, dx, valY2 - valY1 + 0.5f));
+				ui.FillRect(outline, Bounds(x, valY2, dx, 1.0f));
 				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
 				x += dx;
 				total[n] += val;
