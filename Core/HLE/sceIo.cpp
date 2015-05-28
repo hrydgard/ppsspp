@@ -290,6 +290,8 @@ static void __IoFreeFd(int fd, u32 &error) {
 				CoreTiming::UnscheduleEvent(syncNotifyEvent, ((u64)f->waitingSyncThreads[i] << 32) | fd);
 			}
 
+			PROFILE_THIS_SCOPE("io_rw");
+
 			// Discard any pending results.
 			AsyncIOResult managerResult;
 			ioManager.WaitResult(f->handle, managerResult);
@@ -315,6 +317,8 @@ static void __IoFreeFd(int fd, u32 &error) {
 // TODO: We don't do any of that yet.
 // For now, let's at least delay the callback notification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
+	PROFILE_THIS_SCOPE("io_rw");
+
 	int fd = (int) userdata;
 
 	u32 error;
@@ -368,6 +372,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 }
 
 static void __IoSyncNotify(u64 userdata, int cyclesLate) {
+	PROFILE_THIS_SCOPE("io_rw");
+
 	SceUID threadID = userdata >> 32;
 	int fd = (int) (userdata & 0xFFFFFFFF);
 
@@ -616,6 +622,8 @@ static u32 sceKernelStderr() {
 }
 
 u64 __IoCompleteAsyncIO(FileNode *f) {
+	PROFILE_THIS_SCOPE("io_rw");
+
 	if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
 		if (finishTicks > CoreTiming::GetTicks()) {
@@ -762,7 +770,7 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 }
 
 static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
-	PROFILE_THIS_SCOPE("ioread");
+	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the ReadFile result.
 	us = size / 100;
 	if (us < 100) {
@@ -895,6 +903,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 }
 
 static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
+	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the WriteFile result.
 	us = size / 100;
 	if (us < 100) {
@@ -1085,6 +1094,7 @@ static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 }
 
 static s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
+	PROFILE_THIS_SCOPE("io_rw");
 	seek = FILEMOVE_BEGIN;
 
 	// Let's make sure this isn't incorrect mid-operation.

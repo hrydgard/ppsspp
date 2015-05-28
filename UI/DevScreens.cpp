@@ -790,19 +790,19 @@ static const uint32_t nice_colors[] = {
 	0xFFFF40,
 
 	0x40FFFF,
-	0xFF40FF,
+	0xFF70FF,
 	0xc0c0c0,
-	0x8040c0,
+	0xb040c0,
 
-	0x990099,
+	0x184099,
 	0xCC3333,
 	0xFF99CC,
 	0x3399CC,
 
-	0x003366,
 	0x990000,
-	0x33FFFF,
+	0x003366,
 	0xF8F8F8,
+	0x33FFFF,
 };
 
 void DrawProfile(UIContext &ui) {
@@ -810,7 +810,7 @@ void DrawProfile(UIContext &ui) {
 	int numCategories = Profiler_GetNumCategories();
 	int historyLength = Profiler_GetHistoryLength();
 
-	float legendWidth = 100.0f;
+	float legendWidth = 80.0f;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
 		float w = 0.0f, h = 0.0f;
@@ -819,11 +819,13 @@ void DrawProfile(UIContext &ui) {
 			legendWidth = w;
 		}
 	}
+	legendWidth += 20.0f;
 
-	float legendStartY = ui.GetBounds().centerY();
+	float rowH = 30.0f;
+	float legendHeight = rowH * numCategories;
+	float legendStartY = legendHeight > ui.GetBounds().centerY() ? ui.GetBounds().y2() - legendHeight : ui.GetBounds().centerY();
 	float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
 
-	float rowH = 30;
 	const uint32_t opacity = 140 << 24;
 
 	for (int i = 0; i < numCategories; i++) {
@@ -835,7 +837,7 @@ void DrawProfile(UIContext &ui) {
 		ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
 	}
 
-	float graphWidth = ui.GetBounds().x2() - 120;
+	float graphWidth = ui.GetBounds().x2() - legendWidth - 20.0f;
 	float graphHeight = ui.GetBounds().h * 0.8f;
 
 	std::vector<float> history;
@@ -880,12 +882,14 @@ void DrawProfile(UIContext &ui) {
 		if (area)
 			col = opacity | (col & 0xFFFFFF);
 		UI::Drawable color(col);
+		UI::Drawable outline((opacity >> 1) | 0xFFFFFF);
 
 		if (area) {
 			for (int n = 0; n < historyLength; n++) {
 				float val = history[n];
 				float valY1 = ui.GetBounds().y2() - 10 - (val + total[n]) * scale;
 				float valY2 = ui.GetBounds().y2() - 10 - total[n] * scale;
+				ui.FillRect(outline, Bounds(x, valY2, dx, 1.0f));
 				ui.FillRect(color, Bounds(x, valY1, dx, valY2 - valY1));
 				x += dx;
 				total[n] += val;
