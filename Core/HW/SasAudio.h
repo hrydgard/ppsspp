@@ -143,6 +143,7 @@ public:
 	void SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2);
 
 	void WalkCurve(int type, int rate);
+	void GetTypeAndRate(int &type, int &rate);
 
 	void KeyOn();
 	void KeyOff();
@@ -175,9 +176,6 @@ public:
 private:
 	// Actual PSP values.
 	enum ADSRState {
-		// Okay, this one isn't a real value but it might be.
-		STATE_KEYON_STEP = -42,
-
 		STATE_KEYON = -2,
 		STATE_OFF = -1,
 		STATE_ATTACK = 0,

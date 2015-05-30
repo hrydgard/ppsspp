@@ -486,28 +486,33 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		u32 sampleFrac = voice.sampleFrac;
 		// We need to shift by 12 anyway, so combine that with the volume shift.
-		for (int i = 0; i < grainSize; i++) {
-			// For now: nearest neighbour, not even using the resample history at all.
-			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
-			sampleFrac += voice.pitch;
+		for (int j = 0; j < grainSize; j += 32) {
+			int type, rate;
+			voice.envelope.GetTypeAndRate(type, rate);
+			for (int i = j; i < j + 32; i++) {
+				// For now: nearest neighbour, not even using the resample history at all.
+				int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
+				sampleFrac += voice.pitch;
 
-			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
-			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
-			int envelopeValue = voice.envelope.GetHeight();
+				// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
+				// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
+				int envelopeValue = voice.envelope.GetHeight();
+				voice.envelope.WalkCurve(type, rate);
+				envelopeValue = (envelopeValue + (1 << 14)) >> 15;
+
+				// We just scale by the envelope before we scale by volumes.
+				// Again, we round up by adding (1 << 14) first (*after* multiplying.)
+				sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
+
+				// We mix into this 32-bit temp buffer and clip in a second loop
+				// Ideally, the shift right should be there too but for now I'm concerned about
+				// not overflowing.
+				mixBuffer[i * 2] += (sample * voice.volumeLeft) >> 12;
+				mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
+				sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
+				sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
+			}
 			voice.envelope.Step();
-			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
-
-			// We just scale by the envelope before we scale by volumes.
-			// Again, we round up by adding (1 << 14) first (*after* multiplying.)
-			sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
-
-			// We mix into this 32-bit temp buffer and clip in a second loop
-			// Ideally, the shift right should be there too but for now I'm concerned about
-			// not overflowing.
-			mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> 12;
-			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
-			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
-			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
 		}
 
 		voice.sampleFrac = sampleFrac;
@@ -782,27 +787,38 @@ void ADSREnvelope::SetState(ADSRState state) {
 	state_ = state;
 }
 
+void ADSREnvelope::GetTypeAndRate(int &type, int &rate) {
+	switch (state_) {
+	case STATE_ATTACK: type = attackType; rate = attackRate; break;
+	case STATE_DECAY: type = decayType; rate = decayRate; break;
+	case STATE_SUSTAIN: type = sustainType; rate = sustainRate; break;
+	case STATE_RELEASE: type = releaseType; rate = releaseRate; break;
+	case STATE_KEYON:
+		height_ = 0;
+		break;
+	default:
+		type = 0;
+		rate = 0;
+	}
+}
+
 inline void ADSREnvelope::Step() {
 	switch (state_) {
 	case STATE_ATTACK:
-		WalkCurve(attackType, attackRate);
 		if (height_ >= PSP_SAS_ENVELOPE_HEIGHT_MAX || height_ < 0)
 			SetState(STATE_DECAY);
 		break;
 	case STATE_DECAY:
-		WalkCurve(decayType, decayRate);
 		if (height_ < sustainLevel)
 			SetState(STATE_SUSTAIN);
 		break;
 	case STATE_SUSTAIN:
-		WalkCurve(sustainType, sustainRate);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_RELEASE);
 		}
 		break;
 	case STATE_RELEASE:
-		WalkCurve(releaseType, releaseRate);
 		if (height_ <= 0) {
 			height_ = 0;
 			SetState(STATE_OFF);
@@ -814,17 +830,7 @@ inline void ADSREnvelope::Step() {
 
 	case STATE_KEYON:
 		height_ = 0;
-		SetState(STATE_KEYON_STEP);
-		break;
-	case STATE_KEYON_STEP:
-		// This entire state is pretty much a hack to reproduce PSP behavior.
-		// The STATE_KEYON state is a real state, but not sure how it switches.
-		// It takes 32 steps at 0 for keyon to "kick in", 31 should shift to 0 anyway.
-		height_++;
-		if (height_ >= 31) {
-			height_ = 0;
-			SetState(STATE_ATTACK);
-		}
+		SetState(STATE_ATTACK);
 		break;
 	}
 }
