@@ -79,3 +79,6 @@ tags
 debian/files
 debian/ppsspp.substvars
 debian/ppsspp/
+
+# YouCompleteMe file
+.ycm_extra_conf.pyc
