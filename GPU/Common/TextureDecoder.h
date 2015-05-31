@@ -17,6 +17,13 @@
 
 #pragma once
 
+enum CheckAlphaResult {
+	// These are intended to line up with TexCacheEntry::STATUS_ALPHA_UNKNOWN, etc.
+	CHECKALPHA_FULL = 0,
+	CHECKALPHA_ANY = 4,
+	CHECKALPHA_ZERO = 8,
+};
+
 #include "Common/Common.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
@@ -74,13 +81,6 @@ extern ReliableHash64Func DoReliableHash64;
 #define DoReliableHash DoReliableHash32
 typedef u32 ReliableHashType;
 #endif
-
-enum CheckAlphaResult {
-	// These are intended to line up with TexCacheEntry::STATUS_ALPHA_UNKNOWN, etc.
-	CHECKALPHA_FULL = 0,
-	CHECKALPHA_ANY = 4,
-	CHECKALPHA_ZERO = 8,
-};
 
 CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);
 CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h);

@@ -243,3 +243,122 @@ u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
 
 	return h32;
 }
+
+static inline bool VectorIsNonZeroNEON(const uint32x4_t &v) {
+	u64 low = vgetq_lane_u64(vreinterpretq_u64_u32(v), 0);
+	u64 high = vgetq_lane_u64(vreinterpretq_u64_u32(v), 1);
+
+	return (low | high) != 0;
+}
+
+static inline bool VectorIsNonZeroNEON(const uint16x8_t &v) {
+	u64 low = vgetq_lane_u64(vreinterpretq_u64_u16(v), 0);
+	u64 high = vgetq_lane_u64(vreinterpretq_u64_u16(v), 1);
+
+	return (low | high) != 0;
+}
+
+CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w, int h) {
+	const uint32x4_t zero = vdupq_n_u32(0);
+	const uint32x4_t full = vdupq_n_u32(0xFF);
+
+	const u32 *p = (const u32 *)pixelData;
+
+	// Have alpha values == 0 been seen?
+	uint32x4_t foundAZero = zero;
+
+	for (int y = 0; y < h; ++y) {
+		// Have alpha values > 0 and < 0xFF been seen?
+		uint32x4_t foundFraction = zero;
+
+		for (int i = 0; i < w; i += 4) {
+			const uint32x4_t a = vshrq_n_u32(vld1q_u32(&p[i]), 24);
+
+			const uint32x4_t isZero = vceqq_u32(a, zero);
+			foundAZero = vorrq_u32(foundAZero, isZero);
+
+			// If a = FF, isNotFull will be 0 -> foundFraction will be 0.
+			// If a = 00, a & isNotFull will be 0 -> foundFraction will be 0.
+			// In any other case, foundFraction will have some bits set.
+			const uint32x4_t isNotFull = vcltq_u32(a, full);
+			foundFraction = vorrq_u32(foundFraction, vandq_u32(a, isNotFull));
+		}
+		p += stride;
+
+		// We check any early, in case we can skip the rest of the rows.
+		if (VectorIsNonZeroNEON(foundFraction)) {
+			return CHECKALPHA_ANY;
+		}
+	}
+
+	// Now let's sum up the bits.
+	if (VectorIsNonZeroNEON(foundAZero)) {
+		return CHECKALPHA_ZERO;
+	} else {
+		return CHECKALPHA_FULL;
+	}
+}
+
+CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w, int h) {
+	const uint16x8_t zero = vdupq_n_u16(0);
+	const uint16x8_t full = vdupq_n_u16(0xF);
+
+	const u16 *p = (const u16 *)pixelData;
+
+	// Have alpha values == 0 been seen?
+	uint16x8_t foundAZero = zero;
+
+	for (int y = 0; y < h; ++y) {
+		// Have alpha values > 0 and < 0xFF been seen?
+		uint16x8_t foundFraction = zero;
+
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vshrq_n_u16(vld1q_u16(&p[i]), 12);
+
+			const uint16x8_t isZero = vceqq_u16(a, zero);
+			foundAZero = vorrq_u16(foundAZero, isZero);
+
+			// If a = F, isNotFull will be 0 -> foundFraction will be 0.
+			// If a = 0, a & isNotFull will be 0 -> foundFraction will be 0.
+			// In any other case, foundFraction will have some bits set.
+			const uint16x8_t isNotFull = vcltq_u16(a, full);
+			foundFraction = vorrq_u16(foundFraction, vandq_u16(a, isNotFull));
+		}
+		p += stride;
+
+		// We check any early, in case we can skip the rest of the rows.
+		if (VectorIsNonZeroNEON(foundFraction)) {
+			return CHECKALPHA_ANY;
+		}
+	}
+
+	// Now let's sum up the bits.
+	if (VectorIsNonZeroNEON(foundAZero)) {
+		return CHECKALPHA_ZERO;
+	} else {
+		return CHECKALPHA_FULL;
+	}
+}
+
+CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w, int h) {
+	const u16 *p = (const u16 *)pixelData;
+
+	const uint16x8_t mask = vdupq_n_u16(1);
+	uint16x8_t bits = vdupq_n_u16(1);
+	for (int y = 0; y < h; ++y) {
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vld1q_u16(&p[i]);
+
+			bits = vandq_u16(bits, a);
+		}
+
+		uint16x8_t result = veorq_u16(bits, mask);
+		if (VectorIsNonZeroNEON(result)) {
+			return CHECKALPHA_ZERO;
+		}
+
+		p += stride;
+	}
+
+	return CHECKALPHA_FULL;
+}
