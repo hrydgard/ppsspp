@@ -42,6 +42,16 @@ inline unsigned int toFloat24(float f) {
 	return i >> 8;
 }
 
+inline float cleanFloat24(float f)
+{
+	unsigned int i;
+	memcpy(&i, &f, 4);
+	i = (i >> 8) << 8; // rshift followed by lshift clears lowest 8 bits, could be done with bitwise AND + a mask or a memset if they compile to fewer instructions
+	float result;
+	memcpy(&result, &i, 4);
+	return result;
+}
+
 struct GPUgstate
 {
 	// Getting rid of this ugly union in favor of the accessor functions

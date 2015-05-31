@@ -870,6 +870,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float zOff = getFloat24(gstate.viewportz2) * (1.0f / 65535.0f);
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
+		depthRangeMin = cleanFloat24(depthRangeMin); // result should be equivalent to getFloat24(toFloat24(depthRangeMin))
+		depthRangeMax = cleanFloat24(depthRangeMax);
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 
 #ifndef MOBILE_DEVICE
