@@ -301,7 +301,7 @@ CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w,
 
 CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w, int h) {
 	const uint16x8_t zero = vdupq_n_u16(0);
-	const uint16x8_t full = vdupq_n_u16(0xF);
+	const uint16x8_t full = vdupq_n_u16(0xF000);
 
 	const u16 *p = (const u16 *)pixelData;
 
@@ -313,7 +313,7 @@ CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w,
 		uint16x8_t foundFraction = zero;
 
 		for (int i = 0; i < w; i += 8) {
-			const uint16x8_t a = vshrq_n_u16(vld1q_u16(&p[i]), 12);
+			const uint16x8_t a = vshlq_n_u16(vld1q_u16(&p[i]), 12);
 
 			const uint16x8_t isZero = vceqq_u16(a, zero);
 			foundAZero = vorrq_u16(foundAZero, isZero);
