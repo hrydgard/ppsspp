@@ -539,6 +539,14 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 #if defined(_WIN32)
 // Run this at startup time. Please use GetSysDirectory if you need to query where folders are.
 void InitSysDirectories() {
+
+	// Increase the number of possible open files from 512 to 2048
+	// setmaxstdio() will fail with a value bigger than 2048
+	if (_setmaxstdio(2048) < 0)
+		ERROR_LOG(FILESYS, "setmaxstdio() failed. maxstdio=%d", _getmaxstdio());
+
+
+
 	if (!g_Config.memStickDirectory.empty() && !g_Config.flash0Directory.empty())
 		return;
 
