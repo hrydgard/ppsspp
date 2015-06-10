@@ -166,11 +166,14 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 }
 
 bool GameInfo::LoadFromPath(const std::string &gamePath) {
-	delete fileLoader;
-	fileLoader = ConstructFileLoader(gamePath);
-	filePath_ = gamePath;
+	// No need to rebuild if we already have it loaded.
+	if (filePath_ != gamePath) {
+		delete fileLoader;
+		fileLoader = ConstructFileLoader(gamePath);
+		filePath_ = gamePath;
+	}
 
-	return fileLoader->Exists();
+	return GetFileLoader()->Exists();
 }
 
 FileLoader *GameInfo::GetFileLoader() {
