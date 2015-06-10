@@ -101,6 +101,9 @@ public:
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
+	bool LoadFromPath(const std::string &gamePath);
+	FileLoader *GetFileLoader();
+	void DisposeFileLoader();
 
 	u64 GetGameSizeInBytes();
 	u64 GetSaveDataSizeInBytes();
@@ -157,7 +160,9 @@ public:
 	u64 saveDataSize;
 	u64 installDataSize;
 
+protected:
 	FileLoader *fileLoader;
+	std::string filePath_;
 };
 
 class GameInfoCache {
