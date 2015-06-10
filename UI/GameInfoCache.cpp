@@ -54,7 +54,7 @@ bool GameInfo::DeleteGame() {
 	case FILETYPE_PSP_ISO_NP:
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
-			const char *fileToRemove = fileLoader->Path().c_str();
+			const char *fileToRemove = filePath_.c_str();
 			deleteFile(fileToRemove);
 			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
 			if (i != g_Config.recentIsos.end()) {
@@ -66,7 +66,7 @@ bool GameInfo::DeleteGame() {
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
 
-			const char *directoryToRemove = fileLoader->Path().c_str();
+			const char *directoryToRemove = filePath_.c_str();
 			INFO_LOG(HLE, "Deleting %s", directoryToRemove);
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(HLE, "Failed to delete file");
@@ -77,7 +77,7 @@ bool GameInfo::DeleteGame() {
 		}
 	case FILETYPE_PSP_ELF:
 		{
-			const char *fileToRemove = fileLoader->Path().c_str();
+			const char *fileToRemove = filePath_.c_str();
 			deleteFile(fileToRemove);
 			return true;
 		}
@@ -93,7 +93,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 		// TODO: Need to recurse here.
 		return 0;
 	default:
-		return fileLoader->FileSize();
+		return GetFileLoader()->FileSize();
 	}
 }
 
@@ -163,6 +163,26 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 		filesSizeInDir = 0;
 	}
 	return totalSize;
+}
+
+bool GameInfo::LoadFromPath(const std::string &gamePath) {
+	delete fileLoader;
+	fileLoader = ConstructFileLoader(gamePath);
+	filePath_ = gamePath;
+
+	return fileLoader->Exists();
+}
+
+FileLoader *GameInfo::GetFileLoader() {
+	if (!fileLoader) {
+		fileLoader = ConstructFileLoader(filePath_);
+	}
+	return fileLoader;
+}
+
+void GameInfo::DisposeFileLoader() {
+	delete fileLoader;
+	fileLoader = nullptr;
 }
 
 bool GameInfo::DeleteAllSaveData() {
@@ -250,14 +270,12 @@ public:
 	}
 
 	virtual void run() {
-		delete info_->fileLoader;
-		info_->fileLoader = ConstructFileLoader(gamePath_);
-		if (!info_->fileLoader->Exists())
+		if (!info_->LoadFromPath(gamePath_))
 			return;
 
 		std::string filename = gamePath_;
 		info_->path = gamePath_;
-		info_->fileType = Identify_File(info_->fileLoader);
+		info_->fileType = Identify_File(info_->GetFileLoader());
 		// Fallback title
 		info_->title = getFilename(info_->path);
 
@@ -386,7 +404,7 @@ handleELF:
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
-				BlockDevice *bd = constructBlockDevice(info_->fileLoader);
+				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader());
 				if (!bd)
 					return;  // nothing to do here..
 				ISOFileSystem umd(&handles, bd, "/PSP_GAME");
@@ -481,6 +499,8 @@ handleELF:
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
+
+		info_->DisposeFileLoader();
 	}
 
 	virtual float priority() {
