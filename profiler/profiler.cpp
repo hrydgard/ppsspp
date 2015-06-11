@@ -138,7 +138,7 @@ void internal_profiler_end_frame() {
 	}
 	profiler.curFrameStart = real_time_now();
 	profiler.historyPos++;
-	profiler.historyPos &= ~HISTORY_SIZE;
+	profiler.historyPos &= (HISTORY_SIZE - 1);
 	memset(&history[profiler.historyPos], 0, sizeof(history[profiler.historyPos]));
 }
 
@@ -161,9 +161,9 @@ int Profiler_GetNumCategories() {
 void Profiler_GetHistory(int category, float *data, int count) {
 	for (int i = 0; i < HISTORY_SIZE; i++) {
 		int x = i - count + profiler.historyPos + 1;
-		if (x < 0)
+		while (x < 0)
 			x += HISTORY_SIZE;
-		if (x >= HISTORY_SIZE)
+		while (x >= HISTORY_SIZE)
 			x -= HISTORY_SIZE;
 		data[i] = history[x].time_taken[category];
 	}
