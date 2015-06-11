@@ -28,7 +28,7 @@
 #include "GPU/Software/Lighting.h"
 
 static u8 buf[65536 * 48];  // yolo
-static bool outside_range_flag = false;
+bool TransformUnit::outside_range_flag = false;
 
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
@@ -56,7 +56,7 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 }
 
 // TODO: This is ugly
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool set_flag = true)
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag)
 {
 	ScreenCoords ret;
 	// TODO: Check for invalid parameters (x2 < x1, etc)
@@ -78,8 +78,8 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool s
 			retz = 65535.f;
 	}
 
-	if (set_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
-		outside_range_flag = true;
+	if (outside_range_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
+		*outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
 	return ScreenCoords(retx * 16, rety * 16, retz);
@@ -87,7 +87,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool s
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 {
-	return ClipToScreenInternal(coords, false);
+	return ClipToScreenInternal(coords, nullptr);
 }
 
 DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
@@ -109,7 +109,7 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 	return ret;
 }
 
-static VertexData ReadVertex(VertexReader& vreader)
+VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 {
 	VertexData vertex;
 
@@ -173,7 +173,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 		vertex.modelpos = ModelCoords(pos[0], pos[1], pos[2]);
 		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
-		vertex.screenpos = ClipToScreenInternal(vertex.clippos);
+		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);

@@ -110,9 +110,13 @@ struct VertexData
 	Vec3<int> color1;
 };
 
+class VertexReader;
+
 class TransformUnit
 {
 public:
+	TransformUnit() {}
+
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
@@ -125,7 +129,10 @@ public:
 	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead);
 
 	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	static VertexData ReadVertex(VertexReader& vreader);
 
 	static SplinePatch *patchBuffer_;
 	static int patchBufferSize_;
+
+	static bool outside_range_flag;
 };

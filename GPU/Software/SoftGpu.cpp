@@ -30,6 +30,7 @@
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
@@ -313,6 +314,7 @@ void SoftGPU::ProcessEvent(GPUEvent ev) {
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("soft_runloop");
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;

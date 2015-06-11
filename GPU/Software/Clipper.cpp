@@ -22,6 +22,8 @@
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Rasterizer.h"
 
+#include "profiler/profiler.h"
+
 namespace Clipper {
 
 enum {
@@ -200,6 +202,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		VertexData* bottomleft = &buf[2];
 		VertexData* bottomright = &buf[3];
 
+		// Um. Why is this stuff needed?
 		for (int i = 0; i < 4; ++i) {
 			if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
 				topleft = &buf[i];
@@ -223,7 +226,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 
 void ProcessPoint(VertexData& v0)
 {
-	// Points need no clipping.
+	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
 	Rasterizer::DrawPoint(v0);
 }
 
@@ -252,7 +255,7 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 	for (int i = 0; i < NUM_CLIPPED_VERTICES; ++i)
 		Vertices[i+3] = &ClippedVertices[i];
 
-	// TODO: Change logic when it's a backface
+	// TODO: Change logic when it's a backface (why? In what way?)
 	Vertices[0] = &v0;
 	Vertices[1] = &v1;
 	Vertices[2] = &v2;
