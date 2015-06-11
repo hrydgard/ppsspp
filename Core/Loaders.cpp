@@ -758,7 +758,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	}
 
 	std::string extension = fileLoader->Extension();
-	if (!strcasecmp(extension.c_str(),".iso"))
+	if (!strcasecmp(extension.c_str(), ".iso"))
 	{
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0)
@@ -780,7 +780,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	{
 		return FILETYPE_PSP_ISO;
 	}
-
+	else if (!strcasecmp(extension.c_str(),".ppst"))
+	{
+		return FILETYPE_PPSSPP_SAVESTATE;
+	}
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {

@@ -394,6 +394,11 @@ handleELF:
 			break;
 		}
 
+		case FILETYPE_PPSSPP_SAVESTATE:
+		{
+			break;
+		}
+
 		case FILETYPE_PSP_DISC_DIRECTORY:
 			{
 				info_->fileType = FILETYPE_PSP_ISO;
@@ -422,6 +427,7 @@ handleELF:
 				}
 				break;
 			}
+
 		case FILETYPE_PSP_ISO:
 		case FILETYPE_PSP_ISO_NP:
 			{

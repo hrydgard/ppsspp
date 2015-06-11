@@ -17,12 +17,28 @@
 
 #pragma once
 
+#include <string>
+
 #include "base/functional.h"
 #include "ui/ui_screen.h"
+#include "ui/view.h"
 #include "ui/viewgroup.h"
+
 #include "UI/MiscScreens.h"
 
-class GameBrowser;
+class SavedataBrowser : public UI::LinearLayout {
+public:
+	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
+
+	UI::Event OnChoice;
+
+private:
+	void Refresh();
+	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
+
+	std::string path_;
+	UI::ViewGroup *gameList_;
+};
 
 class SavedataScreen : public UIScreenWithGameBackground {
 public:
@@ -30,7 +46,8 @@ public:
 	SavedataScreen(std::string gamePath);
 
 protected:
+	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
 	void CreateViews() override;
 	bool gridStyle_;
-	GameBrowser *browser_;
+	SavedataBrowser *browser_;
 };
