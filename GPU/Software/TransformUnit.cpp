@@ -141,7 +141,7 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 
 		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
 			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
-			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) * W[i] + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
+			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11])) * W[i];
 			if (vreader.hasNormal())
 				tmpnrm += (bone * vertex.normal) * W[i];
 		}

@@ -777,7 +777,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum = data&0xF;
+		gstate.worldmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
@@ -791,7 +791,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum = data&0xF;
+		gstate.viewmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
@@ -805,7 +805,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum = data&0xF;
+		gstate.projmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
