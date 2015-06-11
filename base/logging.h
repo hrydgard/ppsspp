@@ -19,7 +19,7 @@
 #ifdef _WIN32
 
 #ifdef _M_X64
-inline void Crash() { /*DebugBreak();*/ }
+inline void Crash() { int *x = (int *)1337; *x = 1; }
 #else
 inline void Crash() { __asm { int 3 }; }
 #endif

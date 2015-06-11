@@ -125,6 +125,9 @@ void internal_profiler_leave(int category) {
 	history[profiler.historyPos].count[category]++;
 
 	profiler.depth--;
+	if (profiler.depth < 0) {
+		FLOG("Profiler enter/leave mismatch!");
+	}
 	int parent = profiler.parentCategory[profiler.depth];
 	if (parent != -1) {
 		// Resume tracking the parent.
