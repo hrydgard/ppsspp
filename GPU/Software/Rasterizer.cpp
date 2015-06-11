@@ -199,6 +199,19 @@ static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, i
 	v = ((unsigned int)(t) & (height - 1));
 }
 
+static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *u, int *v)
+{
+	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+
+	// Wrap!
+	for (int i = 0; i < 4; i++) {
+		u[i] = (s + (i & 1)) & (width - 1);
+		v[i] = (t + ((i & 2) >> 1)) & (height - 1);
+	}
+}
+
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
 	switch (gstate.getUVGenMode()) {
@@ -211,9 +224,9 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q0 = 1.f / v0.clippos.w;
 			float q1 = 1.f / v1.clippos.w;
 			float q2 = 1.f / v2.clippos.w;
-			float q = q0 * w0 + q1 * w1 + q2 * w2;
-			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
+			float q_recip = 1.0f / (q0 * w0 + q1 * w1 + q2 * w2);
+			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) * q_recip;
+			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) * q_recip;
 		}
 		break;
 	case GE_TEXMAP_TEXTURE_MATRIX:
@@ -236,8 +249,9 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
 			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			s = stq.x/stq.z;
-			t = stq.y/stq.z;
+			float z_recip = 1.0f / stq.z;
+			s = stq.x * z_recip;
+			t = stq.y * z_recip;
 		}
 		break;
 	default:
@@ -1062,11 +1076,10 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 		if (texlevel > maxTexLevel)
 			texlevel = maxTexLevel;
 
-		GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
 		if (bilinear) {
-			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
-			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
-			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
+			GetTexelCoordinatesThroughQuad(texlevel, u_texel, v_texel, u, v);
+		} else {
+			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
 		}
 	} else {
 		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
@@ -1263,10 +1276,10 @@ void DrawTriangleSlice(
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
-						// Texture coordinate interpolation must definitely be perspective-correct.
 						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum_recip);
 						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
+						// Texture coordinate interpolation must definitely be perspective-correct.
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
