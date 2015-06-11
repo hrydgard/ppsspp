@@ -47,6 +47,9 @@ static CategoryFrame *history;
 
 void internal_profiler_init() {
 	memset(&profiler, 0, sizeof(profiler));
+	for (int i = 0; i < MAX_DEPTH; i++) {
+		profiler.parentCategory[i] = -1;
+	}
 	history = new CategoryFrame[HISTORY_SIZE];
 }
 
@@ -74,31 +77,36 @@ int internal_profiler_find_cat(const char *category_name) {
 }
 
 // Suspend, also used to prepare for leaving.
-static void internal_profiler_suspend(int category) {
-	double diff = real_time_now() - profiler.eventStart[category];
+static void internal_profiler_suspend(int category, double now) {
+	double diff = now - profiler.eventStart[category];
 	history[profiler.historyPos].time_taken[category] += (float)diff;
 	profiler.eventStart[category] = 0.0;
 }
 
 // Resume, also used as part of entering.
-static void internal_profiler_resume(int category) {
-	profiler.eventStart[category] = real_time_now();
+static void internal_profiler_resume(int category, double now) {
+	profiler.eventStart[category] = now;
 }
 
 int internal_profiler_enter(const char *category_name) {
 	int category = internal_profiler_find_cat(category_name);
-	if (category != -1) {
-		if (profiler.eventStart[category] == 0.0f) {
-			int parent = profiler.parentCategory[profiler.depth];
-			// Temporarily suspend the parent on entering a child.
-			if (parent != 0) {
-				internal_profiler_suspend(parent);
-			}
-			internal_profiler_resume(category);
+	if (category == -1 || !history) {
+		return category;
+	}
 
-			profiler.depth++;
-			profiler.parentCategory[profiler.depth] = category;
+	if (profiler.eventStart[category] == 0.0f) {
+		double now = real_time_now();
+		int parent = profiler.parentCategory[profiler.depth];
+		// Temporarily suspend the parent on entering a child.
+		if (parent != -1) {
+			internal_profiler_suspend(parent, now);
 		}
+		internal_profiler_resume(category, now);
+
+		profiler.depth++;
+		profiler.parentCategory[profiler.depth] = category;
+	} else {
+		FLOG("profiler: recursive enter");
 	}
 
 	return category;
@@ -111,18 +119,23 @@ void internal_profiler_leave(int category) {
 	if (category < 0 || category >= MAX_CATEGORIES) {
 		ELOG("Bad category index %d", category);
 	}
-	internal_profiler_suspend(category);
+
+	double now = real_time_now();
+	internal_profiler_suspend(category, now);
 	history[profiler.historyPos].count[category]++;
 
 	profiler.depth--;
 	int parent = profiler.parentCategory[profiler.depth];
-	if (parent != 0) {
+	if (parent != -1) {
 		// Resume tracking the parent.
-		internal_profiler_resume(parent);
+		internal_profiler_resume(parent, now);
 	}
 }
 
 void internal_profiler_end_frame() {
+	if (profiler.depth != 0) {
+		FLOG("Can't be inside a profiler scope at end of frame!");
+	}
 	profiler.curFrameStart = real_time_now();
 	profiler.historyPos++;
 	profiler.historyPos &= ~HISTORY_SIZE;
