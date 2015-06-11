@@ -172,7 +172,13 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 	if (!gstate.isModeThrough()) {
 		vertex.modelpos = ModelCoords(pos[0], pos[1], pos[2]);
 		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
-		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
+		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
+		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
+		if (gstate.isFogEnabled()) {
+			vertex.fogdepth = (viewpos.z + getFloat24(gstate.fog1)) * getFloat24(gstate.fog2);
+		} else {
+			vertex.fogdepth = 1.0f;
+		}
 		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
 		if (vreader.hasNormal()) {
@@ -187,6 +193,7 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
+		vertex.fogdepth = 1.f;
 	}
 
 	return vertex;

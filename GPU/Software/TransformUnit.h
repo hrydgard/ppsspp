@@ -93,8 +93,9 @@ struct VertexData
 		screenpos = ::Lerp(a.screenpos, b.screenpos, t);  // TODO: Should use a LerpInt (?)
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
 		normal = ::Lerp(a.normal, b.normal, t);
+		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
-		u16 t_int =(u16)(t*256);
+		u16 t_int = (u16)(t*256);
 		color0 = LerpInt<Vec4<int>,256>(a.color0, b.color0, t_int);
 		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
 	}
@@ -108,6 +109,7 @@ struct VertexData
 	WorldCoords worldnormal;
 	Vec4<int> color0;
 	Vec3<int> color1;
+	float fogdepth;
 };
 
 class VertexReader;
