@@ -168,16 +168,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
 		MOVP2R(X3, &gstate_c.uv);
-		if (cpu_info.bNEON) {
-			fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
-			fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
-			if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-				fp.MOVI2FDUP(neonScratchRegD, by128, scratchReg);
-				fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
-			} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-				fp.MOVI2FDUP(neonScratchRegD, by32768, scratchReg);
-				fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
-			}
+		fp.LDR(64, INDEX_UNSIGNED, neonUVScaleReg, X3, 0);
+		fp.LDR(64, INDEX_UNSIGNED, neonUVOffsetReg, X3, 8);
+		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
+			fp.MOVI2FDUP(neonScratchRegD, by128, scratchReg);
+			fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
+		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
+			fp.MOVI2FDUP(neonScratchRegD, by32768, scratchReg);
+			fp.FMUL(32, neonUVScaleReg, neonUVScaleReg, neonScratchRegD);
 		}
 	}
 
