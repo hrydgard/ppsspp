@@ -48,7 +48,7 @@ GameInfo::~GameInfo() {
 	delete fileLoader;
 }
 
-bool GameInfo::DeleteGame() {
+bool GameInfo::Delete() {
 	switch (fileType) {
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
@@ -63,9 +63,9 @@ bool GameInfo::DeleteGame() {
 			return true;
 		}
 	case FILETYPE_PSP_PBP_DIRECTORY:
+	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
-
 			const char *directoryToRemove = filePath_.c_str();
 			INFO_LOG(HLE, "Deleting %s", directoryToRemove);
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
@@ -97,6 +97,7 @@ u64 GameInfo::GetGameSizeInBytes() {
 	}
 }
 
+// Not too meaningful if the object itself is a savedata directory...
 std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 	std::string memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
@@ -132,7 +133,7 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 				filesSizeInDir += finfo.size;
 		}
 		if (filesSizeInDir < 0xA00000) {
-			//Generally the savedata size in a dir shouldn't be more than 10MB.
+			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
 			totalSize += filesSizeInDir;
 		}
 		filesSizeInDir = 0;
@@ -156,7 +157,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 				filesSizeInDir += finfo.size;
 		}
 		if (filesSizeInDir >= 0xA00000) { 
-			// Generally the savedata size in a dir shouldn't be more than 10MB.
+			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
 			// This is probably GameInstall data.
 			totalSize += filesSizeInDir;
 		}
@@ -371,6 +372,28 @@ handleELF:
 			}
 			break;
 
+		case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+		{
+			SequentialHandleAllocator handles;
+			VirtualDiscFileSystem umd(&handles, gamePath_.c_str());
+
+			// Alright, let's fetch the PARAM.SFO.
+			std::string paramSFOcontents;
+			if (ReadFileToString(&umd, "/PARAM.SFO", &paramSFOcontents, 0)) {
+				lock_guard lock(info_->lock);
+				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
+				info_->ParseParamSFO();
+			}
+
+			ReadFileToString(&umd, "/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+			info_->iconDataLoaded = true;
+			if (info_->wantFlags & GAMEINFO_WANTBG) {
+				ReadFileToString(&umd, "/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+				info_->pic1DataLoaded = true;
+			}
+			break;
+		}
+
 		case FILETYPE_PSP_DISC_DIRECTORY:
 			{
 				info_->fileType = FILETYPE_PSP_ISO;
@@ -517,7 +540,6 @@ private:
 };
 
 
-
 GameInfoCache::~GameInfoCache() {
 	Clear();
 }
@@ -529,18 +551,6 @@ void GameInfoCache::Init() {
 
 void GameInfoCache::Shutdown() {
 	StopProcessingWorkQueue(gameInfoWQ_);
-}
-
-void GameInfoCache::Save() {
-	// TODO
-}
-
-void GameInfoCache::Load() {
-	// TODO
-}
-
-void GameInfoCache::Decimate() {
-	// TODO
 }
 
 void GameInfoCache::Clear() {

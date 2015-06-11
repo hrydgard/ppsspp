@@ -149,7 +149,12 @@ void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 }
 
 void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
-	DrawGameBackground(dc, gamePath_);
+	if (!gamePath_.empty()) {
+		DrawGameBackground(dc, gamePath_);
+	} else {
+		::DrawBackground(dc, 1.0f);
+		dc.Flush();
+	}
 }
 
 void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {

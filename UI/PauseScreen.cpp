@@ -140,57 +140,13 @@ private:
 
 class SaveSlotView : public UI::LinearLayout {
 public:
-	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
-		using namespace UI;
-
-		screenshotFilename_ = SaveState::GenerateSaveSlotFilename(slot, "jpg");
-		PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
-		Add(new Spacer(5));
-
-		AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
-		fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
-
-		I18NCategory *i = GetI18NCategory("Pause");
-
-		LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-		buttons->SetSpacing(2.0);
-		Add(buttons);
-
-		saveStateButton_ = buttons->Add(new Button(i->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
-		saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
-
-		fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
-
-		if (SaveState::HasSaveInSlot(slot)) {
-			loadStateButton_ = buttons->Add(new Button(i->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
-			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
-
-			std::string dateStr = SaveState::GetSlotDateAsString(slot_);
-			std::vector<std::string> dateStrs;
-			SplitString(dateStr, ' ', dateStrs);
-			if (!dateStrs.empty() && !dateStrs[0].empty()) {
-				LinearLayout *strs = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
-				Add(strs);
-				for (size_t i = 0; i < dateStrs.size(); i++) {
-					strs->Add(new TextView(dateStrs[i], new LinearLayoutParams(0.0, G_VCENTER)))->SetShadow(true);
-				}
-			}
-		} else {
-			fv->SetFilename("");
-		}
-	}
+	SaveSlotView(int slot, UI::LayoutParams *layoutParams = nullptr);
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 90;
 	}
 
-	void Draw(UIContext &dc) {
-		if (g_Config.iCurrentStateSlot == slot_) {
-			dc.FillRect(UI::Drawable(0x70000000), GetBounds().Expand(3));
-			dc.FillRect(UI::Drawable(0x70FFFFFF), GetBounds().Expand(3));
-		}
-		UI::LinearLayout::Draw(dc);
-	}
+	void Draw(UIContext &dc) override;
 
 	int GetSlot() const {
 		return slot_;
@@ -220,6 +176,53 @@ private:
 	std::string screenshotFilename_;
 };
 
+SaveSlotView::SaveSlotView(int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), slot_(slot) {
+	using namespace UI;
+
+	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(slot, "jpg");
+	PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+	Add(new Spacer(5));
+
+	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
+	fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
+
+	I18NCategory *i = GetI18NCategory("Pause");
+
+	LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	buttons->SetSpacing(2.0);
+	Add(buttons);
+
+	saveStateButton_ = buttons->Add(new Button(i->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
+	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
+
+	fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
+
+	if (SaveState::HasSaveInSlot(slot)) {
+		loadStateButton_ = buttons->Add(new Button(i->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
+		loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+
+		std::string dateStr = SaveState::GetSlotDateAsString(slot_);
+		std::vector<std::string> dateStrs;
+		SplitString(dateStr, ' ', dateStrs);
+		if (!dateStrs.empty() && !dateStrs[0].empty()) {
+			LinearLayout *strs = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+			Add(strs);
+			for (size_t i = 0; i < dateStrs.size(); i++) {
+				strs->Add(new TextView(dateStrs[i], new LinearLayoutParams(0.0, G_VCENTER)))->SetShadow(true);
+			}
+		}
+	} else {
+		fv->SetFilename("");
+	}
+}
+
+void SaveSlotView::Draw(UIContext &dc) {
+	if (g_Config.iCurrentStateSlot == slot_) {
+		dc.FillRect(UI::Drawable(0x70000000), GetBounds().Expand(3));
+		dc.FillRect(UI::Drawable(0x70FFFFFF), GetBounds().Expand(3));
+	}
+	UI::LinearLayout::Draw(dc);
+}
 
 UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;

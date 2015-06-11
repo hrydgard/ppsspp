@@ -33,6 +33,8 @@ class Thin3DTexture;
 // does on the PSP, namely checking for and deleting savedata, and similar things.
 // Only cares about games that are installed on the current device.
 
+// A GameInfo object can also represent a piece of savedata.
+
 // Guessed from GameID, not necessarily accurate
 enum GameRegion {
 	GAMEREGION_JAPAN,
@@ -99,7 +101,7 @@ public:
 		  gameSize(0), saveDataSize(0), installDataSize(0), fileLoader(nullptr) {}
 	~GameInfo();
 
-	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
 	bool LoadFromPath(const std::string &gamePath);
 	FileLoader *GetFileLoader();
@@ -180,12 +182,7 @@ public:
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
 	GameInfo *GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags);
-	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
-
-	// TODO - save cache between sessions
-	void Save();
-	void Load();
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 

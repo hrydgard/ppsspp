@@ -265,7 +265,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 void GameScreen::CallbackDeleteGame(bool yes) {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 	if (yes) {
-		info->DeleteGame();
+		info->Delete();
 		g_gameInfoCache.Clear();
 		screenManager()->switchScreen(new MainScreen());
 	}

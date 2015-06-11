@@ -786,18 +786,25 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	if (fileLoader->IsDirectory()) {
 		std::string filename = fileLoader->Path();
 		if (filename.size() > 4) {
-			FileInfo ebootInfo;
+			FileInfo fileInfo;
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
-			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &ebootInfo)) {
-				if (ebootInfo.exists) {
+			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
 					return FILETYPE_PSP_PBP_DIRECTORY;
 				}
 			}
 
 			// check if it's a disc directory
-			if (getFileInfo((filename + "/PSP_GAME").c_str(), &ebootInfo)) {
-				if (ebootInfo.exists) {
+			if (getFileInfo((filename + "/PSP_GAME").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
 					return FILETYPE_PSP_DISC_DIRECTORY;
+				}
+			}
+
+			// Not that, okay, let's guess it's a savedata directory if it has a param.sfo...
+			if (getFileInfo((filename + "/PARAM.SFO").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
+					return FILETYPE_PSP_SAVEDATA_DIRECTORY;
 				}
 			}
 		}

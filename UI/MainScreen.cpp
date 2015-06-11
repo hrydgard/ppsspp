@@ -42,6 +42,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/SavedataScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -394,40 +395,6 @@ void DirButton::Draw(UIContext &dc) {
 	}
 }
 
-class GameBrowser : public UI::LinearLayout {
-public:
-	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
-
-	UI::Event OnChoice;
-	UI::Event OnHoldChoice;
-	UI::Event OnHighlight;
-
-	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
-private:
-	void Refresh();
-	bool IsCurrentPathPinned();
-	const std::vector<std::string> GetPinnedPaths();
-	const std::string GetBaseName(const std::string &path);
-
-	UI::EventReturn GameButtonClick(UI::EventParams &e);
-	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
-	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
-	UI::EventReturn NavigateClick(UI::EventParams &e);
-	UI::EventReturn LayoutChange(UI::EventParams &e);
-	UI::EventReturn LastClick(UI::EventParams &e);
-	UI::EventReturn HomeClick(UI::EventParams &e);
-	UI::EventReturn PinToggleClick(UI::EventParams &e);
-
-	UI::ViewGroup *gameList_;
-	PathBrowser path_;
-	bool *gridStyle_;
-	bool allowBrowsing_;
-	std::string lastText_;
-	std::string lastLink_;
-	int flags_;
-	UI::Choice *homebrewStoreButton_;
-};
-
 GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, int flags, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink), flags_(flags) {
 	using namespace UI;
@@ -539,13 +506,16 @@ void GameBrowser::Refresh() {
 		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
+			bool isSaveData = false;
 			// Check if eboot directory
 			if (!isGame && path_.GetPath().size() >= 4 && File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))
 				isGame = true;
 			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR"))
 				isGame = true;
+			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PARAM.SFO"))
+				isSaveData = true;
 
-			if (!isGame) {
+			if (!isGame && !isSaveData) {
 				if (allowBrowsing_) {
 					dirButtons.push_back(new DirButton(fileInfo[i].name, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 				}
@@ -824,6 +794,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(m->T("Saved Data")))->OnClick.Handle(this, &MainScreen::OnSavedData);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #ifndef GOLD
@@ -1049,6 +1020,13 @@ UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 	auto gameSettings = new GameSettingsScreen("", "");
 	gameSettings->OnRecentChanged.Handle(this, &MainScreen::OnRecentChange);
 	screenManager()->push(gameSettings);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnSavedData(UI::EventParams &e) {
+	// screenManager()->push(new SettingsScreen());
+	auto saveData = new SavedataScreen("");
+	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
 
