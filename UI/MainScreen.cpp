@@ -794,7 +794,6 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(m->T("Saved Data")))->OnClick.Handle(this, &MainScreen::OnSavedData);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #ifndef GOLD
@@ -1029,12 +1028,6 @@ UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MainScreen::OnSavedData(UI::EventParams &e) {
-	auto saveData = new SavedataScreen("");
-	screenManager()->push(saveData);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn MainScreen::OnRecentChange(UI::EventParams &e) {
 	RecreateViews();
 	if (host) {
@@ -1169,6 +1162,7 @@ UI::EventReturn UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(""));
 	return UI::EVENT_DONE;
 }
+
 UI::EventReturn UmdReplaceScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	__UmdReplace(e.s);
 	screenManager()->finishDialog(this, DR_OK);
