@@ -31,72 +31,84 @@
 #include "UI/GameInfoCache.h"
 #include "UI/ui_atlas.h"
 
+#include "Common/FileUtil.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 
+class SavedataButton;
+
 class SavedataPopupScreen : public PopupScreen {
 public:
-	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(title), path_(savePath) {
+	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(title), savePath_(savePath) {
 	}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		GameInfo *info = g_gameInfoCache.GetInfo(screenManager()->getThin3DContext(), path_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+		GameInfo *ginfo = g_gameInfoCache.GetInfo(screenManager()->getThin3DContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(root);
-		if (!info)
+		if (!ginfo)
 			return;
-		root->Add(new InfoItem("Name", info->title));
-		root->Add(new InfoItem("Size", StringFromFormat("%d", info->gameSize)));
+
+		std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
+		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
+
+		root->Add(new TextView(savedata_detail, 0, false, new LinearLayoutParams(Margins(10, 5))));
+		root->Add(new Spacer(3.0));
+		root->Add(new InfoItem("Name", ginfo->title));
+		root->Add(new InfoItem("Title", savedata_title));
+		root->Add(new InfoItem("Size", StringFromFormat("%d", ginfo->gameSize)));
+
+		I18NCategory *di = GetI18NCategory("Dialog");
+		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
+		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
+		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root->Add(buttons);
 	}
 
 private:
-	std::string path_;
+	UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e);
+	std::string savePath_;
 };
-
 
 class SavedataButton : public UI::Clickable {
 public:
 	SavedataButton(const std::string &gamePath, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), gamePath_(gamePath) {}
+		: UI::Clickable(layoutParams), savePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500;
-		h = 50;
+		h = 74;
 	}
 
-	const std::string &GamePath() const { return gamePath_; }
+	const std::string &GamePath() const { return savePath_; }
 
-	void SetHoldEnabled(bool hold) {
-		holdEnabled_ = hold;
-	}
-
-	void Touch(const TouchInput &input) override {
-		UI::Clickable::Touch(input);
-		hovering_ = bounds_.Contains(input.x, input.y);
-	}
-
-	void FocusChanged(int focusFlags) override {
-		UI::Clickable::FocusChanged(focusFlags);
-	}
-
-	UI::Event OnHoldClick;
-	UI::Event OnHighlight;
+	std::string GetGamePath() const { return savePath_; }
 
 private:
-	std::string gamePath_;
+	std::string savePath_;
 	std::string title_;
-
-	double holdStart_;
-	bool holdEnabled_;
-	bool hovering_;
+	std::string subtitle_;
 };
 
+UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
+	File::DeleteDirRecursively(savePath_);
+	screenManager()->finishDialog(this, DR_NO);
+	return UI::EVENT_DONE;
+}
+
+static std::string CleanSaveString(std::string str) {
+	std::string s = ReplaceAll(str, "&", "&&");
+	s = ReplaceAll(s, "\n", " ");
+	s = ReplaceAll(s, "\r", " ");
+	return s;
+}
+
 void SavedataButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath_, 0);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), savePath_, 0);
 	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -114,7 +126,7 @@ void SavedataButton::Draw(UIContext &dc) {
 	if (down_)
 		style = dc.theme->itemDownStyle;
 
-	h = 50;
+	h = bounds_.h;
 	if (HasFocus())
 		style = down_ ? dc.theme->itemDownStyle : dc.theme->itemFocusedStyle;
 
@@ -168,24 +180,9 @@ void SavedataButton::Draw(UIContext &dc) {
 	if (texture) {
 		dc.Draw()->Flush();
 		dc.GetThin3DContext()->SetTexture(0, texture);
-		if (holdStart_ != 0.0) {
-			double time_held = time_now_d() - holdStart_;
-			int holdFrameCount = (int)(time_held * 60.0f);
-			if (holdFrameCount > 60) {
-				// Blink before launching by holding
-				if (((holdFrameCount >> 3) & 1) == 0)
-					color = darkenColor(color);
-			}
-		}
 		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 	}
-
-	char discNumInfo[8];
-	if (ginfo->disc_total > 1)
-		sprintf(discNumInfo, "-DISC%d", ginfo->disc_number);
-	else
-		strcpy(discNumInfo, "");
 
 	dc.Draw()->Flush();
 	dc.RebindTexture();
@@ -194,10 +191,11 @@ void SavedataButton::Draw(UIContext &dc) {
 	float tw, th;
 	dc.Draw()->Flush();
 	dc.PushScissor(bounds_);
+
 	if (title_.empty() && !ginfo->title.empty()) {
-		title_ = ReplaceAll(ginfo->title + discNumInfo, "&", "&&");
-		title_ = ReplaceAll(title_, "\n", " ");
-		title_ = ReplaceAll(title_, "\r", " ");
+		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
+		title_ = CleanSaveString(ginfo->title);
+		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%d kB)", ginfo->gameSize / 1024);
 	}
 
 	dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
@@ -213,7 +211,11 @@ void SavedataButton::Draw(UIContext &dc) {
 		tb.w = bounds_.w - 150;
 		dc.PushScissor(tb);
 	}
-	dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
+	dc.SetFontScale(0.6f, 0.6f);
+	dc.DrawText(subtitle_.c_str(), bounds_.x + tx, bounds_.y2() - 7, style.fgColor, ALIGN_BOTTOM);
+	dc.SetFontScale(1.0f, 1.0f);
+
 	if (availableWidth < tw) {
 		dc.PopScissor();
 	}
@@ -312,4 +314,10 @@ UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->title));
 	// the game path: e.s;
 	return UI::EVENT_DONE;
+}
+
+void SavedataScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (result == DR_NO) {
+		RecreateViews();
+	}
 }

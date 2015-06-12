@@ -317,8 +317,6 @@ static void __IoFreeFd(int fd, u32 &error) {
 // TODO: We don't do any of that yet.
 // For now, let's at least delay the callback notification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
-	PROFILE_THIS_SCOPE("io_rw");
-
 	int fd = (int) userdata;
 
 	u32 error;

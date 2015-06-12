@@ -45,6 +45,8 @@ public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.
 	SavedataScreen(std::string gamePath);
 
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 protected:
 	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
 	void CreateViews() override;

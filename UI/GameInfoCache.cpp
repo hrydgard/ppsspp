@@ -118,6 +118,9 @@ std::vector<std::string> GameInfo::GetSaveDataDirectories() {
 }
 
 u64 GameInfo::GetSaveDataSizeInBytes() {
+	if (fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY || fileType == FILETYPE_PPSSPP_SAVESTATE) {
+		return 0;
+	}
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;
