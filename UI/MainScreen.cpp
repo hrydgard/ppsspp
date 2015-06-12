@@ -971,6 +971,12 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 #else
 	std::string path = e.s;
 #endif
+	GameInfo *ginfo = 0;
+	ginfo = g_gameInfoCache.GetInfo(nullptr, path, GAMEINFO_WANTBG);
+	if (ginfo && ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
+		return UI::EVENT_DONE;
+	}
+
 	SetBackgroundAudioGame(path);
 	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));

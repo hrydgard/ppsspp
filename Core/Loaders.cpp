@@ -1000,6 +1000,14 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		*error_string = "Just a directory.";
 		break;
 
+	case FILETYPE_PPSSPP_SAVESTATE:
+		*error_string = "This is a saved state, not a game.";  // Actually, we could make it load it...
+		break;
+
+	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+		*error_string = "This is save data, not a game."; // Actually, we could make it load it...
+		break;
+
 	case FILETYPE_UNKNOWN_BIN:
 	case FILETYPE_UNKNOWN_ELF:
 	case FILETYPE_UNKNOWN:

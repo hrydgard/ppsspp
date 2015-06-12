@@ -40,6 +40,17 @@
 
 class SavedataButton;
 
+std::string GetFileDateAsString(std::string filename) {
+	tm time;
+	if (File::GetModifTime(filename, time)) {
+		char buf[256];
+		// TODO: Use local time format? Americans and some others might not like ISO standard :)
+		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+		return std::string(buf);
+	}
+	return "never";
+}
+
 class SavedataPopupScreen : public PopupScreen {
 public:
 	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(title), savePath_(savePath) {
@@ -63,8 +74,10 @@ public:
 				toprow->Add(new Thin3DTextureView(ginfo->iconTexture, IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
 			}
 			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+			topright->SetSpacing(1.0f);
 			topright->Add(new TextView(savedata_title, 0, false));
 			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true));
+			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true));
 			toprow->Add(topright);
 			root->Add(new Spacer(3.0));
 			root->Add(new TextView(savedata_detail, 0, true, new LinearLayoutParams(Margins(10, 0))));
@@ -75,14 +88,15 @@ public:
 				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
 			} else {
-				toprow->Add(new TextView("no screenshot"));
+				toprow->Add(new TextView("no screenshot", new LinearLayoutParams(Margins(10, 5))));
 			}
+			root->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
 		}
 
 		I18NCategory *di = GetI18NCategory("Dialog");
 		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
-		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
 		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
 		root->Add(buttons);
 	}
 
@@ -212,8 +226,10 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 
 	if (title_.empty() && !ginfo->title.empty()) {
-		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 		title_ = CleanSaveString(ginfo->title);
+	}
+	if (subtitle_.empty() && ginfo->gameSize > 0) {
+		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%d kB)", ginfo->gameSize / 1024);
 	}
 
@@ -247,6 +263,11 @@ void SavedataButton::Draw(UIContext &dc) {
 SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParams)
 	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path) {
 	Refresh();
+}
+
+SavedataBrowser::~SavedataBrowser() {
+	g_gameInfoCache.PurgeType(FILETYPE_PPSSPP_SAVESTATE);
+	g_gameInfoCache.PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
 }
 
 void SavedataBrowser::Refresh() {
@@ -299,7 +320,7 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-SavedataScreen::SavedataScreen(std::string gamePath) : UIScreenWithGameBackground(gamePath) {
+SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 }
 
 void SavedataScreen::CreateViews() {

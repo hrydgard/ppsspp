@@ -104,6 +104,7 @@ public:
 	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
 	bool LoadFromPath(const std::string &gamePath);
+
 	FileLoader *GetFileLoader();
 	void DisposeFileLoader();
 
@@ -176,6 +177,7 @@ public:
 	void Init();
 	void Shutdown();
 	void Clear();
+	void PurgeType(IdentifiedFileType fileType);
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,

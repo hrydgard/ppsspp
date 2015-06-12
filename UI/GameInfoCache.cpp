@@ -651,6 +651,19 @@ void GameInfoCache::FlushBGs() {
 	}
 }
 
+void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
+	if (gameInfoWQ_)
+		gameInfoWQ_->Flush();
+	restart:
+	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
+		if (iter->second->fileType == fileType) {
+			info_.erase(iter);
+			goto restart;
+		}
+	}
+}
+
+
 // Runs on the main thread.
 GameInfo *GameInfoCache::GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
 	GameInfo *info = 0;

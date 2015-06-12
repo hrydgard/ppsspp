@@ -466,7 +466,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
+				//TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
 			}
 			framebufferDirty_ = true;
 			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
