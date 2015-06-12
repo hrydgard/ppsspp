@@ -758,7 +758,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	}
 
 	std::string extension = fileLoader->Extension();
-	if (!strcasecmp(extension.c_str(),".iso"))
+	if (!strcasecmp(extension.c_str(), ".iso"))
 	{
 		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
 		if ((fileLoader->FileSize() % 2352) == 0)
@@ -780,24 +780,34 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	{
 		return FILETYPE_PSP_ISO;
 	}
-
+	else if (!strcasecmp(extension.c_str(),".ppst"))
+	{
+		return FILETYPE_PPSSPP_SAVESTATE;
+	}
 
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (fileLoader->IsDirectory()) {
 		std::string filename = fileLoader->Path();
 		if (filename.size() > 4) {
-			FileInfo ebootInfo;
+			FileInfo fileInfo;
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
-			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &ebootInfo)) {
-				if (ebootInfo.exists) {
+			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
 					return FILETYPE_PSP_PBP_DIRECTORY;
 				}
 			}
 
 			// check if it's a disc directory
-			if (getFileInfo((filename + "/PSP_GAME").c_str(), &ebootInfo)) {
-				if (ebootInfo.exists) {
+			if (getFileInfo((filename + "/PSP_GAME").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
 					return FILETYPE_PSP_DISC_DIRECTORY;
+				}
+			}
+
+			// Not that, okay, let's guess it's a savedata directory if it has a param.sfo...
+			if (getFileInfo((filename + "/PARAM.SFO").c_str(), &fileInfo)) {
+				if (fileInfo.exists) {
+					return FILETYPE_PSP_SAVEDATA_DIRECTORY;
 				}
 			}
 		}
@@ -988,6 +998,14 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	case FILETYPE_NORMAL_DIRECTORY:
 		ERROR_LOG(LOADER, "Just a directory.");
 		*error_string = "Just a directory.";
+		break;
+
+	case FILETYPE_PPSSPP_SAVESTATE:
+		*error_string = "This is a saved state, not a game.";  // Actually, we could make it load it...
+		break;
+
+	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+		*error_string = "This is save data, not a game."; // Actually, we could make it load it...
 		break;
 
 	case FILETYPE_UNKNOWN_BIN:

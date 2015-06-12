@@ -53,6 +53,9 @@
     <ClCompile Include="PauseScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="SavedataScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -104,6 +107,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="PauseScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SavedataScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

@@ -33,6 +33,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
+#include "UI/SavedataScreen.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
@@ -463,6 +464,15 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+
+	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *tools = new LinearLayout(ORIENT_VERTICAL);
+	tools->SetSpacing(0);
+	toolsScroll->Add(tools);
+	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
+
+	tools->Add(new ItemHeader(ms->T("Tools")));
+	tools->Add(new Choice(n->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -962,6 +972,12 @@ UI::EventReturn GameSettingsScreen::OnTiltCustomize(UI::EventParams &e){
 	screenManager()->push(new TiltAnalogSettingsScreen());
 	return UI::EVENT_DONE;
 };
+
+UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
+	auto saveData = new SavedataScreen("");
+	screenManager()->push(saveData);
+	return UI::EVENT_DONE;
+}
 
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;

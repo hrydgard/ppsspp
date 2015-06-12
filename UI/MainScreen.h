@@ -18,13 +18,45 @@
 #pragma once
 
 #include "base/functional.h"
+#include "file/path.h"
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
-// Game screen: Allows you to start a game, delete saves, delete the game,
-// set game specific settings, etc.
-// Uses GameInfoCache heavily to implement the functionality.
+class GameBrowser : public UI::LinearLayout {
+public:
+	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
+
+	UI::Event OnChoice;
+	UI::Event OnHoldChoice;
+	UI::Event OnHighlight;
+
+	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
+
+private:
+	void Refresh();
+	bool IsCurrentPathPinned();
+	const std::vector<std::string> GetPinnedPaths();
+	const std::string GetBaseName(const std::string &path);
+
+	UI::EventReturn GameButtonClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
+	UI::EventReturn NavigateClick(UI::EventParams &e);
+	UI::EventReturn LayoutChange(UI::EventParams &e);
+	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn HomeClick(UI::EventParams &e);
+	UI::EventReturn PinToggleClick(UI::EventParams &e);
+
+	UI::ViewGroup *gameList_;
+	PathBrowser path_;
+	bool *gridStyle_;
+	bool allowBrowsing_;
+	std::string lastText_;
+	std::string lastLink_;
+	int flags_;
+	UI::Choice *homebrewStoreButton_;
+};
 
 class MainScreen : public UIScreenWithBackground {
 public:

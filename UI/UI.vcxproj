@@ -34,6 +34,7 @@
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="PauseScreen.cpp" />
     <ClCompile Include="ReportScreen.cpp" />
+    <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TiltEventProcessor.cpp" />
@@ -57,6 +58,7 @@
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PauseScreen.h" />
     <ClInclude Include="ReportScreen.h" />
+    <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TiltEventProcessor.h" />

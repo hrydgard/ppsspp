@@ -33,6 +33,8 @@ class Thin3DTexture;
 // does on the PSP, namely checking for and deleting savedata, and similar things.
 // Only cares about games that are installed on the current device.
 
+// A GameInfo object can also represent a piece of savedata.
+
 // Guessed from GameID, not necessarily accurate
 enum GameRegion {
 	GAMEREGION_JAPAN,
@@ -94,14 +96,15 @@ class GameInfo {
 public:
 	GameInfo()
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantFlags(0),
-		  timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
+		  iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
+		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
 		  gameSize(0), saveDataSize(0), installDataSize(0), fileLoader(nullptr) {}
 	~GameInfo();
 
-	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
 	bool LoadFromPath(const std::string &gamePath);
+
 	FileLoader *GetFileLoader();
 	void DisposeFileLoader();
 
@@ -174,18 +177,14 @@ public:
 	void Init();
 	void Shutdown();
 	void Clear();
+	void PurgeType(IdentifiedFileType fileType);
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
 	GameInfo *GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags);
-	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
-
-	// TODO - save cache between sessions
-	void Save();
-	void Load();
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
