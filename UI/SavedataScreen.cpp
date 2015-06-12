@@ -101,7 +101,7 @@ public:
 	}
 
 private:
-	UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e);
+	UI::EventReturn OnDeleteButtonClick(UI::EventParams &e);
 	std::string savePath_;
 };
 
