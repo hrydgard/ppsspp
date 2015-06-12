@@ -1030,7 +1030,6 @@ UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSavedData(UI::EventParams &e) {
-	// screenManager()->push(new SettingsScreen());
 	auto saveData = new SavedataScreen("");
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
