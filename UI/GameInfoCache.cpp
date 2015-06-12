@@ -76,6 +76,12 @@ bool GameInfo::Delete() {
 			return true;
 		}
 	case FILETYPE_PSP_ELF:
+	case FILETYPE_PPSSPP_SAVESTATE:
+	case FILETYPE_UNKNOWN_BIN:
+	case FILETYPE_UNKNOWN_ELF:
+	case FILETYPE_ARCHIVE_RAR:
+	case FILETYPE_ARCHIVE_ZIP:
+	case FILETYPE_ARCHIVE_7Z:
 		{
 			const char *fileToRemove = filePath_.c_str();
 			deleteFile(fileToRemove);
@@ -90,8 +96,21 @@ bool GameInfo::Delete() {
 u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case FILETYPE_PSP_PBP_DIRECTORY:
+	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
+	{
+		std::vector<FileInfo> fileInfo;
+		getFilesInDir(filePath_.c_str(), &fileInfo);
+		int64_t sizeSum = 0;
+		// Note: getFileInDir does not fill in fileSize properly.
+		for (size_t i = 0; i < fileInfo.size(); i++) {
+			FileInfo finfo;
+			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			if (!finfo.isDirectory)
+				sizeSum += finfo.size;
+		}
 		// TODO: Need to recurse here.
-		return 0;
+		return sizeSum;
+	}
 	default:
 		return GetFileLoader()->FileSize();
 	}
@@ -145,6 +164,9 @@ u64 GameInfo::GetSaveDataSizeInBytes() {
 }
 
 u64 GameInfo::GetInstallDataSizeInBytes() {
+	if (fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY || fileType == FILETYPE_PPSSPP_SAVESTATE) {
+		return 0;
+	}
 	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;

@@ -30,6 +30,7 @@
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/ui_atlas.h"
+#include "UI/PauseScreen.h"
 
 #include "Common/FileUtil.h"
 #include "Core/Host.h"
@@ -51,15 +52,32 @@ public:
 		parent->Add(root);
 		if (!ginfo)
 			return;
+		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		root->Add(toprow);
 
-		std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
-		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
+		if (ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
+			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
+			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
 
-		root->Add(new TextView(savedata_detail, 0, false, new LinearLayoutParams(Margins(10, 5))));
-		root->Add(new Spacer(3.0));
-		root->Add(new InfoItem("Name", ginfo->title));
-		root->Add(new InfoItem("Title", savedata_title));
-		root->Add(new InfoItem("Size", StringFromFormat("%d", ginfo->gameSize)));
+			if (ginfo->iconTexture) {
+				toprow->Add(new Thin3DTextureView(ginfo->iconTexture, IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
+			}
+			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+			topright->Add(new TextView(savedata_title, 0, false));
+			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true));
+			toprow->Add(topright);
+			root->Add(new Spacer(3.0));
+			root->Add(new TextView(savedata_detail, 0, true, new LinearLayoutParams(Margins(10, 0))));
+			root->Add(new Spacer(3.0));
+		} else {
+			std::string image_path = ReplaceAll(savePath_, "ppst", "jpg");
+			if (File::Exists(image_path)) {
+				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
+			} else {
+				toprow->Add(new TextView("no screenshot"));
+			}
+		}
 
 		I18NCategory *di = GetI18NCategory("Dialog");
 		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
@@ -95,7 +113,8 @@ private:
 };
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	File::DeleteDirRecursively(savePath_);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	ginfo->Delete();
 	screenManager()->finishDialog(this, DR_NO);
 	return UI::EVENT_DONE;
 }
@@ -108,7 +127,7 @@ static std::string CleanSaveString(std::string str) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), savePath_, 0);
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), savePath_, GAMEINFO_WANTSIZE);
 	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
