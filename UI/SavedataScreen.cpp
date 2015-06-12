@@ -48,7 +48,7 @@ std::string GetFileDateAsString(std::string filename) {
 		strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
 		return std::string(buf);
 	}
-	return "never";
+	return "";
 }
 
 class SavedataPopupScreen : public PopupScreen {
@@ -66,6 +66,7 @@ public:
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		root->Add(toprow);
 
+		I18NCategory *s = GetI18NCategory("Savedata");
 		if (ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
 			std::string savedata_detail = ginfo->paramSFO.GetValueString("SAVEDATA_DETAIL");
 			std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
@@ -88,7 +89,7 @@ public:
 				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
 			} else {
-				toprow->Add(new TextView("no screenshot", new LinearLayoutParams(Margins(10, 5))));
+				toprow->Add(new TextView(s->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
 			}
 			root->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
 		}
@@ -325,7 +326,7 @@ SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBac
 
 void SavedataScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *s = GetI18NCategory("Savedata");
 	I18NCategory *di = GetI18NCategory("Dialog");
 	std::string savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
@@ -338,12 +339,12 @@ void SavedataScreen::CreateViews() {
 	browser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	browser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
-	tabs->AddTab(m->T("Save Data"), scroll);
+	tabs->AddTab(s->T("Save Data"), scroll);
 
 	ScrollView *scroll2 = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	SavedataBrowser *browser2 = scroll2->Add(new SavedataBrowser(savestate_dir));
 	browser2->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
-	tabs->AddTab(m->T("Save States"), scroll2);
+	tabs->AddTab(s->T("Save States"), scroll2);
 
 	root_->Add(tabs);
 	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
