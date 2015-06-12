@@ -19,7 +19,7 @@
 
 enum {
 	MAX_TEXT_WIDTH = 1024,
-	MAX_TEXT_HEIGHT = 256
+	MAX_TEXT_HEIGHT = 512
 };
 
 struct TextDrawerFontContext {
@@ -167,6 +167,11 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
 		//ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
 		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
+
+		if (size.cx > MAX_TEXT_WIDTH)
+			size.cx = MAX_TEXT_WIDTH;
+		if (size.cy > MAX_TEXT_HEIGHT)
+			size.cy = MAX_TEXT_HEIGHT;
 
 		entry = new TextStringEntry();
 		entry->width = size.cx;

@@ -2,6 +2,7 @@
 #include <algorithm>
 
 #include "base/mutex.h"
+#include "base/stringutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
@@ -571,16 +572,42 @@ void Thin3DTextureView::Draw(UIContext &dc) {
 }
 
 void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, text_.c_str(), &w, &h);
+	// MeasureText doesn't seem to work with line breaks, so do something more sophisticated.
+	std::vector<std::string> lines;
+	SplitString(text_, '\n', lines);
+	float total_w = 0.f;
+	float total_h = 0.f;
+	for (size_t i = 0; i < lines.size(); i++) {
+		float temp_w, temp_h;
+		dc.MeasureText(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, lines[i].c_str(), &temp_w, &temp_h);
+		if (temp_w > total_w)
+			total_w = temp_w;
+		total_h += temp_h;
+	}
+	w = total_w;
+	h = total_h;
 }
 
 void TextView::Draw(UIContext &dc) {
+	float w, h;
+	GetContentDimensions(dc, w, h);
+	bool clip = false;
+	if (w > bounds_.w || h > bounds_.h)
+		clip = true;
+	if (clip) {
+		Bounds clipRect = bounds_.Expand(10);  // TODO: Remove this hackery
+		dc.Flush();
+		dc.PushScissor(clipRect);
+	}
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1, 1), shadowColor, textAlign_);
+		dc.DrawTextRect(text_.c_str(), bounds_, shadowColor, textAlign_);
 	}
 	dc.DrawTextRect(text_.c_str(), bounds_, textColor_, textAlign_);
+	if (clip) {
+		dc.PopScissor();
+	}
 }
 
 TextEdit::TextEdit(const std::string &text, const std::string &placeholderText, LayoutParams *layoutParams)

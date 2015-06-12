@@ -753,7 +753,7 @@ private:
 class Thin3DTextureView : public InertView {
 public:
 	Thin3DTextureView(Thin3DTexture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
+		: InertView(layoutParams), texture_(texture), color_(0xFFFFFFFF), sizeMode_(sizeMode) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
