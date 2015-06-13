@@ -1140,12 +1140,14 @@ inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer 
 	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
 	// This causes glitches in games that expect the exact values.
 	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
-		useCPU = true;
+	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
+			useCPU = true;
+		}
 	}
 	return useCPU;
 #else
-	return  true;
+	return true;
 #endif
 }
 
