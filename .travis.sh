@@ -26,7 +26,7 @@ travis_before_install() {
 
 	if [ ! "$TRAVIS_OS_NAME" = "osx" ]; then
 		sudo apt-get update -qq
-		sudo apt-get install software-properties-common aria2 pv -qq
+		sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
 
 		if [ "$CMAKE" = "TRUE" ]; then
 			sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev cmake -qq
