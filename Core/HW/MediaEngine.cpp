@@ -21,6 +21,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/SimpleAudioDec.h"
 
@@ -610,53 +611,78 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 #ifdef USE_FFMPEG
 	if (!m_pFrame || !m_pFrameRGB)
 		return 0;
-	int videoImageSize = 0;
+
 	// lock the image size
 	int height = m_desHeight;
 	int width = m_desWidth;
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
 
+	int videoLineSize = 0;
+	switch (videoPixelMode) {
+	case GE_CMODE_32BIT_ABGR8888:
+		videoLineSize = frameWidth * sizeof(u32);
+		break;
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+		videoLineSize = frameWidth * sizeof(u16);
+		break;
+	}
+
+	int videoImageSize = videoLineSize * height;
+	bool swizzle = (bufferPtr & 0x00200000) == 0x00200000;
+	if (swizzle) {
+		imgbuf = new u8[videoImageSize];
+	}
+
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += width * sizeof(u32);
-			imgbuf += frameWidth * sizeof(u32);
+			imgbuf += videoLineSize;
 		}
-		videoImageSize = frameWidth * sizeof(u32) * height;
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	default:
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
+	}
+
+	if (swizzle) {
+		const u32 pitch = videoLineSize / 4;
+		const int bxc = videoLineSize / 16;
+		int byc = (height + 7) / 8;
+		if (byc == 0)
+			byc = 1;
+
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, pitch, videoLineSize);
+		delete [] imgbuf;
 	}
 
 #ifndef MOBILE_DEVICE
@@ -680,10 +706,28 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 #ifdef USE_FFMPEG
 	if (!m_pFrame || !m_pFrameRGB)
 		return 0;
-	int videoImageSize = 0;
+
 	// lock the image size
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
+
+	int videoLineSize = 0;
+	switch (videoPixelMode) {
+	case GE_CMODE_32BIT_ABGR8888:
+		videoLineSize = frameWidth * sizeof(u32);
+		break;
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+		videoLineSize = frameWidth * sizeof(u16);
+		break;
+	}
+
+	int videoImageSize = videoLineSize * height;
+	bool swizzle = (bufferPtr & 0x00200000) == 0x00200000;
+	if (swizzle) {
+		imgbuf = new u8[videoImageSize];
+	}
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
@@ -696,12 +740,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
-			imgbuf += frameWidth * sizeof(u32);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
@@ -709,12 +752,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
@@ -722,12 +764,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
@@ -735,12 +776,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	default:
