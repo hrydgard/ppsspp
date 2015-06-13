@@ -639,33 +639,29 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineRGBA(imgbuf, data, width);
+			writeVideoLineRGBA(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u32);
-			imgbuf += videoLineSize;
 		}
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR5650(imgbuf, data, width);
+			writeVideoLineABGR5650(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += videoLineSize;
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR5551(imgbuf, data, width);
+			writeVideoLineABGR5551(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += videoLineSize;
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR4444(imgbuf, data, width);
+			writeVideoLineABGR4444(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += videoLineSize;
 		}
 		break;
 
