@@ -141,7 +141,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	bool prescaleStep = false;
 	bool skinning = false;
 
-	bool log = true;
+	bool log = false;
 
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {

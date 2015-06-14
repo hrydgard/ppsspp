@@ -37,11 +37,12 @@ void TestCode::Generate()
 {
 	testCodePtr = this->GetCodePtr();
 
-	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
-
 	const u8 *start = AlignCode16();
 
+	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
+	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
 	ABI_PushRegisters(regs_to_save);
+	fp.ABI_PushRegisters(regs_to_save_fp);
 
 	PUSH(X3);
 	POP(X3);
@@ -54,6 +55,7 @@ void TestCode::Generate()
 	MOVI2R(X0, 1337);
 
 	ABI_PopRegisters(regs_to_save);
+	fp.ABI_PopRegisters(regs_to_save_fp);
 
 	RET();
 
