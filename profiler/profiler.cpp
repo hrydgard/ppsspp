@@ -106,7 +106,7 @@ int internal_profiler_enter(const char *category_name) {
 		profiler.depth++;
 		profiler.parentCategory[profiler.depth] = category;
 	} else {
-		FLOG("profiler: recursive enter");
+		FLOG("profiler: recursive enter (%i - %s)", category, category_name);
 	}
 
 	return category;
@@ -118,6 +118,8 @@ void internal_profiler_leave(int category) {
 	}
 	if (category < 0 || category >= MAX_CATEGORIES) {
 		ELOG("Bad category index %d", category);
+		profiler.depth--;
+		return;
 	}
 
 	double now = real_time_now();
