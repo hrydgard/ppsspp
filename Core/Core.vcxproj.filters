@@ -553,7 +553,6 @@
     <ClCompile Include="HLE\sceSha256.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="Screenshot.cpp" />
     <ClCompile Include="Util\AudioFormatNEON.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -601,6 +600,9 @@
     </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitState.cpp">
       <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
+    <ClCompile Include="Screenshot.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1087,7 +1089,6 @@
     <ClInclude Include="HLE\sceSha256.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="Screenshot.h" />
     <ClInclude Include="Util\AudioFormat.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -1126,6 +1127,9 @@
     </ClInclude>
     <ClInclude Include="Util\DisArm64.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Screenshot.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
