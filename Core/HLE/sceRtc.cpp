@@ -330,7 +330,7 @@ static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 	ret.microsecond = tv.tv_usec;
 
 	if (Memory::IsValidAddress(pspTimePtr))
-		Memory::WriteStruct(pspTimePtr, &ret);
+		Memory::WriteStructUnchecked(pspTimePtr, &ret);
 
 	hleEatCycles(2000);
 	hleReSchedule("rtc current clock local");
@@ -346,7 +346,7 @@ static u32 sceRtcSetTick(u32 pspTimePtr, u32 tickPtr)
 
 		ScePspDateTime ret;
 		__RtcTicksToPspTime(ret, ticks);
-		Memory::WriteStruct(pspTimePtr, &ret);
+		Memory::WriteStructUnchecked(pspTimePtr, &ret);
 	}
 	return 0;
 }
@@ -358,7 +358,7 @@ static u32 sceRtcGetTick(u32 pspTimePtr, u32 tickPtr)
 
 	if (Memory::IsValidAddress(pspTimePtr) && Memory::IsValidAddress(tickPtr))
 	{
-		Memory::ReadStruct(pspTimePtr, &pt);
+		Memory::ReadStructUnchecked(pspTimePtr, &pt);
 
 		if (!__RtcValidatePspTime(pt))
 			return SCE_KERNEL_ERROR_INVALID_VALUE;
@@ -509,7 +509,7 @@ static int sceRtcCheckValid(u32 datePtr)
 	if (Memory::IsValidAddress(datePtr))
 	{
 		ScePspDateTime pt;
-		Memory::ReadStruct(datePtr, &pt);
+		Memory::ReadStructUnchecked(datePtr, &pt);
 		if (pt.year < 1 || pt.year > 9999)
 		{
 			return PSP_TIME_INVALID_YEAR;
@@ -559,7 +559,7 @@ static int sceRtcSetTime_t(u32 datePtr, u32 time)
 	{
 		ScePspDateTime pt;
 		__RtcTicksToPspTime(pt, time*1000000ULL + rtcMagicOffset);
-		Memory::WriteStruct(datePtr, &pt);
+		Memory::WriteStructUnchecked(datePtr, &pt);
 	}
 	else
 	{
@@ -590,7 +590,7 @@ static int sceRtcGetTime_t(u32 datePtr, u32 timePtr)
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(timePtr))
 	{
 		ScePspDateTime pt;
-		Memory::ReadStruct(datePtr, &pt);
+		Memory::ReadStructUnchecked(datePtr, &pt);
 		u32 result = (u32) ((__RtcPspTimeToTicks(pt)-rtcMagicOffset)/1000000ULL);
 		Memory::Write_U32(result, timePtr);
 	}
@@ -607,7 +607,7 @@ static int sceRtcGetTime64_t(u32 datePtr, u32 timePtr)
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(timePtr))
 	{
 		ScePspDateTime pt;
-		Memory::ReadStruct(datePtr, &pt);
+		Memory::ReadStructUnchecked(datePtr, &pt);
 		u64 result = (__RtcPspTimeToTicks(pt)-rtcMagicOffset)/1000000ULL;
 		Memory::Write_U64(result, timePtr);
 	}
@@ -636,7 +636,7 @@ static int sceRtcSetDosTime(u32 datePtr, u32 dosTime)
 		pt.second = (hms << 1) & 0x3E;
 		pt.microsecond = 0;
 
-		Memory::WriteStruct(datePtr, &pt);
+		Memory::WriteStructUnchecked(datePtr, &pt);
 	}
 	else
 	{
@@ -652,7 +652,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime)
 	if (Memory::IsValidAddress(datePtr)&&Memory::IsValidAddress(dosTime))
 	{
 		ScePspDateTime pt;
-		Memory::ReadStruct(datePtr, &pt);
+		Memory::ReadStructUnchecked(datePtr, &pt);
 
 		u32 result = 0;
 		if(pt.year < 1980)

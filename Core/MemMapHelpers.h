@@ -70,10 +70,23 @@ void ReadStruct(u32 address, T *ptr)
 }
 
 template<class T>
+void ReadStructUnchecked(u32 address, T *ptr)
+{
+	const u32 sz = (u32)sizeof(*ptr);
+	MemcpyUnchecked(ptr, address, sz);
+}
+
+template<class T>
 void WriteStruct(u32 address, T *ptr)
 {
 	const u32 sz = (u32)sizeof(*ptr);
 	Memcpy(address, ptr, sz);
 }
 
+template<class T>
+void WriteStructUnchecked(u32 address, T *ptr)
+{
+	const u32 sz = (u32)sizeof(*ptr);
+	MemcpyUnchecked(address, ptr, sz);
+}
 }
