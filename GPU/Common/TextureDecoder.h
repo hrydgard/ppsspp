@@ -37,6 +37,7 @@ void SetupTextureDecoder();
 u32 QuickTexHashSSE2(const void *checkp, u32 size);
 #define DoQuickTexHash QuickTexHashSSE2
 
+void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch, u32 rowWidth);
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth);
 #define DoUnswizzleTex16 DoUnswizzleTex16Basic
 

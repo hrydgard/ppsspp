@@ -161,6 +161,52 @@ static u32 QuickTexHashBasic(const void *checkp, u32 size) {
 	return check;
 }
 
+void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch, u32 rowWidth) {
+#ifdef _M_SSE
+	__m128i *dest = (__m128i *)texptr;
+	for (int by = 0; by < byc; by++) {
+		const __m128i *xsrc = (const __m128i *)ysrcp;
+		for (int bx = 0; bx < bxc; bx++) {
+			const __m128i *src = xsrc;
+			for (int n = 0; n < 2; n++) {
+				// Textures are always 16-byte aligned so this is fine.
+				__m128i temp1 = _mm_load_si128(src);
+				src += pitch >> 2;
+				__m128i temp2 = _mm_load_si128(src);
+				src += pitch >> 2;
+				__m128i temp3 = _mm_load_si128(src);
+				src += pitch >> 2;
+				__m128i temp4 = _mm_load_si128(src);
+				src += pitch >> 2;
+
+				_mm_store_si128(dest, temp1);
+				_mm_store_si128(dest + 1, temp2);
+				_mm_store_si128(dest + 2, temp3);
+				_mm_store_si128(dest + 3, temp4);
+				dest += 4;
+			}
+			xsrc++;
+		}
+		ysrcp += (rowWidth * 8) / 4;
+	}
+#else
+	u32 *dest = (u32 *)texptr;
+	for (int by = 0; by < byc; by++) {
+		const u32 *xsrc = ysrcp;
+		for (int bx = 0; bx < bxc; bx++) {
+			const u32 *src = xsrc;
+			for (int n = 0; n < 8; n++) {
+				memcpy(dest, src, 16);
+				src += pitch;
+				dest += 4;
+			}
+			xsrc += 4;
+		}
+		ysrcp += (rowWidth * 8) / 4;
+	}
+#endif
+}
+
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
 #ifdef _M_SSE
 	const __m128i *src = (const __m128i *)texptr;
@@ -184,7 +230,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 				dest += pitch >> 2;
 				src += 4;
 			}
-			xdest ++;
+			xdest++;
 		}
 		ydestp += (rowWidth * 8) / 4;
 	}
