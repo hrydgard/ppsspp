@@ -95,8 +95,7 @@ using namespace Arm64JitConstants;
 void Arm64Jit::GenerateFixedCode() {
 	enterCode = AlignCode16();
 
-	const u32 ALL_CALLEE_SAVED = 0x7FF80000;
-	BitSet32 regs_to_save(ALL_CALLEE_SAVED);
+	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
 	enterCode = GetCodePtr();
 
 	ABI_PushRegisters(regs_to_save);

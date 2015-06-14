@@ -89,6 +89,10 @@ enum ARM64Reg
 	INVALID_REG = 0xFFFFFFFF
 };
 
+// R19-R28, R29 (FP), R30 (LR). FP seems questionable?
+const u32 ALL_CALLEE_SAVED = 0x7FF80000;
+const u32 ALL_CALLEE_SAVED_FP = 0x0000FF00;  // d8-d15
+
 inline bool Is64Bit(ARM64Reg reg) { return (reg & 0x20) != 0; }
 inline bool IsSingle(ARM64Reg reg) { return (reg & 0xC0) == 0x40; }
 inline bool IsDouble(ARM64Reg reg) { return (reg & 0xC0) == 0x80; }
@@ -827,6 +831,11 @@ public:
 	void SCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void UQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void UQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 
 	// Move
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn);

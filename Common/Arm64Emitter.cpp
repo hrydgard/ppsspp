@@ -2928,10 +2928,29 @@ void ARM64FloatEmitter::UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale)
 	int imm = size * 2 - scale;
 	EmitShiftImm(IsQuad(Rd), 1, imm >> 3, imm & 7, 0x1C, Rd, Rn);
 }
-
+void ARM64FloatEmitter::SQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(false, 0, dest_size >> 4, 0x14, Rd, Rn);
+}
+void ARM64FloatEmitter::SQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(true, 0, dest_size >> 4, 0x14, Rd, Rn);
+}
+void ARM64FloatEmitter::UQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(false, 1, dest_size >> 4, 0x14, Rd, Rn);
+}
+void ARM64FloatEmitter::UQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(true, 1, dest_size >> 4, 0x14, Rd, Rn);
+}
 void ARM64FloatEmitter::XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(IsQuad(Rd), 0, dest_size >> 4, 0x12, Rd, Rn);
+	Emit2RegMisc(false, 0, dest_size >> 4, 0x12, Rd, Rn);
+}
+void ARM64FloatEmitter::XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(true, 0, dest_size >> 4, 0x12, Rd, Rn);
 }
 
 // Move
@@ -3341,12 +3360,13 @@ void ARM64FloatEmitter::STP(IndexType index_type, ARM64Reg Rt, ARM64Reg Rt2, ARM
 	m_emit->EncodeLoadStorePair(0, true, 0, index_type, Rt, Rt2, Rn, imm);
 }
 
+// TODO: According to the ABI, we really only need to save the bottom 64 bits of D8-D15.
 void ARM64FloatEmitter::ABI_PushRegisters(BitSet32 registers)
 {
 	for (auto it : registers)
 		STR(128, INDEX_PRE, (ARM64Reg)(Q0 + it), SP, -16);
-
 }
+
 void ARM64FloatEmitter::ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask)
 {
 	for (int i = 31; i >= 0; --i)

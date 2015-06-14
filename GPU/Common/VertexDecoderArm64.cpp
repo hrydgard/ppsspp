@@ -24,7 +24,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-static float MEMORY_ALIGNED16(bones[16 * 8]);  // First two are kept in registers
+static float MEMORY_ALIGNED16(bones[16 * 8]);  // First four are kept in registers
 static float MEMORY_ALIGNED16(boneMask[4]) = {1.0f, 1.0f, 1.0f, 0.0f};
 
 static const float by128 = 1.0f / 128.0f;
@@ -135,8 +135,6 @@ static const JitLookup jitLookup[] = {
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	dec_ = &dec;
 
-	const u32 ALL_CALLEE_SAVED = 0x7FF80000;
-	BitSet32 regs_to_save(ALL_CALLEE_SAVED);
 
 	const u8 *start = AlignCode16();
 
@@ -145,7 +143,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	bool prescaleStep = false;
 	bool skinning = false;
 
-	bool log = false;
+	bool log = true;
 
 	// Look for prescaled texcoord steps
 	for (int i = 0; i < dec.numSteps_; i++) {
@@ -163,7 +161,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	// if (skinning) log = true;
 
+	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
+	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
 	ABI_PushRegisters(regs_to_save);
+	fp.ABI_PushRegisters(regs_to_save_fp);
 
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
@@ -245,6 +246,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		SetJumpTarget(skip);
 	}
 
+	fp.ABI_PopRegisters(regs_to_save_fp);
 	ABI_PopRegisters(regs_to_save);
 
 	RET();

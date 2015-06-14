@@ -330,11 +330,9 @@ namespace MIPSComp
 				}
 			} else {
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-				_dbg_assert_msg_(JIT, g_Config.bFastMemory, "Slow mem doesn't work yet in ARM64! Turn on Fast Memory in system settings");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
-					// TODO: This doesn't work!
 					SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
 					doCheck = true;
 				} else {
