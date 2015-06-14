@@ -138,8 +138,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 
 	const u8 *start = AlignCode16();
 
-	// TODO: Also push D8-D15, the fp registers we need to save.
-
 	bool prescaleStep = false;
 	bool skinning = false;
 

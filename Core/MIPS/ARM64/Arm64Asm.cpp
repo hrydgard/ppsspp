@@ -96,10 +96,9 @@ void Arm64Jit::GenerateFixedCode() {
 	enterCode = AlignCode16();
 
 	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
-	enterCode = GetCodePtr();
-
+	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
 	ABI_PushRegisters(regs_to_save);
-	// TODO: Also push D8-D15, the fp registers we need to save.
+	fp.ABI_PushRegisters(regs_to_save_fp);
 
 	// Fixed registers, these are always kept when in Jit context.
 	// R8 is used to hold flags during delay slots. Not always needed.
@@ -198,6 +197,7 @@ void Arm64Jit::GenerateFixedCode() {
 	SaveDowncount();
 	RestoreRoundingMode(true);
 
+	fp.ABI_PopRegisters(regs_to_save_fp);
 	ABI_PopRegisters(regs_to_save);
 
 	RET();
