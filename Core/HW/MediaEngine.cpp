@@ -631,7 +631,8 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	}
 
 	int videoImageSize = videoLineSize * height;
-	bool swizzle = (bufferPtr & 0x00200000) == 0x00200000;
+
+	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
 	if (swizzle) {
 		imgbuf = new u8[videoImageSize];
 	}
