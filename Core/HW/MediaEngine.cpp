@@ -784,6 +784,20 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
+
+	if (swizzle) {
+		WARN_LOG_REPORT_ONCE(vidswizzle, ME, "Swizzling Video with range");
+
+		const u32 pitch = videoLineSize / 4;
+		const int bxc = videoLineSize / 16;
+		int byc = (height + 7) / 8;
+		if (byc == 0)
+			byc = 1;
+
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, pitch, videoLineSize);
+		delete [] imgbuf;
+	}
+
 	return videoImageSize;
 #endif // USE_FFMPEG
 	return 0;
