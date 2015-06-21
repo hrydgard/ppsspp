@@ -23,6 +23,9 @@ PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
 PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
 PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 #endif
+#ifndef IOS
+#include "EGL/egl.h"
+#endif
 #endif
 
 OpenGLState glstate;
