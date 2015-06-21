@@ -51,8 +51,6 @@ static const ARM64Reg fpScratchReg = S4;
 static const ARM64Reg fpScratchReg2 = S5;
 static const ARM64Reg fpScratchReg3 = S6;
 static const ARM64Reg fpScratchReg4 = S7;
-static const ARM64Reg fpUVscaleReg = D0;
-static const ARM64Reg fpUVoffsetReg = D1;
 
 static const ARM64Reg neonScratchRegD = D2;
 static const ARM64Reg neonScratchRegQ = Q2;
@@ -278,11 +276,9 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 
 void VertexDecoderJitCache::Jit_ApplyWeights() {
 	// We construct a matrix in Q4-Q7
-	// We can use Q1 as temp.
 	if (dec_->nweights >= 4) {
 		MOVP2R(scratchReg64, bones + 16 * 4);
 	}
-
 	for (int i = 0; i < dec_->nweights; i++) {
 		switch (i) {
 		case 0:
