@@ -102,12 +102,12 @@ int internal_profiler_enter(const char *category_name) {
 			internal_profiler_suspend(parent, now);
 		}
 		internal_profiler_resume(category, now);
-
-		profiler.depth++;
-		profiler.parentCategory[profiler.depth] = category;
 	} else {
-		FLOG("profiler: recursive enter (%i - %s)", category, category_name);
+		DLOG("profiler: recursive enter (%i - %s)", category, category_name);
 	}
+
+	profiler.depth++;
+	profiler.parentCategory[profiler.depth] = category;
 
 	return category;
 }
@@ -123,17 +123,22 @@ void internal_profiler_leave(int category) {
 	}
 
 	double now = real_time_now();
-	internal_profiler_suspend(category, now);
-	history[profiler.historyPos].count[category]++;
 
 	profiler.depth--;
 	if (profiler.depth < 0) {
 		FLOG("Profiler enter/leave mismatch!");
 	}
+
 	int parent = profiler.parentCategory[profiler.depth];
-	if (parent != -1) {
-		// Resume tracking the parent.
-		internal_profiler_resume(parent, now);
+	// When there's recursion, we don't suspend or resume.
+	if (parent != category) {
+		internal_profiler_suspend(category, now);
+		history[profiler.historyPos].count[category]++;
+
+		if (parent != -1) {
+			// Resume tracking the parent.
+			internal_profiler_resume(parent, now);
+		}
 	}
 }
 
