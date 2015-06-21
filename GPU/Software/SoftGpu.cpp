@@ -568,7 +568,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				}
 			} else if (clutAddr != 0) {
 				// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
-				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
+				DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
 				memset(clut, 0x00, clutTotalBytes);
 			}
 		}
