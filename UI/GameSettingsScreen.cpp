@@ -95,6 +95,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
+	I18NCategory *sa = GetI18NCategory("Savedata");
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
@@ -472,7 +473,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Tools"), toolsScroll);
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
-	tools->Add(new Choice(n->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
+	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
