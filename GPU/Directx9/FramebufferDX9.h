@@ -90,7 +90,7 @@ public:
 	virtual void RebindFramebuffer() override;
 
 	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
-	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface);
+	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 
 protected:
 	virtual void DisableState() override;

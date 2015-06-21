@@ -588,9 +588,13 @@ namespace DX9 {
 		return fbo;
 	}
 
-	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface) {
-		D3DSURFACE_DESC desc;
-		similarSurface->GetDesc(&desc);
+	LPDIRECT3DSURFACE9 FramebufferManagerDX9::GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb) {
+		D3DSURFACE_DESC desc = {};
+		HRESULT hr = similarSurface->GetDesc(&desc);
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "Unable to get size for offscreen surface at %08x", vfb->fb_address);
+			return nullptr;
+		}
 
 		u64 key = ((u64)desc.Format << 32) | (desc.Width << 16) | desc.Height;
 		auto it = offscreenSurfaces_.find(key);
@@ -1061,7 +1065,7 @@ namespace DX9 {
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
-		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+		LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
 		if (offscreen) {
 			HRESULT hr = pD3Ddevice->GetRenderTargetData(renderTarget, offscreen);
 			if (SUCCEEDED(hr)) {
@@ -1240,7 +1244,7 @@ namespace DX9 {
 		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? fbo_get_color_for_read(vfb->fbo) : nullptr;
 		bool success = false;
 		if (renderTarget) {
-			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget);
+			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
 			if (offscreen) {
 				success = GetRenderTargetFramebuffer(renderTarget, offscreen, vfb->renderWidth, vfb->renderHeight, buffer);
 			}
