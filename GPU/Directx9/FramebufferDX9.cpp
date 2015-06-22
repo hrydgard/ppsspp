@@ -605,7 +605,7 @@ namespace DX9 {
 
 		textureCache_->ForgetLastTexture();
 		LPDIRECT3DSURFACE9 offscreen = nullptr;
-		HRESULT hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
+		hr = pD3Ddevice->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &offscreen, NULL);
 		if (FAILED(hr) || !offscreen) {
 			ERROR_LOG_REPORT(G3D, "Unable to create offscreen surface %dx%d @%d", desc.Width, desc.Height, desc.Format);
 			return nullptr;
