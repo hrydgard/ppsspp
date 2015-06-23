@@ -197,7 +197,7 @@ void GameSettingsScreen::CreateViews() {
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 #endif
 
-#ifdef _WIN32
+#ifndef USING_GLES2
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 #endif
 	CheckBox *mipmapping = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
