@@ -17,6 +17,10 @@
 #include "../gfx/gl_common.h"
 
 #if defined(USING_GLES2)
+#if !defined(IOS)
+#include "EGL/egl.h"
+#endif
+
 GLboolean gl3stubInit() {
 #if !defined(IOS)
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
