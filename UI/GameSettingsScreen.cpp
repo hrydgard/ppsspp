@@ -584,7 +584,7 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
 	static const char *models[] = {"PSP-1000" , "PSP-2000/3000"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), models, 0, ARRAY_SIZE(models), s, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, s->T("PSP Model"), models, 0, ARRAY_SIZE(models), s, screenManager()))->SetEnabled(!PSP_IsInited());
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #if defined(_WIN32)  // TODO: Add all platforms where KEY_CHAR support is added
