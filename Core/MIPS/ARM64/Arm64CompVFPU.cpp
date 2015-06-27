@@ -205,7 +205,7 @@ namespace MIPSComp
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
 
-		bool doCheck = false;
+		std::vector<FixupBranch> skips;
 		switch (op >> 26) {
 		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
 		{
@@ -226,18 +226,13 @@ namespace MIPSComp
 				if (g_Config.bFastMemory) {
 					SetScratch1ToEffectiveAddress(rs, offset);
 				} else {
-					SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
-					doCheck = true;
+					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
 				// Pointerify
 				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
-			FixupBranch skip;
-			if (doCheck) {
-				skip = B(CC_EQ);
-			}
 			fp.LDR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
-			if (doCheck) {
+			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
 		}
@@ -262,17 +257,12 @@ namespace MIPSComp
 				if (g_Config.bFastMemory) {
 					SetScratch1ToEffectiveAddress(rs, offset);
 				} else {
-					SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
-					doCheck = true;
+					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
 				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
-			FixupBranch skip;
-			if (doCheck) {
-				skip = B(CC_EQ);
-			}
 			fp.STR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
-			if (doCheck) {
+			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
 		}
@@ -291,7 +281,7 @@ namespace MIPSComp
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
 		MIPSGPReg rs = _RS;
 
-		bool doCheck = false;
+		std::vector<FixupBranch> skips;
 		switch (op >> 26)
 		{
 		case 54: //lv.q
@@ -309,22 +299,16 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetScratch1ToEffectiveAddress(rs, imm);
 					} else {
-						SetCCAndSCRATCH1ForSafeAddress(rs, imm, SCRATCH2);
-						doCheck = true;
+						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-				}
-
-				FixupBranch skip;
-				if (doCheck) {
-					skip = B(CC_EQ);
 				}
 
 				// Removed consecutive opt for now
 				for (int i = 0; i < 4; i++)
 					fp.LDR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
 
-				if (doCheck) {
+				for (auto skip : skips) {
 					SetJumpTarget(skip);
 				}
 			}
@@ -345,21 +329,15 @@ namespace MIPSComp
 					if (g_Config.bFastMemory) {
 						SetScratch1ToEffectiveAddress(rs, imm);
 					} else {
-						SetCCAndSCRATCH1ForSafeAddress(rs, imm, SCRATCH2);
-						doCheck = true;
+						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-				}
-
-				FixupBranch skip;
-				if (doCheck) {
-					skip = B(CC_EQ);
 				}
 
 				for (int i = 0; i < 4; i++)
 					fp.STR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
 
-				if (doCheck) {
+				for (auto skip : skips) {
 					SetJumpTarget(skip);
 				}
 			}
