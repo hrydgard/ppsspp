@@ -255,6 +255,8 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 namespace UI {
 
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
+	restoreFocus_ = HasFocus();
+
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
 		choices.push_back(category_ ? category_->T(choices_[i]) : choices_[i]);
@@ -288,6 +290,10 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		e.v = this;
 		e.a = num;
 		OnChoice.Trigger(e);
+
+		if (restoreFocus_) {
+			SetFocusedView(this);
+		}
 	}
 }
 
@@ -323,6 +329,8 @@ PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, flo
 }
 
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
+	restoreFocus_ = HasFocus();
+
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_, step_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	screenManager_->push(popupScreen);
@@ -332,6 +340,10 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 EventReturn PopupSliderChoice::HandleChange(EventParams &e) {
 	e.v = this;
 	OnChange.Trigger(e);
+
+	if (restoreFocus_) {
+		SetFocusedView(this);
+	}
 	return EVENT_DONE;
 }
 
@@ -348,6 +360,8 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
+	restoreFocus_ = HasFocus();
+
 	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_, step_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	screenManager_->push(popupScreen);
@@ -357,6 +371,10 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 EventReturn PopupSliderChoiceFloat::HandleChange(EventParams &e) {
 	e.v = this;
 	OnChange.Trigger(e);
+
+	if (restoreFocus_) {
+		SetFocusedView(this);
+	}
 	return EVENT_DONE;
 }
 
@@ -447,6 +465,8 @@ PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string
 }
 
 EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
+	restoreFocus_ = HasFocus();
+
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, text_, maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	screenManager_->push(popupScreen);
@@ -466,6 +486,10 @@ void PopupTextInputChoice::Draw(UIContext &dc) {
 EventReturn PopupTextInputChoice::HandleChange(EventParams &e) {
 	e.v = this;
 	OnChange.Trigger(e);
+
+	if (restoreFocus_) {
+		SetFocusedView(this);
+	}
 	return EVENT_DONE;
 }
 

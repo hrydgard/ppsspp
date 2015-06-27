@@ -218,6 +218,7 @@ private:
 	I18NCategory *category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
+	bool restoreFocus_;
 };
 
 
@@ -239,6 +240,7 @@ private:
 	int maxValue_;
 	int step_;
 	ScreenManager *screenManager_;
+	bool restoreFocus_;
 };
 
 class PopupSliderChoiceFloat : public Choice {
@@ -258,6 +260,7 @@ private:
 	float maxValue_;
 	float step_;
 	ScreenManager *screenManager_;
+	bool restoreFocus_;
 };
 
 class PopupTextInputChoice: public Choice {
@@ -276,6 +279,7 @@ private:
 	std::string placeHolder_;
 	std::string defaultText_;
 	int maxLen_;
+	bool restoreFocus_;
 };
 
 class ChoiceWithValueDisplay : public UI::Choice {
