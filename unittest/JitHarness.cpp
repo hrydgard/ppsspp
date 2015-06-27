@@ -176,8 +176,10 @@ bool TestJit() {
 		// Disassemble
 		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
 		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
-#ifdef ARM
+#if defined(ARM)
 		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
+#elif defined(ARM64)
+		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
