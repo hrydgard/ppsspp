@@ -199,6 +199,10 @@
     <ClCompile Include="ELF\ParamSFO.cpp" />
     <ClCompile Include="ELF\PBPReader.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
+    <ClCompile Include="FileLoaders\CachingFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\HTTPFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\LocalFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\RetryingFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
@@ -519,6 +523,10 @@
     <ClInclude Include="ELF\ParamSFO.h" />
     <ClInclude Include="ELF\PBPReader.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />
+    <ClInclude Include="FileLoaders\CachingFileLoader.h" />
+    <ClInclude Include="FileLoaders\HTTPFileLoader.h" />
+    <ClInclude Include="FileLoaders\LocalFileLoader.h" />
+    <ClInclude Include="FileLoaders\RetryingFileLoader.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
     <ClInclude Include="FileSystems\FileSystem.h" />

@@ -1362,6 +1362,14 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Host.h
 	Core/Loaders.cpp
 	Core/Loaders.h
+	Core/FileLoaders/CachingFileLoader.cpp
+	Core/FileLoaders/CachingFileLoader.h
+	Core/FileLoaders/HTTPFileLoader.cpp
+	Core/FileLoaders/HTTPFileLoader.h
+	Core/FileLoaders/LocalFileLoader.cpp
+	Core/FileLoaders/LocalFileLoader.h
+	Core/FileLoaders/RetryingFileLoader.cpp
+	Core/FileLoaders/RetryingFileLoader.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
 	Core/MIPS/JitCommon/NativeJit.h
