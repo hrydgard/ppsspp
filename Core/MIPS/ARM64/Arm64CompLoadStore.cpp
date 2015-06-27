@@ -84,33 +84,27 @@ namespace MIPSComp
 		SetScratch1ToEffectiveAddress(rs, offset);
 
 		// First off, if it's too high for anything - skip.
-		MOVI2R(tempReg, PSP_GetUserMemoryEnd());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetUserMemoryEnd(), tempReg);
 		skips.push_back(B(CC_HS));
 
 		// If its higher than memory start and we didn't skip yet, it must be good.  Hurray.
-		MOVI2R(tempReg, PSP_GetKernelMemoryBase());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetKernelMemoryBase(), tempReg);
 		FixupBranch inRAM = B(CC_HS);
 
 		// If we got here and it's higher, then it's between VRAM and RAM - skip.
-		MOVI2R(tempReg, PSP_GetVidMemEnd());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetVidMemEnd(), tempReg);
 		skips.push_back(B(CC_HS));
 
 		// And if it's higher the VRAM and we're still here again, it's in VRAM.
-		MOVI2R(tempReg, PSP_GetVidMemBase());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetVidMemBase(), tempReg);
 		FixupBranch inVRAM = B(CC_HS);
 
 		// Last gap, this is between SRAM and VRAM.  Skip it.
-		MOVI2R(tempReg, PSP_GetScratchpadMemoryEnd());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetScratchpadMemoryEnd(), tempReg);
 		skips.push_back(B(CC_HS));
 
 		// And for lower than SRAM, we just skip again.
-		MOVI2R(tempReg, PSP_GetScratchpadMemoryBase());
-		CMP(SCRATCH1, tempReg);
+		CMPI2R(SCRATCH1, PSP_GetScratchpadMemoryBase(), tempReg);
 		skips.push_back(B(CC_LO));
 
 		// At this point, we're either in SRAM (above) or in RAM/VRAM.
