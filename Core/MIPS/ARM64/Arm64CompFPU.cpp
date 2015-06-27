@@ -417,9 +417,7 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 			if (!wasImm) {
-				// UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
-				LSR(SCRATCH1, gpr.R(rt), 23);
-				ANDI2R(gpr.R(MIPS_REG_FPCOND), SCRATCH1, 1);
+				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 			}
 			UpdateRoundingMode();
 			ApplyRoundingMode();
