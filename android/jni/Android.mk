@@ -351,7 +351,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/NativeApp.cpp
 
-include $(BUILD_SHARED_LIBRARY)
+ifneq ($(SKIPAPP),1)
+  include $(BUILD_SHARED_LIBRARY)
+endif
 
 
 ifeq ($(HEADLESS),1)
