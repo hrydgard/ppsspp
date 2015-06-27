@@ -15,6 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <ctype.h>
 #include "Common.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"
@@ -48,6 +49,33 @@ std::string GetCPUString()
 	}
 
 	return cpu_string;
+}
+
+std::string GetCPUBrandString()
+{
+	std::string line, marker = "Processor\t: ";
+	std::string brand_string = "Unknown";
+	std::fstream file;
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+		return brand_string;
+
+	while (std::getline(file, line))
+	{
+		if (line.find(marker) != std::string::npos)
+		{
+			brand_string = line.substr(marker.length());
+			if (brand_string.back() == '\n')
+				brand_string.pop_back(); // Drop the new-line character
+
+			if (brand_string.length() == 0 || isdigit(brand_string[0])) {
+				brand_string = "Unknown";
+				continue;
+			}
+			break;
+		}
+	}
+
+	return brand_string;
 }
 
 unsigned char GetCPUImplementer()
@@ -218,6 +246,8 @@ void CPUInfo::Detect()
 	bASIMD = false;
 #else // __linux__
 	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
+	strncpy(brand_string, GetCPUBrandString().c_str(), sizeof(brand_string));
+
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
 	bThumb = CheckCPUFeature("thumb");

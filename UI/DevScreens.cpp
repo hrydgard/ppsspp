@@ -325,7 +325,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
-#ifdef ARM
+#if defined(ARM) || defined(ARM64) || defined(MIPS)
 	deviceSpecs->Add(new InfoItem("Cores", StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;

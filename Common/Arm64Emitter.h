@@ -603,7 +603,7 @@ public:
 	void UXTH(ARM64Reg Rd, ARM64Reg Rn);
 
 	void UBFX(ARM64Reg Rd, ARM64Reg Rn, int lsb, int width) {
-		UBFM(Rd, Rn, lsb, lsb + width <= (Is64Bit(Rn) ? 64 : 32));
+		UBFM(Rd, Rn, lsb, lsb + width - 1);
 	}
 
 	// Load Register (Literal)
