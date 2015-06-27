@@ -255,6 +255,8 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 namespace UI {
 
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
+	restoreFocus_ = HasFocus();
+
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
 		choices.push_back(category_ ? category_->T(choices_[i]) : choices_[i]);
@@ -288,6 +290,10 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		e.v = this;
 		e.a = num;
 		OnChoice.Trigger(e);
+
+		if (restoreFocus_) {
+			SetFocusedView(this);
+		}
 	}
 }
 

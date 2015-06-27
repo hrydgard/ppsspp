@@ -218,6 +218,7 @@ private:
 	I18NCategory *category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
+	bool restoreFocus_;
 };
 
 
