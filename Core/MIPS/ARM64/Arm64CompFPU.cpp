@@ -86,7 +86,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 	MIPSGPReg rs = _RS;
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
-	bool doCheck = false;
+	std::vector<FixupBranch> skips;
 	switch (op >> 26) {
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset <= 16380 && offset >= 0) {
@@ -106,17 +106,12 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetScratch1ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
-				doCheck = true;
+				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		FixupBranch skip;
-		if (doCheck) {
-			skip = B(CC_EQ);
-		}
 		LDR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
-		if (doCheck) {
+		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -139,18 +134,13 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			if (g_Config.bFastMemory) {
 				SetScratch1ToEffectiveAddress(rs, offset);
 			} else {
-				SetCCAndSCRATCH1ForSafeAddress(rs, offset, SCRATCH2);
-				doCheck = true;
+				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		FixupBranch skip2;
-		if (doCheck) {
-			skip2 = B(CC_EQ);
-		}
 		STR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
-		if (doCheck) {
-			SetJumpTarget(skip2);
+		for (auto skip : skips) {
+			SetJumpTarget(skip);
 		}
 		break;
 
