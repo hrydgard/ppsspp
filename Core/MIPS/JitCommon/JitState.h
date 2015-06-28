@@ -57,6 +57,7 @@ namespace MIPSComp {
 		JitState()
 			: hasSetRounding(0),
 			lastSetRounding(0),
+			currentRoundingFunc(nullptr),
 			startDefaultPrefix(true),
 			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
