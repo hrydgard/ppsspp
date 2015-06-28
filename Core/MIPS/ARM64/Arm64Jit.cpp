@@ -362,7 +362,6 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
 		return false;
 	}
-	INFO_LOG(HLE, "ReplaceJalTo to %s", entry->name);
 
 	// Warning - this might be bad if the code at the destination changes...
 	if (entry->flags & REPFLAG_ALLOWINLINE) {
@@ -410,7 +409,6 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	if (entry->flags & REPFLAG_DISABLED) {
 		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 	} else if (entry->jitReplaceFunc) {
-		INFO_LOG(HLE, "JitReplaceFunc to %s", entry->name);
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
@@ -426,7 +424,6 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			js.compiling = false;
 		}
 	} else if (entry->replaceFunc) {
-		INFO_LOG(HLE, "ReplaceFunc to %s", entry->name);
 		FlushAll();
 		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCH1, GetCompilerPC());
