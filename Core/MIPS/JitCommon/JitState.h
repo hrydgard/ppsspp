@@ -78,6 +78,7 @@ namespace MIPSComp {
 
 		u8 hasSetRounding;
 		u8 lastSetRounding;
+		const u8 *currentRoundingFunc;
 
 		// VFPU prefix magic
 		bool startDefaultPrefix;

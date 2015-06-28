@@ -560,6 +560,13 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
 		_MSR(FIELD_FPCR, SCRATCH1_64);
 
+		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
+		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
+		// We already index this array including the FZ bit.  Easy.
+		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
+		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
+		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
+
 		POP(SCRATCH1);
 		SetJumpTarget(skip);
 	}
