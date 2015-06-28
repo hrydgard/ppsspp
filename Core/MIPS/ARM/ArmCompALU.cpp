@@ -573,7 +573,7 @@ namespace MIPSComp
 				} else {
 					gpr.MapDirtyIn(rt, rs, false);
 #ifdef HAVE_ARMV7
-					BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
+					BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
 #else
 					ANDI2R(SCRATCHREG1, gpr.R(rs), sourcemask, SCRATCHREG2);
 					ANDI2R(gpr.R(rt), gpr.R(rt), destmask, SCRATCHREG2);

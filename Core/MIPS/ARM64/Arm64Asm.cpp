@@ -101,18 +101,9 @@ void Arm64Jit::GenerateFixedCode() {
 	fp.ABI_PushRegisters(regs_to_save_fp);
 
 	// Fixed registers, these are always kept when in Jit context.
-	// R8 is used to hold flags during delay slots. Not always needed.
-	// R13 cannot be used as it's the stack pointer.
-	// TODO: Consider statically allocating:
-	//   * r2-r4
-	// Really starting to run low on registers already though...
-
-	// R11, R10, R9
 	MOVP2R(MEMBASEREG, Memory::base);
 	MOVP2R(CTXREG, mips_);
 	MOVP2R(JITBASEREG, GetBasePtr());
-
-	// TODO: Preserve ASIMD registers
 
 	RestoreDowncount();
 	MovFromPC(SCRATCH1);
@@ -192,8 +183,6 @@ void Arm64Jit::GenerateFixedCode() {
 	SetJumpTarget(badCoreState);
 	breakpointBailout = GetCodePtr();
 
-	// TODO: Restore ASIMD registers
-
 	SaveDowncount();
 	RestoreRoundingMode(true);
 
@@ -209,6 +198,21 @@ void Arm64Jit::GenerateFixedCode() {
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());
 		}
+	}
+
+	// Generate some integer conversion funcs.
+	static const RoundingMode roundModes[8] = {ROUND_N, ROUND_P, ROUND_M, ROUND_Z, ROUND_N, ROUND_P, ROUND_M, ROUND_Z,};
+	for (size_t i = 0; i < ARRAY_SIZE(roundModes); ++i) {
+		convertS0ToSCRATCH1[i] = AlignCode16();
+
+		fp.FCMP(S0, S0);  // Detect NaN
+		fp.FCVTS(S0, S0, roundModes[i]);
+		FixupBranch skip = B(CC_VC);
+		MOVI2R(SCRATCH2, 0x7FFFFFFF);
+		fp.FMOV(S0, SCRATCH2);
+		SetJumpTarget(skip);
+
+		RET();
 	}
 }
 

@@ -138,8 +138,8 @@ struct ThreadContext
 		struct {
 			u32 pc;
 
-			u32 hi;
 			u32 lo;
+			u32 hi;
 
 			u32 fcr31;
 			u32 fpcond;

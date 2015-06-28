@@ -523,7 +523,7 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Thread", 1, 4);
+		auto s = p.Section("Thread", 1, 5);
 		if (!s)
 			return;
 
@@ -553,6 +553,8 @@ public:
 			context.other[4] = context.other[5];
 			context.other[3] = context.other[4];
 		}
+		if (s <= 4)
+			std::swap(context.hi, context.lo);
 
 		p.Do(callbacks);
 

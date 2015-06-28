@@ -262,6 +262,9 @@ public:
 	const u8 *dispatcherNoCheck;
 
 	const u8 *breakpointBailout;
+
+	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
+	const u8 *convertS0ToSCRATCH1[8];
 };
 
 }	// namespace MIPSComp

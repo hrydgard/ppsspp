@@ -227,6 +227,7 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 		if (!likely && delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_NICE);
 
+		// TODO: Maybe we could use BZ here?
 		gpr.MapReg(rs);
 		CMP(gpr.R(rs), 0);
 
@@ -319,8 +320,9 @@ void Arm64Jit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
+	// TODO: Maybe we could use TBZ here?
 	gpr.MapReg(MIPS_REG_FPCOND);
-	TSTI2R(gpr.R(MIPS_REG_FPCOND), 1, W0);
+	TSTI2R(gpr.R(MIPS_REG_FPCOND), 1, SCRATCH1);
 	Arm64Gen::FixupBranch ptr;
 	if (!likely) {
 		if (!delaySlotIsNice)
@@ -379,8 +381,9 @@ void Arm64Jit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 
 	int imm3 = (op >> 18) & 7;
 
+	// TODO: Maybe could use TBZ?
 	gpr.MapReg(MIPS_REG_VFPUCC);
-	TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3, W0);
+	TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3, SCRATCH1);
 
 	Arm64Gen::FixupBranch ptr;
 	js.inDelaySlot = true;
@@ -584,7 +587,6 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
-	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
 	FlushAll();
 
 	SaveDowncount();

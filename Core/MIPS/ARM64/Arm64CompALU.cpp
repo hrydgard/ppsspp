@@ -410,7 +410,51 @@ void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Special3(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rt = _RT;
+
+	int pos = _POS;
+	int size = _SIZE + 1;
+	u32 mask = (1 << size) - 1;
+
+	// Don't change $zr.
+	if (rt == 0)
+		return;
+
+	switch (op & 0x3f) {
+	case 0x0: //ext
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
+			return;
+		}
+
+		gpr.MapDirtyIn(rt, rs);
+		UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+		break;
+
+	case 0x4: //ins
+		{
+			u32 sourcemask = mask >> pos;
+			u32 destmask = ~(sourcemask << pos);
+			if (gpr.IsImm(rs)) {
+				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+				if (gpr.IsImm(rt)) {
+					gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+					return;
+				}
+
+				// It might be nice to avoid flushing rs, but it's the a little slower and
+				// usually more instructions.  Not worth it.
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			} else {
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			}
+		}
+		break;
+	}
 }
 
 void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
@@ -496,8 +540,6 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
-
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -569,8 +611,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
 		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-		MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-		SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
 		break;
 
 	case 27: //divu
@@ -601,8 +642,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-			MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-			SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
 		}
 		break;
 

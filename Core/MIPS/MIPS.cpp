@@ -289,6 +289,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(pc);
 	p.Do(nextPC);
 	p.Do(downcount);
+	// Reversed, but we can just leave it that way.
 	p.Do(hi);
 	p.Do(lo);
 	p.Do(fpcond);

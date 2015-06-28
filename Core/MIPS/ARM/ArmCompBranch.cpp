@@ -604,7 +604,6 @@ void ArmJit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
-	// TODO: Maybe discard v0, v1, and some temps?  Definitely at?
 	FlushAll();
 
 	SaveDowncount();
