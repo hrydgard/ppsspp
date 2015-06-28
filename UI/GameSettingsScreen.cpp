@@ -38,6 +38,7 @@
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/TiltEventProcessor.h"
+#include "UI/ComboKeyMapScreen.h"
 
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
@@ -402,6 +403,9 @@ void GameSettingsScreen::CreateViews() {
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, c->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		//Combo key Mapping
+		controlsSettings->Add(new Choice(c->T("Combo Key")))->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
+
 		// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
@@ -422,6 +426,10 @@ void GameSettingsScreen::CreateViews() {
 		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, c->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), c, screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
+		//Combo Key style
+		static const char *ComboButtonStyles[] = { "ACG", "CV" };
+		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboButtonStyle, c->T("Combo Key style"), ComboButtonStyles, 0, ARRAY_SIZE(ComboButtonStyles), c, screenManager()));
+		combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
 #ifdef _WIN32
@@ -912,6 +920,11 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	g_Config.sMACAddress = std::string(CreateRandMAC());
 
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnCombo_key(UI::EventParams &e) {
+	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
 

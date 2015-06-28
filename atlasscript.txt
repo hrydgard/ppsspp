@@ -1,6 +1,6 @@
 2048
-font UBUNTU24 assets/RobotoCondensed-Regular.ttf UWER 34 -2
-font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHKVTe 30 0
+font UBUNTU24 assets/Roboto-Condensed.ttf UWER 34 -2
+font UBUNTU24 ARIALUNI.ttf UWEhkcRGHKVTe 30 0
 image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
@@ -35,4 +35,17 @@ image I_ICONGOLD source_assets/image/icon_gold_72.png copy
 image I_FOLDER source_assets/image/folder_line.png copy
 image I_UP_DIRECTORY source_assets/image/up_line.png copy
 image I_GEAR source_assets/image/gear.png copy
+image I_ARROW1 source_assets/image/arrow1.png copy
+image I_ARROW2 source_assets/image/arrow2.png copy
+image I_ARROW3 source_assets/image/arrow3.png copy
+image I_CROSS1 source_assets/image/cross1.png copy
+image I_SQUARE1 source_assets/image/square1.png copy
+image I_TRIANGLE1 source_assets/image/triangle1.png copy
+image I_STAR source_assets/image/star.png copy
+image I_GC source_assets/image/GC.png copy
+image I_EYE source_assets/image/eye.png copy
+image I_X source_assets/image/X.png copy
+image I_Y source_assets/image/Y.png copy
+image I_A source_assets/image/A.png copy
+image I_B source_assets/image/B.png copy
 

@@ -233,12 +233,16 @@ public:
 	bool bGridView1;
 	bool bGridView2;
 	bool bGridView3;
+	//Combo key screen flag
+	int iComboMode;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
 	bool bGamepadOnlyFocused;
 	// Control Style
 	int iTouchButtonStyle;
+	//	Combo Button Style;
+	int iComboButtonStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
 	// Floating analog stick (recenters on thumb on press).
@@ -275,6 +279,18 @@ public:
 	float fAnalogStickX, fAnalogStickY;
 	float fAnalogStickScale;
 
+	//the Combo Button position
+	float fcomboX, fcomboY;
+	float fcomboScale;
+	float fcombo1X, fcombo1Y;
+	float fcomboScale1;
+	float fcombo2X, fcombo2Y;
+	float fcomboScale2;
+	float fcombo3X, fcombo3Y;
+	float fcomboScale3;
+	float fcombo4X, fcombo4Y;
+	float fcomboScale4;
+
 	// Controls Visibility
 	bool bShowTouchControls;
 
@@ -292,6 +308,25 @@ public:
 
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
+
+	//Combo Button Visibility
+	bool bShowComboKey;
+	bool bShowComboKey1;
+	bool bShowComboKey2;
+	bool bShowComboKey3;
+	bool bShowComboKey4;
+	// Button Separation Visibility
+	bool bShowTouchDpad_LEFT;
+	bool bShowTouchDpad_UP;
+	bool bShowTouchDpad_RIGHT;
+	bool bShowTouchDpad_DOWN;
+
+	//Combo_key mapping
+	int cCombokey;
+	int cCombokey1;
+	int cCombokey2;
+	int cCombokey3;
+	int cCombokey4;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;
