@@ -100,8 +100,8 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 			break;
 		} else if (simm == 0) {
 			gpr.MapDirtyIn(rt, rs);
-			// Shift to get the sign bit only (for < 0.)
-			LSR(gpr.R(rt), gpr.R(rs), 31);
+			// Grab the sign bit (< 0) as 1/0.  Slightly faster than a shift.
+			UBFX(gpr.R(rt), gpr.R(rs), 31, 1);
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
