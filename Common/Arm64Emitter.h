@@ -592,6 +592,10 @@ public:
 	void SBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void UBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 
+	void BFI(ARM64Reg Rd, ARM64Reg Rn, int lsb, int width) {
+		BFM(Rd, Rn, (64 - lsb) % (Is64Bit(Rd) ? 64 : 32), width - 1);
+	}
+
 	// Extract register (ROR with two inputs, if same then faster on A67)
 	void EXTR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u32 shift);
 

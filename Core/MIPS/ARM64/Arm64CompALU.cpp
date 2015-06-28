@@ -410,7 +410,51 @@ void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Special3(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rt = _RT;
+
+	int pos = _POS;
+	int size = _SIZE + 1;
+	u32 mask = (1 << size) - 1;
+
+	// Don't change $zr.
+	if (rt == 0)
+		return;
+
+	switch (op & 0x3f) {
+	case 0x0: //ext
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
+			return;
+		}
+
+		gpr.MapDirtyIn(rt, rs);
+		UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+		break;
+
+	case 0x4: //ins
+		{
+			u32 sourcemask = mask >> pos;
+			u32 destmask = ~(sourcemask << pos);
+			if (gpr.IsImm(rs)) {
+				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+				if (gpr.IsImm(rt)) {
+					gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+					return;
+				}
+
+				// It might be nice to avoid flushing rs, but it's the a little slower and
+				// usually more instructions.  Not worth it.
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			} else {
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			}
+		}
+		break;
+	}
 }
 
 void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
