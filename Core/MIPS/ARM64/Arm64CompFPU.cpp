@@ -110,7 +110,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		LDR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.LDR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
@@ -138,7 +138,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		STR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.STR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
