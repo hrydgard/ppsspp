@@ -540,8 +540,6 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
-
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -613,8 +611,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
 		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-		MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-		SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
 		break;
 
 	case 27: //divu
@@ -645,8 +642,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-			MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-			SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
 		}
 		break;
 
