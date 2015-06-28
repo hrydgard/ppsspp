@@ -100,8 +100,8 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 			break;
 		} else if (simm == 0) {
 			gpr.MapDirtyIn(rt, rs);
-			// Shift to get the sign bit only (for < 0.)
-			LSR(gpr.R(rt), gpr.R(rs), 31);
+			// Grab the sign bit (< 0) as 1/0.  Slightly faster than a shift.
+			UBFX(gpr.R(rt), gpr.R(rs), 31, 1);
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
@@ -137,8 +137,6 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 
 void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
-	DISABLE;
 
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -176,8 +174,8 @@ void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rd, rs);
-		MVN(SCRATCH1, gpr.R(rs));
-		CLZ(gpr.R(rd), SCRATCH1);
+		MVN(gpr.R(rd), gpr.R(rs));
+		CLZ(gpr.R(rd), gpr.R(rd));
 		break;
 	default:
 		DISABLE;
@@ -225,13 +223,11 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_EQ);
 		break;
 	case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_NEQ);
@@ -268,7 +264,33 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-		DISABLE;
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
+		} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
+			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
+			MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
+			u32 rhsImm = gpr.GetImm(rhs);
+			if (rhsImm == 0) {
+				gpr.MapDirtyIn(rd, lhs);
+				MVN(gpr.R(rd), gpr.R(lhs));
+			} else {
+				// Ignored, just for IsImmLogical.
+				unsigned int n, imm_s, imm_r;
+				if (IsImmLogical(rhsImm, 32, &n, &imm_s, &imm_r)) {
+					// Great, we can avoid flushing a reg.
+					gpr.MapDirtyIn(rd, lhs);
+					ORRI2R(gpr.R(rd), gpr.R(lhs), rhsImm);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+				}
+				MVN(gpr.R(rd), gpr.R(rd));
+			}
+		} else {
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			MVN(gpr.R(rd), gpr.R(rd));
+		}
 		break;
 
 	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
