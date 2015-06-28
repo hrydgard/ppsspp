@@ -218,6 +218,8 @@ public class NativeActivity extends Activity {
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
 
+		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
+
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
 			updateScreenRotation();
