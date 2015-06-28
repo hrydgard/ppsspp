@@ -175,8 +175,8 @@ void Arm64Jit::Comp_FPUComp(MIPSOpcode op) {
 		break;
 	case 3:      // ueq, ngl (equal, unordered)
 		CSET(gpr.R(MIPS_REG_FPCOND), CC_EQ);
-		CSET(SCRATCH1, CC_VS);
-		ORR(gpr.R(MIPS_REG_FPCOND), gpr.R(MIPS_REG_FPCOND), SCRATCH1);
+		// If ordered, use the above result.  If unordered, use ZR+1 (being 1.)
+		CSINC(gpr.R(MIPS_REG_FPCOND), gpr.R(MIPS_REG_FPCOND), WZR, CC_VC);
 		return;
 	case 4:      // olt, lt (less than, ordered)
 		CSET(gpr.R(MIPS_REG_FPCOND), CC_LO);
