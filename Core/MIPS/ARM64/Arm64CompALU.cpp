@@ -138,8 +138,6 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	DISABLE;
-
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 
@@ -176,8 +174,8 @@ void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rd, rs);
-		MVN(SCRATCH1, gpr.R(rs));
-		CLZ(gpr.R(rd), SCRATCH1);
+		MVN(gpr.R(rd), gpr.R(rs));
+		CLZ(gpr.R(rd), gpr.R(rd));
 		break;
 	default:
 		DISABLE;
