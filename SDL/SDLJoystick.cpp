@@ -147,7 +147,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 	case SDL_JOYDEVICEREMOVED:
 		{
 			int deviceIndex = getDeviceIndex(event.jdevice.which);
-			if (deviceIndex >= 0){
+			if (deviceIndex >= 0) {
 				SDL_JoystickClose(joys[deviceIndex]);
 				joys[deviceIndex] = 0;
 			}
@@ -156,10 +156,10 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 	}
 }
 
-int SDLJoystick::getDeviceIndex(int instanceId){
-	for (int i = 0; i < joys.size(); i++){
+int SDLJoystick::getDeviceIndex(int instanceId) {
+	for (int i = 0; i < joys.size(); i++) {
 		SDL_Joystick *joy = joys[i];
-		if (SDL_JoystickInstanceID(joy) == instanceId){
+		if (SDL_JoystickInstanceID(joy) == instanceId) {
 			return i;
 		}
 	}
