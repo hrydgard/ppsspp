@@ -171,7 +171,7 @@ void UpdateRunLoop() {
 		NativeRender();
 	}
 
-	if (GetUIState() != UISTATE_INGAME) {
+	if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
 		double diffTime = time_now_d() - startTime;
