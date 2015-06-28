@@ -611,7 +611,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
 		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
+		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
 		break;
 
 	case 27: //divu
@@ -642,7 +642,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rs), gpr.R(rt), gpr.R(MIPS_REG_LO));
+			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
 		}
 		break;
 
