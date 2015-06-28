@@ -223,13 +223,11 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_EQ);
 		break;
 	case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-		DISABLE;
 		gpr.MapDirtyInIn(rd, rt, rs);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_NEQ);
