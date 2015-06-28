@@ -174,8 +174,8 @@ public:
 		struct {
 			u32 pc;
 
-			u32 hi;
 			u32 lo;
+			u32 hi;
 
 			u32 fcr31; //fpu control register
 			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
