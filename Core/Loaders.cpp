@@ -21,6 +21,7 @@
 #include "file/file_util.h"
 
 #include "Core/FileLoaders/CachingFileLoader.h"
+#include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/FileLoaders/RetryingFileLoader.h"

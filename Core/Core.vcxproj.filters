@@ -619,6 +619,9 @@
     <ClCompile Include="FileLoaders\CachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="FileLoaders\DiskCachingFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1156,6 +1159,9 @@
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="FileLoaders\CachingFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\DiskCachingFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
   </ItemGroup>

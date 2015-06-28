@@ -223,6 +223,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
   $(SRC)/Core/FileLoaders/CachingFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/DiskCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/HTTPFileLoader.cpp \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \

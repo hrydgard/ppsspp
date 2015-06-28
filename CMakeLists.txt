@@ -1364,6 +1364,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Loaders.h
 	Core/FileLoaders/CachingFileLoader.cpp
 	Core/FileLoaders/CachingFileLoader.h
+	Core/FileLoaders/DiskCachingFileLoader.cpp
+	Core/FileLoaders/DiskCachingFileLoader.h
 	Core/FileLoaders/HTTPFileLoader.cpp
 	Core/FileLoaders/HTTPFileLoader.h
 	Core/FileLoaders/LocalFileLoader.cpp

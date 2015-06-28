@@ -200,6 +200,7 @@
     <ClCompile Include="ELF\PBPReader.cpp" />
     <ClCompile Include="ELF\PrxDecrypter.cpp" />
     <ClCompile Include="FileLoaders\CachingFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\DiskCachingFileLoader.cpp" />
     <ClCompile Include="FileLoaders\HTTPFileLoader.cpp" />
     <ClCompile Include="FileLoaders\LocalFileLoader.cpp" />
     <ClCompile Include="FileLoaders\RetryingFileLoader.cpp" />
@@ -524,6 +525,7 @@
     <ClInclude Include="ELF\PBPReader.h" />
     <ClInclude Include="ELF\PrxDecrypter.h" />
     <ClInclude Include="FileLoaders\CachingFileLoader.h" />
+    <ClInclude Include="FileLoaders\DiskCachingFileLoader.h" />
     <ClInclude Include="FileLoaders\HTTPFileLoader.h" />
     <ClInclude Include="FileLoaders\LocalFileLoader.h" />
     <ClInclude Include="FileLoaders\RetryingFileLoader.h" />
