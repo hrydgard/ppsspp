@@ -264,7 +264,33 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-		DISABLE;
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
+		} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
+			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
+			MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
+			u32 rhsImm = gpr.GetImm(rhs);
+			if (rhsImm == 0) {
+				gpr.MapDirtyIn(rd, lhs);
+				MVN(gpr.R(rd), gpr.R(lhs));
+			} else {
+				// Ignored, just for IsImmLogical.
+				unsigned int n, imm_s, imm_r;
+				if (IsImmLogical(rhsImm, 32, &n, &imm_s, &imm_r)) {
+					// Great, we can avoid flushing a reg.
+					gpr.MapDirtyIn(rd, lhs);
+					ORRI2R(gpr.R(rd), gpr.R(lhs), rhsImm);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+				}
+				MVN(gpr.R(rd), gpr.R(rd));
+			}
+		} else {
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			MVN(gpr.R(rd), gpr.R(rd));
+		}
 		break;
 
 	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
