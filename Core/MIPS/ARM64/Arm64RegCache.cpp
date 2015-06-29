@@ -69,6 +69,13 @@ bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG;
 }
 
+bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
+	if (IsMapped(mipsReg)) {
+		return ar[mr[mipsReg].reg].pointerified;
+	}
+	return false;
+}
+
 void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 	// On ARM64, at least Cortex A57, good old MOVT/MOVW  (MOVK in 64-bit) is really fast.
 	emit_->MOVI2R(reg, imm);

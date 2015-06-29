@@ -334,10 +334,7 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			} else {
 				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
 				LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-				// BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
-				ANDI2R(SCRATCH1, gpr.R(MIPS_REG_FPCOND), 1); // Just in case
-				ANDI2R(gpr.R(rt), gpr.R(rt), ~(0x1 << 23), SCRATCH2);  // SCRATCHREG2 won't be used, this turns into a simple BIC.
-				ORR(gpr.R(rt), gpr.R(rt), SCRATCH1, ArithOption(gpr.R(rt), ST_LSL, 23));
+				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 			}
 		} else if (fs == 0) {
 			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
