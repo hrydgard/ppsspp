@@ -99,7 +99,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
-	I18NCategory *dev = GetI18NCategory("Developer");
+	I18NCategory *de = GetI18NCategory("Developer");
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -474,6 +474,7 @@ void GameSettingsScreen::CreateViews() {
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
+	tools->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -483,7 +484,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
 	systemSettings->Add(new ItemHeader(s->T("UI Language")));
-	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(de->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
@@ -980,6 +981,11 @@ UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
+	screenManager()->push(new SystemInfoScreen());
+	return UI::EVENT_DONE;
+}
+
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
@@ -1005,7 +1011,6 @@ void DeveloperToolsScreen::CreateViews() {
 		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
 	}
 
-	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
 	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, de->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 
@@ -1060,11 +1065,6 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
 	host->ToggleDebugConsoleVisibility();
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DeveloperToolsScreen::OnSysInfo(UI::EventParams &e) {
-	screenManager()->push(new SystemInfoScreen());
 	return UI::EVENT_DONE;
 }
 

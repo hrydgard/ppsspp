@@ -241,7 +241,8 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	float tx = 150;
 	if (availableWidth < tw) {
-		tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
+		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
 		Bounds tb = bounds_;
 		tb.x = bounds_.x + 150;
 		tb.w = bounds_.w - 150;
@@ -279,6 +280,7 @@ void SavedataBrowser::Refresh() {
 
 	Add(new Spacer(1.0f));
 	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *s = GetI18NCategory("Savedata");
 
 	UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	gl->SetSpacing(4.0f);
@@ -309,6 +311,12 @@ void SavedataBrowser::Refresh() {
 	for (size_t i = 0; i < savedataButtons.size(); i++) {
 		SavedataButton *b = gameList_->Add(savedataButtons[i]);
 		b->OnClick.Handle(this, &SavedataBrowser::SavedataButtonClick);
+	}
+
+	if (savedataButtons.empty()) {
+		ViewGroup *group = new LinearLayout(ORIENT_VERTICAL, new UI::LinearLayoutParams(UI::Margins(12, 0)));
+		group->Add(new TextView(s->T("None yet.  Things will appear here after you save.")));
+		gameList_->Add(group);
 	}
 }
 

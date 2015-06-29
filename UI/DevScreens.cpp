@@ -406,7 +406,7 @@ void SystemInfoScreen::CreateViews() {
 	std::vector<std::string> exts;
 	SplitString(cpu_info.Summarize(), ',', exts);
 	for (size_t i = 2; i < exts.size(); i++) {
-		cpuExtensions->Add(new TextView(exts[i]));
+		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 	}
 	
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
