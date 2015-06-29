@@ -3,6 +3,7 @@
 
 #include "base/mutex.h"
 #include "base/stringutil.h"
+#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
@@ -441,9 +442,31 @@ void ItemHeader::Draw(UIContext &dc) {
 }
 
 void PopupHeader::Draw(UIContext &dc) {
+	const float paddingHorizontal = 12;
+	const float availableWidth = bounds_.w - paddingHorizontal * 2;
+
+	float tw, th;
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(text_.c_str(), bounds_.x + 12, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.MeasureText(dc.GetFontStyle(), text_.c_str(), &tw, &th, 0);
+
+	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+
+	float tx = paddingHorizontal;
+	if (availableWidth < tw) {
+		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
+		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
+		Bounds tb = bounds_;
+		tb.x = bounds_.x + paddingHorizontal;
+		tb.w = bounds_.w - paddingHorizontal * 2;
+		dc.PushScissor(tb);
+	}
+
+	dc.DrawText(text_.c_str(), bounds_.x + tx, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
+
+	if (availableWidth < tw) {
+		dc.PopScissor();
+	}
 }
 
 void CheckBox::Toggle(){
@@ -598,6 +621,12 @@ void TextView::Draw(UIContext &dc) {
 		Bounds clipRect = bounds_.Expand(10);  // TODO: Remove this hackery
 		dc.Flush();
 		dc.PushScissor(clipRect);
+	}
+	// In case it's been made focusable.
+	if (HasFocus()) {
+		UI::Style style = dc.theme->itemFocusedStyle;
+		style.background.color &= 0x7fffffff;
+		dc.FillRect(style.background, bounds_);
 	}
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
 	if (shadow_) {
