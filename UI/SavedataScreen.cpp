@@ -241,7 +241,8 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	float tx = 150;
 	if (availableWidth < tw) {
-		tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
+		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
 		Bounds tb = bounds_;
 		tb.x = bounds_.x + 150;
 		tb.w = bounds_.w - 150;
