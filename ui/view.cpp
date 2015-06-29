@@ -622,6 +622,12 @@ void TextView::Draw(UIContext &dc) {
 		dc.Flush();
 		dc.PushScissor(clipRect);
 	}
+	// In case it's been made focusable.
+	if (HasFocus()) {
+		UI::Style style = dc.theme->itemFocusedStyle;
+		style.background.color &= 0x7fffffff;
+		dc.FillRect(style.background, bounds_);
+	}
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;

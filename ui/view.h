@@ -593,7 +593,7 @@ public:
 
 	void Draw(UIContext &dc) override;
 
-	// These are focusable so that long lists of them can be keybaord scrolled.
+	// These are focusable so that long lists of them can be keyboard scrolled.
 	bool CanBeFocused() const override { return true; }
 
 private:
