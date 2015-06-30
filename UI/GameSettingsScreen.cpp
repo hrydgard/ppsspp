@@ -99,7 +99,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
-	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *dev = GetI18NCategory("Developer");
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -474,7 +474,7 @@ void GameSettingsScreen::CreateViews() {
 
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
-	tools->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
+	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -484,7 +484,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
 	systemSettings->Add(new ItemHeader(s->T("UI Language")));
-	systemSettings->Add(new Choice(de->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 
 	systemSettings->Add(new ItemHeader(s->T("Developer Tools")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
@@ -917,8 +917,8 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	I18NCategory *de = GetI18NCategory("Developer");
-	auto langScreen = new NewLanguageScreen(de->T("Language"));
+	I18NCategory *dev = GetI18NCategory("Developer");
+	auto langScreen = new NewLanguageScreen(dev->T("Language"));
 	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
 	screenManager()->push(langScreen);
 	return UI::EVENT_DONE;
@@ -991,7 +991,7 @@ void DeveloperToolsScreen::CreateViews() {
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
 	I18NCategory *d = GetI18NCategory("Dialog");
-	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
@@ -1011,10 +1011,10 @@ void DeveloperToolsScreen::CreateViews() {
 		list->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
 	}
 
-	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
-	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, de->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
+	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show Developer Menu")));
+	list->Add(new CheckBox(&g_Config.bDumpDecryptedEboot, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
 
-	Choice *cpuTests = new Choice(de->T("Run CPU Tests"));
+	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 #ifdef IOS
 	const std::string testDirectory = g_Config.flash0Directory + "../";
@@ -1025,11 +1025,11 @@ void DeveloperToolsScreen::CreateViews() {
 		cpuTests->SetEnabled(false);
 	}
 
-	list->Add(new CheckBox(&g_Config.bEnableLogging, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
-	list->Add(new ItemHeader(de->T("Language")));
-	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
-	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
+	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new ItemHeader(dev->T("Language")));
+	list->Add(new Choice(dev->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
+	list->Add(new Choice(dev->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new ItemHeader(""));
 	list->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
@@ -1045,18 +1045,18 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
-	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	if (g_Config.bGameSpecific)
 	{
 		screenManager()->push(
-			new PromptScreen(de->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
+			new PromptScreen(dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 	}
 	else
 	{
 		screenManager()->push(
-			new PromptScreen(de->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
+			new PromptScreen(dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 	}
 

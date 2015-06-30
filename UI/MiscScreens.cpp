@@ -163,9 +163,9 @@ void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager());
-	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *dev = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
-		auto langScreen = new NewLanguageScreen(de->T("Language"));
+		auto langScreen = new NewLanguageScreen(dev->T("Language"));
 		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
 	}
@@ -196,9 +196,9 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager());
-	I18NCategory *de = GetI18NCategory("Developer");
+	I18NCategory *dev = GetI18NCategory("Developer");
 	if (!strcmp(message, "language screen")) {
-		auto langScreen = new NewLanguageScreen(de->T("Language"));
+		auto langScreen = new NewLanguageScreen(dev->T("Language"));
 		langScreen->OnChoice.Handle(this, &UIDialogScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
 	} else if (!strcmp(message, "window minimized")) {
