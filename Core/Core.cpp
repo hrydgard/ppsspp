@@ -153,6 +153,9 @@ bool UpdateScreenScale(int width, int height, bool smallWindow) {
 }
 
 void UpdateRunLoop() {
+	time_update();
+	double startTime = time_now_d();
+
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
@@ -166,6 +169,16 @@ void UpdateRunLoop() {
 
 	if (GetUIState() != UISTATE_EXIT) {
 		NativeRender();
+	}
+
+	if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+		// Simple throttling to not burn the GPU in the menu.
+		time_update();
+		double diffTime = time_now_d() - startTime;
+		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+
+		if (sleepTime > 0)
+			sleep_ms(sleepTime);
 	}
 }
 
@@ -186,27 +199,15 @@ void GPU_SwapBuffers() {
 
 void Core_RunLoop() {
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
-		time_update();
-#if defined(USING_WIN_UI)
-		double startTime = time_now_d();
 		UpdateRunLoop();
-
-		// Simple throttling to not burn the GPU in the menu.
-		time_update();
-		double diffTime = time_now_d() - startTime;
-		int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
-		if (sleepTime > 0)
-			Sleep(sleepTime);
+#if defined(USING_WIN_UI)
 		if (!windowHidden) {
 			GPU_SwapBuffers();
 		}
-#else
-		UpdateRunLoop();
 #endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
-		time_update();
 		UpdateRunLoop();
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
