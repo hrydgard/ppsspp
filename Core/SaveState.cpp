@@ -357,7 +357,7 @@ namespace SaveState
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
-			I18NCategory *s = GetI18NCategory("Screen");
+			I18NCategory *sc = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
 			if (callback)
 				callback(false, cbUserData);
@@ -508,14 +508,13 @@ namespace SaveState
 			bool callbackResult;
 			std::string reason;
 
-			I18NCategory *s = GetI18NCategory("Screen");
-			// I couldn't stand the inconsistency.  But trying not to break old lang files.
-			const char *i18nLoadFailure = s->T("Load savestate failed", "");
-			const char *i18nSaveFailure = s->T("Save State Failed", "");
+			I18NCategory *sc = GetI18NCategory("Screen");
+			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
+			const char *i18nSaveFailure = sc->T("Save State Failed", "");
 			if (strlen(i18nLoadFailure) == 0)
-				i18nLoadFailure = s->T("Failed to load state");
+				i18nLoadFailure = sc->T("Failed to load state");
 			if (strlen(i18nSaveFailure) == 0)
-				i18nSaveFailure = s->T("Failed to save state");
+				i18nSaveFailure = sc->T("Failed to save state");
 
 			switch (op.type)
 			{
@@ -523,7 +522,7 @@ namespace SaveState
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
@@ -532,7 +531,7 @@ namespace SaveState
 					ERROR_LOG(COMMON, "Load state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
-					osm.Show(s->T(reason.c_str(), i18nLoadFailure), 2.0);
+					osm.Show(sc->T(reason.c_str(), i18nLoadFailure), 2.0);
 					callbackResult = false;
 				}
 				break;
@@ -542,7 +541,7 @@ namespace SaveState
 				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 
-					osm.Show(s->T("Saved State"), 2.0);
+					osm.Show(sc->T("Saved State"), 2.0);
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
@@ -564,14 +563,14 @@ namespace SaveState
 				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleFailure()) {
 						// Well, we did rewind, even if too much...
-						osm.Show(s->T("Loaded State"), 2.0);
+						osm.Show(sc->T("Loaded State"), 2.0);
 						callbackResult = true;
 						hasLoadedState = true;
 					} else {
