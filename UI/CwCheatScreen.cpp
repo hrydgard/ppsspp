@@ -61,7 +61,7 @@ void CwCheatScreen::CreateCodeList() {
 void CwCheatScreen::CreateViews() {
 	using namespace UI;
 	I18NCategory *cw = GetI18NCategory("CwCheats");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	CreateCodeList();
 	g_Config.bReloadCheats = true;
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
@@ -69,7 +69,7 @@ void CwCheatScreen::CreateViews() {
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
 	leftColumn->Add(new ItemHeader(cw->T("Options")));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new Choice(cw->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 #if !defined(MOBILE_DEVICE)

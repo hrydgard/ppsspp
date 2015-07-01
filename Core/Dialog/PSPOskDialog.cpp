@@ -872,10 +872,10 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 	RenderKeyboard();
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	PPGeDrawImage(I_SQUARE, 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
 		PPGeDrawImage(I_CROSS, 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
@@ -885,11 +885,11 @@ int PSPOskDialog::Update(int animSpeed) {
 		PPGeDrawImage(I_CROSS, 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 
-	PPGeDrawText(d->T("Select"), 75, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Delete"), 75, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Select"), 75, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Delete"), 75, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	PPGeDrawText("Start", 135, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Finish"), 185, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Finish"), 185, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	int index = (currentKeyboardLanguage - 1) % OSK_LANGUAGE_COUNT;
 	const char *countryCode;
@@ -908,7 +908,7 @@ int PSPOskDialog::Update(int animSpeed) {
 		
 	if (strcmp(countryCode, "ko_KR")) {
 		PPGeDrawText("Select", 135, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Shift"), 185, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("Shift"), 185, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 		
 	PPGeDrawText("L", 235, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));

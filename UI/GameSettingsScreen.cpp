@@ -91,7 +91,7 @@ void GameSettingsScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *co = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
@@ -111,11 +111,11 @@ void GameSettingsScreen::CreateViews() {
 	if (vertical) {
 		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
 		root_->Add(tabHolder);
-		root_->Add(new Choice(d->T("Back"), "", false, new LinearLayoutParams(0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	} else {
 		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 		root_->Add(tabHolder);
-		root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	}
 	root_->SetDefaultFocusView(tabHolder);
 
@@ -864,11 +864,11 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 #if defined(_WIN32)
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend) {
-		screenManager()->push(new PromptScreen(d->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), d->T("Yes"), d->T("No"),
+		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, placeholder::_1)));
 	}
 #endif
@@ -990,7 +990,7 @@ void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
@@ -1031,7 +1031,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(dev->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(dev->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new ItemHeader(""));
-	list->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	list->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1046,17 +1046,17 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	if (g_Config.bGameSpecific)
 	{
 		screenManager()->push(
-			new PromptScreen(dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), d->T("OK"), d->T("Cancel"),
+			new PromptScreen(dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 	}
 	else
 	{
 		screenManager()->push(
-			new PromptScreen(dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
+			new PromptScreen(dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), di->T("OK"), di->T("Cancel"),
 			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 	}
 
@@ -1096,7 +1096,7 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 void ProAdhocServerScreen::CreateViews() {
 	using namespace UI;	
 	I18NCategory *s = GetI18NCategory("System");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	
 	tempProAdhocServer = g_Config.proAdhocServer;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -1117,10 +1117,10 @@ void ProAdhocServerScreen::CreateViews() {
 	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
 	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
 	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
-	rightColumn->Add(new Button(d->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
-	rightColumn->Add(new Button(d->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
-	rightColumn->Add(new Button(d->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
-	rightColumn->Add(new Button(d->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
+	rightColumn->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
+	rightColumn->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
+	rightColumn->Add(new Button(di->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
+	rightColumn->Add(new Button(di->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
 	root_->Add(leftColumn);
 	root_->Add(rightColumn);
 }

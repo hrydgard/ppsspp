@@ -212,9 +212,9 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
 	: message_(message), callback_(callback) {
-		I18NCategory *d = GetI18NCategory("Dialog");
-		yesButtonText_ = d->T(yesButtonText.c_str());
-		noButtonText_ = d->T(noButtonText.c_str());
+		I18NCategory *di = GetI18NCategory("Dialog");
+		yesButtonText_ = di->T(yesButtonText.c_str());
+		noButtonText_ = di->T(noButtonText.c_str());
 }
 
 void PromptScreen::CreateViews() {
@@ -456,11 +456,11 @@ void LogoScreen::render() {
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Button *back = root_->Add(new Button(d->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
+	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
 	back->OnClick.Handle(this, &CreditsScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 #ifndef GOLD

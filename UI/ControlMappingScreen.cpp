@@ -203,7 +203,7 @@ void ControlMappingScreen::CreateViews() {
 	mappers_.clear();
 
 	I18NCategory *k = GetI18NCategory("KeyMapping");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -215,7 +215,7 @@ void ControlMappingScreen::CreateViews() {
 	}
 	leftColumn->Add(new Choice(k->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetScrollToTop(false);
@@ -435,7 +435,7 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
@@ -458,5 +458,5 @@ void AnalogTestScreen::CreateViews() {
 
 	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	root_->Add(new Button(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
