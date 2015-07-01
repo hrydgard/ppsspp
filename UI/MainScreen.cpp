@@ -416,15 +416,15 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef ANDROID
 	path_.SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI)
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *mm = GetI18NCategory("MainMenu");
 	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
 	if (QDir(fileName).exists())
 		path_.SetPath(fileName.toStdString());
 	else
 		return UI::EVENT_DONE;
 #elif defined(_WIN32)
-	I18NCategory *m = GetI18NCategory("MainMenu");
-	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), m->T("Choose folder"));
+	I18NCategory *mm = GetI18NCategory("MainMenu");
+	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 	if (!folder.size())
 		return UI::EVENT_DONE;
 	path_.SetPath(folder);
@@ -458,7 +458,7 @@ void GameBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *mm = GetI18NCategory("MainMenu");
 
 	// No topbar on recent screen
 	if (path_.GetPath() != "!RECENT") {
@@ -468,9 +468,9 @@ void GameBrowser::Refresh() {
 			Margins pathMargins(5, 0);
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(1.0f)));
 #if defined(_WIN32) || defined(USING_QT_UI)
-			topBar->Add(new Choice(m->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
-			topBar->Add(new Choice(m->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(1.0f)));
@@ -571,7 +571,7 @@ void GameBrowser::Refresh() {
 	if (allowBrowsing_) {
 		std::string caption = IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
-			caption = IsCurrentPathPinned() ? m->T("UnpinPath", "Unpin") : m->T("PinPath", "Pin");
+			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
 		}
 		gameList_->Add(new UI::Button(caption, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
@@ -579,7 +579,7 @@ void GameBrowser::Refresh() {
 
 	if (g_Config.bHomebrewStore && (flags_ & FLAG_HOMEBREWSTOREBUTTON)) {
 		Add(new Spacer());
-		homebrewStoreButton_ = Add(new Choice(m->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
+		homebrewStoreButton_ = Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
 	} else {
 		homebrewStoreButton_ = 0;
 	}
@@ -702,7 +702,7 @@ void MainScreen::CreateViews() {
 
 	bool vertical = UseVerticalLayout();
 
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *mm = GetI18NCategory("MainMenu");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
@@ -717,7 +717,7 @@ void MainScreen::CreateViews() {
 			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
@@ -727,10 +727,10 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
+		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
-		m->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
+		mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
 		FLAG_HOMEBREWSTOREBUTTON,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -742,8 +742,8 @@ void MainScreen::CreateViews() {
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	leftColumn->AddTab(m->T("Games"), scrollAllGames);
-	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
+	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
+	leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
 
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
@@ -791,18 +791,18 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(logos);
 	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetSmall(true);
 #if defined(_WIN32) || defined(USING_QT_UI)
-	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
-	rightColumnItems->Add(new Choice(m->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(mm->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 #ifndef GOLD
-	Choice *gold = rightColumnItems->Add(new Choice(m->T("Support PPSSPP")));
+	Choice *gold = rightColumnItems->Add(new Choice(mm->T("Support PPSSPP")));
 	gold->OnClick.Handle(this, &MainScreen::OnSupport);
 	gold->SetIcon(I_ICONGOLD);
 #endif
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -1093,7 +1093,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 void UmdReplaceScreen::CreateViews() {
 	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
@@ -1110,26 +1110,26 @@ void UmdReplaceScreen::CreateViews() {
 			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		m->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
+		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(m->T("Games"), scrollAllGames);
+	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
 
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelectedInstant);
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle(this, &UmdReplaceScreen::OnCancel);
-	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
 	if (g_Config.recentIsos.size() > 0) {
 		leftColumn->SetCurrentTab(0);

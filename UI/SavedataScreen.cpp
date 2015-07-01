@@ -279,7 +279,7 @@ void SavedataBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *s = GetI18NCategory("Savedata");
 
 	UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
