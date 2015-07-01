@@ -695,11 +695,11 @@ void EmuScreen::update(InputState &input) {
 			quit_ = true;
 			return;
 		}
-		I18NCategory *g = GetI18NCategory("Error");
-		std::string errLoadingFile = g->T("Error loading file", "Could not load game");
+		I18NCategory *err = GetI18NCategory("Error");
+		std::string errLoadingFile = err->T("Error loading file", "Could not load game");
 
 		errLoadingFile.append(" ");
-		errLoadingFile.append(g->T(errorMessage_.c_str()));
+		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";
