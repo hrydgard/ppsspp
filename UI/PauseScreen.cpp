@@ -269,7 +269,7 @@ void GamePauseScreen::CreateViews() {
 	using namespace UI;
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
-	I18NCategory *gs = GetI18NCategory("Graphics");
+	I18NCategory *gr = GetI18NCategory("Graphics");
 	I18NCategory *i = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
