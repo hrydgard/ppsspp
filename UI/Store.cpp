@@ -121,8 +121,6 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 	} else {
 		textureFailed_ = true;
 	}
-
-	download_.reset();
 }
 
 void HttpImageFileView::Draw(UIContext &dc) {
@@ -136,6 +134,7 @@ void HttpImageFileView::Draw(UIContext &dc) {
 		if (!texture_)
 			textureFailed_ = true;
 		textureData_.clear();
+		download_.reset();
 	}
 
 	if (HasFocus()) {
