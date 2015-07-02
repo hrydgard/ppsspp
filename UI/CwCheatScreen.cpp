@@ -60,23 +60,23 @@ void CwCheatScreen::CreateCodeList() {
 
 void CwCheatScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *k = GetI18NCategory("CwCheats");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *cw = GetI18NCategory("CwCheats");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	CreateCodeList();
 	g_Config.bReloadCheats = true;
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Margins actionMenuMargins(50, -15, 15, 0);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
-	leftColumn->Add(new ItemHeader(k->T("Options")));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
-	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new ItemHeader(cw->T("Options")));
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
+	leftColumn->Add(new Choice(cw->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 #if !defined(MOBILE_DEVICE)
-	leftColumn->Add(new Choice(k->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
+	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
-	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
-	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, k->T("Refresh Rate"), 1, screenManager()));
+	leftColumn->Add(new Choice(cw->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
+	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, cw->T("Refresh Rate"), 1, screenManager()));
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 	rightScroll->SetScrollToTop(false);
@@ -86,10 +86,10 @@ void CwCheatScreen::CreateViews() {
 
 	root_->Add(leftColumn);
 	root_->Add(rightScroll);
-	rightColumn->Add(new ItemHeader(k->T("Cheats")));
+	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < formattedList_.size(); i++) {
 		name = formattedList_[i].c_str();
-		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], k->T(name), ""))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
+		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], cw->T(name), ""))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
 	}
 }
 

@@ -212,9 +212,9 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
 	: message_(message), callback_(callback) {
-		I18NCategory *d = GetI18NCategory("Dialog");
-		yesButtonText_ = d->T(yesButtonText.c_str());
-		noButtonText_ = d->T(noButtonText.c_str());
+		I18NCategory *di = GetI18NCategory("Dialog");
+		yesButtonText_ = di->T(yesButtonText.c_str());
+		noButtonText_ = di->T(noButtonText.c_str());
 }
 
 void PromptScreen::CreateViews() {
@@ -422,10 +422,10 @@ void LogoScreen::render() {
 
 	::DrawBackground(dc, alpha);
 
-	I18NCategory *c = GetI18NCategory("PSPCredits");
+	I18NCategory *cr = GetI18NCategory("PSPCredits");
 	char temp[256];
 	// Manually formatting utf-8 is fun.  \xXX doesn't work everywhere.
-	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", c->T("created", "Created by"), 0xC3, 0xA5);
+	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
 #ifdef GOLD
 	dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #else
@@ -436,7 +436,7 @@ void LogoScreen::render() {
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(cr->T("license", "Free Software under GPL 2.0"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (boot_filename.size()) {
 		dc.DrawTextShadow(boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -456,21 +456,21 @@ void LogoScreen::render() {
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *d = GetI18NCategory("Dialog");
-	I18NCategory *c = GetI18NCategory("PSPCredits");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *cr = GetI18NCategory("PSPCredits");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	Button *back = root_->Add(new Button(d->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
+	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
 	back->OnClick.Handle(this, &CreditsScreen::OnOK);
 	root_->SetDefaultFocusView(back);
 #ifndef GOLD
-	root_->Add(new Button(c->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+	root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
-	root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
+	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 #ifdef ANDROID
-	root_->Add(new Button(c->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
-	root_->Add(new Button(c->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
+	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
+	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
 #ifdef GOLD
 	root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
@@ -508,8 +508,8 @@ UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
-	I18NCategory *c = GetI18NCategory("PSPCredits");
-	System_SendMessage("sharetext", c->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
+	I18NCategory *cr = GetI18NCategory("PSPCredits");
+	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
@@ -530,19 +530,19 @@ void CreditsScreen::update(InputState &input_state) {
 void CreditsScreen::render() {
 	UIScreen::render();
 
-	I18NCategory *c = GetI18NCategory("PSPCredits");
+	I18NCategory *cr = GetI18NCategory("PSPCredits");
 
 	const char * credits[] = {
 		"PPSSPP",
 		"",
-		c->T("title", "A fast and portable PSP emulator"),
+		cr->T("title", "A fast and portable PSP emulator"),
 		"",
 		"",
-		c->T("created", "Created by"),
+		cr->T("created", "Created by"),
 		"Henrik Rydg\xc3\xa5rd",
 		"",
 		"",
-		c->T("contributors", "Contributors:"),
+		cr->T("contributors", "Contributors:"),
 		"unknownbrackets",
 		"oioitff",
 		"xsacha",
@@ -582,7 +582,7 @@ void CreditsScreen::render() {
 		"Kyhel",
 		"",
 		"",
-		c->T("specialthanks", "Special thanks to:"),
+		cr->T("specialthanks", "Special thanks to:"),
 		"Maxim for his amazing Atrac3+ decoder work",
 		"Keith Galocy at nVidia (hw, advice)",
 		"Orphis (build server)",
@@ -591,18 +591,18 @@ void CreditsScreen::render() {
 		"solarmystic (testing)",
 		"all the forum mods",
 		"",
-		c->T("this translation by", ""),   // Empty string as this is the original :)
-		c->T("translators1", ""),
-		c->T("translators2", ""),
-		c->T("translators3", ""),
-		c->T("translators4", ""),
-		c->T("translators5", ""),
-		c->T("translators6", ""),
+		cr->T("this translation by", ""),   // Empty string as this is the original :)
+		cr->T("translators1", ""),
+		cr->T("translators2", ""),
+		cr->T("translators3", ""),
+		cr->T("translators4", ""),
+		cr->T("translators5", ""),
+		cr->T("translators6", ""),
 		"",
-		c->T("written", "Written in C++ for speed and portability"),
+		cr->T("written", "Written in C++ for speed and portability"),
 		"",
 		"",
-		c->T("tools", "Free tools used:"),
+		cr->T("tools", "Free tools used:"),
 #ifdef ANDROID
 		"Android SDK + NDK",
 #elif defined(BLACKBERRY)
@@ -619,22 +619,22 @@ void CreditsScreen::render() {
 		"PSP SDK",
 		"",
 		"",
-		c->T("website", "Check out the website:"),
+		cr->T("website", "Check out the website:"),
 		"www.ppsspp.org",
-		c->T("list", "compatibility lists, forums, and development info"),
+		cr->T("list", "compatibility lists, forums, and development info"),
 		"",
 		"",
-		c->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
+		cr->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
 		"http://www.dolphin-emu.org",
 		"",
 		"",
-		c->T("info1", "PPSSPP is only intended to play games you own."),
-		c->T("info2", "Please make sure that you own the rights to any games"),
-		c->T("info3", "you play by owning the UMD or by buying the digital"),
-		c->T("info4", "download from the PSN store on your real PSP."),
+		cr->T("info1", "PPSSPP is only intended to play games you own."),
+		cr->T("info2", "Please make sure that you own the rights to any games"),
+		cr->T("info3", "you play by owning the UMD or by buying the digital"),
+		cr->T("info4", "download from the PSN store on your real PSP."),
 		"",
 		"",
-		c->T("info5", "PSP is a trademark by Sony, Inc."),
+		cr->T("info5", "PSP is a trademark by Sony, Inc."),
 	};
 
 

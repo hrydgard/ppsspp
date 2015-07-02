@@ -186,19 +186,19 @@ SaveSlotView::SaveSlotView(int slot, UI::LayoutParams *layoutParams) : UI::Linea
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
 	fv->SetOverlayText(StringFromFormat("%i", slot_ + 1));
 
-	I18NCategory *i = GetI18NCategory("Pause");
+	I18NCategory *pa = GetI18NCategory("Pause");
 
 	LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	buttons->SetSpacing(2.0);
 	Add(buttons);
 
-	saveStateButton_ = buttons->Add(new Button(i->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
+	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
 
 	fv->OnClick.Handle(this, &SaveSlotView::OnScreenshotClick);
 
 	if (SaveState::HasSaveInSlot(slot)) {
-		loadStateButton_ = buttons->Add(new Button(i->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
+		loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, G_VCENTER)));
 		loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
 
 		std::string dateStr = SaveState::GetSlotDateAsString(slot_);
@@ -269,8 +269,8 @@ void GamePauseScreen::CreateViews() {
 	using namespace UI;
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
-	I18NCategory *gs = GetI18NCategory("Graphics");
-	I18NCategory *i = GetI18NCategory("Pause");
+	I18NCategory *gr = GetI18NCategory("Graphics");
+	I18NCategory *pa = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -291,7 +291,7 @@ void GamePauseScreen::CreateViews() {
 	leftColumnItems->Add(new Spacer(0.0));
 
 	if (g_Config.iRewindFlipFrequency > 0) {
-		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(i->T("Rewind")));
+		UI::Choice *rewindButton = leftColumnItems->Add(new Choice(pa->T("Rewind")));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Handle(this, &GamePauseScreen::OnRewind);
 	}
@@ -304,22 +304,22 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->SetSpacing(0.0f);
 	if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(i->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
+		rightColumnItems->Add(new Choice(pa->T("Switch UMD")))->OnClick.Handle(this, &GamePauseScreen::OnSwitchUMD);
 	}
-	Choice *continueChoice = rightColumnItems->Add(new Choice(i->T("Continue")));
+	Choice *continueChoice = rightColumnItems->Add(new Choice(pa->T("Continue")));
 	root_->SetDefaultFocusView(continueChoice);
 	continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	if (g_Config.hasGameConfig(gameId)) {
-		rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(i->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
+		rightColumnItems->Add(new Choice(pa->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(pa->T("Delete Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
 	} else {
-		rightColumnItems->Add(new Choice(i->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		rightColumnItems->Add(new Choice(i->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
+		rightColumnItems->Add(new Choice(pa->T("Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		rightColumnItems->Add(new Choice(pa->T("Create Game Config")))->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 	}
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
 
 	// TODO, also might be nice to show overall compat rating here?
@@ -329,7 +329,7 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+	rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
@@ -368,8 +368,8 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	if (SaveState::HasSaveInSlot(slot)) {
 		std::string fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
-		I18NCategory *p = GetI18NCategory("Pause");
-		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), p);
+		I18NCategory *pa = GetI18NCategory("Pause");
+		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), pa);
 		screenManager()->push(screen);
 	}
 	return UI::EVENT_DONE;
@@ -424,10 +424,10 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 }
 UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 	screenManager()->push(
-		new PromptScreen(d->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;

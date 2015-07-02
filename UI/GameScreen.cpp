@@ -47,7 +47,7 @@ GameScreen::~GameScreen() {
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 
 	// Information in the top left.
@@ -62,7 +62,7 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
+	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
@@ -137,10 +137,10 @@ void GameScreen::CallbackDeleteConfig(bool yes)
 
 UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 	screenManager()->push(
-		new PromptScreen(d->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GameScreen::CallbackDeleteConfig, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;
@@ -223,7 +223,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
@@ -231,7 +231,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 		if (saveDirs.size()) {
 			screenManager()->push(
-				new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+				new PromptScreen(di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 		}
 	}
@@ -250,12 +250,12 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), d->T("Cancel"),
+			new PromptScreen(di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 

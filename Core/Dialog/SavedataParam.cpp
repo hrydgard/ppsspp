@@ -641,9 +641,9 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 
 			// Don't notify the user if we're not going to upgrade the save.
 			if (!g_Config.bEncryptSave) {
-				I18NCategory *d = GetI18NCategory("Dialog");
-				osm.Show(d->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
-				osm.Show(d->T("Old savedata detected"), 6.0f);
+				I18NCategory *di = GetI18NCategory("Dialog");
+				osm.Show(di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+				osm.Show(di->T("Old savedata detected"), 6.0f);
 			}
 		} else {
 			if (decryptMode == 5 && prevCryptMode == 3) {

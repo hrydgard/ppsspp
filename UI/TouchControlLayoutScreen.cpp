@@ -310,20 +310,20 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	using namespace UI;
 
-	I18NCategory *c = GetI18NCategory("Controls");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *co = GetI18NCategory("Controls");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	Choice *reset = new Choice(d->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
-	Choice *back = new Choice(d->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
-	Choice *visibility = new Choice(c->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
-	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, c->T("Button Scaling"), screenManager()))
+	Choice *reset = new Choice(di->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *visibility = new Choice(co->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, co->T("Button Scaling"), screenManager()))
 	// 	->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
-	mode_->AddChoice(d->T("Move"));
-	mode_->AddChoice(d->T("Resize"));
+	mode_->AddChoice(di->T("Move"));
+	mode_->AddChoice(di->T("Resize"));
 	mode_->SetSelection(0);
 
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);

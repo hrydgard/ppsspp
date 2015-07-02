@@ -23,35 +23,35 @@
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *c = GetI18NCategory("Controls");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *co = GetI18NCategory("Controls");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
 	LinearLayout *settings = new LinearLayout(ORIENT_VERTICAL);
 
 	settings->SetSpacing(0);
-	settings->Add(new ItemHeader(c->T("Invert Axes")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltX, c->T("Invert Tilt along X axis")));
-	settings->Add(new CheckBox(&g_Config.bInvertTiltY, c->T("Invert Tilt along Y axis")));
+	settings->Add(new ItemHeader(co->T("Invert Axes")));
+	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
+	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
 
-	settings->Add(new ItemHeader(c->T("Sensitivity")));
+	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	//TODO: allow values greater than 100? I'm not sure if that's needed.
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, c->T("Tilt Sensitivity along X axis"), screenManager()));
-	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, c->T("Tilt Sensitivity along Y axis"), screenManager()));
-	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, c->T("Deadzone Radius"), screenManager()));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, co->T("Tilt Sensitivity along X axis"), screenManager()));
+	settings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, co->T("Tilt Sensitivity along Y axis"), screenManager()));
+	settings->Add(new PopupSliderChoiceFloat(&g_Config.fDeadzoneRadius, 0.0, 1.0, co->T("Deadzone Radius"), screenManager()));
 
-	settings->Add(new ItemHeader(c->T("Calibration")));
-	InfoItem *calibrationInfo = new InfoItem(c->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
+	settings->Add(new ItemHeader(co->T("Calibration")));
+	InfoItem *calibrationInfo = new InfoItem(co->T("To Calibrate", "To calibrate, keep device on a flat surface and press calibrate."), "");
 	settings->Add(calibrationInfo);
 
-	Choice *calibrate = new Choice(c->T("Calibrate D-Pad"));
+	Choice *calibrate = new Choice(co->T("Calibrate D-Pad"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
 	settings->Add(calibrate);
 
 	root_->Add(settings);
 	settings->Add(new ItemHeader(""));
-	settings->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	settings->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
 void TiltAnalogSettingsScreen::update(InputState &input) {

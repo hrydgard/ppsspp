@@ -783,9 +783,9 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
-			I18NCategory *gs = GetI18NCategory("Graphics");
+			I18NCategory *gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
-			osm.Show(gs->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
+			osm.Show(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
 			delete vs;
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure

@@ -202,20 +202,20 @@ void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
 
-	I18NCategory *k = GetI18NCategory("KeyMapping");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
-	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
-	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
+	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
+	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	if (KeyMap::GetSeenPads().size()) {
-		leftColumn->Add(new Choice(k->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
-	leftColumn->Add(new Choice(k->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
+	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetScrollToTop(false);
@@ -260,8 +260,8 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	for (auto s = seenPads.begin(), end = seenPads.end(); s != end; ++s) {
 		items.push_back(*s);
 	}
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
-	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
 	screenManager()->push(autoConfList);
 	return UI::EVENT_DONE;
 }
@@ -289,11 +289,11 @@ void ControlMappingScreen::KeyMapped(int pspkey) {  // Notification to let us re
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *km = GetI18NCategory("KeyMapping");
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
+	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -435,7 +435,7 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
@@ -458,5 +458,5 @@ void AnalogTestScreen::CreateViews() {
 
 	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	root_->Add(new Button(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
