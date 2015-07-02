@@ -415,7 +415,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	totalSize = totalEnd - totalStart;
 
 	// If a load address is specified that's in regular RAM, override kernel module status
-	bool inUser = totalStart > 0x08900000;
+	bool inUser = totalStart >= PSP_GetUserMemoryBase();
 	BlockAllocator &memblock = (kernelModule && !inUser) ? kernelMemory : userMemory;
 
 	if (!bRelocate)
