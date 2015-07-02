@@ -130,11 +130,11 @@ UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
 	: box_(0), title_(title), defaultButton_(NULL) {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	if (!button1.empty())
-		button1_ = d->T(button1.c_str());
+		button1_ = di->T(button1.c_str());
 	if (!button2.empty())
-		button2_ = d->T(button2.c_str());
+		button2_ = di->T(button2.c_str());
 }
 
 bool PopupScreen::touch(const TouchInput &touch) {
