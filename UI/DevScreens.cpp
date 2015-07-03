@@ -832,8 +832,15 @@ void DrawProfile(UIContext &ui) {
 	float legendStartY = legendHeight > ui.GetBounds().centerY() ? ui.GetBounds().y2() - legendHeight : ui.GetBounds().centerY();
 	float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
 
+	static float lastMaxVal = 1.0f / 60.0f;
+	std::vector<float> history;
+	std::vector<float> total;
+	history.resize(historyLength);
+	total.resize(historyLength);
+
 	const uint32_t opacity = 140 << 24;
 
+	int legendNum = 0;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
 		if (!strcmp(name, "timing")) {
@@ -841,18 +848,28 @@ void DrawProfile(UIContext &ui) {
 		}
 		uint32_t color = nice_colors[i % ARRAY_SIZE(nice_colors)];
 
-		float y = legendStartY + i * rowH;
-		ui.FillRect(UI::Drawable(opacity | color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
-		ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
+		Profiler_GetHistory(i, &history[0], historyLength);
+		float sum = 0.0f;
+		bool show = false;
+		for (int j = 0; j < historyLength; ++j) {
+			sum += history[j];
+			if (history[j] > (lastMaxVal / 120.0f)) {
+				show = true;
+			}
+		}
+		if ((sum / historyLength) >= (lastMaxVal / 120.0f)) {
+			show = true;
+		}
+
+		if (show) {
+			float y = legendStartY + legendNum++ * rowH;
+			ui.FillRect(UI::Drawable(opacity | color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
+			ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
+		}
 	}
 
 	float graphWidth = ui.GetBounds().x2() - legendWidth - 20.0f;
 	float graphHeight = ui.GetBounds().h * 0.8f;
-
-	std::vector<float> history;
-	std::vector<float> total;
-	history.resize(historyLength);
-	total.resize(historyLength);
 
 	float dx = graphWidth / historyLength;
 
@@ -863,7 +880,6 @@ void DrawProfile(UIContext &ui) {
 	*/
 
 	bool area = true;
-	static float lastMaxVal = 1.0f / 60.0f;
 	float minVal = 0.0f;
 	float maxVal = lastMaxVal;  // TODO - adjust to frame length
 	if (maxVal < 0.001f)
