@@ -105,6 +105,8 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 				if (mipsReg == MIPS_REG_LO) {
 					loadReg = EncodeRegTo64(loadReg);
 				}
+				// TODO: Scan ahead / hint when loading multiple regs?
+				// We could potentially LDP if mipsReg + 1 or mipsReg - 1 is needed.
 				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, offset);
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
@@ -407,6 +409,7 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
+		ar[mr[r].reg].pointerified = false;
 		break;
 
 	case ML_MEM:
@@ -427,7 +430,28 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 }
 
 void Arm64RegCache::FlushAll() {
-	// TODO: Flush in pairs
+	// LO can't be included in a 32-bit pair, since it's 64 bit.
+	// Flush it first so we don't get it confused.
+	FlushR(MIPS_REG_LO);
+
+	// TODO: We could do a pass to allocate regs for imms for more paired stores.
+	// 31 because 30 and 31 are the last possible pair - MIPS_REG_FPCOND, etc. are too far away.
+	for (int i = 0; i < 31; i++) {
+		MIPSGPReg mreg1 = MIPSGPReg(i);
+		MIPSGPReg mreg2 = MIPSGPReg(i + 1);
+		ARM64Reg areg1 = ARM64RegForFlush(mreg1);
+		ARM64Reg areg2 = ARM64RegForFlush(mreg2);
+		if (areg1 != INVALID_REG && areg2 != INVALID_REG) {
+			// We can use a paired store, awesome.
+			emit_->STP(INDEX_SIGNED, areg1, areg2, CTXREG, GetMipsRegOffset(mreg1));
+
+			// Now we mark them as stored by discarding.
+			DiscardR(mreg1);
+			DiscardR(mreg2);
+		}
+	}
+
+	// Final pass to grab any that were left behind.
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
 		FlushR(mipsReg);
