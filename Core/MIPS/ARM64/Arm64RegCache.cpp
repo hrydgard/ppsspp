@@ -61,8 +61,11 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 }
 
 void Arm64RegCache::FlushBeforeCall() {
-	// TODO: More optimal
-	FlushAll();
+	// These registers are not preserved by function calls.
+	for (int i = 0; i < 19; ++i) {
+		FlushArmReg(ARM64Reg(W0 + i));
+	}
+	FlushArmReg(W30);
 }
 
 bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
@@ -102,6 +105,8 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 				if (mipsReg == MIPS_REG_LO) {
 					loadReg = EncodeRegTo64(loadReg);
 				}
+				// TODO: Scan ahead / hint when loading multiple regs?
+				// We could potentially LDP if mipsReg + 1 or mipsReg - 1 is needed.
 				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, offset);
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
@@ -123,14 +128,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 			}
 		}
 	} else {
-		if (mipsReg == MIPS_REG_ZERO) {
-			// This way, if we SetImm() it, we'll keep it.
-			// TODO: Actually, this may cause trouble with SetRegImm?  The reg is NOT zero.
-			mr[mipsReg].loc = ML_ARMREG_IMM;
-			mr[mipsReg].imm = 0;
-		} else {
-			mr[mipsReg].loc = ML_ARMREG;
-		}
+		mr[mipsReg].loc = ML_ARMREG;
 	}
 	ar[reg].mipsReg = mipsReg;
 	ar[reg].pointerified = false;
@@ -308,17 +306,16 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		}
 		return;
 	}
-	if (ar[r].mipsReg != MIPS_REG_INVALID) {
+	if (ar[r].mipsReg != MIPS_REG_INVALID && ar[r].mipsReg != MIPS_REG_ZERO) {
 		auto &mreg = mr[ar[r].mipsReg];
 		if (mreg.loc == ML_ARMREG_IMM) {
 			// We know its immedate value, no need to STR now.
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
 		} else {
-			ARM64Reg storeReg = r;
-			if (ar[r].mipsReg == MIPS_REG_LO)
-				storeReg = EncodeRegTo64(storeReg);
-			if (ar[r].isDirty && mreg.loc == ML_ARMREG)
+			// Note: may be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+			if (storeReg != INVALID_REG)
 				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
 			mreg.loc = ML_MEM;
 			mreg.reg = INVALID_REG;
@@ -338,8 +335,48 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
 		ar[armReg].pointerified = false;
 		mr[mipsReg].reg = INVALID_REG;
-		mr[mipsReg].loc = ML_MEM;
+		if (mipsReg == MIPS_REG_ZERO) {
+			mr[mipsReg].loc = ML_IMM;
+		} else {
+			mr[mipsReg].loc = ML_MEM;
+		}
 		mr[mipsReg].imm = 0;
+	}
+}
+
+ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
+	switch (mr[r].loc) {
+	case ML_IMM:
+		// Could we get lucky?  Check for an exact match in another armreg.
+		for (int i = 0; i < NUM_MIPSREG; ++i) {
+			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
+				// Awesome, let's just store this reg.
+				return mr[i].reg;
+			}
+		}
+		return INVALID_REG;
+
+	case ML_ARMREG:
+	case ML_ARMREG_IMM:
+		if (mr[r].reg == INVALID_REG) {
+			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			return INVALID_REG;
+		}
+		// No need to flush if it's zero or not dirty.
+		if (r == MIPS_REG_ZERO || !ar[mr[r].reg].isDirty) {
+			return INVALID_REG;
+		}
+		if (r == MIPS_REG_LO) {
+			return EncodeRegTo64(mr[r].reg);
+		}
+		return mr[r].reg;
+
+	case ML_MEM:
+		return INVALID_REG;
+
+	default:
+		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		return INVALID_REG;
 	}
 }
 
@@ -351,26 +388,28 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 			SetRegImm(SCRATCH1_64, mr[r].imm);
 			emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, GetMipsRegOffset(r));
 		} else if (r != MIPS_REG_ZERO) {
-			SetRegImm(SCRATCH1, mr[r].imm);
-			emit_->STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, GetMipsRegOffset(r));
+			// Try to optimize using a different reg.
+			ARM64Reg storeReg = ARM64RegForFlush(r);
+			if (storeReg == INVALID_REG) {
+				SetRegImm(SCRATCH1, mr[r].imm);
+				storeReg = SCRATCH1;
+			}
+			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
 		}
 		break;
 
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
-		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
-		}
 		if (ar[mr[r].reg].isDirty) {
-			if (r != MIPS_REG_ZERO) {
-				ARM64Reg storeReg = mr[r].reg;
-				if (r == MIPS_REG_LO)
-					storeReg = EncodeRegTo64(storeReg);
+			// Note: might be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(r);
+			if (storeReg != INVALID_REG) {
 				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
 			}
 			ar[mr[r].reg].isDirty = false;
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
+		ar[mr[r].reg].pointerified = false;
 		break;
 
 	case ML_MEM:
@@ -381,13 +420,38 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
-	mr[r].loc = ML_MEM;
+	if (r == MIPS_REG_ZERO) {
+		mr[r].loc = ML_IMM;
+	} else {
+		mr[r].loc = ML_MEM;
+	}
 	mr[r].reg = INVALID_REG;
 	mr[r].imm = 0;
 }
 
 void Arm64RegCache::FlushAll() {
-	// TODO: Flush in pairs
+	// LO can't be included in a 32-bit pair, since it's 64 bit.
+	// Flush it first so we don't get it confused.
+	FlushR(MIPS_REG_LO);
+
+	// TODO: We could do a pass to allocate regs for imms for more paired stores.
+	// 31 because 30 and 31 are the last possible pair - MIPS_REG_FPCOND, etc. are too far away.
+	for (int i = 0; i < 31; i++) {
+		MIPSGPReg mreg1 = MIPSGPReg(i);
+		MIPSGPReg mreg2 = MIPSGPReg(i + 1);
+		ARM64Reg areg1 = ARM64RegForFlush(mreg1);
+		ARM64Reg areg2 = ARM64RegForFlush(mreg2);
+		if (areg1 != INVALID_REG && areg2 != INVALID_REG) {
+			// We can use a paired store, awesome.
+			emit_->STP(INDEX_SIGNED, areg1, areg2, CTXREG, GetMipsRegOffset(mreg1));
+
+			// Now we mark them as stored by discarding.
+			DiscardR(mreg1);
+			DiscardR(mreg2);
+		}
+	}
+
+	// Final pass to grab any that were left behind.
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
 		FlushR(mipsReg);
@@ -402,8 +466,10 @@ void Arm64RegCache::FlushAll() {
 }
 
 void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
-	if (r == MIPS_REG_ZERO && immVal != 0)
-		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
+	if (r == MIPS_REG_ZERO && immVal != 0) {
+		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
+		return;
+	}
 
 	if (mr[r].loc == ML_ARMREG_IMM && mr[r].imm == immVal) {
 		// Already have that value, let's keep it in the reg.
