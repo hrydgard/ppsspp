@@ -126,14 +126,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 			}
 		}
 	} else {
-		if (mipsReg == MIPS_REG_ZERO) {
-			// This way, if we SetImm() it, we'll keep it.
-			// TODO: Actually, this may cause trouble with SetRegImm?  The reg is NOT zero.
-			mr[mipsReg].loc = ML_ARMREG_IMM;
-			mr[mipsReg].imm = 0;
-		} else {
-			mr[mipsReg].loc = ML_ARMREG;
-		}
+		mr[mipsReg].loc = ML_ARMREG;
 	}
 	ar[reg].mipsReg = mipsReg;
 	ar[reg].pointerified = false;
@@ -311,7 +304,7 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		}
 		return;
 	}
-	if (ar[r].mipsReg != MIPS_REG_INVALID) {
+	if (ar[r].mipsReg != MIPS_REG_INVALID && ar[r].mipsReg != MIPS_REG_ZERO) {
 		auto &mreg = mr[ar[r].mipsReg];
 		if (mreg.loc == ML_ARMREG_IMM) {
 			// We know its immedate value, no need to STR now.
@@ -341,7 +334,11 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
 		ar[armReg].pointerified = false;
 		mr[mipsReg].reg = INVALID_REG;
-		mr[mipsReg].loc = ML_MEM;
+		if (mipsReg == MIPS_REG_ZERO) {
+			mr[mipsReg].loc = ML_IMM;
+		} else {
+			mr[mipsReg].loc = ML_MEM;
+		}
 		mr[mipsReg].imm = 0;
 	}
 }
@@ -384,7 +381,11 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
-	mr[r].loc = ML_MEM;
+	if (r == MIPS_REG_ZERO) {
+		mr[r].loc = ML_IMM;
+	} else {
+		mr[r].loc = ML_MEM;
+	}
 	mr[r].reg = INVALID_REG;
 	mr[r].imm = 0;
 }
@@ -405,8 +406,10 @@ void Arm64RegCache::FlushAll() {
 }
 
 void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
-	if (r == MIPS_REG_ZERO && immVal != 0)
-		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
+	if (r == MIPS_REG_ZERO && immVal != 0) {
+		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
+		return;
+	}
 
 	if (mr[r].loc == ML_ARMREG_IMM && mr[r].imm == immVal) {
 		// Already have that value, let's keep it in the reg.
