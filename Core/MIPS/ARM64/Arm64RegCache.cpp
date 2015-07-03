@@ -347,6 +347,10 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
+		// Zero is super easy.
+		if (mr[r].imm == 0) {
+			return WZR;
+		}
 		// Could we get lucky?  Check for an exact match in another armreg.
 		for (int i = 0; i < NUM_MIPSREG; ++i) {
 			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
