@@ -404,7 +404,7 @@ void GameSettingsScreen::CreateViews() {
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		//Combo key Mapping
-		controlsSettings->Add(new Choice(c->T("Combo Key")))->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
+		controlsSettings->Add(new Choice(co->T("Combo Key")))->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
 
 		// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
@@ -428,7 +428,7 @@ void GameSettingsScreen::CreateViews() {
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		//Combo Key style
 		static const char *ComboButtonStyles[] = { "ACG", "CV" };
-		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboButtonStyle, c->T("Combo Key style"), ComboButtonStyles, 0, ARRAY_SIZE(ComboButtonStyles), c, screenManager()));
+		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboButtonStyle, co->T("Combo Key style"), ComboButtonStyles, 0, ARRAY_SIZE(ComboButtonStyles), c, screenManager()));
 		combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
