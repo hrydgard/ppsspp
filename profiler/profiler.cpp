@@ -11,7 +11,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "profiler/profiler.h"
 
-#define MAX_CATEGORIES 16 // Can be any number
+#define MAX_CATEGORIES 32 // Can be any number
 #define MAX_DEPTH 16      // Can be any number
 #define HISTORY_SIZE 256  // Must be power of 2
 
