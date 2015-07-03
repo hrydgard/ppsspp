@@ -447,6 +447,7 @@ ifeq ($(UNITTEST),1)
     $(EXEC_AND_LIB_FILES) \
 	$(SRC)/Core/MIPS/MIPSAsm.cpp \
     $(SRC)/UnitTest/JitHarness.cpp \
+    $(SRC)/UnitTest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
     $(SRC)/UnitTest/UnitTest.cpp
 
