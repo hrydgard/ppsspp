@@ -810,6 +810,8 @@ void DrawProfile(UIContext &ui) {
 	int numCategories = Profiler_GetNumCategories();
 	int historyLength = Profiler_GetHistoryLength();
 
+	ui.SetFontStyle(ui.theme->uiFont);
+
 	float legendWidth = 80.0f;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
