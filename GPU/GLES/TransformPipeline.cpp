@@ -578,6 +578,7 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 }
 
 void TransformDrawEngine::DoFlush() {
+	PROFILE_THIS_SCOPE("flush");
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 

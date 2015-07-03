@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "profiler/profiler.h"
+
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
@@ -590,6 +592,11 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	FlushAll();
 
 	SaveDowncount();
+#ifdef USE_PROFILER
+	// When profiling, we can't skip CallSyscall, since it times syscalls.
+	MOVI2R(W0, op.encoding);
+	QuickCallFunction(X1, (void *)&CallSyscall);
+#else
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc) {
@@ -600,6 +607,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(X1, (void *)&CallSyscall);
 	}
+#endif
 	ApplyRoundingMode();
 	RestoreDowncount();
 

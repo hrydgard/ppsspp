@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
+#include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
 #include "Common/CPUDetect.h"
 
@@ -179,6 +180,7 @@ void Arm64Jit::CompileDelaySlot(int flags) {
 
 
 void Arm64Jit::Compile(u32 em_address) {
+	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		INFO_LOG(JIT, "Space left: %i", GetSpaceLeft());
 		ClearCache();
@@ -217,6 +219,7 @@ void Arm64Jit::Compile(u32 em_address) {
 }
 
 void Arm64Jit::RunLoopUntil(u64 globalticks) {
+	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterCode)();
 }
 
