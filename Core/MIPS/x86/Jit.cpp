@@ -19,6 +19,7 @@
 #include <iterator>
 
 #include "math/math_util.h"
+#include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
@@ -347,6 +348,7 @@ void Jit::EatInstruction(MIPSOpcode op)
 
 void Jit::Compile(u32 em_address)
 {
+	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
@@ -385,6 +387,7 @@ void Jit::Compile(u32 em_address)
 
 void Jit::RunLoopUntil(u64 globalticks)
 {
+	PROFILE_THIS_SCOPE("jit");
 	((void (*)())asm_.enterCode)();
 }
 

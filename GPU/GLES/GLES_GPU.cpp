@@ -804,7 +804,7 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
-	// This also make skipping drawing very effective.
+	// This also makes skipping drawing very effective.
 	framebufferManager_.SetRenderFrameBuffer();
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		transformDraw_.SetupVertexDecoder(gstate.vertType);

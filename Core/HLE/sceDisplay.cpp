@@ -31,6 +31,7 @@
 // and move everything into native...
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "profiler/profiler.h"
 
 #ifndef _XBOX
 #include "gfx_es2/gl_state.h"
@@ -489,6 +490,7 @@ static bool FrameTimingThrottled() {
 
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
+	PROFILE_THIS_SCOPE("timing");
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = FrameTimingThrottled();
 	skipFrame = false;
@@ -568,6 +570,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 }
 
 static void DoFrameIdleTiming() {
+	PROFILE_THIS_SCOPE("timing");
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
@@ -727,6 +730,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	// The goal here is to prevent network, audio, and input lag from the real world.
 	// Our normal timing is very "stop and go".  This is efficient, but causes real world lag.
 	// This event (optionally) runs every 1ms to sync with the real world.
+	PROFILE_THIS_SCOPE("timing");
 
 	if (!FrameTimingThrottled()) {
 		lagSyncScheduled = false;

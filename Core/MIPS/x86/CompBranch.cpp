@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "profiler/profiler.h"
+
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
@@ -775,12 +777,17 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 
+#ifdef USE_PROFILER
+	// When profiling, we can't skip CallSyscall, since it times syscalls.
+	ABI_CallFunctionC(&CallSyscall, op.encoding);
+#else
 	// Skip the CallSyscall where possible.
 	void *quickFunc = GetQuickSyscallFunc(op);
 	if (quickFunc)
 		ABI_CallFunctionP(quickFunc, (void *)GetSyscallInfo(op));
 	else
 		ABI_CallFunctionC(&CallSyscall, op.encoding);
+#endif
 
 	ApplyRoundingMode();
 	WriteSyscallExit();

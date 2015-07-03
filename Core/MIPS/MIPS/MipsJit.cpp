@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
+#include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -137,6 +138,7 @@ void MipsJit::CompileDelaySlot(int flags)
 
 
 void MipsJit::Compile(u32 em_address) {
+	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
@@ -163,6 +165,7 @@ void MipsJit::Compile(u32 em_address) {
 
 void MipsJit::RunLoopUntil(u64 globalticks)
 {
+	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterCode)();
 }
 
