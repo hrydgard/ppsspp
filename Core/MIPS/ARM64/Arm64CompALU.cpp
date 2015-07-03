@@ -40,12 +40,11 @@ using namespace MIPSAnalyst;
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
@@ -445,7 +444,7 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 					return;
 				}
 
-				// It might be nice to avoid flushing rs, but it's the a little slower and
+				// It might be nice to avoid flushing rs, but it's a little slower and
 				// usually more instructions.  Not worth it.
 				gpr.MapDirtyIn(rt, rs, false);
 				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);

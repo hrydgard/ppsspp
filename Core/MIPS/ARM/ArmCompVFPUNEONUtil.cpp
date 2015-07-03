@@ -44,11 +44,6 @@
 #include "Core/MIPS/ARM/ArmCompVFPUNEONUtil.h"
 
 // TODO: Somehow #ifdef away on ARMv5eabi, without breaking the linker.
-// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
-#define CONDITIONAL_DISABLE ;
-#define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)

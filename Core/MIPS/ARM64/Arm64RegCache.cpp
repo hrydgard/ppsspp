@@ -125,6 +125,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	} else {
 		if (mipsReg == MIPS_REG_ZERO) {
 			// This way, if we SetImm() it, we'll keep it.
+			// TODO: Actually, this may cause trouble with SetRegImm?  The reg is NOT zero.
 			mr[mipsReg].loc = ML_ARMREG_IMM;
 			mr[mipsReg].imm = 0;
 		} else {

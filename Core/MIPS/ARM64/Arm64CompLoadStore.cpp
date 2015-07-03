@@ -64,8 +64,7 @@
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 	using namespace Arm64Gen;
 	using namespace Arm64JitConstants;
 	

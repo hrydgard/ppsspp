@@ -35,9 +35,9 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)
@@ -50,8 +50,7 @@
 #define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 	using namespace Arm64Gen;
 	using namespace Arm64JitConstants;
 
