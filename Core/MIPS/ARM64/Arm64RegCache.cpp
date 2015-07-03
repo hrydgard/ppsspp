@@ -69,6 +69,13 @@ bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG;
 }
 
+bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
+	if (IsMapped(mipsReg)) {
+		return ar[mr[mipsReg].reg].pointerified;
+	}
+	return false;
+}
+
 void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 	// On ARM64, at least Cortex A57, good old MOVT/MOVW  (MOVK in 64-bit) is really fast.
 	emit_->MOVI2R(reg, imm);
@@ -90,8 +97,12 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 			case ML_MEM:
 			{
 				int offset = GetMipsRegOffset(mipsReg);
+				ARM64Reg loadReg = reg;
 				// INFO_LOG(JIT, "MapRegTo %d mips: %d offset %d", (int)reg, mipsReg, offset);
-				emit_->LDR(INDEX_UNSIGNED, reg, CTXREG, offset);
+				if (mipsReg == MIPS_REG_LO) {
+					loadReg = EncodeRegTo64(loadReg);
+				}
+				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, offset);
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
 			}
@@ -114,6 +125,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	} else {
 		if (mipsReg == MIPS_REG_ZERO) {
 			// This way, if we SetImm() it, we'll keep it.
+			// TODO: Actually, this may cause trouble with SetRegImm?  The reg is NOT zero.
 			mr[mipsReg].loc = ML_ARMREG_IMM;
 			mr[mipsReg].imm = 0;
 		} else {
@@ -157,6 +169,10 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
+	if (mipsReg == MIPS_REG_HI) {
+		ERROR_LOG_REPORT(JIT, "Cannot map HI in Arm64RegCache");
+		return INVALID_REG;
+	}
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -172,7 +188,8 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 			// If reg is written to, pointerification is lost.
 			ar[armReg].pointerified = false;
 		}
-		return (ARM64Reg)mr[mipsReg].reg;
+
+		return mr[mipsReg].reg;
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
@@ -298,8 +315,11 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
 		} else {
+			ARM64Reg storeReg = r;
+			if (ar[r].mipsReg == MIPS_REG_LO)
+				storeReg = EncodeRegTo64(storeReg);
 			if (ar[r].isDirty && mreg.loc == ML_ARMREG)
-				emit_->STR(INDEX_UNSIGNED, r, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
 			mreg.loc = ML_MEM;
 			mreg.reg = INVALID_REG;
 			mreg.imm = 0;
@@ -327,7 +347,10 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
-		if (r != MIPS_REG_ZERO) {
+		if (r == MIPS_REG_LO) {
+			SetRegImm(SCRATCH1_64, mr[r].imm);
+			emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, GetMipsRegOffset(r));
+		} else if (r != MIPS_REG_ZERO) {
 			SetRegImm(SCRATCH1, mr[r].imm);
 			emit_->STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, GetMipsRegOffset(r));
 		}
@@ -340,7 +363,10 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		}
 		if (ar[mr[r].reg].isDirty) {
 			if (r != MIPS_REG_ZERO) {
-				emit_->STR(INDEX_UNSIGNED, mr[r].reg, CTXREG, GetMipsRegOffset(r));
+				ARM64Reg storeReg = mr[r].reg;
+				if (r == MIPS_REG_LO)
+					storeReg = EncodeRegTo64(storeReg);
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
 			}
 			ar[mr[r].reg].isDirty = false;
 		}
@@ -375,7 +401,7 @@ void Arm64RegCache::FlushAll() {
 	}
 }
 
-void Arm64RegCache::SetImm(MIPSGPReg r, u32 immVal) {
+void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 	if (r == MIPS_REG_ZERO && immVal != 0)
 		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
 
@@ -398,7 +424,7 @@ bool Arm64RegCache::IsImm(MIPSGPReg r) const {
 	return mr[r].loc == ML_IMM || mr[r].loc == ML_ARMREG_IMM;
 }
 
-u32 Arm64RegCache::GetImm(MIPSGPReg r) const {
+u64 Arm64RegCache::GetImm(MIPSGPReg r) const {
 	if (r == MIPS_REG_ZERO) return 0;
 	if (mr[r].loc != ML_IMM && mr[r].loc != ML_ARMREG_IMM) {
 		ERROR_LOG_REPORT(JIT, "Trying to get imm from non-imm register %i", r);
@@ -443,7 +469,7 @@ void Arm64RegCache::ReleaseSpillLock(MIPSGPReg reg) {
 
 ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
-		return (ARM64Reg)mr[mipsReg].reg;
+		return mr[mipsReg].reg;
 	} else {
 		ERROR_LOG_REPORT(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
 		return INVALID_REG;  // BAAAD

@@ -40,12 +40,11 @@ using namespace MIPSAnalyst;
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
@@ -445,7 +444,7 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 					return;
 				}
 
-				// It might be nice to avoid flushing rs, but it's the a little slower and
+				// It might be nice to avoid flushing rs, but it's a little slower and
 				// usually more instructions.  Not worth it.
 				gpr.MapDirtyIn(rt, rs, false);
 				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
@@ -545,28 +544,33 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 
+	// Note that in all cases below, LO is actually mapped to HI:LO.
+	// That is, the host reg is 64 bits and has HI at the top.
+	// HI is not mappable.
+
 	switch (op & 63) {
 	case 16: // R(rd) = HI; //mfhi
-		if (gpr.IsImm(MIPS_REG_HI)) {
-			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_HI));
+		// LO and HI are in the same reg.
+		if (gpr.IsImm(MIPS_REG_LO)) {
+			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) >> 32);
 			break;
 		}
-		gpr.MapDirtyIn(rd, MIPS_REG_HI);
-		MOV(gpr.R(rd), gpr.R(MIPS_REG_HI));
+		gpr.MapDirtyIn(rd, MIPS_REG_LO);
+		UBFX(EncodeRegTo64(gpr.R(rd)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32, 32);
 		break;
 
 	case 17: // HI = R(rs); //mthi
-		if (gpr.IsImm(rs)) {
-			gpr.SetImm(MIPS_REG_HI, gpr.GetImm(rs));
+		if (gpr.IsImm(rs) && gpr.IsImm(MIPS_REG_LO)) {
+			gpr.SetImm(MIPS_REG_HI, (gpr.GetImm(rs) << 32) | (gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL));
 			break;
 		}
-		gpr.MapDirtyIn(MIPS_REG_HI, rs);
-		MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+		gpr.MapDirtyIn(MIPS_REG_LO, rs, false);
+		BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), EncodeRegTo64(gpr.R(rs)), 32, 32);
 		break;
 
 	case 18: // R(rd) = LO; break; //mflo
 		if (gpr.IsImm(MIPS_REG_LO)) {
-			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO));
+			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL);
 			break;
 		}
 		gpr.MapDirtyIn(rd, MIPS_REG_LO);
@@ -574,45 +578,42 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 19: // LO = R(rs); break; //mtlo
-		if (gpr.IsImm(rs)) {
-			gpr.SetImm(MIPS_REG_LO, gpr.GetImm(rs));
+		if (gpr.IsImm(rs) && gpr.IsImm(MIPS_REG_LO)) {
+			gpr.SetImm(MIPS_REG_HI, gpr.GetImm(rs) | (gpr.GetImm(MIPS_REG_LO) & ~0xFFFFFFFFULL));
 			break;
 		}
-		gpr.MapDirtyIn(MIPS_REG_LO, rs);
-		MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
+		gpr.MapDirtyIn(MIPS_REG_LO, rs, false);
+		BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), EncodeRegTo64(gpr.R(rs)), 0, 32);
 		break;
 
-	// TODO: All of these could be more elegant if we cached HI and LO together in one 64-bit register!
 	case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			s64 result = (s64)(s32)gpr.GetImm(rs) * (s64)(s32)gpr.GetImm(rt);
-			u64 resultBits = (u64)result;
-			gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
-			gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+			gpr.SetImm(MIPS_REG_LO, (u64)result);
 			break;
 		}
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
 		SMULL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), gpr.R(rs), gpr.R(rt));
-		LSR(EncodeRegTo64(gpr.R(MIPS_REG_HI)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32);
 		break;
 
 	case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			u64 resultBits = (u64)gpr.GetImm(rs) * (u64)gpr.GetImm(rt);
-			gpr.SetImm(MIPS_REG_LO, (u32)(resultBits >> 0));
-			gpr.SetImm(MIPS_REG_HI, (u32)(resultBits >> 32));
+			gpr.SetImm(MIPS_REG_LO, resultBits);
 			break;
 		}
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
-		MUL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), EncodeRegTo64(gpr.R(rs)), EncodeRegTo64(gpr.R(rt)));
-		LSR(EncodeRegTo64(gpr.R(MIPS_REG_HI)), EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
+		// In case of pointerification, let's use UMULL.
+		UMULL(EncodeRegTo64(gpr.R(MIPS_REG_LO)), gpr.R(rs), gpr.R(rt));
 		break;
 
 	case 26: //div
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
+		UBFX(SCRATCH1_64, EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32, 32);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+		MSUB(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+		BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 		break;
 
 	case 27: //divu
@@ -622,11 +623,10 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			if (denominator == 0) {
 				// TODO: Is this correct?
 				gpr.SetImm(MIPS_REG_LO, 0);
-				gpr.SetImm(MIPS_REG_HI, 0);
 			} else {
-				gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
+				gpr.MapDirtyIn(MIPS_REG_LO, rs);
 				// Remainder is just an AND, neat.
-				ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, SCRATCH1);
+				ANDI2R(SCRATCH1, gpr.R(rs), denominator - 1, SCRATCH1);
 				int shift = 0;
 				while (denominator != 0) {
 					++shift;
@@ -638,56 +638,47 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 				} else {
 					MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
 				}
+				BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 			}
 		} else {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
-			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+			gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
+			UBFX(SCRATCH1_64, EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32, 32);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+			MSUB(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+			BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 		}
 		break;
 
 	case 28: //madd
 	{
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt, false);
 		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
-		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
-		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
 		SMADDL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
-		LSR(hi64, lo64, 32);
 	}
 		break;
 
 	case 29: //maddu
 	{
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt, false);
 		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
-		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
-		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
 		UMADDL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
-		LSR(hi64, lo64, 32);
 	}
 		break;
 
 	case 46: // msub
 	{
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt, false);
 		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
-		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
-		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
 		SMSUBL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
-		LSR(hi64, lo64, 32);
 	}
 		break;
 
 	case 47: // msubu
 	{
-		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt, false);
+		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt, false);
 		ARM64Reg lo64 = EncodeRegTo64(gpr.R(MIPS_REG_LO));
-		ARM64Reg hi64 = EncodeRegTo64(gpr.R(MIPS_REG_HI));
-		ORR(lo64, lo64, hi64, ArithOption(lo64, ST_LSL, 32));
 		UMSUBL(lo64, gpr.R(rs), gpr.R(rt), lo64);  // Operands are backwards in the emitter!
-		LSR(hi64, lo64, 32);
 		break;
 	}
 

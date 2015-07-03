@@ -74,7 +74,7 @@ struct RegARM {
 struct RegMIPS {
 	// Where is this MIPS register?
 	ArmJitConstants::RegMIPSLoc loc;
-	// Data (only one of these is used, depending on loc. Could make a union).
+	// Data (both or only one may be used, depending on loc.)
 	u32 imm;
 	ArmGen::ARMReg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.

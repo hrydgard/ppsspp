@@ -437,7 +437,11 @@ static void DataProcessingRegister(uint32_t w, uint64_t addr, Instruction *instr
 			// The rest are 64-bit accumulator, 32-bit operands
 			char sign = (op31 >> 2) ? 'u' : 's';
 			int opn = (op31 & 0x3) << 1 | o0;
-			snprintf(instr->text, sizeof(instr->text), "%c%s x%d, x%d, w%d, w%d", sign, opnames[opn], Rd, Rn, Rm, Ra);
+			if (opn < 4 && Ra == 31) {
+				snprintf(instr->text, sizeof(instr->text), "%cmull x%d, w%d, w%d", sign, Rd, Rn, Rm);
+			} else {
+				snprintf(instr->text, sizeof(instr->text), "%c%s x%d, w%d, w%d, x%d", sign, opnames[opn], Rd, Rn, Rm, Ra);
+			}
 		}
 	} else {
 		// Logical (extended register)
