@@ -61,8 +61,11 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 }
 
 void Arm64RegCache::FlushBeforeCall() {
-	// TODO: More optimal
-	FlushAll();
+	// These registers are not preserved by function calls.
+	for (int i = 0; i < 19; ++i) {
+		FlushArmReg(ARM64Reg(W0 + i));
+	}
+	FlushArmReg(W30);
 }
 
 bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {

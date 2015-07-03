@@ -62,7 +62,8 @@ static const bool enableDebug = false;
 // saving them when we call out of the JIT. We will perform regular dynamic register allocation in the rest (x0-x15)
 
 // STATIC ALLOCATION ARM64 (these are all callee-save registers):
-// x24 : Down counter
+// x23 : Down counter
+// x24 : PC save on JR with non-nice delay slot (to be eliminated later?)
 // x25 : MSR/MRS temporary (to be eliminated later)
 // x26 : JIT base reg
 // x27 : MIPS state (Could eliminate by placing the MIPS state right at the memory base)
