@@ -311,10 +311,9 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
 		} else {
-			ARM64Reg storeReg = r;
-			if (ar[r].mipsReg == MIPS_REG_LO)
-				storeReg = EncodeRegTo64(storeReg);
-			if (ar[r].isDirty && mreg.loc == ML_ARMREG)
+			// Note: may be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+			if (storeReg != INVALID_REG)
 				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
 			mreg.loc = ML_MEM;
 			mreg.reg = INVALID_REG;
@@ -343,6 +342,42 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 	}
 }
 
+ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
+	switch (mr[r].loc) {
+	case ML_IMM:
+		// Could we get lucky?  Check for an exact match in another armreg.
+		for (int i = 0; i < NUM_MIPSREG; ++i) {
+			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
+				// Awesome, let's just store this reg.
+				return mr[i].reg;
+			}
+		}
+		return INVALID_REG;
+
+	case ML_ARMREG:
+	case ML_ARMREG_IMM:
+		if (mr[r].reg == INVALID_REG) {
+			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			return INVALID_REG;
+		}
+		// No need to flush if it's zero or not dirty.
+		if (r == MIPS_REG_ZERO || !ar[mr[r].reg].isDirty) {
+			return INVALID_REG;
+		}
+		if (r == MIPS_REG_LO) {
+			return EncodeRegTo64(mr[r].reg);
+		}
+		return mr[r].reg;
+
+	case ML_MEM:
+		return INVALID_REG;
+
+	default:
+		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		return INVALID_REG;
+	}
+}
+
 void Arm64RegCache::FlushR(MIPSGPReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
@@ -351,21 +386,22 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 			SetRegImm(SCRATCH1_64, mr[r].imm);
 			emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, GetMipsRegOffset(r));
 		} else if (r != MIPS_REG_ZERO) {
-			SetRegImm(SCRATCH1, mr[r].imm);
-			emit_->STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, GetMipsRegOffset(r));
+			// Try to optimize using a different reg.
+			ARM64Reg storeReg = ARM64RegForFlush(r);
+			if (storeReg == INVALID_REG) {
+				SetRegImm(SCRATCH1, mr[r].imm);
+				storeReg = SCRATCH1;
+			}
+			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
 		}
 		break;
 
 	case ML_ARMREG:
 	case ML_ARMREG_IMM:
-		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d had bad ArmReg", r);
-		}
 		if (ar[mr[r].reg].isDirty) {
-			if (r != MIPS_REG_ZERO) {
-				ARM64Reg storeReg = mr[r].reg;
-				if (r == MIPS_REG_LO)
-					storeReg = EncodeRegTo64(storeReg);
+			// Note: might be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(r);
+			if (storeReg != INVALID_REG) {
 				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
 			}
 			ar[mr[r].reg].isDirty = false;

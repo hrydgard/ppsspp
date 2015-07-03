@@ -142,6 +142,7 @@ private:
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
+	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
 		
 	MIPSState *mips_;
 	Arm64Gen::ARM64XEmitter *emit_;
