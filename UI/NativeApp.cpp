@@ -71,6 +71,7 @@
 #include "Common/MemArena.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
@@ -759,6 +760,10 @@ void NativeRender() {
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
+	}
+
+	if (msg == "cacheDir") {
+		DiskCachingFileLoaderCache::SetCacheDir(value);
 	}
 }
 

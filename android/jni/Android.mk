@@ -222,6 +222,11 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
+  $(SRC)/Core/FileLoaders/CachingFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/DiskCachingFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/HTTPFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/Reporting.cpp \

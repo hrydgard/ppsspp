@@ -64,6 +64,9 @@
     <Filter Include="MIPS\ARM64">
       <UniqueIdentifier>{fd036bbc-1f55-40f8-8b62-7879e6b774d8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FileLoaders">
+      <UniqueIdentifier>{67687dba-8313-4442-b4eb-4be8c4867b65}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -604,6 +607,21 @@
     <ClCompile Include="Screenshot.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="FileLoaders\RetryingFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\LocalFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\HTTPFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\CachingFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\DiskCachingFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1130,6 +1148,21 @@
     </ClInclude>
     <ClInclude Include="Screenshot.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\RetryingFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\LocalFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\HTTPFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\CachingFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\DiskCachingFileLoader.h">
+      <Filter>FileLoaders</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

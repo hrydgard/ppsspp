@@ -26,6 +26,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/Debugger/*.cpp \
 	$$P/Core/Dialog/*.cpp \
 	$$P/Core/ELF/*.cpp \
+	$$P/Core/FileLoaders/*.cpp \
 	$$P/Core/FileSystems/*.cpp \
 	$$P/Core/Font/*.cpp \
 	$$P/Core/HLE/*.cpp \
