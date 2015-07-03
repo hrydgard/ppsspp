@@ -805,6 +805,12 @@ static const uint32_t nice_colors[] = {
 	0x33FFFF,
 };
 
+enum ProfileCatStatus {
+	PROFILE_CAT_VISIBLE = 0,
+	PROFILE_CAT_IGNORE = 1,
+	PROFILE_CAT_NOLEGEND = 2,
+};
+
 void DrawProfile(UIContext &ui) {
 #ifdef USE_PROFILER
 	int numCategories = Profiler_GetNumCategories();
@@ -812,56 +818,54 @@ void DrawProfile(UIContext &ui) {
 
 	ui.SetFontStyle(ui.theme->uiFont);
 
+	static float lastMaxVal = 1.0f / 60.0f;
+	float legendMinVal = lastMaxVal * (1.0f / 120.0f);
+
+	std::vector<float> history;
+	std::vector<ProfileCatStatus> catStatus;
+	history.resize(historyLength);
+	catStatus.resize(numCategories);
+
+	float rowH = 30.0f;
+	float legendHeight = 0.0f;
 	float legendWidth = 80.0f;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
 		if (!strcmp(name, "timing")) {
+			catStatus[i] = PROFILE_CAT_IGNORE;
 			continue;
 		}
 
+		Profiler_GetHistory(i, &history[0], historyLength);
+		catStatus[i] = PROFILE_CAT_NOLEGEND;
+		for (int j = 0; j < historyLength; ++j) {
+			if (history[j] > legendMinVal) {
+				catStatus[i] = PROFILE_CAT_VISIBLE;
+				break;
+			}
+		}
+
+		// So they don't move horizontally, we always measure.
 		float w = 0.0f, h = 0.0f;
 		ui.MeasureText(ui.GetFontStyle(), name, &w, &h);
 		if (w > legendWidth) {
 			legendWidth = w;
 		}
+		legendHeight += rowH;
 	}
 	legendWidth += 20.0f;
 
-	float rowH = 30.0f;
-	float legendHeight = rowH * numCategories;
 	float legendStartY = legendHeight > ui.GetBounds().centerY() ? ui.GetBounds().y2() - legendHeight : ui.GetBounds().centerY();
 	float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
-
-	static float lastMaxVal = 1.0f / 60.0f;
-	std::vector<float> history;
-	std::vector<float> total;
-	history.resize(historyLength);
-	total.resize(historyLength);
 
 	const uint32_t opacity = 140 << 24;
 
 	int legendNum = 0;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
-		if (!strcmp(name, "timing")) {
-			continue;
-		}
 		uint32_t color = nice_colors[i % ARRAY_SIZE(nice_colors)];
 
-		Profiler_GetHistory(i, &history[0], historyLength);
-		float sum = 0.0f;
-		bool show = false;
-		for (int j = 0; j < historyLength; ++j) {
-			sum += history[j];
-			if (history[j] > (lastMaxVal / 120.0f)) {
-				show = true;
-			}
-		}
-		if ((sum / historyLength) >= (lastMaxVal / 120.0f)) {
-			show = true;
-		}
-
-		if (show) {
+		if (catStatus[i] == PROFILE_CAT_VISIBLE) {
 			float y = legendStartY + legendNum++ * rowH;
 			ui.FillRect(UI::Drawable(opacity | color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
 			ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
@@ -897,11 +901,13 @@ void DrawProfile(UIContext &ui) {
 	ui.DrawTextShadow("1/60s", 5, y_60th, 0x80FFFF00);
 	ui.DrawTextShadow("1ms", 5, y_1ms, 0x80FFFF00);
 
+	std::vector<float> total;
+	total.resize(historyLength);
+
 	maxVal = 0.0f;
 	float maxTotal = 0.0f;
 	for (int i = 0; i < numCategories; i++) {
-		const char *name = Profiler_GetCategoryName(i);
-		if (!strcmp(name, "timing")) {
+		if (catStatus[i] == PROFILE_CAT_IGNORE) {
 			continue;
 		}
 		Profiler_GetHistory(i, &history[0], historyLength);
