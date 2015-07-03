@@ -670,13 +670,17 @@ void ARM64XEmitter::EncodeLoadStoreIndexedInst(u32 op, ARM64Reg Rt, ARM64Reg Rn,
 	bool b64Bit = Is64Bit(Rt);
 	bool bVec = IsVector(Rt);
 
+	u8 shift = 0;
 	if (size == 64)
-		imm >>= 3;
+		shift = 3;
 	else if (size == 32)
-		imm >>= 2;
+		shift = 2;
 	else if (size == 16)
-		imm >>= 1;
+		shift = 1;
 
+	_assert_msg_(DYNA_REC, ((imm >> shift) << shift) == imm, "%s(INDEX_UNSIGNED): offset must be aligned %d", __FUNCTION__, imm);
+
+	imm >>= shift;
 	_assert_msg_(DYNA_REC, imm >= 0, "%s(INDEX_UNSIGNED): offset must be positive %d", __FUNCTION__, imm);
 	_assert_msg_(DYNA_REC, !(imm & ~0xFFF), "%s(INDEX_UNSIGNED): offset too large %d", __FUNCTION__, imm);
 
