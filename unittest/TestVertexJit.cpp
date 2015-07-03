@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/timeutil.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -22,14 +23,13 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
-#pragma optimize("", off)
-
 class VertexDecoderTestHarness {
 	static const int BUFFER_SIZE = 64 * 65536;
+	static const int ROUNDS = 200;
 
 public:
 	VertexDecoderTestHarness()
-		: needsReset_(true), dstPos_(0) {
+		: dec_(nullptr), needsReset_(true), dstPos_(0) {
 		src_ = new u8[BUFFER_SIZE];
 		dst_ = new u8[BUFFER_SIZE];
 		cache_ = new VertexDecoderJitCache();
@@ -40,12 +40,15 @@ public:
 		delete src_;
 		delete dst_;
 		delete cache_;
+		delete dec_;
 	}
 
 	void Reset() {
 		memset(src_, 0, BUFFER_SIZE);
 		memset(dst_, 0, BUFFER_SIZE);
 		memset(&options_, 0, sizeof(options_));
+		delete dec_;
+		dec_ = nullptr;
 		indexLowerBound_ = 0;
 		indexUpperBound_ = 0;
 		srcPos_ = 0;
@@ -68,16 +71,25 @@ public:
 	}
 
 	void Execute(int vtype, int indexUpperBound, bool useJit) {
-		if (needsReset_) {
-			Reset();
-		}
+		SetupExecute(vtype, useJit);
 
-		VertexDecoder *dec = new VertexDecoder();
-		dec->SetVertexType(vtype, options_, useJit ? cache_ : nullptr);
-		dec->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
-		delete dec;
+		dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+	}
 
-		needsReset_ = true;
+	double ExecuteTimed(int vtype, int indexUpperBound, bool useJit) {
+		SetupExecute(vtype, useJit);
+
+		int total = 0;
+		double st = real_time_now();
+		do {
+			for (int j = 0; j < ROUNDS; ++j) {
+				dec_->DecodeVerts(dst_, src_, indexLowerBound_, indexUpperBound);
+				++total;
+			}
+		} while (real_time_now() - st < 0.5);
+		double elapsed = real_time_now() - st;
+
+		return total / elapsed;
 	}
 
 	void Add8(u8 x) {
@@ -149,11 +161,33 @@ public:
 		return result;
 	}
 
+	void *GetData() {
+		return dst_;
+	}
+
+	int GetDstStride() {
+		if (dec_) {
+			return dec_->decFmt.stride;
+		}
+		return 0;
+	}
+
 private:
+	void SetupExecute(int vtype, bool useJit) {
+		if (dec_ != nullptr) {
+			delete dec_;
+		}
+		dec_ = new VertexDecoder();
+		dec_->SetVertexType(vtype, options_, useJit ? cache_ : nullptr);
+
+		needsReset_ = true;
+	}
+
 	u8 *src_;
 	u8 *dst_;
 	VertexDecoderJitCache *cache_;
 	VertexDecoderOptions options_;
+	VertexDecoder *dec_;
 	int indexLowerBound_;
 	int indexUpperBound_;
 	bool needsReset_;
@@ -163,8 +197,15 @@ private:
 
 bool TestVertexJit() {
 	VertexDecoderTestHarness dec;
-	dec.AddFloat(1.0f, 1.0f, 1.0f);
-	dec.Execute(GE_VTYPE_POS_FLOAT, 1, true);
+	for (int i = 0; i < 100; ++i) {
+		dec.AddFloat(0.5f, 1.0f, -1.0f);
+	}
+	int vtype = GE_VTYPE_POS_FLOAT;
+	double yesJit = dec.ExecuteTimed(vtype, 100, true);
+	double noJit = dec.ExecuteTimed(vtype, 100, false);
+
 	printf("Result: %f, %f, %f\n", dec.GetFloat(), dec.GetFloat(), dec.GetFloat());
-	return true;
+	printf("Jit was %fx faster than steps.\n\n", yesJit / noJit);
+
+	return yesJit > noJit;
 }
