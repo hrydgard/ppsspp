@@ -101,6 +101,7 @@ private:
 	UI::EventReturn OnAudioBackend(UI::EventParams &e);
 
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
+	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
@@ -126,7 +127,6 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
-	UI::EventReturn OnSysInfo(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);

@@ -275,19 +275,19 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 
 void PSPSaveDialog::DisplayBanner(int which)
 {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
 	const char *title;
 	switch (which)
 	{
 	case DB_SAVE:
-		title = d->T("Save");
+		title = di->T("Save");
 		break;
 	case DB_LOAD:
-		title = d->T("Load");
+		title = di->T("Load");
 		break;
 	case DB_DELETE:
-		title = d->T("Delete");
+		title = di->T("Delete");
 		break;
 	default:
 		title = "";
@@ -391,8 +391,8 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	lock_guard guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
-		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		I18NCategory *di = GetI18NCategory("Dialog");
+		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
 		char title[512];
 		char time[512];
@@ -524,18 +524,18 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 	float h2 = h * (float)n / 2.0f;
 	if (hasYesNo)
 	{
-		I18NCategory *d = GetI18NCategory("Dialog");
+		I18NCategory *di = GetI18NCategory("Dialog");
 		const char *choiceText;
 		u32 yesColor, noColor;
 		float x, w;
 		if (yesnoChoice == 1) {
-			choiceText = d->T("Yes");
+			choiceText = di->T("Yes");
 			x = 302.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
 		else {
-			choiceText = d->T("No");
+			choiceText = di->T("No");
 			x = 366.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
@@ -547,10 +547,10 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x40C0C0C0));
-		PPGeDrawText(d->T("Yes"), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(di->T("Yes"), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(di->T("No"), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -606,7 +606,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		cancelButtonFlag = CTRL_CIRCLE;
 	}
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	switch (display)
 	{
@@ -640,7 +640,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Confirm Save", "Do you want to save this data?"), true);
+			DisplayMessage(di->T("Confirm Save", "Do you want to save this data?"), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -661,7 +661,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Confirm Overwrite","Do you want to overwrite the data?"), true);
+			DisplayMessage(di->T("Confirm Overwrite","Do you want to overwrite the data?"), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -690,7 +690,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Saving","Saving\nPlease Wait..."));
+			DisplayMessage(di->T("Saving","Saving\nPlease Wait..."));
 
 			DisplayBanner(DB_SAVE);
 
@@ -703,7 +703,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("SavingFailed", "Unable to save data."));
+			DisplayMessage(di->T("SavingFailed", "Unable to save data."));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -730,7 +730,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Save completed"));
+			DisplayMessage(di->T("Save completed"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -770,7 +770,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("ConfirmLoad", "Load this data?"), true);
+			DisplayMessage(di->T("ConfirmLoad", "Load this data?"), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -795,7 +795,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Loading","Loading\nPlease Wait..."));
+			DisplayMessage(di->T("Loading","Loading\nPlease Wait..."));
 
 			DisplayBanner(DB_LOAD);
 
@@ -808,7 +808,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("LoadingFailed", "Unable to load data."));
+			DisplayMessage(di->T("LoadingFailed", "Unable to load data."));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -832,7 +832,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Load completed"));
+			DisplayMessage(di->T("Load completed"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -852,7 +852,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_LOAD_NODATA:
 			StartDraw();
 
-			DisplayMessage(d->T("There is no data"));
+			DisplayMessage(di->T("There is no data"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -890,7 +890,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("DeleteConfirm", 
+			DisplayMessage(di->T("DeleteConfirm", 
 						"This save data will be deleted.\nAre you sure you want to continue?"), 
 						true);
 
@@ -917,7 +917,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 			StartDraw();
 
-			DisplayMessage(d->T("Deleting","Deleting\nPlease Wait..."));
+			DisplayMessage(di->T("Deleting","Deleting\nPlease Wait..."));
 
 			DisplayBanner(DB_DELETE);
 
@@ -927,7 +927,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			JoinIOThread();
 			StartDraw();
 
-			DisplayMessage(d->T("DeleteFailed", "Unable to delete data."));
+			DisplayMessage(di->T("DeleteFailed", "Unable to delete data."));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);
@@ -945,7 +945,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			}
 			StartDraw();
 			
-			DisplayMessage(d->T("Delete completed"));
+			DisplayMessage(di->T("Delete completed"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);
@@ -962,7 +962,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_DELETE_NODATA:
 			StartDraw();
 			
-			DisplayMessage(d->T("There is no data"));
+			DisplayMessage(di->T("There is no data"));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);

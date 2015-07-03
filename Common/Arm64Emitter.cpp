@@ -3562,13 +3562,21 @@ void ARM64FloatEmitter::MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch, bool 
 	_assert_msg_(JIT, !IsDouble(Rd), "MOVI2F does not yet support double precision");
 	uint8_t imm8;
 	if (value == 0.0) {
+		if (std::signbit(value)) {
+			negate = !negate;
+		}
 		FMOV(Rd, IsDouble(Rd) ? ZR : WZR);
 		if (negate) {
 			FNEG(Rd, Rd);
 		}
 		// TODO: There are some other values we could generate with the float-imm instruction, like 1.0...
+	} else if (negate && FPImm8FromFloat(-value, &imm8)) {
+		FMOV(Rd, imm8);
 	} else if (FPImm8FromFloat(value, &imm8)) {
 		FMOV(Rd, imm8);
+		if (negate) {
+			FNEG(Rd, Rd);
+		}
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "Failed to find a way to generate FP immediate %f without scratch", value);
 		u32 ival;

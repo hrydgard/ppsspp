@@ -216,12 +216,12 @@ namespace MainWindow
 	}
 
 	static void ShowScreenResolution() {
-		I18NCategory *g = GetI18NCategory("Graphics");
+		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		std::ostringstream messageStream;
-		messageStream << g->T("Internal Resolution") << ": ";
+		messageStream << gr->T("Internal Resolution") << ": ";
 		messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
-		messageStream << g->T("Window Size") << ": ";
+		messageStream << gr->T("Window Size") << ": ";
 		messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
 		osm.Show(messageStream.str(), 2.0f);
@@ -745,24 +745,24 @@ namespace MainWindow
 				g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
 		}
 
-		I18NCategory *g = GetI18NCategory("Graphics");
+		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		switch(g_Config.iRenderingMode) {
 		case FB_NON_BUFFERED_MODE:
-			osm.Show(g->T("Non-Buffered Rendering"));
+			osm.Show(gr->T("Non-Buffered Rendering"));
 			g_Config.bAutoFrameSkip = false;
 			break;
 
 		case FB_BUFFERED_MODE:
-			osm.Show(g->T("Buffered Rendering"));
+			osm.Show(gr->T("Buffered Rendering"));
 			break;
 
 		case FB_READFBOMEMORY_CPU:
-			osm.Show(g->T("Read Framebuffers To Memory (CPU)"));
+			osm.Show(gr->T("Read Framebuffers To Memory (CPU)"));
 			break;
 
 		case FB_READFBOMEMORY_GPU:
-			osm.Show(g->T("Read Framebuffers To Memory (GPU)"));
+			osm.Show(gr->T("Read Framebuffers To Memory (GPU)"));
 			break;
 		}
 
@@ -781,13 +781,13 @@ namespace MainWindow
 				g_Config.iFrameSkip = FRAMESKIP_OFF;
 		}
 
-		I18NCategory *g = GetI18NCategory("Graphics");
+		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		std::ostringstream messageStream;
-		messageStream << g->T("Frame Skipping") << ":" << " ";
+		messageStream << gr->T("Frame Skipping") << ":" << " ";
 
 		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
-			messageStream << g->T("Off");
+			messageStream << gr->T("Off");
 		else
 			messageStream << g_Config.iFrameSkip;
 
@@ -1201,7 +1201,7 @@ namespace MainWindow
 			{
 				if (!EmuThread_Ready())
 					return DefWindowProc(hWnd, message, wParam, lParam);
-				I18NCategory *g = GetI18NCategory("Graphics");
+				I18NCategory *gr = GetI18NCategory("Graphics");
 
 				wmId    = LOWORD(wParam); 
 				wmEvent = HIWORD(wParam); 
@@ -1266,7 +1266,7 @@ namespace MainWindow
 
 				case ID_EMULATION_CHEATS:
 					g_Config.bEnableCheats = !g_Config.bEnableCheats;
-					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
+					osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 					break;
 
 				case ID_FILE_LOADSTATEFILE:
@@ -1424,7 +1424,7 @@ namespace MainWindow
 
 				case ID_OPTIONS_HARDWARETRANSFORM:
 					g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-					osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
+					osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 					break;
 
 				case ID_OPTIONS_STRETCHDISPLAY:

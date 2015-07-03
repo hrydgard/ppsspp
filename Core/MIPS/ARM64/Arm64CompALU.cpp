@@ -100,8 +100,8 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 			break;
 		} else if (simm == 0) {
 			gpr.MapDirtyIn(rt, rs);
-			// Shift to get the sign bit only (for < 0.)
-			LSR(gpr.R(rt), gpr.R(rs), 31);
+			// Grab the sign bit (< 0) as 1/0.  Slightly faster than a shift.
+			UBFX(gpr.R(rt), gpr.R(rs), 31, 1);
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
@@ -137,8 +137,6 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 
 void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
-	DISABLE;
 
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -176,8 +174,8 @@ void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rd, rs);
-		MVN(SCRATCH1, gpr.R(rs));
-		CLZ(gpr.R(rd), SCRATCH1);
+		MVN(gpr.R(rd), gpr.R(rs));
+		CLZ(gpr.R(rd), gpr.R(rd));
 		break;
 	default:
 		DISABLE;
@@ -225,14 +223,12 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 10: //if (!R(rt)) R(rd) = R(rs);       break; //movz
-		DISABLE;
-		gpr.MapDirtyInIn(rd, rt, rs);
+		gpr.MapDirtyInIn(rd, rt, rs, false);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_EQ);
 		break;
 	case 11:// if (R(rt)) R(rd) = R(rs);		break; //movn
-		DISABLE;
-		gpr.MapDirtyInIn(rd, rt, rs);
+		gpr.MapDirtyInIn(rd, rt, rs, false);
 		CMP(gpr.R(rt), 0);
 		CSEL(gpr.R(rd), gpr.R(rs), gpr.R(rd), CC_NEQ);
 		break;
@@ -268,7 +264,33 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-		DISABLE;
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
+		} else if (gpr.IsImm(rs) || gpr.IsImm(rt)) {
+			MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
+			MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
+			u32 rhsImm = gpr.GetImm(rhs);
+			if (rhsImm == 0) {
+				gpr.MapDirtyIn(rd, lhs);
+				MVN(gpr.R(rd), gpr.R(lhs));
+			} else {
+				// Ignored, just for IsImmLogical.
+				unsigned int n, imm_s, imm_r;
+				if (IsImmLogical(rhsImm, 32, &n, &imm_s, &imm_r)) {
+					// Great, we can avoid flushing a reg.
+					gpr.MapDirtyIn(rd, lhs);
+					ORRI2R(gpr.R(rd), gpr.R(lhs), rhsImm);
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+				}
+				MVN(gpr.R(rd), gpr.R(rd));
+			}
+		} else {
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ORR(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+			MVN(gpr.R(rd), gpr.R(rd));
+		}
 		break;
 
 	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
@@ -388,7 +410,52 @@ void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Special3(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rt = _RT;
+
+	int pos = _POS;
+	int size = _SIZE + 1;
+	// Workaround for a compiler bug.
+	u32 mask = size == 32 ? 0xFFFFFFFF : (1 << size) - 1;
+
+	// Don't change $zr.
+	if (rt == 0)
+		return;
+
+	switch (op & 0x3f) {
+	case 0x0: //ext
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
+			return;
+		}
+
+		gpr.MapDirtyIn(rt, rs);
+		UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+		break;
+
+	case 0x4: //ins
+		{
+			u32 sourcemask = mask >> pos;
+			u32 destmask = ~(sourcemask << pos);
+			if (gpr.IsImm(rs)) {
+				u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+				if (gpr.IsImm(rt)) {
+					gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+					return;
+				}
+
+				// It might be nice to avoid flushing rs, but it's the a little slower and
+				// usually more instructions.  Not worth it.
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			} else {
+				gpr.MapDirtyIn(rt, rs, false);
+				BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
+			}
+		}
+		break;
+	}
 }
 
 void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
@@ -474,8 +541,6 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
-
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -547,8 +612,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
 		gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-		MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-		SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+		MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
 		break;
 
 	case 27: //divu
@@ -579,8 +643,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
 			gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
-			MUL(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO));
-			SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), SCRATCH1);
+			MSUB(gpr.R(MIPS_REG_HI), gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
 		}
 		break;
 

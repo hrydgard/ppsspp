@@ -131,7 +131,7 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 
 void ReportScreen::CreateViews() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	Margins actionMenuMargins(0, 100, 15, 0);
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
@@ -153,7 +153,7 @@ void ReportScreen::CreateViews() {
 	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	root_->Add(leftColumn);

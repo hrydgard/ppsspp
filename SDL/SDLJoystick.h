@@ -94,4 +94,5 @@ private:
 	SDL_Thread *thread ;
 	bool running ;
 
+	int getDeviceIndex(int instanceId);
 };

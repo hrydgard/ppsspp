@@ -142,11 +142,11 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
-	I18NCategory *s = GetI18NCategory("Screen"); 
+	I18NCategory *sc = GetI18NCategory("Screen"); 
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
-		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
+		osm.Show(sc->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
@@ -154,9 +154,9 @@ void EmuScreen::bootComplete() {
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		const char *renderer = (const char*)glGetString(GL_RENDERER);
 		if (strstr(renderer, "Chainfire3D") != 0) {
-			osm.Show(s->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+			osm.Show(sc->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 		} else if (strstr(renderer, "GLTools") != 0) {
-			osm.Show(s->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
+			osm.Show(sc->T("GLToolsWarning", "WARNING: GLTools detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 		}
 	}
 
@@ -303,7 +303,7 @@ bool EmuScreen::touch(const TouchInput &touch) {
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
-	I18NCategory *s = GetI18NCategory("Screen"); 
+	I18NCategory *sc = GetI18NCategory("Screen"); 
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
@@ -313,11 +313,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_SPEED_TOGGLE:
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show(s->T("fixed", "Speed: alternate"), 1.0);
+			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1) {
 			PSP_CoreParameter().fpsLimit = 0;
-			osm.Show(s->T("standard", "Speed: standard"), 1.0);
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
 		}
 		break;
 
@@ -358,7 +358,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (SaveState::CanRewind()) {
 			SaveState::Rewind();
 		} else {
-			osm.Show(s->T("norewind", "No rewind save states available"), 2.0);
+			osm.Show(sc->T("norewind", "No rewind save states available"), 2.0);
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
@@ -695,11 +695,11 @@ void EmuScreen::update(InputState &input) {
 			quit_ = true;
 			return;
 		}
-		I18NCategory *g = GetI18NCategory("Error");
-		std::string errLoadingFile = g->T("Error loading file", "Could not load game");
+		I18NCategory *err = GetI18NCategory("Error");
+		std::string errLoadingFile = err->T("Error loading file", "Could not load game");
 
 		errLoadingFile.append(" ");
-		errLoadingFile.append(g->T(errorMessage_.c_str()));
+		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
 		screenManager()->push(new PromptScreen(errLoadingFile, "OK", ""));
 		errorMessage_ = "";

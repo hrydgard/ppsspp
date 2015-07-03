@@ -131,7 +131,7 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 
 	//Out of memory :(
 	ListBlocks();
-	ERROR_LOG(HLE, "Block Allocator failed to allocate %i (%08x) bytes of contiguous memory", size, size);
+	ERROR_LOG(HLE, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, size, size);
 	return -1;
 }
 
@@ -148,7 +148,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
 		return -1;
 	}
-	
+
 	// Downalign the position so we're allocating full blocks.
 	u32 alignedPosition = position;
 	u32 alignedSize = size;
@@ -212,10 +212,10 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		ERROR_LOG(HLE, "Block allocator AllocAt failed :( %08x, %i", position, size);
 	}
 
-	
+
 	//Out of memory :(
 	ListBlocks();
-	ERROR_LOG(HLE, "Block Allocator failed to allocate %i bytes of contiguous memory", alignedSize);
+	ERROR_LOG(HLE, "Block Allocator (%08x-%08x) failed to allocate %i (%08x) bytes of contiguous memory", rangeStart_, rangeStart_ + rangeSize_, alignedSize, alignedSize);
 	return -1;
 }
 

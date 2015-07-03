@@ -110,7 +110,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		LDR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.LDR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
@@ -138,7 +138,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			}
 			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
-		STR(INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.STR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
@@ -175,8 +175,8 @@ void Arm64Jit::Comp_FPUComp(MIPSOpcode op) {
 		break;
 	case 3:      // ueq, ngl (equal, unordered)
 		CSET(gpr.R(MIPS_REG_FPCOND), CC_EQ);
-		CSET(SCRATCH1, CC_VS);
-		ORR(gpr.R(MIPS_REG_FPCOND), gpr.R(MIPS_REG_FPCOND), SCRATCH1);
+		// If ordered, use the above result.  If unordered, use ZR+1 (being 1.)
+		CSINC(gpr.R(MIPS_REG_FPCOND), gpr.R(MIPS_REG_FPCOND), WZR, CC_VC);
 		return;
 	case 4:      // olt, lt (less than, ordered)
 		CSET(gpr.R(MIPS_REG_FPCOND), CC_LO);
@@ -274,35 +274,15 @@ void Arm64Jit::Comp_FPU2op(MIPSOpcode op) {
 	case 36: //FsI(fd) = (int)  F(fs);            break; //cvt.w.s
 		fpr.MapDirtyIn(fd, fs);
 		if (js.hasSetRounding) {
-			// Urgh, this looks awfully expensive and bloated.. Perhaps we should have a global function pointer to the right FCVTS to use,
-			// and update it when the rounding mode is switched.
-			fp.FCMP(fpr.R(fs), fpr.R(fs));
-			FixupBranch skip_nan = B(CC_VC);
-			MOVI2R(SCRATCH1, 0x7FFFFFFF);
-			fp.FMOV(fpr.R(fd), SCRATCH1);
-			FixupBranch skip_rest = B();
-			// MIPS Rounding Mode:
-			//   0: Round nearest
-			//   1: Round to zero
-			//   2: Round up (ceil)
-			//   3: Round down (floor)
-			SetJumpTarget(skip_nan);
-			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, fcr31));
-			ANDI2R(SCRATCH1, SCRATCH1, 3);
-			ADR(SCRATCH2_64, 12);  // PC + 12 = address of first FCVTS below
-			ADD(SCRATCH2_64, SCRATCH2_64, EncodeRegTo64(SCRATCH1), ArithOption(SCRATCH2_64, ST_LSL, 3));
-			BR(SCRATCH2_64);  // choose from the four variants below!
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_N);
-			FixupBranch skip1 = B();
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
-			FixupBranch skip2 = B();
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_P);
-			FixupBranch skip3 = B();
-			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_M);
-			SetJumpTarget(skip1);
-			SetJumpTarget(skip2);
-			SetJumpTarget(skip3);
-			SetJumpTarget(skip_rest);
+			// We're just going to defer to our cached func.  Here's the arg.
+			fp.FMOV(S0, fpr.R(fs));
+
+			MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
+			LDR(INDEX_UNSIGNED, SCRATCH1_64, SCRATCH1_64, 0);
+
+			BLR(SCRATCH1_64);
+
+			fp.FMOV(fpr.R(fd), S0);
 		} else {
 			fp.FCMP(fpr.R(fs), fpr.R(fs));
 			fp.FCVTS(fpr.R(fd), fpr.R(fs), ROUND_Z);
