@@ -815,6 +815,10 @@ void DrawProfile(UIContext &ui) {
 	float legendWidth = 80.0f;
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
+		if (!strcmp(name, "timing")) {
+			continue;
+		}
+
 		float w = 0.0f, h = 0.0f;
 		ui.MeasureText(ui.GetFontStyle(), name, &w, &h);
 		if (w > legendWidth) {
@@ -832,6 +836,9 @@ void DrawProfile(UIContext &ui) {
 
 	for (int i = 0; i < numCategories; i++) {
 		const char *name = Profiler_GetCategoryName(i);
+		if (!strcmp(name, "timing")) {
+			continue;
+		}
 		uint32_t color = nice_colors[i % ARRAY_SIZE(nice_colors)];
 
 		float y = legendStartY + i * rowH;
@@ -877,6 +884,10 @@ void DrawProfile(UIContext &ui) {
 	maxVal = 0.0f;
 	float maxTotal = 0.0f;
 	for (int i = 0; i < numCategories; i++) {
+		const char *name = Profiler_GetCategoryName(i);
+		if (!strcmp(name, "timing")) {
+			continue;
+		}
 		Profiler_GetHistory(i, &history[0], historyLength);
 
 		float x = 10;
