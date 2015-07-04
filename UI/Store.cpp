@@ -125,7 +125,7 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 
 void HttpImageFileView::Draw(UIContext &dc) {
 	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
-		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1));
+		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, placeholder::_1));
 		download_->SetHidden(true);
 	}
 
