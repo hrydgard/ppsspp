@@ -750,7 +750,7 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 	u32 type_encode = 0;
 
 	switch (type) {
-	case INDEX_UNSIGNED:
+	case INDEX_SIGNED:
 		type_encode = 2;
 		break;
 	case INDEX_POST:
@@ -759,8 +759,8 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 	case INDEX_PRE:
 		type_encode = 3;
 		break;
-	case INDEX_SIGNED:
-		_assert_msg_(DYNA_REC, false, "%s doesn't support INDEX_SIGNED!", __FUNCTION__);
+	case INDEX_UNSIGNED:
+		_assert_msg_(DYNA_REC, false, "%s doesn't support INDEX_UNSIGNED!", __FUNCTION__);
 		break;
 	}
 
