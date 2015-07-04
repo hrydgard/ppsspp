@@ -48,9 +48,9 @@ bool TestArm64Emitter() {
 	fp.UCVTF(32, D3, D7, 15);
 	RET(CheckLast(emitter, "2f31e4e3 ucvtf d3.s, d7.s, #15"));
 
-	fp.LDP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	fp.LDP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad411c63 ldp q3, q7, [x3, #32]"));
-	fp.STP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	fp.STP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad011c63 stp q3, q7, [x3, #32]"));
 
 	fp.DUP(32, Q1, Q30, 3);

@@ -448,15 +448,22 @@ void Arm64RegCache::FlushAll() {
 
 		// If either one doesn't have a reg yet, try flushing imms to scratch regs.
 		if (areg1 == INVALID_REG && IsImm(mreg1)) {
-			SetRegImm(SCRATCH1, GetImm(mreg1));
 			areg1 = SCRATCH1;
 		}
 		if (areg2 == INVALID_REG && IsImm(mreg2)) {
-			SetRegImm(SCRATCH2, GetImm(mreg2));
 			areg2 = SCRATCH2;
 		}
 
 		if (areg1 != INVALID_REG && areg2 != INVALID_REG) {
+			// Actually put the imms in place now that we know we can do the STP.
+			// We didn't do it before in case the other wouldn't work.
+			if (areg1 == SCRATCH1) {
+				SetRegImm(areg1, GetImm(mreg1));
+			}
+			if (areg2 == SCRATCH2) {
+				SetRegImm(areg2, GetImm(mreg2));
+			}
+
 			// We can use a paired store, awesome.
 			emit_->STP(INDEX_SIGNED, areg1, areg2, CTXREG, GetMipsRegOffset(mreg1));
 
