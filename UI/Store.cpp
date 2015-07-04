@@ -187,7 +187,8 @@ void ProductItemView::Update(const InputState &input_state) {
 // This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
 public:
-	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
+	ProductView(const StoreEntry &entry)
+		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0), wasInstalled_(false) {
 		CreateViews();
 	}
 
@@ -198,8 +199,13 @@ private:
 	UI::EventReturn OnInstall(UI::EventParams &e);
 	UI::EventReturn OnUninstall(UI::EventParams &e);
 
+	bool IsGameInstalled() {
+		return g_GameManager.IsGameInstalled(entry_.file);
+	}
+
 	StoreEntry entry_;
 	UI::Button *installButton_;
+	bool wasInstalled_;
 };
 
 void ProductView::CreateViews() {
@@ -213,10 +219,12 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.author));
 
 	I18NCategory *st = GetI18NCategory("Store");
-	if (!g_GameManager.IsGameInstalled(entry_.file)) {
+	wasInstalled_ = IsGameInstalled();
+	if (!wasInstalled_) {
 		installButton_ = Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
+		installButton_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
 	}
@@ -232,6 +240,12 @@ void ProductView::CreateViews() {
 }
 
 void ProductView::Update(const InputState &input_state) {
+	if (wasInstalled_ != IsGameInstalled()) {
+		CreateViews();
+	}
+	if (installButton_) {
+		installButton_->SetEnabled(!g_GameManager.IsInstallInProgress());
+	}
 	View::Update(input_state);
 }
 
