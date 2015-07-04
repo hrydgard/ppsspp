@@ -20,6 +20,7 @@
 #include "ext/vjson/json.h"
 
 #include "i18n/i18n.h"
+#include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
@@ -27,6 +28,8 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
+#include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
 const std::string storeBaseUrl = "http://store.ppsspp.org/";
@@ -184,22 +187,31 @@ void ProductItemView::Update(const InputState &input_state) {
 	View::Update(input_state);
 }
 
-// This is a "details" view of a game. Let's you install it.
+// This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
 public:
-	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
+	ProductView(const StoreEntry &entry)
+		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0), wasInstalled_(false) {
 		CreateViews();
 	}
 
 	virtual void Update(const InputState &input_state);
 
+	UI::Event OnClickLaunch;
+
 private:
 	void CreateViews();
 	UI::EventReturn OnInstall(UI::EventParams &e);
 	UI::EventReturn OnUninstall(UI::EventParams &e);
+	UI::EventReturn OnLaunchClick(UI::EventParams &e);
+
+	bool IsGameInstalled() {
+		return g_GameManager.IsGameInstalled(entry_.file);
+	}
 
 	StoreEntry entry_;
 	UI::Button *installButton_;
+	bool wasInstalled_;
 };
 
 void ProductView::CreateViews() {
@@ -213,12 +225,15 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.author));
 
 	I18NCategory *st = GetI18NCategory("Store");
-	if (!g_GameManager.IsGameInstalled(entry_.file)) {
+	wasInstalled_ = IsGameInstalled();
+	if (!wasInstalled_) {
 		installButton_ = Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
+		installButton_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
+		Add(new Button(st->T("Launch Game")))->OnClick.Handle(this, &ProductView::OnLaunchClick);
 	}
 
 	// Add star rating, comments etc?
@@ -232,6 +247,12 @@ void ProductView::CreateViews() {
 }
 
 void ProductView::Update(const InputState &input_state) {
+	if (wasInstalled_ != IsGameInstalled()) {
+		CreateViews();
+	}
+	if (installButton_) {
+		installButton_->SetEnabled(!g_GameManager.IsInstallInProgress());
+	}
 	View::Update(input_state);
 }
 
@@ -258,6 +279,19 @@ UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
+	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
+	std::string path = pspGame + entry_.file;
+#ifdef _WIN32
+	path = ReplaceAll(path, "\\", "/");
+#endif
+
+	UI::EventParams e2;
+	e2.s = path;
+	// Insta-update - here we know we are already on the right thread.
+	OnClickLaunch.Trigger(e2);
+	return UI::EVENT_DONE;
+}
 
 StoreScreen::StoreScreen() : loading_(true), connectionError_(false) {
 	StoreFilter noFilter;
@@ -387,7 +421,15 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 
 	productPanel_->Clear();
-	productPanel_->Add(new ProductView(item->GetEntry()));
+	ProductView *productView = new ProductView(item->GetEntry());
+	productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
+	productPanel_->Add(productView);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
+	std::string path = e.s;
+	screenManager()->switchScreen(new EmuScreen(path));
 	return UI::EVENT_DONE;
 }
 

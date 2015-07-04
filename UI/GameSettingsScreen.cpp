@@ -115,7 +115,7 @@ void GameSettingsScreen::CreateViews() {
 	} else {
 		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 		root_->Add(tabHolder);
-		root_->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		AddStandardBack(root_);
 	}
 	root_->SetDefaultFocusView(tabHolder);
 
