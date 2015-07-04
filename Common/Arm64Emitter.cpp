@@ -3036,7 +3036,7 @@ void ARM64FloatEmitter::FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EmitThreeSame(0, size >> 6, 0b11110, Rd, Rn, Rm);
+	EmitThreeSame(0, size >> 6, 0x1E, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -3044,7 +3044,7 @@ void ARM64FloatEmitter::FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EmitThreeSame(0, 2 | size >> 6, 0b11110, Rd, Rn, Rm);
+	EmitThreeSame(0, 2 | size >> 6, 0x1E, Rd, Rn, Rm);
 }
 void ARM64FloatEmitter::FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
@@ -3724,7 +3724,7 @@ void ARM64FloatEmitter::ABI_PopRegisters(BitSet32 registers, ARM64Reg tmp)
 	}
 	else
 	{
-		bool odd = num_regs % 2;
+		bool odd = (num_regs % 2) != 0;
 		std::vector<ARM64Reg> pair_regs;
 		for (int i = 31; i >= 0; --i)
 		{
