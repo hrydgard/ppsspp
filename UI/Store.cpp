@@ -184,7 +184,7 @@ void ProductItemView::Update(const InputState &input_state) {
 	View::Update(input_state);
 }
 
-// This is a "details" view of a game. Let's you install it.
+// This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
 public:
 	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
