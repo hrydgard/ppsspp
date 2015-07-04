@@ -69,6 +69,7 @@ protected:
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
 	UI::EventReturn OnCategorySelected(UI::EventParams &e);
 	UI::EventReturn OnRetry(UI::EventParams &e);
+	UI::EventReturn OnGameLaunch(UI::EventParams &e);
 
 private:
 	void SetFilter(const StoreFilter &filter);
