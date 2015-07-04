@@ -342,6 +342,10 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		}
 		mr[mipsReg].imm = 0;
 	}
+	if (prevLoc == ML_IMM && mipsReg != MIPS_REG_ZERO) {
+		mr[mipsReg].loc = ML_MEM;
+		mr[mipsReg].imm = 0;
+	}
 }
 
 ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
