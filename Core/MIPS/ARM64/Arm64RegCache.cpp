@@ -226,7 +226,7 @@ allocate:
 		goto allocate;
 	}
 
-	// Uh oh, we have all them spilllocked....
+	// Uh oh, we have all of them spilllocked....
 	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
@@ -347,6 +347,10 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
+		// Zero is super easy.
+		if (mr[r].imm == 0) {
+			return WZR;
+		}
 		// Could we get lucky?  Check for an exact match in another armreg.
 		for (int i = 0; i < NUM_MIPSREG; ++i) {
 			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
@@ -434,13 +438,24 @@ void Arm64RegCache::FlushAll() {
 	// Flush it first so we don't get it confused.
 	FlushR(MIPS_REG_LO);
 
-	// TODO: We could do a pass to allocate regs for imms for more paired stores.
+	// 1 because MIPS_REG_ZERO isn't flushable anyway.
 	// 31 because 30 and 31 are the last possible pair - MIPS_REG_FPCOND, etc. are too far away.
-	for (int i = 0; i < 31; i++) {
+	for (int i = 1; i < 31; i++) {
 		MIPSGPReg mreg1 = MIPSGPReg(i);
 		MIPSGPReg mreg2 = MIPSGPReg(i + 1);
 		ARM64Reg areg1 = ARM64RegForFlush(mreg1);
 		ARM64Reg areg2 = ARM64RegForFlush(mreg2);
+
+		// If either one doesn't have a reg yet, try flushing imms to scratch regs.
+		if (areg1 == INVALID_REG && IsImm(mreg1)) {
+			SetRegImm(SCRATCH1, GetImm(mreg1));
+			areg1 = SCRATCH1;
+		}
+		if (areg2 == INVALID_REG && IsImm(mreg2)) {
+			SetRegImm(SCRATCH2, GetImm(mreg2));
+			areg2 = SCRATCH2;
+		}
+
 		if (areg1 != INVALID_REG && areg2 != INVALID_REG) {
 			// We can use a paired store, awesome.
 			emit_->STP(INDEX_SIGNED, areg1, areg2, CTXREG, GetMipsRegOffset(mreg1));

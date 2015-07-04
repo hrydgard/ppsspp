@@ -307,8 +307,8 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			break;
 		default:
 			// Matrices 4+ need to be loaded from memory.
-			fp.LDP(INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
-			fp.LDP(INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
+			fp.LDP(128, INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
+			fp.LDP(128, INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
 			fp.FMLA(32, Q4, Q8, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q5, Q9, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q6, Q10, neonWeightRegsQ[i >> 2], i & 3);

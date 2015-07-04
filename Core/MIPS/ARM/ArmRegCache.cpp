@@ -299,7 +299,7 @@ allocate:
 		goto allocate;
 	}
 
-	// Uh oh, we have all them spilllocked....
+	// Uh oh, we have all of them spilllocked....
 	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
