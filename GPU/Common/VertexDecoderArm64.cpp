@@ -544,17 +544,17 @@ void VertexDecoderJitCache::Jit_Color5551() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8() {
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDURH(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDUR(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDUR(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
@@ -585,29 +585,29 @@ void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	fp.LDR(16, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(16, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(8, neonScratchRegQ, neonScratchRegD); // Widen to 16-bit
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	fp.LDR(32, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	fp.LDR(64, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(64, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
@@ -667,7 +667,7 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
 	// NOTE: Not LDRH, we just copy the raw bytes here.
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
+	LDUR(tempReg1, srcReg, dec_->nrmoff);
 	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 4);
 	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.nrmoff);
 }
