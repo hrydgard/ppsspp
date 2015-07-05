@@ -330,8 +330,9 @@ static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {
 		} else if (index_type == 3) {
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]!", load ? "ldp" : "stp", r, Rt, r, Rt2, Rn, offset);
 			return;
-		} else {
-			snprintf(instr->text, sizeof(instr->text), "(loadstore-pair %08x)", w);
+		} else if (index_type == 0) {
+			// LDNP/STNP (ldp/stp with non-temporal hint). Automatically signed offset.
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, [x%d, #%d]", load ? "ldnp" : "stnp", r, Rt, r, Rt2, Rn, offset);
 			return;
 		}
 	}

@@ -53,6 +53,11 @@ bool TestArm64Emitter() {
 	fp.STP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad011c63 stp q3, q7, [x3, #32]"));
 
+	emitter.STP(INDEX_SIGNED, W21, W1, X27, 48);
+	RET(CheckLast(emitter, "29060775 stp w21, w1, [x27, #48]"));
+	emitter.STNP(W21, W1, X27, 48);
+	RET(CheckLast(emitter, "28060775 stnp w21, w1, [x27, #48]"));
+
 	fp.DUP(32, Q1, Q30, 3);
 	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
 	fp.UXTL(8, Q1, D8);
@@ -168,8 +173,8 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "71000c7f cmp w3, #3"));
 	emitter.MADD(W3, W7, W1, W8);
 	RET(CheckLast(emitter, "1b0120e3 madd w3, w7, w1, w8"));
-	emitter.SMADDL(X3, X6, W1, W8);
-	RET(CheckLast(emitter, "9b2120c3 smaddl x3, x6, w1, w8"));
+	emitter.SMADDL(X3, W6, W1, X8);
+	RET(CheckLast(emitter, "9b2120c3 smaddl x3, w6, w1, x8"));
 	emitter.BRK(3);
 	RET(CheckLast(emitter, "d4200060 brk #3"));
 	emitter.CSEL(X3, X5, X7, CC_GT);
