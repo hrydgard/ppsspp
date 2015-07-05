@@ -187,6 +187,18 @@ void Arm64Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARM64XE
 		return;
 	}
 
+	// Optimize anything against zero.
+	if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
+		gpr.MapDirtyIn(rd, rt);
+		(this->*arith)(gpr.R(rd), WZR, gpr.R(rt));
+		return;
+	}
+	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+		gpr.MapDirtyIn(rd, rs);
+		(this->*arith)(gpr.R(rd), gpr.R(rs), WZR);
+		return;
+	}
+
 	if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
 		MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
 		MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
@@ -246,17 +258,7 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 		CompType3(rd, rs, rt, &ARM64XEmitter::AND, &ARM64XEmitter::TryANDI2R, &EvalAnd, true);
 		break;
 	case 37: //R(rd) = R(rs) | R(rt);           break; //or
-		if (rs == 0 && rd != rt) {
-			gpr.MapDirtyIn(rd, rt);
-			MOV(gpr.R(rd), gpr.R(rt));
-		} else if (rt == 0 && rd != rs) {
-			gpr.MapDirtyIn(rd, rs);
-			MOV(gpr.R(rd), gpr.R(rs));
-		} else if (rt == 0 && rs == 0) {
-			gpr.SetImm(rd, 0);
-		} else {
-			CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
-		}
+		CompType3(rd, rs, rt, &ARM64XEmitter::ORR, &ARM64XEmitter::TryORRI2R, &EvalOr, true);
 		break;
 	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
 		CompType3(rd, rs, rt, &ARM64XEmitter::EOR, &ARM64XEmitter::TryEORI2R, &EvalEor, true);
