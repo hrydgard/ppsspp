@@ -68,7 +68,7 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this, &fp);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
-	GenerateFixedCode();
+	GenerateFixedCode(jo);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
@@ -135,7 +135,7 @@ void Arm64Jit::ClearCache() {
 	ILOG("ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace();
-	GenerateFixedCode();
+	GenerateFixedCode(jo);
 }
 
 void Arm64Jit::InvalidateCache() {
@@ -456,7 +456,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func) {
-		SaveDowncount();
+		SaveStaticRegisters();
 		// TODO: Perhaps keep the rounding mode for interp?
 		RestoreRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
@@ -464,7 +464,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)func);
 		ApplyRoundingMode();
-		RestoreDowncount();
+		LoadStaticRegisters();
 	}
 
 	const MIPSInfo info = MIPSGetInfo(op);
@@ -484,12 +484,12 @@ void Arm64Jit::MovToPC(ARM64Reg r) {
 }
 
 // Should not really be necessary except when entering Advance
-void Arm64Jit::SaveDowncount() {
-	STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+void Arm64Jit::SaveStaticRegisters() {
+	QuickCallFunction(SCRATCH2_64, saveStaticRegisters);
 }
 
-void Arm64Jit::RestoreDowncount() {
-	LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+void Arm64Jit::LoadStaticRegisters() {
+	QuickCallFunction(SCRATCH2_64, loadStaticRegisters);
 }
 
 void Arm64Jit::WriteDownCount(int offset) {

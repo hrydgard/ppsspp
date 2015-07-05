@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -47,17 +48,60 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		mr[i].reg = INVALID_REG;
 		mr[i].imm = -1;
 		mr[i].spillLock = false;
+		mr[i].isStatic = false;
+	}
+	int numStatics;
+	const StaticAllocation *statics = GetStaticAllocations(numStatics);
+	for (int i = 0; i < numStatics; i++) {
+		ar[statics[i].ar].mipsReg = statics[i].mr;
+		ar[statics[i].ar].pointerified = false;  // TODO: Support static pointerification for SP.
+		mr[statics[i].mr].loc = ML_ARMREG;
+		mr[statics[i].mr].reg = statics[i].ar;
+		mr[statics[i].mr].isStatic = true;
 	}
 }
 
 const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
-	// TODO: Add static allocation of top MIPS registers like SP
+
+	// W19-W22 are most suitable for static allocation. Those that are chosen for static allocation
+	// should be omitted here and added in GetStaticAllocations.
+
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
+		W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
-	count = sizeof(allocationOrder) / sizeof(const int);
+	count = ARRAY_SIZE(allocationOrder);
 	return allocationOrder;
+}
+
+const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &count) {
+	static const StaticAllocation allocs[] = {
+		{MIPS_REG_V0, W19},
+	};
+	count = ARRAY_SIZE(allocs);
+	return allocs;
+}
+
+void Arm64RegCache::EmitLoadStaticAllocs() {
+	int count;
+	const StaticAllocation *allocs = GetStaticAllocations(count);
+	// TODO: Use LDP when possible.
+	// This only needs to run once (by Asm) so checks don't need to be fast.
+	for (int i = 0; i < count; i++) {
+		int offset = GetMipsRegOffset(allocs[i].mr);
+		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
+	}
+}
+
+void Arm64RegCache::EmitSaveStaticAllocs() {
+	int count;
+	const StaticAllocation *allocs = GetStaticAllocations(count);
+	// TODO: Use LDP when possible.
+	// This only needs to run once (by Asm) so checks don't need to be fast.
+	for (int i = 0; i < count; i++) {
+		int offset = GetMipsRegOffset(allocs[i].mr);
+		emit_->STR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
+	}
 }
 
 void Arm64RegCache::FlushBeforeCall() {
@@ -85,6 +129,10 @@ void Arm64RegCache::SetRegImm(ARM64Reg reg, u64 imm) {
 }
 
 void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
+	if (mr[mipsReg].isStatic) {
+		ELOG("Cannot MapRegTo static register %d", mipsReg);
+		return;
+	}
 	ar[reg].isDirty = (mapFlags & MAP_DIRTY) ? true : false;
 	if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 		if (mipsReg == MIPS_REG_ZERO) {
@@ -146,6 +194,8 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 		ARM64Reg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
 			continue;
+		if (mr[ar[reg].mipsReg].isStatic)
+			continue;
 
 		// Awesome, a clobbered reg.  Let's use it.
 		if (MIPSAnalyst::IsRegisterClobbered(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
@@ -171,6 +221,12 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		ERROR_LOG_REPORT(JIT, "Cannot map HI in Arm64RegCache");
 		return INVALID_REG;
 	}
+
+	if (mr[mipsReg].isStatic) {
+		// Dirty or not doesn't matter as it's a fixed register.
+		return mr[mipsReg].reg;
+	}
+
 	// Let's see if it's already mapped. If so we just need to update the dirty flag.
 	// We don't need to check for ML_NOINIT because we assume that anyone who maps
 	// with that flag immediately writes a "known" value to the register.
@@ -216,13 +272,12 @@ allocate:
 	}
 
 	if (bestToSpill != INVALID_REG) {
-		// ERROR_LOG(JIT, "Out of registers at PC %08x - spills register %i.", mips_->pc, bestToSpill);
-		// TODO: Broken somehow in Dante's Inferno, but most games work.  Bad flags in MIPSTables somewhere?
 		if (clobbered) {
 			DiscardR(ar[bestToSpill].mipsReg);
 		} else {
 			FlushArmReg(bestToSpill);
 		}
+		// Now one must be free.
 		goto allocate;
 	}
 
@@ -299,6 +354,10 @@ void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs
 }
 
 void Arm64RegCache::FlushArmReg(ARM64Reg r) {
+	if (r == INVALID_REG) {
+		ELOG("FlushArmReg called on invalid register %d", r);
+		return;
+	}
 	if (ar[r].mipsReg == MIPS_REG_INVALID) {
 		// Nothing to do, reg not mapped.
 		if (ar[r].isDirty) {
@@ -306,28 +365,39 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		}
 		return;
 	}
-	if (ar[r].mipsReg != MIPS_REG_INVALID) {
-		auto &mreg = mr[ar[r].mipsReg];
-		if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
-			// We know its immedate value, no need to STR now.
-			mreg.loc = ML_IMM;
-			mreg.reg = INVALID_REG;
-		} else {
-			// Note: may be a 64-bit reg.
-			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
-			if (storeReg != INVALID_REG)
-				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
-			mreg.loc = ML_MEM;
-			mreg.reg = INVALID_REG;
-			mreg.imm = 0;
-		}
+	if (mr[ar[r].mipsReg].isStatic) {
+		ELOG("Cannot FlushArmReg a statically mapped register");
+		return;
 	}
+
+	auto &mreg = mr[ar[r].mipsReg];
+	if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
+		// We know its immedate value, no need to STR now.
+		mreg.loc = ML_IMM;
+		mreg.reg = INVALID_REG;
+	} else {
+		// Note: may be a 64-bit reg.
+		ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+		if (storeReg != INVALID_REG)
+			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		mreg.loc = ML_MEM;
+		mreg.reg = INVALID_REG;
+		mreg.imm = 0;
+	}
+
 	ar[r].isDirty = false;
 	ar[r].mipsReg = MIPS_REG_INVALID;
 	ar[r].pointerified = false;
 }
 
 void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
+	if (mr[mipsReg].isStatic) {
+		// Simply do nothing unless it's an ArmregImm, in case we just switch it over to armreg, losing the value.
+		if (mr[mipsReg].loc == ML_ARMREG_IMM) {
+			mr[mipsReg].loc = ML_ARMREG;
+		}
+		return;
+	}
 	const RegMIPSLoc prevLoc = mr[mipsReg].loc;
 	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_IMM) {
 		ARM64Reg armReg = mr[mipsReg].reg;
@@ -349,6 +419,9 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 }
 
 ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
+	if (mr[r].isStatic)
+		return INVALID_REG;  // No flushing needed
+
 	switch (mr[r].loc) {
 	case ML_IMM:
 		if (r == MIPS_REG_ZERO) {
@@ -392,6 +465,11 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 }
 
 void Arm64RegCache::FlushR(MIPSGPReg r) {
+	if (mr[r].isStatic) {
+		ELOG("Cannot flush static reg %d", r);
+		return;
+	}
+
 	switch (mr[r].loc) {
 	case ML_IMM:
 		// IMM is always "dirty".
@@ -483,6 +561,14 @@ void Arm64RegCache::FlushAll() {
 	// Final pass to grab any that were left behind.
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
+		if (mr[i].isStatic) {
+			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
+				ELOG("ARM reg of static %i is invalid", i);
+				continue;
+			}
+			ar[mr[i].reg].mipsReg = MIPS_REG_INVALID;  // make the sanity check happy
+			continue;
+		}
 		FlushR(mipsReg);
 	}
 
@@ -504,19 +590,29 @@ void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 		// Already have that value, let's keep it in the reg.
 		return;
 	}
-	// Zap existing value if cached in a reg
-	if (mr[r].reg != INVALID_REG) {
-		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
-		ar[mr[r].reg].isDirty = false;
+
+	if (mr[r].isStatic) {
+		// TODO: Just set to IMM
+		mr[r].loc = ML_ARMREG_IMM;
+		mr[r].imm = immVal;
+		SetRegImm(mr[r].reg, immVal);
+	} else {
+		// Zap existing value if cached in a reg
+		if (mr[r].reg != INVALID_REG) {
+			ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
+			ar[mr[r].reg].isDirty = false;
+		}
+		mr[r].loc = ML_IMM;
+		mr[r].imm = immVal;
+		mr[r].reg = INVALID_REG;
 	}
-	mr[r].loc = ML_IMM;
-	mr[r].imm = immVal;
-	mr[r].reg = INVALID_REG;
 }
 
 bool Arm64RegCache::IsImm(MIPSGPReg r) const {
-	if (r == MIPS_REG_ZERO) return true;
-	return mr[r].loc == ML_IMM || mr[r].loc == ML_ARMREG_IMM;
+	if (r == MIPS_REG_ZERO) 
+		return true;
+	else
+		return mr[r].loc == ML_IMM || mr[r].loc == ML_ARMREG_IMM;
 }
 
 u64 Arm64RegCache::GetImm(MIPSGPReg r) const {
@@ -554,12 +650,14 @@ void Arm64RegCache::SpillLock(MIPSGPReg r1, MIPSGPReg r2, MIPSGPReg r3, MIPSGPRe
 
 void Arm64RegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
-		mr[i].spillLock = false;
+		if (!mr[i].isStatic)
+			mr[i].spillLock = false;
 	}
 }
 
 void Arm64RegCache::ReleaseSpillLock(MIPSGPReg reg) {
-	mr[reg].spillLock = false;
+	if (!mr[reg].isStatic)
+		mr[reg].spillLock = false;
 }
 
 ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {

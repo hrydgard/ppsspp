@@ -194,6 +194,7 @@ namespace MIPSComp {
 		bool downcountInRegister;
 		// ARM64 only
 		bool useASIMDVFPU;
+		bool useStaticAlloc;
 
 		// Common
 		bool enableBlocklink;

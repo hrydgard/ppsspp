@@ -591,7 +591,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 
 	FlushAll();
 
-	SaveDowncount();
+	SaveStaticRegisters();
 #ifdef USE_PROFILER
 	// When profiling, we can't skip CallSyscall, since it times syscalls.
 	MOVI2R(W0, op.encoding);
@@ -608,8 +608,8 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 		QuickCallFunction(X1, (void *)&CallSyscall);
 	}
 #endif
+	LoadStaticRegisters();
 	ApplyRoundingMode();
-	RestoreDowncount();
 
 	WriteSyscallExit();
 	js.compiling = false;
