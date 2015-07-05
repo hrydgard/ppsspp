@@ -666,6 +666,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 
 	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
+	{VIRTKEY_DEVMENU, "DevMenu"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;

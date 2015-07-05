@@ -329,6 +329,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		KeyMap::SwapAxis();
 		break;
 
+	case VIRTKEY_DEVMENU:
+		releaseButtons();
+		screenManager()->push(new DevMenu());
+		break;
+
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
 		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
