@@ -58,6 +58,11 @@ bool TestArm64Emitter() {
 	emitter.STNP(W21, W1, X27, 48);
 	RET(CheckLast(emitter, "28060775 stnp w21, w1, [x27, #48]"));
 
+	emitter.MRS(X25, FIELD_NZCV);
+	RET(CheckLast(emitter, "d53b4219 mrs x25, nzcv"));
+	emitter._MSR(FIELD_NZCV, X25);
+	RET(CheckLast(emitter, "d51b4219 msr nzcv, x25"));
+
 	fp.DUP(32, Q1, Q30, 3);
 	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
 	fp.UXTL(8, Q1, D8);

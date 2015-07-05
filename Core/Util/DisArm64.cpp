@@ -190,6 +190,16 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 	}
 }
 
+static const char *GetSystemRegName(int o0, int op1, int CRn, int CRm, int op2) {
+	if (o0 == 3 && op1 == 3 && CRn == 4 && CRm == 2 && op2 == 0) {
+		return "nzcv";
+	} else if (o0 == 3 && op1 == 3 && CRn == 4 && CRm == 4 && op2 == 0) {
+		return "fpsr";
+	} else {
+		return "(unknown)";
+	}
+}
+
 static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rt = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
@@ -222,7 +232,20 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 			snprintf(instr->text, sizeof(instr->text), "(exception-gen %08x)", w);
 		}
 	} else if (((w >> 20) & 0xFFC) == 0xD50) {
-		snprintf(instr->text, sizeof(instr->text), "(system-reg %08x)", w);
+		bool L = (w >> 21) & 1;  // read
+		// Could check them all at once, but feels better to do it like the manual says.
+		int o0 = (w >> 19) & 3;
+		int op1 = (w >> 16) & 7;
+		int CRn = (w >> 12) & 0xF;
+		int CRm = (w >> 8) & 0xf;
+		int op2 = (w >> 5) & 0x7;
+		const char *sysreg = GetSystemRegName(o0, op1, CRn, CRm, op2);
+		if (L) {
+			snprintf(instr->text, sizeof(instr->text), "mrs x%d, %s", Rt, sysreg);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "msr %s, x%d", sysreg, Rt);
+		}
+
 	} else if (((w >> 25) & 0x7F) == 0x6B) {
 		int op = (w >> 21) & 3;
 		const char *opname[4] = { "b", "bl", "ret", "(unk)" };
