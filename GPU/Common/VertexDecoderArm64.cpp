@@ -448,12 +448,16 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 
 void VertexDecoderJitCache::Jit_Color8888() {
 	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
-	// TODO: Set flags to determine if alpha != 0xFF.
-	// ANDSI2R(tempReg2, tempReg1, 0xFF000000);
+
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg2, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg2, 0);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg2 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
+
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
-	// FixupBranch skip = B(CC_NZ);
-	MOVI2R(fullAlphaReg, 0);
-	// SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -473,11 +477,13 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
 
-	// TODO: Set flags to determine if alpha != 0xFF.
-	//MVNS(tempReg2, tempReg, ArithOption(tempReg1, ST_ASR, 24));
-	//FixupBranch skip = B(CC_EQ);
-	MOVI2R(fullAlphaReg, 0);
-	//SetJumpTarget(skip);
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg2, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg2, 0);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg2 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -527,12 +533,15 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	ANDI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
 	ORR(tempReg2, tempReg2, tempReg1);
 	
-	// TODO: Set flags to determine if alpha != 0xFF.
-	//MVNS(tempReg3, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg3, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg3, 0);
+
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.c0off);
-	//FixupBranch skip = B(CC_EQ);
-	MOVI2R(fullAlphaReg, 0);
-	//SetJumpTarget(skip);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg3 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
 }
 
 void VertexDecoderJitCache::Jit_TcU8() {
