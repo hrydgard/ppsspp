@@ -596,6 +596,13 @@ public:
 	// These are focusable so that long lists of them can be keyboard scrolled.
 	bool CanBeFocused() const override { return true; }
 
+	void SetText(const std::string &text) {
+		text_ = text;
+	}
+	void SetRightText(const std::string &text) {
+		rightText_ = text;
+	}
+
 private:
 	std::string text_;
 	std::string rightText_;
