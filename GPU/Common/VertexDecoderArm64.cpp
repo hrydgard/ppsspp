@@ -613,26 +613,25 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
-	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
+	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
 	Jit_AnyS16ToFloat(dec_->posoff);
-	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
+	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
 }
 
-// Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->posoff + 4);
-	LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 8);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
+	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
+		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->posoff);
+		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.posoff);
+	} else {
+		LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->posoff);
+		STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.posoff);
+		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 8);
+		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
@@ -680,12 +679,16 @@ void VertexDecoderJitCache::Jit_NormalS16() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 4);
-	LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
-	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
+	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
+		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->nrmoff);
+		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.nrmoff);
+	} else {
+		LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->nrmoff);
+		STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.nrmoff);
+		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
+		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
@@ -699,10 +702,7 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
-  //	fp.LDR(128, INDEX_UNSIGNED, srcNEON, srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, src[0], srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, src[1], srcReg, dec_->nrmoff + 4);
-	LDR(INDEX_UNSIGNED, src[2], srcReg, dec_->nrmoff + 8);
+	fp.LDUR(128, srcQ[0], srcReg, dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -717,45 +717,30 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	//fp.LDR(128, INDEX_UNSIGNED, srcNEON, srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, src[0], srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, src[1], srcReg, dec_->posoff + 4);
-	LDR(INDEX_UNSIGNED, src[2], srcReg, dec_->posoff + 8);
+	fp.LDUR(128, srcQ[0], srcReg, dec_->posoff);
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
-	// TODO: NEONize. In that case we'll leave all three floats in one register instead, so callers must change too.
-	LDRSB(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
-	LDRSB(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 1);
-	LDRSB(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 2);
-	fp.SCVTF(src[0], tempReg1, 7);
-	fp.SCVTF(src[1], tempReg2, 7);
-	fp.SCVTF(src[2], tempReg3, 7);
+	fp.LDUR(32, src[0], srcReg, srcoff);
+	fp.SXTL(8, srcQ[0], src[0]);
+	fp.SXTL(16, srcQ[0], src[0]);
+	fp.SCVTF(32, srcQ[0], srcQ[0], 7);
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
-	// TODO: NEONize. In that case we'll leave all three floats in one register instead, so callers must change too.
-	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
-	LDRSH(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 2);
-	LDRSH(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 4);
-	fp.SCVTF(src[0], tempReg1, 15);
-	fp.SCVTF(src[1], tempReg2, 15);
-	fp.SCVTF(src[2], tempReg3, 15);
+	fp.LDUR(64, src[0], srcReg, srcoff);
+	fp.SXTL(16, srcQ[0], src[0]);
+	fp.SCVTF(32, srcQ[0], srcQ[0], 15);
 }
 
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 	// Multiply with the matrix sitting in Q4-Q7.
 	fp.FMUL(32, accNEON, Q4, srcQ[0], 0);
-	fp.FMLA(32, accNEON, Q5, srcQ[1], 0);
-	fp.FMLA(32, accNEON, Q6, srcQ[2], 0);
+	fp.FMLA(32, accNEON, Q5, srcQ[0], 1);
+	fp.FMLA(32, accNEON, Q6, srcQ[0], 2);
 	if (pos) {
 		fp.FADD(32, accNEON, accNEON, Q7);
 	}
-	// Ugly store operation.
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff);
-	fp.INS(32, accNEON, 0, accNEON, 1);
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff + 4);
-	fp.INS(32, accNEON, 0, accNEON, 2);
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff + 8);
+	fp.STUR(128, accNEON, dstReg, outOff);
 }
