@@ -439,8 +439,7 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		break;
 	case 7:
 	case 8:
-		fp.LDR(128, INDEX_UNSIGNED, neonWeightRegsQ[0], srcReg, 0);
-		fp.LDR(128, INDEX_UNSIGNED, neonWeightRegsQ[1], srcReg, 16);
+		fp.LDP(128, INDEX_SIGNED, neonWeightRegsQ[0], neonWeightRegsQ[1], srcReg, 0);
 		break;
 	}
 	Jit_ApplyWeights();
