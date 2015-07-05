@@ -209,6 +209,7 @@ namespace MIPSComp
 				return;
 			}
 			// If rd is rhs, we may have lost it in the MapDirtyIn().  lhs was kept.
+			// This means the rhsImm value was never flushed to rhs, and would be garbage.
 			if (rd == rhs) {
 				// Luckily, it was just an imm.
 				gpr.SetImm(rhs, rhsImm);

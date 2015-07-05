@@ -357,9 +357,9 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 		}
 		return;
 	}
-	if (ar[r].mipsReg != MIPS_REG_INVALID && ar[r].mipsReg != MIPS_REG_ZERO) {
+	if (ar[r].mipsReg != MIPS_REG_INVALID) {
 		auto &mreg = mr[ar[r].mipsReg];
-		if (mreg.loc == ML_ARMREG_IMM) {
+		if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
 			// We know its immedate value, no need to STR now.
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
@@ -387,6 +387,10 @@ void ArmRegCache::DiscardR(MIPSGPReg mipsReg) {
 		} else {
 			mr[mipsReg].loc = ML_MEM;
 		}
+		mr[mipsReg].imm = 0;
+	}
+	if (prevLoc == ML_IMM && mipsReg != MIPS_REG_ZERO) {
+		mr[mipsReg].loc = ML_MEM;
 		mr[mipsReg].imm = 0;
 	}
 }

@@ -306,9 +306,9 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		}
 		return;
 	}
-	if (ar[r].mipsReg != MIPS_REG_INVALID && ar[r].mipsReg != MIPS_REG_ZERO) {
+	if (ar[r].mipsReg != MIPS_REG_INVALID) {
 		auto &mreg = mr[ar[r].mipsReg];
-		if (mreg.loc == ML_ARMREG_IMM) {
+		if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
 			// We know its immedate value, no need to STR now.
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
@@ -342,11 +342,18 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		}
 		mr[mipsReg].imm = 0;
 	}
+	if (prevLoc == ML_IMM && mipsReg != MIPS_REG_ZERO) {
+		mr[mipsReg].loc = ML_MEM;
+		mr[mipsReg].imm = 0;
+	}
 }
 
 ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 	switch (mr[r].loc) {
 	case ML_IMM:
+		if (r == MIPS_REG_ZERO) {
+			return INVALID_REG;
+		}
 		// Zero is super easy.
 		if (mr[r].imm == 0) {
 			return WZR;
