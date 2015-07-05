@@ -191,9 +191,7 @@ void Arm64Jit::GenerateFixedCode() {
 	ABI_PopRegisters(regs_to_save);
 
 	RET();
-	// Don't forget to zap the instruction cache!
-	FlushIcache();
-
+	
 	if (false) {
 		std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
 		for (auto s : lines) {
@@ -215,6 +213,9 @@ void Arm64Jit::GenerateFixedCode() {
 
 		RET();
 	}
+
+	// Don't forget to zap the instruction cache! This must stay at the end of this function.
+	FlushIcache();
 }
 
 }  // namespace MIPSComp
