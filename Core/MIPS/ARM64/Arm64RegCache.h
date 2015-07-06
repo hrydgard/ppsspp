@@ -139,6 +139,7 @@ private:
 	struct StaticAllocation {
 		MIPSGPReg mr;
 		Arm64Gen::ARM64Reg ar;
+		bool pointerified;
 	};
 	const StaticAllocation *GetStaticAllocations(int &count);
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);

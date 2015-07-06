@@ -33,6 +33,7 @@ using namespace Arm64Gen;
 //static int temp32; // unused?
 
 static const bool enableDebug = false;
+static const bool enableDisasm = false;
 
 //static bool enableStatistics = false; //unused?
 
@@ -228,7 +229,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	}
 
 	// Leave this at the end, add more stuff above.
-	if (false) {
+	if (enableDisasm) {
 		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());

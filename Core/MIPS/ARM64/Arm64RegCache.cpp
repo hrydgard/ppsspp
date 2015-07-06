@@ -54,7 +54,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
 	for (int i = 0; i < numStatics; i++) {
 		ar[statics[i].ar].mipsReg = statics[i].mr;
-		ar[statics[i].ar].pointerified = false;  // TODO: Support static pointerification for SP.
+		ar[statics[i].ar].pointerified = statics[i].pointerified;
 		mr[statics[i].mr].loc = ML_ARMREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
@@ -70,7 +70,7 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 	static const ARM64Reg allocationOrderStaticAlloc[] = {
-		W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
+		W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -87,6 +87,7 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 	};
 	static const StaticAllocation allocs[] = {
 		{MIPS_REG_V0, W19},
+		{MIPS_REG_SP, W20, true},
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -106,6 +107,9 @@ void Arm64RegCache::EmitLoadStaticAllocs() {
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
 		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
+		if (allocs[i].pointerified) {
+			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+		}
 	}
 }
 
@@ -596,6 +600,14 @@ void Arm64RegCache::FlushAll() {
 		FlushR(mipsReg);
 	}
 
+	int count = 0;
+	const StaticAllocation *allocs = GetStaticAllocations(count);
+	for (int i = 0; i < count; i++) {
+		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified) {
+			// Re-pointerify
+			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+		}
+	}
 	// Sanity check
 	for (int i = 0; i < NUM_ARMREG; i++) {
 		if (ar[i].mipsReg != MIPS_REG_INVALID && mr[ar[i].mipsReg].isStatic == false) {
