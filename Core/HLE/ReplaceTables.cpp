@@ -1207,6 +1207,8 @@ void RestoreReplacedInstruction(u32 address) {
 }
 
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+	if (endAddr == startAddr)
+		return;
 	// Need to be in order, or we'll hang.
 	if (endAddr < startAddr)
 		std::swap(endAddr, startAddr);

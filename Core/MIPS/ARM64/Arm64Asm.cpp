@@ -185,7 +185,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
 
-			// No block found, let's jit
+			// No block found, let's jit. I don't think we actually need to save static regs that are in callee-save regs here but whatever.
 			SaveStaticRegisters();
 			RestoreRoundingMode(true);
 			QuickCallFunction(SCRATCH1_64, (void *)&MIPSComp::JitAt);

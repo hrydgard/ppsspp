@@ -98,6 +98,7 @@ public:
 
 	void SetImm(MIPSGPReg reg, u64 immVal);
 	bool IsImm(MIPSGPReg reg) const;
+	bool IsPureImm(MIPSGPReg reg) const;
 	u64 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
