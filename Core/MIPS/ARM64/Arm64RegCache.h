@@ -109,6 +109,7 @@ public:
 	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
+	void MarkDirty(Arm64Gen::ARM64Reg reg);
 	void MapIn(MIPSGPReg rs);
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
 	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad = true);

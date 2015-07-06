@@ -82,10 +82,22 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 8:	// same as addiu?
 	case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-		if (simm >= 0) {
-			CompImmLogic(rs, rt, simm, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd);
-		} else if (simm < 0) {
-			CompImmLogic(rs, rt, -simm, &ARM64XEmitter::SUB, &ARM64XEmitter::TrySUBI2R, &EvalSub);
+		// Special-case for small adjustments of pointerified registers. Commonly for SP but happens for others.
+		if (rs == rt && gpr.IsMappedAsPointer(rs) && IsImmArithmetic(simm < 0 ? -simm : simm, nullptr, nullptr)) {
+			ARM64Reg r32 = gpr.R(rs);
+			gpr.MarkDirty(r32);
+			ARM64Reg r = EncodeRegTo64(r32);
+			if (simm > 0) {
+				ADDI2R(r, r, simm);
+			} else {
+				SUBI2R(r, r, -simm);
+			}
+		} else {
+			if (simm >= 0) {
+				CompImmLogic(rs, rt, simm, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd);
+			} else if (simm < 0) {
+				CompImmLogic(rs, rt, -simm, &ARM64XEmitter::SUB, &ARM64XEmitter::TrySUBI2R, &EvalSub);
+			}
 		}
 		break;
 
