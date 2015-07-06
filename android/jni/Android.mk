@@ -329,10 +329,18 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/git-version.cpp
 
+LOCAL_MODULE := ppsspp_core
+LOCAL_SRC_FILES := $(EXEC_AND_LIB_FILES)
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+LOCAL_STATIC_LIBRARIES += ppsspp_core
+
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
-  $(EXEC_AND_LIB_FILES) \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
@@ -364,6 +372,7 @@ endif
 ifeq ($(HEADLESS),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
+  LOCAL_STATIC_LIBRARIES += ppsspp_core
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
@@ -371,7 +380,6 @@ ifeq ($(HEADLESS),1)
 
   LOCAL_MODULE := ppsspp_headless
   LOCAL_SRC_FILES := \
-    $(EXEC_AND_LIB_FILES) \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/Compare.cpp
 
@@ -381,6 +389,7 @@ endif
 ifeq ($(UNITTEST),1)
   include $(CLEAR_VARS)
   include $(LOCAL_PATH)/Locals.mk
+  LOCAL_STATIC_LIBRARIES += ppsspp_core
 
   # Android 5.0 requires PIE for executables.  Only supported on 4.1+, but this is testing anyway.
   LOCAL_CFLAGS += -fPIE
@@ -443,9 +452,8 @@ ifeq ($(UNITTEST),1)
 
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
-	$(LIBARMIPS_FILES) \
-    $(EXEC_AND_LIB_FILES) \
-	$(SRC)/Core/MIPS/MIPSAsm.cpp \
+    $(LIBARMIPS_FILES) \
+    $(SRC)/Core/MIPS/MIPSAsm.cpp \
     $(SRC)/UnitTest/JitHarness.cpp \
     $(SRC)/UnitTest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
