@@ -308,7 +308,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== mips ===============");
+		ILOG("=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
 			ILOG("M: %08x   %s", cpc, temp);
@@ -379,9 +379,11 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		SaveStaticRegisters();
 		RestoreRoundingMode();
 		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
 		ApplyRoundingMode();
+		LoadStaticRegisters();
 		WriteDownCountR(W0);
 	}
 
@@ -428,6 +430,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		SaveStaticRegisters();
 		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
@@ -439,9 +442,11 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
+			LoadStaticRegisters();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			ApplyRoundingMode();
+			LoadStaticRegisters();
 			LDR(INDEX_UNSIGNED, W1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(W0);
 			WriteExitDestInR(W1);
