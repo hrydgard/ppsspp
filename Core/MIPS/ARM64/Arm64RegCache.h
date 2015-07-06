@@ -118,6 +118,7 @@ public:
 	void FlushArmReg(Arm64Gen::ARM64Reg r);
 	void FlushBeforeCall();
 	void FlushAll();
+	void FlushR(MIPSGPReg r);
 	void DiscardR(MIPSGPReg r);
 
 	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
@@ -144,7 +145,6 @@ private:
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
-	void FlushR(MIPSGPReg r);
 
 	MIPSState *mips_;
 	Arm64Gen::ARM64XEmitter *emit_;

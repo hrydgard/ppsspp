@@ -94,18 +94,27 @@ namespace MIPSComp {
 using namespace Arm64JitConstants;
 
 void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
-	saveStaticRegisters = AlignCode16();
-	const u8 *start = saveStaticRegisters;
-	STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-	gpr.EmitSaveStaticAllocs();
-	RET();
+	const u8 *start = nullptr;
+	if (jo.useStaticAlloc) {
+		saveStaticRegisters = AlignCode16();
+		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		gpr.EmitSaveStaticAllocs();
+		RET();
 
-	loadStaticRegisters = AlignCode16();
-	gpr.EmitLoadStaticAllocs();
-	LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
-	RET();
+		loadStaticRegisters = AlignCode16();
+		gpr.EmitLoadStaticAllocs();
+		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+		RET();
+
+		start = saveStaticRegisters;
+	} else {
+		saveStaticRegisters = nullptr;
+		loadStaticRegisters = nullptr;
+	}
 
 	enterCode = AlignCode16();
+	if (!start)
+		start = enterCode;
 
 	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);
 	BitSet32 regs_to_save_fp(Arm64Gen::ALL_CALLEE_SAVED_FP);
@@ -219,7 +228,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	}
 
 	// Leave this at the end, add more stuff above.
-	if (true) {
+	if (false) {
 		std::vector<std::string> lines = DisassembleArm64(start, GetCodePtr() - start);
 		for (auto s : lines) {
 			INFO_LOG(JIT, "%s", s.c_str());

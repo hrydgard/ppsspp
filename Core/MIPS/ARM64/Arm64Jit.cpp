@@ -485,11 +485,20 @@ void Arm64Jit::MovToPC(ARM64Reg r) {
 
 // Should not really be necessary except when entering Advance
 void Arm64Jit::SaveStaticRegisters() {
-	QuickCallFunction(SCRATCH2_64, saveStaticRegisters);
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2_64, saveStaticRegisters);
+	} else {
+		// Inline the single operation
+		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	}
 }
 
 void Arm64Jit::LoadStaticRegisters() {
-	QuickCallFunction(SCRATCH2_64, loadStaticRegisters);
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2_64, loadStaticRegisters);
+	} else {
+		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	}
 }
 
 void Arm64Jit::WriteDownCount(int offset) {
