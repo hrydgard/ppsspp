@@ -259,17 +259,20 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 
 	if (mr[mipsReg].isStatic) {
 		if (mr[mipsReg].loc == ML_IMM) {
-			if (!(mapFlags & MAP_NOINIT))
+			if ((mapFlags & MAP_NOINIT) == MAP_NOINIT) {
+				mr[mipsReg].loc = ML_ARMREG;
+			} else {
 				SetRegImm(armReg, mr[mipsReg].imm);
-			mr[mipsReg].loc = ML_ARMREG_IMM;
+				mr[mipsReg].loc = ML_ARMREG_IMM;
+			}
 		}
 		// Erasing the imm on dirty (necessary since otherwise we will still think it's ML_ARMREG_IMM and return
 		// true for IsImm and calculate crazily wrong things).  /unknown
 		if (mapFlags & MAP_DIRTY) {
 			mr[mipsReg].loc = ML_ARMREG;
+			ar[armReg].pointerified = false;
 			ar[armReg].isDirty = true;  // Not that it matters
 		}
-		ar[armReg].pointerified = false;
 		return mr[mipsReg].reg;
 	}
 
