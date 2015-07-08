@@ -70,43 +70,20 @@ void Combo_keyScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = rightColumn->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	switch (*mode) {
-	case 0:  for (int i = 0; i < 12; i++){
-				 if (0x01 == ((g_Config.cCombokey >> i) & 0x01))
-					 array[i] = 1;
-				 else
-					 array[i] = 0;
-			}
+	case 0:  for (int i = 0; i < 12; i++)
+				array[i] = (0x01 == ((g_Config.cCombokey >> i) & 0x01));
 			break;
-	case 1: for (int i = 0; i < 12; i++){
-				if (0x01 == ((g_Config.cCombokey1 >> i) & 0x01))
-					array[i] = 1;
-				else
-					array[i] = 0;
-			}
+	case 1: for (int i = 0; i < 12; i++)
+				array[i] = (0x01 == ((g_Config.cCombokey1 >> i) & 0x01));
 			break;
-	case 2: for (int i = 0; i < 12; i++){
-				if (0x01 == ((g_Config.cCombokey2 >> i) & 0x01))
-					array[i] = 1;
-				else
-					array[i] = 0;
-			}
-			
+	case 2:for (int i = 0; i < 12; i++)
+				array[i] = (0x01 == ((g_Config.cCombokey2 >> i) & 0x01));
 			break;
-	case 3: for (int i = 0; i < 12; i++){
-				if (0x01 == ((g_Config.cCombokey3 >> i) & 0x01))
-					array[i] = 1;
-				else
-					array[i] = 0;
-			}
-			
+	case 3: for (int i = 0; i < 12; i++)
+				array[i] = (0x01 == ((g_Config.cCombokey3 >> i) & 0x01));
 			break;
-	case 4: for (int i = 0; i < 12; i++){
-				if (0x01 == ((g_Config.cCombokey4 >> i) & 0x01))
-					array[i] = 1;
-				else
-					array[i] = 0;
-			}
-			
+	case 4: for (int i = 0; i < 12; i++)
+				array[i] = (0x01 == ((g_Config.cCombokey4 >> i) & 0x01));
 	}
 	
 	std::map<std::string, int> keyImages;
