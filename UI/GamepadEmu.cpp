@@ -107,157 +107,21 @@ void ComboButton::Touch(const TouchInput &input) {
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
-	if (1 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
+	static const int combo[16] = {CTRL_SQUARE ,CTRL_TRIANGLE ,CTRL_CIRCLE ,CTRL_CROSS ,CTRL_UP ,CTRL_DOWN ,CTRL_LEFT ,CTRL_RIGHT ,CTRL_START ,CTRL_SELECT ,CTRL_LTRIGGER ,CTRL_RTRIGGER };
+	for (int i = 0; i < 16; i++) {
+		if (pspButtonBit_ & combo[i])
+		{
+			if (down && !lastDown) {
+				if (g_Config.bHapticFeedback) {
+					Vibrate(HAPTIC_VIRTUAL_KEY);
+				}
+				__CtrlButtonDown(combo[i]);
 			}
-			__CtrlButtonDown(CTRL_CIRCLE);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_CIRCLE);
+			else if (lastDown && !down) {
+				__CtrlButtonUp(combo[i]);
+			}
 		}
 	}
-
-	if (2 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_CROSS);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_CROSS);
-		}
-	}
-
-	if (4 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_SQUARE);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_SQUARE);
-		}
-	}
-
-	if (8 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_TRIANGLE);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_TRIANGLE);
-		}
-	}
-
-	if (16 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_LTRIGGER);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_LTRIGGER);
-		}
-	}
-
-	if (32 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_RTRIGGER);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_RTRIGGER);
-		}
-	}
-
-	if (64 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_LEFT);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_LEFT);
-		}
-	}
-
-	if (128 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_UP);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_UP);
-		}
-	}
-	if (256 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_RIGHT);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_RIGHT);
-		}
-	}
-	if (512 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_DOWN);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_DOWN);
-		}
-	}
-	if (1024 & pspButtonBit_)
-	{
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_START);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_START);
-		}
-	}
-	if (2048 & pspButtonBit_){
-		if (down && !lastDown) {
-			if (g_Config.bHapticFeedback) {
-				Vibrate(HAPTIC_VIRTUAL_KEY);
-			}
-			__CtrlButtonDown(CTRL_SELECT);
-		}
-		else if (lastDown && !down) {
-			__CtrlButtonUp(CTRL_SELECT);
-		}
-	}
-
 
 }
 

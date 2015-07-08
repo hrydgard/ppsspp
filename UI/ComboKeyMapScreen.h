@@ -32,10 +32,10 @@ public:
 	virtual void CreateViews();
 	virtual void onFinish(DialogResult result);
 	UI::EventReturn onCombo(UI::EventParams &e);
-	static int arrayToInt(bool ary[12]) {
+	static int arrayToInt(bool ary[16]) {
 		int value = 0;
 
-		for (int i = 11; i >=0; i--){
+		for (int i = 15; i >=0; i--){
 			value |= ary[i];
 			value = value <<  1;
 		}
@@ -43,7 +43,7 @@ public:
 	}
 private:
 	std::map<std::string, bool*> keyToggles;
-	bool array[12];
+	bool array[16];
 	int *mode;
 	UI::ChoiceStrip *comboselect;
 	UI::ScrollView *rightScroll_;

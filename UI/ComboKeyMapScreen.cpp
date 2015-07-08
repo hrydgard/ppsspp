@@ -69,20 +69,21 @@ void Combo_keyScreen::CreateViews() {
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
 	GridLayout *grid = rightColumn->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	memset(array, 0, 15);
 	switch (*mode) {
-	case 0:  for (int i = 0; i < 12; i++)
+	case 0:  for (int i = 0; i < 16; i++)
 				array[i] = (0x01 == ((g_Config.cCombokey >> i) & 0x01));
 			break;
-	case 1: for (int i = 0; i < 12; i++)
+	case 1: for (int i = 0; i < 16; i++)
 				array[i] = (0x01 == ((g_Config.cCombokey1 >> i) & 0x01));
 			break;
-	case 2:for (int i = 0; i < 12; i++)
+	case 2:for (int i = 0; i < 16; i++)
 				array[i] = (0x01 == ((g_Config.cCombokey2 >> i) & 0x01));
 			break;
-	case 3: for (int i = 0; i < 12; i++)
+	case 3: for (int i = 0; i < 16; i++)
 				array[i] = (0x01 == ((g_Config.cCombokey3 >> i) & 0x01));
 			break;
-	case 4: for (int i = 0; i < 12; i++)
+	case 4: for (int i = 0; i < 16; i++)
 				array[i] = (0x01 == ((g_Config.cCombokey4 >> i) & 0x01));
 	}
 	
@@ -104,18 +105,18 @@ void Combo_keyScreen::CreateViews() {
 
 
 
-	keyToggles["Circle"] = &array[0];
-	keyToggles["Cross"] = &array[1];
-	keyToggles["Square"] = &array[2];
-	keyToggles["Triangle"] = &array[3];
-	keyToggles["L"] = &array[4];
-	keyToggles["R"] = &array[5];
-	keyToggles["ULeft"] = &array[6];
-	keyToggles["VUp"] = &array[7];
-	keyToggles["WRight"] = &array[8];
-	keyToggles["XDown"] = &array[9];
-	keyToggles["Start"] = &array[10];
-	keyToggles["Select"] = &array[11];
+	keyToggles["Circle"] = &array[13];
+	keyToggles["Cross"] = &array[14];
+	keyToggles["Square"] = &array[15];
+	keyToggles["Triangle"] = &array[12];
+	keyToggles["L"] = &array[8];
+	keyToggles["R"] = &array[9];
+	keyToggles["ULeft"] = &array[7];
+	keyToggles["VUp"] = &array[4];
+	keyToggles["WRight"] = &array[5];
+	keyToggles["XDown"] = &array[6];
+	keyToggles["Start"] = &array[3];
+	keyToggles["Select"] = &array[0];
 
 
 
