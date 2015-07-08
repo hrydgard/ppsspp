@@ -1,15 +1,163 @@
-#include "native/ext/vjson/json.h"
+// Copyright (c) 2014- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include "base/functional.h"
+#include "base/basictypes.h"
+#include "ext/vjson/json.h"
 
 #include "i18n/i18n.h"
+#include "ui/screen.h"
 #include "ui/ui_context.h"
 #include "ui/viewgroup.h"
 #include "gfx_es2/draw_buffer.h"
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
+#include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
 const std::string storeBaseUrl = "http://store.ppsspp.org/";
+
+// baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
+std::string ResolveUrl(std::string baseUrl, std::string url) {
+	if (url.empty()) {
+		return baseUrl;
+	} else if (url[0] == '/') {
+		return baseUrl + url.substr(1);
+	} else if (url.substr(0, 7) == "http://") {
+		return url;
+	} else {
+		// Huh.
+		return baseUrl + url;
+	}
+}
+
+class HttpImageFileView : public UI::View {
+public:
+	HttpImageFileView(http::Downloader *downloader, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, UI::LayoutParams *layoutParams = 0)
+		: UI::View(layoutParams), downloader_(downloader), path_(path), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+
+	~HttpImageFileView() {
+		delete texture_;
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+
+	void SetFilename(std::string filename);
+	void SetColor(uint32_t color) { color_ = color; }
+	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }
+	void SetCanBeFocused(bool can) { canFocus_ = can; }
+
+	bool CanBeFocused() const override { return false; }
+
+	const std::string &GetFilename() const { return path_; }
+
+private:
+	void DownloadCompletedCallback(http::Download &download);
+
+	bool canFocus_;
+	std::string path_;
+	uint32_t color_;
+	UI::ImageSizeMode sizeMode_;
+	http::Downloader *downloader_;
+	std::shared_ptr<http::Download> download_;
+
+	std::string textureData_;
+	Thin3DTexture *texture_;
+	bool textureFailed_;
+	float fixedSizeW_;
+	float fixedSizeH_;
+};
+
+void HttpImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	switch (sizeMode_) {
+	case UI::IS_FIXED:
+		w = fixedSizeW_;
+		h = fixedSizeH_;
+		break;
+	case UI::IS_DEFAULT:
+	default:
+		if (texture_) {
+			float texw = (float)texture_->Width();
+			float texh = (float)texture_->Height();
+			w = texw;
+			h = texh;
+		} else {
+			w = 16;
+			h = 16;
+		}
+		break;
+	}
+}
+
+void HttpImageFileView::SetFilename(std::string filename) {
+	if (path_ != filename) {
+		textureFailed_ = false;
+		path_ = filename;
+		if (texture_) {
+			texture_->Release();
+			texture_ = nullptr;
+		}
+	}
+}
+
+void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
+	if (download.ResultCode() == 200) {
+		download.buffer().TakeAll(&textureData_);
+	} else {
+		textureFailed_ = true;
+	}
+}
+
+void HttpImageFileView::Draw(UIContext &dc) {
+	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
+		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, placeholder::_1));
+		download_->SetHidden(true);
+	}
+
+	if (!textureData_.empty()) {
+		texture_ = dc.GetThin3DContext()->CreateTextureFromFileData((const uint8_t *)(textureData_.data()), (int)textureData_.size(), DETECT);
+		if (!texture_)
+			textureFailed_ = true;
+		textureData_.clear();
+		download_.reset();
+	}
+
+	if (HasFocus()) {
+		dc.FillRect(dc.theme->itemFocusedStyle.background, bounds_.Expand(3));
+	}
+
+	// TODO: involve sizemode
+	if (texture_) {
+		dc.Flush();
+		dc.GetThin3DContext()->SetTexture(0, texture_);
+		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Flush();
+		dc.RebindTexture();
+	} else {
+		// draw a black rectangle to represent the missing image.
+		dc.FillRect(UI::Drawable(0xFF000000), GetBounds());
+	}
+}
+
+
 
 // This is the entry in a list. Does not have install buttons and so on.
 class ProductItemView : public UI::Choice {
@@ -39,38 +187,53 @@ void ProductItemView::Update(const InputState &input_state) {
 	View::Update(input_state);
 }
 
-// This is a "details" view of a game. Let's you install it.
+// This is a "details" view of a game. Lets you install it.
 class ProductView : public UI::LinearLayout {
 public:
-	ProductView(const StoreEntry &entry) : LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0) {
+	ProductView(const StoreEntry &entry)
+		: LinearLayout(UI::ORIENT_VERTICAL), entry_(entry), installButton_(0), wasInstalled_(false) {
 		CreateViews();
 	}
 
 	virtual void Update(const InputState &input_state);
 
+	UI::Event OnClickLaunch;
+
 private:
 	void CreateViews();
 	UI::EventReturn OnInstall(UI::EventParams &e);
 	UI::EventReturn OnUninstall(UI::EventParams &e);
+	UI::EventReturn OnLaunchClick(UI::EventParams &e);
+
+	bool IsGameInstalled() {
+		return g_GameManager.IsGameInstalled(entry_.file);
+	}
 
 	StoreEntry entry_;
 	UI::Button *installButton_;
+	bool wasInstalled_;
 };
 
 void ProductView::CreateViews() {
 	using namespace UI;
 	Clear();
 
+	if (!entry_.iconURL.empty()) {
+		Add(new HttpImageFileView(&g_DownloadManager, ResolveUrl(storeBaseUrl, entry_.iconURL), IS_FIXED))->SetFixedSize(144, 88);
+	}
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
 
 	I18NCategory *st = GetI18NCategory("Store");
-	if (!g_GameManager.IsGameInstalled(entry_.file)) {
+	wasInstalled_ = IsGameInstalled();
+	if (!wasInstalled_) {
 		installButton_ = Add(new Button(st->T("Install")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 	} else {
+		installButton_ = nullptr;
 		Add(new TextView(st->T("Already Installed")));
 		Add(new Button(st->T("Uninstall")))->OnClick.Handle(this, &ProductView::OnUninstall);
+		Add(new Button(st->T("Launch Game")))->OnClick.Handle(this, &ProductView::OnLaunchClick);
 	}
 
 	// Add star rating, comments etc?
@@ -84,6 +247,12 @@ void ProductView::CreateViews() {
 }
 
 void ProductView::Update(const InputState &input_state) {
+	if (wasInstalled_ != IsGameInstalled()) {
+		CreateViews();
+	}
+	if (installButton_) {
+		installButton_->SetEnabled(!g_GameManager.IsInstallInProgress());
+	}
 	View::Update(input_state);
 }
 
@@ -110,6 +279,19 @@ UI::EventReturn ProductView::OnUninstall(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
+	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
+	std::string path = pspGame + entry_.file;
+#ifdef _WIN32
+	path = ReplaceAll(path, "\\", "/");
+#endif
+
+	UI::EventParams e2;
+	e2.s = path;
+	// Insta-update - here we know we are already on the right thread.
+	OnClickLaunch.Trigger(e2);
+	return UI::EVENT_DONE;
+}
 
 StoreScreen::StoreScreen() : loading_(true), connectionError_(false) {
 	StoreFilter noFilter;
@@ -173,6 +355,7 @@ void StoreScreen::ParseListing(std::string json) {
 			e.author = game->getString("author", "?");
 			e.size = game->getInt("size");
 			e.downloadURL = game->getString("download-url", "");
+			e.iconURL = game->getString("icon-url", "");
 			const char *file = game->getString("file", 0);
 			if (!file)
 				continue;
@@ -238,7 +421,15 @@ UI::EventReturn StoreScreen::OnGameSelected(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 
 	productPanel_->Clear();
-	productPanel_->Add(new ProductView(item->GetEntry()));
+	ProductView *productView = new ProductView(item->GetEntry());
+	productView->OnClickLaunch.Handle(this, &StoreScreen::OnGameLaunch);
+	productPanel_->Add(productView);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn StoreScreen::OnGameLaunch(UI::EventParams &e) {
+	std::string path = e.s;
+	screenManager()->switchScreen(new EmuScreen(path));
 	return UI::EVENT_DONE;
 }
 

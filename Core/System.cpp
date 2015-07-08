@@ -531,6 +531,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory + "PSP/SYSTEM/DUMP/";
 	case DIRECTORY_SAVESTATE:
 		return g_Config.memStickDirectory + "PSP/PPSSPP_STATE/";
+	case DIRECTORY_CACHE:
+		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");

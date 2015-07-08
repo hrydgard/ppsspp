@@ -84,7 +84,6 @@ public:
 
 	bool bAutoRun;  // start immediately
 	bool bBrowse; // when opening the emulator, immediately show a file browser
-	bool bHomebrewStore;
 
 	// General
 	int iNumWorkerThreads;

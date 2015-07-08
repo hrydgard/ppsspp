@@ -577,7 +577,7 @@ void GameBrowser::Refresh() {
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
 	}
 
-	if (g_Config.bHomebrewStore && (flags_ & FLAG_HOMEBREWSTOREBUTTON)) {
+	if (flags_ & FLAG_HOMEBREWSTOREBUTTON) {
 		Add(new Spacer());
 		homebrewStoreButton_ = Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
 	} else {

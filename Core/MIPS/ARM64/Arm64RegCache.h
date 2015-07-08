@@ -77,8 +77,8 @@ struct RegARM {
 struct RegMIPS {
 	// Where is this MIPS register?
 	Arm64JitConstants::RegMIPSLoc loc;
-	// Data (only one of these is used, depending on loc. Could make a union).
-	u32 imm;
+	// Data (both or only one may be used, depending on loc.)
+	u64 imm;
 	Arm64Gen::ARM64Reg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
@@ -103,9 +103,9 @@ public:
 	void ReleaseSpillLock(MIPSGPReg reg);
 	void ReleaseSpillLocks();
 
-	void SetImm(MIPSGPReg reg, u32 immVal);
+	void SetImm(MIPSGPReg reg, u64 immVal);
 	bool IsImm(MIPSGPReg reg) const;
-	u32 GetImm(MIPSGPReg reg) const;
+	u64 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
 
@@ -142,6 +142,7 @@ private:
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
+	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
 		
 	MIPSState *mips_;
 	Arm64Gen::ARM64XEmitter *emit_;

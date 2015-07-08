@@ -62,7 +62,8 @@ static const bool enableDebug = false;
 // saving them when we call out of the JIT. We will perform regular dynamic register allocation in the rest (x0-x15)
 
 // STATIC ALLOCATION ARM64 (these are all callee-save registers):
-// x24 : Down counter
+// x23 : Down counter
+// x24 : PC save on JR with non-nice delay slot (to be eliminated later?)
 // x25 : MSR/MRS temporary (to be eliminated later)
 // x26 : JIT base reg
 // x27 : MIPS state (Could eliminate by placing the MIPS state right at the memory base)
@@ -190,9 +191,7 @@ void Arm64Jit::GenerateFixedCode() {
 	ABI_PopRegisters(regs_to_save);
 
 	RET();
-	// Don't forget to zap the instruction cache!
-	FlushIcache();
-
+	
 	if (false) {
 		std::vector<std::string> lines = DisassembleArm64(enterCode, GetCodePtr() - enterCode);
 		for (auto s : lines) {
@@ -214,6 +213,9 @@ void Arm64Jit::GenerateFixedCode() {
 
 		RET();
 	}
+
+	// Don't forget to zap the instruction cache! This must stay at the end of this function.
+	FlushIcache();
 }
 
 }  // namespace MIPSComp

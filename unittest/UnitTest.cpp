@@ -42,6 +42,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include "unittest/JitHarness.h"
+#include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
@@ -382,6 +383,7 @@ TestItem availableTests[] = {
 #if defined(_M_X64) || defined(_M_IX86)
 	TEST_ITEM(X64Emitter),
 #endif
+	TEST_ITEM(VertexJit),
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
 	TEST_ITEM(VFPUSinCos),

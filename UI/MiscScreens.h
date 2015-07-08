@@ -55,6 +55,8 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 	virtual void sendMessage(const char *message, const char *value) override;
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
+
+	void AddStandardBack(UI::ViewGroup *parent);
 };
 
 class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {

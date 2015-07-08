@@ -7,9 +7,11 @@
     <ClCompile Include="TestArmEmitter.cpp" />
     <ClCompile Include="TestX64Emitter.cpp" />
     <ClCompile Include="TestArm64Emitter.cpp" />
+    <ClCompile Include="TestVertexJit.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />
     <ClInclude Include="UnitTest.h" />
+    <ClInclude Include="TestVertexJit.h" />
   </ItemGroup>
 </Project>

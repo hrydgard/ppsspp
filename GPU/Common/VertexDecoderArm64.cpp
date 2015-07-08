@@ -59,6 +59,7 @@ static const ARM64Reg neonUVScaleReg = D0;
 static const ARM64Reg neonUVOffsetReg = D1;
 
 static const ARM64Reg src[3] = {S2, S3, S8};
+static const ARM64Reg srcD[3] = {D2, D3, D8};
 static const ARM64Reg srcQ[3] = {Q2, Q3, Q8};
 
 static const ARM64Reg srcNEON = Q8;
@@ -307,8 +308,8 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			break;
 		default:
 			// Matrices 4+ need to be loaded from memory.
-			fp.LDP(INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
-			fp.LDP(INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
+			fp.LDP(128, INDEX_SIGNED, Q8, Q9, scratchReg64, 0);
+			fp.LDP(128, INDEX_SIGNED, Q10, Q11, scratchReg64, 2 * 16);
 			fp.FMLA(32, Q4, Q8, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q5, Q9, neonWeightRegsQ[i >> 2], i & 3);
 			fp.FMLA(32, Q6, Q10, neonWeightRegsQ[i >> 2], i & 3);
@@ -438,8 +439,7 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		break;
 	case 7:
 	case 8:
-		fp.LDR(128, INDEX_UNSIGNED, neonWeightRegsQ[0], srcReg, 0);
-		fp.LDR(128, INDEX_UNSIGNED, neonWeightRegsQ[1], srcReg, 16);
+		fp.LDP(128, INDEX_SIGNED, neonWeightRegsQ[0], neonWeightRegsQ[1], srcReg, 0);
 		break;
 	}
 	Jit_ApplyWeights();
@@ -447,12 +447,16 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 
 void VertexDecoderJitCache::Jit_Color8888() {
 	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->coloff);
-	// TODO: Set flags to determine if alpha != 0xFF.
-	// ANDSI2R(tempReg2, tempReg1, 0xFF000000);
+
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg2, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg2, 0);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg2 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
+
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
-	// FixupBranch skip = B(CC_NZ);
-	MOVI2R(fullAlphaReg, 0);
-	// SetJumpTarget(skip);
 }
 
 void VertexDecoderJitCache::Jit_Color4444() {
@@ -472,11 +476,13 @@ void VertexDecoderJitCache::Jit_Color4444() {
 
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
 
-	// TODO: Set flags to determine if alpha != 0xFF.
-	//MVNS(tempReg2, tempReg, ArithOption(tempReg1, ST_ASR, 24));
-	//FixupBranch skip = B(CC_EQ);
-	MOVI2R(fullAlphaReg, 0);
-	//SetJumpTarget(skip);
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg2, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg2, 0);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg2 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
 }
 
 void VertexDecoderJitCache::Jit_Color565() {
@@ -526,40 +532,35 @@ void VertexDecoderJitCache::Jit_Color5551() {
 	ANDI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
 	ORR(tempReg2, tempReg2, tempReg1);
 	
-	// TODO: Set flags to determine if alpha != 0xFF.
-	//MVNS(tempReg3, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	// Set flags to determine if alpha != 0xFF.
+	ORN(tempReg3, WZR, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	CMP(tempReg3, 0);
+
 	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.c0off);
-	//FixupBranch skip = B(CC_EQ);
-	MOVI2R(fullAlphaReg, 0);
-	//SetJumpTarget(skip);
+
+	// Clear fullAlphaReg when the inverse was not 0.
+	// fullAlphaReg = tempReg3 == 0 ? fullAlphaReg : 0 + 1;
+	CSEL(fullAlphaReg, fullAlphaReg, WZR, CC_EQ);
 }
 
 void VertexDecoderJitCache::Jit_TcU8() {
-	LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDRB(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 1);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 8));
+	LDURH(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16() {
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
+	LDUR(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
+	LDUR(tempReg1, srcReg, dec_->tcoff);
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 4);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+	LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->tcoff);
+	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Double() {
@@ -579,60 +580,57 @@ void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 4);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.uvoff + 4);
+	LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->tcoff);
+	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
-	fp.LDR(16, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(16, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(8, neonScratchRegQ, neonScratchRegD); // Widen to 16-bit
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcU16Prescale() {
-	fp.LDR(32, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(32, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.UXTL(16, neonScratchRegQ, neonScratchRegD); // Widen to 32-bit
 	fp.UCVTF(32, neonScratchRegD, neonScratchRegD);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescale() {
-	fp.LDR(64, INDEX_UNSIGNED, neonScratchRegD, srcReg, dec_->tcoff);
+	fp.LDUR(64, neonScratchRegD, srcReg, dec_->tcoff);
 	fp.FMUL(32, neonScratchRegD, neonScratchRegD, neonUVScaleReg);  // TODO: FMLA
 	fp.FADD(32, neonScratchRegD, neonScratchRegD, neonUVOffsetReg);
-	fp.STR(64, INDEX_UNSIGNED, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS8() {
 	Jit_AnyS8ToFloat(dec_->posoff);
-	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
+	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
 }
 
 void VertexDecoderJitCache::Jit_PosS16() {
 	Jit_AnyS16ToFloat(dec_->posoff);
-	STR(INDEX_UNSIGNED, src[0], dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, src[2], dstReg, dec_->decFmt.posoff + 8);
+	fp.STUR(128, srcQ[0], dstReg, dec_->decFmt.posoff);
 }
 
-// Just copy 12 bytes.
 void VertexDecoderJitCache::Jit_PosFloat() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->posoff + 4);
-	LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 8);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
+	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
+		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->posoff);
+		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.posoff);
+	} else {
+		LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->posoff);
+		STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.posoff);
+		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 8);
+		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
@@ -648,22 +646,20 @@ void VertexDecoderJitCache::Jit_PosS8Through() {
 }
 
 void VertexDecoderJitCache::Jit_PosS16Through() {
-	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->posoff);
-	LDRSH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->posoff + 2);
+	// Start with X and Y (which is signed.)
+	fp.LDUR(32, src[0], srcReg, dec_->posoff);
+	fp.SXTL(16, srcD[0], src[0]);
+	fp.SCVTF(32, srcD[0], srcD[0]);
+	fp.STUR(64, src[0], dstReg, dec_->decFmt.posoff);
+	// Now load in Z (which is unsigned.)
 	LDRH(INDEX_UNSIGNED, tempReg3, srcReg, dec_->posoff + 4);
-	fp.SCVTF(fpScratchReg, tempReg1);
-	fp.SCVTF(fpScratchReg2, tempReg2);
-	fp.SCVTF(fpScratchReg3, tempReg3);
-	STR(INDEX_UNSIGNED, fpScratchReg, dstReg, dec_->decFmt.posoff);
-	STR(INDEX_UNSIGNED, fpScratchReg2, dstReg, dec_->decFmt.posoff + 4);
-	STR(INDEX_UNSIGNED, fpScratchReg3, dstReg, dec_->decFmt.posoff + 8);
+	fp.SCVTF(src[1], tempReg3);
+	STR(INDEX_UNSIGNED, src[1], dstReg, dec_->decFmt.posoff + 8);
 }
 
 void VertexDecoderJitCache::Jit_NormalS8() {
-	LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
-	LDRB(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 1);
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
 	LDRB(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 2);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 8));
 	ORR(tempReg1, tempReg1, tempReg3, ArithOption(tempReg3, ST_LSL, 16));
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
 }
@@ -671,21 +667,22 @@ void VertexDecoderJitCache::Jit_NormalS8() {
 // Copy 6 bytes and then 2 zeroes.
 void VertexDecoderJitCache::Jit_NormalS16() {
 	// NOTE: Not LDRH, we just copy the raw bytes here.
-	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
-	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 2);
-	LDRH(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 4);
-	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
-	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 4);
+	LDUR(tempReg1, srcReg, dec_->nrmoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 4);
+	STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.nrmoff);
 }
 
 void VertexDecoderJitCache::Jit_NormalFloat() {
-	LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, tempReg2, srcReg, dec_->nrmoff + 4);
-	LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
-	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.nrmoff);
-	STR(INDEX_UNSIGNED, tempReg2, dstReg, dec_->decFmt.nrmoff + 4);
-	STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+	// Only need to copy 12 bytes, but copying 16 should be okay (and is faster.)
+	if ((dec_->posoff & 7) == 0 && (dec_->decFmt.posoff & 7) == 0) {
+		LDP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), srcReg, dec_->nrmoff);
+		STP(INDEX_SIGNED, EncodeRegTo64(tempReg1), EncodeRegTo64(tempReg2), dstReg, dec_->decFmt.nrmoff);
+	} else {
+		LDP(INDEX_SIGNED, tempReg1, tempReg2, srcReg, dec_->nrmoff);
+		STP(INDEX_SIGNED, tempReg1, tempReg2, dstReg, dec_->decFmt.nrmoff);
+		LDR(INDEX_UNSIGNED, tempReg3, srcReg, dec_->nrmoff + 8);
+		STR(INDEX_UNSIGNED, tempReg3, dstReg, dec_->decFmt.nrmoff + 8);
+	}
 }
 
 void VertexDecoderJitCache::Jit_NormalS8Skin() {
@@ -699,10 +696,7 @@ void VertexDecoderJitCache::Jit_NormalS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_NormalFloatSkin() {
-  //	fp.LDR(128, INDEX_UNSIGNED, srcNEON, srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, src[0], srcReg, dec_->nrmoff);
-	LDR(INDEX_UNSIGNED, src[1], srcReg, dec_->nrmoff + 4);
-	LDR(INDEX_UNSIGNED, src[2], srcReg, dec_->nrmoff + 8);
+	fp.LDUR(128, srcQ[0], srcReg, dec_->nrmoff);
 	Jit_WriteMatrixMul(dec_->decFmt.nrmoff, false);
 }
 
@@ -717,45 +711,30 @@ void VertexDecoderJitCache::Jit_PosS16Skin() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloatSkin() {
-	//fp.LDR(128, INDEX_UNSIGNED, srcNEON, srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, src[0], srcReg, dec_->posoff);
-	LDR(INDEX_UNSIGNED, src[1], srcReg, dec_->posoff + 4);
-	LDR(INDEX_UNSIGNED, src[2], srcReg, dec_->posoff + 8);
+	fp.LDUR(128, srcQ[0], srcReg, dec_->posoff);
 	Jit_WriteMatrixMul(dec_->decFmt.posoff, true);
 }
 
 void VertexDecoderJitCache::Jit_AnyS8ToFloat(int srcoff) {
-	// TODO: NEONize. In that case we'll leave all three floats in one register instead, so callers must change too.
-	LDRSB(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
-	LDRSB(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 1);
-	LDRSB(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 2);
-	fp.SCVTF(src[0], tempReg1, 7);
-	fp.SCVTF(src[1], tempReg2, 7);
-	fp.SCVTF(src[2], tempReg3, 7);
+	fp.LDUR(32, src[0], srcReg, srcoff);
+	fp.SXTL(8, srcD[0], src[0]);
+	fp.SXTL(16, srcQ[0], srcD[0]);
+	fp.SCVTF(32, srcQ[0], srcQ[0], 7);
 }
 
 void VertexDecoderJitCache::Jit_AnyS16ToFloat(int srcoff) {
-	// TODO: NEONize. In that case we'll leave all three floats in one register instead, so callers must change too.
-	LDRSH(INDEX_UNSIGNED, tempReg1, srcReg, srcoff);
-	LDRSH(INDEX_UNSIGNED, tempReg2, srcReg, srcoff + 2);
-	LDRSH(INDEX_UNSIGNED, tempReg3, srcReg, srcoff + 4);
-	fp.SCVTF(src[0], tempReg1, 15);
-	fp.SCVTF(src[1], tempReg2, 15);
-	fp.SCVTF(src[2], tempReg3, 15);
+	fp.LDUR(64, src[0], srcReg, srcoff);
+	fp.SXTL(16, srcQ[0], srcD[0]);
+	fp.SCVTF(32, srcQ[0], srcQ[0], 15);
 }
 
 void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 	// Multiply with the matrix sitting in Q4-Q7.
 	fp.FMUL(32, accNEON, Q4, srcQ[0], 0);
-	fp.FMLA(32, accNEON, Q5, srcQ[1], 0);
-	fp.FMLA(32, accNEON, Q6, srcQ[2], 0);
+	fp.FMLA(32, accNEON, Q5, srcQ[0], 1);
+	fp.FMLA(32, accNEON, Q6, srcQ[0], 2);
 	if (pos) {
 		fp.FADD(32, accNEON, accNEON, Q7);
 	}
-	// Ugly store operation.
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff);
-	fp.INS(32, accNEON, 0, accNEON, 1);
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff + 4);
-	fp.INS(32, accNEON, 0, accNEON, 2);
-	fp.STR(32, INDEX_UNSIGNED, accNEON, dstReg, outOff + 8);
+	fp.STUR(128, accNEON, dstReg, outOff);
 }

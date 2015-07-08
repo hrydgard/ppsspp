@@ -182,13 +182,7 @@ void ArmRegCache::MapRegTo(ARMReg reg, MIPSGPReg mipsReg, int mapFlags) {
 			}
 		}
 	} else {
-		if (mipsReg == MIPS_REG_ZERO) {
-			// This way, if we SetImm() it, we'll keep it.
-			mr[mipsReg].loc = ML_ARMREG_IMM;
-			mr[mipsReg].imm = 0;
-		} else {
-			mr[mipsReg].loc = ML_ARMREG;
-		}
+		mr[mipsReg].loc = ML_ARMREG;
 	}
 	ar[reg].mipsReg = mipsReg;
 	mr[mipsReg].reg = reg;
@@ -305,7 +299,7 @@ allocate:
 		goto allocate;
 	}
 
-	// Uh oh, we have all them spilllocked....
+	// Uh oh, we have all of them spilllocked....
 	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
 	return INVALID_REG;
 }
@@ -365,7 +359,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 	}
 	if (ar[r].mipsReg != MIPS_REG_INVALID) {
 		auto &mreg = mr[ar[r].mipsReg];
-		if (mreg.loc == ML_ARMREG_IMM) {
+		if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
 			// We know its immedate value, no need to STR now.
 			mreg.loc = ML_IMM;
 			mreg.reg = INVALID_REG;
@@ -388,6 +382,14 @@ void ArmRegCache::DiscardR(MIPSGPReg mipsReg) {
 		ar[armReg].isDirty = false;
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
 		mr[mipsReg].reg = INVALID_REG;
+		if (mipsReg == MIPS_REG_ZERO) {
+			mr[mipsReg].loc = ML_IMM;
+		} else {
+			mr[mipsReg].loc = ML_MEM;
+		}
+		mr[mipsReg].imm = 0;
+	}
+	if (prevLoc == ML_IMM && mipsReg != MIPS_REG_ZERO) {
 		mr[mipsReg].loc = ML_MEM;
 		mr[mipsReg].imm = 0;
 	}
@@ -433,7 +435,11 @@ void ArmRegCache::FlushR(MIPSGPReg r) {
 		ERROR_LOG_REPORT(JIT, "FlushR: MipsReg %d with invalid location %d", r, mr[r].loc);
 		break;
 	}
-	mr[r].loc = ML_MEM;
+	if (r == MIPS_REG_ZERO) {
+		mr[r].loc = ML_IMM;
+	} else {
+		mr[r].loc = ML_MEM;
+	}
 	mr[r].reg = INVALID_REG;
 	mr[r].imm = 0;
 }
@@ -541,8 +547,10 @@ void ArmRegCache::FlushAll() {
 }
 
 void ArmRegCache::SetImm(MIPSGPReg r, u32 immVal) {
-	if (r == MIPS_REG_ZERO && immVal != 0)
-		ERROR_LOG(JIT, "Trying to set immediate %08x to r0", immVal);
+	if (r == MIPS_REG_ZERO && immVal != 0) {
+		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
+		return;
+	}
 
 	if (mr[r].loc == ML_ARMREG_IMM && mr[r].imm == immVal) {
 		// Already have that value, let's keep it in the reg.

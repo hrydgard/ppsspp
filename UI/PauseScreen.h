@@ -76,7 +76,6 @@ public:
 	void Draw(UIContext &dc) override;
 
 	void SetFilename(std::string filename);
-	void SetTexture(Thin3DTexture *texture) { texture_ = texture; }
 	void SetColor(uint32_t color) { color_ = color; }
 	void SetOverlayText(std::string text) { text_ = text; }
 	void SetFixedSize(float fixW, float fixH) { fixedSizeW_ = fixW; fixedSizeH_ = fixH; }

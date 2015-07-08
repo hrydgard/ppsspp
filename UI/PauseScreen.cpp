@@ -43,7 +43,6 @@
 #include "ui/ui_context.h"
 
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// TODO: involve sizemode
 	if (texture_) {
 		float texw = (float)texture_->Width();
 		float texh = (float)texture_->Height();
