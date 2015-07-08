@@ -303,9 +303,8 @@ namespace MIPSComp {
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
-				// Removed consecutive opt for now
-				for (int i = 0; i < 4; i++)
-					fp.LDR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
+				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
+				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[2]), fpr.V(vregs[3]), SCRATCH1_64, 8);
 
 				for (auto skip : skips) {
 					SetJumpTarget(skip);
@@ -333,8 +332,8 @@ namespace MIPSComp {
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
-				for (int i = 0; i < 4; i++)
-					fp.STR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
+				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
+				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[2]), fpr.V(vregs[3]), SCRATCH1_64, 8);
 
 				for (auto skip : skips) {
 					SetJumpTarget(skip);
