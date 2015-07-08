@@ -428,6 +428,8 @@ private:
 
 	void WriteVimm(ARMReg Vd, int cmode, u8 imm, int op);
 
+	void EncodeShiftByImm(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount, u8 opcode, bool quad, bool inverse, bool halve);
+
 protected:
 	inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
@@ -763,7 +765,7 @@ public:
 	void VRSQRTE(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VRSQRTS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VRSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
-	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn);
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn);  // Register shift
 	void VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBHN(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUBL(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -794,6 +796,12 @@ public:
 	void VMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VQMOVN(u32 Size, ARMReg Vd, ARMReg Vm);
 	void VQMOVUN(u32 Size, ARMReg Vd, ARMReg Vm);
+
+	// Shifts by immediate
+	void VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);
+	void VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);  // widening
+	void VSHR(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);
+	void VSHRN(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount);  // narrowing
 
 	// Vector VCVT
 	void VCVT(u32 DestSize, ARMReg Dest, ARMReg Src);

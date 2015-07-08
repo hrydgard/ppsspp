@@ -2688,6 +2688,53 @@ void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn)
 	Write32((0xF2 << 24) | (Size & I_UNSIGNED ? 1 << 24 : 0) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0x40 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
+
+static int EncodeSizeShift(u32 Size, int amount, bool inverse, bool halve) {
+	int sz = 0;
+	switch (Size & 0xF) {
+	case I_8: sz = 8; break;
+	case I_16: sz = 16; break;
+	case I_32: sz = 32; break;
+	case I_64: sz = 64; break;
+	}
+	if (inverse && halve) {
+		_dbg_assert_msg_(JIT, amount <= sz / 2, "Amount %d too large for narrowing shift (max %d)", amount, sz/2);
+		return (sz / 2) + (sz / 2) - amount;
+	} else if (inverse) {
+		return sz + (sz - amount);
+	} else {
+		return sz + amount;
+	}
+}
+
+void ARMXEmitter::EncodeShiftByImm(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount, u8 opcode, bool register_quad, bool inverse, bool halve) {
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, !(Size & F_32), "%s doesn't support float", __FUNCTION__);
+	int imm7 = EncodeSizeShift(Size, shiftAmount, inverse, halve);
+	int L = (imm7 >> 6) & 1;
+	int U = (Size & I_UNSIGNED) ? 1 : 0;
+	u32 value = (0xF2 << 24) | (U << 24) | (1 << 23) | ((imm7 & 0x3f) << 16) | EncodeVd(Vd) | (opcode << 8) | (L << 7) | (register_quad << 6) | (1 << 4) | EncodeVm(Vm);
+	Write32(value);
+}
+
+void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0x5, Vd >= Q0, false, false);
+}
+
+void ARMXEmitter::VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0xA, false, false, false);
+}
+
+void ARMXEmitter::VSHR(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	EncodeShiftByImm(Size, Vd, Vm, shiftAmount, 0x0, Vd >= Q0, true, false);
+}
+
+void ARMXEmitter::VSHRN(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	// Reduce Size by 1 to encode correctly.
+	EncodeShiftByImm(Size, Vd, Vm, shiftAmount, 0x8, false, true, true);
+}
+
 void ARMXEmitter::VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to %s", __FUNCTION__);

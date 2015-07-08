@@ -32,8 +32,28 @@ bool TestArmEmitter() {
 
 	u32 code[512];
 	ARMXEmitter emitter((u8 *)code);
+	emitter.VSHRN(I_32, D0, Q0, 16);
+	RET(CheckLast(emitter, "f2900810 VSHRN.i32 d0, q0, #16"));
+	emitter.VSHRN(I_64, D1, Q2, 24);
+	RET(CheckLast(emitter, "f2a81814 VSHRN.i64 d1, q2, #24"));
+	emitter.VSHRN(I_32, D1, Q2, 16);
+	RET(CheckLast(emitter, "f2901814 VSHRN.i32 d1, q2, #16"));
+	emitter.VSHRN(I_32, D1, Q2, 8);
+	RET(CheckLast(emitter, "f2981814 VSHRN.i32 d1, q2, #8"));
+	//emitter.VNEG(I_32, D1, Q2);
+	//RET(CheckLast(emitter, "f2af1814 VNEG.s32 d1, q2"));
 	emitter.VNEG(S1, S2);
 	RET(CheckLast(emitter, "eef10a41 VNEG s1, s2"));
+	emitter.VMOVN(I_32, D1, Q2);
+	RET(CheckLast(emitter, "f3b61204 VMOVN.i32 d1, q2"));
+	emitter.VSHR(I_32 | I_UNSIGNED, Q1, Q2, 19);
+	RET(CheckLast(emitter, "f3ad2054 VSHR.u32 q1, q2, #19"));
+	emitter.VSHR(I_64, Q1, Q2, 36);
+	RET(CheckLast(emitter, "f29c20d4 VSHR.s64 q1, q2, #36"));
+	emitter.VSHL(I_8, D1, D2, 7);
+	RET(CheckLast(emitter, "f28f1512 VSHL.i8 d1, d2, #7"));
+	emitter.VSHLL(I_32, Q1, D2, 17);
+	RET(CheckLast(emitter, "f2b12a12 VSHLL.i32 q1, d2, #17"));
 	emitter.LDR(R3, R7);
 	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
 	emitter.VLDR(S3, R8, 48);
