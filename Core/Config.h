@@ -241,7 +241,7 @@ public:
 	// Control Style
 	int iTouchButtonStyle;
 	//	Combo Button Style;
-	int iComboButtonStyle;
+	int iComboKeyStyle;
 	// Control Positions
 	int iTouchButtonOpacity;
 	// Floating analog stick (recenters on thumb on press).
@@ -321,11 +321,11 @@ public:
 	bool bShowTouchDpad_DOWN;
 
 	//Combo_key mapping
-	int cCombokey;
-	int cCombokey1;
-	int cCombokey2;
-	int cCombokey3;
-	int cCombokey4;
+	int iCombokey;
+	int iCombokey1;
+	int iCombokey2;
+	int iCombokey3;
+	int iCombokey4;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;

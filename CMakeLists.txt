@@ -846,7 +846,7 @@ set(NativeAppSource
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.cpp
 	UI/ui_atlas.cpp
-	UI/ComboKeyMapScreen.cpp)
+	UI/ComboKeyMappingScreen.cpp)
 if(ANDROID)
 	if (ARM)
 		set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)

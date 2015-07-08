@@ -131,9 +131,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause);
 const int D_pad_Radius = 50;
 const int baseActionButtonSpacing = 60;
 
-class ComboButton : public MultiTouchButton {
+class ComboKey : public MultiTouchButton {
 public:
-	ComboButton(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+	ComboKey(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit)  {
 	}
 	virtual void Touch(const TouchInput &input);

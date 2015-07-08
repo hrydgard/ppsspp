@@ -103,7 +103,7 @@ void PSPButton::Touch(const TouchInput &input) {
 	}
 }
 
-void ComboButton::Touch(const TouchInput &input) {
+void ComboKey::Touch(const TouchInput &input) {
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
@@ -585,11 +585,11 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		const int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
 		const int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 		const int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
-		int CombintionButton1 = g_Config.iComboButtonStyle ? I_SQUARE1 : I_STAR;
-		int CombintionButton2 = g_Config.iComboButtonStyle ? I_TRIANGLE1 : I_EYE;
-		int CombintionButton3 = g_Config.iComboButtonStyle ? I_CROSS1 : I_GC;
-		int CombintionButton4 = g_Config.iComboButtonStyle ? I_A : I_X;
-		int CombintionButton5 = g_Config.iComboButtonStyle ? I_B : I_Y;
+		int ComboKey1 = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
+		int ComboKey2 = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
+		int ComboKey3 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
+		int ComboKey4 = g_Config.iComboKeyStyle ? I_A : I_X;
+		int ComboKey5 = g_Config.iComboKeyStyle ? I_B : I_Y;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 		if (g_Config.bShowTouchPause)
@@ -628,19 +628,19 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		if (g_Config.bShowTouchAnalogStick)
 			root->Add(new PSPStick(stickBg, stickImage, 0, analog_stick_scale, new AnchorLayoutParams(analog_stick_X, analog_stick_Y, NONE, NONE, true)));
 		if (g_Config.bShowComboKey)
-			root->Add(new ComboButton(g_Config.cCombokey, roundImage, CombintionButton1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
+			root->Add(new ComboKey(g_Config.iCombokey, roundImage, ComboKey1, combo_key_scale, new AnchorLayoutParams(combo_key_X, combo_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowComboKey1)
-			root->Add(new ComboButton(g_Config.cCombokey1, roundImage, CombintionButton2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
+			root->Add(new ComboKey(g_Config.iCombokey1, roundImage, ComboKey2, combo1_key_scale, new AnchorLayoutParams(combo1_key_X, combo1_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowComboKey2)
-			root->Add(new ComboButton(g_Config.cCombokey2, roundImage, CombintionButton3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
+			root->Add(new ComboKey(g_Config.iCombokey2, roundImage, ComboKey3, combo2_key_scale, new AnchorLayoutParams(combo2_key_X, combo2_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowComboKey3)
-			root->Add(new ComboButton(g_Config.cCombokey3, roundImage, CombintionButton4, combo3_key_scale, new AnchorLayoutParams(combo3_key_X, combo3_key_Y, NONE, NONE, true)));
+			root->Add(new ComboKey(g_Config.iCombokey3, roundImage, ComboKey4, combo3_key_scale, new AnchorLayoutParams(combo3_key_X, combo3_key_Y, NONE, NONE, true)));
 
 		if (g_Config.bShowComboKey4)
-		root->Add(new ComboButton(g_Config.cCombokey4, roundImage, CombintionButton5, combo4_key_scale, new AnchorLayoutParams(combo4_key_X, combo4_key_Y, NONE, NONE, true)));
+			root->Add(new ComboKey(g_Config.iCombokey4, roundImage, ComboKey5, combo4_key_scale, new AnchorLayoutParams(combo4_key_X, combo4_key_Y, NONE, NONE, true)));
 
 	}
 

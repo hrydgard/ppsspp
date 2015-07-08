@@ -367,11 +367,11 @@ void TouchControlLayoutScreen::CreateViews() {
 	int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 	int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 	int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
-	int CombintionButton1 = g_Config.iComboButtonStyle ? I_SQUARE1 : I_STAR;
-	int CombintionButton2 = g_Config.iComboButtonStyle ? I_TRIANGLE1 : I_EYE;
-	int CombintionButton3 = g_Config.iComboButtonStyle ? I_CROSS1 : I_GC;
-	int CombintionButton4 = g_Config.iComboButtonStyle ? I_A : I_X;
-	int CombintionButton5 = g_Config.iComboButtonStyle ? I_B : I_Y;
+	int ComboKey1 = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
+	int ComboKey2 = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
+	int ComboKey3 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
+	int ComboKey4 = g_Config.iComboKeyStyle ? I_A : I_X;
+	int ComboKey5 = g_Config.iComboKeyStyle ? I_B : I_Y;
 
 	if (g_Config.bShowTouchDpad) {
 		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));
@@ -405,20 +405,20 @@ void TouchControlLayoutScreen::CreateViews() {
 		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, stickBg, stickImage, g_Config.fAnalogStickScale));
 	}
 	if (g_Config.bShowComboKey) {
-		controls_.push_back(new DragDropButton(g_Config.fcomboX, g_Config.fcomboY, roundImage, CombintionButton1, g_Config.fcomboScale));
+		controls_.push_back(new DragDropButton(g_Config.fcomboX, g_Config.fcomboY, roundImage, ComboKey1, g_Config.fcomboScale));
 	}
 
 	if (g_Config.bShowComboKey1) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo1X, g_Config.fcombo1Y, roundImage, CombintionButton2, g_Config.fcomboScale1));
+		controls_.push_back(new DragDropButton(g_Config.fcombo1X, g_Config.fcombo1Y, roundImage, ComboKey2, g_Config.fcomboScale1));
 	}
 	if (g_Config.bShowComboKey2) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo2X, g_Config.fcombo2Y, roundImage, CombintionButton3, g_Config.fcomboScale2));
+		controls_.push_back(new DragDropButton(g_Config.fcombo2X, g_Config.fcombo2Y, roundImage, ComboKey3, g_Config.fcomboScale2));
 	}
 	if (g_Config.bShowComboKey3) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo3X, g_Config.fcombo3Y, roundImage, CombintionButton4, g_Config.fcomboScale3));
+		controls_.push_back(new DragDropButton(g_Config.fcombo3X, g_Config.fcombo3Y, roundImage, ComboKey4, g_Config.fcomboScale3));
 	}
 	if (g_Config.bShowComboKey4) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo4X, g_Config.fcombo4Y, roundImage, CombintionButton5, g_Config.fcomboScale4));
+		controls_.push_back(new DragDropButton(g_Config.fcombo4X, g_Config.fcombo4Y, roundImage, ComboKey5, g_Config.fcomboScale4));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {

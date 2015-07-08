@@ -363,7 +363,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/NativeApp.cpp \
-  $(SRC)/UI/ComboKeyMapScreen.cpp
+  $(SRC)/UI/ComboKeyMappingScreen.cpp
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)

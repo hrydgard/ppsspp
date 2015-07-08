@@ -56,7 +56,7 @@
     <ClCompile Include="SavedataScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="ComboKeyMapScreen.cpp">
+    <ClCompile Include="ComboKeyMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
   </ItemGroup>
@@ -115,7 +115,7 @@
     <ClInclude Include="SavedataScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="ComboKeyMapScreen.h">
+    <ClInclude Include="ComboKeyMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

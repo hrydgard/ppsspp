@@ -38,7 +38,7 @@
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/TiltEventProcessor.h"
-#include "UI/ComboKeyMapScreen.h"
+#include "UI/ComboKeyMappingScreen.h"
 
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
@@ -427,8 +427,8 @@ void GameSettingsScreen::CreateViews() {
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co, screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		//Combo Key style
-		static const char *ComboButtonStyles[] = { "ACG", "CV" };
-		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboButtonStyle, co->T("Combo Key style"), ComboButtonStyles, 0, ARRAY_SIZE(ComboButtonStyles), co, screenManager()));
+		static const char *ComboKeyStyles[] = { "ACG", "CV" };
+		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboKeyStyle, co->T("Combo Key style"), ComboKeyStyles, 0, ARRAY_SIZE(ComboKeyStyles), co, screenManager()));
 		combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 

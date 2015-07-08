@@ -532,11 +532,11 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowComboKey2", &g_Config.bShowComboKey2, true, true, true),
 	ConfigSetting("ShowComboKey3", &g_Config.bShowComboKey3, true, true, true),
 	ConfigSetting("ShowComboKey4", &g_Config.bShowComboKey4, true, true, true),
-	ConfigSetting("ComboKey", &g_Config.cCombokey, 0, true, true),
-	ConfigSetting("ComboKey1", &g_Config.cCombokey1, 0, true, true),
-	ConfigSetting("ComboKey2", &g_Config.cCombokey2, 0, true, true),
-	ConfigSetting("ComboKey3", &g_Config.cCombokey3, 0, true, true),
-	ConfigSetting("ComboKey4", &g_Config.cCombokey4, 0, true, true),
+	ConfigSetting("ComboKey", &g_Config.iCombokey, 0, true, true),
+	ConfigSetting("ComboKey1", &g_Config.iCombokey1, 0, true, true),
+	ConfigSetting("ComboKey2", &g_Config.iCombokey2, 0, true, true),
+	ConfigSetting("ComboKey3", &g_Config.iCombokey3, 0, true, true),
+	ConfigSetting("ComboKey4", &g_Config.iCombokey4, 0, true, true),
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -568,7 +568,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonStyle", &g_Config.iTouchButtonStyle, 1, true, true),
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
-	ConfigSetting("ComboButtonStyle", &g_Config.iComboButtonStyle, 1, true, true),
+	ConfigSetting("ComboKeyStyle", &g_Config.iComboKeyStyle, 1, true, true),
 
 	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
 	ConfigSetting("ActionButtonSpacing2", &g_Config.fActionButtonSpacing, 1.0f, true, true),

@@ -19,7 +19,7 @@
 #include "Core/Config.h"
 #include "UI/ui_atlas.h"
 #include "i18n/i18n.h"
-#include "ComboKeyMapScreen.h"
+#include "ComboKeyMappingScreen.h"
 #include "base/colorutil.h"
 #include "base/display.h"
 #include "base/timeutil.h"
@@ -38,11 +38,11 @@ void Combo_keyScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	int ComboKeyImage, ComboKeyImage1, ComboKeyImage2, ComboKeyImage3, ComboKeyImage4;
-		ComboKeyImage = g_Config.iComboButtonStyle ? I_SQUARE1 : I_STAR;
-		ComboKeyImage1 = g_Config.iComboButtonStyle ? I_TRIANGLE1 : I_EYE;
-		ComboKeyImage2 = g_Config.iComboButtonStyle ? I_CROSS1 : I_GC;
-		ComboKeyImage3 = g_Config.iComboButtonStyle ? I_A : I_X;
-		ComboKeyImage4 = g_Config.iComboButtonStyle ? I_B : I_Y;
+	ComboKeyImage = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
+	ComboKeyImage1 = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
+	ComboKeyImage2 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
+	ComboKeyImage3 = g_Config.iComboKeyStyle ? I_A : I_X;
+	ComboKeyImage4 = g_Config.iComboKeyStyle ? I_B : I_Y;
 
 	I18NCategory *co = GetI18NCategory("Controls");
 	
@@ -72,19 +72,19 @@ void Combo_keyScreen::CreateViews() {
 	memset(array, 0, 15);
 	switch (*mode) {
 	case 0:  for (int i = 0; i < 16; i++)
-				array[i] = (0x01 == ((g_Config.cCombokey >> i) & 0x01));
+				array[i] = (0x01 == ((g_Config.iCombokey >> i) & 0x01));
 			break;
 	case 1: for (int i = 0; i < 16; i++)
-				array[i] = (0x01 == ((g_Config.cCombokey1 >> i) & 0x01));
+				array[i] = (0x01 == ((g_Config.iCombokey1 >> i) & 0x01));
 			break;
 	case 2:for (int i = 0; i < 16; i++)
-				array[i] = (0x01 == ((g_Config.cCombokey2 >> i) & 0x01));
+				array[i] = (0x01 == ((g_Config.iCombokey2 >> i) & 0x01));
 			break;
 	case 3: for (int i = 0; i < 16; i++)
-				array[i] = (0x01 == ((g_Config.cCombokey3 >> i) & 0x01));
+				array[i] = (0x01 == ((g_Config.iCombokey3 >> i) & 0x01));
 			break;
 	case 4: for (int i = 0; i < 16; i++)
-				array[i] = (0x01 == ((g_Config.cCombokey4 >> i) & 0x01));
+				array[i] = (0x01 == ((g_Config.iCombokey4 >> i) & 0x01));
 	}
 	
 	std::map<std::string, int> keyImages;
@@ -153,15 +153,15 @@ void Combo_keyScreen::CreateViews() {
 
 void Combo_keyScreen::onFinish(DialogResult result) {
 	switch (*mode){
-	case 0:g_Config.cCombokey = arrayToInt(array);
+	case 0:g_Config.iCombokey = arrayToInt(array);
 		break;
-	case 1:g_Config.cCombokey1 = arrayToInt(array);
+	case 1:g_Config.iCombokey1 = arrayToInt(array);
 		break;
-	case 2:g_Config.cCombokey2 = arrayToInt(array);
+	case 2:g_Config.iCombokey2 = arrayToInt(array);
 		break;
-	case 3:g_Config.cCombokey3 = arrayToInt(array);
+	case 3:g_Config.iCombokey3 = arrayToInt(array);
 		break;
-	case 4:g_Config.cCombokey4 = arrayToInt(array);
+	case 4:g_Config.iCombokey4 = arrayToInt(array);
 	}
 	g_Config.Save();
 }
@@ -177,15 +177,15 @@ UI::EventReturn Combo_keyScreen::ChoiceEventHandler::onChoiceClick(UI::EventPara
 
 UI::EventReturn Combo_keyScreen::onCombo(UI::EventParams &e) {
 	switch (*mode){
-	case 0:g_Config.cCombokey = arrayToInt(array);
+	case 0:g_Config.iCombokey = arrayToInt(array);
 		break;
-	case 1:g_Config.cCombokey1 = arrayToInt(array);
+	case 1:g_Config.iCombokey1 = arrayToInt(array);
 		break;
-	case 2:g_Config.cCombokey2 = arrayToInt(array);
+	case 2:g_Config.iCombokey2 = arrayToInt(array);
 		break;
-	case 3:g_Config.cCombokey3 = arrayToInt(array);
+	case 3:g_Config.iCombokey3 = arrayToInt(array);
 		break;
-	case 4:g_Config.cCombokey4 = arrayToInt(array);
+	case 4:g_Config.iCombokey4 = arrayToInt(array);
 	}
 	*mode = comboselect->GetSelection();
 	CreateViews();
