@@ -645,6 +645,9 @@ void Arm64RegCache::FlushAll() {
 		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified) {
 			// Re-pointerify
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+		} else {
+			// If this register got pointerified on the way, mark it as not, so that after save/reload (like in an interpreter fallback), it won't be regarded as such, as it simply won't be.
+			ar[allocs[i].ar].pointerified = false;
 		}
 	}
 	// Sanity check
