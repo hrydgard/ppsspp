@@ -598,7 +598,7 @@ void Arm64RegCache::FlushAll() {
 		if (areg1 == INVALID_REG && IsPureImm(mreg1) && !mr[i].isStatic) {
 			areg1 = SCRATCH1;
 		}
-		if (areg2 == INVALID_REG && IsPureImm(mreg2) && !mr[i].isStatic) {
+		if (areg2 == INVALID_REG && IsPureImm(mreg2) && !mr[i + 1].isStatic) {
 			areg2 = SCRATCH2;
 		}
 
@@ -627,6 +627,7 @@ void Arm64RegCache::FlushAll() {
 		if (mr[i].isStatic) {
 			if (mr[i].loc == ML_IMM) {
 				SetRegImm(mr[i].reg, mr[i].imm);
+				mr[i].loc = ML_ARMREG_IMM;
 				ar[mr[mipsReg].reg].pointerified = false;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
