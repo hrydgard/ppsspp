@@ -70,70 +70,43 @@ void Combo_keyScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = rightColumn->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	switch (*mode) {
-	case 0: cComboCircle = (bool)(1 & g_Config.cCombokey);
-			cComboCross = (bool)(2 & g_Config.cCombokey);
-			cComboSquare = (bool)(4 & g_Config.cCombokey);
-			cComboTriangle = (bool)(8 & g_Config.cCombokey);
-			cComboLTrigger = (bool)(16 & g_Config.cCombokey);
-			cComboRTrigger = (bool)(32 & g_Config.cCombokey);
-			cComboLeft = (bool)(64 & g_Config.cCombokey);
-			cComboUp = (bool)(128 & g_Config.cCombokey);
-			cComboRight = (bool)(256 & g_Config.cCombokey);
-			cComboDown = (bool)(512 & g_Config.cCombokey);
-			cComboStart = (bool)(1024 & g_Config.cCombokey);
-			cComboSelect = (bool)(2048 & g_Config.cCombokey);
+	case 0:  for (int i = 0; i < 12; i++){
+				 if (0x01 == ((g_Config.cCombokey >> i) & 0x01))
+					 array[i] = 1;
+				 else
+					 array[i] = 0;
+			}
 			break;
-	case 1: cComboCircle = (bool)(1 & g_Config.cCombokey1);
-			cComboCross = (bool)(2 & g_Config.cCombokey1);
-			cComboSquare = (bool)(4 & g_Config.cCombokey1);
-			cComboTriangle = (bool)(8 & g_Config.cCombokey1);
-			cComboLTrigger = (bool)(16 & g_Config.cCombokey1);
-			cComboRTrigger = (bool)(32 & g_Config.cCombokey1);
-			cComboLeft = (bool)(64 & g_Config.cCombokey1);
-			cComboUp = (bool)(128 & g_Config.cCombokey1);
-			cComboRight = (bool)(256 & g_Config.cCombokey1);
-			cComboDown = (bool)(512 & g_Config.cCombokey1);
-			cComboStart = (bool)(1024 & g_Config.cCombokey1);
-			cComboSelect = (bool)(2048 & g_Config.cCombokey1);
+	case 1: for (int i = 0; i < 12; i++){
+				if (0x01 == ((g_Config.cCombokey1 >> i) & 0x01))
+					array[i] = 1;
+				else
+					array[i] = 0;
+			}
 			break;
-	case 2: cComboCircle = (bool)(1 & g_Config.cCombokey2);
-			cComboCross = (bool)(2 & g_Config.cCombokey2);
-			cComboSquare = (bool)(4 & g_Config.cCombokey2);
-			cComboTriangle = (bool)(8 & g_Config.cCombokey2);
-			cComboLTrigger = (bool)(16 & g_Config.cCombokey2);
-			cComboRTrigger = (bool)(32 & g_Config.cCombokey2);
-			cComboLeft = (bool)(64 & g_Config.cCombokey2);
-			cComboUp = (bool)(128 & g_Config.cCombokey2);
-			cComboRight = (bool)(256 & g_Config.cCombokey2);
-			cComboDown = (bool)(512 & g_Config.cCombokey2);
-			cComboStart = (bool)(1024 & g_Config.cCombokey2);
-			cComboSelect = (bool)(2048 & g_Config.cCombokey2);
+	case 2: for (int i = 0; i < 12; i++){
+				if (0x01 == ((g_Config.cCombokey2 >> i) & 0x01))
+					array[i] = 1;
+				else
+					array[i] = 0;
+			}
+			
 			break;
-	case 3: cComboCircle = (bool)(1 & g_Config.cCombokey3);
-			cComboCross = (bool)(2 & g_Config.cCombokey3);
-			cComboSquare = (bool)(4 & g_Config.cCombokey3);
-			cComboTriangle = (bool)(8 & g_Config.cCombokey3);
-			cComboLTrigger = (bool)(16 & g_Config.cCombokey3);
-			cComboRTrigger = (bool)(32 & g_Config.cCombokey3);
-			cComboLeft = (bool)(64 & g_Config.cCombokey3);
-			cComboUp = (bool)(128 & g_Config.cCombokey3);
-			cComboRight = (bool)(256 & g_Config.cCombokey3);
-			cComboDown = (bool)(512 & g_Config.cCombokey3);
-			cComboStart = (bool)(1024 & g_Config.cCombokey3);
-			cComboSelect = (bool)(2048 & g_Config.cCombokey3);
+	case 3: for (int i = 0; i < 12; i++){
+				if (0x01 == ((g_Config.cCombokey3 >> i) & 0x01))
+					array[i] = 1;
+				else
+					array[i] = 0;
+			}
+			
 			break;
-	case 4: cComboCircle = (bool)(1 & g_Config.cCombokey4);
-			cComboCross = (bool)(2 & g_Config.cCombokey4);
-			cComboSquare = (bool)(4 & g_Config.cCombokey4);
-			cComboTriangle = (bool)(8 & g_Config.cCombokey4);
-			cComboLTrigger = (bool)(16 & g_Config.cCombokey4);
-			cComboRTrigger = (bool)(32 & g_Config.cCombokey4);
-			cComboLeft = (bool)(64 & g_Config.cCombokey4);
-			cComboUp = (bool)(128 & g_Config.cCombokey4);
-			cComboRight = (bool)(256 & g_Config.cCombokey4);
-			cComboDown = (bool)(512 & g_Config.cCombokey4);
-			cComboStart = (bool)(1024 & g_Config.cCombokey4);
-			cComboSelect = (bool)(2048 & g_Config.cCombokey4);
+	case 4: for (int i = 0; i < 12; i++){
+				if (0x01 == ((g_Config.cCombokey4 >> i) & 0x01))
+					array[i] = 1;
+				else
+					array[i] = 0;
+			}
+			
 	}
 	
 	std::map<std::string, int> keyImages;
@@ -154,18 +127,19 @@ void Combo_keyScreen::CreateViews() {
 
 
 
-	keyToggles["Circle"] = &cComboCircle;
-	keyToggles["Cross"] = &cComboCross;
-	keyToggles["Square"] = &cComboSquare;
-	keyToggles["Triangle"] = &cComboTriangle;
-	keyToggles["L"] = &cComboLTrigger;
-	keyToggles["R"] = &cComboRTrigger;
-	keyToggles["ULeft"] = &cComboLeft;
-	keyToggles["VUp"] = &cComboUp;
-	keyToggles["WRight"] = &cComboRight;
-	keyToggles["XDown"] = &cComboDown;
-	keyToggles["Start"] = &cComboStart;
-	keyToggles["Select"] = &cComboSelect;
+	keyToggles["Circle"] = &array[0];
+	keyToggles["Cross"] = &array[1];
+	keyToggles["Square"] = &array[2];
+	keyToggles["Triangle"] = &array[3];
+	keyToggles["L"] = &array[4];
+	keyToggles["R"] = &array[5];
+	keyToggles["ULeft"] = &array[6];
+	keyToggles["VUp"] = &array[7];
+	keyToggles["WRight"] = &array[8];
+	keyToggles["XDown"] = &array[9];
+	keyToggles["Start"] = &array[10];
+	keyToggles["Select"] = &array[11];
+
 
 
 	std::map<std::string, int>::iterator imageFinder;
@@ -201,15 +175,15 @@ void Combo_keyScreen::CreateViews() {
 
 void Combo_keyScreen::onFinish(DialogResult result) {
 	switch (*mode){
-		case 0:g_Config.cCombokey = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
-			break;
-		case 1:g_Config.cCombokey1 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
-			break;
-		case 2:g_Config.cCombokey2 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
-			break;
-		case 3:g_Config.cCombokey3 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
-			break;
-		case 4:g_Config.cCombokey4 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 0:g_Config.cCombokey = arrayToInt(array);
+		break;
+	case 1:g_Config.cCombokey1 = arrayToInt(array);
+		break;
+	case 2:g_Config.cCombokey2 = arrayToInt(array);
+		break;
+	case 3:g_Config.cCombokey3 = arrayToInt(array);
+		break;
+	case 4:g_Config.cCombokey4 = arrayToInt(array);
 	}
 	g_Config.Save();
 }
@@ -225,15 +199,15 @@ UI::EventReturn Combo_keyScreen::ChoiceEventHandler::onChoiceClick(UI::EventPara
 
 UI::EventReturn Combo_keyScreen::onCombo(UI::EventParams &e) {
 	switch (*mode){
-	case 0:g_Config.cCombokey = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 0:g_Config.cCombokey = arrayToInt(array);
 		break;
-	case 1:g_Config.cCombokey1 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 1:g_Config.cCombokey1 = arrayToInt(array);
 		break;
-	case 2:g_Config.cCombokey2 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 2:g_Config.cCombokey2 = arrayToInt(array);
 		break;
-	case 3:g_Config.cCombokey3 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 3:g_Config.cCombokey3 = arrayToInt(array);
 		break;
-	case 4:g_Config.cCombokey4 = cComboCircle + cComboCross * 2 + cComboSquare * 4 + cComboTriangle * 8 + cComboLTrigger * 16 + cComboRTrigger * 32 + cComboLeft * 64 + cComboUp * 128 + cComboRight * 256 + cComboDown * 512 + cComboStart * 1024 + cComboSelect * 2048;
+	case 4:g_Config.cCombokey4 = arrayToInt(array);
 	}
 	*mode = comboselect->GetSelection();
 	CreateViews();
