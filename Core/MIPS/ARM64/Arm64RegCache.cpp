@@ -86,10 +86,10 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 	static const StaticAllocation none[] = {
 	};
 	static const StaticAllocation allocs[] = {
-		{MIPS_REG_V0, W19},
-		{MIPS_REG_SP, W20, true},
-		{MIPS_REG_A0, W21},
+		{MIPS_REG_SP, W19, true},
+		{MIPS_REG_V0, W20},
 		{MIPS_REG_V1, W22},
+		{MIPS_REG_A0, W21},
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -265,17 +265,18 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	ARM64Reg armReg = mr[mipsReg].reg;
 
 	if (mr[mipsReg].isStatic) {
+		if (armReg == INVALID_REG) {
+			ERROR_LOG(JIT, "MapReg on statically mapped reg %d failed - armReg got lost", mipsReg);
+		}
 		if (mr[mipsReg].loc == ML_IMM) {
 			// Back into the register, with or without the imm value.
-			if ((mapFlags & MAP_NOINIT) == MAP_NOINIT) {
-				mr[mipsReg].loc = ML_ARMREG;
-			} else {
+			// If noinit, the MAP_DIRTY check below will take care of the rest.
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
 				SetRegImm(armReg, mr[mipsReg].imm);
 				mr[mipsReg].loc = ML_ARMREG_IMM;
 				ar[armReg].pointerified = false;
 			}
 		}
-
 		// Erasing the imm on dirty (necessary since otherwise we will still think it's ML_ARMREG_IMM and return
 		// true for IsImm and calculate crazily wrong things).  /unknown
 		if (mapFlags & MAP_DIRTY) {
@@ -454,9 +455,11 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].isStatic) {
 		// Simply do nothing unless it's an ArmregImm, in case we just switch it over to armreg, losing the value.
 		if (mr[mipsReg].loc == ML_ARMREG_IMM || mr[mipsReg].loc == ML_IMM) {
+			ARM64Reg armReg = mr[mipsReg].reg;
 			// Ignore the imm value, restore sanity
 			mr[mipsReg].loc = ML_ARMREG;
-			ar[mr[mipsReg].reg].pointerified = false;
+			ar[armReg].pointerified = false;
+			ar[armReg].isDirty = false;
 		}
 		return;
 	}
@@ -625,10 +628,16 @@ void Arm64RegCache::FlushAll() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
 		if (mr[i].isStatic) {
+			Arm64Gen::ARM64Reg armReg = mr[i].reg;
 			if (mr[i].loc == ML_IMM) {
 				SetRegImm(mr[i].reg, mr[i].imm);
 				mr[i].loc = ML_ARMREG_IMM;
-				ar[mr[mipsReg].reg].pointerified = false;
+				ar[armReg].pointerified = false;
+			} else if (mr[i].loc == ML_ARMREG_IMM) {
+				if (ar[armReg].pointerified) {
+					ELOG("ML_ARMREG_IMM but pointerified. Wrong.");
+					ar[armReg].pointerified = false;
+				}
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
 				ELOG("ARM reg of static %i is invalid", i);
@@ -670,22 +679,17 @@ void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 	}
 
 	if (mr[r].isStatic) {
-		if (false) {  // Set to false to use ML_IMM
-			mr[r].loc = ML_ARMREG_IMM;
-			mr[r].imm = immVal;
-			SetRegImm(mr[r].reg, immVal);
-			ar[mr[r].reg].pointerified = false;
-		} else {
-			mr[r].loc = ML_IMM;
-			mr[r].imm = immVal;
-			ar[mr[r].reg].pointerified = false;
-		}
+		mr[r].loc = ML_IMM;
+		mr[r].imm = immVal;
+		Arm64Gen::ARM64Reg armReg = mr[r].reg;
+		ar[armReg].pointerified = false;
 		// We do not change reg to INVALID_REG for obvious reasons..
 	} else {
 		// Zap existing value if cached in a reg
 		if (mr[r].reg != INVALID_REG) {
 			ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 			ar[mr[r].reg].isDirty = false;
+			ar[mr[r].reg].pointerified = false;
 		}
 		mr[r].loc = ML_IMM;
 		mr[r].imm = immVal;
