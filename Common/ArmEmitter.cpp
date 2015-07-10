@@ -2723,7 +2723,22 @@ void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
 }
 
 void ARMXEmitter::VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
-	EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0xA, false, false, false);
+	if (shiftAmount == (8 * (Size & 0xF))) {
+		// Entirely different encoding (A2) for size == shift! Bleh.
+		int sz = 0;
+		switch (Size & 0xF) {
+		case I_8: sz = 0; break;
+		case I_16: sz = 1; break;
+		case I_32: sz = 2; break;
+		case I_64:
+			_dbg_assert_msg_(JIT, false, "Cannot VSHLL 64-bit elements");
+		}
+		int imm6 = 0x32 | (sz << 2);
+		u32 value = (0xF3 << 24) | (1 << 23) | (imm6 << 16) | EncodeVd(Vd) | (0x3 << 8) | EncodeVm(Vm);
+		Write32(value);
+	} else {
+		EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0xA, false, false, false);
+	}
 }
 
 void ARMXEmitter::VSHR(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {

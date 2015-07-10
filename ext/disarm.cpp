@@ -476,10 +476,10 @@ static bool DisasmNeon2Op(uint32_t op, char *text) {
 	if (op & (1 << 16))
 		opname = "NEG";
 
-	int type = (op >> 6) & 0xF;
+	int opcode = (op >> 6) & 0xF;
 	int sz = (op >> 18) & 3;
 	const char *size = "f32";
-	switch (type) {
+	switch (opcode) {
 	case 0xE:
 		opname = "NEG";
 		size = GetISizeString(sz);
@@ -499,13 +499,24 @@ static bool DisasmNeon2Op(uint32_t op, char *text) {
 		quadD = false;
 		doubleD = true;
 		break;
+	case 0xC:
+		opname = "SHLL";  // widen and shift
+		size = GetISizeString(sz);
+		quad = false;
+		quadD = true;
+		doubleD = true;
+		break;
 	}
 
 	int Vd = GetVd(op, quadD, doubleD);
 	int Vm = GetVm(op, quad, false);
 	char cD = quadD ? 'q' : 'd';
 	char c = quad ? 'q' : 'd';
-	sprintf(text, "V%s%s%s %c%i, %c%i", opname, strlen(size) ? "." : "", size, cD, Vd, c, Vm);
+	if (opcode == 0xC) {
+		sprintf(text, "V%s%s%s %c%i, %c%i, #%d", opname, strlen(size) ? "." : "", size, cD, Vd, c, Vm, 8 << sz);
+	} else {
+		sprintf(text, "V%s%s%s %c%i, %c%i", opname, strlen(size) ? "." : "", size, cD, Vd, c, Vm);
+	}
 	return true;
 }
 
@@ -605,6 +616,7 @@ to64:
 	return "i32";
 }
 
+// What a horror show!
 static bool DisasmNeon2RegShiftImm(uint32_t op, char *text) {
 	bool U = (op >> 24) & 1;
 	bool quadDest = false;
@@ -617,7 +629,7 @@ static bool DisasmNeon2RegShiftImm(uint32_t op, char *text) {
 	bool sign = false;
 	switch (opcode) {
 	case 0x5: opname = "VSHL"; quadDest = quadSrc = ((op >> 6) & 1); break;
-	case 0xA: opname = "VSHLL"; quadDest = true; quadSrc = false; break;
+	case 0xA: opname = "VSHLL"; quadDest = true; quadSrc = false; sign = true;  break;
 	case 0x0: opname = "VSHR"; sign = true; quadDest = quadSrc = ((op >> 6) & 1); inverse = true;  break;
 	case 0x8: opname = "VSHRN"; quadDest = false; quadSrc = true; inverse = true; incSize = true;  break;
 	default:
@@ -632,8 +644,23 @@ static bool DisasmNeon2RegShiftImm(uint32_t op, char *text) {
 	char c2 = quadSrc ? 'q' : 'd';
 	int imm7 = ((op >> 16) & 0x3f) | ((op & 0x80) >> 1);
 	int shift;
-	const char *size = DecodeSizeAndShiftImm7(U, sign, inverse, imm7, incSize, &shift);
-	sprintf(text, "%s.%s %c%i, %c%i, #%i", opname, size, c1, Vd, c2, Vm, shift);
+
+	const char *size;
+	if (opcode == 0xA) {
+		if (imm7 & 0x40) {
+			sprintf(text, "neon2regshiftimm undefined %08x", op);
+			return true;
+		}
+	}
+
+	size = DecodeSizeAndShiftImm7(U, sign, inverse, imm7, incSize, &shift);
+
+	if (opcode == 0xA && shift == 0) {
+		opname = "VMOVL";
+		sprintf(text, "%s.%s %c%i, %c%i", opname, size, c1, Vd, c2, Vm);
+	} else {
+		sprintf(text, "%s.%s %c%i, %c%i, #%i", opname, size, c1, Vd, c2, Vm, shift);
+	}
 	return true;
 }
 
