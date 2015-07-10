@@ -1643,8 +1643,6 @@ namespace MIPSComp
 			VSHRN(I_32, D0, Q0, 16);
 		}
 
-		logBlocks = 1;
-
 		fpr.MapRegsAndSpillLockV(dregs, outsize, MAP_DIRTY|MAP_NOINIT);
 		VMOV(fpr.V(dregs[0]), S0);
 		if (outsize == V_Pair) {
@@ -1657,7 +1655,85 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Vx2i(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vx2i);
-		DISABLE;
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
+
+		if (bits == 8 && unsignedOp) {
+			// vuc2i is odd and needs temp registers for implementation.
+			DISABLE;
+		}
+		// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+		// at the top.  vus2i shifts it an extra bit right afterward.
+		// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+		// at the top too.  vuc2i is a bit special (see below.)
+		// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+		// then use it for both.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Quad;
+		} else {
+			switch (sz) {
+			case V_Single:
+				outsize = V_Pair;
+				break;
+			case V_Pair:
+				outsize = V_Quad;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		if (sz == V_Single) {
+			VMOV(S0, fpr.V(sregs[0]));
+		} else if (sz == V_Pair) {
+			VMOV(S0, fpr.V(sregs[0]));
+			VMOV(S1, fpr.V(sregs[1]));
+		} else if (bits == 8) {
+			// For some reason, sz is quad on vc2i.
+			VMOV(S0, fpr.V(sregs[0]));
+		}
+
+
+		if (bits == 16) {
+			// Simply expand, to upper bits.
+			VSHLL(I_16, Q0, D0, 16);
+		} else if (bits == 8) {
+			if (unsignedOp) {
+				// vuc2i is a bit special.  It spreads out the bits like this:
+				// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
+				// TODO
+			} else {
+				VSHLL(I_8, Q0, D0, 8);
+				VSHLL(I_16, Q0, D0, 16);
+			}
+		}
+
+		// At this point we have the regs in the 4 lanes.
+		// In the "u" mode, we need to shift it out of the sign bit.
+		if (unsignedOp) {
+			ArmGen::ARMReg reg = (outsize == V_Quad) ? Q0 : D0;
+			VSHR(I_32 | I_UNSIGNED, reg, reg, 1);
+		}
+
+		fpr.MapRegsAndSpillLockV(dregs, outsize, MAP_NOINIT);
+
+		VMOV(fpr.V(dregs[0]), S0);
+		VMOV(fpr.V(dregs[1]), S1);
+		if (outsize == V_Quad) {
+			VMOV(fpr.V(dregs[2]), S2);
+			VMOV(fpr.V(dregs[3]), S3);
+		}
+
+		ApplyPrefixD(dregs, outsize);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void ArmJit::Comp_VCrossQuat(MIPSOpcode op) {
