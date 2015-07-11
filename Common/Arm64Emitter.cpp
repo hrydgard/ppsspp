@@ -3005,6 +3005,10 @@ void ARM64FloatEmitter::AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, 0, 3, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, 0, 3, Rd, Rn, Rm);
+}
 void ARM64FloatEmitter::BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, 1, 3, Rd, Rn, Rm);
@@ -3537,7 +3541,8 @@ void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, 
 
 void ARM64FloatEmitter::SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
-	_assert_msg_(DYNA_REC, shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
+	_assert_msg_(DYNA_REC, shift > 0, "%s shift amount must be greater than zero!", __FUNCTION__);
+	_assert_msg_(DYNA_REC, shift <= dest_size, "%s shift amount must less than or equal to the element size!", __FUNCTION__);
 	u32 imm = EncodeImmShiftRight(dest_size, shift);
 	EmitShiftImm(upper, 0, imm >> 3, imm & 7, 0x10, Rd, Rn);
 }
@@ -3973,8 +3978,14 @@ void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch) {
 	// TODO: Make it work with more element sizes
 	// TODO: Optimize - there are shorter solution for many values
 	ARM64Reg s = (ARM64Reg)(S0 + DecodeReg(Rd));
-	MOVI2F(s, value, scratch);
-	DUP(32, Rd, Rd, 0);
+	int ival;
+	memcpy(&ival, &value, 4);
+	if (ival == 0) {  // Make sure to not catch negative zero here
+		EOR(Rd, Rd, Rd);
+	} else {
+		MOVI2F(s, value, scratch);
+		DUP(32, Rd, Rd, 0);
+	}
 }
 
 void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
