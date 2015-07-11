@@ -147,6 +147,7 @@ public:
 	int GetMipsRegOffset(MIPSReg r);
 
 private:
+	Arm64Gen::ARM64Reg ARM64RegForFlush(int r);
 	MIPSReg GetTempR();
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	int GetMipsRegOffsetV(MIPSReg r) {

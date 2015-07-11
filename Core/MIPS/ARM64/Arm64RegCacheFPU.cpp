@@ -19,6 +19,7 @@
 
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -333,6 +334,34 @@ void Arm64RegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
+	switch (mr[r].loc) {
+	case ML_IMM:
+		// IMM is always "dirty".
+		// IMM is not allowed for FP (yet).
+		ERROR_LOG(JIT, "Imm in FP register?");
+		return INVALID_REG;
+
+	case ML_ARMREG:
+		if (mr[r].reg == INVALID_REG) {
+			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			return INVALID_REG;
+		}
+		// No need to flush if it's not dirty.
+		if (!ar[mr[r].reg].isDirty) {
+			return INVALID_REG;
+		}
+		return (ARM64Reg)(S0 + mr[r].reg);
+
+	case ML_MEM:
+		return INVALID_REG;
+
+	default:
+		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		return INVALID_REG;
+	}
+}
+
 void Arm64RegCacheFPU::FlushAll() {
 	if (!pendingFlush) {
 		// Nothing allocated.  FPU regs are not nearly as common as GPR.
@@ -347,6 +376,30 @@ void Arm64RegCacheFPU::FlushAll() {
 	int numArmRegs = 0;
 
 	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
+
+	// Flush pairs first when possible.
+	for (int i = 0; i < 31; i++) {
+		int mr1 = i;
+		int mr2 = i + 1;
+		ARM64Reg ar1 = ARM64RegForFlush(mr1);
+		ARM64Reg ar2 = ARM64RegForFlush(mr2);
+
+		if (ar1 != INVALID_REG && ar2 != INVALID_REG) {
+			fp_->STP(32, INDEX_SIGNED, ar1, ar2, CTXREG, GetMipsRegOffset(mr1));
+
+			mr[mr1].loc = ML_MEM;
+			mr[mr1].reg = (int)INVALID_REG;
+			ar[DecodeReg(ar1)].mipsReg = -1;
+			ar[DecodeReg(ar1)].isDirty = false;
+			mr[mr2].loc = ML_MEM;
+			mr[mr2].reg = (int)INVALID_REG;
+			ar[DecodeReg(ar2)].mipsReg = -1;
+			ar[DecodeReg(ar2)].isDirty = false;
+		}
+	}
+
+	// Then flush one by one.
+
 	for (int i = 0; i < numArmRegs; i++) {
 		int a = DecodeReg(order[i]);
 		int m = ar[a].mipsReg;
