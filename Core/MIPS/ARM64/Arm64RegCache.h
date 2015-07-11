@@ -56,19 +56,11 @@ enum {
 	MAP_NOINIT = 2 | MAP_DIRTY,
 };
 
-}
-
-// R1 to R6: mapped MIPS regs
-// R8 = flags (maybe we could do better here?)
-// R9 = code pointers
-// R10 = MIPS context
-// R11 = base pointer
-// R14 = scratch (actually LR)
-
+}  // namespace
 
 typedef int MIPSReg;
 
-struct RegARM {
+struct RegARM64 {
 	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
 	bool pointerified;  // Has used movk to move the memory base into the top part of the reg. Note - still usable as 32-bit reg!
@@ -81,6 +73,7 @@ struct RegMIPS {
 	u64 imm;
 	Arm64Gen::ARM64Reg reg;  // reg index
 	bool spillLock;  // if true, this register cannot be spilled.
+	bool isStatic;  // if true, this register will not be written back to ram by the regcache
 	// If loc == ML_MEM, it's back in its location in the CPU context struct.
 };
 
@@ -105,6 +98,7 @@ public:
 
 	void SetImm(MIPSGPReg reg, u64 immVal);
 	bool IsImm(MIPSGPReg reg) const;
+	bool IsPureImm(MIPSGPReg reg) const;
 	u64 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
@@ -116,6 +110,7 @@ public:
 	bool IsMapped(MIPSGPReg reg);
 	bool IsMappedAsPointer(MIPSGPReg reg);
 
+	void MarkDirty(Arm64Gen::ARM64Reg reg);
 	void MapIn(MIPSGPReg rs);
 	void MapInIn(MIPSGPReg rd, MIPSGPReg rs);
 	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad = true);
@@ -123,9 +118,9 @@ public:
 	void MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad = true);
 	void MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad = true);
 	void FlushArmReg(Arm64Gen::ARM64Reg r);
-	void FlushR(MIPSGPReg r);
 	void FlushBeforeCall();
 	void FlushAll();
+	void FlushR(MIPSGPReg r);
 	void DiscardR(MIPSGPReg r);
 
 	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
@@ -138,12 +133,22 @@ public:
 
 	int GetMipsRegOffset(MIPSGPReg r);
 
+	// Call these when leaving/entering the JIT
+	void EmitLoadStaticAllocs();
+	void EmitSaveStaticAllocs();
+
 private:
+	struct StaticAllocation {
+		MIPSGPReg mr;
+		Arm64Gen::ARM64Reg ar;
+		bool pointerified;
+	};
+	const StaticAllocation *GetStaticAllocations(int &count);
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
-		
+
 	MIPSState *mips_;
 	Arm64Gen::ARM64XEmitter *emit_;
 	MIPSComp::JitState *js_;
@@ -155,6 +160,6 @@ private:
 		NUM_MIPSREG = Arm64JitConstants::TOTAL_MAPPABLE_MIPSREGS,
 	};
 
-	RegARM ar[NUM_ARMREG];
+	RegARM64 ar[NUM_ARMREG];
 	RegMIPS mr[NUM_MIPSREG];
 };

@@ -1840,6 +1840,8 @@ namespace MIPSComp {
 		gpr.FlushBeforeCall();
 		fpr.FlushAll();
 
+		// Don't need to SaveStaticRegs here as long as they are all in callee-save regs - this callee won't read them.
+
 		bool negSin1 = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);

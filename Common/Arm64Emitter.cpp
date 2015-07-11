@@ -46,12 +46,12 @@ bool IsPowerOfTwo(uint64_t x) {
 
 bool IsImmArithmetic(uint64_t input, u32 *val, bool *shift) {
 	if (input < 4096) {
-		*val = input;
-		*shift = false;
+		if (val) *val = input;
+		if (shift) *shift = false;
 		return true;
 	} else if ((input & 0xFFF000) == input) {
-		*val = input >> 12;
-		*shift = true;
+		if (val) *val = input >> 12;
+		if (shift) *shift = true;
 		return true;
 	}
 	return false;
