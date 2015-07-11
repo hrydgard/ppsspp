@@ -40,9 +40,9 @@ bool TestArm64Emitter() {
 	ARM64FloatEmitter fp(&emitter);
 
 	fp.EOR(Q0, Q1, Q2);
-	RET(CheckLast(emitter, "0f388460 eor q0, q1, q2"));
+	RET(CheckLast(emitter, "6e221c20 eor q0, q1, q2"));
 	fp.EOR(D0, D1, D2);
-	RET(CheckLast(emitter, "0f388460 eor d0, d1, d2"));
+	RET(CheckLast(emitter, "2e221c20 eor d0, d1, d2"));
 	fp.SHRN(32, D0, Q3, 8);
 	RET(CheckLast(emitter, "0f388460 shrn.32.64 d0, q3, #8"));
 	fp.SHRN(8, D0, Q3, 4);

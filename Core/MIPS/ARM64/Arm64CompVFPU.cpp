@@ -1307,14 +1307,99 @@ namespace MIPSComp {
 			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
 		}
 
-		logBlocks = 1;
-
 		ApplyPrefixD(dregs, outsize);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vx2i(MIPSOpcode op) {
-		DISABLE;
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
+
+		// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+		// at the top.  vus2i shifts it an extra bit right afterward.
+		// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+		// at the top too.  vuc2i is a bit special (see below.)
+		// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+		// then use it for both.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Quad;
+		} else {
+			switch (sz) {
+			case V_Single:
+				outsize = V_Pair;
+				break;
+			case V_Pair:
+				outsize = V_Quad;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		int n = 1;
+		if (sz == V_Single) {
+			n = 1;
+		} else if (sz == V_Pair) {
+			n = 2;
+		} else if (bits == 8) {
+			n = 1;
+		}
+
+		// Take the single registers and combine them to a D or Q register.
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
+		}
+
+		if (bits == 16) {
+			// Simply expand, to upper bits.
+			// Hm, can't find a USHLL equivalent that works with shift == size?
+			fp.UXTL(16, Q0, D0);
+			fp.SHL(32, Q0, Q0, 16);
+		} else if (bits == 8) {
+			fp.UXTL(8, Q0, D0);
+			fp.UXTL(16, Q0, D0);
+			fp.SHL(32, Q0, D0, 24);
+			if (unsignedOp) {
+				// vuc2i is a bit special.  It spreads out the bits like this:
+				// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
+				// TODO
+				fp.USHR(32, Q1, Q0, 8);
+				fp.ORR(Q0, Q0, Q1);
+				fp.USHR(32, Q1, Q0, 16);
+				fp.ORR(Q0, Q0, Q1);
+			}
+		}
+
+		// At this point we have the regs in the 4 lanes.
+		// In the "u" mode, we need to shift it out of the sign bit.
+		if (unsignedOp) {
+			Arm64Gen::ARM64Reg reg = (outsize == V_Quad) ? Q0 : D0;
+			fp.USHR(32, reg, reg, 1);
+		}
+
+		fpr.MapRegsAndSpillLockV(dregs, outsize, MAP_NOINIT);
+
+		int nOut = 2;
+		if (outsize == V_Quad)
+			nOut = 4;
+
+		// Split apart again.
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		}
+
+		ApplyPrefixD(dregs, outsize);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VCrossQuat(MIPSOpcode op) {
