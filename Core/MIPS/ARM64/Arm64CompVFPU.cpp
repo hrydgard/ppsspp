@@ -1238,7 +1238,79 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
-		DISABLE;
+		if (!cpu_info.bNEON) {
+			DISABLE;
+		}
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+		if (unsignedOp) {
+			// Requires a tricky clamp operation that we can't do without more temps, see below
+			DISABLE;
+		}
+
+		// These instructions pack pairs or quads of integers into 32 bits.
+		// The unsigned (u) versions skip the sign bit when packing.
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Single;
+			if (sz != V_Quad) {
+				DISABLE;
+			}
+		} else {
+			switch (sz) {
+			case V_Pair:
+				outsize = V_Single;
+				break;
+			case V_Quad:
+				outsize = V_Pair;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		int n = GetNumVectorElements(sz);
+		int nOut = GetNumVectorElements(outsize);
+
+		// Take the single registers and combine them to a D or Q register.
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
+		}
+
+		if (unsignedOp) {
+			// What's the best way to zero a Q reg?
+			EOR(Q1, Q1, Q1);
+			fp.UMAX(32, Q0, Q0, Q1);
+		}
+
+		// At this point, we simply need to collect the high bits of each 32-bit lane into one register.
+		if (bits == 8) {
+			// Really want to do a SHRN(..., 24) but that can't be encoded. So we synthesize it.
+			fp.USHR(32, Q0, Q0, 16);
+			fp.SHRN(16, D0, Q0, 8);
+			fp.XTN(8, D0, Q0);
+		} else {
+			fp.SHRN(16, D0, Q0, 16);
+		}
+
+		// Split apart again.
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		}
+
+		logBlocks = 1;
+
+		ApplyPrefixD(dregs, outsize);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vx2i(MIPSOpcode op) {
