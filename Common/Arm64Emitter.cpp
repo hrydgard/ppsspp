@@ -254,6 +254,16 @@ bool IsImmLogical(uint64_t value, unsigned int width, unsigned int *n, unsigned 
   return true;
 }
 
+static int EncodeSize(int size) {
+	switch (size) {
+	case 8: return 0;
+	case 16: return 1;
+	case 32: return 2;
+	case 64: return 3;
+	default: return 0;
+	}
+}
+
 void ARM64XEmitter::SetCodePtr(u8* ptr)
 {
 	m_code = ptr;
@@ -3074,6 +3084,22 @@ void ARM64FloatEmitter::FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, size >> 6, 0x1B, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::UMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, EncodeSize(size), 0xD, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, EncodeSize(size), 0xC, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(0, EncodeSize(size), 0xD, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::SMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(0, EncodeSize(size), 0xC, Rd, Rn, Rm);
+}
 void ARM64FloatEmitter::FNEG(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
 	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0xF, Rd, Rn);
@@ -3487,67 +3513,51 @@ void ARM64FloatEmitter::UXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn)
 	UXTL(src_size, Rd, Rn, true);
 }
 
+static uint32 EncodeImmShiftLeft(u8 src_size, u32 shift) {
+	return src_size + shift;
+}
+
+static uint32 EncodeImmShiftRight(u8 src_size, u32 shift) {
+	return src_size * 2 - shift;
+}
+
 void ARM64FloatEmitter::SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
 	_assert_msg_(DYNA_REC, shift < src_size, "%s shift amount must less than the element size!", __FUNCTION__);
-	u32 immh = 0;
-	u32 immb = shift & 0xFFF;
-
-	if (src_size == 8)
-	{
-		immh = 1;
-	}
-	else if (src_size == 16)
-	{
-		immh = 2 | ((shift >> 3) & 1);
-	}
-	else if (src_size == 32)
-	{
-		immh = 4 | ((shift >> 3) & 3);;
-	}
-	EmitShiftImm(upper, 0, immh, immb, 0x14, Rd, Rn);
+	u32 imm = EncodeImmShiftLeft(src_size, shift);
+	EmitShiftImm(upper, 0, imm >> 3, imm & 7, 0x14, Rd, Rn);
 }
 
 void ARM64FloatEmitter::USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
 	_assert_msg_(DYNA_REC, shift < src_size, "%s shift amount must less than the element size!", __FUNCTION__);
-	u32 immh = 0;
-	u32 immb = shift & 0xFFF;
-
-	if (src_size == 8)
-	{
-		immh = 1;
-	}
-	else if (src_size == 16)
-	{
-		immh = 2 | ((shift >> 3) & 1);
-	}
-	else if (src_size == 32)
-	{
-		immh = 4 | ((shift >> 3) & 3);;
-	}
-	EmitShiftImm(upper, 1, immh, immb, 0x14, Rd, Rn);
+	u32 imm = EncodeImmShiftLeft(src_size, shift);
+	EmitShiftImm(upper, 1, imm >> 3, imm & 7, 0x14, Rd, Rn);
 }
 
 void ARM64FloatEmitter::SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper)
 {
 	_assert_msg_(DYNA_REC, shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
-	u32 immh = 0;
-	u32 immb = shift & 0xFFF;
+	u32 imm = EncodeImmShiftRight(dest_size, shift);
+	EmitShiftImm(upper, 0, imm >> 3, imm & 7, 0x10, Rd, Rn);
+}
 
-	if (dest_size == 8)
-	{
-		immh = 1;
-	}
-	else if (dest_size == 16)
-	{
-		immh = 2 | ((shift >> 3) & 1);
-	}
-	else if (dest_size == 32)
-	{
-		immh = 4 | ((shift >> 3) & 3);;
-	}
-	EmitShiftImm(upper, 1, immh, immb, 0x10, Rd, Rn);
+void ARM64FloatEmitter::SHL(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
+	_assert_msg_(DYNA_REC, shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
+	u32 imm = EncodeImmShiftLeft(dest_size, shift);
+	EmitShiftImm(IsQuad(Rd), false, imm >> 3, imm & 7, 0xA, Rd, Rn);
+}
+
+void ARM64FloatEmitter::USHR(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
+	_assert_msg_(DYNA_REC, shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
+	u32 imm = EncodeImmShiftRight(dest_size, shift);
+	EmitShiftImm(IsQuad(Rd), true, imm >> 3, imm & 7, 0x0, Rd, Rn);
+}
+
+void ARM64FloatEmitter::SSHR(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
+	_assert_msg_(DYNA_REC, shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
+	u32 imm = EncodeImmShiftRight(dest_size, shift);
+	EmitShiftImm(IsQuad(Rd), false, imm >> 3, imm & 7, 0x0, Rd, Rn);
 }
 
 void ARM64FloatEmitter::SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper)

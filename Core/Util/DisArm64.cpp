@@ -561,7 +561,7 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 					opname = !(sz & 1) ? "bit" : "bif";
 				}
 			}
-			int size = (fp ? ((sz & 1) ? 64 : 32) : (sz << 3));
+			int size = (fp ? ((sz & 1) ? 64 : 32) : (8 << sz));
 
 			if (opname != nullptr) {
 				if (!nosize) {
@@ -583,8 +583,109 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			break;
 		case 2:
 			if (((w >> 17) & 0xf) == 0) {
-				// Very similar to scalar two-reg misc. can we share code?
-				snprintf(instr->text, sizeof(instr->text), "(asimd vector two-reg misc %08x)", w);
+				int opcode = (w >> 12) & 0x1F;
+				int sz = (w >> 22) & 3;
+				int Q = GetQ(w);
+				int U = GetU(w);
+				const char *opname = nullptr;
+				bool narrow = false;
+				if (!U) {
+					switch (opcode) {
+					case 0: opname = "rev64"; break;
+					case 1: opname = "rev16"; break;
+					case 2: opname = "saddlp"; break;
+					case 3: opname = "suqadd"; break;
+					case 4: opname = "cls"; break;
+					case 5: opname = "cnt"; break;
+					case 6: opname = "sadalp"; break;
+					case 7: opname = "sqabs"; break;
+					case 8: opname = "cmgt"; break;
+					case 9: opname = "cmeq"; break;
+					case 0xA: opname = "cmlt"; break;
+					case 0xB: opname = "abs"; break;
+					case 0x12: opname = "xtn"; narrow = true; break;
+					case 0x14: opname = "sqxtn"; narrow = true; break;
+					default:
+						if (!(sz & 0x2)) {
+							switch (opcode) {
+							case 0x16: opname = "fcvtn"; break;
+							case 0x17: opname = "fcvtl"; break;
+							case 0x18: opname = "frintn"; break;
+							case 0x19: opname = "frintm"; break;
+							case 0x1a: opname = "fcvtns"; break;
+							case 0x1b: opname = "fcvtms"; break;
+							case 0x1c: opname = "fcvtas"; break;
+							case 0x1d: opname = "scvtf"; break;
+							}
+						} else {
+							switch (opcode) {
+							case 0xc: opname = "fcmgt"; break;
+							case 0xd: opname = "fcmeq"; break;
+							case 0xe: opname = "fcmlt"; break;
+							case 0xf: opname = "fabs"; break;
+							case 0x18: opname = "frintp"; break;
+							case 0x19: opname = "frintz"; break;
+							case 0x1a: opname = "fcvtps"; break;
+							case 0x1b: opname = "fcvtzs"; break;
+							case 0x1c: opname = "urepce"; break;
+							case 0x1d: opname = "frepce"; break;
+							}
+						}
+					}
+				} else {
+					switch (opcode) {
+					case 0: opname = "rev32"; break;
+					case 2: opname = "uaddlp"; break;
+					case 3: opname = "usqadd"; break;
+					case 4: opname = "clz"; break;
+					case 6: opname = "uadalp"; break;
+					case 7: opname = "sqneg"; break;
+					case 8: opname = "cmge"; break; // with zero
+					case 9: opname = "cmle"; break; // with zero
+					case 0xB: opname = "neg"; break;
+					case 0x12: opname = "sqxtun"; narrow = true; break;
+					case 0x13: opname = "shll"; break;
+					case 0x14: opname = "uqxtn"; narrow = true; break;
+					case 5: if (sz == 0) opname = "not"; else opname = "rbit"; break;
+					default:
+						if (!(sz & 0x2)) {
+							switch (opcode) {
+							case 0x16: opname = "fcvtxn"; break;
+							case 0x18: opname = "frinta"; break;
+							case 0x19: opname = "frintx"; break;
+							case 0x1a: opname = "fcvtnu"; break;
+							case 0x1b: opname = "fcvtmu"; break;
+							case 0x1c: opname = "fcvtau"; break;
+							case 0x1d: opname = "ucvtf"; break;
+							}
+						} else {
+							switch (opcode) {
+							case 0xC: opname = "fcmge"; break;  // with zero
+							case 0xD: opname = "fcmge"; break;  // with zero
+							case 0xF: opname = "fneg"; break;
+							case 0x19: opname = "frinti"; break;
+							case 0x1a: opname = "fcvtpu"; break;
+							case 0x1b: opname = "fcvtzu"; break;
+							case 0x1c: opname = "ursqrte"; break;
+							case 0x1d: opname = "frsqrte"; break;
+							case 0x1f: opname = "fsqrt"; break;
+							}
+						}
+					}
+				}
+
+				if (opname) {
+					if (narrow) {
+						int esize = 8 << sz;
+						const char *two = "";  // todo
+						snprintf(instr->text, sizeof(instr->text), "%s%s.%d.%d d%d, q%d", opname, two, esize, esize * 2, Rd, Rn);
+					} else {
+						snprintf(instr->text, sizeof(instr->text), "%s", opname);
+					}
+				} else {
+					// Very similar to scalar two-reg misc. can we share code?
+					snprintf(instr->text, sizeof(instr->text), "(asimd vector two-reg misc %08x)", w);
+				}
 			} else if (((w >> 17) & 0xf) == 1) {
 				snprintf(instr->text, sizeof(instr->text), "(asimd across lanes %08x)", w);
 			} else {
@@ -653,6 +754,20 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 					int shift = 2 * esize - ((immh << 3) | immb);
 					int r = Q ? 'q' : 'd';
 					snprintf(instr->text, sizeof(instr->text), "%ccvtf %c%d.s, %c%d.s, #%d", U ? 'u' : 's', r, Rd, r, Rn, shift);
+				} else if (opname && (!strcmp(opname, "ushr") || !strcmp(opname, "sshr"))) {
+					int esize = (8 << HighestSetBit(immh));
+					int shift = esize * 2 - ((immh << 3) | immb);
+					int r = Q ? 'q' : 'd';
+					snprintf(instr->text, sizeof(instr->text), "%s.%d %c%d, %c%d, #%d", opname, esize, r, Rd, r, Rn, shift);
+				} else if (opname && (!strcmp(opname, "rshrn") || !strcmp(opname, "shrn"))) {
+					int esize = (8 << HighestSetBit(immh));
+					int shift = esize * 2 - ((immh << 3) | immb);
+					snprintf(instr->text, sizeof(instr->text), "%s%s.%d.%d d%d, q%d, #%d", opname, two, esize, esize * 2, Rd, Rn, shift);
+				} else if (opname && (!strcmp(opname, "shl"))) {
+					int esize = (8 << HighestSetBit(immh));
+					int r = Q ? 'q' : 'd';
+					int shift = ((immh << 3) | immb) - esize;
+					snprintf(instr->text, sizeof(instr->text), "%s.%d %c%d, %c%d, #%d", opname, esize, r, Rd, r, Rn, shift);
 				} else if (opname) {
 					int esize = (8 << HighestSetBit(immh));
 					int shift = ((immh << 3) | immb) - esize;
