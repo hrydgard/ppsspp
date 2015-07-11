@@ -1806,8 +1806,6 @@ namespace MIPSComp {
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void Arm64Jit::Comp_VRot(MIPSOpcode op) {
-		DISABLE;  // Need to figure out how to deal with the return values from the function.
-
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1848,6 +1846,10 @@ namespace MIPSComp {
 		fpr.MapRegV(sreg);
 		fp.FMOV(S0, fpr.V(sreg));
 		QuickCallFunction(SCRATCH2_64, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
+		// Here, sin and cos are stored together in Q0.d. On ARM32 we could use it directly
+		// but with ARM64's register organization, we need to split it up.
+		fp.INS(32, Q1, 0, Q0, 1);
+
 		CompVrotShuffle(dregs, imm, sz, false);
 		if (vd2 != -1) {
 			// If the negsin setting differs between the two joint invocations, we need to flip the second one.
