@@ -388,15 +388,8 @@ void Arm64RegCacheFPU::FlushAll() {
 
 		if (ar1 != INVALID_REG && ar2 != INVALID_REG) {
 			fp_->STP(32, INDEX_SIGNED, ar1, ar2, CTXREG, GetMipsRegOffset(mr1));
-
-			mr[mr1].loc = ML_MEM;
-			mr[mr1].reg = (int)INVALID_REG;
-			ar[DecodeReg(ar1)].mipsReg = -1;
-			ar[DecodeReg(ar1)].isDirty = false;
-			mr[mr2].loc = ML_MEM;
-			mr[mr2].reg = (int)INVALID_REG;
-			ar[DecodeReg(ar2)].mipsReg = -1;
-			ar[DecodeReg(ar2)].isDirty = false;
+			DiscardR(mr1);
+			DiscardR(mr2);
 		}
 	}
 

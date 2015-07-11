@@ -1366,7 +1366,6 @@ namespace MIPSComp {
 			if (unsignedOp) {
 				// vuc2i is a bit special.  It spreads out the bits like this:
 				// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
-				// TODO
 				fp.USHR(32, Q1, Q0, 8);
 				fp.ORR(Q0, Q0, Q1);
 				fp.USHR(32, Q1, Q0, 16);
