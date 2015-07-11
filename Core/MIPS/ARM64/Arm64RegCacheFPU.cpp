@@ -110,6 +110,10 @@ bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
 	return mr[r].loc == ML_ARMREG;
 }
 
+bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) {
+	return mr[r].loc == ML_MEM;
+}
+
 ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// INFO_LOG(JIT, "FPR MapReg: %i flags=%i", mipsReg, mapFlags);
 	if (jo_->useASIMDVFPU && mipsReg >= 32) {

@@ -134,6 +134,10 @@ void Arm64RegCache::FlushBeforeCall() {
 	FlushArmReg(W30);
 }
 
+bool Arm64RegCache::IsInRAM(MIPSGPReg reg) {
+	return mr[reg].loc == ML_MEM;
+}
+
 bool Arm64RegCache::IsMapped(MIPSGPReg mipsReg) {
 	return mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM;
 }
