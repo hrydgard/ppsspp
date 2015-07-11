@@ -377,7 +377,9 @@ void Arm64RegCacheFPU::FlushAll() {
 
 	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
 
-	// Flush pairs first when possible.
+	// Flush pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
+	// most VFPU registers cannot be flushed this way, unless we are willing to generate another offset pointer
+	// (which we could actually do right here, point right in the middle of the VFPU stuff and would reach it all)... TODO
 	for (int i = 0; i < 31; i++) {
 		int mr1 = i;
 		int mr2 = i + 1;

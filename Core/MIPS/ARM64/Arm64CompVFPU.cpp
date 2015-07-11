@@ -1245,11 +1245,6 @@ namespace MIPSComp {
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
 
-		if (unsignedOp) {
-			// Requires a tricky clamp operation that we can't do without more temps, see below
-			DISABLE;
-		}
-
 		// These instructions pack pairs or quads of integers into 32 bits.
 		// The unsigned (u) versions skip the sign bit when packing.
 		VectorSize sz = GetVecSize(op);
@@ -1287,18 +1282,18 @@ namespace MIPSComp {
 
 		if (unsignedOp) {
 			// What's the best way to zero a Q reg?
-			EOR(Q1, Q1, Q1);
-			fp.UMAX(32, Q0, Q0, Q1);
+			fp.EOR(Q1, Q1, Q1);
+			fp.SMAX(32, Q0, Q0, Q1);
 		}
 
 		// At this point, we simply need to collect the high bits of each 32-bit lane into one register.
 		if (bits == 8) {
-			// Really want to do a SHRN(..., 24) but that can't be encoded. So we synthesize it.
+			// Really want to do a SHRN(..., 23/24) but that can't be encoded. So we synthesize it.
 			fp.USHR(32, Q0, Q0, 16);
-			fp.SHRN(16, D0, Q0, 8);
+			fp.SHRN(16, D0, Q0, unsignedOp ? 7 : 8);
 			fp.XTN(8, D0, Q0);
 		} else {
-			fp.SHRN(16, D0, Q0, 16);
+			fp.SHRN(16, D0, Q0, unsignedOp ? 15 : 16);
 		}
 
 		// Split apart again.
