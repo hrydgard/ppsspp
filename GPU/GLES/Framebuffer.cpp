@@ -18,6 +18,8 @@
 #include <set>
 #include <algorithm>
 
+#include "profiler/profiler.h"
+
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
@@ -1152,7 +1154,7 @@ inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer 
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-
+	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
