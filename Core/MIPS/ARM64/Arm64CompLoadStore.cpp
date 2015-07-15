@@ -352,7 +352,7 @@ namespace MIPSComp {
 					gpr.MapRegAsPointer(rs);
 
 					Arm64Gen::ARM64Reg ar;
-					if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+					if (!load && gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
 						// Can just store from the zero register directly.
 						ar = WZR;
 					} else {
