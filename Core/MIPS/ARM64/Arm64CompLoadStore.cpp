@@ -352,11 +352,12 @@ namespace MIPSComp {
 					gpr.MapRegAsPointer(rs);
 
 					Arm64Gen::ARM64Reg ar;
-					if (rt != MIPS_REG_ZERO) {
+					if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+						// Can just store from the zero register directly.
+						ar = WZR;
+					} else {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 						ar = gpr.R(rt);
-					} else {
-						ar = WZR;
 					}
 					switch (o) {
 					case 35: LDR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
