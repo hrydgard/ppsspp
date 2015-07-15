@@ -350,17 +350,25 @@ namespace MIPSComp {
 					  (dataSize == 1 || (offset & (dataSize - 1)) == 0)) {  // Check that the offset is aligned to the access size as that's required for INDEX_UNSIGNED encodings. we can get here through fallback from lwl/lwr
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
-					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+
+					Arm64Gen::ARM64Reg ar;
+					if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+						// Can just store from the zero register directly.
+						ar = WZR;
+					} else {
+						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+						ar = gpr.R(rt);
+					}
 					switch (o) {
-					case 35: LDR(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 37: LDRH(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 33: LDRSH(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 36: LDRB(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 32: LDRSB(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
+					case 35: LDR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 37: LDRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 33: LDRSH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 36: LDRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 32: LDRSB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
 						// Store
-					case 43: STR(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 41: STRH(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
-					case 40: STRB(INDEX_UNSIGNED, gpr.R(rt), gpr.RPtr(rs), offset); break;
+					case 43: STR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 41: STRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 40: STRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
 					}
 					gpr.ReleaseSpillLocks();
 					break;

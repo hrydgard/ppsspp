@@ -929,9 +929,14 @@ namespace MIPSComp {
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {  //R(rt) = VI(imm);
-					fpr.MapRegV(imm, 0);
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
-					fp.FMOV(gpr.R(rt), fpr.V(imm));
+					if (!fpr.IsInRAMV(imm)) {
+						fpr.MapRegV(imm, 0);
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						fp.FMOV(gpr.R(rt), fpr.V(imm));
+					} else {
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, fpr.GetMipsRegOffsetV(imm));
+					}
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 					if (imm - 128 == VFPU_CTRL_CC) {
 						if (gpr.IsImm(MIPS_REG_VFPUCC)) {
@@ -955,9 +960,17 @@ namespace MIPSComp {
 
 		case 7: // mtv
 			if (imm < 128) {
-				gpr.MapReg(rt);
-				fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
-				fp.FMOV(fpr.V(imm), gpr.R(rt));
+				if (rt == MIPS_REG_ZERO) {
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.MOVI2F(fpr.V(imm), 0.0f, SCRATCH1);
+				} else if (!gpr.IsInRAM(rt)) {
+					gpr.MapReg(rt);
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.FMOV(fpr.V(imm), gpr.R(rt));
+				} else {
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.LDR(32, INDEX_UNSIGNED, fpr.V(imm), CTXREG, gpr.GetMipsRegOffset(rt));
+				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
 					if (gpr.IsImm(rt)) {
