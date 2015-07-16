@@ -113,8 +113,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 
 	if (g_Config.iInternalResolution == 0) {
-		coreParam.renderWidth = bounds.w;
-		coreParam.renderHeight = bounds.h;
+		coreParam.renderWidth = coreParam.pixelWidth;
+		coreParam.renderHeight = coreParam.pixelHeight;
 	} else {
 		if (g_Config.iInternalResolution < 0)
 			g_Config.iInternalResolution = 1;
