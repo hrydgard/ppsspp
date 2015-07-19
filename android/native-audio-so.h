@@ -1,8 +1,6 @@
 #pragma once
 
-// Header for dynamic loading
-
 typedef int (*AndroidAudioCallback)(short *buffer, int num_samples);
 
-typedef bool (*OpenSLWrap_Init_T)(AndroidAudioCallback cb, int framesPerBuffer, int sampleRate);
-typedef void (*OpenSLWrap_Shutdown_T)();
+bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate);
+void OpenSLWrap_Shutdown();

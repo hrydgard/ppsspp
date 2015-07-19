@@ -8,6 +8,7 @@ LOCAL_MODULE    := libnative
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
     android/native_audio.cpp \
+    android/native-audio-so.cpp \
     audio/wav_read.cpp \
     audio/mixer.cpp.arm \
     base/backtrace.cpp \

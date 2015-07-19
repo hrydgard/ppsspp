@@ -66,7 +66,7 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 }
 
 // create the engine and output mix objects
-extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate) {
+bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate) {
 	audioCallback = cb;
 	framesPerBuffer = _FramesPerBuffer;
 	if (framesPerBuffer == 0)
@@ -150,7 +150,7 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, i
 }
 
 // shut down the native audio system
-extern "C" void OpenSLWrap_Shutdown() {
+void OpenSLWrap_Shutdown() {
 	SLresult result;
 	ILOG("OpenSLWrap_Shutdown - stopping playback");
 	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
