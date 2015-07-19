@@ -177,7 +177,7 @@ public:
 	void EatPrefix() { js.EatPrefix(); }
 
 private:
-	void GenerateFixedCode();
+	void GenerateFixedCode(const JitOptions &jo);
 	void FlushAll();
 	void FlushPrefixV();
 
@@ -197,8 +197,8 @@ private:
 
 	bool ReplaceJalTo(u32 dest);
 
-	void SaveDowncount();
-	void RestoreDowncount();
+	void SaveStaticRegisters();
+	void LoadStaticRegisters();
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(Arm64Gen::ARM64Reg Reg);
@@ -262,6 +262,9 @@ public:
 	const u8 *dispatcherNoCheck;
 
 	const u8 *breakpointBailout;
+
+	const u8 *saveStaticRegisters;
+	const u8 *loadStaticRegisters;
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1[8];

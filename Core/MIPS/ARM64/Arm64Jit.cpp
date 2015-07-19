@@ -68,7 +68,7 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this, &fp);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
-	GenerateFixedCode();
+	GenerateFixedCode(jo);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
@@ -135,7 +135,7 @@ void Arm64Jit::ClearCache() {
 	ILOG("ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace();
-	GenerateFixedCode();
+	GenerateFixedCode(jo);
 }
 
 void Arm64Jit::InvalidateCache() {
@@ -233,7 +233,8 @@ MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
 
 const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	js.cancel = false;
-	js.blockStart = js.compilerPC = mips_->pc;
+	js.blockStart = mips_->pc;
+	js.compilerPC = mips_->pc;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
@@ -308,7 +309,7 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 
 	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== mips ===============");
+		ILOG("=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
 			ILOG("M: %08x   %s", cpc, temp);
@@ -379,9 +380,11 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
+		SaveStaticRegisters();
 		RestoreRoundingMode();
 		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
 		ApplyRoundingMode();
+		LoadStaticRegisters();
 		WriteDownCountR(W0);
 	}
 
@@ -428,6 +431,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	} else if (entry->replaceFunc) {
 		FlushAll();
+		SaveStaticRegisters();
 		RestoreRoundingMode();
 		gpr.SetRegImm(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
@@ -439,9 +443,11 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
+			LoadStaticRegisters();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
 		} else {
 			ApplyRoundingMode();
+			LoadStaticRegisters();
 			LDR(INDEX_UNSIGNED, W1, CTXREG, MIPS_REG_RA * 4);
 			WriteDownCountR(W0);
 			WriteExitDestInR(W1);
@@ -456,7 +462,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func) {
-		SaveDowncount();
+		SaveStaticRegisters();
 		// TODO: Perhaps keep the rounding mode for interp?
 		RestoreRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
@@ -464,7 +470,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)func);
 		ApplyRoundingMode();
-		RestoreDowncount();
+		LoadStaticRegisters();
 	}
 
 	const MIPSInfo info = MIPSGetInfo(op);
@@ -484,12 +490,21 @@ void Arm64Jit::MovToPC(ARM64Reg r) {
 }
 
 // Should not really be necessary except when entering Advance
-void Arm64Jit::SaveDowncount() {
-	STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+void Arm64Jit::SaveStaticRegisters() {
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2_64, saveStaticRegisters);
+	} else {
+		// Inline the single operation
+		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	}
 }
 
-void Arm64Jit::RestoreDowncount() {
-	LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+void Arm64Jit::LoadStaticRegisters() {
+	if (jo.useStaticAlloc) {
+		QuickCallFunction(SCRATCH2_64, loadStaticRegisters);
+	} else {
+		LDR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
+	}
 }
 
 void Arm64Jit::WriteDownCount(int offset) {

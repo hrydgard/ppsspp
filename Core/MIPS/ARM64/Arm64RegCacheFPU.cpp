@@ -19,6 +19,7 @@
 
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -61,41 +62,33 @@ void Arm64RegCacheFPU::SetupInitialRegs() {
 }
 
 const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
-	// VFP mapping
-	// VFPU registers and regular FP registers are mapped interchangably on top of the standard
-	// 16 FPU registers.
+	// On ARM64, all 32 registers are fully 128-bit and fully interchangable so we don't
+	// have to care about upper or lower registers. However, only S8-S15 are callee-save, and
+	// only the bottom 64 bits of those. So we should allocate into these when we call
+	// C functions, although we don't currently do so...
 
-	// NEON mapping
-	// We map FPU and VFPU registers entirely separately. FPU is mapped to 12 of the bottom 16 S registers.
-	// VFPU is mapped to the upper 48 regs, 32 of which can only be reached through NEON
-	// (or D16-D31 as doubles, but not relevant).
-	// Might consider shifting the split in the future, giving more regs to NEON allowing it to map more quads.
-	
-	// We should attempt to map scalars to low Q registers and wider things to high registers,
-	// as the NEON instructions are all 2-vector or 4-vector, they don't do scalar, we want to be
-	// able to use regular VFP instructions too.
 	static const ARM64Reg allocationOrder[] = {
-		// Reserve four temp registers. Useful when building quads until we really figure out
-		// how to do that best. Note that we avoid the callee-save registers for now.
-		S4,  S5,  S6,  S7,   // Q1
-		S16, S17, S18, S19,  // Q4
-		S20, S21, S22, S23,  // Q5
-		S24, S25, S26, S27,  // Q6
-		S28, S29, S30, S31,  // Q7
-		// Q8-Q15 free for NEON tricks
+		// Reserve four full 128-bit temp registers, should be plenty.
+		S4,  S5,  S6,  S7,
+		S8,  S9,  S10, S11, // Partially callee-save (bottom 64 bits)
+		S12, S13, S14, S15, // Partially callee-save (bottom 64 bits)
+		S16, S17, S18, S19,
+		S20, S21, S22, S23,
+		S24, S25, S26, S27,
+		S28, S29, S30, S31,
 	};
 
 	static const ARM64Reg allocationOrderNEONVFPU[] = {
-		// Reserve four temp registers. Useful when building quads until we really figure out
-		// how to do that best.
-		S4,  S5,  S6,  S7,   // Q1
-		S8,  S9,  S10, S11,  // Q2
-		S12, S13, S14, S15,  // Q3
-		// Q4-Q15 free for VFPU
+		// Reserve four full 128-bit temp registers, should be plenty.
+
+		// Then let's use 12 register as singles
+		S4, S5, S6, S7,
+		S8,  S9,  S10, S11,
+		S12, S13, S14, S15,
+
+		// And do quads in the rest? Or use a strategy more similar to what we do on x86?
 	};
 
-	// NOTE: It's important that S2/S3 are not allocated with bNEON, even if !useNEONVFPU.
-	// They are used by a few instructions, like vh2f.
 	if (jo_->useASIMDVFPU) {
 		count = sizeof(allocationOrderNEONVFPU) / sizeof(const ARM64Reg);
 		return allocationOrderNEONVFPU;
@@ -107,6 +100,10 @@ const ARM64Reg *Arm64RegCacheFPU::GetMIPSAllocationOrder(int &count) {
 
 bool Arm64RegCacheFPU::IsMapped(MIPSReg r) {
 	return mr[r].loc == ML_ARMREG;
+}
+
+bool Arm64RegCacheFPU::IsInRAM(MIPSReg r) {
+	return mr[r].loc == ML_MEM;
 }
 
 ARM64Reg Arm64RegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
@@ -333,6 +330,34 @@ void Arm64RegCacheFPU::FlushR(MIPSReg r) {
 	mr[r].reg = (int)INVALID_REG;
 }
 
+Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
+	switch (mr[r].loc) {
+	case ML_IMM:
+		// IMM is always "dirty".
+		// IMM is not allowed for FP (yet).
+		ERROR_LOG(JIT, "Imm in FP register?");
+		return INVALID_REG;
+
+	case ML_ARMREG:
+		if (mr[r].reg == INVALID_REG) {
+			ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			return INVALID_REG;
+		}
+		// No need to flush if it's not dirty.
+		if (!ar[mr[r].reg].isDirty) {
+			return INVALID_REG;
+		}
+		return (ARM64Reg)(S0 + mr[r].reg);
+
+	case ML_MEM:
+		return INVALID_REG;
+
+	default:
+		ERROR_LOG_REPORT(JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		return INVALID_REG;
+	}
+}
+
 void Arm64RegCacheFPU::FlushAll() {
 	if (!pendingFlush) {
 		// Nothing allocated.  FPU regs are not nearly as common as GPR.
@@ -347,6 +372,25 @@ void Arm64RegCacheFPU::FlushAll() {
 	int numArmRegs = 0;
 
 	const ARM64Reg *order = GetMIPSAllocationOrder(numArmRegs);
+
+	// Flush pairs first when possible. Note that STP's offset can't reach more than 256 bytes so
+	// most VFPU registers cannot be flushed this way, unless we are willing to generate another offset pointer
+	// (which we could actually do right here, point right in the middle of the VFPU stuff and would reach it all)... TODO
+	for (int i = 0; i < 31; i++) {
+		int mr1 = i;
+		int mr2 = i + 1;
+		ARM64Reg ar1 = ARM64RegForFlush(mr1);
+		ARM64Reg ar2 = ARM64RegForFlush(mr2);
+
+		if (ar1 != INVALID_REG && ar2 != INVALID_REG) {
+			fp_->STP(32, INDEX_SIGNED, ar1, ar2, CTXREG, GetMipsRegOffset(mr1));
+			DiscardR(mr1);
+			DiscardR(mr2);
+		}
+	}
+
+	// Then flush one by one.
+
 	for (int i = 0; i < numArmRegs; i++) {
 		int a = DecodeReg(order[i]);
 		int m = ar[a].mipsReg;

@@ -290,7 +290,13 @@ void Jit::UpdateRoundingMode(XEmitter *emitter)
 		// This is the most common situation.
 		emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
 		FixupBranch skip = emitter->J_CC(CC_Z);
+#ifdef _M_X64
+		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
+		emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+		emitter->MOV(8, MatR(RAX), Imm8(1));
+#else
 		emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
+#endif
 		emitter->SetJumpTarget(skip);
 	}
 }

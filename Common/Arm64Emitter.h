@@ -819,6 +819,7 @@ public:
 
 	// Vector
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -842,6 +843,12 @@ public:
 	void MOV(ARM64Reg Rd, ARM64Reg Rn) {
 		ORR(Rd, Rn, Rn);
 	}
+
+	void UMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+
 	void REV16(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV32(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV64(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -916,6 +923,10 @@ public:
 	void SXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+
+	void SHL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void USHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void SSHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);

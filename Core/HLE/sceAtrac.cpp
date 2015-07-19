@@ -1688,11 +1688,11 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): bad atrac ID", atracID, loopNum);
 		return ATRAC_ERROR_BAD_ATRACID;
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no data", atracID, loopNum);
+		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): no data", atracID, loopNum);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		if (atrac->loopinfoNum == 0) {
-			ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no loop information", atracID, loopNum);
+			DEBUG_LOG(ME, "sceAtracSetLoopNum(%i, %i): error: no loop information", atracID, loopNum);
 			return ATRAC_ERROR_NO_LOOP_INFORMATION;
 		}
 		// Spammed in MHU

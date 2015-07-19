@@ -393,6 +393,37 @@ namespace MIPSComp
 	}
 
 	void ArmJit::Comp_Cache(MIPSOpcode op) {
-		DISABLE;
+		//		int imm = (s16)(op & 0xFFFF);
+		//		int rs = _RS;
+		//		int addr = R(rs) + imm;
+		int func = (op >> 16) & 0x1F;
+
+		// It appears that a cache line is 0x40 (64) bytes, loops in games
+		// issue the cache instruction at that interval.
+
+		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
+		switch (func) {
+			// Icache
+		case 8:
+			// Invalidate the instruction cache at this address
+			DISABLE;
+			break;
+			// Dcache
+		case 24:
+			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
+			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
+			break;
+		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
+			// No need to do anything.
+			break;
+		case 27:  // D-cube. Hit Writeback Invalidate.  Tony Hawk Underground 2
+			break;
+		case 30:  // GTA LCS, a lot. Fill (prefetch).   Tony Hawk Underground 2
+			break;
+
+		default:
+			DISABLE;
+			break;
+		}
 	}
 }
