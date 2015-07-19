@@ -85,7 +85,8 @@ public class MogaHack
                 List<ResolveInfo> resolveInfos = context.getPackageManager().queryIntentServices( intent, 0 );
                 if( resolveInfos == null || resolveInfos.size() != 1 )
                 {
-                    Log.e( "MogaHack", "Somebody is trying to intercept our intent. Disabling MOGA controller for security." );
+                    // What? this doesn't do anything.
+                    // Log.e( "MogaHack", "Somebody is trying to intercept our intent. Disabling MOGA controller for security." );
                 }
                 ServiceInfo serviceInfo = resolveInfos.get( 0 ).serviceInfo;
                 String packageName = serviceInfo.packageName;
