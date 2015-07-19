@@ -147,6 +147,7 @@ public:
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
+	void InvalidateChangedBlocks();
 	void DestroyBlock(int block_num, bool invalidate);
 
 	// No jit operations may be run between these calls.
