@@ -18,6 +18,7 @@
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
 #include "profiler/profiler.h"
@@ -192,6 +193,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jint jAndroidVersion) {
 	jniEnvUI = env;
+
+	setCurrentThreadName("androidInit");
 
 	ILOG("NativeApp.init() -- begin");
 	PROFILE_INIT();
@@ -383,28 +386,6 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
 	}
-}
-
-
-// This path is not used if OpenSL ES is available.
-extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
-	// The audio thread can pretty safely enable Flush-to-Zero mode on the FPU.
-	EnableFZ();
-
-	int buf_size = env->GetArrayLength(array);
-	if (buf_size) {
-		short *data = env->GetShortArrayElements(array, 0);
-		int samples = buf_size / 2;
-		samples = NativeMix(data, samples);
-		if (samples != 0) {
-			env->ReleaseShortArrayElements(array, data, 0);
-			return samples * 2;
-		} else {
-			env->ReleaseShortArrayElements(array, data, JNI_ABORT);
-			return 0;
-		}
-	}
-	return 0;
 }
 
 extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
