@@ -566,13 +566,20 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	}
 
 	b->invalid = true;
-	if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
-		Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
+	if (!b->IsPureProxy()) {
+		if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
+			Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
+	}
 
 	// It's not safe to set normalEntry to 0 here, since we use a binary search
 	// that looks at that later to find blocks. Marking it invalid is enough.
 
 	UnlinkBlock(block_num);
+
+	// Don't change the jit code when invalidating a pure proxy block.
+	if (b->IsPureProxy()) {
+		return;
+	}
 
 #if defined(ARM)
 

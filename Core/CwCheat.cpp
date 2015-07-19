@@ -284,9 +284,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 }
 
 void CWCheatEngine::InvalidateICache(u32 addr, int size) {
-	if (MIPSComp::jit) {
-		MIPSComp::jit->GetBlockCache()->InvalidateICache(addr & ~3, size);
-	}
+	currentMIPS->InvalidateICache(addr & ~3, size);
 }
 
 void CWCheatEngine::Run() {
