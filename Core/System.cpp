@@ -268,7 +268,6 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 
 void CPU_RunLoop() {
 	setCurrentThreadName("CPU");
-	FPU_SetFastMode();
 
 	if (CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
 		CPU_Init();
