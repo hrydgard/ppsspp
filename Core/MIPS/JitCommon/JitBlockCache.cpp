@@ -626,6 +626,11 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 		return;
 	}
 
+	if (pAddr == 0 && pEnd >= 0x1FFFFFFF) {
+		InvalidateChangedBlocks();
+		return;
+	}
+
 	// Blocks may start and end in overlapping ways, and destroying one invalidates iterators.
 	// So after destroying one, we start over.
 	do {
@@ -645,6 +650,21 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 		}
 		// We got here - it wasn't in the map at all (or anymore.)
 	} while (false);
+}
+
+void JitBlockCache::InvalidateChangedBlocks() {
+	// The primary goal of this is to make sure block linking is cleared up.
+	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
+		JitBlock &b = blocks_[block_num];
+		if (b.invalid || b.IsPureProxy())
+			continue;
+
+		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
+		if (Memory::ReadUnchecked_U32(b.originalAddress) != emuhack) {
+			DEBUG_LOG(JIT, "Invalidating changed block at %08x", b.originalAddress);
+			DestroyBlock(block_num, true);
+		}
+	}
 }
 
 int JitBlockCache::GetBlockExitSize() {
