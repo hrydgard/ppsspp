@@ -9,6 +9,10 @@
 #include "base/logging.h"
 #include "thread/threadutil.h"
 
+#ifdef ANDROID
+#include <pthread.h>
+#endif
+
 #ifdef TLS_SUPPORTED
 static __THREAD const char *curThreadName;
 #endif
@@ -38,6 +42,13 @@ void setCurrentThreadName(const char* threadName) {
 	__except(EXCEPTION_CONTINUE_EXECUTION)
 	{}
 #else
+
+#if defined(ANDROID)
+	pthread_setname_np(pthread_self(), threadName);
+// #else
+//	pthread_setname_np(thread_name);
+#endif
+
 	// Do nothing
 #endif
 	// Set the locally known threadname using a thread local variable.
