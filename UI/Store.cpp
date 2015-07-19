@@ -320,12 +320,15 @@ void StoreScreen::update(InputState &input) {
 			listing_->buffer().TakeAll(&listingJson);
 			// printf("%s\n", listingJson.c_str());
 			loading_ = false;
+			connectionError_ = false;
 
 			ParseListing(listingJson);
 			RecreateViews();
 		} else {
 			// Failed to contact store. Don't do anything.
+			ELOG("Download failed : error code %d", listing_->ResultCode());
 			connectionError_ = true;
+			loading_ = false;
 			RecreateViews();
 		}
 

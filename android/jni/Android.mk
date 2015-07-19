@@ -1,25 +1,5 @@
 LOCAL_PATH := $(call my-dir)
 
-# BEGIN Native Audio Separate Library - copy paste this section to your Android.mk
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -D__STDC_CONSTANT_MACROS
-# yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
-NATIVE := ../../native
-LOCAL_SRC_FILES := \
-		$(NATIVE)/android/native-audio-so.cpp
-LOCAL_C_INCLUDES := \
-		$(LOCAL_PATH)/$(NATIVE) \
-		$(LOCAL_PATH)
-LOCAL_LDLIBS := -lOpenSLES -llog
-		
-include $(BUILD_SHARED_LIBRARY)
-
-# END Native Audio Separate Library - copy paste this section to your Android.mk
-
 include $(CLEAR_VARS)
 
 #TARGET_PLATFORM := android-8
