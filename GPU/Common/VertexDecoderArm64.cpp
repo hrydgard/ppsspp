@@ -554,7 +554,27 @@ void VertexDecoderJitCache::Jit_TcU16() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDUR(tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+
+	// TODO: Cleanup.
+	MOVP2R(scratchReg64, &gstate_c.vertMinU);
+
+	auto updateSide = [&](ARM64Reg r, CCFlags cc, u32 off) {
+		LDRH(INDEX_UNSIGNED, tempReg3, scratchReg64, off);
+		CMP(r, tempReg3);
+		FixupBranch skip = B(InvertCond(cc));
+		STRH(INDEX_UNSIGNED, r, scratchReg64, off);
+		SetJumpTarget(skip);
+	};
+
+	// TODO: Can this actually be fast?  Hmm, floats aren't better.
+	updateSide(tempReg1, CC_LT, 0);
+	updateSide(tempReg1, CC_GT, 2);
+	updateSide(tempReg2, CC_LT, 4);
+	updateSide(tempReg2, CC_GT, 6);
+
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 

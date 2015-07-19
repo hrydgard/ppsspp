@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <stdio.h>
 
 #include "base/basictypes.h"
@@ -294,6 +295,11 @@ void VertexDecoder::Step_TcU16Through() const
 	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+
+	gstate_c.vertMinU = std::min(gstate_c.vertMinU, uvdata[0]);
+	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, uvdata[0]);
+	gstate_c.vertMinV = std::min(gstate_c.vertMinV, uvdata[1]);
+	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU16ThroughDouble() const
@@ -318,6 +324,11 @@ void VertexDecoder::Step_TcU16ThroughToFloat() const
 	const u16 *uvdata = (const u16_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+
+	gstate_c.vertMinU = std::min(gstate_c.vertMinU, uvdata[0]);
+	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, uvdata[0]);
+	gstate_c.vertMinV = std::min(gstate_c.vertMinV, uvdata[1]);
+	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU16ThroughDoubleToFloat() const
@@ -342,6 +353,11 @@ void VertexDecoder::Step_TcFloatThrough() const
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+
+	gstate_c.vertMinU = std::min(gstate_c.vertMinU, (u16)uvdata[0]);
+	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, (u16)uvdata[0]);
+	gstate_c.vertMinV = std::min(gstate_c.vertMinV, (u16)uvdata[1]);
+	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, (u16)uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU8Prescale() const {
