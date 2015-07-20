@@ -334,6 +334,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JN
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+	static bool hasSetThreadName = false;
+	if (!hasSetThreadName) {
+		hasSetThreadName = true;
+		setCurrentThreadName("AndroidRender");
+	}
+
 	if (renderer_inited) {
 		// TODO: Look into if these locks are a perf loss
 		{
@@ -375,6 +381,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 		jstring param = env->NewStringUTF(frameCmd.params.c_str());
 		env->CallVoidMethod(obj, postCommand, cmd, param);
+		env->DeleteLocalRef(cmd); 
+		env->DeleteLocalRef(param);
 	}
 }
 
