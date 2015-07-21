@@ -423,7 +423,8 @@ public:
 	const char *GetInfoString(T3DInfo info) const override {
 		switch (info) {
 		case APIVERSION: return "DirectX 9.0";
-		case VENDOR: return identifier_.Description;
+		case VENDORSTRING: return identifier_.Description;
+		case VENDOR: return "-";
 		case RENDERER: return identifier_.Driver;  // eh, sort of
 		case SHADELANGVERSION: return shadeLangVersion_;
 		case APINAME: return "Direct3D 9";

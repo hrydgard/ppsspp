@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "base/NativeApp.h"
 #include "gl_state.h"
 
@@ -104,7 +105,7 @@ void CheckGLExtensions() {
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
 	// TODO: move this stuff to gpu_features.cpp
 	if (cvendor) {
-		const std::string vendor(cvendor);
+		const std::string vendor = StripSpaces(std::string(cvendor));
 		if (vendor == "NVIDIA Corporation"
 			|| vendor == "Nouveau"
 			|| vendor == "nouveau") {

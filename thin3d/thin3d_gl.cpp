@@ -347,7 +347,21 @@ public:
 	#else
 				return "OpenGL";
 	#endif
-			case VENDOR: return (const char *)glGetString(GL_VENDOR);
+			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
+			case VENDOR:
+				switch (gl_extensions.gpuVendor) {
+				case GPU_VENDOR_AMD: return "VENDOR_AMD";
+				case GPU_VENDOR_POWERVR: return "VENDOR_POWERVR";
+				case GPU_VENDOR_NVIDIA: return "VENDOR_NVIDIA";
+				case GPU_VENDOR_INTEL: return "VENDOR_INTEL";
+				case GPU_VENDOR_ADRENO: return "VENDOR_ADRENO";
+				case GPU_VENDOR_ARM: return "VENDOR_ARM";
+				case GPU_VENDOR_BROADCOM: return "VENDOR_BROADCOM";
+				case GPU_VENDOR_UNKNOWN:
+				default:
+					return "VENDOR_UNKNOWN";
+				}
+				break;
 			case RENDERER: return (const char *)glGetString(GL_RENDERER);
 			case SHADELANGVERSION: return (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
 			case APIVERSION: return (const char *)glGetString(GL_VERSION);
