@@ -19,6 +19,7 @@
 
 #include "base/compat.h"
 #include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -362,8 +363,18 @@ void SystemInfoScreen::CreateViews() {
 
 
 	deviceSpecs->Add(new ItemHeader("Version Information"));
-	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
-	apiVersion.resize(30);
+	std::string apiVersion;
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+#ifdef USING_GLES2
+		apiVersion = StringFromFormat("v%d.%d.%d ES", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+#else
+		apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+#endif
+	} else {
+		apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+		if (apiVersion.size() > 30)
+			apiVersion.resize(30);
+	}
 	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
 	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
 
