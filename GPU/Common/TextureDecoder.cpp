@@ -257,8 +257,8 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
 ReliableHash32Func DoReliableHash32 = &XXH32;
-#endif
 ReliableHash64Func DoReliableHash64 = &XXH64;
+#endif
 #endif
 
 // This has to be done after CPUDetect has done its magic.
