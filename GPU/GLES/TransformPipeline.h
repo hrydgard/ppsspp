@@ -53,7 +53,7 @@ enum {
 };
 
 // Avoiding the full include of TextureDecoder.h.
-#ifdef _M_X64
+#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
 typedef u64 ReliableHashType;
 #else
 typedef u32 ReliableHashType;

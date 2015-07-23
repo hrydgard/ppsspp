@@ -60,12 +60,11 @@ typedef u32 ReliableHashType;
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON
 #define DoReliableHash32 ReliableHash32NEON
 
-// TODO: NEON version of this too?  Since we're 64, might be faster.
-typedef u64 (*ReliableHash64Func)(const void *input, size_t len, u64 seed);
-extern ReliableHash64Func DoReliableHash64;
+#include "ext/xxhash.h"
+#define DoReliableHash64 XXH64
 
-#define DoReliableHash DoReliableHash32
-typedef u32 ReliableHashType;
+#define DoReliableHash XXH64
+typedef u64 ReliableHashType;
 
 #else
 typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
