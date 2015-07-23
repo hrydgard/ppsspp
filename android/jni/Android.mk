@@ -425,19 +425,19 @@ ifeq ($(UNITTEST),1)
 	$(SRC)/ext/armips/Util/Util.cpp
 
   ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
-    TESTARMEMITTER_FILE = $(SRC)/UnitTest/TestArm64Emitter.cpp
+    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArm64Emitter.cpp
   else
-    TESTARMEMITTER_FILE = $(SRC)/UnitTest/TestArmEmitter.cpp
+    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArmEmitter.cpp
   endif
 
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(LIBARMIPS_FILES) \
     $(SRC)/Core/MIPS/MIPSAsm.cpp \
-    $(SRC)/UnitTest/JitHarness.cpp \
-    $(SRC)/UnitTest/TestVertexJit.cpp \
+    $(SRC)/unittest/JitHarness.cpp \
+    $(SRC)/unittest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
-    $(SRC)/UnitTest/UnitTest.cpp
+    $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)
 endif
