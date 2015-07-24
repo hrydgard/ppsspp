@@ -67,6 +67,7 @@ HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/MsgHandler.h \
 	$$P/Common/StringUtils.h \
 	$$P/Common/ThreadPools.h \
+	$$P/Common/ThreadSafeList.h \
 	$$P/Common/Timer.h \
 	$$P/Common/Crypto/*.h
 

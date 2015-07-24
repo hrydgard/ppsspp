@@ -374,6 +374,7 @@ add_library(Common STATIC
 	Common/StringUtils.h
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
+	Common/ThreadSafeList.h
 	Common/Timer.cpp
 	Common/Timer.h)
 include_directories(Common)

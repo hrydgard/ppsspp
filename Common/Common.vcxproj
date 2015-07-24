@@ -222,6 +222,7 @@
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="ThreadPools.h" />
+    <ClInclude Include="ThreadSafeList.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="x64Analyzer.h" />
