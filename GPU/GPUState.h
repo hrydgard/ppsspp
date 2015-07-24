@@ -435,6 +435,9 @@ inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
+//
+// Lots of this, however, is actual emulator state which must be saved when savestating.
+// vertexAddr, indexAddr, offsetAddr for example.
 
 struct UVScale {
 	float uScale, vScale;
@@ -447,11 +450,9 @@ enum TextureChangeReason {
 	TEXCHANGE_PARAMSONLY = 0x02,
 };
 
-struct GPUStateCache
-{
+struct GPUStateCache {
 	u32 vertexAddr;
 	u32 indexAddr;
-
 	u32 offsetAddr;
 
 	u8 textureChanged;
@@ -464,6 +465,7 @@ struct GPUStateCache
 
 	UVScale uv;
 	bool flipTexture;
+
 	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool allowShaderBlend;
