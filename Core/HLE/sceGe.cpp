@@ -199,7 +199,8 @@ static void __GeCheckCycles(u64 userdata, int cyclesLate) {
 		}
 	}
 
-	// This may get out of step if we synced (why?), but that's okay.
+	// This may get out of step if we synced (because we don't correct for cyclesLate),
+	// but that's okay - __GeCheckCycles is a very rough way to synchronize anyway.
 	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
 }
 
@@ -264,7 +265,7 @@ void __GeDoState(PointerWrap &p) {
 void __GeShutdown() {
 }
 
-// Warning: may be called asynchronously from the GPU thread.
+// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	u64 userdata = (u64)id << 32 | (u64)type;
 	s64 future = atTicks - CoreTiming::GetTicks();
@@ -277,7 +278,7 @@ bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	return true;
 }
 
-// Warning: may be called asynchronously from the GPU thread.
+// Warning: may be called from the GPU thread, if there is a separate one (multithread mode).
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {
 	GeInterruptData intrdata;
 	intrdata.listid = listid;
