@@ -48,6 +48,7 @@ enum BufferFilter {
 enum {
 	GPU_BACKEND_OPENGL = 0,
 	GPU_BACKEND_DIRECT3D9 = 1,
+	GPU_BACKEND_HIGH_OPENGL = 2,
 };
 
 enum AudioBackendType {

@@ -1450,6 +1450,15 @@ add_dependencies(${CoreLibName} GitVersion)
 if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
+
+set(GPU_HIGH
+	GPU/High/HighGpu.cpp
+	GPU/High/HighGpu.h
+	GPU/High/Command.cpp
+	GPU/High/Command.h
+	GPU/High/HighGLES2.h
+	GPU/High/HighGLES2.cpp)
+
 add_library(GPU OBJECT
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
@@ -1476,6 +1485,7 @@ add_library(GPU OBJECT
 	GPU/Common/TextureScalerCommon.cpp
 	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}
+	${GPU_HIGH}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h
