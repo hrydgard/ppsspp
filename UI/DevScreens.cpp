@@ -299,6 +299,19 @@ const char *GetCompilerABI() {
 #endif
 }
 
+#if defined(IOS)
+void ImportExortFilesScreen::CreateViews() {
+    using namespace UI;
+    root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+    
+    ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
+    root_->Add(leftColumn);
+    
+    AddStandardBack(root_);
+}
+#endif
+
+
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
 	I18NCategory *di = GetI18NCategory("Dialog");

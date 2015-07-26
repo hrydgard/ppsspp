@@ -1,6 +1,14 @@
 ﻿PPSSPP - a fast and portable PSP emulator
 =========================================
 
+### Forked from original project to add additional functionality
+- Working on a way for vanilla iOS devices to easily transfer ROMs and game saves between the device and computer
+- Integrating HTTP server that will facilitate moving data to and from the device over local WiFi network
+- Will submit a pull request with original repo when complete.
+
+
+========================================
+
 Created by Henrik Rydgård
 
 Additional code by many contributors, see the Credits screen

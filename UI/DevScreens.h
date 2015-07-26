@@ -79,6 +79,14 @@ private:
 
 };
 
+#if defined(IOS)
+class ImportExortFilesScreen : public UIDialogScreenWithBackground {
+public:
+    ImportExortFilesScreen() {}
+    virtual void CreateViews();
+};
+#endif
+
 class SystemInfoScreen : public UIDialogScreenWithBackground {
 public:
 	SystemInfoScreen() {}

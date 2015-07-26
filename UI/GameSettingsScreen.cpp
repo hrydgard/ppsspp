@@ -478,6 +478,11 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
+#if defined(IOS)
+    tools->Add(new ItemHeader(sy->T("iOS Actions")));
+    tools->Add(new Choice(dev->T("Import/Export ROMs and Game Saves")))->OnClick.Handle(this, &GameSettingsScreen::OnImportExportFiles);
+#endif
+    
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
@@ -984,6 +989,14 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 	screenManager()->push(new SystemInfoScreen());
 	return UI::EVENT_DONE;
 }
+
+#if defined(IOS)
+UI::EventReturn GameSettingsScreen::OnImportExportFiles(UI::EventParams &e) {
+    screenManager()->push(new ImportExortFilesScreen());
+    
+    return UI::EVENT_DONE;
+}
+#endif
 
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
