@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../GPUCommon.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUCommon.h"
 
 class ShaderManager;
 

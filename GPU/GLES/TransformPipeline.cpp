@@ -876,7 +876,7 @@ rotateVBO:
 			// Stencil takes alpha.
 			glClearStencil(clearColor >> 24);
 			glClear(target);
-			framebufferManager_->SetColorUpdated();
+			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 		}
 	}
 
@@ -891,7 +891,7 @@ rotateVBO:
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
-	framebufferManager_->SetColorUpdated();
+	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();

@@ -50,6 +50,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 
+#include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -215,8 +216,6 @@ void __DisplayInit() {
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
 
-	InitGfxState();
-
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
 
@@ -272,6 +271,11 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 
 	p.Do(gstate);
+
+	// TODO: GPU stuff is really not the responsibility of sceDisplay.
+	// Display just displays the buffers the GPU has drawn, they are really completely distinct.
+	// Maybe a bit tricky to move at this point, though...
+
 	gstate_c.DoState(p);
 #ifndef _XBOX
 	if (s < 2) {
@@ -298,7 +302,6 @@ void __DisplayDoState(PointerWrap &p) {
 void __DisplayShutdown() {
 	vblankListeners.clear();
 	vblankWaitingThreads.clear();
-	ShutdownGfxState();
 }
 
 void __DisplayListenVblank(VblankCallback callback) {

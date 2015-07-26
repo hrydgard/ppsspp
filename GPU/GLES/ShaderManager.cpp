@@ -828,9 +828,10 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = NULL;
 
+	u32 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
-		iter->ls->dirtyUniforms |= shaderSwitchDirty_;
+		iter->ls->dirtyUniforms |= switchDirty;
 
 		if (iter->vs == vs && iter->fs == fs) {
 			ls = iter->ls;

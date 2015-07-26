@@ -19,9 +19,10 @@
 
 #include <set>
 #include <vector>
+
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 
 enum {
@@ -100,12 +101,12 @@ public:
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 
 	void DoSetRenderFrameBuffer();
-	void SetRenderFrameBuffer() {
+	void SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
-		if (!gstate_c.framebufChanged && currentRenderVfb_) {
+		if (!framebufChanged && currentRenderVfb_) {
 			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
-			if (!gstate_c.skipDrawReason)
+			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
 			return;
 		}
@@ -166,9 +167,9 @@ public:
 			currentRenderVfb_->depthUpdated = true;
 		}
 	}
-	void SetColorUpdated() {
+	void SetColorUpdated(int skipDrawReason) {
 		if (currentRenderVfb_) {
-			SetColorUpdated(currentRenderVfb_);
+			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
 	void SetRenderSize(VirtualFramebuffer *vfb);
@@ -198,13 +199,13 @@ protected:
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
 
-	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
+	void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;
 		dstBuffer->drawnFormat = dstBuffer->format;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 

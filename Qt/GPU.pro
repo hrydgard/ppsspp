@@ -22,6 +22,7 @@ win32 {
 }
 
 SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
+	$$P/GPU/GPU.cpp \
 	$$P/GPU/GPUCommon.cpp \
 	$$P/GPU/GPUState.cpp \
 	$$P/GPU/Math3D.cpp \

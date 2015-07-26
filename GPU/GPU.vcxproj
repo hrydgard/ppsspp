@@ -227,6 +227,7 @@
     <ClInclude Include="GLES\TextureScaler.h" />
     <ClInclude Include="GLES\TransformPipeline.h" />
     <ClInclude Include="GLES\VertexShaderGenerator.h" />
+    <ClInclude Include="GPU.h" />
     <ClInclude Include="GPUCommon.h" />
     <ClInclude Include="GPUInterface.h" />
     <ClInclude Include="GPUState.h" />
@@ -300,6 +301,7 @@
     <ClCompile Include="GLES\TextureScaler.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
     <ClCompile Include="GLES\VertexShaderGenerator.cpp" />
+    <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GPUCommon.cpp" />
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />

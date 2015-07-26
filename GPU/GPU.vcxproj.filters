@@ -183,6 +183,7 @@
     <ClInclude Include="Common\TextureScalerCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="GPU.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -350,6 +351,7 @@
     <ClCompile Include="Common\TextureScalerCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="GPU.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

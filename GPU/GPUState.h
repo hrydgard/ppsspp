@@ -19,38 +19,19 @@
 
 #include <cmath>
 
-#include "../Globals.h"
-#include "ge_constants.h"
+#include "Globals.h"
+#include "GPU/GPU.h"
+#include "GPU/ge_constants.h"
 #include "Common/Common.h"
 
 class PointerWrap;
 
-// PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
-// This is used for light positions, transform matrices, you name it.
-inline float getFloat24(unsigned int data)
-{
-	data <<= 8;
-	float f;
-	memcpy(&f, &data, 4);
-	return f;
-}
-
-// in case we ever want to generate PSP display lists...
-inline unsigned int toFloat24(float f) {
-	unsigned int i;
-	memcpy(&i, &f, 4);
-	return i >> 8;
-}
-
-struct GPUgstate
-{
+struct GPUgstate {
 	// Getting rid of this ugly union in favor of the accessor functions
 	// might be a good idea....
-	union
-	{
+	union {
 		u32 cmdmem[256];
-		struct
-		{
+		struct {
 			u32 nop,
 				vaddr,
 				iaddr,
@@ -439,19 +420,11 @@ struct GPUgstate
 	void Restore(u32_le *ptr);
 };
 
-enum SkipDrawReasonFlags {
-	SKIPDRAW_SKIPFRAME = 1,
-	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
-	SKIPDRAW_BAD_FB_TEXTURE = 4,
-	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
-};
-
 bool vertTypeIsSkinningEnabled(u32 vertType);
 
 inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
 inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }
-
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
@@ -519,66 +492,6 @@ struct GPUStateCache {
 	void DoState(PointerWrap &p);
 };
 
-// TODO: Implement support for these.
-struct GPUStatistics {
-	void Reset() {
-		// Never add a vtable :)
-		memset(this, 0, sizeof(*this));
-	}
-	void ResetFrame() {
-		numDrawCalls = 0;
-		numCachedDrawCalls = 0;
-		numVertsSubmitted = 0;
-		numCachedVertsDrawn = 0;
-		numUncachedVertsDrawn = 0;
-		numTrackedVertexArrays = 0;
-		numTextureInvalidations = 0;
-		numTextureSwitches = 0;
-		numShaderSwitches = 0;
-		numFlushes = 0;
-		numTexturesDecoded = 0;
-		numAlphaTestedDraws = 0;
-		numNonAlphaTestedDraws = 0;
-		msProcessingDisplayLists = 0;
-		vertexGPUCycles = 0;
-		otherGPUCycles = 0;
-		memset(gpuCommandsAtCallLevel, 0, sizeof(gpuCommandsAtCallLevel));
-	}
-
-	// Per frame statistics
-	int numDrawCalls;
-	int numCachedDrawCalls;
-	int numFlushes;
-	int numVertsSubmitted;
-	int numCachedVertsDrawn;
-	int numUncachedVertsDrawn;
-	int numTrackedVertexArrays;
-	int numTextureInvalidations;
-	int numTextureSwitches;
-	int numShaderSwitches;
-	int numTexturesDecoded;
-	double msProcessingDisplayLists;
-	int vertexGPUCycles;
-	int otherGPUCycles;
-	int gpuCommandsAtCallLevel[4];
-
-	int numAlphaTestedDraws;
-	int numNonAlphaTestedDraws;
-
-	// Total statistics, updated by the GPU core in UpdateStats
-	int numVBlanks;
-	int numFlips;
-	int numTextures;
-	int numVertexShaders;
-	int numFragmentShaders;
-	int numShaders;
-	int numFBOs;
-};
-
-bool GPU_Init();
-void GPU_Shutdown();
-void GPU_Reinitialize();
-
 void InitGfxState();
 void ShutdownGfxState();
 void ReapplyGfxState();
@@ -588,9 +501,6 @@ class GPUDebugInterface;
 
 extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
-extern GPUInterface *gpu;
-extern GPUDebugInterface *gpuDebug;
-extern GPUStatistics gpuStats;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
 	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;

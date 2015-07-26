@@ -27,7 +27,6 @@ enum CheckAlphaResult {
 #include "Common/Common.h"
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoderNEON.h"
 
 void SetupTextureDecoder();
@@ -133,38 +132,7 @@ static const u8 textureBitsPerPixel[16] = {
 	0,   // INVALID,
 };
 
-// Masks to downalign bufw to 16 bytes, and wrap at 2048.
-static const u32 textureAlignMask16[16] = {
-	0x7FF & ~(((8 * 16) / 16) - 1),  //GE_TFMT_5650,
-	0x7FF & ~(((8 * 16) / 16) - 1),  //GE_TFMT_5551,
-	0x7FF & ~(((8 * 16) / 16) - 1),  //GE_TFMT_4444,
-	0x7FF & ~(((8 * 16) / 32) - 1),  //GE_TFMT_8888,
-	0x7FF & ~(((8 * 16) / 4) - 1),   //GE_TFMT_CLUT4,
-	0x7FF & ~(((8 * 16) / 8) - 1),   //GE_TFMT_CLUT8,
-	0x7FF & ~(((8 * 16) / 16) - 1),  //GE_TFMT_CLUT16,
-	0x7FF & ~(((8 * 16) / 32) - 1),  //GE_TFMT_CLUT32,
-	0x7FF, //GE_TFMT_DXT1,
-	0x7FF, //GE_TFMT_DXT3,
-	0x7FF, //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
-
-static inline u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
-	// This is a hack to allow for us to draw the huge PPGe texture, which is always in kernel ram.
-	if (texaddr < PSP_GetKernelMemoryEnd())
-		return gstate.texbufwidth[level] & 0x1FFF;
-
-	u32 bufw = gstate.texbufwidth[level] & textureAlignMask16[format];
-	if (bufw == 0) {
-		// If it's less than 16 bytes, use 16 bytes.
-		bufw = (8 * 16) / textureBitsPerPixel[format];
-	}
-	return bufw;
-}
+u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format);
 
 template <typename IndexT, typename ClutT>
 inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {

@@ -340,7 +340,7 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		vfb->drawnHeight = 0;
 		vfb->drawnFormat = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
-		SetColorUpdated(vfb);
+		SetColorUpdated(vfb, gstate_c.skipDrawReason);
 		vfb->depthUpdated = false;
 
 		u32 byteSize = FramebufferByteSize(vfb);
@@ -454,7 +454,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 						fmt = displayFormat_;
 					}
 					DrawPixels(vfb, 0, 0, Memory::GetPointer(addr | 0x04000000), fmt, vfb->fb_stride, vfb->width, vfb->height);
-					SetColorUpdated(vfb);
+					SetColorUpdated(vfb, gstate_c.skipDrawReason);
 				} else {
 					INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 					DestroyFramebuf(vfb);
@@ -543,7 +543,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
-				SetColorUpdated(dstBuffer);
+				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
 				RebindFramebuffer();
 			}
 		}
@@ -554,7 +554,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
-			SetColorUpdated(dstBuffer);
+			SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
 			RebindFramebuffer();
 			// This is a memcpy, let's still copy just in case.
 			return false;
@@ -683,7 +683,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					FlushBeforeCopy();
 					BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					RebindFramebuffer();
-					SetColorUpdated(dstBuffer);
+					SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
 					return true;
 				}
 			} else {
@@ -699,7 +699,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				FlushBeforeCopy();
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
-				SetColorUpdated(dstBuffer);
+				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
@@ -764,7 +764,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
-				SetColorUpdated(dstBuffer);
+				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
 				RebindFramebuffer();
 			}
 		}

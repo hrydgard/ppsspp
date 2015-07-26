@@ -21,6 +21,7 @@
 
 #include <d3d9.h>
 
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -28,6 +29,7 @@
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;
+struct UVScale;
 
 namespace DX9 {
 

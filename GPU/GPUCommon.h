@@ -14,11 +14,10 @@
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
-class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface
-{
+class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
 	GPUCommon();
-	virtual ~GPUCommon() {}
+	virtual ~GPUCommon();
 	virtual void Reinitialize();
 
 	virtual void InterruptStart(int listid);
@@ -128,7 +127,7 @@ protected:
 	void UpdatePC(u32 currentPC) {
 		UpdatePC(currentPC, currentPC);
 	}
-	void UpdateState(GPUState state);
+	void UpdateState(GPURunState state);
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
@@ -163,7 +162,7 @@ protected:
 	recursive_mutex listLock;
 
 	bool interruptRunning;
-	GPUState gpuState;
+	GPURunState gpuState;
 	bool isbreak;
 	u64 drawCompleteTicks;
 	u64 busyTicks;

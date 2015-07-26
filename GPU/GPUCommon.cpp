@@ -3,6 +3,7 @@
 #include "native/base/timeutil.h"
 #include "Common/ColorConv.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "ChunkFile.h"
@@ -24,6 +25,11 @@ GPUCommon::GPUCommon() :
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
+	InitGfxState();
+}
+
+GPUCommon::~GPUCommon() {
+	ShutdownGfxState();
 }
 
 void GPUCommon::Reinitialize() {
@@ -639,7 +645,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
-inline void GPUCommon::UpdateState(GPUState state) {
+inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
 		downcount = 0;
