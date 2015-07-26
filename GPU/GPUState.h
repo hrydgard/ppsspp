@@ -209,11 +209,13 @@ struct GPUgstate
 		};
 	};
 
-	float worldMatrix[12];
-	float viewMatrix[12];
-	float projMatrix[16];
-	float tgenMatrix[12];
-	float boneMatrix[12 * 8];  // Eight bone matrices.
+	// These are not directly mapped, instead these are loaded one-by-one through special commands.
+	// However, these are actual state, and can be read back.
+	float worldMatrix[12];  // 4x3
+	float viewMatrix[12];   // 4x3
+	float projMatrix[16];   // 4x4
+	float tgenMatrix[12];   // 4x3
+	float boneMatrix[12 * 8];  // Eight 4x3 bone matrices.
 
 	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
 	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
@@ -228,8 +230,10 @@ struct GPUgstate
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
 	bool isFogEnabled() const { return fogEnable & 1; }
-	
-	// Cull 
+	float getFogCoef1() const { return getFloat24(fog1); }
+	float getFogCoef2() const { return getFloat24(fog2); }
+
+	// Cull
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
 
@@ -238,7 +242,7 @@ struct GPUgstate
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
 	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0 : 0xFFFFFF) | ((clearmode&0x200) ? 0 : 0xFF000000); }
-	
+
 	// Blend
 	GEBlendSrcFactor getBlendFuncA() const { return (GEBlendSrcFactor)(blend & 0xF); }
 	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
@@ -249,7 +253,7 @@ struct GPUgstate
 
 	// AntiAlias
 	bool isAntiAliasEnabled() const { return antiAliasEnable & 1; }
-	
+
 	// Dither
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 
@@ -257,14 +261,14 @@ struct GPUgstate
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
 	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
 	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
-	
+
 	// Depth Test
 	bool isDepthTestEnabled() const { return zTestEnable & 1; }
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	GEComparison getDepthTestFunction() const { return static_cast<GEComparison>(ztestfunc & 0x7); }
 	u16 getDepthRangeMin() const { return minz & 0xFFFF; }
 	u16 getDepthRangeMax() const { return maxz & 0xFFFF; }
-	
+
 	// Stencil Test
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	GEComparison getStencilTestFunction() const { return static_cast<GEComparison>(stenciltest & 0x7); }
@@ -279,7 +283,7 @@ struct GPUgstate
 	GEComparison getAlphaTestFunction() const { return static_cast<GEComparison>(alphatest & 0x7); }
 	int getAlphaTestRef() const { return (alphatest >> 8) & 0xFF; }
 	int getAlphaTestMask() const { return (alphatest >> 16) & 0xFF; }
-	
+
 	// Color Test
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() const { return static_cast<GEComparison>(colortest & 0x3); }
@@ -335,6 +339,8 @@ struct GPUgstate
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
+	unsigned int getAmbientRGBA() const { return (ambientcolor&0xFFFFFF) | ((ambientalpha&0xFF)<<24); }
+	unsigned int getMaterialUpdate() const { return materialupdate&0xFFFFFF; }
 	unsigned int getMaterialAmbientR() const { return materialambient&0xFF; }
 	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
@@ -343,21 +349,28 @@ struct GPUgstate
 	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
 	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
 	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
+	unsigned int getMaterialDiffuse() const { return materialdiffuse & 0xffffff; }
 	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
 	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
 	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
+	unsigned int getMaterialEmissive() const { return materialemissive & 0xffffff; }
 	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
 	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
 	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
+	unsigned int getMaterialSpecular() const { return materialspecular & 0xffffff; }
+	float getMaterialSpecularCoef() const { return getFloat24(materialspecularcoef); }
 	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
 	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
 	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
+	unsigned int getLightAmbientColor(int chan) const { return lcolor[chan*3]&0xFFFFFF; }
 	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
 	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
 	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
+	unsigned int getDiffuseColor(int chan) const { return lcolor[1+chan*3]&0xFFFFFF; }
 	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
 	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
+	unsigned int getSpecularColor(int chan) const { return lcolor[2+chan*3]&0xFFFFFF; }
 
 	int getPatchDivisionU() const { return patchdivision & 0x7F; }
 	int getPatchDivisionV() const { return (patchdivision >> 8) & 0x7F; }
@@ -379,8 +392,12 @@ struct GPUgstate
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
-	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); }
-	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); }
+	float getViewportX1() const { return getFloat24(viewportx1); }
+	float getViewportY1() const { return getFloat24(viewporty1); }
+	float getViewportZ1() const { return getFloat24(viewportz1); }
+	float getViewportX2() const { return getFloat24(viewportx2); }
+	float getViewportY2() const { return getFloat24(viewporty2); }
+	float getViewportZ2() const { return getFloat24(viewportz2); }
 	// Fixed 16 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
 	// Fixed 16 point.
@@ -392,7 +409,7 @@ struct GPUgstate
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	bool areNormalsReversed() const { return reversenormals & 1; }
 	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
-	
+
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
 
 	// Transfers
