@@ -831,6 +831,10 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 		return;
 	}
 
+	if (gstate.isModeClear() && gstate.isClearModeDepthMask()) {
+		return;
+	}
+
 	if (src->z_address == dst->z_address &&
 		src->z_stride != 0 && dst->z_stride != 0 &&
 		src->renderWidth == dst->renderWidth &&
@@ -844,21 +848,19 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 			bool useNV = !gl_extensions.GLES3;
 #endif
 
-			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				fbo_bind_for_read(src->fbo);
-				glDisable(GL_SCISSOR_TEST);
+			// Let's only do this if not clearing depth.
+			fbo_bind_for_read(src->fbo);
+			glDisable(GL_SCISSOR_TEST);
 
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-				if (useNV) {
-					glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				} else 
+			if (useNV) {
+				glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			} else 
 #endif // defined(USING_GLES2) && defined(ANDROID)
-					glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				// If we set dst->depthUpdated here, our optimization above would be pointless.
+				glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			// If we set dst->depthUpdated here, our optimization above would be pointless.
 
-				glstate.scissorTest.restore();
-			}
+			glstate.scissorTest.restore();
 		}
 	}
 }

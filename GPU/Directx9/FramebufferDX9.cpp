@@ -522,50 +522,52 @@ namespace DX9 {
 			return;
 		}
 
+		// Let's only do this if not clearing depth.
+		if (gstate.isModeClear() && gstate.isClearModeDepthMask()) {
+			return;
+		}
+
 		if (src->z_address == dst->z_address &&
 			src->z_stride != 0 && dst->z_stride != 0 &&
 			src->renderWidth == dst->renderWidth &&
 			src->renderHeight == dst->renderHeight) {
 
-			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				// Doesn't work.  Use a shader maybe?
-				/*fbo_unbind();
+			// Doesn't work.  Use a shader maybe?
+			/*fbo_unbind();
 
-				LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
-				LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
+			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
+			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
 
-				if (srcTex && dstTex) {
-					D3DSURFACE_DESC srcDesc;
-					srcTex->GetLevelDesc(0, &srcDesc);
-					D3DSURFACE_DESC dstDesc;
-					dstTex->GetLevelDesc(0, &dstDesc);
+			if (srcTex && dstTex) {
+				D3DSURFACE_DESC srcDesc;
+				srcTex->GetLevelDesc(0, &srcDesc);
+				D3DSURFACE_DESC dstDesc;
+				dstTex->GetLevelDesc(0, &dstDesc);
 
-					D3DLOCKED_RECT srcLock;
-					D3DLOCKED_RECT dstLock;
-					HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
-					HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
-					if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-						int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
-						u32 h = std::min(srcDesc.Height, dstDesc.Height);
-						const u8 *srcp = (const u8 *)srcLock.pBits;
-						u8 *dstp = (u8 *)dstLock.pBits;
-						for (u32 y = 0; y < h; ++y) {
-							memcpy(dstp, srcp, pitch);
-							dstp += dstLock.Pitch;
-							srcp += srcLock.Pitch;
-						}
-					}
-					if (SUCCEEDED(srcLockRes)) {
-						srcTex->UnlockRect(0);
-					}
-					if (SUCCEEDED(dstLockRes)) {
-						dstTex->UnlockRect(0);
+				D3DLOCKED_RECT srcLock;
+				D3DLOCKED_RECT dstLock;
+				HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
+				HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
+				if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
+					int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 h = std::min(srcDesc.Height, dstDesc.Height);
+					const u8 *srcp = (const u8 *)srcLock.pBits;
+					u8 *dstp = (u8 *)dstLock.pBits;
+					for (u32 y = 0; y < h; ++y) {
+						memcpy(dstp, srcp, pitch);
+						dstp += dstLock.Pitch;
+						srcp += srcLock.Pitch;
 					}
 				}
-
-				RebindFramebuffer();*/
+				if (SUCCEEDED(srcLockRes)) {
+					srcTex->UnlockRect(0);
+				}
+				if (SUCCEEDED(dstLockRes)) {
+					dstTex->UnlockRect(0);
+				}
 			}
+
+			RebindFramebuffer();*/
 		}
 	}
 
