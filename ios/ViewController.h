@@ -12,6 +12,8 @@
 #import "ios/http/FileWebServer.h"
 
 
+FileWebServer *fileWebServer;
+
 @interface ViewController : GLKViewController <iCadeEventDelegate>
 
 @end

@@ -15,8 +15,9 @@
 #import "ios/http/GCDWebUploader/GCDWebUploader.h"
 
 
-@interface FileWebServer : NSObject <GCDWebUploaderDelegate>
+GCDWebUploader *webServer;
 
+@interface FileWebServer : NSObject <GCDWebUploaderDelegate>
 
 // prototypes
 -(id)init;
@@ -27,4 +28,3 @@
 
 @end
 
-GCDWebUploader *webServer;

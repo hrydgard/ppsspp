@@ -81,9 +81,9 @@ private:
 };
 
 #if defined(IOS)
-class ImportExortFilesScreen : public UIDialogScreenWithBackground {
+class ImportExportFilesScreen : public UIDialogScreenWithBackground {
 public:
-    ImportExortFilesScreen() {}
+    ImportExportFilesScreen() {}
     virtual void CreateViews();
 };
 #endif

@@ -301,7 +301,7 @@ const char *GetCompilerABI() {
 }
 
 #if defined(IOS)
-void ImportExortFilesScreen::CreateViews() {
+void ImportExportFilesScreen::CreateViews() {
     using namespace UI;
     root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
     
@@ -309,10 +309,6 @@ void ImportExortFilesScreen::CreateViews() {
     root_->Add(leftColumn);
     
     AddStandardBack(root_);
-    
-    
-    // Start the web server
-    LaunchBrowser("start_server");
     
 }
 #endif
