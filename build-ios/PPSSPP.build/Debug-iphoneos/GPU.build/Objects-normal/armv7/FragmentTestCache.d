@@ -1,0 +1,29 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/FragmentTestCache.cpp \
+  /Users/dan/Desktop/repos/ppsspp/Core/Config.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonTypes.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/FragmentShaderGenerator.h \
+  /Users/dan/Desktop/repos/ppsspp/Globals.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Log.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MsgHandler.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/FragmentTestCache.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/gl_state.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/gl_common.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/../gfx_es2/gl3stub.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/gpu_features.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/NativeApp.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/ge_constants.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/TextureCache.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/fbo.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GPUInterface.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GPUState.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Common.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonFuncs.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Swap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MemMap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Opcode.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/TextureScaler.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/Common/TextureScalerCommon.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MemoryUtil.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/Common/TextureCacheCommon.h

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>7B2AA06D-6FFC-4D47-9184-16E30B4E1FE4</string>
+	<key>IDESourceControlProjectName</key>
+	<string>PPSSPP</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>5BD6C65548E4F2D3B0BA3A3B6DFE67166C7B2F19</key>
+		<string>https://github.com/hrydgard/native.git</string>
+		<key>736EA45DF41CA583E921716CF02EAD7E43325CBE</key>
+		<string>https://github.com/dantheman213/ppsspp.git</string>
+		<key>C28F2797CF7B798656EC90C1528DF9687016DEF0</key>
+		<string>https://github.com/hrydgard/ppsspp-lang.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>build-ios/PPSSPP.xcodeproj</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>5BD6C65548E4F2D3B0BA3A3B6DFE67166C7B2F19</key>
+		<string>../../..native</string>
+		<key>736EA45DF41CA583E921716CF02EAD7E43325CBE</key>
+		<string>../../..</string>
+		<key>C28F2797CF7B798656EC90C1528DF9687016DEF0</key>
+		<string>../../..lang</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://github.com/dantheman213/ppsspp.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>111</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>736EA45DF41CA583E921716CF02EAD7E43325CBE</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>736EA45DF41CA583E921716CF02EAD7E43325CBE</string>
+			<key>IDESourceControlWCCName</key>
+			<string>ppsspp</string>
+		</dict>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>C28F2797CF7B798656EC90C1528DF9687016DEF0</string>
+			<key>IDESourceControlWCCName</key>
+			<string>ppsspplang</string>
+		</dict>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>5BD6C65548E4F2D3B0BA3A3B6DFE67166C7B2F19</string>
+			<key>IDESourceControlWCCName</key>
+			<string>ppssppnative</string>
+		</dict>
+	</array>
+</dict>
+</plist>

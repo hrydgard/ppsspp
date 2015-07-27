@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "-[FileWebServer init]:FileWebServer.m">
+      </ContextState>
+      <ContextState
+         contextName = "-[GCDWebUploader initWithUploadDirectory:]:GCDWebUploader.m">
+         <PersistentStrings>
+            <PersistentString
+               value = "[[NSBundle mainBundle] pathForResource:@&quot;GCDWebUploader&quot; ofType:@&quot;bundle&quot;]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>

@@ -1,0 +1,31 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  /Users/dan/Desktop/repos/ppsspp/native/base/logging.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/arch.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/backtrace.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CPUDetect.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/MIPS.h \
+  /Users/dan/Desktop/repos/ppsspp/native/util/random/rng.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/basictypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonTypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/CoreParameter.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Opcode.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/ArmRegCacheFPU.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/../MIPSAnalyst.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/ArmRegCache.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/ArmEmitter.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Common.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Log.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MsgHandler.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonFuncs.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Swap.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/ArmCommon.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CodeBlock.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MemoryUtil.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/MIPSVFPUUtils.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/ArmJit.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/JitCommon/JitState.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/JitCommon/JitBlockCache.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/ARM/ArmAsm.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MIPS/MIPSTables.h

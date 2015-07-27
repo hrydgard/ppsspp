@@ -1,0 +1,22 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/Core/FileLoaders/HTTPFileLoader.cpp \
+  /Users/dan/Desktop/repos/ppsspp/native/base/stringutil.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/basictypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Common.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Log.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MsgHandler.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonTypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonFuncs.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Swap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/FileLoaders/HTTPFileLoader.h \
+  /Users/dan/Desktop/repos/ppsspp/native/net/http_client.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/buffer.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/logging.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/arch.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/backtrace.h \
+  /Users/dan/Desktop/repos/ppsspp/native/thread/thread.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/functional.h \
+  /Users/dan/Desktop/repos/ppsspp/native/net/resolve.h \
+  /Users/dan/Desktop/repos/ppsspp/native/net/url.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Loaders.h

@@ -1,0 +1,26 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/VertexShaderGenerator.cpp \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/gpu_features.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/NativeApp.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/stringutil.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/basictypes.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/ge_constants.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GPUState.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/../Globals.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Log.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MsgHandler.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonTypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Common.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonFuncs.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Swap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Config.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/VertexShaderGenerator.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/ShaderManager.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GLES/FragmentShaderGenerator.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/Common/VertexDecoderCommon.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Reporting.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/ArmEmitter.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/ArmCommon.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CodeBlock.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MemoryUtil.h

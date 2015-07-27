@@ -1,0 +1,21 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/GPU/Common/FramebufferCommon.cpp \
+  /Users/dan/Desktop/repos/ppsspp/Common/Common.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Log.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/MsgHandler.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonTypes.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/CommonFuncs.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/Common/Swap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Config.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/CoreParameter.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Reporting.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/ELF/ParamSFO.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/System.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/Common/FramebufferCommon.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/MemMap.h \
+  /Users/dan/Desktop/repos/ppsspp/Core/Opcode.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GPUState.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/../Globals.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/ge_constants.h \
+  /Users/dan/Desktop/repos/ppsspp/GPU/GPUInterface.h

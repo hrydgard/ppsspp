@@ -1,0 +1,26 @@
+dependencies: \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/draw_buffer.cpp \
+  /Users/dan/Desktop/repos/ppsspp/native/base/display.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/logging.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/arch.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/backtrace.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/compat.h \
+  /Users/dan/Desktop/repos/ppsspp/native/math/math_util.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/basictypes.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/draw_buffer.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/color.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/gl_lost_manager.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/texture_atlas.h \
+  /Users/dan/Desktop/repos/ppsspp/native/math/geom2d.h \
+  /Users/dan/Desktop/repos/ppsspp/native/math/lin/matrix4x4.h \
+  /Users/dan/Desktop/repos/ppsspp/native/math/lin/vec3.h \
+  /Users/dan/Desktop/repos/ppsspp/native/thin3d/thin3d.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/draw_text.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/gl_state.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/gl_common.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/../gfx_es2/gl3stub.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/gpu_features.h \
+  /Users/dan/Desktop/repos/ppsspp/native/base/NativeApp.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx_es2/glsl_program.h \
+  /Users/dan/Desktop/repos/ppsspp/native/gfx/gl_debug_log.h \
+  /Users/dan/Desktop/repos/ppsspp/native/util/text/utf8.h
