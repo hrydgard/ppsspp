@@ -585,6 +585,25 @@ ViewController* sharedViewController;
 
 @end
 
+char const* WebServiceControl(bool init) {
+    
+    if(init) {
+        // start the web service
+        
+        fileWebServer = [[FileWebServer alloc] init];
+        NSString *host = [fileWebServer startServer];
+        return [host UTF8String];
+        
+    } else {
+        // stop the web service
+        if(fileWebServer != NULL) {
+            [fileWebServer stopServer];
+            fileWebServer = NULL;
+        }
+    }
+    
+    return NULL;
+}
 
 
 void LaunchBrowser(char const* url)
@@ -592,13 +611,7 @@ void LaunchBrowser(char const* url)
     NSString *str = [NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy];
     NSLog(@"URL: %@", str);
     
-    if([str isEqualToString: @"start_server"]) {
-        NSLog(@"STARTED");
-        fileWebServer = [[FileWebServer alloc] init];
-        [fileWebServer startServer];
-    } else {
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString: str]];
-    }
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString: str]];
 }
 
 void bindDefaultFBO()

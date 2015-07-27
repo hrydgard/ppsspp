@@ -161,6 +161,7 @@
 		375CBEF21B65EC6000A13F51 /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 375CBEF11B65EC6000A13F51 /* MobileCoreServices.framework */; };
 		375CBEF41B65EC6500A13F51 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 375CBEF31B65EC6500A13F51 /* Foundation.framework */; };
 		375CBEF61B65ECAB00A13F51 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 375CBEF51B65ECAB00A13F51 /* SystemConfiguration.framework */; };
+		375CBEF81B65F26600A13F51 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 375CBEF71B65F26600A13F51 /* UIKit.framework */; };
 		37D1A79C597747D295553DCE /* pngmem.c in Sources */ = {isa = PBXBuildFile; fileRef = 83687F5BCE7143A19EDB96D0 /* pngmem.c */; settings = {COMPILER_FLAGS = ""; }; };
 		37F9748100924FE2ABDD3D53 /* ArmCompVFPUNEONUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B72BC15C3CC84E2BA04BC43B /* ArmCompVFPUNEONUtil.cpp */; settings = {COMPILER_FLAGS = ""; }; };
 		385765294A5846A0B0C7BB0D /* PBPReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 53A5D801FD044918B2F9ED2E /* PBPReader.cpp */; settings = {COMPILER_FLAGS = ""; }; };
@@ -1247,6 +1248,7 @@
 		375CBEF11B65EC6000A13F51 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = System/Library/Frameworks/MobileCoreServices.framework; sourceTree = SDKROOT; };
 		375CBEF31B65EC6500A13F51 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		375CBEF51B65ECAB00A13F51 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		375CBEF71B65F26600A13F51 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		376C6DC2FBDD41C389A27218 /* de_DE.ini */ = {isa = PBXFileReference; explicitFileType = sourcecode; fileEncoding = 4; name = de_DE.ini; path = lang/de_DE.ini; sourceTree = SOURCE_ROOT; };
 		37A28DB053474CC78C61FCBE /* amctrl.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 4; name = amctrl.c; path = ext/libkirk/amctrl.c; sourceTree = SOURCE_ROOT; };
 		37E683B26F9F4CEFAF6FA77A /* MsgHandler.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; name = MsgHandler.h; path = Common/MsgHandler.h; sourceTree = SOURCE_ROOT; };
@@ -1977,6 +1979,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				375CBEF81B65F26600A13F51 /* UIKit.framework in Frameworks */,
 				375CBEF61B65ECAB00A13F51 /* SystemConfiguration.framework in Frameworks */,
 				375CBEF21B65EC6000A13F51 /* MobileCoreServices.framework in Frameworks */,
 				375CBEF41B65EC6500A13F51 /* Foundation.framework in Frameworks */,
@@ -2769,13 +2772,14 @@
 		4C6134D7F1BC4A9CA84E406E = {
 			isa = PBXGroup;
 			children = (
-				375CBEF51B65ECAB00A13F51 /* SystemConfiguration.framework */,
+				375CBEEF1B65EC5A00A13F51 /* CFNetwork.framework */,
 				375CBEF31B65EC6500A13F51 /* Foundation.framework */,
 				375CBEF11B65EC6000A13F51 /* MobileCoreServices.framework */,
-				375CBEEF1B65EC5A00A13F51 /* CFNetwork.framework */,
-				41B7E3CD824A4AB29B5ED6A5 /* Sources */,
-				C155062A1064450BAF47656A /* Resources */,
+				375CBEF51B65ECAB00A13F51 /* SystemConfiguration.framework */,
+				375CBEF71B65F26600A13F51 /* UIKit.framework */,
 				2B6B0826468740FF91EFD83F /* Products */,
+				C155062A1064450BAF47656A /* Resources */,
+				41B7E3CD824A4AB29B5ED6A5 /* Sources */,
 			);
 			sourceTree = "<group>";
 		};

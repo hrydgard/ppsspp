@@ -310,6 +310,28 @@ void ImportExportFilesScreen::CreateViews() {
     
     AddStandardBack(root_);
     
+    TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
+    
+    root_->Add(tabHolder);
+    ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+    LinearLayout *deviceSpecs = new LinearLayout(ORIENT_VERTICAL);
+    deviceSpecs->SetSpacing(0);
+    deviceSpecsScroll->Add(deviceSpecs);
+    tabHolder->AddTab("Information", deviceSpecsScroll);
+
+    deviceSpecs->Add(new ItemHeader("Web Server"));
+    
+    char const* websiteUrl = WebServiceControl(true);
+    if(websiteUrl == NULL) {
+        deviceSpecs->Add(new InfoItem("Website", "N/A"));
+        deviceSpecs->Add(new InfoItem("Your device needs to be connected to a WiFi network", ""));
+        deviceSpecs->Add(new InfoItem("to continue! Go back and reopen to try again.", ""));
+    } else {
+        deviceSpecs->Add(new InfoItem("Website", websiteUrl));
+        deviceSpecs->Add(new InfoItem("Visit the URL above on your computer to easily", ""));
+        deviceSpecs->Add(new InfoItem("transfer ROMs and game saves.", ""));
+    }
+
 }
 #endif
 

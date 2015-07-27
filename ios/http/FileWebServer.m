@@ -24,9 +24,31 @@
     return documentPath;
 }
 
--(void) startServer {
+-(NSString*) startServer {
     //[[UIApplication sharedApplication] setIdleTimerDisabled: YES];
-    [webServer start];
+    
+    // Check to see if we are connected to WiFi. Cannot continue otherwise.
+    Reachability *reachability = [Reachability reachabilityForInternetConnection];
+    [reachability startNotifier];
+    
+    NetworkStatus status = [reachability currentReachabilityStatus];
+    
+    if (status == ReachableViaWiFi)
+    {
+        // connected via wifi, let's continue
+        
+        
+        [webServer start];
+        NSString *ipAddress = [self getIPAddress];
+
+#if TARGET_IPHONE_SIMULATOR
+        ipAddress = [ipAddress stringByAppendingString: @":8080"];
+#endif
+        
+        return [NSString stringWithFormat: @"http://%@/", ipAddress];
+    }
+    
+    return NULL;
 }
 
 -(void) stopServer {

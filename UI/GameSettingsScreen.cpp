@@ -991,10 +991,7 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 }
 
 #if defined(IOS)
-UI::EventReturn GameSettingsScreen::OnImportExportFiles(UI::EventParams &e) {
-    //LaunchBrowser("http://forums.ppsspp.org/forumdisplay.php?fid=34");
-    LaunchBrowser("start_server");
-    
+UI::EventReturn GameSettingsScreen::OnImportExportFiles(UI::EventParams &e) {    
     screenManager()->push(new ImportExportFilesScreen());
     return UI::EVENT_DONE;
 }

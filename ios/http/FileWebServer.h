@@ -11,8 +11,13 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 
+
+#import "ios/http/Reachability/Reachability.h"
+
+
 // Web Server
 #import "ios/http/GCDWebUploader/GCDWebUploader.h"
+
 
 
 GCDWebUploader *webServer;
@@ -23,7 +28,7 @@ GCDWebUploader *webServer;
 -(id)init;
 -(NSString*) getDocumentDirectory;
 - (NSString *)getIPAddress;
--(void) startServer;
+-(NSString*) startServer;
 -(void) stopServer;
 
 @end
