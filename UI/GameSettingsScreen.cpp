@@ -993,7 +993,6 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 #if defined(IOS)
 UI::EventReturn GameSettingsScreen::OnImportExportFiles(UI::EventParams &e) {
     screenManager()->push(new ImportExortFilesScreen());
-    
     return UI::EVENT_DONE;
 }
 #endif

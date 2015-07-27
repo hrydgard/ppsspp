@@ -312,7 +312,8 @@ void ImportExortFilesScreen::CreateViews() {
     
     
     // Start the web server
-    //StartWebServer();
+    LaunchBrowser("start_server");
+    
 }
 #endif
 

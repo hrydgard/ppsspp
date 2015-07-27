@@ -585,20 +585,22 @@ ViewController* sharedViewController;
 
 @end
 
+//extern "C" {
+void start_server() {
+        NSLog(@"STARTED");
+    }
+//}
 
-void StartWebServer() {
-    fileWebServer = [[FileWebServer alloc] init];
-    [fileWebServer startServer];
-}
-
-void StopWebServer() {
-    [fileWebServer stopServer];
-    fileWebServer = NULL;
-}
 
 void LaunchBrowser(char const* url)
 {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+    NSString *str = [NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy];
+    
+    if([str isEqualToString: @"start_server"]) {
+        start_server();
+    } else {
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString: str]];
+    }
 }
 
 void bindDefaultFBO()

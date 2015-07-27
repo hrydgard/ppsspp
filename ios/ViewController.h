@@ -7,12 +7,15 @@
 #endif
 #import "iCade/iCadeReaderView.h"
 
+
 #import "http/Reachability/Reachability.h"
-#import "http/FileWebServer.h"
+#import "ios/http/FileWebServer.h"
 
-
-FileWebServer *fileWebServer;
 
 @interface ViewController : GLKViewController <iCadeEventDelegate>
 
 @end
+
+
+void LaunchBrowser(char const* url);
+void bindDefaultFBO();
