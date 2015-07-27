@@ -204,9 +204,7 @@ void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 void UIDialogScreenWithBackground::AddStopServerBack(UI::ViewGroup *parent) {
     using namespace UI;
     I18NCategory *di = GetI18NCategory("Dialog");
-    parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-    
-    WebServiceControl(false);
+    parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBackServer);
 }
 #endif
 
