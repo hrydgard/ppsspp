@@ -2,9 +2,10 @@
 =========================================
 
 ### Forked from original project to add additional functionality
-- Working on a way for vanilla iOS devices to easily transfer ROMs and game saves between the device and computer
-- Integrating HTTP server that will facilitate moving data to and from the device over local WiFi network
-- Will submit a pull request with original repo when complete.
+##### Completed
+- Easily transfer ROMs and game saves between the device and computer on non jailbroken ios devices
+- Integrated HTTP server that will facilitate moving data to and from the device over local WiFi network
+- Submitted a pull request with original repo.
 
 
 ========================================
