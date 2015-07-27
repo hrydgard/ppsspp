@@ -7,6 +7,12 @@
 #endif
 #import "iCade/iCadeReaderView.h"
 
+#import "http/Reachability/Reachability.h"
+#import "http/FileWebServer.h"
+
+
+FileWebServer *fileWebServer;
+
 @interface ViewController : GLKViewController <iCadeEventDelegate>
 
 @end

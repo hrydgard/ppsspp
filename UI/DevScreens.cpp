@@ -43,6 +43,7 @@
 #include "UI/DevScreens.h"
 #include "UI/GameSettingsScreen.h"
 
+
 #ifdef _WIN32
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DXVersion();
@@ -308,6 +309,10 @@ void ImportExortFilesScreen::CreateViews() {
     root_->Add(leftColumn);
     
     AddStandardBack(root_);
+    
+    
+    // Start the web server
+    //StartWebServer();
 }
 #endif
 

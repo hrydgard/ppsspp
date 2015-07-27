@@ -20,6 +20,8 @@
 #include "Core/Config.h"
 #include "gfx_es2/fbo.h"
 
+
+
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
@@ -582,6 +584,17 @@ ViewController* sharedViewController;
 #endif
 
 @end
+
+
+void StartWebServer() {
+    fileWebServer = [[FileWebServer alloc] init];
+    [fileWebServer startServer];
+}
+
+void StopWebServer() {
+    [fileWebServer stopServer];
+    fileWebServer = NULL;
+}
 
 void LaunchBrowser(char const* url)
 {
