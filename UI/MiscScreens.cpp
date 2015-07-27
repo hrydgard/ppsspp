@@ -200,6 +200,16 @@ void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
 	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
+#if defined(IOS)
+void UIDialogScreenWithBackground::AddStopServerBack(UI::ViewGroup *parent) {
+    using namespace UI;
+    I18NCategory *di = GetI18NCategory("Dialog");
+    parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+    
+    WebServiceControl(false);
+}
+#endif
+
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager());
 	I18NCategory *dev = GetI18NCategory("Developer");

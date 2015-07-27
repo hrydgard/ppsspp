@@ -308,7 +308,7 @@ void ImportExportFilesScreen::CreateViews() {
     ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
     root_->Add(leftColumn);
     
-    AddStandardBack(root_);
+    AddStopServerBack(root_);
     
     TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
     
