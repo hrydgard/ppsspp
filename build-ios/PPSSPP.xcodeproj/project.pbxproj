@@ -1406,7 +1406,7 @@
 		5E951CC3907245ADAB13AC1C /* Stepping.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = Stepping.cpp; path = GPU/Debugger/Stepping.cpp; sourceTree = SOURCE_ROOT; };
 		5E9931A58D594BDBB17656D2 /* FragmentTestCache.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = FragmentTestCache.cpp; path = GPU/GLES/FragmentTestCache.cpp; sourceTree = SOURCE_ROOT; };
 		5EACC113DF17414FA4FC99CC /* JitState.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = JitState.cpp; path = Core/MIPS/JitCommon/JitState.cpp; sourceTree = SOURCE_ROOT; };
-		5F26A91EC34B45919436C478 /* PPSSPP */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; name = PPSSPP; path = PPSSPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F26A91EC34B45919436C478 /* PPSSPP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = PPSSPP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F2E4D763DC9418AB9EBD2ED /* screen.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; name = screen.h; path = native/ui/screen.h; sourceTree = SOURCE_ROOT; };
 		5F77942D1840415FA0657892 /* sceCcc.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 4; name = sceCcc.cpp; path = Core/HLE/sceCcc.cpp; sourceTree = SOURCE_ROOT; };
 		5FDEE0E1C2C34946BD757F98 /* sceKernelMsgPipe.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; name = sceKernelMsgPipe.h; path = Core/HLE/sceKernelMsgPipe.h; sourceTree = SOURCE_ROOT; };
@@ -2305,7 +2305,7 @@
 				54F5A804C1AD48388A854528 /* libCommon.a */,
 				B8708EC293974BB799732546 /* libCore.a */,
 				98AF609CDF94453E9063B0FD /* libGPU.a */,
-				5F26A91EC34B45919436C478 /* PPSSPP */,
+				5F26A91EC34B45919436C478 /* PPSSPP.app */,
 				78131ADE26BF433AB9DD5627 /* libcityhash.a */,
 				AF8B48C31D0C4889A6C0A874 /* libkirk.a */,
 				45E1B3C8E3B44551A6B12AAB /* liblibzip.a */,
@@ -3884,7 +3884,7 @@
 			);
 			name = PPSSPP;
 			productName = PPSSPP;
-			productReference = 5F26A91EC34B45919436C478 /* PPSSPP */;
+			productReference = 5F26A91EC34B45919436C478 /* PPSSPP.app */;
 			productType = "com.apple.product-type.application";
 		};
 		3075DE50522445D8BB4C49C7 /* xxhash */ = {
