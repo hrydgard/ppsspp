@@ -392,12 +392,15 @@ struct GPUgstate
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
+
+	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
 	float getViewportX1() const { return getFloat24(viewportx1); }
 	float getViewportY1() const { return getFloat24(viewporty1); }
 	float getViewportZ1() const { return getFloat24(viewportz1); }
 	float getViewportX2() const { return getFloat24(viewportx2); }
 	float getViewportY2() const { return getFloat24(viewporty2); }
 	float getViewportZ2() const { return getFloat24(viewportz2); }
+
 	// Fixed 16 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
 	// Fixed 16 point.

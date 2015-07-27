@@ -152,8 +152,9 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 // Heuristics to figure out the size of FBO to create.
 void FramebufferManagerCommon::EstimateDrawingSize(int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
-	const int viewport_width = (int) gstate.getViewportX1();
-	const int viewport_height = (int) gstate.getViewportY1();
+	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
+	const int viewport_width = (int)(fabsf(gstate.getViewportX1()*2.0f));
+	const int viewport_height = (int)(fabsf(gstate.getViewportY1()*2.0f));
 	const int region_width = gstate.getRegionX2() + 1;
 	const int region_height = gstate.getRegionY2() + 1;
 	const int scissor_width = gstate.getScissorX2() + 1;
