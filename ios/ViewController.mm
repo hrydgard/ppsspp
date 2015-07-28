@@ -589,13 +589,16 @@ char const* WebServiceControl(bool init) {
     
     if(init) {
         // start the web service
-        
+        [UIApplication sharedApplication].idleTimerDisabled = YES;
+
         fileWebServer = [[FileWebServer alloc] init];
         NSString *host = [fileWebServer startServer];
         return [host UTF8String];
         
     } else {
         // stop the web service
+        [UIApplication sharedApplication].idleTimerDisabled = NO;
+
         if(fileWebServer != NULL) {
             [fileWebServer stopServer];
             fileWebServer = NULL;
