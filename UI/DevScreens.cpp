@@ -43,6 +43,7 @@
 #include "UI/DevScreens.h"
 #include "UI/GameSettingsScreen.h"
 
+
 #ifdef _WIN32
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DXVersion();
@@ -298,6 +299,42 @@ const char *GetCompilerABI() {
 	return "other";
 #endif
 }
+
+#if defined(IOS)
+void ImportExportFilesScreen::CreateViews() {
+    using namespace UI;
+    root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+    
+    ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
+    root_->Add(leftColumn);
+    
+    AddStopServerBack(root_);
+    
+    TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
+    
+    root_->Add(tabHolder);
+    ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+    LinearLayout *deviceSpecs = new LinearLayout(ORIENT_VERTICAL);
+    deviceSpecs->SetSpacing(0);
+    deviceSpecsScroll->Add(deviceSpecs);
+    tabHolder->AddTab("Information", deviceSpecsScroll);
+
+    deviceSpecs->Add(new ItemHeader("Web Server"));
+    
+    char const* websiteUrl = WebServiceControl(true);
+    if(websiteUrl == NULL) {
+        deviceSpecs->Add(new InfoItem("Website", "N/A"));
+        deviceSpecs->Add(new InfoItem("Your device needs to be connected to a WiFi network", ""));
+        deviceSpecs->Add(new InfoItem("to continue! Go back and reopen to try again.", ""));
+    } else {
+        deviceSpecs->Add(new InfoItem("Website", websiteUrl));
+        deviceSpecs->Add(new InfoItem("Visit the URL above on your computer to easily", ""));
+        deviceSpecs->Add(new InfoItem("transfer ROMs and game saves.", ""));
+    }
+
+}
+#endif
+
 
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.

@@ -36,6 +36,7 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 
+
 GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBackground(gamePath) {
 	SetBackgroundAudioGame(gamePath);
 }
@@ -62,6 +63,7 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
+    
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
