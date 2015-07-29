@@ -213,8 +213,7 @@ struct SplinePatch {
 SplinePatch *TransformUnit::patchBuffer_ = 0;
 int TransformUnit::patchBufferSize_ = 0;
 
-void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
-{
+void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options;
 	memset(&options, 0, sizeof(options));

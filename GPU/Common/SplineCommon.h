@@ -19,6 +19,7 @@
 
 #include "Common/CommonTypes.h"
 #include "GPU/Math3D.h"
+#include "GPU/ge_constants.h"
 
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
@@ -55,6 +56,9 @@ struct BezierPatch {
 	int u_index, v_index;
 
 	int index;
+	GEPatchPrimType primType;
+	bool computeNormals;
+	bool patchFacing;
 
 	struct SamplingParams {
 		float fracU;
@@ -116,6 +120,8 @@ struct SplinePatchLocal {
 	int type_u;
 	int type_v;
 	bool computeNormals;
+	bool patchFacing;
+	GEPatchPrimType primType;
 };
 
 enum quality {

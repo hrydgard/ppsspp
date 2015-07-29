@@ -90,6 +90,12 @@ static Vec3f ScreenToDrawing(const Vec3f& coords) {
 	return ret;
 }
 
+u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
+}
+
 // This code is HIGHLY unoptimized!
 //
 // It does the simplest and safest test possible: If all points of a bbox is outside a single of
