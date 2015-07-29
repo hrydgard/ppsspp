@@ -83,7 +83,7 @@ bool IsColorTestAgainstZero();
 bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader();
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1
