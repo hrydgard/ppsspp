@@ -49,9 +49,7 @@ public:
 		fullInfo = "NULL";
 	}
 
-	bool FramebufferReallyDirty() override {
-		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
-	}
+	bool FramebufferReallyDirty() override;
 
 protected:
 	void FastRunLoop(DisplayList &list) override;

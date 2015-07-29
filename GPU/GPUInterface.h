@@ -19,11 +19,13 @@
 
 #include <list>
 #include <string>
+#include <vector>
 
-#include "GPU/GPUState.h"
 #include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
 
 struct PspGeListArgs;
+struct GPUgstate;
 class PointerWrap;
 
 enum DisplayListStatus {

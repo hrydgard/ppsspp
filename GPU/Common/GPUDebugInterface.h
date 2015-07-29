@@ -21,7 +21,6 @@
 #include <string>
 
 #include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
 #include "Core/MemMap.h"
 
 struct GPUDebugOp {

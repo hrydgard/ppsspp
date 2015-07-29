@@ -33,6 +33,7 @@
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include <emmintrin.h>

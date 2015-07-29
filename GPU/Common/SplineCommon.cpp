@@ -33,6 +33,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>

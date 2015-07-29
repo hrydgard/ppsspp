@@ -25,6 +25,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUState.h"
 
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
