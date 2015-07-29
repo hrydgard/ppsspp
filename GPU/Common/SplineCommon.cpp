@@ -475,7 +475,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
 
 				vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
-				if (spatch.patchfacing) {
+				if (spatch.patchFacing) {
 					vertices[v * (patch_div_s + 1) + u].nrm *= -1.0f;
 				}
 #endif
