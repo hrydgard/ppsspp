@@ -42,13 +42,13 @@ public:
 	~DepalShaderCache();
 
 	// This also uploads the palette and binds the correct texture.
-	DepalShader *GetDepalettizeShader(GEBufferFormat pixelFormat);
-	GLuint GetClutTexture(const u32 clutHash, u32 *rawClut);
+	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	GLuint GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
 
 private:
-	u32 GenerateShaderID(GEBufferFormat pixelFormat);
+	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	bool CreateVertexShader();
 
 	bool useGL3_;

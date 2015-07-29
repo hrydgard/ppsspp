@@ -42,14 +42,14 @@ public:
 	~DepalShaderCacheDX9();
 
 	// This also uploads the palette and binds the correct texture.
-	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(GEBufferFormat pixelFormat);
+	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	LPDIRECT3DVERTEXSHADER9 GetDepalettizeVertexShader() { return vertexShader_; }
-	LPDIRECT3DTEXTURE9 GetClutTexture(const u32 clutHash, u32 *rawClut);
+	LPDIRECT3DTEXTURE9 GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
 
 private:
-	u32 GenerateShaderID(GEBufferFormat pixelFormat);
+	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 
 	LPDIRECT3DVERTEXSHADER9 vertexShader_;
 	std::map<u32, DepalShaderDX9 *> cache_;
