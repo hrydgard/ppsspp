@@ -822,15 +822,14 @@ inline bool TextureCacheDX9::TexCacheEntry::Matches(u16 dim2, u8 format2, int ma
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }
 
-void TextureCacheDX9::LoadClut() {
-	u32 clutAddr = gstate.getClutAddress();
-	clutTotalBytes_ = gstate.getClutLoadBytes();
+void TextureCacheDX9::LoadClut(u32 clutAddr, u32 loadBytes) {
+	clutTotalBytes_ = loadBytes;
 	if (Memory::IsValidAddress(clutAddr)) {
 		// It's possible for a game to (successfully) access outside valid memory.
-		u32 bytes = Memory::ValidSize(clutAddr, clutTotalBytes_);
+		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
 #ifdef _M_SSE
 		int numBlocks = bytes / 16;
-		if (bytes == clutTotalBytes_) {
+		if (bytes == loadBytes) {
 			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
 			__m128i *dest = (__m128i *)clutBufRaw_;
 			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
@@ -841,27 +840,25 @@ void TextureCacheDX9::LoadClut() {
 			}
 		} else {
 			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-			if (bytes < clutTotalBytes_) {
-				memset(clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+			if (bytes < loadBytes) {
+				memset(clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 			}
 		}
 #else
 		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 		if (bytes < clutTotalBytes_) {
-			memset(clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+			memset(clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 		}
 #endif
 	} else {
-		memset(clutBufRaw_, 0x00, clutTotalBytes_);
+		memset(clutBufRaw_, 0x00, loadBytes);
 	}
 	// Reload the clut next time.
 	clutLastFormat_ = 0xFFFFFFFF;
-	clutMaxBytes_ = std::max(clutMaxBytes_, clutTotalBytes_);
+	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }
 
-void TextureCacheDX9::UpdateCurrentClut() {
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-	const u32 clutBase = gstate.getClutIndexStartPos();
+void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
 	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
@@ -878,7 +875,7 @@ void TextureCacheDX9::UpdateCurrentClut() {
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
 	clutAlphaLinearColor_ = 0;
-	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
+	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
 		const u16_le *clut = GetCurrentClut<u16_le>();
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
@@ -1091,7 +1088,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
 			// We update here because the clut format can be specified after the load.
-			UpdateCurrentClut();
+			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
 		cachekey ^= cluthash;
@@ -1309,7 +1306,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
 	
-	entry->dim = gstate.getTextureDimension(0);
+	entry->dim = dim;
 	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead

@@ -33,7 +33,6 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -309,8 +308,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	spline_knot(spatch.count_v - 1, spatch.type_v, knot_v);
 
 	// Increase tesselation based on the size. Should be approximately right?
-	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
-	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
+	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
+	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
 	if (quality > 1) {
 		patch_div_s /= quality;
 		patch_div_t /= quality;
@@ -333,7 +332,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	// int max_idx = spatch.count_u * spatch.count_v;
 
-	bool computeNormals = gstate.isLightingEnabled();
+	bool computeNormals = spatch.computeNormals;
 
 	float one_over_patch_div_s = 1.0f / (float)(patch_div_s);
 	float one_over_patch_div_t = 1.0f / (float)(patch_div_t);
@@ -753,7 +752,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
-void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
+void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, u32 vertType) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
 
@@ -799,11 +798,14 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
+	patch.tess_u = tess_u;
+	patch.tess_v = tess_v;
 	patch.type_u = type_u;
 	patch.type_v = type_v;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
 	patch.points = points;
+	patch.computeNormals = computeNormals;
 
 	int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
 	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
@@ -832,7 +834,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 }
 
-void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
+void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
 	PROFILE_THIS_SCOPE("bezier");
 
 	DispatchFlush();
@@ -892,8 +894,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// like the splines, so we subdivide across the whole "mega-patch".
 	if (num_patches_u == 0) num_patches_u = 1;
 	if (num_patches_v == 0) num_patches_v = 1;
-	int tess_u = gstate.getPatchDivisionU();
-	int tess_v = gstate.getPatchDivisionV();
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 

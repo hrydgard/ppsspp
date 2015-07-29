@@ -197,9 +197,7 @@ void SoftwareTransform(
 
 				vert.u *= uscale;
 				vert.v *= vscale;
-			}
-			else
-			{
+			} else {
 				vert.u = 0.0f;
 				vert.v = 0.0f;
 			}

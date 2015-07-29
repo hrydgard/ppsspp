@@ -109,10 +109,13 @@ struct BezierPatch {
 
 struct SplinePatchLocal {
 	SimpleVertex **points;
+	int tess_u;
+	int tess_v;
 	int count_u;
 	int count_v;
 	int type_u;
 	int type_v;
+	bool computeNormals;
 };
 
 enum quality {

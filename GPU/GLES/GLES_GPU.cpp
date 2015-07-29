@@ -917,7 +917,7 @@ void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 	int bz_ucount = op & 0xFF;
 	int bz_vcount = (op >> 8) & 0xFF;
-	transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
+	transformDraw_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(),bz_ucount, bz_vcount, patchPrim, gstate.vertType);
 }
 
 void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
@@ -960,7 +960,8 @@ void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 	int sp_utype = (op >> 16) & 0x3;
 	int sp_vtype = (op >> 18) & 0x3;
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
+	bool computeNormals = gstate.isLightingEnabled();
+	transformDraw_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, gstate.vertType);
 }
 
 void GLES_GPU::Execute_BoundingBox(u32 op, u32 diff) {
@@ -1093,7 +1094,7 @@ void GLES_GPU::Execute_TexLevel(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut();
+	textureCache_.LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
