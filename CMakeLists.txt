@@ -764,6 +764,41 @@ elseif(IOS)
 		ios/main.mm
 		ios/AppDelegate.mm
 		ios/AppDelegate.h
+		ios/http/FileWebServer.h
+		ios/http/FileWebServer.m
+		ios/http/GCDWebServer/Core/GCDWebServer.h
+		ios/http/GCDWebServer/Core/GCDWebServer.m
+		ios/http/GCDWebServer/Core/GCDWebServerConnection.h
+		ios/http/GCDWebServer/Core/GCDWebServerConnection.m
+		ios/http/GCDWebServer/Core/GCDWebServerFunctions.h
+		ios/http/GCDWebServer/Core/GCDWebServerFunctions.m
+		ios/http/GCDWebServer/Core/GCDWebServerHTTPStatusCodes.h
+		ios/http/GCDWebServer/Core/GCDWebServerPrivate.h
+		ios/http/GCDWebServer/Core/GCDWebServerRequest.h
+		ios/http/GCDWebServer/Core/GCDWebServerRequest.m
+		ios/http/GCDWebServer/Core/GCDWebServerResponse.h
+		ios/http/GCDWebServer/Core/GCDWebServerResponse.m
+		ios/http/GCDWebServer/Requests/GCDWebServerDataRequest.h
+		ios/http/GCDWebServer/Requests/GCDWebServerDataRequest.m
+		ios/http/GCDWebServer/Requests/GCDWebServerFileRequest.h
+		ios/http/GCDWebServer/Requests/GCDWebServerFileRequest.m
+		ios/http/GCDWebServer/Requests/GCDWebServerMultiPartFormRequest.h
+		ios/http/GCDWebServer/Requests/GCDWebServerMultiPartFormRequest.m
+		ios/http/GCDWebServer/Requests/GCDWebServerURLEncodedFormRequest.h
+		ios/http/GCDWebServer/Requests/GCDWebServerURLEncodedFormRequest.m
+		ios/http/GCDWebServer/Responses/GCDWebServerDataResponse.h
+		ios/http/GCDWebServer/Responses/GCDWebServerDataResponse.m
+		ios/http/GCDWebServer/Responses/GCDWebServerErrorResponse.h
+		ios/http/GCDWebServer/Responses/GCDWebServerErrorResponse.m
+		ios/http/GCDWebServer/Responses/GCDWebServerFileResponse.h
+		ios/http/GCDWebServer/Responses/GCDWebServerFileResponse.m
+		ios/http/GCDWebServer/Responses/GCDWebServerStreamedResponse.h
+		ios/http/GCDWebServer/Responses/GCDWebServerStreamedResponse.m
+		#ios/http/GCDWebUploader/GCDWebUploader.bundle
+		ios/http/GCDWebUploader/GCDWebUploader.h
+		ios/http/GCDWebUploader/GCDWebUploader.m
+		ios/http/Reachability/Reachability.h
+		ios/http/Reachability/Reachability.m
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/iOSCoreAudio.cpp
@@ -771,11 +806,27 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL -framework CFNetwork -framework MobileCoreServices -framework SystemConfiguration")
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
 
+	set_source_files_properties(ios/http/FileWebServer.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Core/GCDWebServer.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Core/GCDWebServerConnection.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Core/GCDWebServerFunctions.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Core/GCDWebServerRequest.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Core/GCDWebServerResponse.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Requests/GCDWebServerDataRequest.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Requests/GCDWebServerFileRequest.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Requests/GCDWebServerMultiPartFormRequest.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Requests/GCDWebServerURLEncodedFormRequest.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Responses/GCDWebServerDataResponse.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Responses/GCDWebServerErrorResponse.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Responses/GCDWebServerFileResponse.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebServer/Responses/GCDWebServerStreamedResponse.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/GCDWebUploader/GCDWebUploader.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/http/Reachability/Reachability.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
@@ -1657,13 +1708,22 @@ if (TargetBin)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
 		if (APPLE AND NOT IOS)
-		set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
-		set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
-		set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
-		set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
+			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
+			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
+			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 		endif()
 
-		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+		if (APPLE AND IOS)
+			file(GLOB WEB_ASSETS ios/http/GCDWebUploader/GCDWebUploader.bundle)
+			#file(INSTALL ${WEB_ASSETS} DESTINATION GCDWebploader.bundle)
+			set_source_files_properties(${WEB_ASSETS} 
+				PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+			)
+
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} ${WEB_ASSETS})			
+		endif()
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
 	endif()
@@ -1691,6 +1751,8 @@ if(IOS)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
+
+
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
