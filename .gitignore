@@ -51,10 +51,7 @@ bin
 gen
 libs
 obj
-
-# Temp allowing of keeping build/ files in repo because of specific changes made to xcode project
-# that's different than what b.sh generated. TBD incorporate changes into build script and remove build from repo
-#build*/
+build*/
 
 /git-version.cpp
 
