@@ -27,6 +27,7 @@
 
 #include "UI/MiscScreens.h"
 
+
 class DevMenu : public PopupScreen {
 public:
 	DevMenu() : PopupScreen("Dev Tools") {}
@@ -78,6 +79,14 @@ private:
 	virtual void OnCompleted(DialogResult result);
 
 };
+
+#if defined(IOS)
+class ImportExportFilesScreen : public UIDialogScreenWithBackground {
+public:
+    ImportExportFilesScreen() {}
+    virtual void CreateViews();
+};
+#endif
 
 class SystemInfoScreen : public UIDialogScreenWithBackground {
 public:

@@ -100,8 +100,12 @@ private:
 	UI::EventReturn OnAudioBackend(UI::EventParams &e);
 
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
-	UI::EventReturn OnSysInfo(UI::EventParams &e);
-
+    UI::EventReturn OnSysInfo(UI::EventParams &e);
+    
+#if defined(IOS)
+    UI::EventReturn OnImportExportFiles(UI::EventParams &e);
+#endif
+    
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;

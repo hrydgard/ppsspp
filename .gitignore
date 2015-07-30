@@ -52,6 +52,7 @@ gen
 libs
 obj
 build*/
+
 /git-version.cpp
 
 .pspsh.hist
