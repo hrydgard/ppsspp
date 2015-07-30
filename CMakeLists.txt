@@ -1742,6 +1742,14 @@ if(IOS)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
+
+	file(GLOB WEB_ASSETS ios/http/GCDWebUploader/GCDWebUploader.bundle/*.*)
+	file(INSTALL ${WEB_ASSETS} DESTINATION GCDWebploader.bundle)
+	set_source_files_properties(${WEB_ASSETS} 
+		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+	)
+
+
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
