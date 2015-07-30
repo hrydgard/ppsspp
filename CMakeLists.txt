@@ -794,7 +794,7 @@ elseif(IOS)
 		ios/http/GCDWebServer/Responses/GCDWebServerFileResponse.m
 		ios/http/GCDWebServer/Responses/GCDWebServerStreamedResponse.h
 		ios/http/GCDWebServer/Responses/GCDWebServerStreamedResponse.m
-		ios/http/GCDWebUploader/GCDWebUploader.bundle
+		#ios/http/GCDWebUploader/GCDWebUploader.bundle
 		ios/http/GCDWebUploader/GCDWebUploader.h
 		ios/http/GCDWebUploader/GCDWebUploader.m
 		ios/http/Reachability/Reachability.h
@@ -1708,13 +1708,22 @@ if (TargetBin)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
 		if (APPLE AND NOT IOS)
-		set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
-		set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
-		set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
-		set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			set_source_files_properties(${NativeAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets")
+			set_source_files_properties(${FLASH0_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/flash0/font")
+			set_source_files_properties(${LANG_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/lang")
+			set_source_files_properties(${SHADER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "MacOS/assets/shaders")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 		endif()
 
-		add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+		if (APPLE AND IOS)
+			file(GLOB WEB_ASSETS ios/http/GCDWebUploader/GCDWebUploader.bundle)
+			#file(INSTALL ${WEB_ASSETS} DESTINATION GCDWebploader.bundle)
+			set_source_files_properties(${WEB_ASSETS} 
+				PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+			)
+
+			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} ${WEB_ASSETS})			
+		endif()
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})
 	endif()
@@ -1740,12 +1749,6 @@ if(IOS)
 	endif()
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
 	set_source_files_properties(${RSRC_XIB_FILES}
-		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
-	)
-
-	file(GLOB WEB_ASSETS ios/http/GCDWebUploader/GCDWebUploader.bundle/*.*)
-	file(INSTALL ${WEB_ASSETS} DESTINATION GCDWebploader.bundle)
-	set_source_files_properties(${WEB_ASSETS} 
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
 
