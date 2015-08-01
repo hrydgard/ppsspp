@@ -1,29 +1,70 @@
 ///
 
-
 #include "Core/Reporting.h"
+#include "Core/CoreParameter.h"
+#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
+#include "Core/Config.h"
+#include "Common/ChunkFile.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/High/HighGpu.h"
 #include "GPU/High/HighGLES2.h"
+#include "GPU/GPUState.h"
+#include "GPU/High/Command.h"
 
 namespace HighGpu {
 
-HighGPU_GLES::HighGPU_GLES() {
-}
-HighGPU_GLES::~HighGPU_GLES() {
+HighGPU_GLES::HighGPU_GLES() : dumpThisFrame_(false), dumpNextFrame_(false), resized_(false) {
+	shaderManager_ = new ShaderManagerGLES();
+	/*
+	transformDraw_.SetShaderManager(shaderManager_);
+	transformDraw_.SetTextureCache(&textureCache_);
+	transformDraw_.SetFramebufferManager(&framebufferManager_);
+	transformDraw_.SetFragmentTestCache(&fragmentTestCache_);
+	framebufferManager_->Init();
+	framebufferManager_->SetTextureCache(&textureCache_);
+	framebufferManager_->SetShaderManager(shaderManager_);
+	framebufferManager_->SetTransformDrawEngine(&transformDraw_);
+	textureCache_.SetFramebufferManager(&framebufferManager_);
+	textureCache_.SetDepalShaderCache(&depalShaderCache_);
+	textureCache_.SetShaderManager(shaderManager_);
+	fragmentTestCache_.SetTextureCache(&textureCache_);
+	*/
 }
 
-void HighGPU_GLES::Execute(CommandPacket *packet, int start, int end) {
+HighGPU_GLES::~HighGPU_GLES() {
+	framebufferManager_->DestroyAllFBOs();
+	shaderManager_->ClearCache(true);
+	depalShaderCache_.Clear();
+	fragmentTestCache_.Clear();
+	delete shaderManager_;
+	shaderManager_ = nullptr;
+	glstate.SetVSyncInterval(0);
+}
+
+void HighGPU_GLES::Execute(CommandPacket *packet) {
 	PrintCommandPacket(packet);
-	// Pass 1: Decode all the textures. This is done first so that the GL driver can
+
+	// We do things in multiple passes, in order to maximize CPU cache efficiency.
+	//
+	// First, we decode all the vertex data, and build bone matrix sets.
+	//
+	// Then, we create all framebuffers and textures (or check that they exist).
+	// We also look up shaders.
+	//
+	// Only then do we submit any draw calls, but what we submit will be very efficient.
+	//
+	// Pass 1: Decode all the textures and create framebuffers. This is done first so that the GL driver can
 	// upload them in the background (if it's that advanced)  while we are decoding vertex
 	// data and preparing the draw calls.
+	int start = 0;
+	int end = packet->numCommands;
 	for (int i = start; i < end; i++) {
-		
+
 	}
 
-	// Pass 2: Decode all the vertex data.
-	while (i != end) {
+	// Pass 2: Allocate a buffer and decode all the vertex data into it.
+	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		switch (cmd->type) {
 		case CMD_DRAWTRI:
@@ -38,8 +79,6 @@ void HighGPU_GLES::Execute(CommandPacket *packet, int start, int end) {
 	}
 
 	// Pass 3: Fetch shaders, perform the draws.
-	
-
 }
 
 // Let's avoid passing nulls into snprintf().
@@ -66,16 +105,53 @@ void HighGPU_GLES::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void HighGPU_GLES::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-	backend_->GetReportingInfo(primaryInfo, fullInfo);
+void HighGPU_GLES::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
 	primaryInfo = reportingPrimaryInfo_;
 	fullInfo = reportingFullInfo_;
 }
 
-void HighGPU_GLES::DeviceLost() override {
+void HighGPU_GLES::UpdateStats() {
+	// gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
+	// gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
+	// gpuStats.numShaders = shaderManager_->NumPrograms();
+	// gpuStats.numTextures = (int)textureCache_->NumLoadedTextures();
+	// gpuStats.numFBOs = (int)framebufferManager_->NumVFBs();
 }
 
-void HighGPU_GLES::ProcessEvent(GPUEvent ev) override {
+void HighGPU_GLES::DeviceLost() {
+	// TODO: Figure out sync. Which thread does this call come on?
+
+	// Simply drop all caches and textures.
+	// FBOs appear to survive? Or no?
+	// TransformDraw has registered as a GfxResourceHolder.
+	shaderManager_->ClearCache(false);
+	textureCache_->Clear(false);
+	fragmentTestCache_.Clear(false);
+	depalShaderCache_.Clear();
+	framebufferManager_->DeviceLost();
+
+	UpdateVsyncInterval(true);
+}
+
+void HighGPU_GLES::BeginFrameInternal() {
+	UpdateVsyncInterval(resized_);
+	resized_ = false;
+
+	textureCache_->StartFrame();
+	depalShaderCache_.Decimate();
+
+	if (dumpNextFrame_) {
+		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		dumpThisFrame_ = true;
+		dumpNextFrame_ = false;
+	} else if (dumpThisFrame_) {
+		dumpThisFrame_ = false;
+	}
+	shaderManager_->DirtyShader();
+	framebufferManager_->BeginFrame();
+}
+
+bool HighGPU_GLES::ProcessEvent(GPUEvent ev) {
 	switch (ev.type) {
 	case GPU_EVENT_INIT_CLEAR:
 		InitClearInternal();
@@ -108,17 +184,17 @@ void HighGPU_GLES::ProcessEvent(GPUEvent ev) override {
 	case GPU_EVENT_REINITIALIZE:
 		ReinitializeInternal();
 		break;
-
 	default:
-		GPUCommon::ProcessEvent(ev);
+		return false;
 	}
+	return true;
 }
 
 void HighGPU_GLES::ReinitializeInternal() {
-	textureCache_.Clear(true);
+	textureCache_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManager_.DestroyAllFBOs();
-	framebufferManager_.Resized();
+	framebufferManager_->DestroyAllFBOs();
+	framebufferManager_->Resized();
 }
 
 void HighGPU_GLES::InitClearInternal() {
@@ -134,52 +210,52 @@ void HighGPU_GLES::InitClearInternal() {
 
 void HighGPU_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
-		textureCache_.Invalidate(addr, size, type);
+		textureCache_->Invalidate(addr, size, type);
 	else
-		textureCache_.InvalidateAll(type);
+		textureCache_->InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
 		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
 		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
 }
 
 void HighGPU_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
 		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
 			Memory::Memcpy(dest, src, size);
 		}
 	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	InvalidateCacheInternal(dest, size, GPU_INVALIDATE_HINT);
 }
 
 void HighGPU_GLES::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true)) {
+		InvalidateCacheInternal(dest, size, GPU_INVALIDATE_HINT);
 	}
 }
 
 void HighGPU_GLES::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_.NotifyStencilUpload(dest, size);
+	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 void HighGPU_GLES::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
-	framebufferManager_.RebindFramebuffer();
-	transformDraw_.Flush();
+
+	framebufferManager_->RebindFramebuffer();
 
 	shaderManager_->DirtyLastShader();
 
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-	framebufferManager_.CopyDisplayToOutput();
-	framebufferManager_.EndFrame();
+	framebufferManager_->CopyDisplayToOutput();
+	framebufferManager_->EndFrame();
 
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
@@ -194,5 +270,46 @@ void HighGPU_GLES::CopyDisplayToOutputInternal() {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
+void HighGPU_GLES::UpdateVsyncInterval(bool force) {
+#ifdef _WIN32
+	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
+	if (PSP_CoreParameter().unthrottle) {
+		desiredVSyncInterval = 0;
+	}
+	if (PSP_CoreParameter().fpsLimit == 1) {
+		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
+		if (g_Config.iFpsLimit == 0 || (g_Config.iFpsLimit != 15 && g_Config.iFpsLimit != 30 && g_Config.iFpsLimit != 60)) {
+			desiredVSyncInterval = 0;
+		}
+	}
+
+	if (desiredVSyncInterval != lastVsync_ || force) {
+		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
+		// so it just keeps tearing. Not what I hoped for...
+		//if (gl_extensions.EXT_swap_control_tear) {
+		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
+		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
+		//} else {
+			glstate.SetVSyncInterval(desiredVSyncInterval);
+		//}
+		lastVsync_ = desiredVSyncInterval;
+	}
+#endif
+}
+
+void HighGPU_GLES::DoState(PointerWrap &p) {
+	// TODO: Some of these things may not be necessary.
+	// None of these are necessary when saving.
+	// In Freeze-Frame mode, we don't want to do any of this.
+	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
+		textureCache_->Clear(true);
+		depalShaderCache_.Clear();
+		// transformDraw_.ClearTrackedVertexArrays();
+
+		gstate_c.textureChanged = TEXCHANGE_UPDATED;
+		framebufferManager_->DestroyAllFBOs();
+		shaderManager_->ClearCache(true);
+	}
+}
 
 }  // namespace

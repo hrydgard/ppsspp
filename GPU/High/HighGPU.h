@@ -32,23 +32,31 @@
 
 namespace HighGpu {
 
-class ShaderManager;
-class LinkedShader;
-
 // This is the consumer of the high level data. This converts the high level drawing commands
 // back to OpenGL, DirectX, Vulkan or Metal calls, and makes those calls.
 // Later, HighGpuFrontend may become the one and only "Backend" with the current concept,
 // and SoftGpu and so on will inherit from this. Although SoftGPU not going through this mechanism
 // also makes some sense...
+//
+// A HighGpu backend has no knowledge of GPUState or gstate_c at all. Its only inputs are CommandPacket
+// and the RAM/VRAM of the PSP, and it outputs are graphics API calls and writes to RAM/VRAM of the PSP in
+// cases like copying back to memory.
 class HighGpuBackend {
 public:
-	virtual void Execute(CommandPacket *packet, int start, int count) = 0;
+	virtual void Execute(CommandPacket *packet) = 0;
 	virtual void DeviceLost() = 0;
-	virtual void ProcessEvent(GPUEvent ev) = 0;
-	virtual bool GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override;
+	virtual bool ProcessEvent(GPUEvent ev) = 0;
+	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
+
+	// TODO: Try to get rid of these
+	virtual void UpdateStats() = 0;
+	virtual void DoState(PointerWrap &p) = 0;
+	virtual void UpdateVsyncInterval(bool force) = 0;
 };
 
-// This should not touch any 3D API.
+// A HighGpu frontend does not touch the 3D API at all, it simply interprets display lists and bundles
+// the state up into convenient command packets, to be consumed by a HighGpuBackend. The frontend is
+// not 3D API-specific.
 class HighGpuFrontend : public GPUCommon {
 public:
 	HighGpuFrontend(HighGpuBackend *backend);
@@ -128,23 +136,26 @@ protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
-	void FinishDeferred() override;
 
 private:
+	// This happens a lot more seldomly than the old flush in the other backends.
+	// Only on a drawsync, end of major displaylist or on buffer full.
+	void FlushCommandPacket();
+
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
 	void BuildReportingInfo();
 
-	inline void UpdateVsyncInterval(bool force);
-
 	static CommandInfo cmdInfo_[256];
 
-	HighGpuBackend *backend_;
 	bool resized_;
 	int lastVsync_;
 
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
+	u32 dirty_;
+
+	HighGpuBackend *backend_;
+	CommandPacket *cmdPacket_;
+	MemoryArena arena_;
 };
 
 }  // namespace

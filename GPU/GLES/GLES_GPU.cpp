@@ -538,7 +538,7 @@ void GLES_GPU::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
-inline void GLES_GPU::UpdateVsyncInterval(bool force) {
+void GLES_GPU::UpdateVsyncInterval(bool force) {
 #ifdef _WIN32
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if (PSP_CoreParameter().unthrottle) {

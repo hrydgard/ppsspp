@@ -102,6 +102,7 @@ struct GPUStatistics {
 	int numFragmentShaders;
 	int numShaders;
 	int numFBOs;
+	int numVertexFormats;
 };
 
 extern GPUStatistics gpuStats;

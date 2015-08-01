@@ -13,6 +13,7 @@
 
 #include "Common/CommonTypes.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/MemoryArena.h"
 
 namespace HighGpu {
 
@@ -44,6 +45,7 @@ enum EnableFlags : u16 {
 	ENABLE_TEX_TRANSFORM  = BIT(9),
 	ENABLE_LIGHTS         = BIT(10),
 	ENABLE_BONES          = BIT(11),
+	ENABLE_MORPH          = BIT(12),
 };
 
 // All the individual state sections, both enable-able and not, for helping keeping track of them.
@@ -60,6 +62,9 @@ enum StateFlags : u32 {
 	STATE_TEXTURE = BIT(7),
 	STATE_DEPTHSTENCIL = BIT(8),
 	STATE_MORPH = BIT(9),
+	STATE_RASTERIZER = BIT(10),
+	STATE_SAMPLER = BIT(11),
+	STATE_CLUT = BIT(12),
 	STATE_VIEWPORT = BIT(18),
 	STATE_LIGHTGLOBAL = BIT(19),
 	STATE_LIGHT0 = BIT(20),
@@ -85,15 +90,23 @@ struct DrawCommandData {
 	u16 count;
 	u8 prim;
 	u8 framebuf;
+	u8 raster;
+	u8 fragment;
 	u8 worldMatrix;
 	u8 viewMatrix;
 	u8 projMatrix;
 	u8 texMatrix;
+	u8 viewport;
 	u8 blend;
 	u8 depthStencil;
-	u8 tex;
+	u8 texture;
+	u8 sampler;
+	u8 morph;
+	u8 lightGlobal;
 	u8 lights[4];
-	u8 bones[8];
+	u8 boneMatrix[8];
+	u8 numBones;
+	u8 *clut;  // separately allocated in our arena if necessary.
 };
 
 struct TransferCommandData {
@@ -105,11 +118,12 @@ struct TransferCommandData {
 	u16 dstX, dstY;
 	u16 width;
 	u16 height;
+	u8 bpp;
 };
 
 struct ClutLoadCommandData {
 	u32 addr;
-	u32 size;
+	u32 bytes;
 };
 
 struct Command {
@@ -121,6 +135,9 @@ struct Command {
 	};
 };
 
+
+
+
 struct FramebufState {
 	u32 colorPtr;
 	u16 colorStride;
@@ -130,20 +147,31 @@ struct FramebufState {
 	// There's only one depth format.
 };
 
-// Dumping ground for pixel state that doesn't belong anywhere else.
+// Dumping ground for pixel state that doesn't belong anywhere else, and is always needed regardless
+// of "enables". Well, culling is not applied in throughmode but apart from that...
 struct RasterState {
 	u8 clearMode;
-	u8 shadeMode;
 	u32 offsetX;
 	u32 offsetY;
-	float fogCoef1;
-	float fogCoef2;
 	u16 scissorX1;
 	u16 scissorY1;
 	u16 scissorX2;
 	u16 scissorY2;
 	bool cullFaceEnable;
 	bool cullMode;
+	u32 defaultVertexColor;  // materialambient gets duplicated here.
+};
+
+// TODO: fogCoefs are more like transform state. Maybe move?
+struct FragmentState {
+	float fogCoef1;
+	float fogCoef2;
+	u32 fogColor;
+	bool colorDouble;
+	bool useTextureAlpha;
+	u8 texFunc;
+	u32 texEnvColor;
+	u8 shadeMode;
 };
 
 struct ViewportState {
@@ -152,26 +180,24 @@ struct ViewportState {
 };
 
 struct BlendState {
-	u8 blendEnable;
 	u8 blendSrc;
 	u8 blendDst;
 	u8 blendEq;
 	u32 blendfixa;
 	u32 blendfixb;
-	u8 alphaTestEnable;
 	u8 alphaTestFunc;
 	u8 alphaTestRef;
 	u8 alphaTestMask;
+	u8 colorTestFunc;
+	u32 colorTestRef;
+	u32 colorTestMask;
 	u32 colorWriteMask;
-	u8 logicOpEnable;
 	u8 logicOpFunc;
 };
 
 struct DepthStencilState {
 	u8 depthFunc;
-	u8 depthTestEnable;
-	u8 depthWriteEnable;
-	u8 stencilTestEnable;
+	u8 depthWriteEnable;  // Part of the depth test
 	u8 stencilRef;
 	u8 stencilMask;
 	u8 stencilFunc;
@@ -180,31 +206,36 @@ struct DepthStencilState {
 	u8 stencilOpZPass;
 };
 
+// This is quite big. Might want to use the fact that pretty much all textures are valid
+// partial mip pyramids and only store the size of the first level. I think we do need to store
+// all addresses though, although might be able to delta compress them.
 struct TextureState {
 	float offsetX;
 	float offsetY;
 	float scaleX;
 	float scaleY;
-	u8 dim;
-	u32 texptr[8];
+	u32 addr[8];
+	u16 dim[8];
 	u16 stride[8];
+	u8 maxLevel;
+	u8 format;
 };
 
 struct SamplerState {
 	u8 mag;
 	u8 min;
 	u8 bias;
-	u8 wrap_s;   // packed
-	u8 wrap_t;
+	u8 clamp_s;
+	u8 clamp_t;
+	u8 levelMode;
 };
 
 struct LightGlobalState {
-	u32 materialupdate;
-	u32 materialemissive;
-	u32 materialambient;   // materialAlpha gets baked into this
-	u32 materialdiffuse;
-	u32 materialspecular;
-	u32 materialspecularcoef;
+	u32 materialUpdate;
+	u32 materialEmissive;
+	u32 materialAmbient;   // materialAlpha gets baked into this. This is actually loaded again in the rasterstate as the default vertex color.
+	u32 materialDiffuse;
+	u32 materialSpecular;
 	u32 ambientcolor;
 	u32 lmode;
 	float specularCoef;
@@ -214,13 +245,14 @@ struct LightGlobalState {
 struct LightState {
 	u8 enabled;
 	u8 type;
-	float pos[3];
 	float dir[3];
 	u32 diffuseColor;
 	u32 ambientColor;
 	u32 specularColor;
-	// spotlight-only data
+	// pointlight-and-spotlight-only data
+	float pos[3];
 	float att[3];
+	// spotlight-only data
 	float lconv;
 	float lcutoff;
 };
@@ -238,38 +270,60 @@ struct Matrix4x4 {
 };
 
 // A tree of display lists up to an "END" gets combined into a CommandPacket.
+//
 // Essentially, this is a compressed version of a full list of draws with all their state.
 // We achieve the compression by only storing a new "block" of a type of settings if something changed.
-// If nothing changed, draw calls can share the block.
+// If nothing changed, draw calls can share the state block.
+//
 // This allows safe command reordering (where applicable), multiple passes and similar tricks, without
-// completely blowing up the CPU cache.
+// completely blowing up the CPU cache, hopefully.
 struct CommandPacket {
 	Command *commands;
+	Command *lastDraw;
 	int numCommands;
-	FramebufState *framebuf; int numFramebuf;
-	Matrix4x3 *worldMatrix; int numWorldMatrix;
-	Matrix4x3 *viewMatrix; int numViewMatrix;
-	Matrix4x4 *projMatrix; int numProjMatrix;
-	Matrix4x3 *texMatrix; int numTexMatrix;
-	Matrix4x3 *boneMatrix; int numBoneMatrix;
-	ViewportState *viewport; int numViewport;
-	BlendState *blend; int numBlend;
-	DepthStencilState *depthStencil; int numDepthStencil;
-	TextureState *tex; int numTex;
-	SamplerState *sampler; int numSampler;
-	LightGlobalState *lightGlobal; int numLightGlobals;
-	LightState *lights; int numLights;
-	RasterState *raster; int numRaster;
-	MorphState *morph; int numMorph;
-	u8 clut[4096];
+	bool full;  // Needs a flush
+	// TODO: Shrink these.
+	int numFramebuf;
+	int numFragment;
+	int numRaster;
+	int numWorldMatrix;
+	int numViewMatrix;
+	int numProjMatrix;
+	int numTexMatrix;
+	int numBoneMatrix;
+	int numViewport;
+	int numBlend;
+	int numDepthStencil;
+	int numTexture;
+	int numSampler;
+	int numLightGlobal;
+	int numLight;
+	int numMorph;
+	FramebufState *framebuf[64];
+	FragmentState *fragment[64];
+	RasterState *raster[64];
+	Matrix4x3 *worldMatrix[1024];
+	Matrix4x3 *viewMatrix[16];
+	Matrix4x4 *projMatrix[16];
+	Matrix4x3 *texMatrix[16];
+	Matrix4x3 *boneMatrix[256];
+	ViewportState *viewport[16];
+	BlendState *blend[16];
+	DepthStencilState *depthStencil[16];
+	TextureState *texture[16];
+	SamplerState *sampler[16];
+	LightGlobalState *lightGlobal[16];
+	LightState *lights[128];
+	MorphState *morph[64];
 };
 
 // Submitting commands to a CommandPacket
 void CommandSubmitTransfer(CommandPacket *packet, const GPUgstate *gstate, u32 data);
-void CommandSubmitDraw(CommandPacket *packet, const GPUgstate *gstate, u32 dirty, u32 data);
+u32 CommandSubmitDraw(CommandPacket *packet, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 data, int *bytesRead);
+void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate);
+void CommandSubmitSync(CommandPacket *cmdPacket);
 
-
-void PrintCommandPacket(CommandPacket *cmd, int start, int count);
+void PrintCommandPacket(CommandPacket *cmd);
 
 #undef BIT
 

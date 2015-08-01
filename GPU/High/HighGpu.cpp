@@ -32,6 +32,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 
+#include "GPU/Common/MemoryArena.h"
 #include "GPU/High/Command.h"
 #include "GPU/High/HighGpu.h"
 
@@ -42,6 +43,10 @@ enum {
 	FLAG_READS_PC = 16,
 	FLAG_WRITES_PC = 32,
 	FLAG_DIRTYONCHANGE = 64,
+};
+
+enum {
+	ArenaSize = 4096 * 1024,
 };
 
 struct CommandTableEntry {
@@ -112,7 +117,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLUTFORMAT, 0},
 
 	// These affect the fragment shader
-	{GE_CMD_CLEARMODE,        0, STATE_FRAGMENT},
+	{GE_CMD_CLEARMODE,        0, STATE_RASTERIZER},
 	{GE_CMD_TEXTUREMAPENABLE, 0, STATE_TEXTURE},
 	{GE_CMD_FOGENABLE,        0, STATE_FRAGMENT},
 	{GE_CMD_TEXMODE,          0, STATE_TEXTURE},
@@ -148,11 +153,11 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXENVCOLOR, 0, STATE_FRAGMENT},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
-	{GE_CMD_OFFSETX, 0},
-	{GE_CMD_OFFSETY, 0},
-	{GE_CMD_CULL, 0},
-	{GE_CMD_CULLFACEENABLE, 0},
-	{GE_CMD_DITHERENABLE, 0},
+	{GE_CMD_OFFSETX, 0, STATE_RASTERIZER},
+	{GE_CMD_OFFSETY, 0, STATE_RASTERIZER},
+	{GE_CMD_CULL, 0, STATE_RASTERIZER},
+	{GE_CMD_CULLFACEENABLE, 0, STATE_RASTERIZER},
+	{GE_CMD_DITHERENABLE, 0, 0},
 	{GE_CMD_STENCILOP, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_STENCILTEST, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_STENCILTESTENABLE, 0, STATE_DEPTHSTENCIL},
@@ -160,8 +165,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BLENDMODE, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDA, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDB, 0, STATE_BLEND},
-	{GE_CMD_MASKRGB, 0},  // TODO
-	{GE_CMD_MASKALPHA, 0},  // TODO
+	{GE_CMD_MASKRGB, 0, STATE_BLEND},
+	{GE_CMD_MASKALPHA, 0, STATE_BLEND},
 	{GE_CMD_ZTEST, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_ZTESTENABLE, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_ZWRITEDISABLE, 0, STATE_DEPTHSTENCIL},
@@ -206,8 +211,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_REGION2, 0},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, 0, STATE_FRAGMENT},
-	{GE_CMD_SCISSOR2, 0, STATE_FRAGMENT},
+	{GE_CMD_SCISSOR1, 0, STATE_RASTERIZER},
+	{GE_CMD_SCISSOR2, 0, STATE_RASTERIZER},
 
 	{GE_CMD_AMBIENTCOLOR, 0, STATE_LIGHTGLOBAL},
 	{GE_CMD_AMBIENTALPHA, 0, STATE_LIGHTGLOBAL},
@@ -297,7 +302,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TRANSFERDSTPOS, 0},
 	{GE_CMD_TRANSFERSIZE, 0},
 
-	// From Common. No flushing but definitely need execute.
+	// From Common. No flushing but definitely need execute. These don't affect drawing, only the
+	// command processor's operation.
 	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr},
 	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_Origin},  // Really?
 	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Prim},
@@ -310,7 +316,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump},  // EXECUTE
 	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoundingBox},
 
-	{GE_CMD_VERTEXTYPE},
+	{GE_CMD_VERTEXTYPE},  // Baked into draw calls
 
 	{GE_CMD_BEZIER, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Bezier},
 	{GE_CMD_SPLINE, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Spline},
@@ -384,27 +390,7 @@ static const CommandTableEntry commandTable[] = {
 HighGpuFrontend::CommandInfo HighGpuFrontend::cmdInfo_[256];
 
 HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
-: resized_(false), backend_(backend) {
-	UpdateVsyncInterval(true);
-
-	shaderManager_ = new ShaderManager();
-	transformDraw_.SetShaderManager(shaderManager_);
-	transformDraw_.SetTextureCache(&textureCache_);
-	transformDraw_.SetFramebufferManager(&framebufferManager_);
-	transformDraw_.SetFragmentTestCache(&fragmentTestCache_);
-	framebufferManager_.Init();
-	framebufferManager_.SetTextureCache(&textureCache_);
-	framebufferManager_.SetShaderManager(shaderManager_);
-	framebufferManager_.SetTransformDrawEngine(&transformDraw_);
-	textureCache_.SetFramebufferManager(&framebufferManager_);
-	textureCache_.SetDepalShaderCache(&depalShaderCache_);
-	textureCache_.SetShaderManager(shaderManager_);
-	fragmentTestCache_.SetTextureCache(&textureCache_);
-
-	// Sanity check gstate
-	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
-		ERROR_LOG(G3D, "gstate has drifted out of sync!");
-	}
+: resized_(false), backend_(backend), arena_(ArenaSize), dirty_(0) {
 
 	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
@@ -432,8 +418,8 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	// the tex scale/offset into the vertices anyway.
 
 	BuildReportingInfo();
-	// Update again after init to be sure of any silly driver problems.
-	UpdateVsyncInterval(true);
+	// Update after init to be sure of any silly driver problems.
+	backend_->UpdateVsyncInterval(true);
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
@@ -441,16 +427,9 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 }
 
 HighGpuFrontend::~HighGpuFrontend() {
-	framebufferManager_.DestroyAllFBOs();
-	shaderManager_->ClearCache(true);
-	depalShaderCache_.Clear();
-	fragmentTestCache_.Clear();
-	delete shaderManager_;
-	shaderManager_ = nullptr;
-	glstate.SetVSyncInterval(0);
 }
 
-void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
+void HighGpuFrontend::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
 	backend_->GetReportingInfo(primaryInfo, fullInfo);
 }
 
@@ -458,17 +437,6 @@ void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override 
 void HighGpuFrontend::DeviceLost() {
 	ILOG("HighGpuFrontend: DeviceLost");
 	backend_->DeviceLost();
-
-	// Simply drop all caches and textures.
-	// FBOs appear to survive? Or no?
-	// TransformDraw has registered as a GfxResourceHolder.
-	shaderManager_->ClearCache(false);
-	textureCache_.Clear(false);
-	fragmentTestCache_.Clear(false);
-	depalShaderCache_.Clear();
-	framebufferManager_.DeviceLost();
-
-	UpdateVsyncInterval(true);
 }
 
 void HighGpuFrontend::InitClear() {
@@ -489,92 +457,18 @@ void HighGpuFrontend::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
-inline void HighGpuFrontend::UpdateVsyncInterval(bool force) {
-#ifdef _WIN32
-	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().unthrottle) {
-		desiredVSyncInterval = 0;
-	}
-	if (PSP_CoreParameter().fpsLimit == 1) {
-		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
-		if (g_Config.iFpsLimit == 0 || (g_Config.iFpsLimit != 15 && g_Config.iFpsLimit != 30 && g_Config.iFpsLimit != 60)) {
-			desiredVSyncInterval = 0;
-		}
-	}
-
-	if (desiredVSyncInterval != lastVsync_ || force) {
-		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
-		// so it just keeps tearing. Not what I hoped for...
-		//if (gl_extensions.EXT_swap_control_tear) {
-		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
-		//} else {
-			glstate.SetVSyncInterval(desiredVSyncInterval);
-		//}
-		lastVsync_ = desiredVSyncInterval;
-	}
-#endif
-}
-
-void HighGpuFrontend::BeginFrameInternal() {
-	if (resized_) {
-		transformDraw_.Resized();
-	}
-	UpdateVsyncInterval(resized_);
-	resized_ = false;
-
-	textureCache_.StartFrame();
-	transformDraw_.DecimateTrackedVertexArrays();
-	depalShaderCache_.Decimate();
-	fragmentTestCache_.Decimate();
-
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
-	shaderManager_->DirtyShader();
-
-	// Not sure if this is really needed.
-	shaderManager_->DirtyUniform(DIRTY_ALL);
-
-	framebufferManager_.BeginFrame();
-}
-
 void HighGpuFrontend::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	host->GPUNotifyDisplay(framebuf, stride, format);
-	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
+	// framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 bool HighGpuFrontend::FramebufferDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
+	// TODO
 	return true;
 }
 
 bool HighGpuFrontend::FramebufferReallyDirty() {
-	if (ThreadEnabled()) {
-		// Allow it to process fully before deciding if it's dirty.
-		SyncThread();
-	}
-
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
+	// TODO
 	return true;
 }
 
@@ -582,21 +476,21 @@ void HighGpuFrontend::CopyDisplayToOutput() {
 	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
 }
 
-// Maybe should write this in ASM...
+// This is probably worth writing a highly optimized ASM version of.
 void HighGpuFrontend::FastRunLoop(DisplayList &list) {
 	PROFILE_THIS_SCOPE("gpuloop");
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
 	for (; dc > 0; --dc) {
-		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer even on 32-bit
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
 		const CommandInfo info = cmdInfo[cmd];
-		const u8 cmdFlags = info.flags;      // If we stashed the cmdFlags in the top bits of the cmdmem, we could get away with one table lookup instead of two
+		const u8 cmdFlags = info.flags;
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		if (diff) {
 			gstate.cmdmem[cmd] = op;
-			dirty_ |= info.dirtyState;
+			dirty_ |= info.dirtyState;  // TODO: Move dirty_ to a local variable.
 		}
 		if (cmdFlags & FLAG_EXECUTE) {
 			downcount = dc;
@@ -608,13 +502,8 @@ void HighGpuFrontend::FastRunLoop(DisplayList &list) {
 	downcount = 0;
 }
 
-void HighGpuFrontend::FinishDeferred() {
-	// This finishes reading any vertex data that is pending.
-	transformDraw_.FinishDeferred();
-}
-
 void HighGpuFrontend::ProcessEvent(GPUEvent ev) {
-	if (!backend->ProcessEvent(ev)) {
+	if (!backend_->ProcessEvent(ev)) {
 		GPUCommon::ProcessEvent(ev);
 	}
 }
@@ -639,13 +528,9 @@ void HighGpuFrontend::Execute_Iaddr(u32 op, u32 diff) {
 }
 
 void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
-	// This drives all drawing. All other state we just buffer up, then we apply it only
-	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
-
 	u32 data = op & 0xFFFFFF;
 	u32 count = data & 0xFFFF;
 	GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
-
 	if (count == 0)
 		return;
 
@@ -659,13 +544,9 @@ void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
-	// This also makes skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer();
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
-		transformDraw_.SetupVertexDecoder(gstate.vertType);
-		// Rough estimate, not sure what's correct.
-		int vertexCost = transformDraw_.EstimatePerVertexCost();
-		cyclesExecuted += vertexCost * count;
+		// TODO: Figure out a way to do cycle estimates here, without disturbing the draw engine
+		// which might be running on another thread.
 		return;
 	}
 
@@ -684,20 +565,16 @@ void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
 		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-#ifndef MOBILE_DEVICE
-	if (prim > GE_PRIM_RECTANGLES) {
-		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
-	}
-#endif
-
-	int bytesRead = 0;
-	transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, &bytesRead);
-
+	/*
 	int vertexCost = transformDraw_.EstimatePerVertexCost();
 	gpuStats.vertexGPUCycles += vertexCost * count;
 	cyclesExecuted += vertexCost * count;
+	*/
 
-	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+	int bytesRead;
+	CommandSubmitDraw(cmdPacket_, &arena_, &gstate, dirty_, data, &bytesRead);
+
+	// After submitting the drawcall, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	if (inds) {
@@ -708,6 +585,9 @@ void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
 	} else {
 		gstate_c.vertexAddr += bytesRead;
 	}
+
+	if (cmdPacket_->full)
+		FlushCommandPacket();
 }
 
 void HighGpuFrontend::Execute_Bezier(u32 op, u32 diff) {
@@ -748,13 +628,9 @@ void HighGpuFrontend::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void HighGpuFrontend::Execute_LoadClut(u32 op, u32 diff) {
-	// This could be used to "dirty" textures with clut.
-	CommandSubmitLoadClut(cmdPacket_,
-}
-
-void HighGpuFrontend::Execute_ClutFormat(u32 op, u32 diff) {
-	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	// This could be used to "dirty" textures with clut.
+	CommandSubmitLoadClut(cmdPacket_, &gstate);
+	if (cmdPacket_->full)
+		FlushCommandPacket();
 }
 
 void HighGpuFrontend::Execute_WorldMtxNum(u32 op, u32 diff) {
@@ -767,7 +643,6 @@ void HighGpuFrontend::Execute_WorldMtxNum(u32 op, u32 diff) {
 	while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
 		const u32 newVal = src[i] << 8;
 		if (dst[i] != newVal) {
-			Flush();
 			dst[i] = newVal;
 			dirty = true;
 		}
@@ -791,9 +666,8 @@ void HighGpuFrontend::Execute_WorldMtxData(u32 op, u32 diff) {
 	int num = gstate.worldmtxnum & 0xF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-		Flush();
 		((u32 *)gstate.worldMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
+		dirty_ |= STATE_WORLDMATRIX;
 	}
 	num++;
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
@@ -806,17 +680,20 @@ void HighGpuFrontend::Execute_ViewMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
+	bool dirty = false;
 	while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
 		const u32 newVal = src[i] << 8;
 		if (dst[i] != newVal) {
-			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+			dirty = true;
 		}
 		if (++i >= end) {
 			break;
 		}
 	}
+
+	if (dirty)
+		dirty_ |= STATE_VIEWMATRIX;
 
 	const int count = i;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op + count) & 0xF);
@@ -831,9 +708,8 @@ void HighGpuFrontend::Execute_ViewMtxData(u32 op, u32 diff) {
 	int num = gstate.viewmtxnum & 0xF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-		Flush();
 		((u32 *)gstate.viewMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
+		dirty_ |= STATE_VIEWMATRIX;
 	}
 	num++;
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
@@ -846,12 +722,12 @@ void HighGpuFrontend::Execute_ProjMtxNum(u32 op, u32 diff) {
 	const int end = 16 - (op & 0xF);
 	int i = 0;
 
+	bool dirty = false;
 	while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
 		const u32 newVal = src[i] << 8;
 		if (dst[i] != newVal) {
-			Flush();
+			dirty = true;
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 		if (++i >= end) {
 			break;
@@ -860,6 +736,10 @@ void HighGpuFrontend::Execute_ProjMtxNum(u32 op, u32 diff) {
 
 	const int count = i;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	if (dirty) {
+		dirty_ |= STATE_PROJMATRIX;
+	}
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -871,9 +751,8 @@ void HighGpuFrontend::Execute_ProjMtxData(u32 op, u32 diff) {
 	int num = gstate.projmtxnum & 0xF;
 	u32 newVal = op << 8;
 	if (newVal != ((const u32 *)gstate.projMatrix)[num]) {
-		Flush();
 		((u32 *)gstate.projMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		dirty_ |= STATE_PROJMATRIX;
 	}
 	num++;
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
@@ -886,12 +765,12 @@ void HighGpuFrontend::Execute_TgenMtxNum(u32 op, u32 diff) {
 	const int end = 12 - (op & 0xF);
 	int i = 0;
 
+	bool dirty = false;
 	while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
 		const u32 newVal = src[i] << 8;
 		if (dst[i] != newVal) {
-			Flush();
 			dst[i] = newVal;
-			shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+			dirty = true;
 		}
 		if (++i >= end) {
 			break;
@@ -900,6 +779,10 @@ void HighGpuFrontend::Execute_TgenMtxNum(u32 op, u32 diff) {
 
 	const int count = i;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op + count) & 0xF);
+
+	if (dirty) {
+		dirty_ |= STATE_TEXMATRIX;
+	}
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -911,9 +794,8 @@ void HighGpuFrontend::Execute_TgenMtxData(u32 op, u32 diff) {
 	int num = gstate.texmtxnum & 0xF;
 	u32 newVal = op << 8;
 	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-		Flush();
 		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
+		dirty_ |= STATE_TEXMATRIX;
 	}
 	num++;
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
@@ -926,39 +808,26 @@ void HighGpuFrontend::Execute_BoneMtxNum(u32 op, u32 diff) {
 	const int end = 12 * 8 - (op & 0x7F);
 	int i = 0;
 
-	// If we can't use software skinning, we have to flush and dirty.
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-			}
-			if (++i >= end) {
-				break;
-			}
+	while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+		const u32 newVal = src[i] << 8;
+		if (dst[i] != newVal) {
+			dst[i] = newVal;
 		}
-
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		}
-	} else {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			dst[i] = src[i] << 8;
-			if (++i >= end) {
-				break;
-			}
-		}
-
-		const int numPlusCount = (op & 0x7F) + i;
-		for (int num = op & 0x7F; num < numPlusCount; num += 12) {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+		if (++i >= end) {
+			break;
 		}
 	}
 
+	const int numPlusCount = (op & 0x7F) + i;
+
 	const int count = i;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op + count) & 0x7F);
+
+	u32 toDirty = 0;
+	for (int num = op & 0x7F; num < numPlusCount; num += 12) {
+		toDirty |= STATE_BONE0 << (num / 12);
+	}
+	dirty_ |= toDirty;
 
 	// Skip over the loaded data, it's done now.
 	UpdatePC(currentList->pc, currentList->pc + count * 4);
@@ -969,142 +838,29 @@ void HighGpuFrontend::Execute_BoneMtxData(u32 op, u32 diff) {
 	// Note: it's uncommon to get here now, see above.
 	int num = gstate.boneMatrixNumber & 0x7F;
 	u32 newVal = op << 8;
+	u32 toDirty = 0;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			Flush();
-			shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
+		toDirty |= STATE_BONE0 << (num / 12);
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
+	dirty_ |= toDirty;
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
-}
-
-void HighGpuFrontend::Execute_BlockTransferStart(u32 op, u32 diff) {
-	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
-	// Can we skip this on SkipDraw?
-	DoBlockTransfer();
-
-	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
-	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
 void HighGpuFrontend::FastLoadBoneMatrix(u32 target) {
 	const int num = gstate.boneMatrixNumber & 0x7F;
 	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+	uint32_t stateToDirty = STATE_BONE0 << mtxNum;
 	if ((num - 12 * mtxNum) != 0) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
-
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		Flush();
-		shaderManager_->DirtyUniform(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
+		stateToDirty |= STATE_BONE0 << ((mtxNum + 1) & 7);
 	}
 	gstate.FastLoadBoneMatrix(target);
+	dirty_ |= stateToDirty;
 }
 
 void HighGpuFrontend::UpdateStats() {
-	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
-	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
-	gpuStats.numShaders = shaderManager_->NumPrograms();
-	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
-}
-
-void HighGpuFrontend::DoBlockTransfer() {
-	// TODO: This is used a lot to copy data around between render targets and textures,
-	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
-	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
-	//
-	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
-	//    either copy between rt and texture or reassign the texture to point to the render target
-	//
-	// etc....
-
-	u32 srcBasePtr = gstate.getTransferSrcAddress();
-	u32 srcStride = gstate.getTransferSrcStride();
-
-	u32 dstBasePtr = gstate.getTransferDstAddress();
-	u32 dstStride = gstate.getTransferDstStride();
-
-	int srcX = gstate.getTransferSrcX();
-	int srcY = gstate.getTransferSrcY();
-
-	int dstX = gstate.getTransferDstX();
-	int dstY = gstate.getTransferDstY();
-
-	int width = gstate.getTransferWidth();
-	int height = gstate.getTransferHeight();
-
-	int bpp = gstate.getTransferBpp();
-
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (!Memory::IsValidAddress(srcBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
-		return;
-	}
-
-	if (!Memory::IsValidAddress(dstBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
-		return;
-	}
-	
-	// Check that the last address of both source and dest are valid addresses
-
-	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
-
-	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-
-	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
-		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && (u32)width == srcStride) {
-			// Common case in God of War, let's do it all in one chunk.
-			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * height * bpp);
-		} else {
-			for (int y = 0; y < height; y++) {
-				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
-				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-				memcpy(dst, src, width * bpp);
-			}
-		}
-
-		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp);
-	}
-
-#ifndef MOBILE_DEVICE
-	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-#endif
-
-	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-	cyclesExecuted += ((height * width * bpp) * 16) / 10;
+	backend_->UpdateStats();
 }
 
 void HighGpuFrontend::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
@@ -1115,50 +871,52 @@ void HighGpuFrontend::InvalidateCache(u32 addr, int size, GPUInvalidationType ty
 	ScheduleEvent(ev);
 }
 
-
 bool HighGpuFrontend::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+	// if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+		GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+		ev.fb_memcpy.dst = dest;
+		ev.fb_memcpy.src = src;
+		ev.fb_memcpy.size = size;
 		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
 			ScheduleEvent(ev);
 
 			// This is a memcpy, so we need to wait for it to complete.
 			SyncThread();
 		} else {
-			PerformMemoryCopyInternal(dest, src, size);
+			backend_->ProcessEvent(ev);
 		}
-		return true;
-	}
+		//return true;
+	// }
 
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
+	// return false;
+	return true;
 }
 
 bool HighGpuFrontend::PerformMemorySet(u32 dest, u8 v, int size) {
+	/*
 	// This may indicate a memset, usually to 0, of a framebuffer.
 	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);
 
+		GPUEvent ev(GPU_EVENT_FB_MEMSET);
+		ev.fb_memset.dst = dest;
+		ev.fb_memset.v = v;
+		ev.fb_memset.size = size;
 		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
 			ScheduleEvent(ev);
 
 			// We don't need to wait for the framebuffer to be updated.
 		} else {
-			PerformMemorySetInternal(dest, v, size);
+			backend_->ProcessEvent(ev);
 		}
 		return true;
 	}
 
 	// Or perhaps a texture, let's invalidate.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	*/
 	return false;
 }
 
@@ -1181,123 +939,87 @@ bool HighGpuFrontend::PerformMemoryUpload(u32 dest, int size) {
 }
 
 bool HighGpuFrontend::PerformStencilUpload(u32 dest, int size) {
-	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
-		return true;
+	GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
+	ev.fb_stencil_upload.dst = dest;
+	ev.fb_stencil_upload.size = size;
+	if (IsOnSeparateCPUThread()) {
+		ScheduleEvent(ev);
+	} else {
+		backend_->ProcessEvent(ev);
 	}
-	return false;
+	return true;
 }
 
 void HighGpuFrontend::ClearCacheNextFrame() {
-	textureCache_.ClearNextFrame();
+	// textureCache_.ClearNextFrame();
 }
 
 void HighGpuFrontend::Resized() {
 	resized_ = true;
-	framebufferManager_.Resized();
+	// framebufferManager_.Resized();
 }
 
 void HighGpuFrontend::ClearShaderCache() {
-	shaderManager_->ClearCache(true);
+	// shaderManager_->ClearCache(true);
 }
 
 void HighGpuFrontend::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
-	shaderManager_->DirtyLastShader();
-	glstate.arrayBuffer.bind(0);
-	glstate.elementArrayBuffer.bind(0);
+	// shaderManager_->DirtyLastShader();
+	// glstate.arrayBuffer.bind(0);
+	// glstate.elementArrayBuffer.bind(0);
 }
 
 std::vector<FramebufferInfo> HighGpuFrontend::GetFramebufferList() {
-	return framebufferManager_.GetFramebufferList();
+	return std::vector<FramebufferInfo>();  //framebufferManager_.GetFramebufferList();
 }
 
 void HighGpuFrontend::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
-	// TODO: Some of these things may not be necessary.
-	// None of these are necessary when saving.
-	// In Freeze-Frame mode, we don't want to do any of this.
-	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_.Clear(true);
-		depalShaderCache_.Clear();
-		transformDraw_.ClearTrackedVertexArrays();
-
-		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_.DestroyAllFBOs();
-		shaderManager_->ClearCache(true);
-	}
+	backend_->DoState(p);
 }
 
 bool HighGpuFrontend::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentFramebuffer(buffer);
+	return false; //framebufferManager_.GetCurrentFramebuffer(buffer);
 }
 
 bool HighGpuFrontend::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentDepthbuffer(buffer);
+	return false; //framebufferManager_.GetCurrentDepthbuffer(buffer);
 }
 
 bool HighGpuFrontend::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentStencilbuffer(buffer);
+	return false; //framebufferManager_.GetCurrentStencilbuffer(buffer);
 }
 
 bool HighGpuFrontend::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
-	if (!gstate.isTextureMapEnabled()) {
-		return false;
-	}
-
-#ifndef USING_GLES2
-	GPUgstate saved;
-	if (level != 0) {
-		saved = gstate;
-
-		// The way we set textures is a bit complex.  Let's just override level 0.
-		gstate.texsize[0] = gstate.texsize[level];
-		gstate.texaddr[0] = gstate.texaddr[level];
-		gstate.texbufwidth[0] = gstate.texbufwidth[level];
-	}
-
-	textureCache_.SetTexture(true);
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
-
-	if (level != 0) {
-		gstate = saved;
-	}
-
-	buffer.Allocate(w, h, GE_FORMAT_8888, gstate_c.flipTexture);
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-
-	return true;
-#else
 	return false;
-#endif
+
+	// TODO
 }
 
 bool HighGpuFrontend::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
-	return FramebufferManager::GetDisplayFramebuffer(buffer);
+	return false; // FramebufferManager::GetDisplayFramebuffer(buffer);
 }
 
 bool HighGpuFrontend::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
-	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
+	return false;  // transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
 bool HighGpuFrontend::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	/*
 	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
 		name = "VertexDecoderJit";
 		return true;
-	}
+	}*/
 	return false;
+}
+
+void HighGpuFrontend::FlushCommandPacket() {
+	backend_->Execute(cmdPacket_);
+
+	// Wait for the GPU thread to be done.
+	arena_.Clear();
 }
 
 }  // namespace HighGpu

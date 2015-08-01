@@ -22,6 +22,11 @@ GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false)
 {
+	// Sanity check gstate
+	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
+		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+	}
+
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
