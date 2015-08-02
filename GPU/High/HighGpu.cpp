@@ -33,6 +33,7 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/MemoryArena.h"
+#include "GPU/Common/VertexDecoderCommon.cpp"
 #include "GPU/High/Command.h"
 #include "GPU/High/HighGpu.h"
 
@@ -349,40 +350,40 @@ static const CommandTableEntry commandTable[] = {
 
 	// Vertex Screen/Texture/Color
 	// These are unimplemented and do not seem to be used.
-	{GE_CMD_VSCX, FLAG_EXECUTE},
-	{GE_CMD_VSCY, FLAG_EXECUTE},
-	{GE_CMD_VSCZ, FLAG_EXECUTE},
-	{GE_CMD_VTCS, FLAG_EXECUTE},
-	{GE_CMD_VTCT, FLAG_EXECUTE},
-	{GE_CMD_VTCQ, FLAG_EXECUTE},
-	{GE_CMD_VCV, FLAG_EXECUTE},
-	{GE_CMD_VAP, FLAG_EXECUTE},
-	{GE_CMD_VFC, FLAG_EXECUTE},
-	{GE_CMD_VSCV, FLAG_EXECUTE},
+	{GE_CMD_VSCX},
+	{GE_CMD_VSCY},
+	{GE_CMD_VSCZ},
+	{GE_CMD_VTCS},
+	{GE_CMD_VTCT},
+	{GE_CMD_VTCQ},
+	{GE_CMD_VCV},
+	{GE_CMD_VAP},
+	{GE_CMD_VFC},
+	{GE_CMD_VSCV},
 
 	// "Missing" commands (gaps in the sequence)
-	{GE_CMD_UNKNOWN_03, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_0D, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_11, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_29, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_34, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_35, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_39, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_4E, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_4F, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_52, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_59, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_5A, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_B6, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_B7, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_D1, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_ED, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_EF, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FA, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FB, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FC, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FD, FLAG_EXECUTE},
-	{GE_CMD_UNKNOWN_FE, FLAG_EXECUTE},
+	{GE_CMD_UNKNOWN_03},
+	{GE_CMD_UNKNOWN_0D},
+	{GE_CMD_UNKNOWN_11},
+	{GE_CMD_UNKNOWN_29},
+	{GE_CMD_UNKNOWN_34},
+	{GE_CMD_UNKNOWN_35},
+	{GE_CMD_UNKNOWN_39},
+	{GE_CMD_UNKNOWN_4E},
+	{GE_CMD_UNKNOWN_4F},
+	{GE_CMD_UNKNOWN_52},
+	{GE_CMD_UNKNOWN_59},
+	{GE_CMD_UNKNOWN_5A},
+	{GE_CMD_UNKNOWN_B6},
+	{GE_CMD_UNKNOWN_B7},
+	{GE_CMD_UNKNOWN_D1},
+	{GE_CMD_UNKNOWN_ED},
+	{GE_CMD_UNKNOWN_EF},
+	{GE_CMD_UNKNOWN_FA},
+	{GE_CMD_UNKNOWN_FB},
+	{GE_CMD_UNKNOWN_FC},
+	{GE_CMD_UNKNOWN_FD},
+	{GE_CMD_UNKNOWN_FE},
 	// Appears to be debugging related or something?  Hit a lot in GoW.
 	{GE_CMD_UNKNOWN_FF, 0},
 };
@@ -420,12 +421,17 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	// Update after init to be sure of any silly driver problems.
 	backend_->UpdateVsyncInterval(true);
 
+	cmdPacket_ = new CommandPacket();
+	CommandPacketInit(cmdPacket_, 256);
+
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	glstate.Restore();
 }
 
 HighGpuFrontend::~HighGpuFrontend() {
+	CommandPacketDeinit(cmdPacket_);
+	delete cmdPacket_;
 	delete backend_;
 }
 
@@ -555,35 +561,29 @@ void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *inds = 0;
+	bool indexed = false;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
 		}
-		inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+		indexed = true;
 	}
 
-	/*
-	int vertexCost = transformDraw_.EstimatePerVertexCost();
-	gpuStats.vertexGPUCycles += vertexCost * count;
-	cyclesExecuted += vertexCost * count;
-	*/
-
-	int bytesRead;
-	CommandSubmitDraw(cmdPacket_, &arena_, &gstate, dirty_, data, &bytesRead);
+	CommandSubmitDraw(cmdPacket_, &arena_, &gstate, dirty_, data, gstate_c.vertexAddr, indexed ? gstate_c.indexAddr : 0);
 
 	// After submitting the drawcall, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
-	if (inds) {
-		int indexSize = 1;
+	if (indexed) {
 		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
-			indexSize = 2;
-		gstate_c.indexAddr += count * indexSize;
+			count *= sizeof(u16);
+		gstate_c.indexAddr += count;
 	} else {
-		gstate_c.vertexAddr += bytesRead;
+		// TODO: Add a very small (4-entry?) LRU cache for these. Cannot use the vertexdecodercache here
+		// as it belongs to the drawing thread, and it's not worth adding locking.
+		int vertexSize = ComputePSPVertexSize(gstate.vertType);
+		gstate_c.vertexAddr += count * vertexSize;
 	}
 
 	if (cmdPacket_->full)

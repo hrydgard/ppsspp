@@ -281,6 +281,7 @@ struct CommandPacket {
 	Command *commands;
 	Command *lastDraw;
 	int numCommands;
+	int maxCommands;
 	bool full;  // Needs a flush
 	// TODO: Shrink these.
 	int numFramebuf;
@@ -317,9 +318,13 @@ struct CommandPacket {
 	MorphState *morph[64];
 };
 
+// Utility functions
+void CommandPacketInit(CommandPacket *cmdPacket, int size);
+void CommandPacketDeinit(CommandPacket *cmdPacket);
+
 // Submitting commands to a CommandPacket
 void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate);
-u32 CommandSubmitDraw(CommandPacket *packet, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 data, int *bytesRead);
+u32 CommandSubmitDraw(CommandPacket *packet, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 primAndCount, u32 vertexAddr, u32 indexAddr);
 void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate);
 void CommandSubmitSync(CommandPacket *cmdPacket);
 

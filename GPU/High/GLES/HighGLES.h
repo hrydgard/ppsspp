@@ -47,6 +47,7 @@ private:
 	std::string reportingFullInfo_;
 
 	bool resized_;
+	// Should this dump decoded draw commands?
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 };

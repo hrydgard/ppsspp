@@ -844,6 +844,51 @@ static const StepFunction posstep_through[4] = {
 	&VertexDecoder::Step_PosFloatThrough,
 };
 
+uint32_t ComputePSPVertexSize(u32 fmt) {
+	int biggest = 0;
+	int size = 0;
+	int tc = fmt & 0x3;
+	int col = (fmt >> 2) & 0x7;
+	int nrm = (fmt >> 5) & 0x3;
+	int pos = (fmt >> 7) & 0x3;
+	int weighttype = (fmt >> 9) & 0x3;
+	int morphcount = ((fmt >> 18) & 0x7) + 1;
+	int nweights = ((fmt >> 14) & 0x7) + 1;
+	if (weighttype) { // && nweights?
+		size += wtsize[weighttype] * nweights;
+		if (wtalign[weighttype] > biggest)
+			biggest = wtalign[weighttype];
+	}
+	if (tc) {
+		size = align(size, tcalign[tc]);
+		size += tcsize[tc];
+		if (tcalign[tc] > biggest)
+			biggest = tcalign[tc];
+	}
+	if (col) {
+		size = align(size, colalign[col]);
+		size += colsize[col];
+		if (colalign[col] > biggest)
+			biggest = colalign[col];
+	}
+	if (nrm) {
+		size = align(size, nrmalign[nrm]);
+		size += nrmsize[nrm];
+		if (nrmalign[nrm] > biggest)
+			biggest = nrmalign[nrm];
+	}
+	if (true) { // there's always a position
+		size = align(size, posalign[pos]);
+		size += possize[pos];
+		if (posalign[pos] > biggest)
+			biggest = posalign[pos];
+	}
+
+	size = align(size, biggest);
+	size *= morphcount;
+	return size;
+}
+
 void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, VertexDecoderJitCache *jitCache) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;

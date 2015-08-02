@@ -61,6 +61,11 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	//
 	// Only then do we submit any draw calls, but what we submit will be very efficient.
 	//
+	// Note that this architecture means that there's a lot here that can be parallelized
+	// as each draw call is completely independent from each other, up until the last step
+	// where we actually go through and submit the draw calls. Candidates for parallelization
+	// are probably texture and vertex decoding.
+	//
 	// Pass 1: Decode all the textures and create framebuffers. This is done first so that the GL driver can
 	// upload them in the background (if it's that advanced)  while we are decoding vertex
 	// data and preparing the draw calls.

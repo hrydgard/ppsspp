@@ -9,6 +9,7 @@ namespace HighGpu {
 // the "state chunks" we have defined, some state chunks cover multiple of these, and some of these
 static u32 LoadEnables(const GPUgstate *gstate) {
 	u32 val = 0;
+	// Vertex
 	if (!gstate->isModeThrough()) {
 		val |= ENABLE_TRANSFORM;
 		if (gstate->isLightingEnabled()) {
@@ -18,6 +19,7 @@ static u32 LoadEnables(const GPUgstate *gstate) {
 			val |= ENABLE_BONES;
 		}
 	}
+	// Fragment/raster
 	if (!gstate->isModeClear()) {
 		// None of this is relevant in clear mode.
 		if (gstate->isAlphaBlendEnabled()) val |= ENABLE_BLEND;
@@ -110,6 +112,7 @@ static void LoadDepthStencilState(DepthStencilState *depthStencil, const GPUgsta
 
 static void LoadTextureState(TextureState *texture, const GPUgstate *gstate) {
 	texture->maxLevel = gstate->getTextureMaxLevel();
+	// SIMD opportunity
 	for (int i = 0; i < texture->maxLevel; i++) {
 		texture->addr[i] = gstate->getTextureAddress(i);
 		texture->dim[i] = gstate->getTextureDimension(i);
@@ -129,6 +132,7 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 
 static void LoadMorphState(MorphState *morph, const GPUgstate *gstate) {
 	int numWeights = 8;  // TODO: Cut down on this when possible
+	// SIMD possible
 	for (int i = 0; i < numWeights; i++) {
 		morph->weights[i] = getFloat24(gstate->morphwgt[i]);
 	}
@@ -319,6 +323,7 @@ u32 LoadStates(CommandPacket *cmdPacket, Command *last, Command *command, Memory
 
 void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate) {
 	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
+	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
 	cmd->type = CMD_TRANSFER;
 	cmd->transfer.srcPtr = gstate->getTransferSrcAddress();
 	cmd->transfer.dstPtr = gstate->getTransferDstAddress();
@@ -334,16 +339,19 @@ void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate) {
 }
 
 // Returns dirty flags
-u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 data, int *bytesRead) {
+u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 primAndCount, u32 vertexAddr, u32 indexAddr) {
 	if (cmdPacket->full) {
 		ELOG("Cannot submit draw commands to a full packet");
 		return dirty;
 	}
 
 	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
-	cmd->draw.count = data & 0xFFFF;
-	int prim = (data >> 16) & 0xF;
+	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
+	cmd->draw.count = primAndCount & 0xFFFF;
+	int prim = (primAndCount >> 16) & 0xF;
 	cmd->draw.prim = prim;
+	cmd->draw.vtxAddr = vertexAddr;
+	cmd->draw.idxAddr = indexAddr;
 	switch (prim) {
 	case GE_PRIM_LINES:
 	case GE_PRIM_LINE_STRIP:
@@ -359,7 +367,6 @@ u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgst
 		cmd->type = CMD_DRAWPOINT;
 		break;
 	}
-
 	u32 newDirty = LoadStates(cmdPacket, cmdPacket->lastDraw, cmd, arena, gstate, dirty);
 	cmdPacket->lastDraw = cmd;
 	return newDirty;
@@ -367,6 +374,7 @@ u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgst
 
 void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate) {
 	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
+	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
 	cmd->type = CMD_LOADCLUT;
 	cmd->clut.addr = gstate->getClutAddress();
 	cmd->clut.bytes = gstate->getClutLoadBytes();
@@ -374,6 +382,7 @@ void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate) {
 
 void CommandSubmitSync(CommandPacket *cmdPacket) {
 	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
+	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
 	cmd->type = CMD_SYNC;
 }
 
@@ -395,7 +404,7 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		case CMD_DRAWTRI:
 		case CMD_DRAWLINE:
 		case CMD_DRAWPOINT:
-			snprintf(line, sizeof(line), "DRAW %s : %d", cmdNames[cmd.type], cmd.draw.count);
+			snprintf(line, sizeof(line), "DRAW %s : %d (v %08x, i %08x)", cmdNames[cmd.type], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr);
 			break;
 		case CMD_TRANSFER:
 			snprintf(line, sizeof(line), "%s : %dx%d", cmdNames[cmd.type], cmd.transfer.width, cmd.transfer.height);
@@ -409,6 +418,16 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 			break;
 		}
 	}
+}
+
+void CommandPacketInit(CommandPacket *cmdPacket, int size) {
+	memset(cmdPacket, 0, sizeof(CommandPacket));
+	cmdPacket->commands = new Command[size];
+	cmdPacket->maxCommands = size;
+}
+
+void CommandPacketDeinit(CommandPacket *cmdPacket) {
+	delete [] cmdPacket->commands;
 }
 
 }  // HighGpu
