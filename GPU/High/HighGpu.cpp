@@ -232,9 +232,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LX2, 0, STATE_LIGHT2},
 	{GE_CMD_LY2, 0, STATE_LIGHT2},
 	{GE_CMD_LZ2, 0, STATE_LIGHT2},
-	{GE_CMD_LX2, 0, STATE_LIGHT3},
-	{GE_CMD_LY2, 0, STATE_LIGHT3},
-	{GE_CMD_LZ2, 0, STATE_LIGHT3},
+	{GE_CMD_LX3, 0, STATE_LIGHT3},
+	{GE_CMD_LY3, 0, STATE_LIGHT3},
+	{GE_CMD_LZ3, 0, STATE_LIGHT3},
 
 	{GE_CMD_LDX0, 0, STATE_LIGHT0},
 	{GE_CMD_LDY0, 0, STATE_LIGHT0},
@@ -245,9 +245,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LDX2, 0, STATE_LIGHT2},
 	{GE_CMD_LDY2, 0, STATE_LIGHT2},
 	{GE_CMD_LDZ2, 0, STATE_LIGHT2},
-	{GE_CMD_LDX2, 0, STATE_LIGHT3},
-	{GE_CMD_LDY2, 0, STATE_LIGHT3},
-	{GE_CMD_LDZ2, 0, STATE_LIGHT3},
+	{GE_CMD_LDX3, 0, STATE_LIGHT3},
+	{GE_CMD_LDY3, 0, STATE_LIGHT3},
+	{GE_CMD_LDZ3, 0, STATE_LIGHT3},
 
 	{GE_CMD_LKA0, 0, STATE_LIGHT0},
 	{GE_CMD_LKB0, 0, STATE_LIGHT0},
@@ -258,19 +258,19 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LKA2, 0, STATE_LIGHT2},
 	{GE_CMD_LKB2, 0, STATE_LIGHT2},
 	{GE_CMD_LKC2, 0, STATE_LIGHT2},
-	{GE_CMD_LKA2, 0, STATE_LIGHT3},
-	{GE_CMD_LKB2, 0, STATE_LIGHT3},
-	{GE_CMD_LKC2, 0, STATE_LIGHT3},
+	{GE_CMD_LKA3, 0, STATE_LIGHT3},
+	{GE_CMD_LKB3, 0, STATE_LIGHT3},
+	{GE_CMD_LKC3, 0, STATE_LIGHT3},
 
 	{GE_CMD_LKS0, 0, STATE_LIGHT0},
 	{GE_CMD_LKS1, 0, STATE_LIGHT1},
 	{GE_CMD_LKS2, 0, STATE_LIGHT2},
-	{GE_CMD_LKS2, 0, STATE_LIGHT3},
+	{GE_CMD_LKS3, 0, STATE_LIGHT3},
 
 	{GE_CMD_LKO0, 0, STATE_LIGHT0},
 	{GE_CMD_LKO1, 0, STATE_LIGHT1},
 	{GE_CMD_LKO2, 0, STATE_LIGHT2},
-	{GE_CMD_LKO2, 0, STATE_LIGHT3},
+	{GE_CMD_LKO3, 0, STATE_LIGHT3},
 
 	{GE_CMD_LAC0, 0, STATE_LIGHT0},
 	{GE_CMD_LDC0, 0, STATE_LIGHT0},
@@ -281,9 +281,9 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LAC2, 0, STATE_LIGHT2},
 	{GE_CMD_LDC2, 0, STATE_LIGHT2},
 	{GE_CMD_LSC2, 0, STATE_LIGHT2},
-	{GE_CMD_LAC2, 0, STATE_LIGHT3},
-	{GE_CMD_LDC2, 0, STATE_LIGHT3},
-	{GE_CMD_LSC2, 0, STATE_LIGHT3},
+	{GE_CMD_LAC3, 0, STATE_LIGHT3},
+	{GE_CMD_LDC3, 0, STATE_LIGHT3},
+	{GE_CMD_LSC3, 0, STATE_LIGHT3},
 
 	// Ignored commands
 	{GE_CMD_CLIPENABLE, 0},
@@ -390,7 +390,7 @@ static const CommandTableEntry commandTable[] = {
 HighGpuFrontend::CommandInfo HighGpuFrontend::cmdInfo_[256];
 
 HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
-: resized_(false), backend_(backend), arena_(ArenaSize), dirty_(0) {
+: resized_(false), dirty_(0), backend_(backend), arena_(ArenaSize) {
 
 	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
@@ -417,7 +417,6 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 
-	BuildReportingInfo();
 	// Update after init to be sure of any silly driver problems.
 	backend_->UpdateVsyncInterval(true);
 
@@ -427,6 +426,7 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 }
 
 HighGpuFrontend::~HighGpuFrontend() {
+	delete backend_;
 }
 
 void HighGpuFrontend::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
@@ -596,6 +596,10 @@ void HighGpuFrontend::Execute_Bezier(u32 op, u32 diff) {
 
 void HighGpuFrontend::Execute_Spline(u32 op, u32 diff) {
 	// TODO
+}
+
+void HighGpuFrontend::Execute_BlockTransferStart(u32 op, u32 diff) {
+	CommandSubmitTransfer(cmdPacket_, &gstate);
 }
 
 void HighGpuFrontend::Execute_BoundingBox(u32 op, u32 diff) {

@@ -1451,13 +1451,23 @@ if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
 
+set(GPU_HIGH_GLES
+	GPU/High/GLES/HighGLES.cpp
+	GPU/High/GLES/HighGLES.h
+	GPU/High/GLES/ShaderManagerHighGLES.h
+	GPU/High/GLES/ShaderManagerHighGLES.cpp
+	GPU/High/GLES/FramebufferManagerHighGLES.h
+	GPU/High/GLES/FramebufferManagerHighGLES.cpp
+	GPU/High/GLES/TextureCacheHighGLES.h
+	GPU/High/GLES/TextureCacheHighGLES.cpp
+)
+
 set(GPU_HIGH
 	GPU/High/HighGpu.cpp
 	GPU/High/HighGpu.h
 	GPU/High/Command.cpp
 	GPU/High/Command.h
-	GPU/High/HighGLES2.h
-	GPU/High/HighGLES2.cpp)
+)
 
 add_library(GPU OBJECT
 	GPU/Common/DepalettizeShaderCommon.cpp
@@ -1486,6 +1496,7 @@ add_library(GPU OBJECT
 	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}
 	${GPU_HIGH}
+	${GPU_HIGH_GLES}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h

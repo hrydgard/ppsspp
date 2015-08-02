@@ -318,7 +318,7 @@ struct CommandPacket {
 };
 
 // Submitting commands to a CommandPacket
-void CommandSubmitTransfer(CommandPacket *packet, const GPUgstate *gstate, u32 data);
+void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate);
 u32 CommandSubmitDraw(CommandPacket *packet, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 data, int *bytesRead);
 void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate);
 void CommandSubmitSync(CommandPacket *cmdPacket);

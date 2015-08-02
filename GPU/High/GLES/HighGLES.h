@@ -9,37 +9,14 @@
 
 namespace HighGpu {
 
-class ShaderManagerGLES {
-public:
-	void ClearCache(bool);
-	void DirtyShader();
-	void DirtyLastShader();
-};
+class ShaderManagerGLES;
+class FramebufferManagerGLES;
+class TextureCacheGLES;
 
-class FramebufferManagerGLES : public FramebufferManagerCommon {
+class HighGpu_GLES : public HighGpuBackend {
 public:
-	void Init();
-	void BeginFrame();
-	void EndFrame();
-	void DestroyAllFBOs();
-	void DeviceLost();
-	void Resized();
-	void CopyDisplayToOutput();
-};
-
-class TextureCacheGLES {
-public:
-	int NumLoadedTextures();
-	bool Clear(bool x);
-	void StartFrame();
-	void Invalidate(u32 addr, int size, GPUInvalidationType type);
-	void InvalidateAll(GPUInvalidationType type);
-};
-
-class HighGPU_GLES : public HighGpuBackend {
-public:
-	HighGPU_GLES();
-	~HighGPU_GLES();
+	HighGpu_GLES();
+	~HighGpu_GLES();
 
 	void Execute(CommandPacket *packet) override;
 	void DeviceLost() override;
@@ -50,6 +27,7 @@ public:
 	void UpdateVsyncInterval(bool force) override;
 
 private:
+	void BuildReportingInfo();
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
@@ -58,8 +36,6 @@ private:
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
-
-	void BuildReportingInfo();
 
 	FramebufferManagerGLES *framebufferManager_;
 	FragmentTestCache fragmentTestCache_;

@@ -30,7 +30,7 @@ enum SkipDrawReasonFlags {
 	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
 };
 
-// Global GPU-related utility functions. 
+// Global GPU-related utility functions.
 // Nothing directly Ge-related in here.
 
 // PSP uses a curious 24-bit float - it's the top 24 bits of a regular IEEE754 32-bit float.

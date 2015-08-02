@@ -43,6 +43,7 @@ namespace HighGpu {
 // cases like copying back to memory.
 class HighGpuBackend {
 public:
+	virtual ~HighGpuBackend() {}
 	virtual void Execute(CommandPacket *packet) = 0;
 	virtual void DeviceLost() = 0;
 	virtual bool ProcessEvent(GPUEvent ev) = 0;
@@ -59,7 +60,7 @@ public:
 // not 3D API-specific.
 class HighGpuFrontend : public GPUCommon {
 public:
-	HighGpuFrontend(HighGpuBackend *backend);
+	explicit HighGpuFrontend(HighGpuBackend *backend);
 	~HighGpuFrontend();
 
 	void InitClear() override;
@@ -144,7 +145,6 @@ private:
 
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
-	void BuildReportingInfo();
 
 	static CommandInfo cmdInfo_[256];
 

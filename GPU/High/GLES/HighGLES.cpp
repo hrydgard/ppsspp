@@ -7,14 +7,20 @@
 #include "Core/Config.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GLES/TextureCache.h"
-#include "GPU/High/HighGpu.h"
-#include "GPU/High/HighGLES2.h"
 #include "GPU/GPUState.h"
+
+#include "GPU/High/HighGpu.h"
+#include "GPU/High/GLES/HighGLES.h"
+#include "GPU/High/GLES/FramebufferManagerHighGLES.h"
+#include "GPU/High/GLES/ShaderManagerHighGLES.h"
+#include "GPU/High/GLES/TextureCacheHighGLES.h"
 #include "GPU/High/Command.h"
+
+#include "native/gfx_es2/gl_state.h"
 
 namespace HighGpu {
 
-HighGPU_GLES::HighGPU_GLES() : dumpThisFrame_(false), dumpNextFrame_(false), resized_(false) {
+HighGpu_GLES::HighGpu_GLES() : resized_(false), dumpNextFrame_(false), dumpThisFrame_(false) {
 	shaderManager_ = new ShaderManagerGLES();
 	/*
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -30,9 +36,10 @@ HighGPU_GLES::HighGPU_GLES() : dumpThisFrame_(false), dumpNextFrame_(false), res
 	textureCache_.SetShaderManager(shaderManager_);
 	fragmentTestCache_.SetTextureCache(&textureCache_);
 	*/
+	BuildReportingInfo();
 }
 
-HighGPU_GLES::~HighGPU_GLES() {
+HighGpu_GLES::~HighGpu_GLES() {
 	framebufferManager_->DestroyAllFBOs();
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
@@ -42,7 +49,7 @@ HighGPU_GLES::~HighGPU_GLES() {
 	glstate.SetVSyncInterval(0);
 }
 
-void HighGPU_GLES::Execute(CommandPacket *packet) {
+void HighGpu_GLES::Execute(CommandPacket *packet) {
 	PrintCommandPacket(packet);
 
 	// We do things in multiple passes, in order to maximize CPU cache efficiency.
@@ -90,7 +97,7 @@ static const char *GetGLStringAlways(GLenum name) {
 }
 
 // Needs to be called on GPU thread, not reporting thread.
-void HighGPU_GLES::BuildReportingInfo() {
+void HighGpu_GLES::BuildReportingInfo() {
 	const char *glVendor = GetGLStringAlways(GL_VENDOR);
 	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
 	const char *glVersion = GetGLStringAlways(GL_VERSION);
@@ -105,12 +112,12 @@ void HighGPU_GLES::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void HighGPU_GLES::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+void HighGpu_GLES::GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
 	primaryInfo = reportingPrimaryInfo_;
 	fullInfo = reportingFullInfo_;
 }
 
-void HighGPU_GLES::UpdateStats() {
+void HighGpu_GLES::UpdateStats() {
 	// gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	// gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	// gpuStats.numShaders = shaderManager_->NumPrograms();
@@ -118,7 +125,7 @@ void HighGPU_GLES::UpdateStats() {
 	// gpuStats.numFBOs = (int)framebufferManager_->NumVFBs();
 }
 
-void HighGPU_GLES::DeviceLost() {
+void HighGpu_GLES::DeviceLost() {
 	// TODO: Figure out sync. Which thread does this call come on?
 
 	// Simply drop all caches and textures.
@@ -133,7 +140,7 @@ void HighGPU_GLES::DeviceLost() {
 	UpdateVsyncInterval(true);
 }
 
-void HighGPU_GLES::BeginFrameInternal() {
+void HighGpu_GLES::BeginFrameInternal() {
 	UpdateVsyncInterval(resized_);
 	resized_ = false;
 
@@ -151,7 +158,7 @@ void HighGPU_GLES::BeginFrameInternal() {
 	framebufferManager_->BeginFrame();
 }
 
-bool HighGPU_GLES::ProcessEvent(GPUEvent ev) {
+bool HighGpu_GLES::ProcessEvent(GPUEvent ev) {
 	switch (ev.type) {
 	case GPU_EVENT_INIT_CLEAR:
 		InitClearInternal();
@@ -190,14 +197,14 @@ bool HighGPU_GLES::ProcessEvent(GPUEvent ev) {
 	return true;
 }
 
-void HighGPU_GLES::ReinitializeInternal() {
+void HighGpu_GLES::ReinitializeInternal() {
 	textureCache_->Clear(true);
 	depalShaderCache_.Clear();
 	framebufferManager_->DestroyAllFBOs();
 	framebufferManager_->Resized();
 }
 
-void HighGPU_GLES::InitClearInternal() {
+void HighGpu_GLES::InitClearInternal() {
 	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
 	if (useNonBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -208,7 +215,7 @@ void HighGPU_GLES::InitClearInternal() {
 	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
-void HighGPU_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
+void HighGpu_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_->Invalidate(addr, size, type);
 	else
@@ -223,7 +230,7 @@ void HighGPU_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 	}
 }
 
-void HighGPU_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
+void HighGpu_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
@@ -234,17 +241,17 @@ void HighGPU_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	InvalidateCacheInternal(dest, size, GPU_INVALIDATE_HINT);
 }
 
-void HighGPU_GLES::PerformMemorySetInternal(u32 dest, u8 v, int size) {
+void HighGpu_GLES::PerformMemorySetInternal(u32 dest, u8 v, int size) {
 	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true)) {
 		InvalidateCacheInternal(dest, size, GPU_INVALIDATE_HINT);
 	}
 }
 
-void HighGPU_GLES::PerformStencilUploadInternal(u32 dest, int size) {
+void HighGpu_GLES::PerformStencilUploadInternal(u32 dest, int size) {
 	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
-void HighGPU_GLES::CopyDisplayToOutputInternal() {
+void HighGpu_GLES::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
 
 	framebufferManager_->RebindFramebuffer();
@@ -270,7 +277,7 @@ void HighGPU_GLES::CopyDisplayToOutputInternal() {
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
-void HighGPU_GLES::UpdateVsyncInterval(bool force) {
+void HighGpu_GLES::UpdateVsyncInterval(bool force) {
 #ifdef _WIN32
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if (PSP_CoreParameter().unthrottle) {
@@ -297,7 +304,7 @@ void HighGPU_GLES::UpdateVsyncInterval(bool force) {
 #endif
 }
 
-void HighGPU_GLES::DoState(PointerWrap &p) {
+void HighGpu_GLES::DoState(PointerWrap &p) {
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	// In Freeze-Frame mode, we don't want to do any of this.

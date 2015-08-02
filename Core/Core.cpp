@@ -174,6 +174,7 @@ void UpdateRunLoop() {
 void GPU_SwapBuffers() {
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
+	case GPU_BACKEND_HIGH_OPENGL:
 		GL_SwapBuffers();
 		break;
 	case GPU_BACKEND_DIRECT3D9:
