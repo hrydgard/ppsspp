@@ -191,7 +191,7 @@ protected:
 	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false) = 0;
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
-	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) = 0;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) = 0;
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;

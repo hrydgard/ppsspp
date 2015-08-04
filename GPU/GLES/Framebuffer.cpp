@@ -708,7 +708,7 @@ void FramebufferManager::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb)
 	}
 }
 
-void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) {
+void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 	}
@@ -751,7 +751,12 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-		BlitFramebufferDepth(prevVfb, vfb);
+		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+			// If depth wasn't updated, then we're at least "two degrees" away from the data.
+			// This is an optimization: it probably doesn't need to be copied in this case.
+		} else {
+			BlitFramebufferDepth(prevVfb, vfb);
+		}
 	}
 	if (vfb->drawnFormat != vfb->format) {
 		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
@@ -821,20 +826,6 @@ void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBuff
 }
 
 void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
-		return;
-	}
-
-	// If depth wasn't updated, then we're at least "two degrees" away from the data.
-	// This is an optimization: it probably doesn't need to be copied in this case.
-	if (!src->depthUpdated) {
-		return;
-	}
-
-	if (gstate.isModeClear() && gstate.isClearModeDepthMask()) {
-		return;
-	}
-
 	if (src->z_address == dst->z_address &&
 		src->z_stride != 0 && dst->z_stride != 0 &&
 		src->renderWidth == dst->renderWidth &&

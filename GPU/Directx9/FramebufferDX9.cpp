@@ -387,7 +387,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) {
+	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		}
@@ -420,7 +420,13 @@ namespace DX9 {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-			BlitFramebufferDepth(prevVfb, vfb);
+			if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+				// If depth wasn't updated, then we're at least "two degrees" away from the data.
+				// This is an optimization: it probably doesn't need to be copied in this case.
+			} else {
+				// TODO: Needs work
+				BlitFramebufferDepth(prevVfb, vfb);
+			}
 		}
 		if (vfb->drawnFormat != vfb->format) {
 			// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
@@ -512,21 +518,6 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
-			return;
-		}
-
-		// If depth wasn't updated, then we're at least "two degrees" away from the data.
-		// This is an optimization: it probably doesn't need to be copied in this case.
-		if (!src->depthUpdated) {
-			return;
-		}
-
-		// Let's only do this if not clearing depth.
-		if (gstate.isModeClear() && gstate.isClearModeDepthMask()) {
-			return;
-		}
-
 		if (src->z_address == dst->z_address &&
 			src->z_stride != 0 && dst->z_stride != 0 &&
 			src->renderWidth == dst->renderWidth &&

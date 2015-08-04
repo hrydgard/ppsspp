@@ -239,6 +239,8 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 
 	GEBufferFormat fmt = gstate.FrameBufFormat();
 
+	bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
+
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
@@ -414,7 +416,7 @@ void FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 
 		VirtualFramebuffer *prev = currentRenderVfb_;
 		currentRenderVfb_ = vfb;
-		NotifyRenderFramebufferSwitched(prev, vfb);
+		NotifyRenderFramebufferSwitched(prev, vfb, isClearingDepth);
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;

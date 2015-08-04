@@ -314,7 +314,8 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 	}
 }
 
-// Called even if AlphaBlendEnable == false
+// Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
+
 void TransformDrawEngine::ApplyBlendState() {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
