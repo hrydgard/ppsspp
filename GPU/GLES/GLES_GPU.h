@@ -155,7 +155,7 @@ private:
 	void Flush() {
 		transformDraw_.Flush();
 	}
-	void DoBlockTransfer();
+	void DoBlockTransfer(u32 skipDrawReason);
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();

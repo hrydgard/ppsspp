@@ -248,7 +248,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->scissorHeight = gstate.getScissorY2() + 1;
 }
 
-VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params) {
+VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.framebufChanged = false;
 
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
@@ -259,7 +259,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
-	gstate_c.cutRTOffsetX = 0;
+	gstate_c.curRTOffsetX = 0;
 	bool vfbFormatChanged = false;
 
 	// Find a matching framebuffer
@@ -290,7 +290,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
 				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
 				vfb = v;
-				gstate_c.cutRTOffsetX = x_offset;
+				gstate_c.curRTOffsetX = x_offset;
 				vfb->width = std::max((int)vfb->width, x_offset + drawing_width);
 				// To prevent the newSize code from being confused.
 				drawing_width += x_offset;
@@ -355,7 +355,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->drawnHeight = 0;
 		vfb->drawnFormat = params.fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
-		SetColorUpdated(vfb, gstate_c.skipDrawReason);
+		SetColorUpdated(vfb, skipDrawReason);
 		vfb->depthUpdated = false;
 
 		u32 byteSize = FramebufferByteSize(vfb);
@@ -417,7 +417,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
 
 		VirtualFramebuffer *prev = currentRenderVfb_;
@@ -427,7 +427,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			vfb->reallyDirtyAfterDisplay = true;
 
 		NotifyRenderFramebufferUpdated(vfb, vfbFormatChanged);
@@ -476,7 +476,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
-bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset) {
+bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset, u32 skipDrawReason) {
 	if (updateVRAM_ || size == 0) {
 		return false;
 	}
@@ -552,7 +552,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			// Just do the blit!
 			if (g_Config.bBlockTransferGPU) {
 				BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
-				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
+				SetColorUpdated(dstBuffer, skipDrawReason);
 				RebindFramebuffer();
 			}
 		}
@@ -563,7 +563,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			FlushBeforeCopy();
 			const u8 *srcBase = Memory::GetPointerUnchecked(src);
 			DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
-			SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
+			SetColorUpdated(dstBuffer, skipDrawReason);
 			RebindFramebuffer();
 			// This is a memcpy, let's still copy just in case.
 			return false;
@@ -666,7 +666,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 	}
 }
 
-bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
+bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp, u32 skipDrawReason) {
 	if (!useBufferedRendering_ || updateVRAM_) {
 		return false;
 	}
@@ -692,7 +692,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 					FlushBeforeCopy();
 					BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 					RebindFramebuffer();
-					SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
+					SetColorUpdated(dstBuffer, skipDrawReason);
 					return true;
 				}
 			} else {
@@ -708,7 +708,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				FlushBeforeCopy();
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
 				RebindFramebuffer();
-				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
+				SetColorUpdated(dstBuffer, skipDrawReason);
 				return true;  // No need to actually do the memory copy behind, probably.
 			}
 		}
@@ -737,7 +737,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 	}
 }
 
-void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp) {
+void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp, u32 skipDrawReason) {
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 
@@ -773,7 +773,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
-				SetColorUpdated(dstBuffer, gstate_c.skipDrawReason);
+				SetColorUpdated(dstBuffer, skipDrawReason);
 				RebindFramebuffer();
 			}
 		}

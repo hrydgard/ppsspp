@@ -482,11 +482,12 @@ struct GPUStateCache {
 	float vpWidthScale;
 	float vpHeightScale;
 
+	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
-	u32 cutRTOffsetX;
+	u32 curRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
 	void DoState(PointerWrap &p);

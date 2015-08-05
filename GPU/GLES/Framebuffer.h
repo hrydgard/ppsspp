@@ -101,7 +101,7 @@ public:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy = false);
+	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, bool skipCopy = false);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
@@ -113,9 +113,9 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
+	bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer);
+	bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
+	bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;

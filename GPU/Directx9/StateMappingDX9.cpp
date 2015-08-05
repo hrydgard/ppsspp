@@ -671,7 +671,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX += gstate_c.cutRTOffsetX * renderWidthFactor;
+	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
 
 	bool throughmode = gstate.isModeThrough();
 
