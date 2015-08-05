@@ -91,6 +91,30 @@ struct VirtualFramebuffer {
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 };
 
+struct FramebufferHeuristicParams {
+	u32 fb_addr;
+	u32 fb_address;
+	int fb_stride;
+	u32 z_address;
+	int z_stride;
+	GEBufferFormat fmt;
+	bool isClearingDepth;
+	bool isWritingDepth;
+	bool isDrawing;
+	bool isModeThrough;
+	int viewportWidth;
+	int viewportHeight;
+	int regionWidth;
+	int regionHeight;
+	int scissorWidth;
+	int scissorHeight;
+};
+
+struct GPUgstate;
+extern GPUgstate gstate;
+
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
+
 class FramebufferManagerCommon {
 public:
 	FramebufferManagerCommon();
@@ -100,7 +124,7 @@ public:
 	void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 
-	VirtualFramebuffer *DoSetRenderFrameBuffer();
+	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params);
 	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
@@ -109,8 +133,13 @@ public:
 			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
 			return currentRenderVfb_;
+		} else {
+			// This is so that we will be able to drive DoSetRenderFramebuffer with inputs
+			// that come from elsewhere than gstate.
+			FramebufferHeuristicParams inputs;
+			GetFramebufferHeuristicInputs(&inputs, gstate);
+			return DoSetRenderFrameBuffer(inputs);
 		}
-		return DoSetRenderFrameBuffer();
 	}
 	virtual void RebindFramebuffer() = 0;
 

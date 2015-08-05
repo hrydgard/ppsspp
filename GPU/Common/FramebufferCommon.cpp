@@ -218,45 +218,46 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", fb_address, viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
 }
 
-VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate) {
+	params->fb_addr = gstate.getFrameBufAddress();
+	params->fb_address = gstate.getFrameBufRawAddress();
+	params->fb_stride = gstate.FrameBufStride();
+
+	params->z_address = gstate.getDepthBufRawAddress();
+	params->z_stride = gstate.DepthBufStride();
+
+	params->fmt = gstate.FrameBufFormat();
+
+	params->isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
+	// Technically, it may write depth later, but we're trying to detect it only when it's really true.
+	if (gstate.isModeClear()) {
+		// Not quite seeing how this makes sense..
+		params->isWritingDepth = !gstate.isClearModeDepthMask() && gstate.isDepthWriteEnabled();
+	} else {
+		params->isWritingDepth = gstate.isDepthWriteEnabled();
+	}
+	params->isDrawing = !gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask();
+	params->isModeThrough = gstate.isModeThrough();
+
+	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
+	params->viewportWidth = (int)(fabsf(gstate.getViewportX1()*2.0f));
+	params->viewportHeight = (int)(fabsf(gstate.getViewportY1()*2.0f));
+	params->regionWidth = gstate.getRegionX2() + 1;
+	params->regionHeight = gstate.getRegionY2() + 1;
+	params->scissorWidth = gstate.getScissorX2() + 1;
+	params->scissorHeight = gstate.getScissorY2() + 1;
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params) {
 	gstate_c.framebufChanged = false;
 
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
 	// but it appears that's what it takes, unless we emulate VRAM layout more accurately somehow.
 
-	const u32 fb_addr = gstate.getFrameBufAddress();
-	const u32 fb_address = gstate.getFrameBufRawAddress();
-	const int fb_stride = gstate.FrameBufStride();
-
-	const u32 z_address = gstate.getDepthBufRawAddress();
-	const int z_stride = gstate.DepthBufStride();
-
-	const GEBufferFormat fmt = gstate.FrameBufFormat();
-
-	const bool isClearingDepth = gstate.isModeClear() && gstate.isClearModeDepthMask();
-	bool writingDepth;
-	// Technically, it may write depth later, but we're trying to detect it only when it's really true.
-	if (gstate.isModeClear()) {
-		// Not quite seeing how this makes sense..
-		writingDepth = !gstate.isClearModeDepthMask() && gstate.isDepthWriteEnabled();
-	} else {
-		writingDepth = gstate.isDepthWriteEnabled();
-	}
-	const bool isDrawing = !gstate.isModeClear() || !gstate.isClearModeColorMask() || !gstate.isClearModeAlphaMask();
-	const bool isModeThrough = gstate.isModeThrough();
-
-	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
-	const int viewport_width = (int)(fabsf(gstate.getViewportX1()*2.0f));
-	const int viewport_height = (int)(fabsf(gstate.getViewportY1()*2.0f));
-	const int region_width = gstate.getRegionX2() + 1;
-	const int region_height = gstate.getRegionY2() + 1;
-	const int scissor_width = gstate.getScissorX2() + 1;
-	const int scissor_height = gstate.getScissorY2() + 1;
-
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(fb_address, fmt, viewport_width, viewport_height, region_width, region_height, scissor_width, scissor_height, std::max(fb_stride, 4), drawing_width, drawing_height);
+	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
 
 	gstate_c.cutRTOffsetX = 0;
 	bool vfbFormatChanged = false;
@@ -265,16 +266,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (v->fb_address == fb_address) {
+		if (v->fb_address == params.fb_address) {
 			vfb = v;
 			// Update fb stride in case it changed
-			if (vfb->fb_stride != fb_stride || vfb->format != fmt) {
+			if (vfb->fb_stride != params.fb_stride || vfb->format != params.fmt) {
 				vfbFormatChanged = true;
-				vfb->fb_stride = fb_stride;
-				vfb->format = fmt;
+				vfb->fb_stride = params.fb_stride;
+				vfb->format = params.fmt;
 			}
 			// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
-			if (isModeThrough && (int)vfb->width < fb_stride) {
+			if (params.isModeThrough && (int)vfb->width < params.fb_stride) {
 				vfb->width = std::max((int)vfb->width, drawing_width);
 				vfb->height = std::max((int)vfb->height, drawing_height);
 			} else {
@@ -282,11 +283,11 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 				vfb->height = drawing_height;
 			}
 			break;
-		} else if (v->fb_address < fb_address && v->fb_address + v->fb_stride * 4 > fb_address) {
+		} else if (v->fb_address < params.fb_address && v->fb_address + v->fb_stride * 4 > params.fb_address) {
 			// Possibly a render-to-offset.
 			const u32 bpp = v->format == GE_FORMAT_8888 ? 4 : 2;
-			const int x_offset = (fb_address - v->fb_address) / bpp;
-			if (v->format == fmt && v->fb_stride == fb_stride && x_offset < fb_stride && v->height >= drawing_height) {
+			const int x_offset = (params.fb_address - v->fb_address) / bpp;
+			if (v->format == params.fmt && v->fb_stride == params.fb_stride && x_offset < params.fb_stride && v->height >= drawing_height) {
 				WARN_LOG_REPORT_ONCE(renderoffset, HLE, "Rendering to framebuffer offset: %08x +%dx%d", v->fb_address, x_offset, 0);
 				vfb = v;
 				gstate_c.cutRTOffsetX = x_offset;
@@ -311,7 +312,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 			} else if (vfb->lastFrameNewSize + FBO_OLD_AGE < gpuStats.numFlips) {
 				// Okay, it's changed for a while (and stayed that way.)  Let's start over.
 				// But only if we really need to, to avoid blinking.
-				bool needsRecreate = vfb->bufferWidth > fb_stride;
+				bool needsRecreate = vfb->bufferWidth > params.fb_stride;
 				needsRecreate = needsRecreate || vfb->newWidth > vfb->bufferWidth || vfb->newWidth * 2 < vfb->bufferWidth;
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
@@ -327,7 +328,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
-	if (hackForce04154000Download_ && fb_address == 0x00154000) {
+	if (hackForce04154000Download_ && params.fb_address == 0x00154000) {
 		renderWidthFactor = 1.0;
 		renderHeightFactor = 1.0;
 	}
@@ -336,10 +337,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 	if (!vfb) {
 		vfb = new VirtualFramebuffer();
 		vfb->fbo = 0;
-		vfb->fb_address = fb_address;
-		vfb->fb_stride = fb_stride;
-		vfb->z_address = z_address;
-		vfb->z_stride = z_stride;
+		vfb->fb_address = params.fb_address;
+		vfb->fb_stride = params.fb_stride;
+		vfb->z_address = params.z_address;
+		vfb->z_stride = params.z_stride;
 		vfb->width = drawing_width;
 		vfb->height = drawing_height;
 		vfb->newWidth = drawing_width;
@@ -349,16 +350,16 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
 		vfb->bufferWidth = drawing_width;
 		vfb->bufferHeight = drawing_height;
-		vfb->format = fmt;
+		vfb->format = params.fmt;
 		vfb->drawnWidth = 0;
 		vfb->drawnHeight = 0;
-		vfb->drawnFormat = fmt;
+		vfb->drawnFormat = params.fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb, gstate_c.skipDrawReason);
 		vfb->depthUpdated = false;
 
 		u32 byteSize = FramebufferByteSize(vfb);
-		u32 fb_address_mem = (fb_address & 0x3FFFFFFF) | 0x04000000;
+		u32 fb_address_mem = (params.fb_address & 0x3FFFFFFF) | 0x04000000;
 		if (Memory::IsVRAMAddress(fb_address_mem) && fb_address_mem + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = fb_address_mem + byteSize;
 		}
@@ -385,24 +386,24 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 		// Let's check for depth buffer overlap.  Might be interesting.
 		bool sharingReported = false;
 		for (size_t i = 0, end = vfbs_.size(); i < end; ++i) {
-			if (vfbs_[i]->z_stride != 0 && fb_address == vfbs_[i]->z_address) {
+			if (vfbs_[i]->z_stride != 0 && params.fb_address == vfbs_[i]->z_address) {
 				// If it's clearing it, most likely it just needs more video memory.
 				// Technically it could write something interesting and the other might not clear, but that's not likely.
-				if (isDrawing) {
-					if (fb_address != z_address && vfbs_[i]->fb_address != vfbs_[i]->z_address) {
-						WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				if (params.isDrawing) {
+					if (params.fb_address != params.z_address && vfbs_[i]->fb_address != vfbs_[i]->z_address) {
+						WARN_LOG_REPORT(SCEGE, "FBO created from existing depthbuffer as color, %08x/%08x and %08x/%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 					}
 				}
-			} else if (z_stride != 0 && z_address == vfbs_[i]->fb_address) {
+			} else if (params.z_stride != 0 && params.z_address == vfbs_[i]->fb_address) {
 				// If it's clearing it, then it's probably just the reverse of the above case.
-				if (writingDepth) {
-					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				if (params.isWritingDepth) {
+					WARN_LOG_REPORT(SCEGE, "FBO using existing buffer as depthbuffer, %08x/%08x and %08x/%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 				}
-			} else if (vfbs_[i]->z_stride != 0 && z_address == vfbs_[i]->z_address && fb_address != vfbs_[i]->fb_address && !sharingReported) {
+			} else if (vfbs_[i]->z_stride != 0 && params.z_address == vfbs_[i]->z_address && params.fb_address != vfbs_[i]->fb_address && !sharingReported) {
 				// This happens a lot, but virtually always it's cleared.
 				// It's possible the other might not clear, but when every game is reported it's not useful.
-				if (writingDepth) {
-					WARN_LOG_REPORT(SCEGE, "FBO reusing depthbuffer, %08x/%08x and %08x/%08x", fb_address, z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
+				if (params.isWritingDepth) {
+					WARN_LOG_REPORT(SCEGE, "FBO reusing depthbuffer, %08x/%08x and %08x/%08x", params.fb_address, params.z_address, vfbs_[i]->fb_address, vfbs_[i]->z_address);
 					sharingReported = true;
 				}
 			}
@@ -421,7 +422,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer() {
 
 		VirtualFramebuffer *prev = currentRenderVfb_;
 		currentRenderVfb_ = vfb;
-		NotifyRenderFramebufferSwitched(prev, vfb, isClearingDepth);
+		NotifyRenderFramebufferSwitched(prev, vfb, params.isClearingDepth);
 	} else {
 		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
