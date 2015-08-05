@@ -1211,6 +1211,10 @@ namespace DX9 {
 	void FramebufferManagerDX9::FlushBeforeCopy() {
 		// Flush anything not yet drawn before blitting, downloading, or uploading.
 		// This might be a stalled list, or unflushed before a block transfer, etc.
+
+		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+		// all the irrelevant state checking it'll use to decide what to do. Should
+		// do something more focused here.
 		SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 		transformDraw_->Flush();
 	}

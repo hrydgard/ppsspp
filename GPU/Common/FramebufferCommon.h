@@ -100,17 +100,17 @@ public:
 	void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 
-	void DoSetRenderFrameBuffer();
-	void SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
+	VirtualFramebuffer *DoSetRenderFrameBuffer();
+	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
 		if (!framebufChanged && currentRenderVfb_) {
 			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
 			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
-			return;
+			return currentRenderVfb_;
 		}
-		DoSetRenderFrameBuffer();
+		return DoSetRenderFrameBuffer();
 	}
 	virtual void RebindFramebuffer() = 0;
 
@@ -184,7 +184,7 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) = 0;
 
-	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
+	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 

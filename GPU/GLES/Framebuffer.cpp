@@ -1850,6 +1850,10 @@ void FramebufferManager::DestroyAllFBOs() {
 void FramebufferManager::FlushBeforeCopy() {
 	// Flush anything not yet drawn before blitting, downloading, or uploading.
 	// This might be a stalled list, or unflushed before a block transfer, etc.
+
+	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+	// all the irrelevant state checking it'll use to decide what to do. Should
+	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	transformDraw_->Flush();
 }
@@ -1861,6 +1865,7 @@ void FramebufferManager::Resized() {
 bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
 	int fb_stride = gstate.FrameBufStride();
+	GEBufferFormat format = gstate.FrameBufFormat();
 
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
@@ -1869,7 +1874,7 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 
 	if (!vfb) {
 		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, gstate.FrameBufFormat());
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
 		return true;
 	}
 
