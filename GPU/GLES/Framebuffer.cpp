@@ -703,7 +703,7 @@ void FramebufferManager::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb)
 	ClearBuffer();
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height && shaderManager_) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
@@ -764,7 +764,7 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 	}
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height && shaderManager_) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
@@ -778,7 +778,7 @@ void FramebufferManager::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb,
 	}
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height && shaderManager_) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
