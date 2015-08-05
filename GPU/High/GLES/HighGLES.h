@@ -7,10 +7,11 @@
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/Common/FramebufferCommon.h"
 
+class FramebufferManager;
+
 namespace HighGpu {
 
 class ShaderManagerGLES;
-class FramebufferManagerGLES;
 class TextureCacheGLES;
 
 class HighGpu_GLES : public HighGpuBackend {
@@ -37,7 +38,7 @@ private:
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
 
-	FramebufferManagerGLES *framebufferManager_;
+	FramebufferManager *framebufferManager_;
 	FragmentTestCache fragmentTestCache_;
 	DepalShaderCache depalShaderCache_;
 	ShaderManagerGLES *shaderManager_;

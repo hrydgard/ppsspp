@@ -273,6 +273,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 if(ANDROID)
+	message("Android Build")
 	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/android/libs/${ANDROID_ABI}")
 endif()
 
@@ -1456,8 +1457,6 @@ set(GPU_HIGH_GLES
 	GPU/High/GLES/HighGLES.h
 	GPU/High/GLES/ShaderManagerHighGLES.h
 	GPU/High/GLES/ShaderManagerHighGLES.cpp
-	GPU/High/GLES/FramebufferManagerHighGLES.h
-	GPU/High/GLES/FramebufferManagerHighGLES.cpp
 	GPU/High/GLES/TextureCacheHighGLES.h
 	GPU/High/GLES/TextureCacheHighGLES.cpp
 )

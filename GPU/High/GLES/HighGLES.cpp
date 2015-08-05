@@ -6,12 +6,15 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"
 #include "Common/ChunkFile.h"
-#include "GPU/GLES/TextureCache.h"
+
 #include "GPU/GPUState.h"
+
+// Reuse some components of the old GPU emulation
+#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/Framebuffer.h"
 
 #include "GPU/High/HighGpu.h"
 #include "GPU/High/GLES/HighGLES.h"
-#include "GPU/High/GLES/FramebufferManagerHighGLES.h"
 #include "GPU/High/GLES/ShaderManagerHighGLES.h"
 #include "GPU/High/GLES/TextureCacheHighGLES.h"
 #include "GPU/High/Command.h"
@@ -22,6 +25,7 @@ namespace HighGpu {
 
 HighGpu_GLES::HighGpu_GLES() : resized_(false), dumpNextFrame_(false), dumpThisFrame_(false) {
 	shaderManager_ = new ShaderManagerGLES();
+	framebufferManager_ = new FramebufferManager();
 	/*
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
@@ -45,7 +49,7 @@ HighGpu_GLES::~HighGpu_GLES() {
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
-	shaderManager_ = nullptr;
+	delete framebufferManager_;
 	glstate.SetVSyncInterval(0);
 }
 
