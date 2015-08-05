@@ -392,7 +392,6 @@ HighGpuFrontend::CommandInfo HighGpuFrontend::cmdInfo_[256];
 
 HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 : resized_(false), dirty_(0), backend_(backend), arena_(ArenaSize) {
-
 	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
 	memset(cmdInfo_, 0, sizeof(cmdInfo_));
@@ -421,8 +420,11 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	// Update after init to be sure of any silly driver problems.
 	backend_->UpdateVsyncInterval(true);
 
+	CommandInitDummyDraw(&dummyDraw_);
+
 	cmdPacket_ = new CommandPacket();
 	CommandPacketInit(cmdPacket_, 256);
+	CommandPacketReset(cmdPacket_, &dummyDraw_);
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
@@ -1020,8 +1022,10 @@ bool HighGpuFrontend::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 void HighGpuFrontend::FlushCommandPacket() {
+	// TODO: Might need a queue of these packets for parallelism later.
 	backend_->Execute(cmdPacket_);
 
+	CommandPacketReset(cmdPacket_, &dummyDraw_);
 	// Wait for the GPU thread to be done.
 	arena_.Clear();
 }

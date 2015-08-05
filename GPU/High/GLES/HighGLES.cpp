@@ -240,7 +240,7 @@ void HighGpu_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 }
 
 void HighGpu_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size)) {
+	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
 		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
@@ -251,7 +251,7 @@ void HighGpu_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 }
 
 void HighGpu_GLES::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true)) {
+	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
 		InvalidateCacheInternal(dest, size, GPU_INVALIDATE_HINT);
 	}
 }

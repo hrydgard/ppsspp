@@ -150,7 +150,7 @@ inline void LoadMatrix4x4(Matrix4x4 *mtx, const float *data) {
 
 // TODO: De-duplicate states, looking a couple of items back in each list.
 // This algorithm can be refined in the future.
-u32 LoadStates(CommandPacket *cmdPacket, Command *last, Command *command, MemoryArena *arena, const GPUgstate *gstate, u32 dirty) {
+static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *command, MemoryArena *arena, const GPUgstate *gstate, u32 dirty) {
 	// Early out for repeated commands with no state changes in between.
 	if (!dirty) {
 		command->draw.enabled = last->draw.enabled;
@@ -426,8 +426,27 @@ void CommandPacketInit(CommandPacket *cmdPacket, int size) {
 	cmdPacket->maxCommands = size;
 }
 
+void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw) {
+	// Save the two pieces of state that remains relevant.
+	Command *temp = cmdPacket->commands;
+	int max = cmdPacket->maxCommands;
+	memset(cmdPacket, 0, sizeof(CommandPacket));
+	cmdPacket->commands = temp;
+	cmdPacket->maxCommands = max;
+
+	// Create the dummy command that the first draw can diff against.
+	cmdPacket->numCommands = 0;
+	cmdPacket->lastDraw = dummyDraw;
+}
+
 void CommandPacketDeinit(CommandPacket *cmdPacket) {
 	delete [] cmdPacket->commands;
+}
+
+void CommandInitDummyDraw(Command *cmd) {
+	memset(cmd, 0xFF, sizeof(*cmd));
+	cmd->type = CMD_DRAWTRI;
+	cmd->draw.count = 0;
 }
 
 }  // HighGpu

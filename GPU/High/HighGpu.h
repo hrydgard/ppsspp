@@ -156,6 +156,10 @@ private:
 	HighGpuBackend *backend_;
 	CommandPacket *cmdPacket_;
 	MemoryArena arena_;
+
+	// This is used to diff the first draw in a packet against.
+	// TODO: Is is better to eliminate it through adding extra logic?
+	Command dummyDraw_;
 };
 
 }  // namespace

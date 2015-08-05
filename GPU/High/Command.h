@@ -279,7 +279,7 @@ struct Matrix4x4 {
 // completely blowing up the CPU cache, hopefully.
 struct CommandPacket {
 	Command *commands;
-	Command *lastDraw;
+	const Command *lastDraw;
 	int numCommands;
 	int maxCommands;
 	bool full;  // Needs a flush
@@ -321,6 +321,9 @@ struct CommandPacket {
 // Utility functions
 void CommandPacketInit(CommandPacket *cmdPacket, int size);
 void CommandPacketDeinit(CommandPacket *cmdPacket);
+void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw);
+
+void CommandInitDummyDraw(Command *cmd);
 
 // Submitting commands to a CommandPacket
 void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate);
@@ -329,7 +332,6 @@ void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate);
 void CommandSubmitSync(CommandPacket *cmdPacket);
 
 void PrintCommandPacket(CommandPacket *cmd);
-
 #undef BIT
 
 }  // namespace
