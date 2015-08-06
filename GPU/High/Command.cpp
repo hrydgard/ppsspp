@@ -14,6 +14,9 @@ static u32 LoadEnables(const GPUgstate *gstate) {
 		val |= ENABLE_TRANSFORM;
 		if (gstate->isLightingEnabled()) {
 			val |= ENABLE_LIGHTS;
+			for (int i = 0; i < 4; i++) {
+				if (gstate->isLightChanEnabled(i)) val |= (ENABLE_LIGHT0 << i);
+			}
 		}
 		if (gstate->isSkinningEnabled()) {
 			val |= ENABLE_BONES;
@@ -63,15 +66,23 @@ static void LoadLightState(LightState *light, const GPUgstate *gstate, int light
 	light->diffuseColor = gstate->getDiffuseColor(lightnum);
 	light->specularColor = gstate->getSpecularColor(lightnum);
 	light->ambientColor = gstate->getLightAmbientColor(lightnum);
-	switch (light->type) {
-		case GE_LIGHTTYPE_DIRECTIONAL:
-		case GE_LIGHTTYPE_POINT:
-			light->pos[0] = getFloat24(gstate->lpos[lightnum * 4 + 0]);
-			light->pos[1] = getFloat24(gstate->lpos[lightnum * 4 + 1]);
-			light->pos[2] = getFloat24(gstate->lpos[lightnum * 4 + 2]);
-			break;
-		default:
-			break;
+	light->pos[0] = getFloat24(gstate->lpos[lightnum * 4 + 0]);
+	light->pos[1] = getFloat24(gstate->lpos[lightnum * 4 + 1]);
+	light->pos[2] = getFloat24(gstate->lpos[lightnum * 4 + 2]);
+	if (light->type == GE_LIGHTTYPE_DIRECTIONAL) {
+		memset(light->att, 0, sizeof(light->att));
+	} else {
+		light->att[0] = getFloat24(gstate->latt[lightnum * 4 + 0]);
+		light->att[1] = getFloat24(gstate->latt[lightnum * 4 + 1]);
+		light->att[2] = getFloat24(gstate->latt[lightnum * 4 + 2]);
+	}
+	if (light->type == GE_LIGHTTYPE_SPOT) {
+		light->dir[0] = getFloat24(gstate->ldir[lightnum * 4 + 0]);
+		light->dir[1] = getFloat24(gstate->ldir[lightnum * 4 + 1]);
+		light->dir[2] = getFloat24(gstate->ldir[lightnum * 4 + 2]);
+		light->lcutoff = getFloat24(gstate->lcutoff[lightnum]);
+	} else {
+		memset(light->dir, 0, sizeof(light->dir));
 	}
 }
 
@@ -184,6 +195,43 @@ inline void LoadMatrix4x4(Matrix4x4 *mtx, const float *data) {
 	memcpy(mtx, data, 16 * sizeof(float));
 }
 
+// Only send in a single bit!
+const char *StateBitToString(u32 bit) {
+	switch (bit) {
+	case STATE_FRAMEBUF:     return "FRAMEBUF";
+	case STATE_BLEND:        return "BLEND";
+	case STATE_FRAGMENT:     return "FRAGMENT";
+	case STATE_WORLDMATRIX:  return "WORLDMATRIX";
+	case STATE_VIEWMATRIX:   return "VIEWMATRIX";
+	case STATE_PROJMATRIX:   return "PROJMATRIX";
+	case STATE_TEXMATRIX:    return "TEXMATRIX";
+	case STATE_TEXTURE:      return "TEXTURE";
+	case STATE_DEPTHSTENCIL: return "DEPTHSTENCIL";
+	case STATE_MORPH:        return "MORPH";
+	case STATE_RASTERIZER:   return "RASTERIZER";
+	case STATE_SAMPLER:      return "SAMPLER";
+	case STATE_CLUT:         return "CLUT";
+	case STATE_TEXSCALE:     return "TEXSCALE";
+	case STATE_VIEWPORT:     return "VIEWPORT";
+	case STATE_LIGHTGLOBAL:  return "LIGHTGLOBAL";
+	case STATE_LIGHT0:       return "LIGHT0";
+	case STATE_LIGHT1:       return "LIGHT1";
+	case STATE_LIGHT2:       return "LIGHT2";
+	case STATE_LIGHT3:       return "LIGHT3";
+	case STATE_BONE0:        return "BONE0";
+	case STATE_BONE1:        return "BONE1";
+	case STATE_BONE2:        return "BONE2";
+	case STATE_BONE3:        return "BONE3";
+	case STATE_BONE4:        return "BONE4";
+	case STATE_BONE5:        return "BONE5";
+	case STATE_BONE6:        return "BONE6";
+	case STATE_BONE7:        return "BONE7";
+	case 0:                  return "none";
+	default:
+		return "(unknown)";
+	}
+}
+
 // TODO: De-duplicate states, looking a couple of items back in each list.
 // This algorithm can be refined in the future.
 static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *command, MemoryArena *arena, const GPUgstate *gstate, u32 dirty) {
@@ -196,12 +244,12 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	u32 enabled = LoadEnables(gstate);
 	command->draw.enabled = enabled;
 
-	bool full = false;
+	u32 full = 0;
 
 	if (dirty & STATE_FRAMEBUF) {
 		command->draw.framebuf = cmdPacket->numFramebuf;
 		LoadFramebufState(arena->Allocate(&cmdPacket->framebuf[cmdPacket->numFramebuf++]), gstate);
-		if (cmdPacket->numFramebuf == ARRAY_SIZE(cmdPacket->framebuf)) full = true;
+		if (cmdPacket->numFramebuf == ARRAY_SIZE(cmdPacket->framebuf)) full = STATE_FRAMEBUF;
 		dirty &= ~STATE_FRAMEBUF;
 	} else {
 		command->draw.framebuf = last->draw.framebuf;
@@ -218,7 +266,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			arena->Rewind(sizeof(RasterState));
 			command->draw.raster = cmdPacket->numRaster - 1;
 		}
-		if (cmdPacket->numRaster == ARRAY_SIZE(cmdPacket->raster)) full = true;
+		if (cmdPacket->numRaster == ARRAY_SIZE(cmdPacket->raster)) full = STATE_RASTERIZER;
 		dirty &= ~STATE_RASTERIZER;
 	} else {
 		command->draw.raster = last->draw.raster;
@@ -227,7 +275,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	if (dirty & STATE_FRAGMENT) {
 		command->draw.fragment = cmdPacket->numFragment;
 		LoadFragmentState(arena->Allocate(&cmdPacket->fragment[cmdPacket->numFragment++]), gstate);
-		if (cmdPacket->numFragment == ARRAY_SIZE(cmdPacket->fragment)) full = true;
+		if (cmdPacket->numFragment == ARRAY_SIZE(cmdPacket->fragment)) full = STATE_FRAGMENT;
 		dirty &= ~STATE_FRAGMENT;
 	} else {
 		command->draw.fragment = last->draw.fragment;
@@ -236,7 +284,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	if ((enabled & (ENABLE_BLEND|ENABLE_ALPHA_TEST|ENABLE_COLOR_TEST)) && (dirty & STATE_BLEND)) {
 		command->draw.blend = cmdPacket->numBlend;
 		LoadBlendState(arena->Allocate(&cmdPacket->blend[cmdPacket->numBlend++]), gstate);
-		if (cmdPacket->numBlend == ARRAY_SIZE(cmdPacket->blend)) full = true;
+		if (cmdPacket->numBlend == ARRAY_SIZE(cmdPacket->blend)) full = STATE_BLEND;
 		dirty &= ~STATE_BLEND;
 	} else {
 		command->draw.blend = last->draw.blend;
@@ -245,7 +293,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	if (enabled & (ENABLE_DEPTH_TEST|ENABLE_STENCIL_TEST) && (dirty & STATE_DEPTHSTENCIL)) {
 		command->draw.depthStencil = cmdPacket->numDepthStencil;
 		LoadDepthStencilState(arena->Allocate(&cmdPacket->depthStencil[cmdPacket->numDepthStencil++]), gstate);
-		if (cmdPacket->numDepthStencil == ARRAY_SIZE(cmdPacket->depthStencil)) full = true;
+		if (cmdPacket->numDepthStencil == ARRAY_SIZE(cmdPacket->depthStencil)) full = STATE_DEPTHSTENCIL;
 		dirty &= ~STATE_DEPTHSTENCIL;
 	} else {
 		command->draw.depthStencil = last->draw.depthStencil;
@@ -255,7 +303,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_TEXTURE) {
 			command->draw.texture = cmdPacket->numTexture;
 			LoadTextureState(arena->Allocate(&cmdPacket->texture[cmdPacket->numTexture++]), gstate);
-			if (cmdPacket->numTexture == ARRAY_SIZE(cmdPacket->texture)) full = true;
+			if (cmdPacket->numTexture == ARRAY_SIZE(cmdPacket->texture)) full = STATE_TEXTURE;
 			dirty &= ~STATE_TEXTURE;
 		} else {
 			command->draw.texture = last->draw.texture;
@@ -263,7 +311,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if ((enabled && ENABLE_TRANSFORM) && (dirty & STATE_TEXSCALE)) {
 			command->draw.texScale = cmdPacket->numTexScale;
 			LoadTexScaleState(arena->Allocate(&cmdPacket->texScale[cmdPacket->numTexScale++]), gstate);
-			if (cmdPacket->numTexScale == ARRAY_SIZE(cmdPacket->texScale)) full = true;
+			if (cmdPacket->numTexScale == ARRAY_SIZE(cmdPacket->texScale)) full = STATE_TEXSCALE;
 			dirty &= ~STATE_TEXSCALE;
 		} else {
 			command->draw.texScale = last->draw.texScale;
@@ -271,7 +319,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_SAMPLER) {
 			command->draw.sampler = cmdPacket->numSampler;
 			LoadSamplerState(arena->Allocate(&cmdPacket->sampler[cmdPacket->numSampler++]), gstate);
-			if (cmdPacket->numSampler == ARRAY_SIZE(cmdPacket->sampler)) full = true;
+			if (cmdPacket->numSampler == ARRAY_SIZE(cmdPacket->sampler)) full = STATE_SAMPLER;
 			dirty &= ~STATE_SAMPLER;
 		} else {
 			command->draw.sampler = last->draw.sampler;
@@ -286,7 +334,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_VIEWPORT) {
 			command->draw.viewport = cmdPacket->numViewport;
 			LoadViewportState(arena->Allocate(&cmdPacket->viewport[cmdPacket->numViewport++]), gstate);
-			if (cmdPacket->numViewport == ARRAY_SIZE(cmdPacket->viewport)) full = true;
+			if (cmdPacket->numViewport == ARRAY_SIZE(cmdPacket->viewport)) full = STATE_VIEWPORT;
 			dirty &= ~STATE_VIEWPORT;
 		} else {
 			command->draw.viewport = last->draw.viewport;
@@ -294,7 +342,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_WORLDMATRIX) {
 			command->draw.worldMatrix = cmdPacket->numWorldMatrix;
 			LoadMatrix4x3(arena->Allocate(&cmdPacket->worldMatrix[cmdPacket->numWorldMatrix++]), gstate->worldMatrix);
-			if (cmdPacket->numWorldMatrix == ARRAY_SIZE(cmdPacket->worldMatrix)) full = true;
+			if (cmdPacket->numWorldMatrix == ARRAY_SIZE(cmdPacket->worldMatrix)) full = STATE_WORLDMATRIX;
 			dirty &= ~STATE_WORLDMATRIX;
 		} else {
 			command->draw.worldMatrix = last->draw.worldMatrix;
@@ -302,7 +350,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_VIEWMATRIX) {
 			command->draw.viewMatrix = cmdPacket->numViewMatrix;
 			LoadMatrix4x3(arena->Allocate(&cmdPacket->viewMatrix[cmdPacket->numViewMatrix++]), gstate->viewMatrix);
-			if (cmdPacket->numViewMatrix == ARRAY_SIZE(cmdPacket->viewMatrix)) full = true;
+			if (cmdPacket->numViewMatrix == ARRAY_SIZE(cmdPacket->viewMatrix)) full = STATE_VIEWMATRIX;
 			dirty &= ~STATE_VIEWMATRIX;
 		} else {
 			command->draw.viewMatrix = last->draw.viewMatrix;
@@ -310,7 +358,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_PROJMATRIX) {
 			command->draw.projMatrix = cmdPacket->numProjMatrix;
 			LoadMatrix4x4(arena->Allocate(&cmdPacket->projMatrix[cmdPacket->numProjMatrix++]), gstate->projMatrix);
-			if (cmdPacket->numProjMatrix == ARRAY_SIZE(cmdPacket->projMatrix)) full = true;
+			if (cmdPacket->numProjMatrix == ARRAY_SIZE(cmdPacket->projMatrix)) full = STATE_WORLDMATRIX;
 			dirty &= ~STATE_PROJMATRIX;
 		} else {
 			command->draw.projMatrix = last->draw.projMatrix;
@@ -318,7 +366,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_TEXMATRIX) {
 			command->draw.texMatrix = cmdPacket->numTexMatrix;
 			LoadMatrix4x3(arena->Allocate(&cmdPacket->texMatrix[cmdPacket->numTexMatrix++]), gstate->tgenMatrix);
-			if (cmdPacket->numTexMatrix == ARRAY_SIZE(cmdPacket->texMatrix)) full = true;
+			if (cmdPacket->numTexMatrix == ARRAY_SIZE(cmdPacket->texMatrix)) full = STATE_TEXMATRIX;
 			dirty &= ~STATE_TEXMATRIX;
 		} else {
 			command->draw.texMatrix = last->draw.texMatrix;
@@ -327,21 +375,22 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			if (dirty & STATE_VIEWPORT) {
 				command->draw.lightGlobal = cmdPacket->numLightGlobal;
 				LoadLightGlobalState(arena->Allocate(&cmdPacket->lightGlobal[cmdPacket->numLightGlobal++]), gstate);
-				if (cmdPacket->numLightGlobal == ARRAY_SIZE(cmdPacket->lightGlobal)) full = true;
+				if (cmdPacket->numLightGlobal == ARRAY_SIZE(cmdPacket->lightGlobal)) full = STATE_VIEWPORT;
 				dirty &= ~STATE_VIEWPORT;
 			} else {
 				command->draw.lightGlobal = last->draw.lightGlobal;
 			}
 			for (int i = 0; i < 4; i++) {
-				if (dirty & (STATE_LIGHT0 << i)) {
+				if ((enabled & (ENABLE_LIGHT0 << i)) && (dirty & (STATE_LIGHT0 << i))) {
 					command->draw.lights[i] = cmdPacket->numLight;
 					LoadLightState(arena->Allocate(&cmdPacket->lights[cmdPacket->numLight++]), gstate, i);
-					if (cmdPacket->numLight >= ARRAY_SIZE(cmdPacket->lights) - 4) full = true;
+					if (cmdPacket->numLight >= ARRAY_SIZE(cmdPacket->lights) - 4) full = STATE_LIGHT0 << i;
 				} else {
 					command->draw.lights[i] = last->draw.lights[i];
 				}
 			}
 		} else {
+			command->draw.lightGlobal = last->draw.lightGlobal;
 			for (int i = 0; i < 4; i++) {
 				command->draw.lights[i] = last->draw.lights[i];
 			}
@@ -354,7 +403,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 				if (dirty & (STATE_BONE0 << i)) {
 					command->draw.boneMatrix[i] = cmdPacket->numBoneMatrix;
 					LoadMatrix4x3(arena->Allocate(&cmdPacket->boneMatrix[cmdPacket->numBoneMatrix++]), &gstate->boneMatrix[i * 12]);
-					if (cmdPacket->numBoneMatrix >= ARRAY_SIZE(cmdPacket->boneMatrix) - 4) full = true;
+					if (cmdPacket->numBoneMatrix >= ARRAY_SIZE(cmdPacket->boneMatrix) - 4) full = STATE_BONE0 << i;
 				} else {
 					command->draw.boneMatrix[i] = last->draw.boneMatrix[i];
 				}
@@ -366,6 +415,15 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			for (int i = 0; i < 8; i++) {
 				command->draw.boneMatrix[i] = last->draw.boneMatrix[i];
 			}
+		}
+
+		if ((dirty & STATE_MORPH) && (enabled & ENABLE_MORPH)) {
+			command->draw.morph = cmdPacket->numMorph;
+			LoadMorphState(arena->Allocate(&cmdPacket->morph[cmdPacket->numMorph++]), gstate);
+			if (cmdPacket->numMorph >= ARRAY_SIZE(cmdPacket->morph)) full = STATE_MORPH;
+			dirty &= ~STATE_MORPH;
+		} else {
+			command->draw.morph = last->draw.morph;
 		}
 	} else {
 		command->draw.viewport = last->draw.viewport;
@@ -380,19 +438,11 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		for (int i = 0; i < 8; i++) {
 			command->draw.boneMatrix[i] = last->draw.boneMatrix[i];
 		}
-	}
-
-	if ((dirty & STATE_MORPH) && (enabled & ENABLE_MORPH)) {
-		command->draw.morph = cmdPacket->numMorph;
-		LoadMorphState(arena->Allocate(&cmdPacket->morph[cmdPacket->numMorph++]), gstate);
-		if (cmdPacket->numMorph >= ARRAY_SIZE(cmdPacket->morph)) full = true;
-		dirty &= ~STATE_MORPH;
-	} else {
 		command->draw.morph = last->draw.morph;
 	}
 
 	if (full) {
-		cmdPacket->full = true;
+		cmdPacket->full = full;
 	}
 
 	// Morph, etc...
@@ -477,8 +527,24 @@ static const char *primNames[8] = {
 
 };
 
+
+void LogMatrix4x3(const char *name, int i, const Matrix4x3 *m) {
+	ILOG("%s matrix %d: [[%f, %f, %f][%f, %f, %f][%f, %f, %f][%f, %f, %f]]",
+			name, i,
+			m->v[0], m->v[1], m->v[2], m->v[3], m->v[4], m->v[5], m->v[6], m->v[7], m->v[8], m->v[9], m->v[10], m->v[11]);
+}
+
+void LogMatrix4x4(const char *name, int i, const Matrix4x4 *m) {
+	ILOG("%s matrix %d: [[%f, %f, %f, %f][%f, %f, %f, %f][%f, %f, %f, %f][%f, %f, %f, %f]]",
+			name, i,
+			m->v[0], m->v[1], m->v[2], m->v[3],
+			m->v[4], m->v[5], m->v[6], m->v[7],
+			m->v[8], m->v[9], m->v[10], m->v[11],
+			m->v[12], m->v[13], m->v[14], m->v[15]);
+}
+
 void PrintCommandPacket(CommandPacket *cmdPacket) {
-	ILOG("========= Commands: %d", cmdPacket->numCommands);
+	ILOG("========= Commands: %d (full: %s) ==========", cmdPacket->numCommands, StateBitToString(cmdPacket->full));
 	for (int i = 0; i < cmdPacket->numCommands; i++) {
 		char line[1024];
 		const Command &cmd = cmdPacket->commands[i];
@@ -490,13 +556,14 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d "
 					"blend:%d depth:%d "
 					"world:%d view:%d proj:%d tex:%d "
-					"lg: %d l0:%d l1:%d l2:%d l3:%d "
-					"morph: %d",
+					"lg:%d l0:%d l1:%d l2:%d l3:%d "
+					"morph:%d b0:%d",
 					drawNames[cmd.type], cmd.draw.count, cmd.draw.vtxformat, cmd.draw.vtxAddr, cmd.draw.idxAddr, cmd.draw.enabled,
 					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler,
 					cmd.draw.blend, cmd.draw.depthStencil,
 					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
-					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3], cmd.draw.morph);
+					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3],
+					cmd.draw.morph, cmd.draw.boneMatrix[0]);
 			break;
 		case CMD_TRANSFER:
 			snprintf(line, sizeof(line), "TRANSFER : %dx%d", cmd.transfer.width, cmd.transfer.height);
@@ -549,45 +616,45 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		ILOG("Blend %d: src:%d dst:%d eq:%d fixa:%06x fixb:%06x ",
 				i, b->blendSrc, b->blendDst, b->blendEq, b->blendfixa, b->blendfixb);
 	}
+	for (int i = 0; i < cmdPacket->numDepthStencil; i++) {
+		const DepthStencilState *b = cmdPacket->depthStencil[i];
+		ILOG("DepthStencil %d: dfunc=%d dwrite=%d sfunc=%d sref=%02x smask=%02x sfail=%d szfail=%d szpass=%d",
+				i, b->depthFunc, b->depthWriteEnable, b->stencilFunc, b->stencilRef, b->stencilMask, b->stencilOpSFail, b->stencilOpZFail, b->stencilOpZPass);
+	}
 	for (int i = 0; i < cmdPacket->numViewport; i++) {
 		const ViewportState *v = cmdPacket->viewport[i];
 		ILOG("Viewport %d: C: %f, %f, %f  SZ: %f, %f, %f", i, v->x1, v->y1, v->z1, v->x2, v->y2, v->z2);
 	}
 	for (int i = 0; i < cmdPacket->numWorldMatrix; i++) {
-		const Matrix4x3 *world = cmdPacket->worldMatrix[i];
-		ILOG("World matrix %d: [[%f, %f, %f][%f, %f, %f][%f, %f, %f][%f, %f, %f]]", i, world->v[0], world->v[1], world->v[2], world->v[3], world->v[4], world->v[5], world->v[6], world->v[7], world->v[8], world->v[9], world->v[10], world->v[11]);
+		LogMatrix4x3("World", i, cmdPacket->worldMatrix[i]);
 	}
 	for (int i = 0; i < cmdPacket->numViewMatrix; i++) {
-		const Matrix4x3 *view = cmdPacket->viewMatrix[i];
-		ILOG("View matrix %d: %f, ...", i, view->v[0]);
+		LogMatrix4x3("View", i, cmdPacket->viewMatrix[i]);
 	}
 	for (int i = 0; i < cmdPacket->numProjMatrix; i++) {
-		const Matrix4x4 *proj = cmdPacket->projMatrix[i];
-		ILOG("Proj matrix %d: %f, ...", i, proj->v[0]);
+		LogMatrix4x4("Proj", i, cmdPacket->projMatrix[i]);
 	}
 	for (int i = 0; i < cmdPacket->numTexMatrix; i++) {
-		const Matrix4x3 *tex = cmdPacket->texMatrix[i];
-		ILOG("Tex matrix %d: %f, ...", i, tex->v[0]);
+		LogMatrix4x3("Tex", i, cmdPacket->texMatrix[i]);
 	}
 	for (int i = 0; i < cmdPacket->numBoneMatrix; i++) {
-		const Matrix4x3 *bone = cmdPacket->boneMatrix[i];
-		ILOG("Bone matrix %d: %f, ...", i, bone->v[0]);
+		LogMatrix4x3("Bone", i, cmdPacket->boneMatrix[i]);
 	}
 	for (int i = 0; i < cmdPacket->numLightGlobal; i++) {
 		const LightGlobalState *lg = cmdPacket->lightGlobal[i];
-		ILOG("LightGlobal %d: MU: %d matambient: %08x diff: %06x spec: %06x emiss: %06x speccoef: %f", i, lg->materialUpdate, lg->materialAmbient, lg->materialDiffuse, lg->materialSpecular, lg->materialEmissive, lg->specularCoef);
+		ILOG("LightGlobal %d: MU: %d matambient: %08x diff: %06x spec: %06x emiss: %06x speccoef: %f lmode: %d", i, lg->materialUpdate, lg->materialAmbient, lg->materialDiffuse, lg->materialSpecular, lg->materialEmissive, lg->specularCoef, lg->lmode);
 	}
 	for (int i = 0; i < cmdPacket->numLight; i++) {
 		const LightState *l = cmdPacket->lights[i];
 		switch (l->type) {
 		case GE_LIGHTTYPE_DIRECTIONAL:
-			ILOG("Light %d: DIRECTIONAL dir=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2]);
+			ILOG("Light %d: DIRECTIONAL dir=%f %f %f", i, l->pos[0], l->pos[1], l->pos[2]);
 			break;
 		case GE_LIGHTTYPE_POINT:
-			ILOG("Light %d: POINT dir=%f %f %f pos=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2], l->pos[0], l->pos[1], l->pos[2]);
+			ILOG("Light %d: POINT att=%f %f %f pos=%f %f %f", i, l->att[0], l->att[1], l->att[2], l->pos[0], l->pos[1], l->pos[2]);
 			break;
 		case GE_LIGHTTYPE_SPOT:
-			ILOG("Light %d: SPOT dir=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2]);
+			ILOG("Light %d: SPOT pos=%f %f %f dir=%f %f %f cutoff=%f", i, l->pos[0], l->pos[1], l->pos[2], l->dir[0], l->dir[1], l->dir[2], l->lcutoff);
 			break;
 		}
 	}

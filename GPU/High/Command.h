@@ -32,7 +32,7 @@ enum CommandType : u8 {
 	CMD_SYNC,
 };
 
-enum EnableFlags : u16 {
+enum EnableFlags : u32 {
 	ENABLE_BLEND          = BIT(0),
 	ENABLE_ALPHA_TEST     = BIT(1),
 	ENABLE_COLOR_TEST     = BIT(2),
@@ -47,6 +47,10 @@ enum EnableFlags : u16 {
 	ENABLE_BONES          = BIT(11),
 	ENABLE_MORPH          = BIT(12),
 	ENABLE_TEXMATRIX      = BIT(13),
+	ENABLE_LIGHT0         = BIT(14),
+	ENABLE_LIGHT1         = BIT(15),
+	ENABLE_LIGHT2         = BIT(16),
+	ENABLE_LIGHT3         = BIT(17),
 };
 
 // All the individual state sections, both enable-able and not, for helping keeping track of them.
@@ -292,7 +296,7 @@ struct CommandPacket {
 	const Command *lastDraw;
 	int numCommands;
 	int maxCommands;
-	bool full;  // Needs a flush
+	u32 full;  // Needs a flush
 	// TODO: Shrink these.
 	int numFramebuf;
 	int numFragment;
@@ -314,13 +318,13 @@ struct CommandPacket {
 	FramebufState *framebuf[64];
 	FragmentState *fragment[64];
 	RasterState *raster[64];
-	Matrix4x3 *worldMatrix[1024];  // to accomodate GTA water craziness. A compromise might be enough though.
+	Matrix4x3 *worldMatrix[254];
 	Matrix4x3 *viewMatrix[16];
 	Matrix4x4 *projMatrix[16];
 	Matrix4x3 *texMatrix[16];
-	Matrix4x3 *boneMatrix[256];
+	Matrix4x3 *boneMatrix[254];
 	ViewportState *viewport[16];
-	BlendState *blend[16];
+	BlendState *blend[64];
 	DepthStencilState *depthStencil[16];
 	TextureState *texture[16];
 	TexScaleState *texScale[64];
