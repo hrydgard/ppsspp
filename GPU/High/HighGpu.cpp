@@ -77,11 +77,11 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_MAXZ},
 
 	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSCALEU, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSCALEV, 0, STATE_TEXTURE},
-	{GE_CMD_TEXOFFSETU, 0, STATE_TEXTURE},
-	{GE_CMD_TEXOFFSETV, 0, STATE_TEXTURE},
+	{GE_CMD_TEXMAPMODE, 0, STATE_TEXSCALE},
+	{GE_CMD_TEXSCALEU, 0, STATE_TEXSCALE},
+	{GE_CMD_TEXSCALEV, 0, STATE_TEXSCALE},
+	{GE_CMD_TEXOFFSETU, 0, STATE_TEXSCALE},
+	{GE_CMD_TEXOFFSETV, 0, STATE_TEXSCALE},
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
@@ -93,8 +93,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXSIZE5, 0, STATE_TEXTURE},
 	{GE_CMD_TEXSIZE6, 0, STATE_TEXTURE},
 	{GE_CMD_TEXSIZE7, 0, STATE_TEXTURE},
-	{GE_CMD_TEXFORMAT, 0, STATE_TEXTURE},
-	{GE_CMD_TEXLEVEL, 0, STATE_TEXTURE},
 	{GE_CMD_TEXADDR0, 0, STATE_TEXTURE},
 	{GE_CMD_TEXADDR1, 0, STATE_TEXTURE},
 	{GE_CMD_TEXADDR2, 0, STATE_TEXTURE},
@@ -111,32 +109,35 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXBUFWIDTH5, 0, STATE_TEXTURE},
 	{GE_CMD_TEXBUFWIDTH6, 0, STATE_TEXTURE},
 	{GE_CMD_TEXBUFWIDTH7, 0, STATE_TEXTURE},
+	{GE_CMD_TEXFORMAT, 0, STATE_TEXTURE},
+	{GE_CMD_TEXLEVEL, 0, STATE_TEXTURE},
+	{GE_CMD_TEXMODE, 0, STATE_TEXTURE},  // swizzle, etc etc
 
 	// These are merged into clutload command directly, no state object needed.
-	{GE_CMD_CLUTADDR, 0},
-	{GE_CMD_CLUTADDRUPPER, 0},
-	{GE_CMD_CLUTFORMAT, 0},
+	{GE_CMD_CLUTADDR},
+	{GE_CMD_CLUTADDRUPPER},
+	{GE_CMD_CLUTFORMAT},
+
+	{GE_CMD_TEXSHADELS,       0, STATE_TEXSCALE},  // The light sources to use for light-UV-gen
 
 	// These affect the fragment shader
 	{GE_CMD_CLEARMODE,        0, STATE_RASTERIZER},
-	{GE_CMD_TEXTUREMAPENABLE, 0, STATE_TEXTURE},
-	{GE_CMD_FOGENABLE,        0, STATE_FRAGMENT},
-	{GE_CMD_TEXMODE,          0, STATE_TEXTURE},
-	{GE_CMD_TEXSHADELS,       0, STATE_TEXTURE},
+	{GE_CMD_TEXTUREMAPENABLE},
+	{GE_CMD_FOGENABLE,        0},
 	{GE_CMD_SHADEMODE,        0, STATE_FRAGMENT},
 	{GE_CMD_TEXFUNC,          0, STATE_FRAGMENT},
 	{GE_CMD_COLORTEST,        0, STATE_BLEND},
-	{GE_CMD_ALPHATESTENABLE,  0, STATE_BLEND},
-	{GE_CMD_COLORTESTENABLE,  0, STATE_BLEND},
+	{GE_CMD_ALPHATESTENABLE},
+	{GE_CMD_COLORTESTENABLE},
 	{GE_CMD_COLORTESTMASK,    0, STATE_BLEND},
 
 	// These change the vertex shader
 	{GE_CMD_REVERSENORMAL, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_LIGHTINGENABLE, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_LIGHTENABLE0, 0, STATE_LIGHT0},
-	{GE_CMD_LIGHTENABLE1, 0, STATE_LIGHT1},
-	{GE_CMD_LIGHTENABLE2, 0, STATE_LIGHT2},
-	{GE_CMD_LIGHTENABLE3, 0, STATE_LIGHT3},
+	{GE_CMD_LIGHTINGENABLE},
+	{GE_CMD_LIGHTENABLE0},
+	{GE_CMD_LIGHTENABLE1},
+	{GE_CMD_LIGHTENABLE2},
+	{GE_CMD_LIGHTENABLE3},
 	{GE_CMD_LIGHTTYPE0, 0, STATE_LIGHT0},
 	{GE_CMD_LIGHTTYPE1, 0, STATE_LIGHT1},
 	{GE_CMD_LIGHTTYPE2, 0, STATE_LIGHT2},
@@ -145,8 +146,8 @@ static const CommandTableEntry commandTable[] = {
 
 	// This changes both shaders so need flushing.
 	{GE_CMD_LIGHTMODE, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_TEXFILTER, 0, STATE_TEXTURE},
-	{GE_CMD_TEXWRAP, 0, STATE_TEXTURE},
+	{GE_CMD_TEXFILTER, 0, STATE_SAMPLER},
+	{GE_CMD_TEXWRAP, 0, STATE_SAMPLER},
 
 	// Uniform changes
 	{GE_CMD_ALPHATEST, 0, STATE_BLEND},
@@ -161,19 +162,19 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITHERENABLE, 0, 0},
 	{GE_CMD_STENCILOP, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_STENCILTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_STENCILTESTENABLE, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_ALPHABLENDENABLE, 0, STATE_BLEND},
+	{GE_CMD_STENCILTESTENABLE},
+	{GE_CMD_ALPHABLENDENABLE},
 	{GE_CMD_BLENDMODE, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDA, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDB, 0, STATE_BLEND},
 	{GE_CMD_MASKRGB, 0, STATE_BLEND},
 	{GE_CMD_MASKALPHA, 0, STATE_BLEND},
 	{GE_CMD_ZTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_ZTESTENABLE, 0, STATE_DEPTHSTENCIL},
+	{GE_CMD_ZTESTENABLE},
 	{GE_CMD_ZWRITEDISABLE, 0, STATE_DEPTHSTENCIL},
 #ifndef USING_GLES2
 	{GE_CMD_LOGICOP, 0, STATE_BLEND},
-	{GE_CMD_LOGICOPENABLE, 0, STATE_BLEND},
+	{GE_CMD_LOGICOPENABLE, 0},
 #else
 	{GE_CMD_LOGICOP, 0},
 	{GE_CMD_LOGICOPENABLE, 0},
@@ -287,21 +288,21 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LSC3, 0, STATE_LIGHT3},
 
 	// Ignored commands
-	{GE_CMD_CLIPENABLE, 0},
-	{GE_CMD_TEXFLUSH, 0},
-	{GE_CMD_TEXLODSLOPE, 0},
-	{GE_CMD_TEXSYNC, 0},
+	{GE_CMD_CLIPENABLE},
+	{GE_CMD_TEXFLUSH},
+	{GE_CMD_TEXLODSLOPE},
+	{GE_CMD_TEXSYNC},
 
 	// These are just nop or part of other later commands.
-	{GE_CMD_NOP, 0},
-	{GE_CMD_BASE, 0},
-	{GE_CMD_TRANSFERSRC, 0},
-	{GE_CMD_TRANSFERSRCW, 0},
-	{GE_CMD_TRANSFERDST, 0},
-	{GE_CMD_TRANSFERDSTW, 0},
-	{GE_CMD_TRANSFERSRCPOS, 0},
-	{GE_CMD_TRANSFERDSTPOS, 0},
-	{GE_CMD_TRANSFERSIZE, 0},
+	{GE_CMD_NOP},
+	{GE_CMD_BASE},
+	{GE_CMD_TRANSFERSRC},
+	{GE_CMD_TRANSFERSRCW},
+	{GE_CMD_TRANSFERDST},
+	{GE_CMD_TRANSFERDSTW},
+	{GE_CMD_TRANSFERSRCPOS},
+	{GE_CMD_TRANSFERDSTPOS},
+	{GE_CMD_TRANSFERSIZE},
 
 	// From Common. No flushing but definitely need execute. These don't affect drawing, only the
 	// command processor's operation.
@@ -385,7 +386,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_UNKNOWN_FD},
 	{GE_CMD_UNKNOWN_FE},
 	// Appears to be debugging related or something?  Hit a lot in GoW.
-	{GE_CMD_UNKNOWN_FF, 0},
+	{GE_CMD_UNKNOWN_FF},
 };
 
 HighGpuFrontend::CommandInfo HighGpuFrontend::cmdInfo_[256];
@@ -572,14 +573,15 @@ void HighGpuFrontend::Execute_Prim(u32 op, u32 diff) {
 		indexed = true;
 	}
 
-	CommandSubmitDraw(cmdPacket_, &arena_, &gstate, dirty_, data, gstate_c.vertexAddr, indexed ? gstate_c.indexAddr : 0);
+	dirty_ = CommandSubmitDraw(cmdPacket_, &arena_, &gstate, dirty_, data, gstate_c.vertexAddr, indexed ? gstate_c.indexAddr : 0);
 
 	// After submitting the drawcall, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	if (indexed) {
-		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT) {
 			count *= sizeof(u16);
+		}
 		gstate_c.indexAddr += count;
 	} else {
 		// TODO: Add a very small (4-entry?) LRU cache for these. Cannot use the vertexdecodercache here
@@ -1000,7 +1002,6 @@ bool HighGpuFrontend::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
 
 bool HighGpuFrontend::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	return false;
-
 	// TODO
 }
 
@@ -1013,11 +1014,6 @@ bool HighGpuFrontend::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVe
 }
 
 bool HighGpuFrontend::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	/*
-	if (transformDraw_.IsCodePtrVertexDecoder(ptr)) {
-		name = "VertexDecoderJit";
-		return true;
-	}*/
 	return false;
 }
 
@@ -1028,6 +1024,13 @@ void HighGpuFrontend::FlushCommandPacket() {
 	CommandPacketReset(cmdPacket_, &dummyDraw_);
 	// Wait for the GPU thread to be done.
 	arena_.Clear();
+	dirty_ = STATE_ALL;
+}
+
+// This is probably a pretty good point to flush the command packet. Needs more investigation.
+void HighGpuFrontend::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
+	GPUCommon::SyncEnd(waitType, listid, wokeThreads);
+	FlushCommandPacket();
 }
 
 }  // namespace HighGpu

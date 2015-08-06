@@ -133,6 +133,8 @@ public:
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;

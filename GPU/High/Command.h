@@ -46,6 +46,7 @@ enum EnableFlags : u16 {
 	ENABLE_LIGHTS         = BIT(10),
 	ENABLE_BONES          = BIT(11),
 	ENABLE_MORPH          = BIT(12),
+	ENABLE_TEXMATRIX      = BIT(13),
 };
 
 // All the individual state sections, both enable-able and not, for helping keeping track of them.
@@ -65,6 +66,7 @@ enum StateFlags : u32 {
 	STATE_RASTERIZER = BIT(10),
 	STATE_SAMPLER = BIT(11),
 	STATE_CLUT = BIT(12),
+	STATE_TEXSCALE = BIT(13),
 	STATE_VIEWPORT = BIT(18),
 	STATE_LIGHTGLOBAL = BIT(19),
 	STATE_LIGHT0 = BIT(20),
@@ -79,9 +81,10 @@ enum StateFlags : u32 {
 	STATE_BONE5 = BIT(29),
 	STATE_BONE6 = BIT(30),
 	STATE_BONE7 = BIT(31),
+	STATE_ALL = 0xFFFC1FFF,
 };
 
-// 12 + 2 + 6 + 4 + 8 = 32 bytes (no way this will be enough...)
+// This is starting to grow large... but I think we have nearly all state now.
 struct DrawCommandData {
 	u32 vtxformat;
 	u32 vtxAddr;
@@ -100,6 +103,7 @@ struct DrawCommandData {
 	u8 blend;
 	u8 depthStencil;
 	u8 texture;
+	u8 texScale;
 	u8 sampler;
 	u8 morph;
 	u8 lightGlobal;
@@ -135,9 +139,6 @@ struct Command {
 	};
 };
 
-
-
-
 struct FramebufState {
 	u32 colorPtr;
 	u16 colorStride;
@@ -164,14 +165,14 @@ struct RasterState {
 
 // TODO: fogCoefs are more like transform state. Maybe move?
 struct FragmentState {
-	float fogCoef1;
-	float fogCoef2;
-	u32 fogColor;
 	bool colorDouble;
 	bool useTextureAlpha;
 	u8 texFunc;
 	u32 texEnvColor;
 	u8 shadeMode;
+	float fogCoef1;
+	float fogCoef2;
+	u32 fogColor;
 };
 
 struct ViewportState {
@@ -210,15 +211,22 @@ struct DepthStencilState {
 // partial mip pyramids and only store the size of the first level. I think we do need to store
 // all addresses though, although might be able to delta compress them.
 struct TextureState {
-	float offsetX;
-	float offsetY;
-	float scaleX;
-	float scaleY;
 	u32 addr[8];
 	u16 dim[8];
 	u16 stride[8];
 	u8 maxLevel;
 	u8 format;
+	u8 swizzled;
+	u8 mipClutMode;
+};
+
+// Really, UV generation state.
+struct TexScaleState {
+	float scaleU;
+	float scaleV;
+	float offsetU;
+	float offsetV;
+	int texMapMode;  // UVGen mode (uv, texmtx, etc)
 };
 
 struct SamplerState {
@@ -245,14 +253,14 @@ struct LightGlobalState {
 struct LightState {
 	u8 enabled;
 	u8 type;
-	float dir[3];
+	float pos[3];  // pos is used as direction for directional lights.
 	u32 diffuseColor;
 	u32 ambientColor;
 	u32 specularColor;
 	// pointlight-and-spotlight-only data
-	float pos[3];
 	float att[3];
 	// spotlight-only data
+	float dir[3];
 	float lconv;
 	float lcutoff;
 };
@@ -268,6 +276,8 @@ struct Matrix4x3 {
 struct Matrix4x4 {
 	float v[16];
 };
+
+const int INVALID_STATE = 255;
 
 // A tree of display lists up to an "END" gets combined into a CommandPacket.
 //
@@ -296,6 +306,7 @@ struct CommandPacket {
 	int numBlend;
 	int numDepthStencil;
 	int numTexture;
+	int numTexScale;
 	int numSampler;
 	int numLightGlobal;
 	int numLight;
@@ -303,7 +314,7 @@ struct CommandPacket {
 	FramebufState *framebuf[64];
 	FragmentState *fragment[64];
 	RasterState *raster[64];
-	Matrix4x3 *worldMatrix[1024];
+	Matrix4x3 *worldMatrix[1024];  // to accomodate GTA water craziness. A compromise might be enough though.
 	Matrix4x3 *viewMatrix[16];
 	Matrix4x4 *projMatrix[16];
 	Matrix4x3 *texMatrix[16];
@@ -312,6 +323,7 @@ struct CommandPacket {
 	BlendState *blend[16];
 	DepthStencilState *depthStencil[16];
 	TextureState *texture[16];
+	TexScaleState *texScale[64];
 	SamplerState *sampler[16];
 	LightGlobalState *lightGlobal[16];
 	LightState *lights[128];

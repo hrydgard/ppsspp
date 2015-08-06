@@ -1,10 +1,15 @@
 #pragma once
 
+#include <cstdlib>
+#include <cstring>
+
+#include "Common/CommonTypes.h"
 
 class MemoryArena {
 public:
-	MemoryArena(size_t size) : totalSize_(size), ptr_(0) {
+	MemoryArena(size_t size) : ptr_(0), totalSize_(size) {
 		data_ = new u8[size];
+		memset(data_, 0, size);
 	}
 	~MemoryArena() {
 		delete [] data_;
@@ -21,6 +26,15 @@ public:
 		u8 *ptr = data_ + ptr_;
 		ptr_ += bytes;
 		return ptr;
+	}
+
+	template<class T>
+	void Rewind(T *ptr) {
+		ptr_ -= sizeof(T);
+	}
+
+	void Rewind(size_t bytes) {
+		ptr_ -= bytes;
 	}
 
 	// This invalidates all pointers allocated.

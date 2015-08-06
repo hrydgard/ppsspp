@@ -29,7 +29,10 @@ static u32 LoadEnables(const GPUgstate *gstate) {
 		if (gstate->isLogicOpEnabled()) val |= ENABLE_LOGIC_OP;
 		if (gstate->isStencilTestEnabled()) val |= ENABLE_STENCIL_TEST;
 		if (gstate->isDepthTestEnabled()) val |= ENABLE_DEPTH_TEST;
-		if (gstate->isTextureMapEnabled()) val |= ENABLE_TEXTURE;
+		if (gstate->isTextureMapEnabled()) {
+			val |= ENABLE_TEXTURE;
+		}
+		// TODO: Compute an enable flag for the tex matrix
 	}
 	return val;
 }
@@ -60,9 +63,15 @@ static void LoadLightState(LightState *light, const GPUgstate *gstate, int light
 	light->diffuseColor = gstate->getDiffuseColor(lightnum);
 	light->specularColor = gstate->getSpecularColor(lightnum);
 	light->ambientColor = gstate->getLightAmbientColor(lightnum);
-	// ...
-	if (light->type == GE_LIGHTTYPE_SPOT) {
-		// light->cutoff =
+	switch (light->type) {
+		case GE_LIGHTTYPE_DIRECTIONAL:
+		case GE_LIGHTTYPE_POINT:
+			light->pos[0] = getFloat24(gstate->lpos[lightnum * 4 + 0]);
+			light->pos[1] = getFloat24(gstate->lpos[lightnum * 4 + 1]);
+			light->pos[2] = getFloat24(gstate->lpos[lightnum * 4 + 2]);
+			break;
+		default:
+			break;
 	}
 }
 
@@ -75,6 +84,14 @@ static void LoadFragmentState(FragmentState *fragment, const GPUgstate *gstate) 
 	fragment->useTextureAlpha = gstate->isTextureAlphaUsed();
 	fragment->colorDouble = gstate->isColorDoublingEnabled();
 	fragment->shadeMode = gstate->getShadeMode();  // flat/gouraud.
+}
+
+static void LoadFramebufState(FramebufState *framebuf, const GPUgstate *gstate) {
+	framebuf->colorPtr = gstate->getFrameBufAddress();
+	framebuf->colorStride = gstate->FrameBufStride();
+	framebuf->colorFormat = gstate->FrameBufFormat();
+	framebuf->depthPtr = gstate->getDepthBufAddress();
+	framebuf->depthStride = gstate->DepthBufStride();
 }
 
 static void LoadRasterState(RasterState *raster, const GPUgstate *gstate) {
@@ -111,14 +128,33 @@ static void LoadDepthStencilState(DepthStencilState *depthStencil, const GPUgsta
 }
 
 static void LoadTextureState(TextureState *texture, const GPUgstate *gstate) {
+	// These are all from texmode
 	texture->maxLevel = gstate->getTextureMaxLevel();
+	texture->swizzled = gstate->isTextureSwizzled();
+	texture->mipClutMode = gstate->isClutSharedForMipmaps();
+
+	texture->format = gstate->getTextureFormat();
 	// SIMD opportunity
-	for (int i = 0; i < texture->maxLevel; i++) {
+	int i;
+	for (i = 0; i < texture->maxLevel + 1; i++) {
 		texture->addr[i] = gstate->getTextureAddress(i);
 		texture->dim[i] = gstate->getTextureDimension(i);
 		texture->stride[i] = gstate->getTextureStride(i);
 	}
-	texture->format = gstate->getTextureFormat();
+	// This can be removed when not debugging.
+	for (; i < 8; i++) {
+		texture->addr[i] = 0;
+		texture->dim[i] = 0;
+		texture->stride[i] = 0;
+	}
+}
+
+static void LoadTexScaleState(TexScaleState *texScale, const GPUgstate *gstate) {
+	// SIMDable
+	texScale->scaleU = getFloat24(gstate->texscaleu);
+	texScale->scaleV = getFloat24(gstate->texscalev);
+	texScale->offsetU = getFloat24(gstate->texoffsetu);
+	texScale->offsetV = getFloat24(gstate->texoffsetv);
 }
 
 static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
@@ -158,13 +194,30 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	}
 
 	u32 enabled = LoadEnables(gstate);
+	command->draw.enabled = enabled;
 
 	bool full = false;
+
+	if (dirty & STATE_FRAMEBUF) {
+		command->draw.framebuf = cmdPacket->numFramebuf;
+		LoadFramebufState(arena->Allocate(&cmdPacket->framebuf[cmdPacket->numFramebuf++]), gstate);
+		if (cmdPacket->numFramebuf == ARRAY_SIZE(cmdPacket->framebuf)) full = true;
+		dirty &= ~STATE_FRAMEBUF;
+	} else {
+		command->draw.framebuf = last->draw.framebuf;
+	}
 
 	// Regardless of Enabled flags, there's always a rasterizer state.
 	if (dirty & STATE_RASTERIZER) {
 		command->draw.raster = cmdPacket->numRaster;
 		LoadRasterState(arena->Allocate(&cmdPacket->raster[cmdPacket->numRaster++]), gstate);
+		// Check if state was just toggled. In that case we simply reuse the last index.
+		// TODO: Find a generic way to add this check to all types of states.
+		if (cmdPacket->numRaster > 1 && !memcmp(cmdPacket->raster[cmdPacket->numRaster-2], cmdPacket->raster[cmdPacket->numRaster-1], sizeof(RasterState))) {
+			cmdPacket->numRaster--;
+			arena->Rewind(sizeof(RasterState));
+			command->draw.raster = cmdPacket->numRaster - 1;
+		}
 		if (cmdPacket->numRaster == ARRAY_SIZE(cmdPacket->raster)) full = true;
 		dirty &= ~STATE_RASTERIZER;
 	} else {
@@ -204,13 +257,29 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			LoadTextureState(arena->Allocate(&cmdPacket->texture[cmdPacket->numTexture++]), gstate);
 			if (cmdPacket->numTexture == ARRAY_SIZE(cmdPacket->texture)) full = true;
 			dirty &= ~STATE_TEXTURE;
+		} else {
+			command->draw.texture = last->draw.texture;
+		}
+		if ((enabled && ENABLE_TRANSFORM) && (dirty & STATE_TEXSCALE)) {
+			command->draw.texScale = cmdPacket->numTexScale;
+			LoadTexScaleState(arena->Allocate(&cmdPacket->texScale[cmdPacket->numTexScale++]), gstate);
+			if (cmdPacket->numTexScale == ARRAY_SIZE(cmdPacket->texScale)) full = true;
+			dirty &= ~STATE_TEXSCALE;
+		} else {
+			command->draw.texScale = last->draw.texScale;
 		}
 		if (dirty & STATE_SAMPLER) {
 			command->draw.sampler = cmdPacket->numSampler;
 			LoadSamplerState(arena->Allocate(&cmdPacket->sampler[cmdPacket->numSampler++]), gstate);
 			if (cmdPacket->numSampler == ARRAY_SIZE(cmdPacket->sampler)) full = true;
 			dirty &= ~STATE_SAMPLER;
+		} else {
+			command->draw.sampler = last->draw.sampler;
 		}
+	} else {
+		command->draw.texture = last->draw.texture;
+		command->draw.texScale = last->draw.texScale;
+		command->draw.sampler = last->draw.sampler;
 	}
 
 	if (enabled & ENABLE_TRANSFORM) {
@@ -245,6 +314,14 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			dirty &= ~STATE_PROJMATRIX;
 		} else {
 			command->draw.projMatrix = last->draw.projMatrix;
+		}
+		if (dirty & STATE_TEXMATRIX) {
+			command->draw.texMatrix = cmdPacket->numTexMatrix;
+			LoadMatrix4x3(arena->Allocate(&cmdPacket->texMatrix[cmdPacket->numTexMatrix++]), gstate->tgenMatrix);
+			if (cmdPacket->numTexMatrix == ARRAY_SIZE(cmdPacket->texMatrix)) full = true;
+			dirty &= ~STATE_TEXMATRIX;
+		} else {
+			command->draw.texMatrix = last->draw.texMatrix;
 		}
 		if (enabled & ENABLE_LIGHTS) {
 			if (dirty & STATE_VIEWPORT) {
@@ -295,6 +372,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		command->draw.worldMatrix = last->draw.worldMatrix;
 		command->draw.viewMatrix = last->draw.viewMatrix;
 		command->draw.projMatrix = last->draw.projMatrix;
+		command->draw.texMatrix = last->draw.texMatrix;
 		command->draw.lightGlobal = last->draw.lightGlobal;
 		for (int i = 0; i < 4; i++) {
 			command->draw.lights[i] = last->draw.lights[i];
@@ -350,6 +428,7 @@ u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgst
 	cmd->draw.count = primAndCount & 0xFFFF;
 	int prim = (primAndCount >> 16) & 0xF;
 	cmd->draw.prim = prim;
+	cmd->draw.vtxformat = gstate->vertType;
 	cmd->draw.vtxAddr = vertexAddr;
 	cmd->draw.idxAddr = indexAddr;
 	switch (prim) {
@@ -386,17 +465,20 @@ void CommandSubmitSync(CommandPacket *cmdPacket) {
 	cmd->type = CMD_SYNC;
 }
 
-static const char *cmdNames[8] = {
+static const char *drawNames[8] = {
 	"TRIS ",
 	"LINES",
 	"POINT",
 	"BEZ ",
 	"SPLIN",
-	"XFER ",
-	"SYNC ",
+};
+
+static const char *primNames[8] = {
+
 };
 
 void PrintCommandPacket(CommandPacket *cmdPacket) {
+	ILOG("========= Commands: %d", cmdPacket->numCommands);
 	for (int i = 0; i < cmdPacket->numCommands; i++) {
 		char line[1024];
 		const Command &cmd = cmdPacket->commands[i];
@@ -404,17 +486,108 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		case CMD_DRAWTRI:
 		case CMD_DRAWLINE:
 		case CMD_DRAWPOINT:
-			snprintf(line, sizeof(line), "DRAW %s : %d (v %08x, i %08x)", cmdNames[cmd.type], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr);
+			snprintf(line, sizeof(line), "DRAW %s : %d fmt %08x (v %08x, i %x) enabled: %08x : "
+					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d "
+					"blend:%d depth:%d "
+					"world:%d view:%d proj:%d tex:%d "
+					"lg: %d l0:%d l1:%d l2:%d l3:%d "
+					"morph: %d",
+					drawNames[cmd.type], cmd.draw.count, cmd.draw.vtxformat, cmd.draw.vtxAddr, cmd.draw.idxAddr, cmd.draw.enabled,
+					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler,
+					cmd.draw.blend, cmd.draw.depthStencil,
+					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
+					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3], cmd.draw.morph);
 			break;
 		case CMD_TRANSFER:
-			snprintf(line, sizeof(line), "%s : %dx%d", cmdNames[cmd.type], cmd.transfer.width, cmd.transfer.height);
+			snprintf(line, sizeof(line), "TRANSFER : %dx%d", cmd.transfer.width, cmd.transfer.height);
 			break;
 		case CMD_SYNC:
-			snprintf(line, sizeof(line), "%s", cmdNames[cmd.type]);
+			snprintf(line, sizeof(line), "SYNC");
+			break;
+		case CMD_LOADCLUT:
+			snprintf(line, sizeof(line), "LOADCLUT %08x, %d", cmd.clut.addr, cmd.clut.bytes);
 			break;
 
 		default:
 			snprintf(line, sizeof(line), "Bad command %d", cmd.type);
+			break;
+		}
+		ILOG("%d: %s", i, line);
+	}
+	ILOG("========= State Blocks =========");
+	for (int i = 0; i < cmdPacket->numFramebuf; i++) {
+		const FramebufState *f = cmdPacket->framebuf[i];
+		ILOG("Framebuf %d: addr: %08x stride: %d fmt: %d zaddr: %08x stride: %d", i, f->colorPtr, f->colorStride, f->colorFormat, f->depthPtr, f->depthStride);
+	}
+	for (int i = 0; i < cmdPacket->numRaster; i++) {
+		const RasterState *r = cmdPacket->raster[i];
+		ILOG("Raster %d: clearmode=%02x scissor: %d,%d-%d,%d offset: %d,%d, cull: %d,%d defcol:%08x", i, r->clearMode, r->scissorX1, r->scissorY1, r->scissorX2, r->scissorY2, r->offsetX, r->offsetY, r->cullFaceEnable, r->cullMode, r->defaultVertexColor);
+
+	}
+	for (int i = 0; i < cmdPacket->numFragment; i++) {
+		const FragmentState *f = cmdPacket->fragment[i];
+		ILOG("Fragment %d: double=%d texFunc=%d texEnv=%d shadeMode=%d fog=%.3f,%.3f,%06x",
+				i, f->colorDouble, f->texFunc, f->texEnvColor, f->shadeMode, f->fogCoef1, f->fogCoef2, f->fogColor);
+	}
+	for (int i = 0; i < cmdPacket->numTexture; i++) {
+		const TextureState *t = cmdPacket->texture[i];
+		ILOG("Texture %d: format: %d addr[0]: %08x  dim[0]: %04x  stride[0]=%d",
+			i, t->format, t->addr[0], t->dim[0], t->stride[0]);
+	}
+	for (int i = 0; i < cmdPacket->numTexScale; i++) {
+		const TexScaleState *t = cmdPacket->texScale[i];
+		ILOG("TexScale %d: %f x %f, offset %f x %f",
+			i, t->scaleU, t->scaleV, t->offsetU, t->offsetV);
+	}
+	for (int i = 0; i < cmdPacket->numSampler; i++) {
+		const SamplerState *s = cmdPacket->sampler[i];
+		ILOG("Sampler %d: mag=%d min=%d bias=%d clamp_s=%d clamp_t=%d levelMode=%d",
+				i, s->mag, s->min, s->bias, s->clamp_s, s->clamp_t, s->levelMode);
+	}
+	for (int i = 0; i < cmdPacket->numBlend; i++) {
+		const BlendState *b = cmdPacket->blend[i];
+		ILOG("Blend %d: src:%d dst:%d eq:%d fixa:%06x fixb:%06x ",
+				i, b->blendSrc, b->blendDst, b->blendEq, b->blendfixa, b->blendfixb);
+	}
+	for (int i = 0; i < cmdPacket->numViewport; i++) {
+		const ViewportState *v = cmdPacket->viewport[i];
+		ILOG("Viewport %d: C: %f, %f, %f  SZ: %f, %f, %f", i, v->x1, v->y1, v->z1, v->x2, v->y2, v->z2);
+	}
+	for (int i = 0; i < cmdPacket->numWorldMatrix; i++) {
+		const Matrix4x3 *world = cmdPacket->worldMatrix[i];
+		ILOG("World matrix %d: [[%f, %f, %f][%f, %f, %f][%f, %f, %f][%f, %f, %f]]", i, world->v[0], world->v[1], world->v[2], world->v[3], world->v[4], world->v[5], world->v[6], world->v[7], world->v[8], world->v[9], world->v[10], world->v[11]);
+	}
+	for (int i = 0; i < cmdPacket->numViewMatrix; i++) {
+		const Matrix4x3 *view = cmdPacket->viewMatrix[i];
+		ILOG("View matrix %d: %f, ...", i, view->v[0]);
+	}
+	for (int i = 0; i < cmdPacket->numProjMatrix; i++) {
+		const Matrix4x4 *proj = cmdPacket->projMatrix[i];
+		ILOG("Proj matrix %d: %f, ...", i, proj->v[0]);
+	}
+	for (int i = 0; i < cmdPacket->numTexMatrix; i++) {
+		const Matrix4x3 *tex = cmdPacket->texMatrix[i];
+		ILOG("Tex matrix %d: %f, ...", i, tex->v[0]);
+	}
+	for (int i = 0; i < cmdPacket->numBoneMatrix; i++) {
+		const Matrix4x3 *bone = cmdPacket->boneMatrix[i];
+		ILOG("Bone matrix %d: %f, ...", i, bone->v[0]);
+	}
+	for (int i = 0; i < cmdPacket->numLightGlobal; i++) {
+		const LightGlobalState *lg = cmdPacket->lightGlobal[i];
+		ILOG("LightGlobal %d: MU: %d matambient: %08x diff: %06x spec: %06x emiss: %06x speccoef: %f", i, lg->materialUpdate, lg->materialAmbient, lg->materialDiffuse, lg->materialSpecular, lg->materialEmissive, lg->specularCoef);
+	}
+	for (int i = 0; i < cmdPacket->numLight; i++) {
+		const LightState *l = cmdPacket->lights[i];
+		switch (l->type) {
+		case GE_LIGHTTYPE_DIRECTIONAL:
+			ILOG("Light %d: DIRECTIONAL dir=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2]);
+			break;
+		case GE_LIGHTTYPE_POINT:
+			ILOG("Light %d: POINT dir=%f %f %f pos=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2], l->pos[0], l->pos[1], l->pos[2]);
+			break;
+		case GE_LIGHTTYPE_SPOT:
+			ILOG("Light %d: SPOT dir=%f %f %f", i, l->dir[0], l->dir[1], l->dir[2]);
 			break;
 		}
 	}
