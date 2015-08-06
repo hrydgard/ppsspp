@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #include "base/arch.h"
 #include "base/backtrace.h"
 #include "base/compat.h"
@@ -112,15 +114,20 @@ void OutputDebugStringUTF8(const char *p);
 
 #include <stdio.h>
 
+inline const char *removePath(const char *str) {
+	const char *slash = strrchr(str, '/');
+	return slash ? (slash + 1) : str;
+}
+
 #ifdef _DEBUG
-#define DLOG(...) {printf("D: %s:%i: ", __FILE__, __LINE__); printf("D: " __VA_ARGS__); printf("\n");}
+#define DLOG(...) {printf("D: %s:%i: ", removePath(__FILE__), __LINE__); printf("D: " __VA_ARGS__); printf("\n");}
 #else
 #define DLOG(...)
 #endif
-#define ILOG(...) {printf("I: %s:%i: ", __FILE__, __LINE__); printf("I: " __VA_ARGS__); printf("\n");}
-#define WLOG(...) {printf("W: %s:%i: ", __FILE__, __LINE__); printf("W: " __VA_ARGS__); printf("\n");}
-#define ELOG(...) {printf("E: %s:%i: ", __FILE__, __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
-#define FLOG(...) {printf("F: %s:%i: ", __FILE__, __LINE__); printf("F: " __VA_ARGS__); printf("\n"); Crash();}
+#define ILOG(...) {printf("I: %s:%i: ", removePath(__FILE__), __LINE__); printf("I: " __VA_ARGS__); printf("\n");}
+#define WLOG(...) {printf("W: %s:%i: ", removePath(__FILE__), __LINE__); printf("W: " __VA_ARGS__); printf("\n");}
+#define ELOG(...) {printf("E: %s:%i: ", removePath(__FILE__), __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
+#define FLOG(...) {printf("F: %s:%i: ", removePath(__FILE__), __LINE__); printf("F: " __VA_ARGS__); printf("\n"); Crash();}
 
 #endif
 #endif
