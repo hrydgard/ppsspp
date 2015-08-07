@@ -139,10 +139,11 @@ protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
+	void LoadClut();
 
 private:
 	// This happens a lot more seldomly than the old flush in the other backends.
-	// Only on a drawsync, end of major displaylist or on buffer full.
+	// Only on a drawsync, end of major displaylist (though not currently) or on buffer full.
 	void FlushCommandPacket();
 
 	void DoBlockTransfer();
@@ -162,6 +163,13 @@ private:
 	// This is used to diff the first draw in a packet against.
 	// TODO: Is is better to eliminate it through adding extra logic?
 	Command dummyDraw_;
+
+	// The CLUT no longer lives in the texture cache. It doesn't belong there, more like in the gstate together
+	// with the matrices, as it's a similar kind of state. But it'll have to stay here until we remove all old
+	// style backends, then we can move it to gstate.
+	u8 clutData_[1024];
+	u32 clutTotalBytes_;
+	u32 clutMaxBytes_;
 };
 
 }  // namespace

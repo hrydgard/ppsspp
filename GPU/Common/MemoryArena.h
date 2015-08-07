@@ -28,6 +28,11 @@ public:
 		return ptr;
 	}
 
+	u8 *AllocateAligned(size_t bytes, int alignment) {
+		ptr_ = (ptr_ + alignment - 1) & ~alignment;
+		return AllocateBytes(bytes);
+	}
+
 	template<class T>
 	void Rewind(T *ptr) {
 		ptr_ -= sizeof(T);

@@ -38,6 +38,8 @@ private:
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
 
+	void ApplyFramebuffer(const CommandPacket *cmdPacket, const Command *cmd);
+
 	FramebufferManager *framebufferManager_;
 	FragmentTestCache fragmentTestCache_;
 	DepalShaderCache depalShaderCache_;

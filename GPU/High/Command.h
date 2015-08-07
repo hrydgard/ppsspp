@@ -22,14 +22,10 @@ namespace HighGpu {
 // Possibly we should boil down Beziers and Splines into Triangles etc already here?
 // Might be beneficial to process them on the GPU thread though...
 enum CommandType : u8 {
-	CMD_DRAWTRI,
-	CMD_DRAWLINE,
-	CMD_DRAWPOINT,
+	CMD_DRAWPRIM,
 	CMD_DRAWBEZIER,
 	CMD_DRAWSPLINE,
 	CMD_TRANSFER,
-	CMD_LOADCLUT,
-	CMD_SYNC,
 };
 
 enum EnableFlags : u32 {
@@ -53,7 +49,7 @@ enum EnableFlags : u32 {
 	ENABLE_LIGHT3         = BIT(17),
 };
 
-// All the individual state sections, both enable-able and not, for helping keeping track of them.
+// All the individual state blocks, both enable-able and not, for helping keeping track of them.
 // However, it's always the case that one of these flags cover one or more "enable-sections", they're
 // never split between them.
 enum StateFlags : u32 {
@@ -71,6 +67,7 @@ enum StateFlags : u32 {
 	STATE_SAMPLER = BIT(11),
 	STATE_CLUT = BIT(12),
 	STATE_TEXSCALE = BIT(13),
+	STATE_ENABLES = BIT(14),
 	STATE_VIEWPORT = BIT(18),
 	STATE_LIGHTGLOBAL = BIT(19),
 	STATE_LIGHT0 = BIT(20),
@@ -85,7 +82,7 @@ enum StateFlags : u32 {
 	STATE_BONE5 = BIT(29),
 	STATE_BONE6 = BIT(30),
 	STATE_BONE7 = BIT(31),
-	STATE_ALL = 0xFFFC1FFF,
+	STATE_ALL = 0xFFFC3FFF,
 };
 
 // This is starting to grow large... but I think we have nearly all state now.
@@ -114,7 +111,7 @@ struct DrawCommandData {
 	u8 lights[4];
 	u8 boneMatrix[8];
 	u8 numBones;
-	u8 *clut;  // separately allocated in our arena if necessary.
+	u8 clut;
 };
 
 struct TransferCommandData {
@@ -141,6 +138,7 @@ struct Command {
 		TransferCommandData transfer;
 		ClutLoadCommandData clut;
 	};
+	void *userData;  // Put temporary translated data here that should be attached to this command.
 };
 
 struct FramebufState {
@@ -222,6 +220,8 @@ struct TextureState {
 	u8 format;
 	u8 swizzled;
 	u8 mipClutMode;
+	u8 clutFormat;  // RGB565, etc...
+	u8 clutIndexMaskShiftStart;
 };
 
 // Really, UV generation state.
@@ -269,6 +269,12 @@ struct LightState {
 	float lcutoff;
 };
 
+struct ClutState {
+	u32 hash;
+	int size;
+	u8 *data;
+};
+
 struct MorphState {
 	float weights[8];
 };
@@ -312,9 +318,12 @@ struct CommandPacket {
 	int numTexture;
 	int numTexScale;
 	int numSampler;
+	int numClut;
 	int numLightGlobal;
 	int numLight;
 	int numMorph;
+	// No idea what the appropriate counts for each feature are. Probably varies per game.
+	// Might be better to dynamically allocate these arrays, but that's for later.
 	FramebufState *framebuf[64];
 	FragmentState *fragment[64];
 	RasterState *raster[64];
@@ -329,13 +338,17 @@ struct CommandPacket {
 	TextureState *texture[16];
 	TexScaleState *texScale[64];
 	SamplerState *sampler[16];
+	ClutState *clut[16];
 	LightGlobalState *lightGlobal[16];
-	LightState *lights[128];
+	LightState *lights[64];
 	MorphState *morph[64];
+
+	u8 *clutBuffer;
 };
 
 // Utility functions
-void CommandPacketInit(CommandPacket *cmdPacket, int size);
+// Does not take ownership of the clut buffer. It's just where clut data gets copied from.
+void CommandPacketInit(CommandPacket *cmdPacket, int size, u8 *clutBuffer);
 void CommandPacketDeinit(CommandPacket *cmdPacket);
 void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw);
 
@@ -344,7 +357,6 @@ void CommandInitDummyDraw(Command *cmd);
 // Submitting commands to a CommandPacket
 void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate);
 u32 CommandSubmitDraw(CommandPacket *packet, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 primAndCount, u32 vertexAddr, u32 indexAddr);
-void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate);
 void CommandSubmitSync(CommandPacket *cmdPacket);
 
 void PrintCommandPacket(CommandPacket *cmd);

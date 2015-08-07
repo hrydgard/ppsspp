@@ -58,6 +58,20 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 
 	// We do things in multiple passes, in order to maximize CPU cache efficiency.
 	//
+	// First, we translate all state objects that need translation, create textures, and so on.
+	for (int i = 0; i < packet->numTexture; i++) {
+		// textures[i] = textureCache->GetTexture(packet->texture[i]);
+	}
+
+	// Then, we do a first pass through the draw commands, and identify ranges we would like to deal with.
+	// Block transfers get separated to their own ranges. We generate and set up shaders.
+	for (int i = 0; i < packet->numCommands; i++) {
+		
+	}
+
+	// Now for each range we could look it up in a cache, to see if we have decoded it before.
+
+	//
 	// First, we decode all the vertex data, and build bone matrix sets.
 	//
 	// Then, we create all framebuffers and textures (or check that they exist).
@@ -73,6 +87,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	// Pass 1: Decode all the textures and create framebuffers. This is done first so that the GL driver can
 	// upload them in the background (if it's that advanced)  while we are decoding vertex
 	// data and preparing the draw calls.
+
 	int start = 0;
 	int end = packet->numCommands;
 	for (int i = start; i < end; i++) {
@@ -82,19 +97,41 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	// Pass 2: Allocate a buffer and decode all the vertex data into it.
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
-		switch (cmd->type) {
-		case CMD_DRAWTRI:
-			break;
-
-		case CMD_DRAWLINE:
-			break;
-
-		case CMD_SYNC:
-			break;
-		}
+		if (cmd->type != CMD_DRAWPRIM)
+			continue;
 	}
 
 	// Pass 3: Fetch shaders, perform the draws.
+	int curFramebuf = -1;
+	for (int i = start; i < end; i++) {
+		const Command *cmd = &packet->commands[i];
+		if (curFramebuf != cmd->draw.framebuf) {
+			ApplyFramebuffer(packet, cmd);
+		}
+	}
+}
+
+// So much data to fetch to make the heuristic happy...
+void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *cmd) {
+	FramebufferHeuristicParams fb;
+	const FramebufState *fbState = packet->framebuf[cmd->draw.framebuf];
+	const RasterState *raster = packet->raster[cmd->draw.raster];
+	fb.fb_address = fbState->colorPtr;
+	fb.fb_stride = fbState->colorStride;
+	fb.fb_addr = fb.fb_address;
+	if (cmd->draw.viewport != INVALID_STATE) {
+		ViewportState *vs = packet->viewport[cmd->draw.viewport];
+		fb.viewportWidth = 2.0 * vs->x1;
+		fb.viewportHeight = 2.0 * vs->x2;
+	}
+	fb.regionWidth = 0;
+	fb.regionHeight = 0;
+	fb.scissorWidth = raster->scissorX2 - raster->scissorX1;
+	fb.scissorHeight = raster->scissorY2 - raster->scissorY1;
+	fb.isDrawing = true;  // TODO
+	fb.isClearingDepth = false;  // TODO
+
+	framebufferManager_->DoSetRenderFrameBuffer(fb, gstate_c.skipDrawReason);
 }
 
 // Let's avoid passing nulls into snprintf().

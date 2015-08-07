@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cstring>
+
 #include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
@@ -37,13 +40,15 @@
 #include "GPU/High/Command.h"
 #include "GPU/High/HighGpu.h"
 
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
 namespace HighGpu {
 
+// TODO: can we get rid of these and only keep EXECUTE? If so we can merge EXECUTE into the dirtyState field.
 enum {
-	FLAG_EXECUTE = 4,
-	FLAG_READS_PC = 16,
-	FLAG_WRITES_PC = 32,
-	FLAG_DIRTYONCHANGE = 64,
+	FLAG_EXECUTE = 1,
 };
 
 enum {
@@ -122,22 +127,22 @@ static const CommandTableEntry commandTable[] = {
 
 	// These affect the fragment shader
 	{GE_CMD_CLEARMODE,        0, STATE_RASTERIZER},
-	{GE_CMD_TEXTUREMAPENABLE},
+	{GE_CMD_TEXTUREMAPENABLE, 0, STATE_ENABLES},
 	{GE_CMD_FOGENABLE,        0},
 	{GE_CMD_SHADEMODE,        0, STATE_FRAGMENT},
 	{GE_CMD_TEXFUNC,          0, STATE_FRAGMENT},
 	{GE_CMD_COLORTEST,        0, STATE_BLEND},
-	{GE_CMD_ALPHATESTENABLE},
-	{GE_CMD_COLORTESTENABLE},
+	{GE_CMD_ALPHATESTENABLE,  0, STATE_ENABLES},
+	{GE_CMD_COLORTESTENABLE,  0, STATE_ENABLES},
 	{GE_CMD_COLORTESTMASK,    0, STATE_BLEND},
 
 	// These change the vertex shader
 	{GE_CMD_REVERSENORMAL, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_LIGHTINGENABLE},
-	{GE_CMD_LIGHTENABLE0},
-	{GE_CMD_LIGHTENABLE1},
-	{GE_CMD_LIGHTENABLE2},
-	{GE_CMD_LIGHTENABLE3},
+	{GE_CMD_LIGHTINGENABLE, 0, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE0, 0, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE1, 0, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE2, 0, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE3, 0, STATE_ENABLES},
 	{GE_CMD_LIGHTTYPE0, 0, STATE_LIGHT0},
 	{GE_CMD_LIGHTTYPE1, 0, STATE_LIGHT1},
 	{GE_CMD_LIGHTTYPE2, 0, STATE_LIGHT2},
@@ -162,19 +167,19 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITHERENABLE, 0, 0},
 	{GE_CMD_STENCILOP, 0, STATE_DEPTHSTENCIL},
 	{GE_CMD_STENCILTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_STENCILTESTENABLE},
-	{GE_CMD_ALPHABLENDENABLE},
+	{GE_CMD_STENCILTESTENABLE, 0, STATE_ENABLES},
+	{GE_CMD_ALPHABLENDENABLE, 0, STATE_ENABLES},
 	{GE_CMD_BLENDMODE, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDA, 0, STATE_BLEND},
 	{GE_CMD_BLENDFIXEDB, 0, STATE_BLEND},
 	{GE_CMD_MASKRGB, 0, STATE_BLEND},
 	{GE_CMD_MASKALPHA, 0, STATE_BLEND},
 	{GE_CMD_ZTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_ZTESTENABLE},
+	{GE_CMD_ZTESTENABLE, 0, STATE_ENABLES},
 	{GE_CMD_ZWRITEDISABLE, 0, STATE_DEPTHSTENCIL},
 #ifndef USING_GLES2
 	{GE_CMD_LOGICOP, 0, STATE_BLEND},
-	{GE_CMD_LOGICOPENABLE, 0},
+	{GE_CMD_LOGICOPENABLE, 0, STATE_ENABLES},
 #else
 	{GE_CMD_LOGICOP, 0},
 	{GE_CMD_LOGICOPENABLE, 0},
@@ -307,15 +312,15 @@ static const CommandTableEntry commandTable[] = {
 	// From Common. No flushing but definitely need execute. These don't affect drawing, only the
 	// command processor's operation.
 	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr},
-	{GE_CMD_ORIGIN, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommon::Execute_Origin},  // Really?
+	{GE_CMD_ORIGIN, FLAG_EXECUTE , 0, &GPUCommon::Execute_Origin},  // Really?
 	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Prim},
-	{GE_CMD_JUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Jump},
-	{GE_CMD_CALL, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Call},
-	{GE_CMD_RET, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_Ret},
-	{GE_CMD_END, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_End},  // Flush?
+	{GE_CMD_JUMP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Jump},
+	{GE_CMD_CALL, FLAG_EXECUTE, 0, &GPUCommon::Execute_Call},
+	{GE_CMD_RET, FLAG_EXECUTE, 0, &GPUCommon::Execute_Ret},
+	{GE_CMD_END, FLAG_EXECUTE, 0, &GPUCommon::Execute_End},  // Flush?
 	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Vaddr},
 	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Iaddr},
-	{GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump},  // EXECUTE
+	{GE_CMD_BJUMP, FLAG_EXECUTE, 0, &GPUCommon::Execute_BJump},  // EXECUTE
 	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoundingBox},
 
 	{GE_CMD_VERTEXTYPE},  // Baked into draw calls
@@ -338,15 +343,15 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITH3},
 
 	// These handle their own flushing.
-	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &HighGpuFrontend::Execute_WorldMtxNum},
+	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_WorldMtxNum},
 	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_WorldMtxData},
-	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &HighGpuFrontend::Execute_ViewMtxNum},
+	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ViewMtxNum},
 	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ViewMtxData},
-	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &HighGpuFrontend::Execute_ProjMtxNum},
+	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ProjMtxNum},
 	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ProjMtxData},
-	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &HighGpuFrontend::Execute_TgenMtxNum},
+	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_TgenMtxNum},
 	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_TgenMtxData},
-	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &HighGpuFrontend::Execute_BoneMtxNum},
+	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoneMtxNum},
 	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoneMtxData},
 
 	// Vertex Screen/Texture/Color
@@ -424,7 +429,7 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	CommandInitDummyDraw(&dummyDraw_);
 
 	cmdPacket_ = new CommandPacket();
-	CommandPacketInit(cmdPacket_, 256);
+	CommandPacketInit(cmdPacket_, 256, clutData_);
 	CommandPacketReset(cmdPacket_, &dummyDraw_);
 
 	// Some of our defaults are different from hw defaults, let's assert them.
@@ -487,9 +492,11 @@ void HighGpuFrontend::CopyDisplayToOutput() {
 
 // This is probably worth writing a highly optimized ASM version of.
 void HighGpuFrontend::FastRunLoop(DisplayList &list) {
-	PROFILE_THIS_SCOPE("gpuloop");
+	PROFILE_THIS_SCOPE("gpuhighloop");
+
 	const CommandInfo *cmdInfo = cmdInfo_;
 	int dc = downcount;
+	// TODO: Move dirty_ to a local variable.
 	for (; dc > 0; --dc) {
 		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer even on 32-bit
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
@@ -499,7 +506,7 @@ void HighGpuFrontend::FastRunLoop(DisplayList &list) {
 		const u32 diff = op ^ gstate.cmdmem[cmd];
 		if (diff) {
 			gstate.cmdmem[cmd] = op;
-			dirty_ |= info.dirtyState;  // TODO: Move dirty_ to a local variable.
+			dirty_ |= info.dirtyState;
 		}
 		if (cmdFlags & FLAG_EXECUTE) {
 			downcount = dc;
@@ -608,37 +615,49 @@ void HighGpuFrontend::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 void HighGpuFrontend::Execute_BoundingBox(u32 op, u32 diff) {
 	// TODO: Need to extract TestBoundingBox from transformDraw
-	/*
-	// Just resetting, nothing to bound.
-	const u32 data = op & 0x00FFFFFF;
-	if (data == 0) {
-		// TODO: Should this set the bboxResult?  Let's set it true for now.
-		currentList->bboxResult = true;
-		return;
-	}
-	if (((data & 7) == 0) && data <= 64) {  // Sanity check
-		void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-		if (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Indexed bounding box data not supported.");
-			// Data seems invalid. Let's assume the box test passed.
-			currentList->bboxResult = true;
-			return;
-		}
-
-		// Test if the bounding box is within the drawing region.
-		currentList->bboxResult = transformDraw_.TestBoundingBox(control_points, data, gstate.vertType);
-	} else {
-		ERROR_LOG_REPORT_ONCE(boundingbox, G3D, "Bad bounding box data: %06x", data);
-		// Data seems invalid. Let's assume the box test passed.
-		currentList->bboxResult = true;
-	}
-	*/
 }
 
 void HighGpuFrontend::Execute_LoadClut(u32 op, u32 diff) {
-	CommandSubmitLoadClut(cmdPacket_, &gstate);
-	if (cmdPacket_->full)
-		FlushCommandPacket();
+	u32 clutAddr = gstate.getClutAddress();
+	u32 loadBytes = gstate.getClutLoadBytes();
+	clutTotalBytes_ = loadBytes;
+
+	void *clutBufRaw_ = (void *)clutData_;
+	if (Memory::IsValidAddress(clutAddr)) {
+		// It's possible for a game to (successfully) access outside valid memory.
+		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+#ifdef _M_SSE
+		int numBlocks = bytes / 16;
+		if (bytes == loadBytes) {
+			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
+			__m128i *dest = (__m128i *)clutBufRaw_;
+			// Is the source really allowed to be misaligned?
+			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
+				__m128i data1 = _mm_loadu_si128(source);
+				__m128i data2 = _mm_loadu_si128(source + 1);
+				_mm_store_si128(dest, data1);
+				_mm_store_si128(dest + 1, data2);
+			}
+		} else {
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+			if (bytes < loadBytes) {
+				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+			}
+		}
+#else
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+		if (bytes < clutTotalBytes_) {
+			memset((u8 *)clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+		}
+#endif
+	} else {
+		memset(clutBufRaw_, 0x00, loadBytes);
+	}
+
+	// Reload the clut next time.
+	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
+	// TODO: Check during the loops above if the CLUT contents actually changed?
+	dirty_ |= STATE_CLUT;
 }
 
 void HighGpuFrontend::Execute_WorldMtxNum(u32 op, u32 diff) {

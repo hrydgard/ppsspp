@@ -2,6 +2,7 @@
 #include "base/logging.h"
 #include "GPU/High/Command.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/TextureDecoder.h"
 
 namespace HighGpu {
 
@@ -145,13 +146,20 @@ static void LoadTextureState(TextureState *texture, const GPUgstate *gstate) {
 	texture->mipClutMode = gstate->isClutSharedForMipmaps();
 
 	texture->format = gstate->getTextureFormat();
-	// SIMD opportunity
+	if (gstate->isTextureFormatIndexed()) {
+		texture->clutFormat = gstate->getClutPaletteFormat();
+		texture->clutIndexMaskShiftStart = gstate->clutformat & (~3 & 0xFFFFFF);
+	}
+	// SIMD opportunity. Or we could just optimize and just not store dim for mip levels above 0...
+	// We would have to accomodate the few games that uses degenerate mipmapping to blend between two equal-sized
+	// textures though, perhaps with a flag.
 	int i;
 	for (i = 0; i < texture->maxLevel + 1; i++) {
 		texture->addr[i] = gstate->getTextureAddress(i);
 		texture->dim[i] = gstate->getTextureDimension(i);
 		texture->stride[i] = gstate->getTextureStride(i);
 	}
+
 	// This can be removed when not debugging.
 	for (; i < 8; i++) {
 		texture->addr[i] = 0;
@@ -175,6 +183,16 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 	sampler->clamp_s = gstate->isTexCoordClampedS();
 	sampler->clamp_t = gstate->isTexCoordClampedT();
 	sampler->levelMode = gstate->getTexLevelMode();
+}
+
+static void LoadClutState(ClutState *clut, const u8 *clutBuffer, MemoryArena *arena, const GPUgstate *gstate) {
+	int bytes = gstate->getClutLoadBytes();
+	u8 *data = arena->AllocateAligned(bytes, 16);
+	memcpy(data, clutBuffer, bytes);
+	clut->data = data;
+	clut->size = bytes;
+	// TODO: We should compute this the same way the old texcache did, taking into account the clut base etc.
+	clut->hash = DoReliableHash32((const char *)data, bytes, 0xC0108888);
 }
 
 static void LoadMorphState(MorphState *morph, const GPUgstate *gstate) {
@@ -241,7 +259,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		return dirty;
 	}
 
-	u32 enabled = LoadEnables(gstate);
+	u32 enabled = (dirty & STATE_ENABLES) ? LoadEnables(gstate) : last->draw.enabled;
 	command->draw.enabled = enabled;
 
 	u32 full = 0;
@@ -323,6 +341,12 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			dirty &= ~STATE_SAMPLER;
 		} else {
 			command->draw.sampler = last->draw.sampler;
+		}
+		if (dirty & STATE_CLUT) {
+			command->draw.clut = cmdPacket->numClut;
+			LoadClutState(arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, gstate);
+			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
+			dirty &= ~STATE_CLUT;
 		}
 	} else {
 		command->draw.texture = last->draw.texture;
@@ -481,50 +505,20 @@ u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgst
 	cmd->draw.vtxformat = gstate->vertType;
 	cmd->draw.vtxAddr = vertexAddr;
 	cmd->draw.idxAddr = indexAddr;
-	switch (prim) {
-	case GE_PRIM_LINES:
-	case GE_PRIM_LINE_STRIP:
-		cmd->type = CMD_DRAWLINE;
-		break;
-	case GE_PRIM_TRIANGLES:
-	case GE_PRIM_TRIANGLE_STRIP:
-	case GE_PRIM_TRIANGLE_FAN:
-	case GE_PRIM_RECTANGLES:  // Rects get expanded into triangles later.
-		cmd->type = CMD_DRAWTRI;
-		break;
-	case GE_PRIM_POINTS:
-		cmd->type = CMD_DRAWPOINT;
-		break;
-	}
+	cmd->type = CMD_DRAWPRIM;
 	u32 newDirty = LoadStates(cmdPacket, cmdPacket->lastDraw, cmd, arena, gstate, dirty);
 	cmdPacket->lastDraw = cmd;
 	return newDirty;
 }
 
-void CommandSubmitLoadClut(CommandPacket *cmdPacket, GPUgstate *gstate) {
-	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
-	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
-	cmd->type = CMD_LOADCLUT;
-	cmd->clut.addr = gstate->getClutAddress();
-	cmd->clut.bytes = gstate->getClutLoadBytes();
-}
-
-void CommandSubmitSync(CommandPacket *cmdPacket) {
-	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
-	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
-	cmd->type = CMD_SYNC;
-}
-
-static const char *drawNames[8] = {
-	"TRIS ",
-	"LINES",
-	"POINT",
-	"BEZ ",
-	"SPLIN",
-};
-
 static const char *primNames[8] = {
-
+	"POINTS",
+	"LINES",
+	"LINESTRIP",
+	"TRIANGLES",
+	"TRISTRIP",
+	"TRIFAN",
+	"CONTINUE",  // :(
 };
 
 
@@ -549,16 +543,14 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		char line[1024];
 		const Command &cmd = cmdPacket->commands[i];
 		switch (cmd.type) {
-		case CMD_DRAWTRI:
-		case CMD_DRAWLINE:
-		case CMD_DRAWPOINT:
+		case CMD_DRAWPRIM:
 			snprintf(line, sizeof(line), "DRAW %s : %d fmt %08x (v %08x, i %x) enabled: %08x : "
 					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d "
 					"blend:%d depth:%d "
 					"world:%d view:%d proj:%d tex:%d "
 					"lg:%d l0:%d l1:%d l2:%d l3:%d "
 					"morph:%d b0:%d",
-					drawNames[cmd.type], cmd.draw.count, cmd.draw.vtxformat, cmd.draw.vtxAddr, cmd.draw.idxAddr, cmd.draw.enabled,
+					primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxformat, cmd.draw.vtxAddr, cmd.draw.idxAddr, cmd.draw.enabled,
 					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler,
 					cmd.draw.blend, cmd.draw.depthStencil,
 					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
@@ -567,12 +559,6 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 			break;
 		case CMD_TRANSFER:
 			snprintf(line, sizeof(line), "TRANSFER : %dx%d", cmd.transfer.width, cmd.transfer.height);
-			break;
-		case CMD_SYNC:
-			snprintf(line, sizeof(line), "SYNC");
-			break;
-		case CMD_LOADCLUT:
-			snprintf(line, sizeof(line), "LOADCLUT %08x, %d", cmd.clut.addr, cmd.clut.bytes);
 			break;
 
 		default:
@@ -610,6 +596,11 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		const SamplerState *s = cmdPacket->sampler[i];
 		ILOG("Sampler %d: mag=%d min=%d bias=%d clamp_s=%d clamp_t=%d levelMode=%d",
 				i, s->mag, s->min, s->bias, s->clamp_s, s->clamp_t, s->levelMode);
+	}
+	for (int i = 0; i < cmdPacket->numClut; i++) {
+		const ClutState *c = cmdPacket->clut[i];
+		ILOG("Clut %d: hash=%08x size=%d ptr=%p",
+				i, c->hash, c->size, c->data);
 	}
 	for (int i = 0; i < cmdPacket->numBlend; i++) {
 		const BlendState *b = cmdPacket->blend[i];
@@ -660,10 +651,11 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 }
 
-void CommandPacketInit(CommandPacket *cmdPacket, int size) {
+void CommandPacketInit(CommandPacket *cmdPacket, int size, u8 *clutBuffer) {
 	memset(cmdPacket, 0, sizeof(CommandPacket));
 	cmdPacket->commands = new Command[size];
 	cmdPacket->maxCommands = size;
+	cmdPacket->clutBuffer = clutBuffer;
 }
 
 void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw) {
@@ -681,11 +673,13 @@ void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw) {
 
 void CommandPacketDeinit(CommandPacket *cmdPacket) {
 	delete [] cmdPacket->commands;
+	cmdPacket->commands = nullptr;
 }
 
 void CommandInitDummyDraw(Command *cmd) {
 	memset(cmd, 0xFF, sizeof(*cmd));
-	cmd->type = CMD_DRAWTRI;
+	cmd->type = CMD_DRAWPRIM;
+	cmd->draw.prim = GE_PRIM_INVALID;
 	cmd->draw.count = 0;
 }
 
