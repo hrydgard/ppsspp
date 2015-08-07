@@ -17,12 +17,22 @@ public:
 
 	template <class T>
 	T *Allocate(T **ptr) {
+#ifdef _DEBUG
+		if (!HasRoomFor(sizeof(T))) {
+			fprintf(stderr, "MemoryArena full! Failed to allocate object of size %d", (int)sizeof(T));
+		}
+#endif
 		*ptr = reinterpret_cast<T *>(data_ + ptr_);
 		ptr_ += sizeof(T);
 		return *ptr;
 	}
 
 	u8 *AllocateBytes(size_t bytes) {
+#ifdef _DEBUG
+		if (!HasRoomFor(bytes)) {
+			fprintf(stderr, "MemoryArena full, failed to allocate %d bytes!", (int)bytes);
+		}
+#endif
 		u8 *ptr = data_ + ptr_;
 		ptr_ += bytes;
 		return ptr;

@@ -167,7 +167,7 @@ private:
 	// The CLUT no longer lives in the texture cache. It doesn't belong there, more like in the gstate together
 	// with the matrices, as it's a similar kind of state. But it'll have to stay here until we remove all old
 	// style backends, then we can move it to gstate.
-	u8 clutData_[1024];
+	u8 *clutData_;
 	u32 clutTotalBytes_;
 	u32 clutMaxBytes_;
 };

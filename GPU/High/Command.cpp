@@ -347,11 +347,14 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			LoadClutState(arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, gstate);
 			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
 			dirty &= ~STATE_CLUT;
+		} else {
+			command->draw.clut = last->draw.clut;
 		}
 	} else {
 		command->draw.texture = last->draw.texture;
 		command->draw.texScale = last->draw.texScale;
 		command->draw.sampler = last->draw.sampler;
+		command->draw.clut = last->draw.clut;
 	}
 
 	if (enabled & ENABLE_TRANSFORM) {
@@ -493,7 +496,7 @@ void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate) {
 // Returns dirty flags
 u32 CommandSubmitDraw(CommandPacket *cmdPacket, MemoryArena *arena, const GPUgstate *gstate, u32 dirty, u32 primAndCount, u32 vertexAddr, u32 indexAddr) {
 	if (cmdPacket->full) {
-		ELOG("Cannot submit draw commands to a full packet");
+		ELOG("Cannot submit draw commands to a full packet (full: %08x %s)", cmdPacket->full, StateBitToString(cmdPacket->full));
 		return dirty;
 	}
 
@@ -663,6 +666,7 @@ void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw) {
 	// Save the two pieces of state that remains relevant.
 	Command *temp = cmdPacket->commands;
 	int max = cmdPacket->maxCommands;
+	u8 *clutBuf = cmdPacket->clutBuffer;
 	memset(cmdPacket, 0, sizeof(CommandPacket));
 	cmdPacket->commands = temp;
 	cmdPacket->maxCommands = max;
@@ -670,6 +674,7 @@ void CommandPacketReset(CommandPacket *cmdPacket, const Command *dummyDraw) {
 	// Create the dummy command that the first draw can diff against.
 	cmdPacket->numCommands = 0;
 	cmdPacket->lastDraw = dummyDraw;
+	cmdPacket->clutBuffer = clutBuf;
 }
 
 void CommandPacketDeinit(CommandPacket *cmdPacket) {

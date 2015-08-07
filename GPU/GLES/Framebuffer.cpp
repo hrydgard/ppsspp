@@ -281,6 +281,7 @@ FramebufferManager::FramebufferManager() :
 	timeLoc_(-1),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
+	transformDraw_(nullptr),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
@@ -480,7 +481,8 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 		((color & 0xFF000000) >> 24) / 255.0f,
 	};
 
-	shaderManager_->DirtyLastShader();
+	if (shaderManager_)
+		shaderManager_->DirtyLastShader();
 
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
@@ -568,7 +570,8 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
+	if (shaderManager_)
+		shaderManager_->DirtyLastShader();  // dirty lastShader_
 
 	glsl_bind(program);
 	if (program == postShaderProgram_ && timeLoc_ != -1) {

@@ -119,6 +119,7 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	fb.fb_address = fbState->colorPtr;
 	fb.fb_stride = fbState->colorStride;
 	fb.fb_addr = fb.fb_address;
+	fb.fmt = (GEBufferFormat)(fbState->colorFormat);
 	// TODO: Maybe the viewport is such an important hint for this that we should always load it,
 	// even when drawing in throughmode?
 	if (cmd->draw.viewport != INVALID_STATE) {

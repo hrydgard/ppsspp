@@ -144,7 +144,7 @@ struct Command {
 struct FramebufState {
 	u32 colorPtr;
 	u16 colorStride;
-	u16 colorFormat;
+	u8 colorFormat;
 	u32 depthPtr;
 	u32 depthStride;
 	// There's only one depth format.
