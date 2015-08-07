@@ -518,6 +518,7 @@ static const char *primNames[8] = {
 	"TRIANGLES",
 	"TRISTRIP",
 	"TRIFAN",
+	"RECTANGLE",
 	"CONTINUE",  // :(
 };
 
@@ -574,7 +575,7 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numRaster; i++) {
 		const RasterState *r = cmdPacket->raster[i];
-		ILOG("Raster %d: clearmode=%02x scissor: %d,%d-%d,%d offset: %d,%d, cull: %d,%d defcol:%08x", i, r->clearMode, r->scissorX1, r->scissorY1, r->scissorX2, r->scissorY2, r->offsetX, r->offsetY, r->cullFaceEnable, r->cullMode, r->defaultVertexColor);
+		ILOG("Raster %d: clearmode=%d scissor: %d,%d-%d,%d offset: %d,%d, cull: %d,%d defcol:%08x", i, r->clearMode, r->scissorX1, r->scissorY1, r->scissorX2, r->scissorY2, r->offsetX, r->offsetY, r->cullFaceEnable, r->cullMode, r->defaultVertexColor);
 
 	}
 	for (int i = 0; i < cmdPacket->numFragment; i++) {
@@ -681,6 +682,7 @@ void CommandInitDummyDraw(Command *cmd) {
 	cmd->type = CMD_DRAWPRIM;
 	cmd->draw.prim = GE_PRIM_INVALID;
 	cmd->draw.count = 0;
+	cmd->draw.enabled = 0;
 }
 
 }  // HighGpu

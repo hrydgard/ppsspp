@@ -119,6 +119,8 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	fb.fb_address = fbState->colorPtr;
 	fb.fb_stride = fbState->colorStride;
 	fb.fb_addr = fb.fb_address;
+	// TODO: Maybe the viewport is such an important hint for this that we should always load it,
+	// even when drawing in throughmode?
 	if (cmd->draw.viewport != INVALID_STATE) {
 		ViewportState *vs = packet->viewport[cmd->draw.viewport];
 		fb.viewportWidth = 2.0 * vs->x1;
@@ -126,8 +128,8 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	}
 	fb.regionWidth = 0;
 	fb.regionHeight = 0;
-	fb.scissorWidth = raster->scissorX2 - raster->scissorX1;
-	fb.scissorHeight = raster->scissorY2 - raster->scissorY1;
+	fb.scissorWidth = raster->scissorX2 - raster->scissorX1 + 1;
+	fb.scissorHeight = raster->scissorY2 - raster->scissorY1 + 1;
 	fb.isDrawing = true;  // TODO
 	fb.isClearingDepth = false;  // TODO
 
