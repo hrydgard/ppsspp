@@ -84,14 +84,22 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	// where we actually go through and submit the draw calls. Candidates for parallelization
 	// are probably texture and vertex decoding.
 	//
-	// Pass 1: Decode all the textures and create framebuffers. This is done first so that the GL driver can
-	// upload them in the background (if it's that advanced)  while we are decoding vertex
+	// Pass 1: Decode all the textures. This is done first so that the GL driver can
+	// upload them in the background (if it's that advanced) while we are decoding vertex
 	// data and preparing the draw calls.
 
 	int start = 0;
 	int end = packet->numCommands;
+	CachedTexture *tex[256];
 	for (int i = start; i < end; i++) {
-
+		const Command *cmd = &packet->commands[i];
+		if (cmd->type != CMD_DRAWPRIM || !(cmd->draw.enabled & ENABLE_TEXTURE)) {
+			tex[i] = nullptr;
+			continue;
+		}
+		// TODO: Check that the tex pointer doesn't match any of the passed-in framebuffers.
+		// TODO: Only do this if texture and clut differ from the last line.
+		tex[i] = textureCache_->GetTexture(packet->texture[cmd->draw.texture], packet->clut[cmd->draw.clut]);
 	}
 
 	// Pass 2: Allocate a buffer and decode all the vertex data into it.

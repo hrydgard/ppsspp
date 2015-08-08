@@ -6,6 +6,13 @@
 
 namespace HighGpu {
 
+struct TextureState;
+struct ClutState;
+
+class CachedTexture {
+
+};
+
 class TextureCacheGLES : public TextureCacheCommon {
 public:
 	int NumLoadedTextures();
@@ -16,6 +23,8 @@ public:
 	void ForgetLastTexture() override;
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) override;
 	u32 AllocTextureName() override;
+
+	CachedTexture *GetTexture(TextureState *texState, ClutState *clutState);
 };
 
 }  // namespace

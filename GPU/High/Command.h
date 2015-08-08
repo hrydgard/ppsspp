@@ -47,6 +47,7 @@ enum EnableFlags : u32 {
 	ENABLE_LIGHT1         = BIT(15),
 	ENABLE_LIGHT2         = BIT(16),
 	ENABLE_LIGHT3         = BIT(17),
+	ENABLE_CLUT           = BIT(18),
 };
 
 // All the individual state blocks, both enable-able and not, for helping keeping track of them.

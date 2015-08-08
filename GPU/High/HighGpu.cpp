@@ -610,8 +610,8 @@ void HighGpuFrontend::Execute_BoundingBox(u32 op, u32 diff) {
 }
 
 void HighGpuFrontend::Execute_LoadClut(u32 op, u32 diff) {
+	u32 loadBytes = (op & 0x3F) * 32;
 	u32 clutAddr = gstate.getClutAddress();
-	u32 loadBytes = gstate.getClutLoadBytes();
 	cmdPacket_->latchedClutLoadBytes = loadBytes;
 	clutTotalBytes_ = loadBytes;
 

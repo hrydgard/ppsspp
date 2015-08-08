@@ -36,6 +36,9 @@ static u32 LoadEnables(const GPUgstate *gstate) {
 		if (gstate->isDepthTestEnabled()) val |= ENABLE_DEPTH_TEST;
 		if (gstate->isTextureMapEnabled()) {
 			val |= ENABLE_TEXTURE;
+			if (gstate->isTextureFormatIndexed()) {
+				val |= ENABLE_CLUT;
+			}
 		}
 		// TODO: Compute an enable flag for the tex matrix
 	}
@@ -186,7 +189,7 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 	sampler->levelMode = gstate->getTexLevelMode();
 }
 
-static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena, const GPUgstate *gstate) {
+static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena) {
 	int bytes = cmdPacket->latchedClutLoadBytes;
 	u8 *data = arena->AllocateAligned(bytes, 16);
 	memcpy(data, clutBuffer, bytes);
@@ -344,9 +347,9 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		} else {
 			command->draw.sampler = last->draw.sampler;
 		}
-		if (dirty & STATE_CLUT) {
+		if ((enabled && ENABLE_CLUT) && (dirty & STATE_CLUT)) {
 			command->draw.clut = cmdPacket->numClut;
-			LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, gstate);
+			LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena);
 			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
 			dirty &= ~STATE_CLUT;
 		} else {
@@ -576,13 +579,13 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		case CMD_DRAWPRIM:
 			GeDescribeVertexType(cmd.draw.vtxformat, fmtBuf, sizeof(fmtBuf));
 			snprintf(line, sizeof(line), "DRAW %s : %d (v %08x, i %x) [%s] enabled: %08x : "
-					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d "
+					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d clut:%d "
 					"blend:%d depth:%d "
 					"world:%d view:%d proj:%d tex:%d "
 					"lg:%d l0:%d l1:%d l2:%d l3:%d "
 					"morph:%d b0:%d b1:%d b2:%d b3:%d b4:%d b5:%d b6:%d b7:%d",
 					primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr, fmtBuf, cmd.draw.enabled,
-					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler,
+					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler, cmd.draw.clut,
 					cmd.draw.blend, cmd.draw.depthStencil,
 					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
 					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3],
@@ -590,8 +593,9 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 					cmd.draw.boneMatrix[0], cmd.draw.boneMatrix[1], cmd.draw.boneMatrix[2], cmd.draw.boneMatrix[3],
 					cmd.draw.boneMatrix[4], cmd.draw.boneMatrix[5], cmd.draw.boneMatrix[6], cmd.draw.boneMatrix[7]);
 			break;
+
 		case CMD_TRANSFER:
-			snprintf(line, sizeof(line), "TRANSFER : %dx%d", cmd.transfer.width, cmd.transfer.height);
+			snprintf(line, sizeof(line), "TRANSFER : %08x->%08x %dx%d", cmd.transfer.srcPtr, cmd.transfer.dstPtr, cmd.transfer.width, cmd.transfer.height);
 			break;
 
 		default:
@@ -632,8 +636,7 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numClut; i++) {
 		const ClutState *c = cmdPacket->clut[i];
-		ILOG("Clut %d: hash=%08x size=%d ptr=%p",
-				i, c->hash, c->size, c->data);
+		ILOG("Clut %d: hash=%08x size=%d ptr=%p [%08x, ...]", i, c->hash, c->size, c->data, *((u32 *)c->data));
 	}
 	for (int i = 0; i < cmdPacket->numBlend; i++) {
 		const BlendState *b = cmdPacket->blend[i];

@@ -34,4 +34,8 @@ u32 TextureCacheGLES::AllocTextureName() {
 	return 0;
 }
 
+CachedTexture *TextureCacheGLES::GetTexture(TextureState *texState, ClutState *clutState) {
+	return nullptr;
+}
+
 }  // namespace
