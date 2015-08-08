@@ -31,8 +31,6 @@ HighGpu_GLES::HighGpu_GLES() : resized_(false), dumpNextFrame_(false), dumpThisF
 	framebufferManager_->SetTextureCache(textureCache_);
 
 	/*
-	framebufferManager_->Init();
-	framebufferManager_->SetTextureCache(&textureCache_);
 	framebufferManager_->SetShaderManager(shaderManager_);
 	framebufferManager_->SetTransformDrawEngine(&transformDraw_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
@@ -90,7 +88,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 
 	int start = 0;
 	int end = packet->numCommands;
-	CachedTexture *tex[256];
+	CachedTexture *tex[512];
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		if (cmd->type != CMD_DRAWPRIM || !(cmd->draw.enabled & ENABLE_TEXTURE)) {
@@ -114,7 +112,8 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		if (curFramebuf != cmd->draw.framebuf) {
-			//ApplyFramebuffer(packet, cmd);
+			ApplyFramebuffer(packet, cmd);
+			curFramebuf = cmd->draw.framebuf;
 		}
 	}
 }
@@ -127,6 +126,8 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	fb.fb_address = fbState->colorPtr;
 	fb.fb_stride = fbState->colorStride;
 	fb.fb_addr = fb.fb_address;
+	fb.z_address = fbState->depthPtr;
+	fb.z_stride = fbState->depthStride;
 	fb.fmt = (GEBufferFormat)(fbState->colorFormat);
 	// TODO: Maybe the viewport is such an important hint for this that we should always load it,
 	// even when drawing in throughmode?
@@ -134,6 +135,12 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 		ViewportState *vs = packet->viewport[cmd->draw.viewport];
 		fb.viewportWidth = 2.0 * vs->x1;
 		fb.viewportHeight = 2.0 * vs->x2;
+		fb.hasViewportAndRegion = true;
+		// Temp hack
+		fb.regionWidth = fb.viewportWidth;
+		fb.regionHeight = fb.viewportHeight;;
+	} else {
+		fb.hasViewportAndRegion = false;
 	}
 	fb.regionWidth = 0;
 	fb.regionHeight = 0;
@@ -141,6 +148,8 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	fb.scissorHeight = raster->scissorY2 - raster->scissorY1 + 1;
 	fb.isDrawing = true;  // TODO
 	fb.isClearingDepth = false;  // TODO
+	fb.isWritingDepth = true;
+	fb.isModeThrough = true;
 
 	framebufferManager_->DoSetRenderFrameBuffer(fb, gstate_c.skipDrawReason);
 }

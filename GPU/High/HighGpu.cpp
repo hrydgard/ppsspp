@@ -393,6 +393,7 @@ HighGpuFrontend::CommandInfo HighGpuFrontend::cmdInfo_[256];
 HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 : resized_(false), dirty_(0), backend_(backend), arena_(ArenaSize) {
 	clutData_ = new u8[1024];
+	memset(clutData_, 0, 1024 * sizeof(u8));
 	// Sanity check cmdInfo_ table - no dupes please
 	std::set<u8> dupeCheck;
 	memset(cmdInfo_, 0, sizeof(cmdInfo_));
