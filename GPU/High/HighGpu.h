@@ -41,6 +41,9 @@ namespace HighGpu {
 // A HighGpu backend has no knowledge of GPUState or gstate_c at all. Its only inputs are CommandPacket
 // and the RAM/VRAM of the PSP, and it outputs are graphics API calls and writes to RAM/VRAM of the PSP in
 // cases like copying back to memory.
+//
+// There is no separate DrawEngine, it's integrated into the HighGpuBackend. Or, well, there can be, but
+// not mandated.
 class HighGpuBackend {
 public:
 	virtual ~HighGpuBackend() {}

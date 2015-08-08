@@ -39,10 +39,10 @@ enum EnableFlags : u32 {
 	ENABLE_TEXTURE        = BIT(7),
 	ENABLE_TRANSFORM      = BIT(8),
 	ENABLE_TEX_TRANSFORM  = BIT(9),
-	ENABLE_LIGHTS         = BIT(10),
-	ENABLE_BONES          = BIT(11),
-	ENABLE_MORPH          = BIT(12),
-	ENABLE_TEXMATRIX      = BIT(13),
+	ENABLE_BONES          = BIT(10),
+	ENABLE_MORPH          = BIT(11),
+	ENABLE_TEXMATRIX      = BIT(12),
+	ENABLE_LIGHTS         = BIT(13),
 	ENABLE_LIGHT0         = BIT(14),
 	ENABLE_LIGHT1         = BIT(15),
 	ENABLE_LIGHT2         = BIT(16),
@@ -223,6 +223,8 @@ struct TextureState {
 	u8 mipClutMode;
 	u8 clutFormat;  // RGB565, etc...
 	u8 clutIndexMaskShiftStart;
+	u32 clutHash;  // Hack, but useful to be able to iterate over unique tex/clut combinations effortlessly.
+	u8 clutStateIndex;
 };
 
 // Really, UV generation state.

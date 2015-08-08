@@ -120,7 +120,13 @@ static void LoadRasterState(RasterState *raster, const GPUgstate *gstate) {
 	raster->scissorY2 = gstate->getScissorY2();
 	raster->cullFaceEnable = gstate->isCullEnabled();
 	raster->cullMode = gstate->getCullMode();
-	raster->defaultVertexColor = gstate->getMaterialAmbientRGBA();
+	// TODO : Should the default vertexcolor really live here?
+	if ((gstate->vertType & GE_VTYPE_COL_MASK) != 0) {
+		// Since not used, zero it. Clearer in debug output and makes them collapsible.
+		raster->defaultVertexColor = 0;
+	} else {
+		raster->defaultVertexColor = gstate->getMaterialAmbientRGBA();
+	}
 }
 
 static void LoadViewportState(ViewportState *viewport, const GPUgstate *gstate) {
@@ -143,7 +149,7 @@ static void LoadDepthStencilState(DepthStencilState *depthStencil, const GPUgsta
 	depthStencil->stencilOpZPass = gstate->getStencilOpZPass();
 }
 
-static void LoadTextureState(TextureState *texture, const GPUgstate *gstate) {
+static void LoadTextureState(TextureState *texture, const GPUgstate *gstate, u32 clutHash, u8 clutStateIndex) {
 	// These are all from texmode
 	texture->maxLevel = gstate->getTextureMaxLevel();
 	texture->swizzled = gstate->isTextureSwizzled();
@@ -153,6 +159,11 @@ static void LoadTextureState(TextureState *texture, const GPUgstate *gstate) {
 	if (gstate->isTextureFormatIndexed()) {
 		texture->clutFormat = gstate->getClutPaletteFormat();
 		texture->clutIndexMaskShiftStart = gstate->clutformat & (~3 & 0xFFFFFF);
+		texture->clutHash = clutHash;
+		texture->clutStateIndex = clutStateIndex;
+	} else {
+		texture->clutHash = 0;
+		texture->clutStateIndex = INVALID_STATE;
 	}
 	// SIMD opportunity. Or we could just optimize and just not store dim for mip levels above 0...
 	// We would have to accomodate the few games that uses degenerate mipmapping to blend between two equal-sized
@@ -189,7 +200,7 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 	sampler->levelMode = gstate->getTexLevelMode();
 }
 
-static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena) {
+static u32 LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena) {
 	int bytes = cmdPacket->latchedClutLoadBytes;
 	u8 *data = arena->AllocateAligned(bytes, 16);
 	memcpy(data, clutBuffer, bytes);
@@ -197,6 +208,7 @@ static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *c
 	clut->size = bytes;
 	// TODO: We should compute this the same way the old texcache did, taking into account the clut base etc.
 	clut->hash = DoReliableHash32((const char *)data, bytes, 0xC0108888);
+	return clut->hash;
 }
 
 static void LoadMorphState(MorphState *morph, const GPUgstate *gstate) {
@@ -323,9 +335,18 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	}
 
 	if (enabled & ENABLE_TEXTURE) {
+		u32 clutHash = 0;
+		if ((enabled & ENABLE_CLUT) && (dirty & STATE_CLUT)) {
+			command->draw.clut = cmdPacket->numClut;
+			clutHash = LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena);
+			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
+			dirty &= ~STATE_CLUT;
+		} else {
+			command->draw.clut = last->draw.clut;
+		}
 		if (dirty & STATE_TEXTURE) {
 			command->draw.texture = cmdPacket->numTexture;
-			LoadTextureState(arena->Allocate(&cmdPacket->texture[cmdPacket->numTexture++]), gstate);
+			LoadTextureState(arena->Allocate(&cmdPacket->texture[cmdPacket->numTexture++]), gstate, clutHash, clutHash ? (cmdPacket->numClut - 1) : INVALID_STATE);
 			if (cmdPacket->numTexture == ARRAY_SIZE(cmdPacket->texture)) full = STATE_TEXTURE;
 			dirty &= ~STATE_TEXTURE;
 		} else {
@@ -346,14 +367,6 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			dirty &= ~STATE_SAMPLER;
 		} else {
 			command->draw.sampler = last->draw.sampler;
-		}
-		if ((enabled && ENABLE_CLUT) && (dirty & STATE_CLUT)) {
-			command->draw.clut = cmdPacket->numClut;
-			LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena);
-			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
-			dirty &= ~STATE_CLUT;
-		} else {
-			command->draw.clut = last->draw.clut;
 		}
 	} else {
 		command->draw.texture = last->draw.texture;
@@ -566,6 +579,8 @@ void LogMatrix4x4(const char *name, int i, const Matrix4x4 *m) {
 			m->v[12], m->v[13], m->v[14], m->v[15]);
 }
 
+#define WRITE p+=sprintf
+
 void PrintCommandPacket(CommandPacket *cmdPacket) {
 	ILOG("========= Commands: %d (full: %s) ==========", cmdPacket->numCommands, StateBitToString(cmdPacket->full));
 	if (!cmdPacket->numCommands) {
@@ -574,24 +589,45 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	for (int i = 0; i < cmdPacket->numCommands; i++) {
 		char line[1024];
 		char fmtBuf[256];
+		char *p = line;
 		const Command &cmd = cmdPacket->commands[i];
 		switch (cmd.type) {
 		case CMD_DRAWPRIM:
 			GeDescribeVertexType(cmd.draw.vtxformat, fmtBuf, sizeof(fmtBuf));
-			snprintf(line, sizeof(line), "DRAW %s : %d (v %08x, i %x) [%s] enabled: %08x : "
-					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d clut:%d "
-					"blend:%d depth:%d "
-					"world:%d view:%d proj:%d tex:%d "
-					"lg:%d l0:%d l1:%d l2:%d l3:%d "
-					"morph:%d b0:%d b1:%d b2:%d b3:%d b4:%d b5:%d b6:%d b7:%d",
-					primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr, fmtBuf, cmd.draw.enabled,
-					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler, cmd.draw.clut,
-					cmd.draw.blend, cmd.draw.depthStencil,
-					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
-					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3],
-					cmd.draw.morph,
+			WRITE(p, "%s : %d (v %08x, i %x) [%s] enable: %08x ", primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr, fmtBuf, cmd.draw.enabled);
+			WRITE(p, "frbuf:%d rast:%d frag:%d ", cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment);
+			if (cmd.draw.enabled & ENABLE_TEXTURE) {
+				WRITE(p, "texmap:%d ts:%d samp:%d clut:%d ", cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler, cmd.draw.clut);
+			}
+			if (cmd.draw.enabled & ENABLE_TEX_TRANSFORM) {
+				WRITE(p, "tex:%d ts:%d ", cmd.draw.texMatrix, cmd.draw.texScale);
+			}
+			if (cmd.draw.enabled & ENABLE_BLEND) {
+				WRITE(p, "blend:%d ", cmd.draw.blend);
+			}
+			if (cmd.draw.enabled & (ENABLE_DEPTH_TEST | ENABLE_STENCIL_TEST)) {
+				WRITE(p, "depthstencil:%d ", cmd.draw.depthStencil);
+			}
+			if (cmd.draw.enabled & ENABLE_TRANSFORM) {
+				WRITE(p, "vport:%d world:%d view:%d proj:%d ",
+					cmd.draw.viewport,cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix);
+			}
+			if (cmd.draw.enabled & ENABLE_LIGHTS) {
+				WRITE(p, "lg:%d", cmd.draw.lightGlobal);
+				for (int i = 0; i < 4; i++) {
+					if (cmd.draw.enabled & (ENABLE_LIGHT0 << i)) {
+						WRITE(p, "l%d:%d", i, cmd.draw.lights[i]);
+					}
+				}
+			}
+			if (cmd.draw.enabled & ENABLE_BONES) {
+				WRITE(p, "b0:%d b1:%d b2:%d b3:%d b4:%d b5:%d b6:%d b7:%d ",
 					cmd.draw.boneMatrix[0], cmd.draw.boneMatrix[1], cmd.draw.boneMatrix[2], cmd.draw.boneMatrix[3],
 					cmd.draw.boneMatrix[4], cmd.draw.boneMatrix[5], cmd.draw.boneMatrix[6], cmd.draw.boneMatrix[7]);
+			}
+			if (cmd.draw.enabled & ENABLE_MORPH) {
+				WRITE(p, "morph: %d ", cmd.draw.morph);
+			}
 			break;
 
 		case CMD_TRANSFER:
@@ -621,8 +657,8 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numTexture; i++) {
 		const TextureState *t = cmdPacket->texture[i];
-		ILOG("Texture %d: format: %d swizzle: %d maxlevel: %d addr[0]: %08x dim[0]: %04x stride[0]=%d clutFormat=%d clutconv=%06x",
-			i, t->format, t->swizzled, t->maxLevel, t->addr[0], t->dim[0], t->stride[0], t->clutFormat, t->clutIndexMaskShiftStart);
+		ILOG("Texture %d: format: %d swizzle: %d maxlevel: %d addr[0]: %08x dim[0]: %04x stride[0]=%d clutFormat=%d clutconv=%06x cluthash=%08x clutidx=%d",
+			i, t->format, t->swizzled, t->maxLevel, t->addr[0], t->dim[0], t->stride[0], t->clutFormat, t->clutIndexMaskShiftStart, t->clutHash, t->clutStateIndex);
 	}
 	for (int i = 0; i < cmdPacket->numTexScale; i++) {
 		const TexScaleState *t = cmdPacket->texScale[i];

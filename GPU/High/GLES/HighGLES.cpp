@@ -18,18 +18,29 @@
 #include "GPU/High/GLES/ShaderManagerHighGLES.h"
 #include "GPU/High/GLES/TextureCacheHighGLES.h"
 #include "GPU/High/Command.h"
+#include "GPU/Common/IndexGenerator.h"
 
 #include "native/gfx_es2/gl_state.h"
 
 namespace HighGpu {
 
+enum {
+	VTXDEC_BUFSIZE = 1024 * 1024 * 4,
+	VTXDEC_IBUFSIZE = 1024 * 1024,
+};
+
 HighGpu_GLES::HighGpu_GLES() : resized_(false), dumpNextFrame_(false), dumpThisFrame_(false) {
 	shaderManager_ = new ShaderManagerGLES();
 	framebufferManager_ = new FramebufferManager();
 	textureCache_ = new TextureCacheGLES();
+
 	framebufferManager_->Init();
 	framebufferManager_->SetTextureCache(textureCache_);
 
+	vertexDecodeBuf_ = new u8[VTXDEC_BUFSIZE];
+	memset(vertexDecodeBuf_, 0, VTXDEC_BUFSIZE);
+	indexDecodeBuf_ = new u8[VTXDEC_IBUFSIZE];
+	memset(indexDecodeBuf_, 0, VTXDEC_IBUFSIZE);
 	/*
 	framebufferManager_->SetShaderManager(shaderManager_);
 	framebufferManager_->SetTransformDrawEngine(&transformDraw_);
@@ -48,6 +59,8 @@ HighGpu_GLES::~HighGpu_GLES() {
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	delete framebufferManager_;
+	delete [] vertexDecodeBuf_;
+	delete [] indexDecodeBuf_;
 	glstate.SetVSyncInterval(0);
 }
 
@@ -88,27 +101,47 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 
 	int start = 0;
 	int end = packet->numCommands;
-	CachedTexture *tex[512];
+	// Local mirror arrays. Should possible put it all in a struct instead and attach it
+	// using the userdata pointer.
+	TexCacheEntry *tex[32];
+
+	for (int i = 0; i < packet->numTexture; i++) {
+		const TextureState *texState = packet->texture[i];
+		const ClutState *clut = texState->clutStateIndex == INVALID_STATE ? nullptr : packet->clut[texState->clutStateIndex];
+		tex[i] = textureCache_->GetTexture(texState, clut);
+	}
+
+	short primCount[8] = {0};
+	short idxCount[4] = {0};
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
-		if (cmd->type != CMD_DRAWPRIM || !(cmd->draw.enabled & ENABLE_TEXTURE)) {
-			tex[i] = nullptr;
+		if (cmd->type != CMD_DRAWPRIM) {
 			continue;
 		}
-		// TODO: Check that the tex pointer doesn't match any of the passed-in framebuffers.
-		// TODO: Only do this if texture and clut differ from the last line.
-		tex[i] = textureCache_->GetTexture(packet->texture[cmd->draw.texture], packet->clut[cmd->draw.clut]);
+		primCount[cmd->draw.prim]++;
+		idxCount[(cmd->draw.vtxformat & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT]++;
+		if (!(cmd->draw.enabled & ENABLE_TEXTURE))
+			continue;
 	}
+
+	// bool softwareTransform = primCount[GE_PRIM_RECTANGLES] > 0;
 
 	// Pass 2: Allocate a buffer and decode all the vertex data into it.
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		if (cmd->type != CMD_DRAWPRIM)
 			continue;
+
+		// VertexDecoder *dec = GetVertexDecoder(cmd->draw.vtxformat);
+		if (cmd->draw.vtxformat & GE_VTYPE_IDX_NONE) {
+			// Decode it all.
+			// dec->DecodeVerts(
+		}
 	}
 
 	// Pass 3: Fetch shaders, perform the draws.
 	int curFramebuf = -1;
+
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		if (curFramebuf != cmd->draw.framebuf) {
@@ -120,6 +153,16 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 
 void HighGpu_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+}
+
+VertexDecoder *HighGpu_GLES::GetVertexDecoder(u32 vtype) {
+	auto iter = decoderMap_.find(vtype);
+	if (iter != decoderMap_.end())
+		return iter->second;
+	VertexDecoder *dec = new VertexDecoder();
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
+	decoderMap_[vtype] = dec;
+	return dec;
 }
 
 // So much data to fetch to make the heuristic happy...
@@ -389,4 +432,4 @@ void HighGpu_GLES::DoState(PointerWrap &p) {
 	}
 }
 
-}  // namespace
+}  // namespace HighGpu

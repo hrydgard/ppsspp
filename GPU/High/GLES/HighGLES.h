@@ -1,13 +1,19 @@
 #pragma once
 
+// TODO: Find a more efficient replacement, it's not as slow as map but pretty slow
+#include <unordered_map>
+
 #include "GPU/High/HighGpu.h"
 
 // We reuse some subsystems of the regular GL backend.
 #include "GPU/GLES/DepalettizeShader.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 class FramebufferManager;
+class VertexDecoder;
+class VertexDecoderJitCache;
 
 namespace HighGpu {
 
@@ -40,6 +46,7 @@ private:
 	void ReinitializeInternal();
 
 	void ApplyFramebuffer(const CommandPacket *cmdPacket, const Command *cmd);
+	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	FramebufferManager *framebufferManager_;
 	FragmentTestCache fragmentTestCache_;
@@ -54,6 +61,15 @@ private:
 	// Should this dump decoded draw commands?
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
+
+	// TODO: Eliminate and map GL buffers directly.
+	u8 *vertexDecodeBuf_;
+	u8 *indexDecodeBuf_;
+
+	std::unordered_map<u32, VertexDecoder *> decoderMap_;
+	VertexDecoder *dec_;
+	VertexDecoderJitCache *decJitCache_;
+	VertexDecoderOptions decOptions_;
 };
 
 }  // namespace

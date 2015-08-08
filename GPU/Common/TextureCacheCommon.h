@@ -27,6 +27,13 @@ enum FramebufferNotification {
 	NOTIFY_FB_DESTROYED,
 };
 
+enum TextureFiltering {
+	AUTO = 1,
+	NEAREST = 2,
+	LINEAR = 3,
+	LINEARFMV = 4,
+};
+
 class TextureCacheCommon {
 public:
 	virtual ~TextureCacheCommon();

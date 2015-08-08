@@ -33,13 +33,6 @@ class FramebufferManager;
 class DepalShaderCache;
 class ShaderManager;
 
-enum TextureFiltering {
-	AUTO = 1,
-	NEAREST = 2,
-	LINEAR = 3,
-	LINEARFMV = 4,
-};
-
 inline bool UseBGRA8888() {
 	// TODO: Other platforms?  May depend on vendor which is faster?
 #ifdef _WIN32

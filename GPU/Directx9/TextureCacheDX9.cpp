@@ -1785,8 +1785,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 	entry.texture->UnlockRect(level);
 }
 
-bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state)
-{
+bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state) {
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
 	return true;
 }

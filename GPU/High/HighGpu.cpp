@@ -458,7 +458,6 @@ void HighGpuFrontend::Reinitialize() {
 	ScheduleEvent(GPU_EVENT_REINITIALIZE);
 }
 
-
 void HighGpuFrontend::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
