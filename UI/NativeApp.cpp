@@ -475,7 +475,7 @@ void NativeInit(int argc, const char *argv[],
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost_manager_init();
 	}
 }
@@ -780,7 +780,7 @@ void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost();
 		glstate.Restore();
 	}
@@ -900,7 +900,7 @@ bool NativeAxis(const AxisInput &axis) {
 	//then a value of 70-80 is the way to go.
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
-	
+
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 
@@ -909,11 +909,11 @@ bool NativeAxis(const AxisInput &axis) {
 		case TILT_ANALOG:
 			GenerateAnalogStickEvent(trueTilt);
 			break;
-		
+
 		case TILT_DPAD:
 			GenerateDPadEvent(trueTilt);
 			break;
-		
+
 		case TILT_ACTION_BUTTON:
 			GenerateActionButtonEvent(trueTilt);
 			break;
@@ -952,7 +952,7 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost_manager_shutdown();
 	}
 
