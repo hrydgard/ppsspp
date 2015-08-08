@@ -142,10 +142,15 @@ struct Command {
 	void *userData;  // Put temporary translated data here that should be attached to this command.
 };
 
+// State objects
+// As these will be frequently memcmp'd, it's important to avoid padding. We primarily do this
+// by sometimes increasing the data size unnecessarily.
+
+
 struct FramebufState {
 	u32 colorPtr;
 	u16 colorStride;
-	u8 colorFormat;
+	u16 colorFormat;  // could be u8 but for padding
 	u32 depthPtr;
 	u32 depthStride;
 	// There's only one depth format.
@@ -154,25 +159,25 @@ struct FramebufState {
 // Dumping ground for pixel state that doesn't belong anywhere else, and is always needed regardless
 // of "enables". Well, culling is not applied in throughmode but apart from that...
 struct RasterState {
-	u8 clearMode;
+	u32 defaultVertexColor;  // materialambient gets duplicated here so we don't need to involve lights.
 	u32 offsetX;
 	u32 offsetY;
 	u16 scissorX1;
 	u16 scissorY1;
 	u16 scissorX2;
 	u16 scissorY2;
-	bool cullFaceEnable;
-	bool cullMode;
-	u32 defaultVertexColor;  // materialambient gets duplicated here.
+	u16 clearMode;
+	u8 cullFaceEnable;
+	u8 cullMode;
 };
 
 // TODO: fogCoefs are more like transform state. Maybe move?
 struct FragmentState {
-	bool colorDouble;
-	bool useTextureAlpha;
+	u8 colorDouble;
+	u8 useTextureAlpha;
 	u8 texFunc;
-	u32 texEnvColor;
 	u8 shadeMode;
+	u32 texEnvColor;
 	float fogCoef1;
 	float fogCoef2;
 	u32 fogColor;
@@ -181,12 +186,15 @@ struct FragmentState {
 struct ViewportState {
 	float x1, y1, z1;
 	float x2, y2, z2;
+	short regionX1, regionY1;
+	short regionX2, regionY2;
 };
 
 struct BlendState {
 	u8 blendSrc;
 	u8 blendDst;
 	u8 blendEq;
+	u8 logicOpFunc;
 	u32 blendfixa;
 	u32 blendfixb;
 	u8 alphaTestFunc;
@@ -196,7 +204,6 @@ struct BlendState {
 	u32 colorTestRef;
 	u32 colorTestMask;
 	u32 colorWriteMask;
-	u8 logicOpFunc;
 };
 
 struct DepthStencilState {
@@ -215,15 +222,15 @@ struct DepthStencilState {
 // all addresses though, although might be able to delta compress them.
 struct TextureState {
 	u32 addr[8];
+	u32 clutHash;  // Hack, but useful to be able to iterate over unique tex/clut combinations effortlessly.
 	u16 dim[8];
 	u16 stride[8];
-	u8 maxLevel;
+	u16 maxLevel; // u16 to eliminate padding
 	u8 format;
 	u8 swizzled;
 	u8 mipClutMode;
 	u8 clutFormat;  // RGB565, etc...
 	u8 clutIndexMaskShiftStart;
-	u32 clutHash;  // Hack, but useful to be able to iterate over unique tex/clut combinations effortlessly.
 	u8 clutStateIndex;
 };
 
@@ -252,13 +259,13 @@ struct LightGlobalState {
 	u32 materialDiffuse;
 	u32 materialSpecular;
 	u32 ambientcolor;
-	u32 lmode;
 	float specularCoef;
+	u32 lmode;
 };
 
 // TODO: Note that depending on the light type, not the entire struct needs to be allocated (!)
 struct LightState {
-	u8 type;
+	int type;  // int instead of u8 to avoid padding
 	float pos[3];  // pos is used as direction for directional lights.
 	u32 diffuseColor;
 	u32 ambientColor;

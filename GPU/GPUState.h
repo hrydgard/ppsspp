@@ -516,3 +516,5 @@ inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
 	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
 	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
 }
+
+inline bool isTextureFormatIndexed(GETextureFormat texformat) { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.

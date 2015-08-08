@@ -64,6 +64,7 @@ static void LoadLightGlobalState(LightGlobalState *light, const GPUgstate *gstat
 	light->specularCoef = gstate->getMaterialSpecularCoef();
 	light->materialEmissive = gstate->getMaterialEmissive();
 	light->materialSpecular = gstate->getMaterialSpecular();
+	light->lmode = gstate->lmode & 1;
 }
 
 static void LoadLightState(LightState *light, const GPUgstate *gstate, int lightnum) {
@@ -88,7 +89,9 @@ static void LoadLightState(LightState *light, const GPUgstate *gstate, int light
 		light->lcutoff = getFloat24(gstate->lcutoff[lightnum]);
 	} else {
 		memset(light->dir, 0, sizeof(light->dir));
+		light->lcutoff = 0;
 	}
+	light->lconv = 0.0f;
 }
 
 static void LoadFragmentState(FragmentState *fragment, const GPUgstate *gstate) {
@@ -136,6 +139,10 @@ static void LoadViewportState(ViewportState *viewport, const GPUgstate *gstate) 
 	viewport->x2 = gstate->getViewportX2();
 	viewport->y2 = gstate->getViewportY2();
 	viewport->z2 = gstate->getViewportZ2();
+	viewport->regionX1 = gstate->getRegionX1();
+	viewport->regionY1 = gstate->getRegionY1();
+	viewport->regionX2 = gstate->getRegionX2();
+	viewport->regionY2 = gstate->getRegionY2();
 }
 
 static void LoadDepthStencilState(DepthStencilState *depthStencil, const GPUgstate *gstate) {
@@ -417,11 +424,11 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			command->draw.texMatrix = last->draw.texMatrix;
 		}
 		if (enabled & ENABLE_LIGHTS) {
-			if (dirty & STATE_VIEWPORT) {
+			if (dirty & STATE_LIGHTGLOBAL) {
 				command->draw.lightGlobal = cmdPacket->numLightGlobal;
 				LoadLightGlobalState(arena->Allocate(&cmdPacket->lightGlobal[cmdPacket->numLightGlobal++]), gstate);
-				if (cmdPacket->numLightGlobal == ARRAY_SIZE(cmdPacket->lightGlobal)) full = STATE_VIEWPORT;
-				dirty &= ~STATE_VIEWPORT;
+				if (cmdPacket->numLightGlobal == ARRAY_SIZE(cmdPacket->lightGlobal)) full = STATE_LIGHTGLOBAL;
+				dirty &= ~STATE_LIGHTGLOBAL;
 			} else {
 				command->draw.lightGlobal = last->draw.lightGlobal;
 			}
@@ -686,7 +693,7 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numViewport; i++) {
 		const ViewportState *v = cmdPacket->viewport[i];
-		ILOG("Viewport %d: C: %f, %f, %f  SZ: %f, %f, %f", i, v->x1, v->y1, v->z1, v->x2, v->y2, v->z2);
+		ILOG("Viewport %d: C: %f, %f, %f  SZ: %f, %f, %f Rgn: %d %d %d %d", i, v->x1, v->y1, v->z1, v->x2, v->y2, v->z2, v->regionX1, v->regionX2, v->regionY1, v->regionY2);
 	}
 	for (int i = 0; i < cmdPacket->numWorldMatrix; i++) {
 		LogMatrix4x3("World", i, cmdPacket->worldMatrix[i]);
