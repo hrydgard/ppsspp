@@ -22,4 +22,16 @@ void TextureCacheGLES::InvalidateAll(GPUInvalidationType type) {
 
 }
 
+void TextureCacheGLES::ForgetLastTexture() {
+
+}
+
+void TextureCacheGLES::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
+
+}
+
+u32 TextureCacheGLES::AllocTextureName() {
+	return 0;
+}
+
 }  // namespace

@@ -19,9 +19,22 @@
 
 #include "Common/CommonTypes.h"
 
+struct VirtualFramebuffer;
+
+enum FramebufferNotification {
+	NOTIFY_FB_CREATED,
+	NOTIFY_FB_UPDATED,
+	NOTIFY_FB_DESTROYED,
+};
+
 class TextureCacheCommon {
 public:
 	virtual ~TextureCacheCommon();
 
 	virtual bool SetOffsetTexture(u32 offset);
+	virtual void ForgetLastTexture() = 0;
+	virtual void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) = 0;
+
+	// OpenGL leaking...
+	virtual u32 AllocTextureName() { return 0; }
 };

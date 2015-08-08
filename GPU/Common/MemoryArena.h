@@ -39,7 +39,7 @@ public:
 	}
 
 	u8 *AllocateAligned(size_t bytes, int alignment) {
-		ptr_ = (ptr_ + alignment - 1) & ~alignment;
+		ptr_ = (ptr_ + alignment - 1) & ~(alignment - 1);
 		return AllocateBytes(bytes);
 	}
 

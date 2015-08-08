@@ -46,19 +46,13 @@
 
 namespace HighGpu {
 
-// TODO: can we get rid of these and only keep EXECUTE? If so we can merge EXECUTE into the dirtyState field.
-enum {
-	FLAG_EXECUTE = 1,
-};
-
 enum {
 	ArenaSize = 4096 * 1024,
 };
 
 struct CommandTableEntry {
 	u8 cmd;
-	u8 flags;
-	u32 dirtyState;
+	u32 dirtyState;  // as it's always a single bit, we can compress this to an u8.
 	HighGpuFrontend::CmdFunc func;
 };
 
@@ -66,120 +60,119 @@ struct CommandTableEntry {
 // TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
 static const CommandTableEntry commandTable[] = {
 	// Changes that dirty the framebuffer
-	{GE_CMD_FRAMEBUFPTR, 0, STATE_FRAMEBUF},
-	{GE_CMD_FRAMEBUFWIDTH, 0, STATE_FRAMEBUF},
-	{GE_CMD_FRAMEBUFPIXFORMAT, 0, STATE_FRAMEBUF},
-	{GE_CMD_ZBUFPTR, 0, STATE_FRAMEBUF},
-	{GE_CMD_ZBUFWIDTH, 0, STATE_FRAMEBUF},
+	{GE_CMD_FRAMEBUFPTR, STATE_FRAMEBUF},
+	{GE_CMD_FRAMEBUFWIDTH, STATE_FRAMEBUF},
+	{GE_CMD_FRAMEBUFPIXFORMAT, STATE_FRAMEBUF},
+	{GE_CMD_ZBUFPTR, STATE_FRAMEBUF},
+	{GE_CMD_ZBUFWIDTH, STATE_FRAMEBUF},
 
 	// Changes that dirty uniforms
-	{GE_CMD_FOGCOLOR, 0, STATE_FRAGMENT},
-	{GE_CMD_FOG1, 0, STATE_FRAGMENT},
-	{GE_CMD_FOG2, 0, STATE_FRAGMENT},
+	{GE_CMD_FOGCOLOR, STATE_FRAGMENT},
+	{GE_CMD_FOG1, STATE_FRAGMENT},
+	{GE_CMD_FOG2, STATE_FRAGMENT},
 
 	// Should these maybe flush?
 	{GE_CMD_MINZ},
 	{GE_CMD_MAXZ},
 
-	// Changes that dirty texture scaling.
-	{GE_CMD_TEXMAPMODE, 0, STATE_TEXSCALE},
-	{GE_CMD_TEXSCALEU, 0, STATE_TEXSCALE},
-	{GE_CMD_TEXSCALEV, 0, STATE_TEXSCALE},
-	{GE_CMD_TEXOFFSETU, 0, STATE_TEXSCALE},
-	{GE_CMD_TEXOFFSETV, 0, STATE_TEXSCALE},
+	// UV generation.
+	{GE_CMD_TEXMAPMODE, STATE_TEXSCALE},
+	{GE_CMD_TEXSCALEU, STATE_TEXSCALE},
+	{GE_CMD_TEXSCALEV, STATE_TEXSCALE},
+	{GE_CMD_TEXOFFSETU, STATE_TEXSCALE},
+	{GE_CMD_TEXOFFSETV, STATE_TEXSCALE},
 
-	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
-	// by adding some more flags.
-	{GE_CMD_TEXSIZE0, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE1, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE2, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE3, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE4, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE5, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE6, 0, STATE_TEXTURE},
-	{GE_CMD_TEXSIZE7, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR0, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR1, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR2, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR3, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR4, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR5, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR6, 0, STATE_TEXTURE},
-	{GE_CMD_TEXADDR7, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH0, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH1, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH2, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH3, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH4, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH5, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH6, 0, STATE_TEXTURE},
-	{GE_CMD_TEXBUFWIDTH7, 0, STATE_TEXTURE},
-	{GE_CMD_TEXFORMAT, 0, STATE_TEXTURE},
-	{GE_CMD_TEXLEVEL, 0, STATE_TEXTURE},
-	{GE_CMD_TEXMODE, 0, STATE_TEXTURE},  // swizzle, etc etc
+	// Texture state.
+	{GE_CMD_TEXSIZE0, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE1, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE2, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE3, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE4, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE5, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE6, STATE_TEXTURE},
+	{GE_CMD_TEXSIZE7, STATE_TEXTURE},
+	{GE_CMD_TEXADDR0, STATE_TEXTURE},
+	{GE_CMD_TEXADDR1, STATE_TEXTURE},
+	{GE_CMD_TEXADDR2, STATE_TEXTURE},
+	{GE_CMD_TEXADDR3, STATE_TEXTURE},
+	{GE_CMD_TEXADDR4, STATE_TEXTURE},
+	{GE_CMD_TEXADDR5, STATE_TEXTURE},
+	{GE_CMD_TEXADDR6, STATE_TEXTURE},
+	{GE_CMD_TEXADDR7, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH0, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH1, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH2, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH3, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH4, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH5, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH6, STATE_TEXTURE},
+	{GE_CMD_TEXBUFWIDTH7, STATE_TEXTURE},
+	{GE_CMD_TEXFORMAT, STATE_TEXTURE},
+	{GE_CMD_TEXLEVEL, STATE_TEXTURE},
+	{GE_CMD_TEXMODE, STATE_TEXTURE},  // swizzle, etc etc
 
 	// These are merged into clutload command directly, no state object needed.
 	{GE_CMD_CLUTADDR},
 	{GE_CMD_CLUTADDRUPPER},
 	{GE_CMD_CLUTFORMAT},
 
-	{GE_CMD_TEXSHADELS,       0, STATE_TEXSCALE},  // The light sources to use for light-UV-gen
+	{GE_CMD_TEXSHADELS,       STATE_TEXSCALE},  // The light sources to use for light-UV-gen
 
 	// These affect the fragment shader
-	{GE_CMD_CLEARMODE,        0, STATE_RASTERIZER},
-	{GE_CMD_TEXTUREMAPENABLE, 0, STATE_ENABLES},
-	{GE_CMD_FOGENABLE,        0},
-	{GE_CMD_SHADEMODE,        0, STATE_FRAGMENT},
-	{GE_CMD_TEXFUNC,          0, STATE_FRAGMENT},
-	{GE_CMD_COLORTEST,        0, STATE_BLEND},
-	{GE_CMD_ALPHATESTENABLE,  0, STATE_ENABLES},
-	{GE_CMD_COLORTESTENABLE,  0, STATE_ENABLES},
-	{GE_CMD_COLORTESTMASK,    0, STATE_BLEND},
+	{GE_CMD_CLEARMODE,        STATE_RASTERIZER},
+	{GE_CMD_TEXTUREMAPENABLE, STATE_ENABLES},
+	{GE_CMD_FOGENABLE,        STATE_ENABLES},
+	{GE_CMD_SHADEMODE,        STATE_FRAGMENT},
+	{GE_CMD_TEXFUNC,          STATE_FRAGMENT},
+	{GE_CMD_COLORTEST,        STATE_BLEND},
+	{GE_CMD_ALPHATESTENABLE,  STATE_ENABLES},
+	{GE_CMD_COLORTESTENABLE,  STATE_ENABLES},
+	{GE_CMD_COLORTESTMASK,    STATE_BLEND},
 
 	// These change the vertex shader
-	{GE_CMD_REVERSENORMAL, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_LIGHTINGENABLE, 0, STATE_ENABLES},
-	{GE_CMD_LIGHTENABLE0, 0, STATE_ENABLES},
-	{GE_CMD_LIGHTENABLE1, 0, STATE_ENABLES},
-	{GE_CMD_LIGHTENABLE2, 0, STATE_ENABLES},
-	{GE_CMD_LIGHTENABLE3, 0, STATE_ENABLES},
-	{GE_CMD_LIGHTTYPE0, 0, STATE_LIGHT0},
-	{GE_CMD_LIGHTTYPE1, 0, STATE_LIGHT1},
-	{GE_CMD_LIGHTTYPE2, 0, STATE_LIGHT2},
-	{GE_CMD_LIGHTTYPE3, 0, STATE_LIGHT3},
-	{GE_CMD_MATERIALUPDATE, 0, STATE_LIGHTGLOBAL},
+	{GE_CMD_REVERSENORMAL,  STATE_LIGHTGLOBAL},
+	{GE_CMD_LIGHTINGENABLE, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE0, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE1, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE2, STATE_ENABLES},
+	{GE_CMD_LIGHTENABLE3, STATE_ENABLES},
+	{GE_CMD_LIGHTTYPE0, STATE_LIGHT0},
+	{GE_CMD_LIGHTTYPE1, STATE_LIGHT1},
+	{GE_CMD_LIGHTTYPE2, STATE_LIGHT2},
+	{GE_CMD_LIGHTTYPE3, STATE_LIGHT3},
+	{GE_CMD_MATERIALUPDATE, STATE_LIGHTGLOBAL},
 
 	// This changes both shaders so need flushing.
-	{GE_CMD_LIGHTMODE, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_TEXFILTER, 0, STATE_SAMPLER},
-	{GE_CMD_TEXWRAP, 0, STATE_SAMPLER},
+	{GE_CMD_LIGHTMODE, STATE_LIGHTGLOBAL},
+	{GE_CMD_TEXFILTER, STATE_SAMPLER},
+	{GE_CMD_TEXWRAP, STATE_SAMPLER},
 
 	// Uniform changes
-	{GE_CMD_ALPHATEST, 0, STATE_BLEND},
-	{GE_CMD_COLORREF, 0, STATE_BLEND},
-	{GE_CMD_TEXENVCOLOR, 0, STATE_FRAGMENT},
+	{GE_CMD_ALPHATEST, STATE_BLEND},
+	{GE_CMD_COLORREF, STATE_BLEND},
+	{GE_CMD_TEXENVCOLOR, STATE_FRAGMENT},
 
 	// Simple render state changes. Handled in StateMapping.cpp.
-	{GE_CMD_OFFSETX, 0, STATE_RASTERIZER},
-	{GE_CMD_OFFSETY, 0, STATE_RASTERIZER},
-	{GE_CMD_CULL, 0, STATE_RASTERIZER},
-	{GE_CMD_CULLFACEENABLE, 0, STATE_RASTERIZER},
-	{GE_CMD_DITHERENABLE, 0, 0},
-	{GE_CMD_STENCILOP, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_STENCILTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_STENCILTESTENABLE, 0, STATE_ENABLES},
-	{GE_CMD_ALPHABLENDENABLE, 0, STATE_ENABLES},
-	{GE_CMD_BLENDMODE, 0, STATE_BLEND},
-	{GE_CMD_BLENDFIXEDA, 0, STATE_BLEND},
-	{GE_CMD_BLENDFIXEDB, 0, STATE_BLEND},
-	{GE_CMD_MASKRGB, 0, STATE_BLEND},
-	{GE_CMD_MASKALPHA, 0, STATE_BLEND},
-	{GE_CMD_ZTEST, 0, STATE_DEPTHSTENCIL},
-	{GE_CMD_ZTESTENABLE, 0, STATE_ENABLES},
-	{GE_CMD_ZWRITEDISABLE, 0, STATE_DEPTHSTENCIL},
+	{GE_CMD_OFFSETX, STATE_RASTERIZER},
+	{GE_CMD_OFFSETY, STATE_RASTERIZER},
+	{GE_CMD_CULL, STATE_RASTERIZER},
+	{GE_CMD_CULLFACEENABLE, STATE_RASTERIZER},
+	{GE_CMD_DITHERENABLE, 0},
+	{GE_CMD_STENCILOP, STATE_DEPTHSTENCIL},
+	{GE_CMD_STENCILTEST, STATE_DEPTHSTENCIL},
+	{GE_CMD_STENCILTESTENABLE, STATE_ENABLES},
+	{GE_CMD_ALPHABLENDENABLE, STATE_ENABLES},
+	{GE_CMD_BLENDMODE, STATE_BLEND},
+	{GE_CMD_BLENDFIXEDA, STATE_BLEND},
+	{GE_CMD_BLENDFIXEDB, STATE_BLEND},
+	{GE_CMD_MASKRGB, STATE_BLEND},
+	{GE_CMD_MASKALPHA, STATE_BLEND},
+	{GE_CMD_ZTEST, STATE_DEPTHSTENCIL},
+	{GE_CMD_ZTESTENABLE, STATE_ENABLES},
+	{GE_CMD_ZWRITEDISABLE, STATE_DEPTHSTENCIL},
 #ifndef USING_GLES2
-	{GE_CMD_LOGICOP, 0, STATE_BLEND},
-	{GE_CMD_LOGICOPENABLE, 0, STATE_ENABLES},
+	{GE_CMD_LOGICOP, STATE_BLEND},
+	{GE_CMD_LOGICOPENABLE, STATE_ENABLES},
 #else
 	{GE_CMD_LOGICOP, 0},
 	{GE_CMD_LOGICOPENABLE, 0},
@@ -189,14 +182,14 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ANTIALIASENABLE, 0},
 
 	// Morph weights.
-	{GE_CMD_MORPHWEIGHT0, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT1, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT2, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT3, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT4, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT5, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT6, 0, STATE_MORPH},
-	{GE_CMD_MORPHWEIGHT7, 0, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT0, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT1, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT2, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT3, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT4, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT5, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT6, STATE_MORPH},
+	{GE_CMD_MORPHWEIGHT7, STATE_MORPH},
 
 	// Control spline/bezier patches. Don't really require flushing as such, but meh.
 	// We read these and bake into the draw commands so no need to put them in any state.
@@ -206,91 +199,91 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_PATCHCULLENABLE, 0},
 
 	// Viewport.
-	{GE_CMD_VIEWPORTX1, 0, STATE_VIEWPORT},
-	{GE_CMD_VIEWPORTY1, 0, STATE_VIEWPORT},
-	{GE_CMD_VIEWPORTX2, 0, STATE_VIEWPORT},
-	{GE_CMD_VIEWPORTY2, 0, STATE_VIEWPORT},
-	{GE_CMD_VIEWPORTZ1, 0, STATE_VIEWPORT},
-	{GE_CMD_VIEWPORTZ2, 0, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTX1, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTY1, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTX2, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTY2, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTZ1, STATE_VIEWPORT},
+	{GE_CMD_VIEWPORTZ2, STATE_VIEWPORT},
 
 	// Region. Only used as heuristic for framebuffer sizing. Its real meaning is for bezier patch culling.
-	{GE_CMD_REGION1, 0},
-	{GE_CMD_REGION2, 0},
+	{GE_CMD_REGION1, STATE_VIEWPORT},
+	{GE_CMD_REGION2, STATE_VIEWPORT},
 
 	// Scissor
-	{GE_CMD_SCISSOR1, 0, STATE_RASTERIZER},
-	{GE_CMD_SCISSOR2, 0, STATE_RASTERIZER},
+	{GE_CMD_SCISSOR1, STATE_RASTERIZER},
+	{GE_CMD_SCISSOR2, STATE_RASTERIZER},
 
-	{GE_CMD_AMBIENTCOLOR, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_AMBIENTALPHA, 0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALDIFFUSE,      0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALEMISSIVE,     0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALAMBIENT,      0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALALPHA,        0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALSPECULAR,     0, STATE_LIGHTGLOBAL},
-	{GE_CMD_MATERIALSPECULARCOEF, 0, STATE_LIGHTGLOBAL},
+	{GE_CMD_AMBIENTCOLOR, STATE_LIGHTGLOBAL},
+	{GE_CMD_AMBIENTALPHA, STATE_LIGHTGLOBAL},
+	{GE_CMD_MATERIALDIFFUSE,      STATE_LIGHTGLOBAL},
+	{GE_CMD_MATERIALEMISSIVE,     STATE_LIGHTGLOBAL},
+	{GE_CMD_MATERIALAMBIENT,      STATE_LIGHTGLOBAL|STATE_RASTERIZER},  // This is also used as default color.
+	{GE_CMD_MATERIALALPHA,        STATE_LIGHTGLOBAL|STATE_RASTERIZER},
+	{GE_CMD_MATERIALSPECULAR,     STATE_LIGHTGLOBAL},
+	{GE_CMD_MATERIALSPECULARCOEF, STATE_LIGHTGLOBAL},
 
-	{GE_CMD_LX0, 0, STATE_LIGHT0},
-	{GE_CMD_LY0, 0, STATE_LIGHT0},
-	{GE_CMD_LZ0, 0, STATE_LIGHT0},
-	{GE_CMD_LX1, 0, STATE_LIGHT1},
-	{GE_CMD_LY1, 0, STATE_LIGHT1},
-	{GE_CMD_LZ1, 0, STATE_LIGHT1},
-	{GE_CMD_LX2, 0, STATE_LIGHT2},
-	{GE_CMD_LY2, 0, STATE_LIGHT2},
-	{GE_CMD_LZ2, 0, STATE_LIGHT2},
-	{GE_CMD_LX3, 0, STATE_LIGHT3},
-	{GE_CMD_LY3, 0, STATE_LIGHT3},
-	{GE_CMD_LZ3, 0, STATE_LIGHT3},
+	{GE_CMD_LX0, STATE_LIGHT0},
+	{GE_CMD_LY0, STATE_LIGHT0},
+	{GE_CMD_LZ0, STATE_LIGHT0},
+	{GE_CMD_LX1, STATE_LIGHT1},
+	{GE_CMD_LY1, STATE_LIGHT1},
+	{GE_CMD_LZ1, STATE_LIGHT1},
+	{GE_CMD_LX2, STATE_LIGHT2},
+	{GE_CMD_LY2, STATE_LIGHT2},
+	{GE_CMD_LZ2, STATE_LIGHT2},
+	{GE_CMD_LX3, STATE_LIGHT3},
+	{GE_CMD_LY3, STATE_LIGHT3},
+	{GE_CMD_LZ3, STATE_LIGHT3},
 
-	{GE_CMD_LDX0, 0, STATE_LIGHT0},
-	{GE_CMD_LDY0, 0, STATE_LIGHT0},
-	{GE_CMD_LDZ0, 0, STATE_LIGHT0},
-	{GE_CMD_LDX1, 0, STATE_LIGHT1},
-	{GE_CMD_LDY1, 0, STATE_LIGHT1},
-	{GE_CMD_LDZ1, 0, STATE_LIGHT1},
-	{GE_CMD_LDX2, 0, STATE_LIGHT2},
-	{GE_CMD_LDY2, 0, STATE_LIGHT2},
-	{GE_CMD_LDZ2, 0, STATE_LIGHT2},
-	{GE_CMD_LDX3, 0, STATE_LIGHT3},
-	{GE_CMD_LDY3, 0, STATE_LIGHT3},
-	{GE_CMD_LDZ3, 0, STATE_LIGHT3},
+	{GE_CMD_LDX0, STATE_LIGHT0},
+	{GE_CMD_LDY0, STATE_LIGHT0},
+	{GE_CMD_LDZ0, STATE_LIGHT0},
+	{GE_CMD_LDX1, STATE_LIGHT1},
+	{GE_CMD_LDY1, STATE_LIGHT1},
+	{GE_CMD_LDZ1, STATE_LIGHT1},
+	{GE_CMD_LDX2, STATE_LIGHT2},
+	{GE_CMD_LDY2, STATE_LIGHT2},
+	{GE_CMD_LDZ2, STATE_LIGHT2},
+	{GE_CMD_LDX3, STATE_LIGHT3},
+	{GE_CMD_LDY3, STATE_LIGHT3},
+	{GE_CMD_LDZ3, STATE_LIGHT3},
 
-	{GE_CMD_LKA0, 0, STATE_LIGHT0},
-	{GE_CMD_LKB0, 0, STATE_LIGHT0},
-	{GE_CMD_LKC0, 0, STATE_LIGHT0},
-	{GE_CMD_LKA1, 0, STATE_LIGHT1},
-	{GE_CMD_LKB1, 0, STATE_LIGHT1},
-	{GE_CMD_LKC1, 0, STATE_LIGHT1},
-	{GE_CMD_LKA2, 0, STATE_LIGHT2},
-	{GE_CMD_LKB2, 0, STATE_LIGHT2},
-	{GE_CMD_LKC2, 0, STATE_LIGHT2},
-	{GE_CMD_LKA3, 0, STATE_LIGHT3},
-	{GE_CMD_LKB3, 0, STATE_LIGHT3},
-	{GE_CMD_LKC3, 0, STATE_LIGHT3},
+	{GE_CMD_LKA0, STATE_LIGHT0},
+	{GE_CMD_LKB0, STATE_LIGHT0},
+	{GE_CMD_LKC0, STATE_LIGHT0},
+	{GE_CMD_LKA1, STATE_LIGHT1},
+	{GE_CMD_LKB1, STATE_LIGHT1},
+	{GE_CMD_LKC1, STATE_LIGHT1},
+	{GE_CMD_LKA2, STATE_LIGHT2},
+	{GE_CMD_LKB2, STATE_LIGHT2},
+	{GE_CMD_LKC2, STATE_LIGHT2},
+	{GE_CMD_LKA3, STATE_LIGHT3},
+	{GE_CMD_LKB3, STATE_LIGHT3},
+	{GE_CMD_LKC3, STATE_LIGHT3},
 
-	{GE_CMD_LKS0, 0, STATE_LIGHT0},
-	{GE_CMD_LKS1, 0, STATE_LIGHT1},
-	{GE_CMD_LKS2, 0, STATE_LIGHT2},
-	{GE_CMD_LKS3, 0, STATE_LIGHT3},
+	{GE_CMD_LKS0, STATE_LIGHT0},
+	{GE_CMD_LKS1, STATE_LIGHT1},
+	{GE_CMD_LKS2, STATE_LIGHT2},
+	{GE_CMD_LKS3, STATE_LIGHT3},
 
-	{GE_CMD_LKO0, 0, STATE_LIGHT0},
-	{GE_CMD_LKO1, 0, STATE_LIGHT1},
-	{GE_CMD_LKO2, 0, STATE_LIGHT2},
-	{GE_CMD_LKO3, 0, STATE_LIGHT3},
+	{GE_CMD_LKO0, STATE_LIGHT0},
+	{GE_CMD_LKO1, STATE_LIGHT1},
+	{GE_CMD_LKO2, STATE_LIGHT2},
+	{GE_CMD_LKO3, STATE_LIGHT3},
 
-	{GE_CMD_LAC0, 0, STATE_LIGHT0},
-	{GE_CMD_LDC0, 0, STATE_LIGHT0},
-	{GE_CMD_LSC0, 0, STATE_LIGHT0},
-	{GE_CMD_LAC1, 0, STATE_LIGHT1},
-	{GE_CMD_LDC1, 0, STATE_LIGHT1},
-	{GE_CMD_LSC1, 0, STATE_LIGHT1},
-	{GE_CMD_LAC2, 0, STATE_LIGHT2},
-	{GE_CMD_LDC2, 0, STATE_LIGHT2},
-	{GE_CMD_LSC2, 0, STATE_LIGHT2},
-	{GE_CMD_LAC3, 0, STATE_LIGHT3},
-	{GE_CMD_LDC3, 0, STATE_LIGHT3},
-	{GE_CMD_LSC3, 0, STATE_LIGHT3},
+	{GE_CMD_LAC0, STATE_LIGHT0},
+	{GE_CMD_LDC0, STATE_LIGHT0},
+	{GE_CMD_LSC0, STATE_LIGHT0},
+	{GE_CMD_LAC1, STATE_LIGHT1},
+	{GE_CMD_LDC1, STATE_LIGHT1},
+	{GE_CMD_LSC1, STATE_LIGHT1},
+	{GE_CMD_LAC2, STATE_LIGHT2},
+	{GE_CMD_LDC2, STATE_LIGHT2},
+	{GE_CMD_LSC2, STATE_LIGHT2},
+	{GE_CMD_LAC3, STATE_LIGHT3},
+	{GE_CMD_LDC3, STATE_LIGHT3},
+	{GE_CMD_LSC3, STATE_LIGHT3},
 
 	// Ignored commands
 	{GE_CMD_CLIPENABLE},
@@ -311,30 +304,30 @@ static const CommandTableEntry commandTable[] = {
 
 	// From Common. No flushing but definitely need execute. These don't affect drawing, only the
 	// command processor's operation.
-	{GE_CMD_OFFSETADDR, FLAG_EXECUTE, 0, &GPUCommon::Execute_OffsetAddr},
-	{GE_CMD_ORIGIN, FLAG_EXECUTE , 0, &GPUCommon::Execute_Origin},  // Really?
-	{GE_CMD_PRIM, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Prim},
-	{GE_CMD_JUMP, FLAG_EXECUTE, 0, &GPUCommon::Execute_Jump},
-	{GE_CMD_CALL, FLAG_EXECUTE, 0, &GPUCommon::Execute_Call},
-	{GE_CMD_RET, FLAG_EXECUTE, 0, &GPUCommon::Execute_Ret},
-	{GE_CMD_END, FLAG_EXECUTE, 0, &GPUCommon::Execute_End},  // Flush?
-	{GE_CMD_VADDR, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Vaddr},
-	{GE_CMD_IADDR, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Iaddr},
-	{GE_CMD_BJUMP, FLAG_EXECUTE, 0, &GPUCommon::Execute_BJump},  // EXECUTE
-	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoundingBox},
+	{GE_CMD_OFFSETADDR, 0, &GPUCommon::Execute_OffsetAddr},
+	{GE_CMD_ORIGIN, 0, &GPUCommon::Execute_Origin},  // Really?
+	{GE_CMD_PRIM, 0, &HighGpuFrontend::Execute_Prim},
+	{GE_CMD_JUMP, 0, &GPUCommon::Execute_Jump},
+	{GE_CMD_CALL, 0, &GPUCommon::Execute_Call},
+	{GE_CMD_RET, 0, &GPUCommon::Execute_Ret},
+	{GE_CMD_END, 0, &GPUCommon::Execute_End},  // Flush?
+	{GE_CMD_VADDR, 0, &HighGpuFrontend::Execute_Vaddr},
+	{GE_CMD_IADDR, 0, &HighGpuFrontend::Execute_Iaddr},
+	{GE_CMD_BJUMP, 0, &GPUCommon::Execute_BJump},  // EXECUTE
+	{GE_CMD_BOUNDINGBOX, 0, &HighGpuFrontend::Execute_BoundingBox},
 
-	{GE_CMD_VERTEXTYPE},  // Baked into draw calls
+	{GE_CMD_VERTEXTYPE, STATE_ENABLES},  // Baked into draw calls. Some enables are driven by this.
 
-	{GE_CMD_BEZIER, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Bezier},
-	{GE_CMD_SPLINE, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_Spline},
+	{GE_CMD_BEZIER, 0, &HighGpuFrontend::Execute_Bezier},
+	{GE_CMD_SPLINE, 0, &HighGpuFrontend::Execute_Spline},
 
 	// These two are actually processed in CMD_END.
 	{GE_CMD_SIGNAL},
 	{GE_CMD_FINISH},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{GE_CMD_LOADCLUT, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_LoadClut},
-	{GE_CMD_TRANSFERSTART, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BlockTransferStart},
+	{GE_CMD_LOADCLUT, 0, &HighGpuFrontend::Execute_LoadClut},
+	{GE_CMD_TRANSFERSTART, 0, &HighGpuFrontend::Execute_BlockTransferStart},
 
 	// We don't use the dither table.
 	{GE_CMD_DITH0},
@@ -343,19 +336,20 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_DITH3},
 
 	// These handle their own flushing.
-	{GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_WorldMtxNum},
-	{GE_CMD_WORLDMATRIXDATA,   FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_WorldMtxData},
-	{GE_CMD_VIEWMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ViewMtxNum},
-	{GE_CMD_VIEWMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ViewMtxData},
-	{GE_CMD_PROJMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ProjMtxNum},
-	{GE_CMD_PROJMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_ProjMtxData},
-	{GE_CMD_TGENMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_TgenMtxNum},
-	{GE_CMD_TGENMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_TgenMtxData},
-	{GE_CMD_BONEMATRIXNUMBER,  FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoneMtxNum},
-	{GE_CMD_BONEMATRIXDATA,    FLAG_EXECUTE, 0, &HighGpuFrontend::Execute_BoneMtxData},
+	{GE_CMD_WORLDMATRIXNUMBER, 0, &HighGpuFrontend::Execute_WorldMtxNum},
+	{GE_CMD_WORLDMATRIXDATA,   0, &HighGpuFrontend::Execute_WorldMtxData},
+	{GE_CMD_VIEWMATRIXNUMBER,  0, &HighGpuFrontend::Execute_ViewMtxNum},
+	{GE_CMD_VIEWMATRIXDATA,    0, &HighGpuFrontend::Execute_ViewMtxData},
+	{GE_CMD_PROJMATRIXNUMBER,  0, &HighGpuFrontend::Execute_ProjMtxNum},
+	{GE_CMD_PROJMATRIXDATA,    0, &HighGpuFrontend::Execute_ProjMtxData},
+	{GE_CMD_TGENMATRIXNUMBER,  0, &HighGpuFrontend::Execute_TgenMtxNum},
+	{GE_CMD_TGENMATRIXDATA,    0, &HighGpuFrontend::Execute_TgenMtxData},
+	{GE_CMD_BONEMATRIXNUMBER,  0, &HighGpuFrontend::Execute_BoneMtxNum},
+	{GE_CMD_BONEMATRIXDATA,    0, &HighGpuFrontend::Execute_BoneMtxData},
 
-	// Vertex Screen/Texture/Color
-	// These are unimplemented and do not seem to be used.
+	// Vertex Screen/Texture/Color immediate
+	// These are unimplemented and do not seem to be used. Most likely the hardware is buggy
+	// so games are banned from using them.
 	{GE_CMD_VSCX},
 	{GE_CMD_VSCY},
 	{GE_CMD_VSCZ},
@@ -409,7 +403,6 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 		} else {
 			dupeCheck.insert(cmd);
 		}
-		cmdInfo_[cmd].flags = commandTable[i].flags;
 		cmdInfo_[cmd].dirtyState = commandTable[i].dirtyState;
 		cmdInfo_[cmd].func = commandTable[i].func;
 	}
@@ -430,7 +423,7 @@ HighGpuFrontend::HighGpuFrontend(HighGpuBackend *backend)
 	CommandInitDummyDraw(&dummyDraw_);
 
 	cmdPacket_ = new CommandPacket();
-	CommandPacketInit(cmdPacket_, 256, clutData_);
+	CommandPacketInit(cmdPacket_, 512, clutData_);
 	CommandPacketReset(cmdPacket_, &dummyDraw_);
 
 	// Some of our defaults are different from hw defaults, let's assert them.
@@ -504,16 +497,14 @@ void HighGpuFrontend::FastRunLoop(DisplayList &list) {
 		const u32 op = *(const u32 *)(Memory::base + list.pc);
 		const u32 cmd = op >> 24;
 		const CommandInfo info = cmdInfo[cmd];
-		const u8 cmdFlags = info.flags;
 		const u32 diff = op ^ gstate.cmdmem[cmd];
-		if (diff) {
-			gstate.cmdmem[cmd] = op;
-			dirty_ |= info.dirtyState;
-		}
-		if (cmdFlags & FLAG_EXECUTE) {
+		if (info.func) {
 			downcount = dc;
 			(this->*info.func)(op, diff);
 			dc = downcount;
+		} else if (diff) {
+			gstate.cmdmem[cmd] = op;
+			dirty_ |= info.dirtyState;
 		}
 		list.pc += 4;
 	}
@@ -531,8 +522,7 @@ void HighGpuFrontend::PreExecuteOp(u32 op, u32 diff) { }
 void HighGpuFrontend::ExecuteOp(u32 op, u32 diff) {
 	const u8 cmd = op >> 24;
 	const CommandInfo info = cmdInfo_[cmd];
-	const u8 cmdFlags = info.flags;
-	if (cmdFlags & FLAG_EXECUTE) {
+	if (info.func) {
 		(this->*info.func)(op, diff);
 	}
 }
@@ -622,6 +612,7 @@ void HighGpuFrontend::Execute_BoundingBox(u32 op, u32 diff) {
 void HighGpuFrontend::Execute_LoadClut(u32 op, u32 diff) {
 	u32 clutAddr = gstate.getClutAddress();
 	u32 loadBytes = gstate.getClutLoadBytes();
+	cmdPacket_->latchedClutLoadBytes = loadBytes;
 	clutTotalBytes_ = loadBytes;
 
 	void *clutBufRaw_ = (void *)clutData_;

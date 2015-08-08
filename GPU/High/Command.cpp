@@ -2,6 +2,7 @@
 #include "base/logging.h"
 #include "GPU/High/Command.h"
 #include "GPU/GPUState.h"
+#include "GPU/GeDisasm.h"
 #include "GPU/Common/TextureDecoder.h"
 
 namespace HighGpu {
@@ -45,8 +46,8 @@ static void LoadBlendState(BlendState *blend, const GPUgstate *gstate) {
 	blend->blendSrc = gstate->getBlendFuncA();
 	blend->blendDst = gstate->getBlendFuncB();
 	blend->blendEq = gstate->getBlendEq();
-	blend->blendfixa = gstate->getFixA();
-	blend->blendfixb = gstate->getFixB();
+	blend->blendfixa = blend->blendEq >= GE_SRCBLEND_FIXA ? gstate->getFixA() : 0;
+	blend->blendfixb = blend->blendEq >= GE_DSTBLEND_FIXB  ?gstate->getFixB() : 0;
 	blend->alphaTestFunc = gstate->getAlphaTestFunction();
 	blend->alphaTestRef = gstate->getAlphaTestRef();
 	blend->alphaTestMask = gstate->getAlphaTestMask();
@@ -185,8 +186,8 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 	sampler->levelMode = gstate->getTexLevelMode();
 }
 
-static void LoadClutState(ClutState *clut, const u8 *clutBuffer, MemoryArena *arena, const GPUgstate *gstate) {
-	int bytes = gstate->getClutLoadBytes();
+static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena, const GPUgstate *gstate) {
+	int bytes = cmdPacket->latchedClutLoadBytes;
 	u8 *data = arena->AllocateAligned(bytes, 16);
 	memcpy(data, clutBuffer, bytes);
 	clut->data = data;
@@ -244,6 +245,7 @@ const char *StateBitToString(u32 bit) {
 	case STATE_BONE5:        return "BONE5";
 	case STATE_BONE6:        return "BONE6";
 	case STATE_BONE7:        return "BONE7";
+	case STATE_ENABLES:      return "CMDCOUNT";
 	case 0:                  return "none";
 	default:
 		return "(unknown)";
@@ -254,12 +256,12 @@ const char *StateBitToString(u32 bit) {
 // This algorithm can be refined in the future.
 static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *command, MemoryArena *arena, const GPUgstate *gstate, u32 dirty) {
 	// Early out for repeated commands with no state changes in between.
-	if (!dirty) {
+	if (!dirty && last->draw.enabled != 0xFFFFFFFF) {
 		command->draw.enabled = last->draw.enabled;
 		return dirty;
 	}
 
-	u32 enabled = (dirty & STATE_ENABLES) ? LoadEnables(gstate) : last->draw.enabled;
+	u32 enabled = ((dirty & STATE_ENABLES) || last->draw.enabled == 0xFFFFFFFF) ? LoadEnables(gstate) : last->draw.enabled;
 	command->draw.enabled = enabled;
 
 	u32 full = 0;
@@ -344,7 +346,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		}
 		if (dirty & STATE_CLUT) {
 			command->draw.clut = cmdPacket->numClut;
-			LoadClutState(arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, gstate);
+			LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, gstate);
 			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
 			dirty &= ~STATE_CLUT;
 		} else {
@@ -409,8 +411,15 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			}
 			for (int i = 0; i < 4; i++) {
 				if ((enabled & (ENABLE_LIGHT0 << i)) && (dirty & (STATE_LIGHT0 << i))) {
+					// Lights are often specified over and over, for no good reason.
 					command->draw.lights[i] = cmdPacket->numLight;
 					LoadLightState(arena->Allocate(&cmdPacket->lights[cmdPacket->numLight++]), gstate, i);
+					// TODO: Should probably search at least 4 lights back.
+					if (cmdPacket->numLight > 1 && !memcmp(cmdPacket->lights[cmdPacket->numLight-2], cmdPacket->lights[cmdPacket->numLight-1], sizeof(LightState))) {
+						cmdPacket->numLight--;
+						arena->Rewind(sizeof(LightState));
+						command->draw.lights[i] = cmdPacket->numLight - 1;
+					}
 					if (cmdPacket->numLight >= ARRAY_SIZE(cmdPacket->lights) - 4) full = STATE_LIGHT0 << i;
 				} else {
 					command->draw.lights[i] = last->draw.lights[i];
@@ -428,9 +437,23 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			command->draw.numBones = numBones;
 			for (int i = 0; i < numBones; i++) {
 				if (dirty & (STATE_BONE0 << i)) {
-					command->draw.boneMatrix[i] = cmdPacket->numBoneMatrix;
-					LoadMatrix4x3(arena->Allocate(&cmdPacket->boneMatrix[cmdPacket->numBoneMatrix++]), &gstate->boneMatrix[i * 12]);
-					if (cmdPacket->numBoneMatrix >= ARRAY_SIZE(cmdPacket->boneMatrix) - 4) full = STATE_BONE0 << i;
+					// Bones are often extremely repetitive. We want to exploit this when converting to matrix palette skinning. Let's search backwards a bunch of matrices.
+					int back = std::max(0, (int)cmdPacket->numBoneMatrix - 16);
+					bool found = false;
+					int j;
+					for (j = cmdPacket->numBoneMatrix - 1; j >= back; j--) {
+						if (!memcmp(&gstate->boneMatrix[i * 12], cmdPacket->boneMatrix[j]->v, 12*sizeof(float))) {
+							found = true;
+							break;
+						}
+					}
+					if (found) {
+						command->draw.boneMatrix[i] = j;
+					} else {
+						command->draw.boneMatrix[i] = cmdPacket->numBoneMatrix;
+						LoadMatrix4x3(arena->Allocate(&cmdPacket->boneMatrix[cmdPacket->numBoneMatrix++]), &gstate->boneMatrix[i * 12]);
+						if (cmdPacket->numBoneMatrix >= ARRAY_SIZE(cmdPacket->boneMatrix) - 4) full = STATE_BONE0 << i;
+					}
 				} else {
 					command->draw.boneMatrix[i] = last->draw.boneMatrix[i];
 				}
@@ -478,7 +501,7 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 
 void CommandSubmitTransfer(CommandPacket *cmdPacket, const GPUgstate *gstate) {
 	Command *cmd = &cmdPacket->commands[cmdPacket->numCommands++];
-	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = true;
+	if (cmdPacket->numCommands == cmdPacket->maxCommands) cmdPacket->full = STATE_ENABLES;
 	cmd->type = CMD_TRANSFER;
 	cmd->transfer.srcPtr = gstate->getTransferSrcAddress();
 	cmd->transfer.dstPtr = gstate->getTransferDstAddress();
@@ -525,7 +548,6 @@ static const char *primNames[8] = {
 	"CONTINUE",  // :(
 };
 
-
 void LogMatrix4x3(const char *name, int i, const Matrix4x3 *m) {
 	ILOG("%s matrix %d: [[%f, %f, %f][%f, %f, %f][%f, %f, %f][%f, %f, %f]]",
 			name, i,
@@ -543,23 +565,30 @@ void LogMatrix4x4(const char *name, int i, const Matrix4x4 *m) {
 
 void PrintCommandPacket(CommandPacket *cmdPacket) {
 	ILOG("========= Commands: %d (full: %s) ==========", cmdPacket->numCommands, StateBitToString(cmdPacket->full));
+	if (!cmdPacket->numCommands) {
+		return;
+	}
 	for (int i = 0; i < cmdPacket->numCommands; i++) {
 		char line[1024];
+		char fmtBuf[256];
 		const Command &cmd = cmdPacket->commands[i];
 		switch (cmd.type) {
 		case CMD_DRAWPRIM:
-			snprintf(line, sizeof(line), "DRAW %s : %d fmt %08x (v %08x, i %x) enabled: %08x : "
+			GeDescribeVertexType(cmd.draw.vtxformat, fmtBuf, sizeof(fmtBuf));
+			snprintf(line, sizeof(line), "DRAW %s : %d (v %08x, i %x) [%s] enabled: %08x : "
 					"frbuf:%d rast:%d frag:%d vport:%d text:%d ts:%d samp:%d "
 					"blend:%d depth:%d "
 					"world:%d view:%d proj:%d tex:%d "
 					"lg:%d l0:%d l1:%d l2:%d l3:%d "
-					"morph:%d b0:%d",
-					primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxformat, cmd.draw.vtxAddr, cmd.draw.idxAddr, cmd.draw.enabled,
+					"morph:%d b0:%d b1:%d b2:%d b3:%d b4:%d b5:%d b6:%d b7:%d",
+					primNames[cmd.draw.prim], cmd.draw.count, cmd.draw.vtxAddr, cmd.draw.idxAddr, fmtBuf, cmd.draw.enabled,
 					cmd.draw.framebuf, cmd.draw.raster, cmd.draw.fragment, cmd.draw.viewport, cmd.draw.texture, cmd.draw.texScale, cmd.draw.sampler,
 					cmd.draw.blend, cmd.draw.depthStencil,
 					cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix, cmd.draw.texMatrix,
 					cmd.draw.lightGlobal, cmd.draw.lights[0], cmd.draw.lights[1], cmd.draw.lights[2], cmd.draw.lights[3],
-					cmd.draw.morph, cmd.draw.boneMatrix[0]);
+					cmd.draw.morph,
+					cmd.draw.boneMatrix[0], cmd.draw.boneMatrix[1], cmd.draw.boneMatrix[2], cmd.draw.boneMatrix[3],
+					cmd.draw.boneMatrix[4], cmd.draw.boneMatrix[5], cmd.draw.boneMatrix[6], cmd.draw.boneMatrix[7]);
 			break;
 		case CMD_TRANSFER:
 			snprintf(line, sizeof(line), "TRANSFER : %dx%d", cmd.transfer.width, cmd.transfer.height);
@@ -583,13 +612,13 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numFragment; i++) {
 		const FragmentState *f = cmdPacket->fragment[i];
-		ILOG("Fragment %d: double=%d texFunc=%d texEnv=%d shadeMode=%d fog=%.3f,%.3f,%06x",
-				i, f->colorDouble, f->texFunc, f->texEnvColor, f->shadeMode, f->fogCoef1, f->fogCoef2, f->fogColor);
+		ILOG("Fragment %d: double=%d texAlpha=%d texFunc=%d texEnv=%d shadeMode=%d fog=%.3f,%.3f,%06x",
+				i, f->colorDouble, f->useTextureAlpha, f->texFunc, f->texEnvColor, f->shadeMode, f->fogCoef1, f->fogCoef2, f->fogColor);
 	}
 	for (int i = 0; i < cmdPacket->numTexture; i++) {
 		const TextureState *t = cmdPacket->texture[i];
-		ILOG("Texture %d: format: %d addr[0]: %08x  dim[0]: %04x  stride[0]=%d",
-			i, t->format, t->addr[0], t->dim[0], t->stride[0]);
+		ILOG("Texture %d: format: %d swizzle: %d maxlevel: %d addr[0]: %08x dim[0]: %04x stride[0]=%d clutFormat=%d clutconv=%06x",
+			i, t->format, t->swizzled, t->maxLevel, t->addr[0], t->dim[0], t->stride[0], t->clutFormat, t->clutIndexMaskShiftStart);
 	}
 	for (int i = 0; i < cmdPacket->numTexScale; i++) {
 		const TexScaleState *t = cmdPacket->texScale[i];
@@ -643,7 +672,7 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 		const LightState *l = cmdPacket->lights[i];
 		switch (l->type) {
 		case GE_LIGHTTYPE_DIRECTIONAL:
-			ILOG("Light %d: DIRECTIONAL dir=%f %f %f", i, l->pos[0], l->pos[1], l->pos[2]);
+			ILOG("Light %d: DIRECTIONAL dir=%f %f %f ambient=%06x diffuse=%06x specular=%06x", i, l->pos[0], l->pos[1], l->pos[2], l->ambientColor, l->diffuseColor, l->specularColor);
 			break;
 		case GE_LIGHTTYPE_POINT:
 			ILOG("Light %d: POINT att=%f %f %f pos=%f %f %f", i, l->att[0], l->att[1], l->att[2], l->pos[0], l->pos[1], l->pos[2]);
@@ -687,7 +716,6 @@ void CommandInitDummyDraw(Command *cmd) {
 	cmd->type = CMD_DRAWPRIM;
 	cmd->draw.prim = GE_PRIM_INVALID;
 	cmd->draw.count = 0;
-	cmd->draw.enabled = 0;
 }
 
 }  // HighGpu

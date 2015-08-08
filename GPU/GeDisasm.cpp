@@ -34,9 +34,9 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 
 	static const char *colorNames[] = {
 		NULL,
-		"unsupported1",
-		"unsupported2",
-		"unsupported3",
+		"unk1",
+		"unk2",
+		"unk3",
 		"BGR 565",
 		"ABGR 1555",
 		"ABGR 4444",
@@ -52,28 +52,28 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		NULL,
 		"s8",
 		"s16",
-		"float",
+		"fl",
 	};
 
 	char *w = buffer, *end = buffer + len;
 	if (through)
-		w += snprintf(w, end - w, "through, ");
+		w += snprintf(w, end - w, "thru, ");
 	if (typeNames[tc] && w < end)
-		w += snprintf(w, end - w, "%s texcoords, ", typeNames[tc]);
+		w += snprintf(w, end - w, "%s tex, ", typeNames[tc]);
 	if (colorNames[col] && w < end)
-		w += snprintf(w, end - w, "%s colors, ", colorNames[col]);
+		w += snprintf(w, end - w, "%s col, ", colorNames[col]);
 	if (typeNames[nrm] && w < end)
-		w += snprintf(w, end - w, "%s normals, ", typeNamesS[nrm]);
+		w += snprintf(w, end - w, "%s nrm, ", typeNamesS[nrm]);
 	if (typeNames[pos] && w < end)
-		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
+		w += snprintf(w, end - w, "%s pos, ", typeNamesS[pos]);
 	if (typeNames[weight] && w < end)
-		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
+		w += snprintf(w, end - w, "%s wgt (%d), ", typeNames[weight], weightCount);
 	else if (weightCount > 0 && w < end)
-		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
+		w += snprintf(w, end - w, "unk wgt (%d), ", weightCount);
 	if (morphCount > 0 && w < end)
-		w += snprintf(w, end - w, "%d morphs, ", morphCount);
+		w += snprintf(w, end - w, "%d mrph, ", morphCount);
 	if (typeNames[idx] && w < end)
-		w += snprintf(w, end - w, "%s indexes, ", typeNames[idx]);
+		w += snprintf(w, end - w, "%s idx, ", typeNames[idx]);
 
 	if (w < buffer + 2)
 		snprintf(buffer, len, "none");

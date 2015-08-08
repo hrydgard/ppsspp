@@ -109,9 +109,8 @@ public:
 
 	typedef void (HighGpuFrontend::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
-		u32 flags;
-		u32 dirtyState;
 		HighGpuFrontend::CmdFunc func;
+		u32 dirtyState;
 	};
 
 	void Execute_Vaddr(u32 op, u32 diff);

@@ -26,11 +26,11 @@ namespace HighGpu {
 HighGpu_GLES::HighGpu_GLES() : resized_(false), dumpNextFrame_(false), dumpThisFrame_(false) {
 	shaderManager_ = new ShaderManagerGLES();
 	framebufferManager_ = new FramebufferManager();
+	textureCache_ = new TextureCacheGLES();
+	framebufferManager_->Init();
+	framebufferManager_->SetTextureCache(textureCache_);
+
 	/*
-	transformDraw_.SetShaderManager(shaderManager_);
-	transformDraw_.SetTextureCache(&textureCache_);
-	transformDraw_.SetFramebufferManager(&framebufferManager_);
-	transformDraw_.SetFragmentTestCache(&fragmentTestCache_);
 	framebufferManager_->Init();
 	framebufferManager_->SetTextureCache(&textureCache_);
 	framebufferManager_->SetShaderManager(shaderManager_);
@@ -66,7 +66,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	// Then, we do a first pass through the draw commands, and identify ranges we would like to deal with.
 	// Block transfers get separated to their own ranges. We generate and set up shaders.
 	for (int i = 0; i < packet->numCommands; i++) {
-		
+
 	}
 
 	// Now for each range we could look it up in a cache, to see if we have decoded it before.
@@ -106,7 +106,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
 		if (curFramebuf != cmd->draw.framebuf) {
-			ApplyFramebuffer(packet, cmd);
+			//ApplyFramebuffer(packet, cmd);
 		}
 	}
 }

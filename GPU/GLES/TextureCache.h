@@ -40,12 +40,6 @@ enum TextureFiltering {
 	LINEARFMV = 4,
 };
 
-enum FramebufferNotification {
-	NOTIFY_FB_CREATED,
-	NOTIFY_FB_UPDATED,
-	NOTIFY_FB_DESTROYED,
-};
-
 inline bool UseBGRA8888() {
 	// TODO: Other platforms?  May depend on vendor which is faster?
 #ifdef _WIN32

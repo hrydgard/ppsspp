@@ -255,7 +255,6 @@ struct LightGlobalState {
 
 // TODO: Note that depending on the light type, not the entire struct needs to be allocated (!)
 struct LightState {
-	u8 enabled;
 	u8 type;
 	float pos[3];  // pos is used as direction for directional lights.
 	u32 diffuseColor;
@@ -344,6 +343,7 @@ struct CommandPacket {
 	MorphState *morph[64];
 
 	u8 *clutBuffer;
+	int latchedClutLoadBytes;
 };
 
 // Utility functions
