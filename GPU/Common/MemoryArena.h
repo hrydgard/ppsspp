@@ -24,6 +24,8 @@ public:
 #endif
 		*ptr = reinterpret_cast<T *>(data_ + ptr_);
 		ptr_ += sizeof(T);
+		// Always align to 4 after allocs.
+		AlignTo(4);
 		return *ptr;
 	}
 
@@ -35,11 +37,16 @@ public:
 #endif
 		u8 *ptr = data_ + ptr_;
 		ptr_ += bytes;
+		AlignTo(4);
 		return ptr;
 	}
 
-	u8 *AllocateAligned(size_t bytes, int alignment) {
+	void AlignTo(int alignment) {
 		ptr_ = (ptr_ + alignment - 1) & ~(alignment - 1);
+	}
+
+	u8 *AllocateAligned(size_t bytes, int alignment) {
+		AlignTo(alignment);
 		return AllocateBytes(bytes);
 	}
 
