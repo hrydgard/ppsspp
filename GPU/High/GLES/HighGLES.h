@@ -26,6 +26,7 @@ public:
 	void UpdateStats() override;
 	void DoState(PointerWrap &p) override;
 	void UpdateVsyncInterval(bool force) override;
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 
 private:
 	void BuildReportingInfo();

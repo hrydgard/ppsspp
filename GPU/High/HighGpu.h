@@ -53,6 +53,7 @@ public:
 	virtual void UpdateStats() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 	virtual void UpdateVsyncInterval(bool force) = 0;
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
 };
 
 // A HighGpu frontend does not touch the 3D API at all, it simply interprets display lists and bundles

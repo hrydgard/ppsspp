@@ -118,6 +118,10 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	}
 }
 
+void HighGpu_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
+}
+
 // So much data to fetch to make the heuristic happy...
 void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *cmd) {
 	FramebufferHeuristicParams fb;

@@ -469,7 +469,7 @@ void HighGpuFrontend::BeginFrame() {
 
 void HighGpuFrontend::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	host->GPUNotifyDisplay(framebuf, stride, format);
-	// framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
+	backend_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 bool HighGpuFrontend::FramebufferDirty() {
