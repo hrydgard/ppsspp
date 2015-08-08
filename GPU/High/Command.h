@@ -333,21 +333,21 @@ struct CommandPacket {
 	int numMorph;
 	// No idea what the appropriate counts for each feature are. Probably varies per game.
 	// Might be better to dynamically allocate these arrays, but that's for later.
-	FramebufState *framebuf[64];
-	FragmentState *fragment[64];
-	RasterState *raster[64];
+	FramebufState *framebuf[16];
+	FragmentState *fragment[32];
+	RasterState *raster[16];
 	Matrix4x3 *worldMatrix[254];
-	Matrix4x3 *viewMatrix[16];
-	Matrix4x4 *projMatrix[16];
-	Matrix4x3 *texMatrix[16];
+	Matrix4x3 *viewMatrix[8];
+	Matrix4x4 *projMatrix[8];
+	Matrix4x3 *texMatrix[8];
 	Matrix4x3 *boneMatrix[254];
 	ViewportState *viewport[16];
 	BlendState *blend[64];
 	DepthStencilState *depthStencil[16];
-	TextureState *texture[16];
-	TexScaleState *texScale[64];
-	SamplerState *sampler[16];
-	ClutState *clut[16];
+	TextureState *texture[64];
+	TexScaleState *texScale[254];  // Some games change this on pretty much every draw.
+	SamplerState *sampler[8];
+	ClutState *clut[64];
 	LightGlobalState *lightGlobal[16];
 	LightState *lights[64];
 	MorphState *morph[64];

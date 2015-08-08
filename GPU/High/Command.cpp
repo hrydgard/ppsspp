@@ -49,21 +49,25 @@ static void LoadBlendState(BlendState *blend, const GPUgstate *gstate) {
 	blend->blendSrc = gstate->getBlendFuncA();
 	blend->blendDst = gstate->getBlendFuncB();
 	blend->blendEq = gstate->getBlendEq();
+	blend->logicOpFunc = gstate->getLogicOp();
 	blend->blendfixa = blend->blendEq >= GE_SRCBLEND_FIXA ? gstate->getFixA() : 0;
 	blend->blendfixb = blend->blendEq >= GE_DSTBLEND_FIXB  ?gstate->getFixB() : 0;
 	blend->alphaTestFunc = gstate->getAlphaTestFunction();
 	blend->alphaTestRef = gstate->getAlphaTestRef();
 	blend->alphaTestMask = gstate->getAlphaTestMask();
+	blend->colorTestFunc = gstate->getColorTestFunction();
+	blend->colorTestRef = gstate->getColorTestRef();
+	blend->colorTestMask = gstate->getColorTestMask();
 	blend->colorWriteMask = gstate->getColorMask();
-	blend->logicOpFunc = gstate->getLogicOp();
 }
 
 static void LoadLightGlobalState(LightGlobalState *light, const GPUgstate *gstate) {
 	light->materialUpdate = gstate->getMaterialUpdate();
 	light->materialAmbient = gstate->getMaterialAmbientRGBA();
 	light->specularCoef = gstate->getMaterialSpecularCoef();
-	light->materialEmissive = gstate->getMaterialEmissive();
+	light->materialDiffuse = gstate->getMaterialDiffuse();
 	light->materialSpecular = gstate->getMaterialSpecular();
+	light->materialEmissive = gstate->getMaterialEmissive();
 	light->lmode = gstate->lmode & 1;
 }
 
@@ -207,15 +211,13 @@ static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
 	sampler->levelMode = gstate->getTexLevelMode();
 }
 
-static u32 LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena) {
+static void LoadClutState(CommandPacket *cmdPacket, ClutState *clut, const u8 *clutBuffer, MemoryArena *arena, u32 hash) {
 	int bytes = cmdPacket->latchedClutLoadBytes;
 	u8 *data = arena->AllocateAligned(bytes, 16);
+	clut->hash = hash;
 	memcpy(data, clutBuffer, bytes);
 	clut->data = data;
 	clut->size = bytes;
-	// TODO: We should compute this the same way the old texcache did, taking into account the clut base etc.
-	clut->hash = DoReliableHash32((const char *)data, bytes, 0xC0108888);
-	return clut->hash;
 }
 
 static void LoadMorphState(MorphState *morph, const GPUgstate *gstate) {
@@ -344,9 +346,25 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 	if (enabled & ENABLE_TEXTURE) {
 		u32 clutHash = 0;
 		if ((enabled & ENABLE_CLUT) && (dirty & STATE_CLUT)) {
-			command->draw.clut = cmdPacket->numClut;
-			clutHash = LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena);
-			if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
+			int bytes = cmdPacket->latchedClutLoadBytes;
+			clutHash = DoReliableHash32(cmdPacket->clutBuffer, bytes, 0xC0108888);
+			// Look for dupes, a few back.
+			int back = std::max(0, cmdPacket->numClut - 5);
+			int i;
+			bool found = false;
+			for (i = cmdPacket->numClut - 1; i >= back; i--) {
+				if (cmdPacket->clut[i]->hash == clutHash) {
+					found = true;
+					break;
+				}
+			}
+			if (found) {
+				command->draw.clut = i;
+			} else {
+				command->draw.clut = cmdPacket->numClut;
+				LoadClutState(cmdPacket, arena->Allocate(&cmdPacket->clut[cmdPacket->numClut++]), cmdPacket->clutBuffer, arena, clutHash);
+				if (cmdPacket->numClut == ARRAY_SIZE(cmdPacket->clut)) full = STATE_CLUT;
+			}
 			dirty &= ~STATE_CLUT;
 		} else {
 			command->draw.clut = last->draw.clut;
@@ -386,6 +404,11 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		if (dirty & STATE_VIEWPORT) {
 			command->draw.viewport = cmdPacket->numViewport;
 			LoadViewportState(arena->Allocate(&cmdPacket->viewport[cmdPacket->numViewport++]), gstate);
+			if (cmdPacket->numViewport > 1 && !memcmp(cmdPacket->viewport[cmdPacket->numViewport-2], cmdPacket->viewport[cmdPacket->numViewport-1], sizeof(ViewportState))) {
+				cmdPacket->numViewport--;
+				arena->Rewind(sizeof(ViewportState));
+				command->draw.viewport = cmdPacket->numViewport - 1;
+			}
 			if (cmdPacket->numViewport == ARRAY_SIZE(cmdPacket->viewport)) full = STATE_VIEWPORT;
 			dirty &= ~STATE_VIEWPORT;
 		} else {
@@ -620,10 +643,10 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 					cmd.draw.viewport,cmd.draw.worldMatrix, cmd.draw.viewMatrix, cmd.draw.projMatrix);
 			}
 			if (cmd.draw.enabled & ENABLE_LIGHTS) {
-				WRITE(p, "lg:%d", cmd.draw.lightGlobal);
+				WRITE(p, "lg:%d ", cmd.draw.lightGlobal);
 				for (int i = 0; i < 4; i++) {
 					if (cmd.draw.enabled & (ENABLE_LIGHT0 << i)) {
-						WRITE(p, "l%d:%d", i, cmd.draw.lights[i]);
+						WRITE(p, "l%d:%d ", i, cmd.draw.lights[i]);
 					}
 				}
 			}
@@ -683,8 +706,9 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numBlend; i++) {
 		const BlendState *b = cmdPacket->blend[i];
-		ILOG("Blend %d: src:%d dst:%d eq:%d fixa:%06x fixb:%06x ",
-				i, b->blendSrc, b->blendDst, b->blendEq, b->blendfixa, b->blendfixb);
+		ILOG("Blend %d: src:%d dst:%d eq:%d fixa:%06x fixb:%06x colmask:%08x atfunc:%d atref:%02x atmask:%02x ctfunc:%d ctref:%06x ctmask:%06x",
+				i, b->blendSrc, b->blendDst, b->blendEq, b->blendfixa, b->blendfixb, b->colorWriteMask, b->alphaTestFunc, b->alphaTestRef, b->alphaTestMask,
+				b->colorTestFunc, b->colorTestRef, b->colorTestMask);
 	}
 	for (int i = 0; i < cmdPacket->numDepthStencil; i++) {
 		const DepthStencilState *b = cmdPacket->depthStencil[i];

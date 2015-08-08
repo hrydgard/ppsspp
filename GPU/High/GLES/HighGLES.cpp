@@ -103,7 +103,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	int end = packet->numCommands;
 	// Local mirror arrays. Should possible put it all in a struct instead and attach it
 	// using the userdata pointer.
-	TexCacheEntry *tex[32];
+	TexCacheEntry *tex[ARRAY_SIZE(packet->texture)];
 
 	for (int i = 0; i < packet->numTexture; i++) {
 		const TextureState *texState = packet->texture[i];
