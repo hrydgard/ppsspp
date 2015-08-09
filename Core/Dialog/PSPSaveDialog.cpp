@@ -30,12 +30,15 @@
 #include "Core/HW/MemoryStick.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
+
 const static float FONT_SCALE = 0.55f;
 
 // These are rough, it seems to take at least 100ms or so to init, and shutdown depends on threads.
 // Some games seem to required slightly longer delays to work, so we try 200ms as a compromise.
 const static int SAVEDATA_INIT_DELAY_US = 200000;
-const static int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
+int SAVEDATA_SHUTDOWN_DELAY_US = 2000;
 
 // These are the only sizes which are allowed.
 // TODO: We should test what the different behavior is for each.
@@ -63,7 +66,12 @@ int PSPSaveDialog::Init(int paramAddr)
 		ERROR_LOG_REPORT(SCEUTILITY, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
+	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");	
 
+	if (gameId == "ULJM05154") // issue #7744
+		SAVEDATA_SHUTDOWN_DELAY_US = 400;
+	else 
+	  SAVEDATA_SHUTDOWN_DELAY_US = 2000;
 	JoinIOThread();
 	ioThreadStatus = SAVEIO_NONE;
 
