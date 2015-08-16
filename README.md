@@ -18,6 +18,14 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+
+What's new in 1.1
+-------------------
+* Easily transfer ROMs and game saves between iOS devices and computers
+* Integrated HTTP server that will facilitate moving data to and from the device over local WiFi network
+* Submitted a pull request with original repo.
+
+
 What's new in 1.0.1
 -------------------
 * Bugfixes like the save state scroll issue, cosmetic issues like overscroll

@@ -20,6 +20,8 @@
 #include "Core/Config.h"
 #include "gfx_es2/fbo.h"
 
+
+
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
@@ -583,9 +585,36 @@ ViewController* sharedViewController;
 
 @end
 
+char const* WebServiceControl(bool init) {
+    
+    if(init) {
+        // start the web service
+        [UIApplication sharedApplication].idleTimerDisabled = YES;
+
+        fileWebServer = [[FileWebServer alloc] init];
+        NSString *host = [fileWebServer startServer];
+        return [host UTF8String];
+        
+    } else {
+        // stop the web service
+        [UIApplication sharedApplication].idleTimerDisabled = NO;
+
+        if(fileWebServer != NULL) {
+            [fileWebServer stopServer];
+            fileWebServer = NULL;
+        }
+    }
+    
+    return NULL;
+}
+
+
 void LaunchBrowser(char const* url)
 {
-	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];
+    NSString *str = [NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy];
+    NSLog(@"URL: %@", str);
+    
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString: str]];
 }
 
 void bindDefaultFBO()

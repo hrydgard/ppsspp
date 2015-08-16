@@ -57,6 +57,10 @@ protected:
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 
 	void AddStandardBack(UI::ViewGroup *parent);
+    
+#if defined(IOS)
+    void AddStopServerBack(UI::ViewGroup *parent);
+#endif
 };
 
 class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
