@@ -33,11 +33,22 @@ if not defined GIT (
 )
 call %GIT% describe --always > NUL 2> NUL
 if errorlevel 1 (
-	echo Git not on path, trying default Msysgit paths
+	echo Git not on path, trying default Msysgit paths...
 	set GIT="%ProgramFiles(x86)%\Git\bin\git.exe"
 	call !GIT! describe > NUL 2> NUL
 	if errorlevel 1 (
 		set GIT="%ProgramFiles%\Git\bin\git.exe"
+	)
+)
+
+call %GIT% describe --always > NUL 2> NUL
+if errorlevel 1 (
+	echo Git not on path, trying GitHub Desktop..
+	rem // Cheating using short filenames.
+	set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~1\bin\git.exe"
+	call !GIT! describe > NUL 2> NUL
+	if errorlevel 1 (
+		set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~2\bin\git.exe"
 	)
 )
 
