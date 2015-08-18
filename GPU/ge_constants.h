@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/commonTypes.h"
+
 enum GECommand {
 	GE_CMD_NOP = 0,
 	GE_CMD_VADDR = 0x1,
@@ -498,7 +500,8 @@ enum GETextureFiltering
 	GE_TFILT_LINEAR_MIPMAP_LINEAR = 7,
 };
 
-enum GETexMapMode {
+enum GETexMapMode
+{
 	GE_TEXMAP_TEXTURE_COORDS = 0,
 	GE_TEXMAP_TEXTURE_MATRIX = 1,
 	GE_TEXMAP_ENVIRONMENT_MAP = 2,
@@ -561,3 +564,10 @@ enum GEPaletteFormat
 	GE_CMODE_16BIT_ABGR4444,
 	GE_CMODE_32BIT_ABGR8888,
 };
+
+
+bool vertTypeIsSkinningEnabled(u32 vertType);
+
+inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
+inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }

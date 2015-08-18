@@ -12,8 +12,10 @@
 // To be decided: It's possibly better to evaluate splines early.
 
 #include "Common/CommonTypes.h"
-#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
 #include "GPU/Common/MemoryArena.h"
+
+struct GPUgstate;
 
 namespace HighGpu {
 

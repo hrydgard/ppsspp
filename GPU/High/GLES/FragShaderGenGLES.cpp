@@ -150,7 +150,7 @@ const bool nonAlphaDestFactors[16] = {
 };
 
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend, u32 enabled, const BlendState *blend) {
-	if (!(enabled & ENABLE_STENCIL_TEST) || gstate.isModeClear()) {
+	if (!(enabled & ENABLE_STENCIL_TEST)) {
 		return REPLACE_ALPHA_NO;
 	}
 
@@ -243,7 +243,7 @@ bool IsColorTestTriviallyTrue(const BlendState *blendState) {
 }
 
 ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, u32 enabled, const BlendState *blend) {
-	if (!(enabled & ENABLE_BLEND) || gstate.isModeClear()) {
+	if (!(enabled & ENABLE_BLEND)) {
 		return REPLACE_BLEND_NO;
 	}
 
@@ -451,7 +451,6 @@ void ComputeFragmentShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 		bool doFlatShading = raster->shadeMode == GE_SHADE_FLAT;
 
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend);
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (textureFullAlpha && frag->getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -496,11 +495,12 @@ void ComputeFragmentShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 		id.SetBit(BIT_COLOR_DOUBLE, enableColorDoubling);
 
 		// 2 bits
+		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend, enabled, blend);
 		id.SetBits(BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
 
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
-			id.SetBits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
+			id.SetBits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType(fb, ds));
 		}
 
 		if (enableAlphaTest)
@@ -509,7 +509,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 			gpuStats.numNonAlphaTestedDraws++;
 
 		// 2 bits.
-		id.SetBits(BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
+		id.SetBits(BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType(enabled, blend));
 
 		// 3 bits.
 		id.SetBits(BIT_REPLACE_BLEND, 3, replaceBlend);
@@ -647,7 +647,7 @@ void GenerateFragmentShader(ShaderID id, char *buffer) {
 	bool textureAtOffset = false;  // gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(BIT_REPLACE_BLEND, 3));
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4));
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_STENCIL_TO_ALPHA, 4));
 
 	const char *shading = "";
 	if (glslES30)
@@ -690,7 +690,9 @@ void GenerateFragmentShader(ShaderID id, char *buffer) {
 			}
 		}
 	}
-	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
+
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
+	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
 	if (doTexture && texFunc == GE_TEXFUNC_BLEND)
@@ -1131,7 +1133,8 @@ void GenerateFragmentShader(ShaderID id, char *buffer) {
 		break;
 	}
 
-	switch (ReplaceLogicOpType()) {
+	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(BIT_REPLACE_LOGIC_OP_TYPE, 2);
+	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);
 		break;
