@@ -450,7 +450,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 		bool doTextureAlpha = frag->isTextureAlphaUsed();
 		bool doFlatShading = raster->shadeMode == GE_SHADE_FLAT;
 
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend);
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend, enabled, blend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (textureFullAlpha && frag->getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -1083,7 +1083,7 @@ void GenerateFragmentShader(ShaderID id, char *buffer) {
 	std::string replacedAlpha = "0.0";
 	char replacedAlphaTemp[64] = "";
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
-		switch (ReplaceAlphaWithStencilType()) {
+		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
 			replacedAlpha = "u_stencilReplaceValue";
 			break;

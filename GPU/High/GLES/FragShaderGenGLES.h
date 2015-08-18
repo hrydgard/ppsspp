@@ -68,8 +68,8 @@ bool IsAlphaTestTriviallyTrue(u32 enabled, const BlendState *blendState, const F
 bool IsColorTestAgainstZero(const BlendState *blendState);
 bool IsColorTestTriviallyTrue(const BlendState *blendState);
 
-StencilValueType ReplaceAlphaWithStencilType();
-ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);
+StencilValueType ReplaceAlphaWithStencilType(const FramebufState *fb, const DepthStencilState *ds);
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend, u32 enabled, const BlendState *blend);
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, u32 enabled, const BlendState *blend);
 
 }  // HighGpu

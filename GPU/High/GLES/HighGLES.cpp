@@ -15,8 +15,10 @@
 
 #include "GPU/High/HighGpu.h"
 #include "GPU/High/GLES/HighGLES.h"
-#include "GPU/High/GLES/ShaderManagerHighGLES.h"
 #include "GPU/High/GLES/TextureCacheHighGLES.h"
+#include "GPU/High/GLES/VertShaderGenGLES.h"
+#include "GPU/High/GLES/FragShaderGenGLES.h"
+#include "GPU/High/GLES/ShaderManagerHighGLES.h"
 #include "GPU/High/Command.h"
 #include "GPU/Common/IndexGenerator.h"
 
@@ -139,8 +141,53 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 		}
 	}
 
+	// As shaders depend on the decoded data (vertexFullAlpha, textureFullAlpha) we simply
+	// fetch the shaders after that work is done.
+
+	ShaderID fragShaderIds[256];
+	ShaderID vertShaderIds[256];
+
+	LinkedShader *linkedShaders[256];
+
+	// TODO: Reuse work wherever possible.
+	for (int i = start; i < end; i++) {
+		const Command *cmd = &packet->commands[i];
+		u32 enabled = cmd->draw.enabled;
+		// TODO: Fix the lights
+		const LightState *ls[4] = {nullptr, nullptr, nullptr, nullptr};
+		const LightState **lss = ls;
+		bool useHWTransform = cmd->draw.prim != GE_PRIM_RECTANGLES;
+		// TODO: Fix these four:
+		bool allowShaderBlend = false;
+		bool flipTexture = false;
+		bool vertexFullAlpha = false;
+		bool textureFullAlpha = false;
+		ComputeVertexShaderID(&vertShaderIds[i], enabled, cmd->draw.vtxformat,
+			packet->raster[cmd->draw.raster],
+			cmd->draw.texScale == INVALID_STATE ? nullptr : packet->texScale[cmd->draw.texScale],
+			cmd->draw.lightGlobal == INVALID_STATE ? nullptr : packet->lightGlobal[cmd->draw.lightGlobal],
+			lss,
+			false,
+			useHWTransform);
+		ComputeFragmentShaderID(&fragShaderIds[i], enabled, cmd->draw.vtxformat,
+			packet->framebuf[cmd->draw.framebuf],
+			packet->raster[cmd->draw.raster],
+			packet->fragment[cmd->draw.fragment],
+			cmd->draw.texScale == INVALID_STATE ? nullptr : packet->texScale[cmd->draw.texScale],
+			cmd->draw.blend == INVALID_STATE ? nullptr : packet->blend[cmd->draw.blend],
+			cmd->draw.depthStencil == INVALID_STATE ? nullptr : packet->depthStencil[cmd->draw.depthStencil],
+			allowShaderBlend, flipTexture, vertexFullAlpha, textureFullAlpha);
+	}
+
+	for (int i = start; i < end; i++) {
+		linkedShaders[i] = shaderManager_->GetLinkedShader(vertShaderIds[i], fragShaderIds[i]);
+	}
+
+	// Set up the vertex pointers.
+
 	// Pass 3: Fetch shaders, perform the draws.
 	int curFramebuf = -1;
+	LinkedShader *last = -1;
 
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
@@ -148,6 +195,12 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 			ApplyFramebuffer(packet, cmd);
 			curFramebuf = cmd->draw.framebuf;
 		}
+		if (linkedShaders[i] != last) {
+			linkedShaders[i]->Bind();
+			last = linkedShaders[i];
+		}
+
+		// glDraw...
 	}
 }
 

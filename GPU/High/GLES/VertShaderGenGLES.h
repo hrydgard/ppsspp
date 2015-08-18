@@ -29,7 +29,7 @@ struct ShaderID;
 
 bool CanUseHardwareTransform(int prim, bool isModeThrough);
 
-void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, u32 enabled,
+void ComputeVertexShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 		const HighGpu::RasterState *raster, const HighGpu::TexScaleState *ts,
 		const HighGpu::LightGlobalState *lgs, const HighGpu::LightState **ls,
 		bool flipTexture, bool useHWTransform);

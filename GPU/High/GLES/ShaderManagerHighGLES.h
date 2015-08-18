@@ -65,6 +65,9 @@ public:
 	void ClearCache(bool);
 	void DirtyShader();
 	void DirtyLastShader();
+
+	LinkedShader *GetLinkedShader(
+
 };
 
 }  // namespace

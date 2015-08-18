@@ -45,6 +45,26 @@ struct ShaderID {
 		}
 		return true;
 	}
+
+	int Bit(int bit) const {
+		return (d[bit >> 5] >> (bit & 31)) & 1;
+	}
+	// Does not handle crossing 32-bit boundaries
+	int Bits(int bit, int count) const {
+		const int mask = (1 << count) - 1;
+		return (d[bit >> 5] >> bit) & mask;
+	}
+
+	void SetBit(int bit, bool value = true) {
+		if (value) {
+			d[bit >> 5] |= 1 << (bit & 0x1f);
+		}
+	}
+	void SetBits(int bit, int count, int value) {
+		if (value != 0) {
+			d[bit >> 5] |= value << (bit & 0x1f);
+		}
+	}
 };
 
 // Pre-fetched attrs and uniforms
