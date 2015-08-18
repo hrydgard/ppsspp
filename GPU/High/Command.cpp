@@ -68,11 +68,13 @@ static void LoadLightGlobalState(LightGlobalState *light, const GPUgstate *gstat
 	light->materialDiffuse = gstate->getMaterialDiffuse();
 	light->materialSpecular = gstate->getMaterialSpecular();
 	light->materialEmissive = gstate->getMaterialEmissive();
+	light->reverseNormals = gstate->reversenormals & 1;
 	light->lmode = gstate->lmode & 1;
 }
 
 static void LoadLightState(LightState *light, const GPUgstate *gstate, int lightnum) {
 	light->type = gstate->getLightType(lightnum);
+	light->computation = gstate->getLightComputation(lightnum);
 	light->diffuseColor = gstate->getDiffuseColor(lightnum);
 	light->specularColor = gstate->getSpecularColor(lightnum);
 	light->ambientColor = gstate->getLightAmbientColor(lightnum);
@@ -106,7 +108,7 @@ static void LoadFragmentState(FragmentState *fragment, const GPUgstate *gstate) 
 	fragment->texFunc = gstate->getTextureFunction();
 	fragment->useTextureAlpha = gstate->isTextureAlphaUsed();
 	fragment->colorDouble = gstate->isColorDoublingEnabled();
-	fragment->shadeMode = gstate->getShadeMode();  // flat/gouraud.
+	fragment->lmode = gstate->lmode & 1;
 }
 
 static void LoadFramebufState(FramebufState *framebuf, const GPUgstate *gstate) {
@@ -127,6 +129,7 @@ static void LoadRasterState(RasterState *raster, const GPUgstate *gstate) {
 	raster->scissorY2 = gstate->getScissorY2();
 	raster->cullFaceEnable = gstate->isCullEnabled();
 	raster->cullMode = gstate->getCullMode();
+	raster->shadeMode = gstate->getShadeMode();  // flat/gouraud.
 	// TODO : Should the default vertexcolor really live here?
 	if ((gstate->vertType & GE_VTYPE_COL_MASK) != 0) {
 		// Since not used, zero it. Clearer in debug output and makes them collapsible.
@@ -200,6 +203,8 @@ static void LoadTexScaleState(TexScaleState *texScale, const GPUgstate *gstate) 
 	texScale->scaleV = getFloat24(gstate->texscalev);
 	texScale->offsetU = getFloat24(gstate->texoffsetu);
 	texScale->offsetV = getFloat24(gstate->texoffsetv);
+	texScale->texMapMode = gstate->texmapmode & 0xFFFFFF;
+	texScale->texShade = gstate->texshade & 0xFFFFFF;
 }
 
 static void LoadSamplerState(SamplerState *sampler, const GPUgstate *gstate) {
@@ -677,13 +682,13 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numRaster; i++) {
 		const RasterState *r = cmdPacket->raster[i];
-		ILOG("Raster %d: clearmode=%d scissor: %d,%d-%d,%d offset: %d,%d, cull: %d,%d defcol:%08x", i, r->clearMode, r->scissorX1, r->scissorY1, r->scissorX2, r->scissorY2, r->offsetX, r->offsetY, r->cullFaceEnable, r->cullMode, r->defaultVertexColor);
+		ILOG("Raster %d: clearmode=%d scissor: %d,%d-%d,%d offset: %d,%d, cull: %d,%d shade:%d defcol:%08x", i, r->clearMode, r->scissorX1, r->scissorY1, r->scissorX2, r->scissorY2, r->offsetX, r->offsetY, r->cullFaceEnable, r->cullMode, r->shadeMode, r->defaultVertexColor);
 
 	}
 	for (int i = 0; i < cmdPacket->numFragment; i++) {
 		const FragmentState *f = cmdPacket->fragment[i];
-		ILOG("Fragment %d: double=%d texAlpha=%d texFunc=%d texEnv=%d shadeMode=%d fog=%.3f,%.3f,%06x",
-				i, f->colorDouble, f->useTextureAlpha, f->texFunc, f->texEnvColor, f->shadeMode, f->fogCoef1, f->fogCoef2, f->fogColor);
+		ILOG("Fragment %d: double=%d texAlpha=%d texFunc=%d texEnv=%d fog=%.3f,%.3f,%06x",
+				i, f->colorDouble, f->useTextureAlpha, f->texFunc, f->texEnvColor, f->fogCoef1, f->fogCoef2, f->fogColor);
 	}
 	for (int i = 0; i < cmdPacket->numTexture; i++) {
 		const TextureState *t = cmdPacket->texture[i];

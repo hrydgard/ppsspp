@@ -1459,6 +1459,10 @@ set(GPU_HIGH_GLES
 	GPU/High/GLES/ShaderManagerHighGLES.cpp
 	GPU/High/GLES/TextureCacheHighGLES.h
 	GPU/High/GLES/TextureCacheHighGLES.cpp
+	GPU/High/GLES/VertShaderGenGLES.h
+	GPU/High/GLES/VertShaderGenGLES.cpp
+	GPU/High/GLES/FragShaderGenGLES.h
+	GPU/High/GLES/FragShaderGenGLES.cpp
 )
 
 set(GPU_HIGH

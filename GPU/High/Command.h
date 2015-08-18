@@ -162,13 +162,17 @@ struct RasterState {
 	u32 defaultVertexColor;  // materialambient gets duplicated here so we don't need to involve lights.
 	u32 offsetX;
 	u32 offsetY;
+
 	u16 scissorX1;
 	u16 scissorY1;
 	u16 scissorX2;
 	u16 scissorY2;
+
 	u16 clearMode;
 	u8 cullFaceEnable;
 	u8 cullMode;
+
+	u32 shadeMode;
 };
 
 // TODO: fogCoefs are more like transform state. Maybe move?
@@ -176,11 +180,15 @@ struct FragmentState {
 	u8 colorDouble;
 	u8 useTextureAlpha;
 	u8 texFunc;
-	u8 shadeMode;
+	u8 lmode;
 	u32 texEnvColor;
 	float fogCoef1;
 	float fogCoef2;
 	u32 fogColor;
+
+	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texFunc); }
+	bool isTextureAlphaUsed() const { return useTextureAlpha; }
+	bool isUsingSecondaryColor() const { return lmode; }
 };
 
 struct ViewportState {
@@ -226,6 +234,7 @@ struct TextureState {
 	u16 dim[8];
 	u16 stride[8];
 	u16 maxLevel; // u16 to eliminate padding
+
 	u8 format;
 	u8 swizzled;
 	u8 mipClutMode;
@@ -234,13 +243,19 @@ struct TextureState {
 	u8 clutStateIndex;
 };
 
-// Really, UV generation state.
+// Really, UVGenState
 struct TexScaleState {
 	float scaleU;
 	float scaleV;
 	float offsetU;
 	float offsetV;
-	int texMapMode;  // UVGen mode (uv, texmtx, etc)
+	u16 texMapMode;  // UVGen mode (uv, texmtx, light etc)
+	u16 texShade;  // lights to use in light UVGen mode. bottom 4 bits specify 2 lights.
+
+	GETexMapMode getUVGenMode() const { return static_cast<GETexMapMode>(texMapMode);}   // 2 bits
+	GETexProjMapMode getUVProjMode() const { return static_cast<GETexProjMapMode>((texMapMode >> 8) & 3);}   // 2 bits
+	int getUVLS0() const { return texShade & 0x3; }  // 2 bits
+	int getUVLS1() const { return (texShade >> 8) & 0x3; }  // 2 bits
 };
 
 struct SamplerState {
@@ -260,12 +275,17 @@ struct LightGlobalState {
 	u32 materialSpecular;
 	u32 ambientcolor;
 	float specularCoef;
-	u32 lmode;
+	u32 reverseNormals;
+	int lmode;  // Also in fragment state.
+
+	bool areNormalsReversed() const { return reverseNormals; }
 };
 
 // TODO: Note that depending on the light type, not the entire struct needs to be allocated (!)
+// Also, we probably want to format this in a way so it can be memcpy'd to UBOs.
 struct LightState {
-	int type;  // int instead of u8 to avoid padding
+	u16 type;  // u16 x 2 instead of u8 to avoid padding
+	u16 computation;  // 0 = diffuse only, 1 = both, 2 = both with pow-diffuse (!?)
 	float pos[3];  // pos is used as direction for directional lights.
 	u32 diffuseColor;
 	u32 ambientColor;
@@ -276,6 +296,9 @@ struct LightState {
 	float dir[3];
 	float lconv;
 	float lcutoff;
+
+	GELightType getLightType() const { return static_cast<GELightType>(type); }
+	GELightComputation getLightComputation() const { return static_cast<GELightComputation>(computation); }
 };
 
 struct ClutState {

@@ -19,7 +19,7 @@ public:
 	T *Allocate(T **ptr) {
 #ifdef _DEBUG
 		if (!HasRoomFor(sizeof(T))) {
-			fprintf(stderr, "MemoryArena full! Failed to allocate object of size %d", (int)sizeof(T));
+			fprintf(stderr, "MemoryArena full! Failed to allocate object of size %d\n", (int)sizeof(T));
 		}
 #endif
 		*ptr = reinterpret_cast<T *>(data_ + ptr_);
@@ -32,7 +32,7 @@ public:
 	u8 *AllocateBytes(size_t bytes) {
 #ifdef _DEBUG
 		if (!HasRoomFor(bytes)) {
-			fprintf(stderr, "MemoryArena full, failed to allocate %d bytes!", (int)bytes);
+			fprintf(stderr, "MemoryArena full, failed to allocate %d bytes!\n", (int)bytes);
 		}
 #endif
 		u8 *ptr = data_ + ptr_;
