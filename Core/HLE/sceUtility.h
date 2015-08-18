@@ -84,3 +84,4 @@ void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
 
 void Register_sceUtility();
+void Register_sceUtilitO();

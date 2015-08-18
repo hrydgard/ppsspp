@@ -744,6 +744,11 @@ void Register_Kernel_Library()
 	RegisterModule("Kernel_Library", ARRAY_SIZE(Kernel_Library), Kernel_Library);
 }
 
+void Register_Kernel_LibrarZ() {
+	RegisterModule("Kernel_LibrarZ", ARRAY_SIZE(Kernel_Library), Kernel_Library);
+}
+
+
 void Register_SysclibForKernel()
 {
 	RegisterModule("SysclibForKernel", ARRAY_SIZE(SysclibForKernel), SysclibForKernel);

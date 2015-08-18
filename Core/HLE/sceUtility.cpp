@@ -922,3 +922,8 @@ void Register_sceUtility()
 {
 	RegisterModule("sceUtility", ARRAY_SIZE(sceUtility), sceUtility);
 }
+
+void Register_sceUtilitO()
+{
+	RegisterModule("sceUtilitO", ARRAY_SIZE(sceUtility), sceUtility);
+}
