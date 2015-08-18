@@ -342,5 +342,7 @@ void RegisterAllModules() {
 	Register_sceUsbCam();
 	Register_sceG729();
 	Register_sceNetUpnp();
+	Register_Kernel_LibrarZ();
+	Register_sceUtilitO();
 }
 
