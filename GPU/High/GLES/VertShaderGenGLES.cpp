@@ -101,7 +101,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, u32 enabled,
 	bool doTexture = (enabled & ENABLE_TEXTURE) && !isModeClear;
 	bool doTextureProjection = ts->getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = ts->getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
-	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !isModeClear;
+	bool doFlatShading = raster->shadeMode == GE_SHADE_FLAT && !isModeClear;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -275,6 +275,9 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	bool doTextureProjection = id.Bit(BIT_DO_TEXTURE_PROJ);
 
 	GETexMapMode uvGenMode = static_cast<GETexMapMode>(id.Bits(BIT_UVGEN_MODE, 2));
+
+	// this is only valid for some settings of uvGenMode
+	GETexProjMapMode uvProjMode = static_cast<GETexProjMapMode>(id.Bits(BIT_UVPROJ_MODE, 2));
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 	bool doFlatShading = id.Bit(BIT_FLATSHADE);
 
@@ -561,12 +564,13 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
+				GELightType type = static_cast<GELightType>(id.Bits(BIT_LIGHT0_TYPE + 4*i, 2));
+				GELightComputation comp = static_cast<GELightComputation>(id.Bits(BIT_LIGHT0_COMP + 4*i, 2));
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (gstate.isUsingSpecularLight(i))
+				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
 					specularIsZero = false;
-				GELightType type = gstate.getLightType(i);
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
 			}
@@ -649,7 +653,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
-		if (gstate.isLightingEnabled()) {
+		if (id.Bit(BIT_LIGHTING_ENABLE)) {
 			// Sum up ambient, emissive here.
 			if (lmode) {
 				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
@@ -679,7 +683,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 
 		// Step 3: UV generation
 		if (doTexture) {
-			switch (gstate.getUVGenMode()) {
+			switch (uvGenMode) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale && !flipV) {
@@ -700,7 +704,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			case GE_TEXMAP_TEXTURE_MATRIX:  // Projection mapping.
 				{
 					std::string temp_tc;
-					switch (gstate.getUVProjMode()) {
+					switch (uvProjMode) {
 					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
 						temp_tc = "vec4(position.xyz, 1.0)";
 						break;

@@ -212,6 +212,10 @@ struct BlendState {
 	u32 colorTestRef;
 	u32 colorTestMask;
 	u32 colorWriteMask;
+
+	GEBlendMode getBlendEq() const { return static_cast<GEBlendMode>(blendEq); }
+	GEBlendSrcFactor getBlendSrc() const { return static_cast<GEBlendSrcFactor>(blendSrc); }
+	GEBlendDstFactor getBlendDst() const { return static_cast<GEBlendDstFactor>(blendDst); }
 };
 
 struct DepthStencilState {
