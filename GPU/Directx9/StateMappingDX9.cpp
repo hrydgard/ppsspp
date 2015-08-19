@@ -29,6 +29,9 @@
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
+
 namespace DX9 {
 
 static const D3DBLEND aLookup[11] = {
@@ -742,8 +745,16 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
 
-		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+		float zScale, zOff;
+		if (gameId == "ULUS10529" || gameId == "ULES01439" || gameId == "ULJM05309" || gameId == "NPJH50043") { // Fix no text in Phantasy Star Series
+			zScale = getFloat24(gstate.viewportz1) / 65536.0f;
+			zOff = getFloat24(gstate.viewportz2) / 65536.0f;
+		}
+		else {
+			zScale = getFloat24(gstate.viewportz1) / 65535.0f;
+			zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		}
 
 		float depthRangeMin = zOff - fabsf(zScale);
 		float depthRangeMax = zOff + fabsf(zScale);

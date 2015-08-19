@@ -36,6 +36,9 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 
+#include "Core/ELF/ParamSFO.h"
+#include "Core/System.h"
+
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
@@ -871,9 +874,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		glstate.viewport.set(left, bottom, right - left, top - bottom);
+		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+		float zScale, zOff;
+		if (gameId == "ULUS10529" || gameId == "ULES01439" || gameId == "ULJM05309" || gameId == "NPJH50043") { // Fix no text in Phantasy Star Series
+			zScale = getFloat24(gstate.viewportz1) * (1.0f / 65536.0f);
+			zOff = getFloat24(gstate.viewportz2) * (1.0f / 65536.0f);
+		}
+		else {
+			zScale = getFloat24(gstate.viewportz1) * (1.0f / 65535.0f);
+			zOff = getFloat24(gstate.viewportz2) * (1.0f / 65535.0f);
+		}
 
-		float zScale = getFloat24(gstate.viewportz1) * (1.0f / 65535.0f);
-		float zOff = getFloat24(gstate.viewportz2) * (1.0f / 65535.0f);
 		float depthRangeMin = zOff - zScale;
 		float depthRangeMax = zOff + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
