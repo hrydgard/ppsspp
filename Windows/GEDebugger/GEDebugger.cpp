@@ -314,19 +314,19 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		break;
 
 	case GPU_DBG_FORMAT_16BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d", x, y, pix);
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 65535.0f));
 		break;
 
 	case GPU_DBG_FORMAT_8BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d", x, y, pix);
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 255.0f));
 		break;
 
 	case GPU_DBG_FORMAT_24BIT_8X:
-		_snwprintf(desc, 256, L"%d,%d: %d", x, y, pix & 0x00FFFFFF);
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f));
 		break;
 
 	case GPU_DBG_FORMAT_24X_8BIT:
-		_snwprintf(desc, 256, L"%d,%d: %d", x, y, (pix >> 24) & 0xFF);
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
 		break;
 
 	case GPU_DBG_FORMAT_FLOAT:
