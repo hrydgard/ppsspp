@@ -154,6 +154,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FramebufferCommon.cpp \
+  $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \

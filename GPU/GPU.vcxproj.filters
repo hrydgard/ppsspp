@@ -183,7 +183,9 @@
     <ClInclude Include="Common\TextureScalerCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GPU.h" />
+    <ClInclude Include="GPU.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -351,9 +353,11 @@
     <ClCompile Include="Common\TextureScalerCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="GPU.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="CMakeLists.txt" />
+    <ClCompile Include="Common\GPUDebugInterface.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

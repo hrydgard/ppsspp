@@ -1455,6 +1455,7 @@ add_library(GPU OBJECT
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferCommon.cpp
 	GPU/Common/FramebufferCommon.h
+	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
 	GPU/Common/DrawEngineCommon.cpp
 	GPU/Common/DrawEngineCommon.h
