@@ -282,7 +282,9 @@ void CGEDebugger::PreviewFramebufHover(int x, int y) {
 
 	wchar_t desc[256] = {0};
 
-	if (x < 0 || y < 0) {
+	if (!frameWindow->HasTex()) {
+		desc[0] = 0;
+	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state = {0};
 		if (gpuDebug != nullptr) {
@@ -412,7 +414,9 @@ void CGEDebugger::PreviewTextureHover(int x, int y) {
 
 	wchar_t desc[256] = {0};
 
-	if (x < 0 || y < 0) {
+	if (!texWindow->HasTex()) {
+		desc[0] = 0;
+	} else if (x < 0 || y < 0) {
 		// This means they left the area.
 		GPUgstate state = {0};
 		if (gpuDebug != nullptr) {

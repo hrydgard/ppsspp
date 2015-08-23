@@ -83,6 +83,10 @@ struct SimpleGLWindow {
 		return h_;
 	}
 
+	bool HasTex() {
+		return tw_ > 0 && th_ > 0;
+	}
+
 	int TexWidth() {
 		return tw_;
 	}
