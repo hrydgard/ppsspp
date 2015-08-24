@@ -68,7 +68,7 @@ static const char basic_vs[] =
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
 	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), tex_(0), flags_(0), zoom_(false),
-	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr) {
+	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr), hoverCallback_(nullptr) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
 
@@ -434,6 +434,45 @@ bool SimpleGLWindow::ToggleZoom() {
 	return true;
 }
 
+bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	float fw, fh;
+	float x, y;
+	GetContentSize(x, y, fw, fh);
+
+	if (mouseX < x || mouseX >= x + fw || mouseY < y || mouseY >= y + fh) {
+		// Outside of bounds.
+		hoverCallback_(-1, -1);
+		return true;
+	}
+
+	float tx = (mouseX - x) * (tw_ / fw);
+	float ty = (mouseY - y) * (th_ / fh);
+
+	hoverCallback_((int)tx, (int)ty);
+
+	// Find out when they are done.
+	TRACKMOUSEEVENT tracking = {0};
+	tracking.cbSize = sizeof(tracking);
+	tracking.dwFlags = TME_LEAVE;
+	tracking.hwndTrack = hWnd_;
+	TrackMouseEvent(&tracking);
+
+	return true;
+}
+
+bool SimpleGLWindow::Leave() {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	hoverCallback_(-1, -1);
+	return true;
+}
+
 const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
 	if (!reformatBuf_ || reformatBufSize_ < numPixels) {
 		delete [] reformatBuf_;
@@ -463,8 +502,19 @@ SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
 LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	SimpleGLWindow *win = SimpleGLWindow::GetFrom(hwnd);
 
-	switch(msg)
-	{
+	int mouseX = 0, mouseY = 0;
+	switch (msg) {
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_MOUSEMOVE:
+		mouseX = GET_X_LPARAM(lParam);
+		mouseY = GET_Y_LPARAM(lParam);
+		break;
+	default:
+		break;
+	}
+
+	switch (msg) {
 	case WM_NCCREATE:
 		win = new SimpleGLWindow(hwnd);
 		
@@ -482,19 +532,28 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (win->DragStart(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragStart(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_LBUTTONUP:
-		if (win->DragEnd(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragEnd(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_MOUSEMOVE:
-		if (win->DragContinue(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragContinue(mouseX, mouseY)) {
+			return 0;
+		}
+		if (win->Hover(mouseX, mouseY)) {
+			return 0;
+		}
+		break;
+
+	case WM_MOUSELEAVE:
+		if (win->Leave()) {
 			return 0;
 		}
 		break;
