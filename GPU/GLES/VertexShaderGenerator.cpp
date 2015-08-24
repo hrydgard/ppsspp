@@ -357,6 +357,12 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		}
 	}
 
+	// Even with this we don't match, because the viewport is different I think.
+	// I think we need to apply viewportZ, round/floor, and then undo viewportZ.
+	WRITE(p, "\nvec4 depthRoundZ(vec4 v) {\n");
+	WRITE(p, "  return vec4(v.x, v.y, (1.0/65536.0) * floor(v.z * 65536.0), v.w);\n");
+	WRITE(p, "}\n\n");
+
 	WRITE(p, "void main() {\n");
 
 	if (!useHWTransform) {
@@ -381,9 +387,9 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = depthRoundZ(u_proj_through * vec4(position.xyz, 1.0));\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = depthRoundZ(u_proj * vec4(position.xyz, 1.0));\n");
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -476,7 +482,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
 
 		// Final view and projection transforms.
-		WRITE(p, "  gl_Position = u_proj * viewPos;\n");
+		WRITE(p, "  gl_Position = depthRoundZ(u_proj * viewPos);\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
