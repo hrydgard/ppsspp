@@ -332,7 +332,7 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		break;
 
 	case GPU_DBG_FORMAT_FLOAT:
-		_snwprintf(desc, 256, L"%d,%d: %f", x, y, *(float *)&pix);
+		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, *(float *)&pix, *(float *)&pix * 65535.0f);
 		break;
 
 	default:
