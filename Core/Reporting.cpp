@@ -347,6 +347,9 @@ namespace Reporting
 		// Not sure if we should support locked cpu at all, but definitely not far out values.
 		if (g_Config.iLockedCPUSpeed != 0 && (g_Config.iLockedCPUSpeed < 111 || g_Config.iLockedCPUSpeed > 333))
 			return false;
+		// Don't allow builds without version info from git.  They're useless for reporting.
+		if (strcmp(PPSSPP_GIT_VERSION, "unknown") == 0)
+			return false;
 
 		// Some users run the exe from a zip or something, and don't have fonts.
 		// This breaks things, but let's not report it since it's confusing.
