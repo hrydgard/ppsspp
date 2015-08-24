@@ -324,7 +324,8 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		break;
 
 	case GPU_DBG_FORMAT_24BIT_8X:
-		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f));
+		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
+		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), (pix & 0x00FFFFFF) * (65535.0f / 16777215.0f));
 		break;
 
 	case GPU_DBG_FORMAT_24X_8BIT:
