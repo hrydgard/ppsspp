@@ -68,11 +68,11 @@ bool Texture::Load(const char *filename) {
 		glGenTextures(1, &id_);
 		glBindTexture(GL_TEXTURE_2D, id_);
 		if (bpp == 1) {
-#if defined(USING_GLES2)
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-#else
-			glTexImage2D(GL_TEXTURE_2D, 0, 1, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
-#endif
+			if (gl_extensions.IsGLES) {
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+			} else {
+				glTexImage2D(GL_TEXTURE_2D, 0, 1, w, h, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, data);
+			}
 		} else {
 			FLOG("unsupported");
 		}

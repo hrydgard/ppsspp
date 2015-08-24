@@ -342,11 +342,11 @@ public:
 		// TODO: Make these actually query the right information
 		switch (info) {
 			case APINAME:
-	#ifdef USING_GLES2
-				return "OpenGL ES";
-	#else
-				return "OpenGL";
-	#endif
+				if (gl_extensions.IsGLES) {
+					return "OpenGL ES";
+				} else {
+					return "OpenGL";
+				}
 			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
 			case VENDOR:
 				switch (gl_extensions.gpuVendor) {
