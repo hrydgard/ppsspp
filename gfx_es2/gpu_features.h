@@ -33,6 +33,7 @@ struct GLExtensions {
 	int gpuVendor;
 	char model[128];
 
+	bool IsGLES;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	// OES
@@ -92,6 +93,6 @@ extern GLExtensions gl_extensions;
 
 
 // Call this after filling out vendor etc to lookup the bugs etc.
-// Only needs to be called ones. Currently called by CheckGLExtensions().
+// Only needs to be called once. Currently called by CheckGLExtensions().
 void ProcessGPUFeatures();
 

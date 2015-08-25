@@ -19,9 +19,10 @@
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
 #endif
+#endif
+
 #ifndef GL_DEPTH24_STENCIL8_OES
 #define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
 #endif
 
 #ifdef IOS
@@ -174,56 +175,56 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-#ifdef USING_GLES2
-	if (gl_extensions.OES_packed_depth_stencil) {
-		ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", width, height);
-		// Standard method
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.OES_packed_depth_stencil) {
+			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", width, height);
+			// Standard method
+			fbo->stencil_buffer = 0;
+			fbo->z_buffer = 0;
+			// 24-bit Z, 8-bit stencil combined
+			glGenRenderbuffers(1, &fbo->z_stencil_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
+
+			// Bind it all together
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
+		} else {
+			ILOG("Creating %i x %i FBO using separate stencil", width, height);
+			// TEGRA
+			fbo->z_stencil_buffer = 0;
+			// 16/24-bit Z, separate 8-bit stencil
+			glGenRenderbuffers(1, &fbo->z_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
+			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, width, height);
+
+			// 8-bit stencil buffer
+			glGenRenderbuffers(1, &fbo->stencil_buffer);
+			glBindRenderbuffer(GL_RENDERBUFFER, fbo->stencil_buffer);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
+
+			// Bind it all together
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
+		}
+	} else {
 		fbo->stencil_buffer = 0;
 		fbo->z_buffer = 0;
-		// 24-bit Z, 8-bit stencil combined
+		// 24-bit Z, 8-bit stencil
 		glGenRenderbuffers(1, &fbo->z_stencil_buffer);
 		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
 
 		// Bind it all together
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	} else {
-		ILOG("Creating %i x %i FBO using separate stencil", width, height);
-		// TEGRA
-		fbo->z_stencil_buffer = 0;
-		// 16/24-bit Z, separate 8-bit stencil
-		glGenRenderbuffers(1, &fbo->z_buffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, width, height);
-
-		// 8-bit stencil buffer
-		glGenRenderbuffers(1, &fbo->stencil_buffer);
-		glBindRenderbuffer(GL_RENDERBUFFER, fbo->stencil_buffer);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
-
-		// Bind it all together
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 	}
-#else
-	fbo->stencil_buffer = 0;
-	fbo->z_buffer = 0;
-	// 24-bit Z, 8-bit stencil
-	glGenRenderbuffers(1, &fbo->z_stencil_buffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-
-	// Bind it all together
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
-#endif
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 	switch(status) {
@@ -269,9 +270,9 @@ FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
 
 static GLenum fbo_get_fb_target(bool read, GLuint **cached) {
 	bool supportsBlit = gl_extensions.FBO_ARB;
-#ifdef USING_GLES2
-	supportsBlit = supportsBlit && (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
-#endif
+	if (gl_extensions.IsGLES) {
+		supportsBlit = supportsBlit && (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
+	}
 
 	// Note: GL_FRAMEBUFFER_EXT and GL_FRAMEBUFFER have the same value, same with _NV.
 	if (supportsBlit) {
