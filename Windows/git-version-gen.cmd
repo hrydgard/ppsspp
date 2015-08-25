@@ -57,6 +57,10 @@ if errorlevel 1 (
 	set GIT_MISSING=1
 )
 
+if not "%GIT_MISSING%" == "1" (
+	for /F %%I in ('call %GIT% describe --always') do set GIT_VERSION=%%I
+)
+
 if exist "%GIT_VERSION_FILE%" (
 	rem // Skip updating the file if PPSSPP_GIT_VERSION_NO_UPDATE is 1.
 	findstr /B /C:"#define PPSSPP_GIT_VERSION_NO_UPDATE 1" "%GIT_VERSION_FILE%" > NUL
@@ -75,8 +79,6 @@ if "%GIT_MISSING%" == "1" (
 	echo const char *PPSSPP_GIT_VERSION = "unknown"; >> "%GIT_VERSION_FILE%"
 	goto gitdone
 )
-
-for /F %%I in ('call %GIT% describe --always') do set GIT_VERSION=%%I
 
 rem // Don't modify the file if it already has the current version.
 if exist "%GIT_VERSION_FILE%" (
