@@ -391,17 +391,16 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	// See comment above this function (GenerateVertexShader).
 	WRITE(p, "\nvec4 depthRoundZ(vec4 v) {\n");
-	WRITE(p, "  return vec4(v.x, v.y, (1.0/65536.0) * floor(v.z * 65536.0), v.w);\n");
+	WRITE(p, "  return vec4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
 	WRITE(p, "}\n\n");
 
 	if (!gstate.isModeThrough()) {
-		// Apply the transform to get the Z buffer value, floor to integer, undo the transform.
+		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
-		WRITE(p, "  z *= u_depthRange.x;\n");
-		WRITE(p, "  z += u_depthRange.y;\n");
-		WRITE(p, "  z = ceil(z);\n");
-		WRITE(p, "  z -= u_depthRange.y;\n");
+		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
+		WRITE(p, "  z = floor(z);\n");
+		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.z;\n");
 		WRITE(p, "  z /= u_depthRange.x;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
