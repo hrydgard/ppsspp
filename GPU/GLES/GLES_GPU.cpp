@@ -206,8 +206,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
+	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_Region},
@@ -1012,12 +1012,12 @@ void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 void GLES_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	switch (op >> 24) {
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTZ2:
-		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
-		break;
-	}
+}
+
+void GLES_GPU::Execute_ViewportZType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
 }
 
 void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
