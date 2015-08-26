@@ -227,7 +227,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	if (!gstate.isModeThrough()) {
-		WRITE(p, "float4 u_depthRange;\n");
+		WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
 	}
 
 	// And the "varyings".

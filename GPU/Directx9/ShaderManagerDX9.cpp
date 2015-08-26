@@ -176,6 +176,10 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+	pD3Ddevice->SetVertexShaderConstantF(creg, data, 1);
+}
+
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
@@ -475,6 +479,14 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
+	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
+		float viewZScale = gstate.getViewportZScale();
+		float viewZCenter = gstate.getViewportZCenter() + 0.375;
+		float viewZCenterClean = gstate.getViewportZCenter();
+		float viewZInvScale = 1.0f / gstate.getViewportZScale();
+		float data[4] = { viewZScale, viewZCenter, viewZCenterClean, viewZInvScale };
+		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+	}
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
