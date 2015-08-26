@@ -1012,6 +1012,12 @@ void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 void GLES_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	switch (op >> 24) {
+	case GE_CMD_VIEWPORTZ1:
+	case GE_CMD_VIEWPORTZ2:
+		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
+		break;
+	}
 }
 
 void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
