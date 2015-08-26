@@ -55,22 +55,24 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 	return ClipCoords(projection_matrix * coords4);
 }
 
-// TODO: This is ugly
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag)
-{
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
 	ScreenCoords ret;
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	float vpx1 = getFloat24(gstate.viewportx1);
-	float vpx2 = getFloat24(gstate.viewportx2);
-	float vpy1 = getFloat24(gstate.viewporty1);
-	float vpy2 = getFloat24(gstate.viewporty2);
-	float vpz1 = getFloat24(gstate.viewportz1);
-	float vpz2 = getFloat24(gstate.viewportz2);
+
+	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
+	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
+	// with some pretty crazy inputs, which PSP games are happy to do at times.
+	float vpx1 = gstate.getViewportX1();
+	float vpx2 = gstate.getViewportX2();
+	float vpy1 = gstate.getViewportY1();
+	float vpy2 = gstate.getViewportY2();
+	float vpz1 = gstate.getViewportZ1();
+	float vpz2 = gstate.getViewportZ2();
 
 	float retx = coords.x * vpx1 / coords.w + vpx2;
 	float rety = coords.y * vpy1 / coords.w + vpy2;
 	float retz = coords.z * vpz1 / coords.w + vpz2;
 
+	// Is this really right?
 	if (gstate.clipEnable & 0x1) {
 		if (retz < 0.f)
 			retz = 0.f;

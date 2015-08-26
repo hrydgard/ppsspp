@@ -792,10 +792,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXScale = getFloat24(gstate.viewportx1);
-		float vpXCenter = getFloat24(gstate.viewportx2);
-		float vpYScale = getFloat24(gstate.viewporty1);
-		float vpYCenter = getFloat24(gstate.viewporty2);
+		float vpXScale = gstate.getViewportX1();
+		float vpXCenter = gstate.getViewportX2();
+		float vpYScale = gstate.getViewportY1();
+		float vpYCenter = gstate.getViewportY2();
 
 		// The viewport transform appears to go like this:
 		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
@@ -861,8 +861,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		if (scaleChanged || offsetChanged)
-		{
+		if (scaleChanged || offsetChanged) {
 			gstate_c.vpWidthScale = wScale;
 			gstate_c.vpHeightScale = hScale;
 			gstate_c.vpXOffset = xOffset;
@@ -872,10 +871,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.viewport.set(left, bottom, right - left, top - bottom);
 
-		float zScale = getFloat24(gstate.viewportz1) * (1.0f / 65535.0f);
-		float zOff = getFloat24(gstate.viewportz2) * (1.0f / 65535.0f);
-		float depthRangeMin = zOff - zScale;
-		float depthRangeMax = zOff + zScale;
+		float zScale = gstate.getViewportZ1() * (1.0f / 65535.0f);
+		float zCenter = gstate.getViewportZ2() * (1.0f / 65535.0f);
+		float depthRangeMin = zCenter - zScale;
+		float depthRangeMax = zCenter + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 
 #ifndef MOBILE_DEVICE

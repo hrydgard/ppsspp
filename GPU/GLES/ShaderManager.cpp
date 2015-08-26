@@ -406,11 +406,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
 		if (g_Config.bDepthRangeHack) {
-			float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-			float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+			float zScale = gstate.getViewportZ1() / 65535.0f;
+			float zCenter = gstate.getViewportZ2() / 65535.0f;
 
 			// if far depth range < 0
-			if (zOff + zScale < 0.0f) {
+			if (zCenter + zScale < 0.0f) {
 				// if perspective projection
 				if (flippedMatrix[11] < 0.0f) {
 					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
@@ -422,7 +422,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 					float n = b / (a - 1.0f);
 					float f = b / (a + 1.0f);
 
-					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
+					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
 
 					a = (n + f) / (n - f);
 					b = (2.0f * n * f) / (n - f);
