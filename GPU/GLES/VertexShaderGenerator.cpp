@@ -390,17 +390,13 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	}
 
 	// See comment above this function (GenerateVertexShader).
-	WRITE(p, "\nvec4 depthRoundZ(vec4 v) {\n");
-	WRITE(p, "  return v; //vec4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
-	WRITE(p, "}\n\n");
-
 	if (!gstate.isModeThrough()) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
-		WRITE(p, "  z = floor(z + 0.375);\n");
-		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
+		WRITE(p, "  z = floor(z);\n");
+		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -429,7 +425,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  gl_Position = depthRoundZ(u_proj_through * vec4(position.xyz, 1.0));\n");
+			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			WRITE(p, "  gl_Position = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");

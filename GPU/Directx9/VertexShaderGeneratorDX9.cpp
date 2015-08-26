@@ -284,11 +284,6 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 	WRITE(p, "};\n");
 
-	// See comment above this function in the OpenGL vertex shader generator (GenerateVertexShader).
-	WRITE(p, "\nfloat4 depthRoundZ(float4 v) {\n");
-	WRITE(p, "  return float4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
-	WRITE(p, "}\n\n");
-
 	if (!gstate.isModeThrough()) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		// Not completely sure this is 100% right under DX9 as the Z range is different...
@@ -296,7 +291,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
+		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
 		WRITE(p, "  return float4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -329,7 +324,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  Out.gl_Position = depthRoundZ(mul(float4(In.position.xyz, 1.0), u_proj_through));\n");
+			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
 		} else {
 			WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
 		}

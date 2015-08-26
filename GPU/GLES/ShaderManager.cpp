@@ -591,10 +591,10 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
 		float viewZScale = gstate.getViewportZScale();
-		float viewZCenter = gstate.getViewportZCenter();
-		float minZ = gstate.getDepthRangeMin();
-		float maxZ = gstate.getDepthRangeMax();
-		float data[4] = { viewZScale, viewZCenter, minZ, maxZ };
+		float viewZCenter = gstate.getViewportZCenter() + 0.375;
+		float viewZCenterClean = gstate.getViewportZCenter();
+		float viewZInvScale = 1.0f / gstate.getViewportZScale();
+		float data[4] = { viewZScale, viewZCenter, viewZCenterClean, viewZInvScale };
 		SetFloatUniform4(u_depthRange, data);
 	}
 
