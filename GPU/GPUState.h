@@ -89,12 +89,12 @@ struct GPUgstate {
 				texmtxnum,    // 0x40
 				texmtxdata,   // 0x41
 
-				viewportx1,           // 0x42
-				viewporty1,           // 0x43
-				viewportz1,           // 0x44
-				viewportx2,           // 0x45
-				viewporty2,           // 0x46
-				viewportz2,           // 0x47
+				viewportxscale,           // 0x42
+				viewportyscale,           // 0x43
+				viewportzscale,           // 0x44
+				viewportxcenter,           // 0x45
+				viewportycenter,           // 0x46
+				viewportzcenter,           // 0x47
 				texscaleu,            // 0x48
 				texscalev,            // 0x49
 				texoffsetu,           // 0x4A
@@ -375,16 +375,15 @@ struct GPUgstate {
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
-	float getViewportX1() const { return getFloat24(viewportx1); }
-	float getViewportY1() const { return getFloat24(viewporty1); }
-	float getViewportZ1() const { return getFloat24(viewportz1); }
-	float getViewportX2() const { return getFloat24(viewportx2); }
-	float getViewportY2() const { return getFloat24(viewporty2); }
-	float getViewportZ2() const { return getFloat24(viewportz2); }
+	float getViewportXScale() const { return getFloat24(viewportxscale); }
+	float getViewportYScale() const { return getFloat24(viewportyscale); }
+	float getViewportZScale() const { return getFloat24(viewportzscale); }
+	float getViewportXCenter() const { return getFloat24(viewportxcenter); }
+	float getViewportYCenter() const { return getFloat24(viewportycenter); }
+	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
 
 	// Fixed 16 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
-	// Fixed 16 point.
 	int getOffsetY16() const { return offsety & 0xFFFF; }
 	float getOffsetX() const { return (float)getOffsetX16() / 16.0f; }
 	float getOffsetY() const { return (float)getOffsetY16() / 16.0f; }

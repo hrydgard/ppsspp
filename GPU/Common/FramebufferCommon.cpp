@@ -240,8 +240,8 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 	params->isModeThrough = gstate.isModeThrough();
 
 	// Viewport-X1 and Y1 are not the upper left corner, but half the width/height. A bit confusing.
-	params->viewportWidth = (int)(fabsf(gstate.getViewportX1()*2.0f));
-	params->viewportHeight = (int)(fabsf(gstate.getViewportY1()*2.0f));
+	params->viewportWidth = (int)(fabsf(gstate.getViewportXScale()*2.0f));
+	params->viewportHeight = (int)(fabsf(gstate.getViewportYScale()*2.0f));
 	params->regionWidth = gstate.getRegionX2() + 1;
 	params->regionHeight = gstate.getRegionY2() + 1;
 	params->scissorWidth = gstate.getScissorX2() + 1;

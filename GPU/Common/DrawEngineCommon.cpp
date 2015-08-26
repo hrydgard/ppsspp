@@ -66,20 +66,19 @@ static void PlanesFromMatrix(float mtx[16], Plane planes[6]) {
 }
 
 static Vec3f ClipToScreen(const Vec4f& coords) {
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	float vpx1 = gstate.getViewportX1();
-	float vpx2 = gstate.getViewportX2();
-	float vpy1 = gstate.getViewportY1();
-	float vpy2 = gstate.getViewportY2();
-	float vpz1 = gstate.getViewportZ1();
-	float vpz2 = gstate.getViewportZ2();
+	float xScale = gstate.getViewportXScale();
+	float xCenter = gstate.getViewportXCenter();
+	float yScale = gstate.getViewportYScale();
+	float yCenter = gstate.getViewportYCenter();
+	float zScale = gstate.getViewportZScale();
+	float zCenter = gstate.getViewportZCenter();
 
-	float retx = coords.x * vpx1 / coords.w + vpx2;
-	float rety = coords.y * vpy1 / coords.w + vpy2;
-	float retz = coords.z * vpz1 / coords.w + vpz2;
+	float x = coords.x * xScale / coords.w + xCenter;
+	float y = coords.y * yScale / coords.w + yCenter;
+	float z = coords.z * zScale / coords.w + zCenter;
 
 	// 16 = 0xFFFF / 4095.9375
-	return Vec3f(retx * 16, rety * 16, retz);
+	return Vec3f(x * 16, y * 16, z);
 }
 
 static Vec3f ScreenToDrawing(const Vec3f& coords) {

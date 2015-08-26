@@ -61,30 +61,30 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
 	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
 	// with some pretty crazy inputs, which PSP games are happy to do at times.
-	float vpx1 = gstate.getViewportX1();
-	float vpx2 = gstate.getViewportX2();
-	float vpy1 = gstate.getViewportY1();
-	float vpy2 = gstate.getViewportY2();
-	float vpz1 = gstate.getViewportZ1();
-	float vpz2 = gstate.getViewportZ2();
+	float xScale = gstate.getViewportXScale();
+	float xCenter = gstate.getViewportXCenter();
+	float yScale = gstate.getViewportYScale();
+	float yCenter = gstate.getViewportYCenter();
+	float zScale = gstate.getViewportZScale();
+	float zCenter = gstate.getViewportZCenter();
 
-	float retx = coords.x * vpx1 / coords.w + vpx2;
-	float rety = coords.y * vpy1 / coords.w + vpy2;
-	float retz = coords.z * vpz1 / coords.w + vpz2;
+	float x = coords.x * xScale / coords.w + xCenter;
+	float y = coords.y * yScale / coords.w + yCenter;
+	float z = coords.z * zScale / coords.w + zCenter;
 
 	// Is this really right?
 	if (gstate.clipEnable & 0x1) {
-		if (retz < 0.f)
-			retz = 0.f;
-		if (retz > 65535.f)
-			retz = 65535.f;
+		if (z < 0.f)
+			z = 0.f;
+		if (z > 65535.f)
+			z = 65535.f;
 	}
 
-	if (outside_range_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
+	if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0 || z < 0 || z > 65535.f))
 		*outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
-	return ScreenCoords(retx * 16, rety * 16, retz);
+	return ScreenCoords(x * 16, y * 16, z);
 }
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)

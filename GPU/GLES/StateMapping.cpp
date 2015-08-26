@@ -792,10 +792,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXScale = gstate.getViewportX1();
-		float vpXCenter = gstate.getViewportX2();
-		float vpYScale = gstate.getViewportY1();
-		float vpYCenter = gstate.getViewportY2();
+		float vpXScale = gstate.getViewportXScale();
+		float vpXCenter = gstate.getViewportXCenter();
+		float vpYScale = gstate.getViewportYScale();
+		float vpYCenter = gstate.getViewportYCenter();
 
 		// The viewport transform appears to go like this:
 		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
@@ -871,8 +871,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.viewport.set(left, bottom, right - left, top - bottom);
 
-		float zScale = gstate.getViewportZ1() * (1.0f / 65535.0f);
-		float zCenter = gstate.getViewportZ2() * (1.0f / 65535.0f);
+		float zScale = gstate.getViewportZScale() * (1.0f / 65535.0f);
+		float zCenter = gstate.getViewportZCenter() * (1.0f / 65535.0f);
 		float depthRangeMin = zCenter - zScale;
 		float depthRangeMax = zCenter + zScale;
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);

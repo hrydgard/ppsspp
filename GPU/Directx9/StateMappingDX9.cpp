@@ -718,10 +718,10 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			(regionY2 - regionY1) * renderHeightFactor,
 			0.f, 1.f);
 	} else {
-		float vpXScale = gstate.getViewportX1();
-		float vpXCenter = gstate.getViewportX2();
-		float vpYScale = gstate.getViewportY1();
-		float vpYCenter = gstate.getViewportY2();
+		float vpXScale = gstate.getViewportXScale();
+		float vpXCenter = gstate.getViewportXCenter();
+		float vpYScale = gstate.getViewportYScale();
+		float vpYCenter = gstate.getViewportYCenter();
 
 		// The viewport transform appears to go like this: 
 		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
@@ -742,9 +742,10 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
 
-		float zScale = gstate.getViewportZ1() / 65535.0f;
-		float zCenter = gstate.getViewportZ2() / 65535.0f;
+		float zScale = gstate.getViewportZScale() / 65535.0f;
+		float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
+		// Note - we lose the sign of the zscale here. Although I suppose we still keep it in gstate_c.vpDepth...
 		float depthRangeMin = zCenter - fabsf(zScale);
 		float depthRangeMax = zCenter + fabsf(zScale);
 
@@ -807,4 +808,4 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	}
 }
 
-};
+}
