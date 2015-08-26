@@ -391,7 +391,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 
 	// See comment above this function (GenerateVertexShader).
 	WRITE(p, "\nvec4 depthRoundZ(vec4 v) {\n");
-	WRITE(p, "  return vec4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
+	WRITE(p, "  return v; //vec4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
 	WRITE(p, "}\n\n");
 
 	if (!gstate.isModeThrough()) {
@@ -399,7 +399,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
-		WRITE(p, "  z = floor(z - 0.5);\n");
+		WRITE(p, "  z = floor(z + 0.375);\n");
 		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
