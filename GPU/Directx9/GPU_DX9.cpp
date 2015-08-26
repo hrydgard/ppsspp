@@ -889,7 +889,7 @@ void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	switch (op >> 24) {
 	case GE_CMD_VIEWPORTZ1:
 	case GE_CMD_VIEWPORTZ2:
-		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_DEPTHRANGE);
 		break;
 	}
 }

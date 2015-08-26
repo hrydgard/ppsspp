@@ -226,6 +226,11 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 
+	if (!gstate.isModeThrough()) {
+		WRITE(p, "float4 u_depthRange;\n");
+	}
+
+	// And the "varyings".
 	if (useHWTransform) {
 		WRITE(p, "struct VS_IN {                              \n");
 		if (vertTypeIsSkinningEnabled(vertType)) {
@@ -279,6 +284,23 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 	WRITE(p, "};\n");
 
+	// See comment above this function in the OpenGL vertex shader generator (GenerateVertexShader).
+	WRITE(p, "\nfloat4 depthRoundZ(float4 v) {\n");
+	WRITE(p, "  return float4(v.x, v.y, (1.0/65535.0) * floor(v.z * 65535.0), v.w);\n");
+	WRITE(p, "}\n\n");
+
+	if (!gstate.isModeThrough()) {
+		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
+		// Not completely sure this is 100% right under DX9 as the Z range is different...
+		WRITE(p, "\nfloat4 depthRoundZVP(float4 v) {\n");
+		WRITE(p, "  float z = v.z / v.w;\n");
+		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
+		WRITE(p, "  z = floor(z);\n");
+		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
+		WRITE(p, "  return float4(v.x, v.y, z * v.w, v.w);\n");
+		WRITE(p, "}\n\n");
+	}
+
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
 	WRITE(p, "  VS_OUT Out = (VS_OUT)0;							   \n");  
 	if (!useHWTransform) {
@@ -307,9 +329,9 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "  Out.v_fogdepth.x = In.position.w;\n");
 		}
 		if (gstate.isModeThrough())	{
-			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+			WRITE(p, "  Out.gl_Position = depthRoundZ(mul(float4(In.position.xyz, 1.0), u_proj_through));\n");
 		} else {
-			WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+			WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
 		}
 	}  else {
 		// Step 1: World Transform / Skinning
@@ -398,7 +420,7 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");
 
 		// Final view and projection transforms.
-		WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+		WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
