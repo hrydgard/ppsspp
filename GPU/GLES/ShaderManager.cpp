@@ -167,6 +167,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 		numBones = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 	else
 		numBones = 0;
+	u_depthRange = glGetUniformLocation(program, "u_depthRange");
 
 #ifdef USE_BONE_ARRAY
 	u_bone = glGetUniformLocation(program, "u_bone");
@@ -233,6 +234,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
 	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
+	if (u_depthRange != -1)
+		availableUniforms |= DIRTY_DEPTHRANGE;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 #ifdef USE_BONE_ARRAY
@@ -341,6 +344,10 @@ static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
 		data[0] << 8, data[1] << 8, data[2] << 8
 	};
 	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
+}
+
+static void SetFloatUniform4(int uniform, float data[4]) {
+	glUniform4fv(uniform, 1, data);
 }
 
 static void SetMatrix4x3(int uniform, const float *m4x3) {
@@ -547,7 +554,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
-	if (dirty & DIRTY_TEXCLAMP) {
+	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
 		const int w = gstate.getTextureWidth(0);
@@ -581,6 +588,14 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
+	}
+	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
+		float viewZScale = gstate.getViewportZScale();
+		float viewZCenter = gstate.getViewportZCenter();
+		float minZ = gstate.getDepthRangeMin();
+		float maxZ = gstate.getDepthRangeMax();
+		float data[4] = { viewZScale, viewZCenter, minZ, maxZ };
+		SetFloatUniform4(u_depthRange, data);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {

@@ -871,11 +871,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.viewport.set(left, bottom, right - left, top - bottom);
 
-		float zScale = gstate.getViewportZScale() * (1.0f / 65535.0f);
-		float zCenter = gstate.getViewportZCenter() * (1.0f / 65535.0f);
+		float zScale = gstate.getViewportZScale();
+		float zCenter = gstate.getViewportZCenter();
 		float depthRangeMin = zCenter - zScale;
 		float depthRangeMax = zCenter + zScale;
-		glstate.depthRange.set(depthRangeMin, depthRangeMax);
+		glstate.depthRange.set(depthRangeMin * (1.0f / 65535.0f), depthRangeMax * (1.0f / 65535.0f));
 
 #ifndef MOBILE_DEVICE
 		float minz = gstate.getDepthRangeMin() * (1.0f / 65535.0f);

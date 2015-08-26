@@ -152,6 +152,33 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
+
+// Depth range and viewport
+//
+// After the multiplication with the projection matrix, we have a 4D vector in clip space.
+// In OpenGL, Z is from -1 to 1, while in D3D, Z is from 0 to 1.
+// PSP appears to use the OpenGL convention. As Z is from -1 to 1, and the viewport is represented
+// by a center and a scale, to find the final Z value, all we need to do is to multiply by ZScale and
+// add ZCenter - these are properly scaled to directly give a Z value in [0, 65535].
+//
+// z = vec.z * ViewportZScale + ViewportZCenter;
+//
+// That will give us the final value between 0 and 65535, which we can simply floor to simulate
+// the limited precision of the PSP's depth buffer. Then we convert it back:
+// z = floor(z);
+//
+// vec.z = (z - ViewportZCenter) / ViewportZScale;
+//
+// Now, the regular machinery will take over and do the calculation again.
+//
+// All this above is for full transform mode.
+// In through mode, the Z coordinate just goes straight through and there is no perspective division.
+// We simulate this of course with pretty much an identity matrix. Rounding Z becomes very easy.
+//
+// TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
+// is a bit of a rare configuration, although quite common on mobile.
+
+
 void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransform) {
 	char *p = buffer;
 
@@ -213,6 +240,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		varying = "out";
 		boneWeightDecl = boneWeightInDecl;
 	}
+
 
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
@@ -336,6 +364,10 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
+	if (!gstate.isModeThrough()) {
+		WRITE(p, "uniform highp vec4 u_depthRange;\n");
+	}
+
 	WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, varying);
 	if (lmode) {
 		WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, varying);
@@ -357,11 +389,23 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		}
 	}
 
-	// Even with this we don't match, because the viewport is different I think.
-	// I think we need to apply viewportZ, round/floor, and then undo viewportZ.
+	// See comment above this function (GenerateVertexShader).
 	WRITE(p, "\nvec4 depthRoundZ(vec4 v) {\n");
 	WRITE(p, "  return vec4(v.x, v.y, (1.0/65536.0) * floor(v.z * 65536.0), v.w);\n");
 	WRITE(p, "}\n\n");
+
+	if (!gstate.isModeThrough()) {
+		// Apply the transform to get the Z buffer value, floor to integer, undo the transform.
+		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
+		WRITE(p, "  float z = v.z / v.w;\n");
+		WRITE(p, "  z *= u_depthRange.x;\n");
+		WRITE(p, "  z += u_depthRange.y;\n");
+		WRITE(p, "  z = ceil(z);\n");
+		WRITE(p, "  z -= u_depthRange.y;\n");
+		WRITE(p, "  z /= u_depthRange.x;\n");
+		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
+		WRITE(p, "}\n\n");
+	}
 
 	WRITE(p, "void main() {\n");
 
@@ -389,7 +433,8 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		if (gstate.isModeThrough())	{
 			WRITE(p, "  gl_Position = depthRoundZ(u_proj_through * vec4(position.xyz, 1.0));\n");
 		} else {
-			WRITE(p, "  gl_Position = depthRoundZ(u_proj * vec4(position.xyz, 1.0));\n");
+			// The viewport is used in this case, so need to compensate for that.
+			WRITE(p, "  gl_Position = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
 		}
 	} else {
 		// Step 1: World Transform / Skinning
@@ -482,7 +527,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
 
 		// Final view and projection transforms.
-		WRITE(p, "  gl_Position = depthRoundZ(u_proj * viewPos);\n");
+		WRITE(p, "  gl_Position = depthRoundZVP(u_proj * viewPos);\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
