@@ -400,8 +400,7 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 		WRITE(p, "  float z = v.z / v.w;\n");
 		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.z;\n");
-		WRITE(p, "  z /= u_depthRange.x;\n");
+		WRITE(p, "  z = (z - u_depthRange.y) / u_depthRange.x;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
