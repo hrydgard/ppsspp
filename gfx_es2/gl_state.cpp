@@ -258,6 +258,7 @@ void CheckGLExtensions() {
 
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
+	gl_extensions.ARB_conservative_depth = strstr(extString, "GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (strstr(extString, "GL_ARB_shader_image_load_store") != 0) || (strstr(extString, "GL_EXT_shader_image_load_store") != 0);
 	gl_extensions.EXT_bgra = strstr(extString, "GL_EXT_bgra") != 0;
 	gl_extensions.EXT_gpu_shader4 = strstr(extString, "GL_EXT_gpu_shader4") != 0;

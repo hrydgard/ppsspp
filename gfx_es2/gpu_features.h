@@ -49,6 +49,7 @@ struct GLExtensions {
 	bool PBO_ARB;
 	bool ARB_blend_func_extended;  // dual source blending
 	bool ARB_shader_image_load_store;
+	bool ARB_conservative_depth;
 
 	// EXT
 	bool EXT_swap_control_tear;
