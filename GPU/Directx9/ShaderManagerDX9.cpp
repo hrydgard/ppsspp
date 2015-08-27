@@ -483,7 +483,12 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter() + 0.375;
 		float viewZCenterClean = gstate.getViewportZCenter();
-		float viewZInvScale = 1.0f / gstate.getViewportZScale();
+		float viewZInvScale;
+		if (viewZScale != 0.0) {
+			viewZInvScale = 1.0f / gstate.getViewportZScale();
+		} else {
+			viewZInvScale = 0.0;
+		}
 		float data[4] = { viewZScale, viewZCenter, viewZCenterClean, viewZInvScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
 	}
