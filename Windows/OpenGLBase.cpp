@@ -145,6 +145,15 @@ bool GL_Init(HWND window, std::string *error_message) {
 	const std::string openGL_1 = "1.";
 
 	if (glRenderer == "GDI Generic" || glVersion.substr(0, openGL_1.size()) == openGL_1) {
+		//The error may come from 16-bit colour mode
+		//Check Colour depth 
+		HDC dc = GetDC(NULL);
+		u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
+		ReleaseDC(NULL, dc);
+		if (colour_depth != 32){
+			MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
+			ExitProcess(1);
+		}
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
 			"Your GPU reports that it does not support OpenGL 2.0. Would you like to try using DirectX 9 instead?\n\n"
 			"DirectX is currently compatible with less games, but on your GPU it may be the only choice.\n\n"
