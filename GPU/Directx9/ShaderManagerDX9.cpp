@@ -481,7 +481,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		float viewZScale = gstate.getViewportZScale();
-		float viewZCenter = gstate.getViewportZCenter() + 0.375;
+		float viewZCenter = gstate.getViewportZCenter();
 		float viewZCenterClean = gstate.getViewportZCenter();
 		float viewZInvScale;
 		if (viewZScale != 0.0) {
