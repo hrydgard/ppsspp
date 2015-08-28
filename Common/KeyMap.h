@@ -126,7 +126,7 @@ namespace KeyMap {
 	void RestoreDefault();
 
 	void SwapAxis();
-	void UpdateConfirmCancelKeys();
+	void UpdateNativeMenuKeys();
 
 	void NotifyPadConnected(const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
