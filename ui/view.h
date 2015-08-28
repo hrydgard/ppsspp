@@ -801,6 +801,7 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 
 void EventTriggered(Event *e, EventParams params);
 void DispatchEvents();
+bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);
 bool IsEscapeKey(const KeyInput &key);
 bool IsTabLeftKey(const KeyInput &key);

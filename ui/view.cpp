@@ -222,6 +222,14 @@ void Clickable::Touch(const TouchInput &input) {
 
 // TODO: O/X confirm preference for xperia play?
 
+bool IsDPadKey(const KeyInput &key) {
+	if (dpadKeys.empty()) {
+		return key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT;
+	} else {
+		return std::find(dpadKeys.begin(), dpadKeys.end(), KeyDef(key.deviceId, key.keyCode)) != dpadKeys.end();
+	}
+}
+
 bool IsAcceptKey(const KeyInput &key) {
 	if (confirmKeys.empty()) {
 		if (key.deviceId == DEVICE_ID_KEYBOARD) {

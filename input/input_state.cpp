@@ -51,10 +51,29 @@ int MapPadButtonFixed(int keycode) {
 	}
 }
 
+std::vector<KeyDef> dpadKeys;
 std::vector<KeyDef> confirmKeys;
 std::vector<KeyDef> cancelKeys;
 std::vector<KeyDef> tabLeftKeys;
 std::vector<KeyDef> tabRightKeys;
+
+static void AppendKeys(std::vector<KeyDef> &keys, const std::vector<KeyDef> &newKeys) {
+	for (auto iter = newKeys.begin(); iter != newKeys.end(); ++iter) {
+		keys.push_back(*iter);
+	}
+}
+
+void SetDPadKeys(const std::vector<KeyDef> &leftKey, const std::vector<KeyDef> &rightKey,
+		const std::vector<KeyDef> &upKey, const std::vector<KeyDef> &downKey) {
+	dpadKeys.clear();
+
+	// Store all directions into one vector for now.  In the future it might be
+	// useful to keep track of the different directions separately.
+	AppendKeys(dpadKeys, leftKey);
+	AppendKeys(dpadKeys, rightKey);
+	AppendKeys(dpadKeys, upKey);
+	AppendKeys(dpadKeys, downKey);
+}
 
 void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel) {
 	confirmKeys = confirm;
