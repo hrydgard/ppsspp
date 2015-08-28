@@ -21,6 +21,7 @@
 #include <map>
 #include <vector>
 #include <set>
+#include "input/input_state.h" // KeyDef, AxisPos
 #include "input/keycodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 
@@ -64,40 +65,6 @@ enum DefaultMaps {
 };
 
 const float AXIS_BIND_THRESHOLD = 0.75f;
-
-class KeyDef {
-public:
-	KeyDef() : deviceId(0), keyCode(0) {}
-	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
-	int deviceId;
-	int keyCode;
-
-	bool operator < (const KeyDef &other) const {
-		if (deviceId < other.deviceId) return true;
-		if (deviceId > other.deviceId) return false;
-		if (keyCode < other.keyCode) return true;
-		return false;
-	}
-	bool operator == (const KeyDef &other) const {
-		if (deviceId != other.deviceId) return false;
-		if (keyCode != other.keyCode) return false;
-		return true;
-	}
-};
-
-struct AxisPos {
-	int axis;
-	float position;
-
-	bool operator < (const AxisPos &other) const {
-		if (axis < other.axis) return true;
-		if (axis > other.axis) return false;
-		return position < other.position;
-	}
-	bool operator == (const AxisPos &other) const {
-		return axis == other.axis && position == other.position;
-	}
-};
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
