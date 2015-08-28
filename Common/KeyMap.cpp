@@ -295,21 +295,21 @@ static void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
 }
 
 void UpdateConfirmCancelKeys() {
-	std::vector<keycode_t> confirmKeys, cancelKeys;
-	std::vector<keycode_t> tabLeft, tabRight;
+	std::vector<KeyDef> confirmKeys, cancelKeys;
+	std::vector<KeyDef> tabLeft, tabRight;
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	KeyCodesFromPspButton(confirmKey, &confirmKeys);
-	KeyCodesFromPspButton(cancelKey, &cancelKeys);
-	KeyCodesFromPspButton(CTRL_LTRIGGER, &tabLeft);
-	KeyCodesFromPspButton(CTRL_RTRIGGER, &tabRight);
+	KeyFromPspButton(confirmKey, &confirmKeys);
+	KeyFromPspButton(cancelKey, &cancelKeys);
+	KeyFromPspButton(CTRL_LTRIGGER, &tabLeft);
+	KeyFromPspButton(CTRL_RTRIGGER, &tabRight);
 
 	// Push several hard-coded keys before submitting to native.
-	const keycode_t hardcodedConfirmKeys[] = {
-		NKCODE_SPACE,
-		NKCODE_ENTER,
+	const KeyDef hardcodedConfirmKeys[] = {
+		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
+		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
 	};
 
 	// If they're not already bound, add them in.
@@ -318,9 +318,9 @@ void UpdateConfirmCancelKeys() {
 			confirmKeys.push_back(hardcodedConfirmKeys[i]);
 	}
 
-	const keycode_t hardcodedCancelKeys[] = {
-		NKCODE_ESCAPE,
-		NKCODE_BACK,
+	const KeyDef hardcodedCancelKeys[] = {
+		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
+		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_BACK),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
