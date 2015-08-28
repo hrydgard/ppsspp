@@ -294,9 +294,10 @@ static void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
 	}
 }
 
-void UpdateConfirmCancelKeys() {
+void UpdateNativeMenuKeys() {
 	std::vector<KeyDef> confirmKeys, cancelKeys;
 	std::vector<KeyDef> tabLeft, tabRight;
+	std::vector<KeyDef> upKeys, downKeys, leftKeys, rightKeys;
 
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
@@ -305,6 +306,10 @@ void UpdateConfirmCancelKeys() {
 	KeyFromPspButton(cancelKey, &cancelKeys);
 	KeyFromPspButton(CTRL_LTRIGGER, &tabLeft);
 	KeyFromPspButton(CTRL_RTRIGGER, &tabRight);
+	KeyFromPspButton(CTRL_UP, &upKeys);
+	KeyFromPspButton(CTRL_DOWN, &downKeys);
+	KeyFromPspButton(CTRL_LEFT, &leftKeys);
+	KeyFromPspButton(CTRL_RIGHT, &rightKeys);
 
 	// Push several hard-coded keys before submitting to native.
 	const KeyDef hardcodedConfirmKeys[] = {
@@ -328,6 +333,7 @@ void UpdateConfirmCancelKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
+	SetDPadKeys(upKeys, downKeys, leftKeys, rightKeys);
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 	SetTabLeftRightKeys(tabLeft, tabRight);
 }
@@ -402,7 +408,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	}
 
-	UpdateConfirmCancelKeys();
+	UpdateNativeMenuKeys();
 }
 
 const KeyMap_IntStrPair key_names[] = {
@@ -830,7 +836,7 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 		g_controllerMap[btn].push_back(key);
 	}
 
-	UpdateConfirmCancelKeys();
+	UpdateNativeMenuKeys();
 }
 
 void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace) {
@@ -900,7 +906,7 @@ void LoadFromIni(IniFile &file) {
 		}
 	}
 
-	UpdateConfirmCancelKeys();
+	UpdateNativeMenuKeys();
 }
 
 void SaveToIni(IniFile &file) {
