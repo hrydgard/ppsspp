@@ -222,35 +222,43 @@ void Clickable::Touch(const TouchInput &input) {
 
 // TODO: O/X confirm preference for xperia play?
 
-bool IsAcceptKeyCode(int keyCode) {
+bool IsAcceptKey(const KeyInput &key) {
 	if (confirmKeys.empty()) {
-		return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_Z || keyCode == NKCODE_BUTTON_A || keyCode == NKCODE_BUTTON_CROSS || keyCode == NKCODE_BUTTON_1;
+		if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			return key.keyCode == NKCODE_SPACE || key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_Z;
+		} else {
+			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1;
+		}
 	} else {
-		return std::find(confirmKeys.begin(), confirmKeys.end(), (keycode_t)keyCode) != confirmKeys.end();
+		return std::find(confirmKeys.begin(), confirmKeys.end(), KeyDef(key.deviceId, key.keyCode)) != confirmKeys.end();
 	}
 }
 
-bool IsEscapeKeyCode(int keyCode) {
+bool IsEscapeKey(const KeyInput &key) {
 	if (cancelKeys.empty()) {
-		return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK || keyCode == NKCODE_BUTTON_CIRCLE || keyCode == NKCODE_BUTTON_B || keyCode == NKCODE_BUTTON_2;
+		if (key.deviceId == DEVICE_ID_KEYBOARD) {
+			return key.keyCode == NKCODE_ESCAPE || key.keyCode == NKCODE_BACK;
+		} else {
+			return key.keyCode == NKCODE_BUTTON_CIRCLE || key.keyCode == NKCODE_BUTTON_B || key.keyCode == NKCODE_BUTTON_2;
+		}
 	} else {
-		return std::find(cancelKeys.begin(), cancelKeys.end(), (keycode_t)keyCode) != cancelKeys.end();
+		return std::find(cancelKeys.begin(), cancelKeys.end(), KeyDef(key.deviceId, key.keyCode)) != cancelKeys.end();
 	}
 }
 
-bool IsTabLeftKeyCode(int keyCode) {
+bool IsTabLeftKey(const KeyInput &key) {
 	if (tabLeftKeys.empty()) {
-		return keyCode == NKCODE_BUTTON_L1;
+		return key.keyCode == NKCODE_BUTTON_L1;
 	} else {
-		return std::find(tabLeftKeys.begin(), tabLeftKeys.end(), (keycode_t)keyCode) != tabLeftKeys.end();
+		return std::find(tabLeftKeys.begin(), tabLeftKeys.end(), KeyDef(key.deviceId, key.keyCode)) != tabLeftKeys.end();
 	}
 }
 
-bool IsTabRightKeyCode(int keyCode) {
+bool IsTabRightKey(const KeyInput &key) {
 	if (tabRightKeys.empty()) {
-		return keyCode == NKCODE_BUTTON_R1;
+		return key.keyCode == NKCODE_BUTTON_R1;
 	} else {
-		return std::find(tabRightKeys.begin(), tabRightKeys.end(), (keycode_t)keyCode) != tabRightKeys.end();
+		return std::find(tabRightKeys.begin(), tabRightKeys.end(), KeyDef(key.deviceId, key.keyCode)) != tabRightKeys.end();
 	}
 }
 
@@ -262,19 +270,19 @@ bool Clickable::Key(const KeyInput &key) {
 	// TODO: Replace most of Update with this.
 	bool ret = false;
 	if (key.flags & KEY_DOWN) {
-		if (IsAcceptKeyCode(key.keyCode)) {
+		if (IsAcceptKey(key)) {
 			down_ = true;
 			ret = true;
 		}
 	}
 	if (key.flags & KEY_UP) {
-		if (IsAcceptKeyCode(key.keyCode)) {
+		if (IsAcceptKey(key)) {
 			if (down_) {
 				Click();
 				down_ = false;
 				ret = true;
 			}
-		} else if (IsEscapeKeyCode(key.keyCode)) {
+		} else if (IsEscapeKey(key)) {
 			down_ = false;
 		}
 	}
@@ -305,7 +313,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 
 	// TODO: Replace most of Update with this.
 	if (key.flags & KEY_DOWN) {
-		if (IsAcceptKeyCode(key.keyCode)) {
+		if (IsAcceptKey(key)) {
 			down_ = true;
 			Click();
 			return true;

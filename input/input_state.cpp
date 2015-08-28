@@ -51,17 +51,17 @@ int MapPadButtonFixed(int keycode) {
 	}
 }
 
-std::vector<keycode_t> confirmKeys;
-std::vector<keycode_t> cancelKeys;
-std::vector<keycode_t> tabLeftKeys;
-std::vector<keycode_t> tabRightKeys;
+std::vector<KeyDef> confirmKeys;
+std::vector<KeyDef> cancelKeys;
+std::vector<KeyDef> tabLeftKeys;
+std::vector<KeyDef> tabRightKeys;
 
-void SetConfirmCancelKeys(const std::vector<keycode_t> &confirm, const std::vector<keycode_t> &cancel) {
+void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel) {
 	confirmKeys = confirm;
 	cancelKeys = cancel;
 }
 
-void SetTabLeftRightKeys(const std::vector<keycode_t> &tabLeft, const std::vector<keycode_t> &tabRight) {
+void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight) {
 	tabLeftKeys = tabLeft;
 	tabRightKeys = tabRight;
 }

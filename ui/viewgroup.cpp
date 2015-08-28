@@ -1064,10 +1064,10 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
 	if (input.flags & KEY_DOWN) {
-		if (IsTabLeftKeyCode(input.keyCode) && selected_ > 0) {
+		if (IsTabLeftKey(input) && selected_ > 0) {
 			SetSelection(selected_ - 1);
 			ret = true;
-		} else if (IsTabRightKeyCode(input.keyCode) && selected_ < (int)views_.size() - 1) {
+		} else if (IsTabRightKey(input) && selected_ < (int)views_.size() - 1) {
 			SetSelection(selected_ + 1);
 			ret = true;
 		}
