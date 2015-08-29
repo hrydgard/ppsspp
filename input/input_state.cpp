@@ -4,6 +4,7 @@
 
 const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
+	case DEVICE_ID_ANY: return "any";
 	case DEVICE_ID_DEFAULT: return "built-in";
 	case DEVICE_ID_KEYBOARD: return "kbd";
 	case DEVICE_ID_PAD_0: return "pad1";

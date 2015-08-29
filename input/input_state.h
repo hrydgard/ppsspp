@@ -19,6 +19,7 @@
 // Default device IDs
 
 enum {
+	DEVICE_ID_ANY = -1,  // Represents any device ID
 	DEVICE_ID_DEFAULT = 0,  // Old Android
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
 	DEVICE_ID_MOUSE = 2,  // PC mouse only (not touchscreen!)
@@ -94,7 +95,7 @@ public:
 		return false;
 	}
 	bool operator == (const KeyDef &other) const {
-		if (deviceId != other.deviceId) return false;
+		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
 		if (keyCode != other.keyCode) return false;
 		return true;
 	}
