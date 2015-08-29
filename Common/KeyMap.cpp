@@ -325,7 +325,7 @@ void UpdateNativeMenuKeys() {
 
 	const KeyDef hardcodedCancelKeys[] = {
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
-		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_BACK),
+		KeyDef(DEVICE_ID_ANY, NKCODE_BACK),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
