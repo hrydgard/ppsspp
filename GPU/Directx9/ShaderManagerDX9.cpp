@@ -485,10 +485,10 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 		// Adjust for D3D projection matrix. We got squashed up to only 0-1, so we multiply
 		// the scale factor by 2, and add an offset.
-		// Given the way we do the rounding, the offset is probably mostly irrelevant as we cancel
+		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
 		// it afterwards anyway.
 		viewZScale *= 2.0f;
-		viewZCenter -= 32768.0f;
+		viewZCenter -= 32767.5f;
 		float viewZInvScale;
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;

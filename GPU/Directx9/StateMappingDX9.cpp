@@ -749,8 +749,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		// That variable is only check for sign later so the multiplication by 2 isn't really necessary.
 
 		// It's unclear why we need this Z offset of 1 to match OpenGL, but this checks out in multiple games.
-		float depthRangeMin = zCenter - fabsf(zScale) - 1.0f/65535.0f;
-		float depthRangeMax = zCenter + fabsf(zScale) - 1.0f/65535.0f;
+		float depthRangeMin = zCenter - fabsf(zScale) - 0.5f/65535.0f;
+		float depthRangeMax = zCenter + fabsf(zScale) - 0.5f/65535.0f;
 		gstate_c.vpDepth = zScale * 2;
 
 		// D3D doesn't like viewports partially outside the target, so we
