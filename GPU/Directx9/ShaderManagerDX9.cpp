@@ -482,14 +482,21 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
-		float viewZCenterClean = gstate.getViewportZCenter();
+
+		// Adjust for D3D projection matrix. We got squashed up to only 0-1, so we multiply
+		// the scale factor by 2, and add an offset.
+		// Given the way we do the rounding, the offset is probably mostly irrelevant as we cancel
+		// it afterwards anyway.
+		viewZScale *= 2.0f;
+		viewZCenter -= 32768.0f;
 		float viewZInvScale;
 		if (viewZScale != 0.0) {
-			viewZInvScale = 1.0f / gstate.getViewportZScale();
+			viewZInvScale = 1.0f / viewZScale;
 		} else {
 			viewZInvScale = 0.0;
 		}
-		float data[4] = { viewZScale, viewZCenter, viewZCenterClean, viewZInvScale };
+
+		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
 	}
 	// Lighting

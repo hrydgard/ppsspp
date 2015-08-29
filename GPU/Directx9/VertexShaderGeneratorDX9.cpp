@@ -284,6 +284,8 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 	}
 	WRITE(p, "};\n");
 
+	// Confirmed: Through mode gets through exactly the same in GL and D3D in Phantasy Star: Text is 38023.0 in the test scene.
+
 	if (!gstate.isModeThrough()) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		// Not completely sure this is 100% right under DX9 as the Z range is different...
