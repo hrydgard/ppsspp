@@ -185,11 +185,6 @@ void SetBackgroundAudioGame(const std::string &path) {
 		return;
 	}
 
-	if (!g_Config.bEnableSound) {
-		ClearBackgroundAudio();
-		return;
-	}
-
 	ClearBackgroundAudio();
 	gameLastChanged = time_now_d();
 	bgGamePath = path;
