@@ -432,6 +432,21 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 	return true;
 }
 
+bool AnalogTestScreen::axis(const AxisInput &axis) {
+	// This is mainly to catch axis events that would otherwise get translated
+	// into arrow keys, since seeing keyboard arrow key events appear when using
+	// a controller would be confusing for the user.
+	char buf[512];
+	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
+		int value = axis.value > AXIS_BIND_THRESHOLD ? 1 : -1;
+		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
+			axis.axisId, axis.value, axis.deviceId);
+		lastKeyEvent_->SetText(buf);
+		return true;
+	}
+	return false;
+}
+
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
 
