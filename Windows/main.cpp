@@ -64,15 +64,6 @@ extern "C" {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
 }
 
-#if 0
-#if defined(_MSC_VER) && _MSC_VER >= 1900
-extern "C" {
-// make dxerr.lib happy
-  int _vsnprintf(char *, const char *, size_t, ...);
-}
-#endif
-#endif
-
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
