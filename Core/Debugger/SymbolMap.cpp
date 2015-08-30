@@ -121,7 +121,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 		SymbolType type;
 		char name[128] = {0};
 
-		if (sscanf(line, ".module %x %08x %08x %127c", &moduleIndex, &address, &size, name) == 4) {
+		if (sscanf(line, ".module %x %08x %08x %127c", &moduleIndex, &address, &size, name) >= 3) {
 			// Found a module definition.
 			ModuleEntry mod;
 			mod.index = moduleIndex;
