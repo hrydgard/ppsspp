@@ -108,16 +108,16 @@ int AABB::GetShortestAxis() const
 int AABB::GetLongestAxis() const
 {
 	Vec3 delta = maxB-minB;
-	if (fabs(delta.y)>fabs(delta.x))
+	if (fabsf(delta.y) > fabsf(delta.x))
 	{
-		if (fabs(delta.z)>fabs(delta.y))
+		if (fabsf(delta.z) > fabsf(delta.y))
 			return 2;
 		else 
 			return 1;
 	}
 	else
 	{
-		if (fabs(delta.z)>fabs(delta.x))
+		if (fabsf(delta.z) > fabsf(delta.x))
 			return 2;
 		else
 			return 0;
@@ -210,21 +210,21 @@ bool AABB::IntersectsTriangle(const Vec3& a_V0, const Vec3& a_V1, const Vec3& a_
 	v1 = a_V1 - a_BoxCentre;
 	v2 = a_V2 - a_BoxCentre;
 	e0 = v1 - v0, e1 = v2 - v1, e2 = v0 - v2;
-	fex = fabs(e0[0]);
-	fey = fabs(e0[1]);
-	fez = fabs(e0[2]);
+	fex = fabsf(e0[0]);
+	fey = fabsf(e0[1]);
+	fez = fabsf(e0[2]);
 	AXISTEST_X01( e0[2], e0[1], fez, fey );
 	AXISTEST_Y02( e0[2], e0[0], fez, fex );
 	AXISTEST_Z12( e0[1], e0[0], fey, fex );
-	fex = fabs(e1[0]);
-	fey = fabs(e1[1]);
-	fez = fabs(e1[2]);
+	fex = fabsf(e1[0]);
+	fey = fabsf(e1[1]);
+	fez = fabsf(e1[2]);
 	AXISTEST_X01( e1[2], e1[1], fez, fey );
 	AXISTEST_Y02( e1[2], e1[0], fez, fex );
 	AXISTEST_Z0 ( e1[1], e1[0], fey, fex );
-	fex = fabs(e2[0]);
-	fey = fabs(e2[1]);
-	fez = fabs(e2[2]);
+	fex = fabsf(e2[0]);
+	fey = fabsf(e2[1]);
+	fez = fabsf(e2[2]);
 	AXISTEST_X2 ( e2[2], e2[1], fez, fey );
 	AXISTEST_Y1 ( e2[2], e2[0], fez, fex );
 	AXISTEST_Z12( e2[1], e2[0], fey, fex );

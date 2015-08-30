@@ -55,14 +55,14 @@ ChunkFile::~ChunkFile() {
 }
 
 int ChunkFile::readInt() {
-	if (pos<eof) {
+	if (data && pos<eof) {
 		/*
 		int temp = *(int *)(data+pos);
 		pos+=4;
 		*/
-		pos+=4;
+		pos += 4;
 		if (fastMode)
-			return *(int *)(data+pos-4);
+			return *(int *)(data + pos - 4);
 		else
 			return file.readInt();
 	}	else {

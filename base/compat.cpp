@@ -3,7 +3,7 @@
 
 #include "base/compat.h"
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && _MSC_VER < 1900
 
 static int c99_vsnprintf(char* str, size_t size, const char* format, va_list ap) {
 	int count = -1;

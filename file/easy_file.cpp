@@ -3,8 +3,7 @@
 #include "base/basictypes.h"
 #include "file/easy_file.h"
 
-LAMEFile::LAMEFile() : file_(NULL) {
-	isOpen = false;
+LAMEFile::LAMEFile() : file_(NULL), isOpen(false), size_(0) {
 }
 
 LAMEFile::~LAMEFile() { }
