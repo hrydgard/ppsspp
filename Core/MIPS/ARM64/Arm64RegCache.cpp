@@ -682,6 +682,11 @@ void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 		return;
 	}
 
+	if (r != MIPS_REG_LO) {
+		// All regs on the PSP are 32 bit, but LO we treat as HI:LO so is 64 full bits.
+		immVal = immVal & 0xFFFFFFFF;
+	}
+
 	if (mr[r].isStatic) {
 		mr[r].loc = ML_IMM;
 		mr[r].imm = immVal;
