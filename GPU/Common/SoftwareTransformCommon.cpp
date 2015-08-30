@@ -211,6 +211,7 @@ void SoftwareTransform(
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
 	} else {
+		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
 
@@ -401,6 +402,9 @@ void SoftwareTransform(
 			}
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
+
+			// The multiplication by the projection matrix is still performed in the vertex shader.
+			// So is vertex depth rounding, to simulate the 16-bit depth buffer.
 		}
 	}
 

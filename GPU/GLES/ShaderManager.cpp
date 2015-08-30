@@ -167,6 +167,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 		numBones = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
 	else
 		numBones = 0;
+	u_depthRange = glGetUniformLocation(program, "u_depthRange");
 
 #ifdef USE_BONE_ARRAY
 	u_bone = glGetUniformLocation(program, "u_bone");
@@ -233,6 +234,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
 	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
+	if (u_depthRange != -1)
+		availableUniforms |= DIRTY_DEPTHRANGE;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 #ifdef USE_BONE_ARRAY
@@ -343,6 +346,10 @@ static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
 	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
 }
 
+static void SetFloatUniform4(int uniform, float data[4]) {
+	glUniform4fv(uniform, 1, data);
+}
+
 static void SetMatrix4x3(int uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
@@ -442,7 +449,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
+		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0.0f, 1.0f);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {
@@ -547,7 +554,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
-	if (dirty & DIRTY_TEXCLAMP) {
+	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
 		const int w = gstate.getTextureWidth(0);
@@ -581,6 +588,18 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
+	}
+	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
+		float viewZScale = gstate.getViewportZScale();
+		float viewZCenter = gstate.getViewportZCenter();
+		float viewZInvScale;
+		if (viewZScale != 0.0) {
+			viewZInvScale = 1.0f / viewZScale;
+		} else {
+			viewZInvScale = 0.0;
+		}
+		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		SetFloatUniform4(u_depthRange, data);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {

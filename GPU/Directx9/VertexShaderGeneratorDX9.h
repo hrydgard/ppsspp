@@ -87,5 +87,6 @@ int TranslateNumBonesDX9(int bones);
 #define CONST_VS_LIGHTDIFFUSE 71
 #define CONST_VS_LIGHTSPECULAR 75
 #define CONST_VS_LIGHTAMBIENT 79
+#define CONST_VS_DEPTHRANGE 83
 
 };
