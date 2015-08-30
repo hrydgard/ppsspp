@@ -288,10 +288,10 @@ void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform) {
 
 	if (!gstate.isModeThrough()) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
-		// Not completely sure this is 100% right under DX9 as the Z range is different...
+		// The Z range in D3D is different but we compensate for that using parameters.
 		WRITE(p, "\nfloat4 depthRoundZVP(float4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
-		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
+		WRITE(p, "  z = (z * u_depthRange.x + u_depthRange.y);\n");
 		WRITE(p, "  z = floor(z);\n");
 		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
 		WRITE(p, "  return float4(v.x, v.y, z * v.w, v.w);\n");

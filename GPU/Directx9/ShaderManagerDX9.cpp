@@ -483,11 +483,15 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
 
-		// Adjust for D3D projection matrix. We got squashed up to only 0-1, so we multiply
-		// the scale factor by 2, and add an offset.
 		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
 		// it afterwards anyway.
-		viewZScale *= 2.0f;
+		// It seems that we should adjust for D3D projection matrix. We got squashed up to only 0-1, so we divide
+		// the scale factor by 2, and add an offset. But, this doesn't work! I get near-perfect results not doing it.
+		// viewZScale *= 2.0f;
+
+		// Need to take the possibly inverted proj matrix into account.
+		if (gstate_c.vpDepth < 0.0)
+			viewZScale *= -1.0f;
 		viewZCenter -= 32767.5f;
 		float viewZInvScale;
 		if (viewZScale != 0.0) {
