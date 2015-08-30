@@ -617,6 +617,11 @@ void TextView::Draw(UIContext &dc) {
 	bool clip = false;
 	if (w > bounds_.w || h > bounds_.h)
 		clip = true;
+	if (bounds_.w < 0 || bounds_.h < 0) {
+		// We have a layout but, but try not to screw up rendering.
+		// TODO: Fix properly.
+		clip = false;
+	}
 	if (clip) {
 		Bounds clipRect = bounds_.Expand(10);  // TODO: Remove this hackery
 		dc.Flush();
