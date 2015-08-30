@@ -47,6 +47,7 @@
     <ClInclude Include="CodeBlock.h" />
     <ClInclude Include="ColorConv.h" />
     <ClInclude Include="ColorConvNEON.h" />
+    <ClInclude Include="ThreadSafeList.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
