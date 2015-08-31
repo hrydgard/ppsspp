@@ -271,6 +271,8 @@ struct SamplerState {
 	u8 clamp_s;
 	u8 clamp_t;
 	u8 levelMode;
+
+	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(levelMode); }
 };
 
 struct LightGlobalState {

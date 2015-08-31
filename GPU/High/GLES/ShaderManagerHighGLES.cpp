@@ -44,8 +44,8 @@
 
 namespace HighGpu {
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID)
-		: id_(shaderID), failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t shaderType, const ShaderID &shaderID)
+		: id_(shaderID), failed_(false) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 #ifdef SHADERLOG
@@ -85,8 +85,8 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
-		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
+LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, LinkedShader *previous)
+		: program(0) {
 	PROFILE_THIS_SCOPE("shaderlink");
 
 	program = glCreateProgram();
@@ -269,7 +269,6 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glUniform1i(u_fbotex, 1);
 	glUniform1i(u_testtex, 2);
 	// The rest, use the "dirty" mechanism.
-	dirtyUniforms = DIRTY_ALL;
 	use(vertType, previous);
 }
 
@@ -709,8 +708,6 @@ void ShaderManagerGLES::Clear() {
 	fsCache_.clear();
 	vsCache_.clear();
 	globalDirty_ = 0xFFFFFFFF;
-	lastFSID_.clear();
-	lastVSID_.clear();
 	DirtyShader();
 }
 
@@ -720,8 +717,6 @@ void ShaderManagerGLES::ClearCache(bool deleteThem) {
 
 void ShaderManagerGLES::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID_.clear();
-	lastVSID_.clear();
 	DirtyLastShader();
 	globalDirty_ = 0xFFFFFFFF;
 	shaderSwitchDirty_ = 0;
@@ -750,79 +745,34 @@ bool ShaderManagerGLES::DebugAreShadersCompatibleForLinking(Shader *vs, Shader *
 	return true;
 }
 
-Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType) {
-	// This doesn't work - we miss some events that really do need to dirty the prescale.
-	// like changing the texmapmode.
-	// if (g_Config.bPrescaleUV)
-	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
-
-	if (globalDirty_) {
-		if (lastShader_)
-			lastShader_->dirtyUniforms |= globalDirty_;
-		shaderSwitchDirty_ |= globalDirty_;
-		globalDirty_ = 0;
-	}
-
-	bool useHWTransform = CanUseHardwareTransform(prim);
-
-	ShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
-
-	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_) {
-		lastVShaderSame_ = true;
-		return lastShader_->vs_;  	// Already all set.
-	} else {
-		lastVShaderSame_ = false;
-	}
-
-	lastVSID_ = VSID;
-
+LinkedShader *ShaderManagerGLES::GetLinkedShader(u32 vertType, ShaderID VSID, ShaderID FSID) {
 	VSCache::iterator vsIter = vsCache_.find(VSID);
+	FSCache::iterator fsIter = fsCache_.find(FSID);
+
 	Shader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
-		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
+		GenerateVertexShader(VSID, codeBuffer_);
+		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, VSID);
 
 		if (vs->Failed()) {
 			I18NCategory *gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			osm.Show(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
 			delete vs;
-
-			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
-			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
-			// next time and we'll do this over and over...
-
-			// Can still work with software transform.
-			GenerateVertexShader(prim, vertType, codeBuffer_, false);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, VSID);
+			vs = nullptr;
 		}
 
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;
 	}
-	return vs;
-}
 
-LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID);
-	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType);
-		return lastShader_;
-	}
-
-	lastFSID_ = FSID;
-
-	FSCache::iterator fsIter = fsCache_.find(FSID);
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform(), FSID);
+		GenerateFragmentShader(FSID, codeBuffer_);
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, FSID);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -835,7 +785,6 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
 		iter->ls->dirtyUniforms |= switchDirty;
-
 		if (iter->vs == vs && iter->fs == fs) {
 			ls = iter->ls;
 		}
@@ -849,7 +798,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 			return NULL;
 		}
 #endif
-		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
+		ls = new LinkedShader(vs, fs, vertType, lastShader_);  // This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {

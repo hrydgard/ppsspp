@@ -84,7 +84,7 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous);
+	LinkedShader(Shader *vs, Shader *fs, u32 vertType, LinkedShader *previous);
 	~LinkedShader();
 
 	void use(u32 vertType, LinkedShader *previous);
@@ -92,8 +92,6 @@ public:
 	void UpdateUniforms(u32 vertType);
 
 	Shader *vs_;
-	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
-	bool useHWTransform_;
 
 	uint32_t program;
 	u32 availableUniforms;
@@ -198,20 +196,18 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID);
+	Shader(const char *code, uint32_t shaderType, const ShaderID &shaderID);
 	~Shader();
 	uint32_t shader;
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; }
 	const ShaderID &ID() const { return id_; }
 
 private:
 	std::string source_;
 	ShaderID id_;
 	bool failed_;
-	bool useHWTransform_;
 };
 
 class ShaderManagerGLES {
@@ -221,10 +217,7 @@ public:
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 
-	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
-	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(int prim, u32 vertType);
-	LinkedShader *ApplyFragmentShader(Shader *vs, int prim, u32 vertType);
+	LinkedShader *GetLinkedShader(u32 vertType, ShaderID vertShaderId, ShaderID fragShaderId);
 
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
@@ -251,11 +244,6 @@ private:
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	LinkedShaderCache linkedShaderCache_;
-
-	bool lastVShaderSame_;
-
-	ShaderID lastFSID_;
-	ShaderID lastVSID_;
 
 	LinkedShader *lastShader_;
 	u32 globalDirty_;

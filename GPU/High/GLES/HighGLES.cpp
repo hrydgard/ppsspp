@@ -180,14 +180,14 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 	}
 
 	for (int i = start; i < end; i++) {
-		linkedShaders[i] = shaderManager_->GetLinkedShader(vertShaderIds[i], fragShaderIds[i]);
+		linkedShaders[i] = shaderManager_->GetLinkedShader(packet->commands[i].draw.vtxformat, vertShaderIds[i], fragShaderIds[i]);
 	}
 
 	// Set up the vertex pointers.
 
 	// Pass 3: Fetch shaders, perform the draws.
 	int curFramebuf = -1;
-	LinkedShader *last = -1;
+	LinkedShader *last = nullptr;
 
 	for (int i = start; i < end; i++) {
 		const Command *cmd = &packet->commands[i];
@@ -196,7 +196,7 @@ void HighGpu_GLES::Execute(CommandPacket *packet) {
 			curFramebuf = cmd->draw.framebuf;
 		}
 		if (linkedShaders[i] != last) {
-			linkedShaders[i]->Bind();
+			// linkedShaders[i]->Bind();
 			last = linkedShaders[i];
 		}
 

@@ -720,7 +720,7 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry *entry, const SamplerS
 	if (entry->maxLevel != 0) {
 		if (force || entry->lodBias != lodBias) {
 #ifndef USING_GLES2
-			GETexLevelMode mode = gstate.getTexLevelMode();
+			GETexLevelMode mode = samp->getTexLevelMode();
 			switch (mode) {
 			case GE_TEXLEVEL_MODE_AUTO:
 				// TODO
@@ -1053,7 +1053,7 @@ void TextureCacheGLES::SetTextureFramebuffer(const FramebufState *fbState, const
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureXOffset = fbTexInfo_[entry->addr].xOffset;
 		gstate_c.curTextureYOffset = fbTexInfo_[entry->addr].yOffset;
-		gstate_c.needShaderTexClamp = framebuffer->bufferWidth != (u32)gstate.getTextureWidth(0) || framebuffer->bufferHeight != (u32)gstate.getTextureHeight(0);
+		gstate_c.needShaderTexClamp = framebuffer->bufferWidth != (u32)GetDimWidth(texState->dim[0]) || framebuffer->bufferHeight != (u32)GetDimHeight(texState->dim[0]);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
@@ -1390,9 +1390,9 @@ TexCacheEntry *TextureCacheGLES::GetTexture(const TextureState *texState, const 
 		if (i > 0) {
 			int tw = GetDimWidth(texState->dim[i]);
 			int th = GetDimHeight(texState->dim[i]);
-			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
+			if (tw != 1 && tw != (GetDimWidth(texState->dim[i - 1]) >> 1))
 				badMipSizes = true;
-			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
+			else if (th != 1 && th != (GetDimHeight(texState->dim[i - 1]) >> 1))
 				badMipSizes = true;
 		}
 #endif

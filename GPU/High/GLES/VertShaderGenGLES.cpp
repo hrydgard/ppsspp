@@ -99,8 +99,8 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 	bool isModeClear = raster->clearMode;
 
 	bool doTexture = (enabled & ENABLE_TEXTURE) && !isModeClear;
-	bool doTextureProjection = ts->getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	bool doShadeMapping = ts->getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
+	bool doTextureProjection = ts ? (ts->getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) : false;
+	bool doShadeMapping = ts ? (ts->getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) : false;
 	bool doFlatShading = raster->shadeMode == GE_SHADE_FLAT && !isModeClear;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
@@ -108,8 +108,8 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 	bool hasTexcoord = (vertType & GE_VTYPE_TC_MASK) != 0 || !useHWTransform;
 
 	bool enableFog = (enabled & ENABLE_FOG) && !isModeThrough && !isModeClear;
-	bool enableBones = (enabled & ENABLE_BONES);
-	bool lmode = lgs->lmode && (enabled & ENABLE_LIGHTS);
+	bool enableBones = (enabled & ENABLE_BONES) && (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
+	bool lmode = lgs ? (lgs->lmode && (enabled & ENABLE_LIGHTS)) : false;
 
 	ShaderID id;
 
@@ -208,7 +208,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-void GenerateVertexShader(const ShaderID &id, char *buffer) {
+void GenerateVertexShader(ShaderID id, char *buffer) {
 	char *p = buffer;
 
 // #define USE_FOR_LOOP

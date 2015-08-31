@@ -34,6 +34,6 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
 		const HighGpu::LightGlobalState *lgs, const HighGpu::LightState **ls,
 		bool flipTexture, bool useHWTransform);
 
-void GenerateVertexShader(ShaderID *id, char *buffer);
+void GenerateVertexShader(ShaderID id, char *buffer);
 
 }  // namespace HighGpu
