@@ -124,10 +124,10 @@ inline const char *removePath(const char *str) {
 #else
 #define DLOG(...)
 #endif
-#define ILOG(...) {printf("I: %s:%i: ", removePath(__FILE__), __LINE__); printf("I: " __VA_ARGS__); printf("\n");}
-#define WLOG(...) {printf("W: %s:%i: ", removePath(__FILE__), __LINE__); printf("W: " __VA_ARGS__); printf("\n");}
-#define ELOG(...) {printf("E: %s:%i: ", removePath(__FILE__), __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
-#define FLOG(...) {printf("F: %s:%i: ", removePath(__FILE__), __LINE__); printf("F: " __VA_ARGS__); printf("\n"); Crash();}
+#define ILOG(...) {printf("I: %s:%i: ", removePath(__FILE__), __LINE__); printf(__VA_ARGS__); printf("\n");}
+#define WLOG(...) {printf("W: %s:%i: ", removePath(__FILE__), __LINE__); printf(__VA_ARGS__); printf("\n");}
+#define ELOG(...) {printf("E: %s:%i: ", removePath(__FILE__), __LINE__); printf(__VA_ARGS__); printf("\n");}
+#define FLOG(...) {printf("F: %s:%i: ", removePath(__FILE__), __LINE__); printf(__VA_ARGS__); printf("\n"); Crash();}
 
 #endif
 #endif
