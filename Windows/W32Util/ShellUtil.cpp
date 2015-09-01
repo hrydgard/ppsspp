@@ -54,15 +54,15 @@ namespace W32Util
 		ZeroMemory (&ofn,sizeof (ofn));
 
 		ofn.lStructSize		= sizeof (OPENFILENAME);
-		ofn.lpstrInitialDir = _pInitialFolder;
+		ofn.lpstrInitialDir	= _pInitialFolder;
 		ofn.lpstrFilter		= _pFilter;
 		ofn.nMaxFile		= sizeof (szFile);
 		ofn.lpstrFile		= szFile;
 		ofn.lpstrFileTitle	= szFileTitle;
 		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = _pExtension;
+		ofn.lpstrDefExt		= _pExtension;
 		ofn.hwndOwner		= _hParent;
-		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
+		ofn.Flags		= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
 
 		if (!_strFileName.empty())
 			wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), MAX_PATH);
@@ -87,15 +87,15 @@ namespace W32Util
 		ZeroMemory (&ofn,sizeof (ofn));
 
 		ofn.lStructSize		= sizeof (OPENFILENAME);
-		ofn.lpstrInitialDir = _pInitialFolder;
+		ofn.lpstrInitialDir	= _pInitialFolder;
 		ofn.lpstrFilter		= _pFilter;
 		ofn.nMaxFile		= sizeof (szFile);
 		ofn.lpstrFile		= szFile;
 		ofn.lpstrFileTitle	= szFileTitle;
 		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = _pExtension;
+		ofn.lpstrDefExt		= _pExtension;
 		ofn.hwndOwner		= _hParent;
-		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT ;
+		ofn.Flags		= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT ;
 
 		std::vector<std::string> files;
 
