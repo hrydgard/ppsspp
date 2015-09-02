@@ -140,12 +140,12 @@ static void LoadRasterState(RasterState *raster, const GPUgstate *gstate) {
 }
 
 static void LoadViewportState(ViewportState *viewport, const GPUgstate *gstate) {
-	viewport->x1 = gstate->getViewportX1();
-	viewport->y1 = gstate->getViewportY1();
-	viewport->z1 = gstate->getViewportZ1();
-	viewport->x2 = gstate->getViewportX2();
-	viewport->y2 = gstate->getViewportY2();
-	viewport->z2 = gstate->getViewportZ2();
+	viewport->xScale = gstate->getViewportXScale();
+	viewport->yScale = gstate->getViewportYScale();
+	viewport->zScale = gstate->getViewportZScale();
+	viewport->xCenter = gstate->getViewportXCenter();
+	viewport->yCenter = gstate->getViewportYCenter();
+	viewport->zCenter = gstate->getViewportZCenter();
 	viewport->regionX1 = gstate->getRegionX1();
 	viewport->regionY1 = gstate->getRegionY1();
 	viewport->regionX2 = gstate->getRegionX2();
@@ -724,7 +724,10 @@ void PrintCommandPacket(CommandPacket *cmdPacket) {
 	}
 	for (int i = 0; i < cmdPacket->numViewport; i++) {
 		const ViewportState *v = cmdPacket->viewport[i];
-		ILOG("Viewport %d: C: %f, %f, %f  SZ: %f, %f, %f Rgn: %d %d %d %d", i, v->x1, v->y1, v->z1, v->x2, v->y2, v->z2, v->regionX1, v->regionX2, v->regionY1, v->regionY2);
+		ILOG("Viewport %d: Scale: %f, %f, %f Center: %f, %f, %f Rgn: %d %d %d %d", i,
+				v->xScale, v->yScale, v->zScale,
+				v->xCenter, v->yCenter, v->zCenter,
+				v->regionX1, v->regionX2, v->regionY1, v->regionY2);
 	}
 	for (int i = 0; i < cmdPacket->numWorldMatrix; i++) {
 		LogMatrix4x3("World", i, cmdPacket->worldMatrix[i]);

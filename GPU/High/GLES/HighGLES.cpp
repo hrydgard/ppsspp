@@ -232,10 +232,10 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	// We always load the viewport. It's too important for fbo heuristics to leave out,
 	// even when not strictly needed.
 	ViewportState *vs = packet->viewport[cmd->draw.viewport];
-	fb.viewportWidth = 2.0 * vs->x1;
-	fb.viewportHeight = 2.0 * vs->x2;
+	fb.viewportWidth = 2.0 * vs->xScale;
+	fb.viewportHeight = 2.0 * vs->yScale;
 	fb.regionWidth = vs->regionX2 - vs->regionX1 + 1;
-	fb.regionHeight = vs->regionX2 - vs->regionX1 + 1;
+	fb.regionHeight = vs->regionY2 - vs->regionY1 + 1;
 	fb.scissorWidth = raster->scissorX2 - raster->scissorX1 + 1;
 	fb.scissorHeight = raster->scissorY2 - raster->scissorY1 + 1;
 	fb.isDrawing = true;  // TODO

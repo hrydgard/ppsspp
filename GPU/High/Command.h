@@ -194,8 +194,8 @@ struct FragmentState {
 };
 
 struct ViewportState {
-	float x1, y1, z1;
-	float x2, y2, z2;
+	float xScale, yScale, zScale;
+	float xCenter, yCenter, zCenter;
 	short regionX1, regionY1;
 	short regionX2, regionY2;
 };
