@@ -19,6 +19,7 @@
 // Default device IDs
 
 enum {
+	DEVICE_ID_ANY = -1,  // Represents any device ID
 	DEVICE_ID_DEFAULT = 0,  // Old Android
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
 	DEVICE_ID_MOUSE = 2,  // PC mouse only (not touchscreen!)
@@ -78,6 +79,43 @@ enum {
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
 #endif
+
+// Represents a single bindable key
+class KeyDef {
+public:
+	KeyDef() : deviceId(0), keyCode(0) {}
+	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
+	int deviceId;
+	int keyCode;
+
+	bool operator < (const KeyDef &other) const {
+		if (deviceId < other.deviceId) return true;
+		if (deviceId > other.deviceId) return false;
+		if (keyCode < other.keyCode) return true;
+		return false;
+	}
+	bool operator == (const KeyDef &other) const {
+		if (deviceId != other.deviceId && deviceId != DEVICE_ID_ANY && other.deviceId != DEVICE_ID_ANY) return false;
+		if (keyCode != other.keyCode) return false;
+		return true;
+	}
+};
+
+// Represents a single bindable axis direction
+struct AxisPos {
+	int axis;
+	float position;
+
+	bool operator < (const AxisPos &other) const {
+		if (axis < other.axis) return true;
+		if (axis > other.axis) return false;
+		return position < other.position;
+	}
+	bool operator == (const AxisPos &other) const {
+		return axis == other.axis && position == other.position;
+	}
+};
+
 
 // Collection of all possible inputs, and automatically computed
 // deltas where applicable.
@@ -203,9 +241,12 @@ private:
 extern ButtonTracker g_buttonTracker;
 
 // Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
-extern std::vector<keycode_t> confirmKeys;
-extern std::vector<keycode_t> cancelKeys;
-extern std::vector<keycode_t> tabLeftKeys;
-extern std::vector<keycode_t> tabRightKeys;
-void SetConfirmCancelKeys(const std::vector<keycode_t> &confirm, const std::vector<keycode_t> &cancel);
-void SetTabLeftRightKeys(const std::vector<keycode_t> &tabLeft, const std::vector<keycode_t> &tabRight);
+extern std::vector<KeyDef> dpadKeys;
+extern std::vector<KeyDef> confirmKeys;
+extern std::vector<KeyDef> cancelKeys;
+extern std::vector<KeyDef> tabLeftKeys;
+extern std::vector<KeyDef> tabRightKeys;
+void SetDPadKeys(const std::vector<KeyDef> &leftKey, const std::vector<KeyDef> &rightKey,
+		const std::vector<KeyDef> &upKey, const std::vector<KeyDef> &downKey);
+void SetConfirmCancelKeys(const std::vector<KeyDef> &confirm, const std::vector<KeyDef> &cancel);
+void SetTabLeftRightKeys(const std::vector<KeyDef> &tabLeft, const std::vector<KeyDef> &tabRight);

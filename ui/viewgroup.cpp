@@ -1064,10 +1064,10 @@ void ChoiceStrip::HighlightChoice(unsigned int choice){
 bool ChoiceStrip::Key(const KeyInput &input) {
 	bool ret = false;
 	if (input.flags & KEY_DOWN) {
-		if (IsTabLeftKeyCode(input.keyCode) && selected_ > 0) {
+		if (IsTabLeftKey(input) && selected_ > 0) {
 			SetSelection(selected_ - 1);
 			ret = true;
-		} else if (IsTabRightKeyCode(input.keyCode) && selected_ < (int)views_.size() - 1) {
+		} else if (IsTabRightKey(input) && selected_ < (int)views_.size() - 1) {
 			SetSelection(selected_ + 1);
 			ret = true;
 		}
@@ -1192,8 +1192,7 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 	bool retval = false;
 	// Ignore repeats for focus moves.
 	if ((key.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
-		// We ignore the device ID here. Anything with a DPAD is OK.
-		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
+		if (IsDPadKey(key)) {
 			// Let's only repeat DPAD initially.
 			HeldKey hk;
 			hk.key = key.keyCode;
@@ -1213,14 +1212,16 @@ bool KeyEvent(const KeyInput &key, ViewGroup *root) {
 		}
 	}
 	if (key.flags & KEY_UP) {
-		// We ignore the device ID here. Anything with a DPAD is OK.
-		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
+		// We ignore the device ID here (in the comparator for HeldKey), due to the Ouya quirk mentioned above.
+		if (!heldKeys.empty()) {
 			HeldKey hk;
 			hk.key = key.keyCode;
 			hk.deviceId = key.deviceId;
 			hk.triggerTime = 0.0; // irrelevant
-			heldKeys.erase(hk);
-			retval = true;
+			if (heldKeys.find(hk) != heldKeys.end()) {
+				heldKeys.erase(hk);
+				retval = true;
+			}
 		}
 	}
 

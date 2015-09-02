@@ -65,7 +65,7 @@ bool UIScreen::key(const KeyInput &key) {
 
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
-	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
+	if (!retval && (key.flags & KEY_DOWN) && UI::IsEscapeKey(key)) {
 		if (finished_) {
 			ELOG("Screen already finished");
 		} else {

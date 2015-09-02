@@ -801,9 +801,10 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 
 void EventTriggered(Event *e, EventParams params);
 void DispatchEvents();
-bool IsAcceptKeyCode(int keyCode);
-bool IsEscapeKeyCode(int keyCode);
-bool IsTabLeftKeyCode(int keyCode);
-bool IsTabRightKeyCode(int keyCode);
+bool IsDPadKey(const KeyInput &key);
+bool IsAcceptKey(const KeyInput &key);
+bool IsEscapeKey(const KeyInput &key);
+bool IsTabLeftKey(const KeyInput &key);
+bool IsTabRightKey(const KeyInput &key);
 
 }  // namespace
