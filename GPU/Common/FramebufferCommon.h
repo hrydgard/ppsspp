@@ -102,7 +102,6 @@ struct FramebufferHeuristicParams {
 	bool isWritingDepth;
 	bool isDrawing;
 	bool isModeThrough;
-	bool hasViewportAndRegion;
 	int viewportWidth;
 	int viewportHeight;
 	int regionWidth;

@@ -405,20 +405,23 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 		command->draw.clut = last->draw.clut;
 	}
 
-	if (enabled & ENABLE_TRANSFORM) {
-		if (dirty & STATE_VIEWPORT) {
-			command->draw.viewport = cmdPacket->numViewport;
-			LoadViewportState(arena->Allocate(&cmdPacket->viewport[cmdPacket->numViewport++]), gstate);
-			if (cmdPacket->numViewport > 1 && !memcmp(cmdPacket->viewport[cmdPacket->numViewport-2], cmdPacket->viewport[cmdPacket->numViewport-1], sizeof(ViewportState))) {
-				cmdPacket->numViewport--;
-				arena->Rewind(sizeof(ViewportState));
-				command->draw.viewport = cmdPacket->numViewport - 1;
-			}
-			if (cmdPacket->numViewport == ARRAY_SIZE(cmdPacket->viewport)) full = STATE_VIEWPORT;
-			dirty &= ~STATE_VIEWPORT;
-		} else {
-			command->draw.viewport = last->draw.viewport;
+	// This could be within transform state, but we use it for FBO heuristics so it's needed
+	// even when drawing through-mode.
+	if (dirty & STATE_VIEWPORT) {
+		command->draw.viewport = cmdPacket->numViewport;
+		LoadViewportState(arena->Allocate(&cmdPacket->viewport[cmdPacket->numViewport++]), gstate);
+		if (cmdPacket->numViewport > 1 && !memcmp(cmdPacket->viewport[cmdPacket->numViewport-2], cmdPacket->viewport[cmdPacket->numViewport-1], sizeof(ViewportState))) {
+			cmdPacket->numViewport--;
+			arena->Rewind(sizeof(ViewportState));
+			command->draw.viewport = cmdPacket->numViewport - 1;
 		}
+		if (cmdPacket->numViewport == ARRAY_SIZE(cmdPacket->viewport)) full = STATE_VIEWPORT;
+		dirty &= ~STATE_VIEWPORT;
+	} else {
+		command->draw.viewport = last->draw.viewport;
+	}
+
+	if (enabled & ENABLE_TRANSFORM) {
 		if (dirty & STATE_WORLDMATRIX) {
 			command->draw.worldMatrix = cmdPacket->numWorldMatrix;
 			LoadMatrix4x3(arena->Allocate(&cmdPacket->worldMatrix[cmdPacket->numWorldMatrix++]), gstate->worldMatrix);
@@ -527,7 +530,6 @@ static u32 LoadStates(CommandPacket *cmdPacket, const Command *last, Command *co
 			command->draw.morph = last->draw.morph;
 		}
 	} else {
-		command->draw.viewport = last->draw.viewport;
 		command->draw.worldMatrix = last->draw.worldMatrix;
 		command->draw.viewMatrix = last->draw.viewMatrix;
 		command->draw.projMatrix = last->draw.projMatrix;

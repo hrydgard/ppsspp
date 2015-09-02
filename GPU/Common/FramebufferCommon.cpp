@@ -182,14 +182,14 @@ void FramebufferManagerCommon::EstimateDrawingSize(const FramebufferHeuristicPar
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
 	if (drawing_height >= MAX_FRAMEBUF_HEIGHT) {
-		if (params.hasViewportAndRegion && params.regionHeight < MAX_FRAMEBUF_HEIGHT) {
+		if (params.regionHeight < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = params.regionHeight;
 		} else if (params.scissorHeight < MAX_FRAMEBUF_HEIGHT) {
 			drawing_height = params.scissorHeight;
 		}
 	}
 
-	if (params.hasViewportAndRegion && params.viewportWidth != params.regionWidth) {
+	if (params.viewportWidth != params.regionWidth) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
 		u32 nearest_address = 0xFFFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -204,7 +204,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(const FramebufferHeuristicPar
 		// Hmm.  The problem is that we could only catch it for the first of two buffers...
 		const u32 bpp = params.fmt == GE_FORMAT_8888 ? 4 : 2;
 		int avail_height = (nearest_address - params.fb_address) / (params.fb_stride * bpp);
-		if (avail_height < drawing_height && (params.hasViewportAndRegion && avail_height == params.regionHeight)) {
+		if (avail_height < drawing_height && (avail_height == params.regionHeight)) {
 			drawing_width = std::min(params.regionWidth, params.fb_stride);
 			drawing_height = avail_height;
 		}

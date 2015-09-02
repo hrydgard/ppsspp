@@ -229,21 +229,13 @@ void HighGpu_GLES::ApplyFramebuffer(const CommandPacket *packet, const Command *
 	fb.z_address = fbState->depthPtr;
 	fb.z_stride = fbState->depthStride;
 	fb.fmt = (GEBufferFormat)(fbState->colorFormat);
-	// TODO: Maybe the viewport is such an important hint for this that we should always load it,
-	// even when drawing in throughmode?
-	if (cmd->draw.viewport != INVALID_STATE) {
-		ViewportState *vs = packet->viewport[cmd->draw.viewport];
-		fb.viewportWidth = 2.0 * vs->x1;
-		fb.viewportHeight = 2.0 * vs->x2;
-		fb.hasViewportAndRegion = true;
-		// Temp hack
-		fb.regionWidth = fb.viewportWidth;
-		fb.regionHeight = fb.viewportHeight;;
-	} else {
-		fb.hasViewportAndRegion = false;
-	}
-	fb.regionWidth = 0;
-	fb.regionHeight = 0;
+	// We always load the viewport. It's too important for fbo heuristics to leave out,
+	// even when not strictly needed.
+	ViewportState *vs = packet->viewport[cmd->draw.viewport];
+	fb.viewportWidth = 2.0 * vs->x1;
+	fb.viewportHeight = 2.0 * vs->x2;
+	fb.regionWidth = vs->regionX2 - vs->regionX1 + 1;
+	fb.regionHeight = vs->regionX2 - vs->regionX1 + 1;
 	fb.scissorWidth = raster->scissorX2 - raster->scissorX1 + 1;
 	fb.scissorHeight = raster->scissorY2 - raster->scissorY1 + 1;
 	fb.isDrawing = true;  // TODO
