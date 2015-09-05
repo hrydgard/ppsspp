@@ -6,25 +6,6 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
 
-#if defined(USING_GLES2) && !defined(BLACKBERRY)
-
-#ifndef GL_READ_FRAMEBUFFER
-// Careful - our ES3 header defines these. Means that we must make sure
-// to only use them if ES3 support is detected to be available and otherwise
-// use GL_FRAMEBUFFER only.
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#endif
-
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-
 #ifdef IOS
 extern void bindDefaultFBO();
 #endif
