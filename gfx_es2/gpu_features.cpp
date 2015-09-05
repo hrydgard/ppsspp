@@ -34,5 +34,6 @@ void ProcessGPUFeatures() {
 			WLOG("GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}
+		gl_extensions.bugs |= BUG_PVR_GENMIPMAP_HEIGHT_GREATER;
 	}
 }
