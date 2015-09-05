@@ -36,6 +36,9 @@ class GLES_GPU : public GPUCommon {
 public:
 	GLES_GPU();
 	~GLES_GPU();
+
+	void CheckGPUFeatures();
+
 	void InitClear() override;
 	void Reinitialize() override;
 	void PreExecuteOp(u32 op, u32 diff) override;

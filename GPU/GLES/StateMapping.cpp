@@ -168,7 +168,7 @@ static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margi
 }
 
 bool TransformDrawEngine::ApplyShaderBlending() {
-	if (gl_extensions.ANY_shader_framebuffer_fetch) {
+	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
 		return true;
 	}
 

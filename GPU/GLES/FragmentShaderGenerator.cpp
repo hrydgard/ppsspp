@@ -156,7 +156,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			if (gl_extensions.ARB_blend_func_extended) {
+			if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
 				return REPLACE_ALPHA_NO;
@@ -285,7 +285,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gl_extensions.ANY_shader_framebuffer_fetch)
+			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
 				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -344,14 +344,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gl_extensions.ANY_shader_framebuffer_fetch)
+				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
 					return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gl_extensions.ANY_shader_framebuffer_fetch)
+				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
 					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
@@ -426,14 +426,14 @@ void ComputeFragmentShaderID(ShaderID *id) {
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 			id0 |= (gstate_c.flipTexture & 1) << 6;
 
-			if (gstate_c.needShaderTexClamp) {
-				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-				// 3 bits total.
-				id0 |= 1 << 7;
-				id0 |= gstate.isTexCoordClampedS() << 8;
-				id0 |= gstate.isTexCoordClampedT() << 9;
-				id0 |= (textureAtOffset & 1) << 10;
-			}
+if (gstate_c.needShaderTexClamp) {
+	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+	// 3 bits total.
+	id0 |= 1 << 7;
+	id0 |= gstate.isTexCoordClampedS() << 8;
+	id0 |= gstate.isTexCoordClampedT() << 9;
+	id0 |= (textureAtOffset & 1) << 10;
+}
 		}
 
 		id0 |= (lmode & 1) << 11;
@@ -456,7 +456,7 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		id0 |= (enableColorDoubling & 1) << 23;
 		// 2 bits
 		id0 |= (stencilToAlpha) << 24;
-	
+
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
 			id0 |= ReplaceAlphaWithStencilType() << 26;
@@ -504,7 +504,7 @@ void GenerateFragmentShader(char *buffer) {
 #if defined(USING_GLES2)
 	// Let's wait until we have a real use for this.
 	// ES doesn't support dual source alpha :(
-	if (gl_extensions.GLES3) {
+	if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
 		WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
 		fragColor0 = "fragColor0";
 		texture = "texture";
@@ -525,16 +525,18 @@ void GenerateFragmentShader(char *buffer) {
 	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
 	highpTexcoord = highpFog;
 
-	if (gl_extensions.EXT_shader_framebuffer_fetch) {
-		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragData[0]";
-	} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-		// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragData[0]";
-	} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragColorARM";
+	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+		if (gl_extensions.EXT_shader_framebuffer_fetch) {
+			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+			lastFragData = "gl_LastFragData[0]";
+		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
+			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
+			WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+			lastFragData = "gl_LastFragData[0]";
+		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
+			WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+			lastFragData = "gl_LastFragColorARM";
+		}
 	}
 
 	WRITE(p, "precision lowp float;\n");
@@ -611,7 +613,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
-		if (!gl_extensions.ANY_shader_framebuffer_fetch && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (!(gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			if (!texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
@@ -962,7 +964,7 @@ void GenerateFragmentShader(char *buffer) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (gl_extensions.ANY_shader_framebuffer_fetch) {
+			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
 				WRITE(p, "  lowp vec4 destColor = %s;\n", lastFragData);
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);

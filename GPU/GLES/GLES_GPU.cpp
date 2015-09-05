@@ -396,6 +396,7 @@ GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 GLES_GPU::GLES_GPU()
 : resized_(false) {
 	UpdateVsyncInterval(true);
+	CheckGPUFeatures();
 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -461,6 +462,57 @@ GLES_GPU::~GLES_GPU() {
 	delete shaderManager_;
 	shaderManager_ = nullptr;
 	glstate.SetVSyncInterval(0);
+}
+
+// Take the raw GL extension and versioning data and turn into feature flags.
+void GLES_GPU::CheckGPUFeatures() {
+	u32 features = 0;
+	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/)
+		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+
+#ifdef USING_GLES2
+	if (gl_extensions.GLES3)
+		features |= GPU_SUPPORTS_GLSL_ES_300;
+#else
+	if (gl_extensions.VersionGEThan(3, 3, 0))
+		features |= GPU_SUPPORTS_GLSL_330;
+#endif
+	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
+	// Tales of Destiny 2 has been reported to display green.
+	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		// Blacklist Tegra 3, doesn't work very well.
+		if (strstr(gl_extensions.model, "NVIDIA Tegra 3") != 0) {
+			features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		}
+	}
+	
+	if (gl_extensions.FBO_ARB || gl_extensions.IsGLES) {
+		features |= GPU_SUPPORTS_FBO_ARB;
+	}
+
+#ifndef USING_GLES2
+	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+	// We might get here if hackForce04154000Download_ is hit.
+	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+	// This causes glitches in games that expect the exact values.
+	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
+			useCPU = true;
+		}
+	}
+#else
+	useCPU = true;
+#endif
+	if (useCPU) {
+		features |= GPU_PREFER_CPU_DOWNLOAD;
+	}
+
+	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
+		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
+
+	gstate_c.featureFlags = features;
 }
 
 // Let's avoid passing nulls into snprintf().

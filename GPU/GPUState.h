@@ -442,7 +442,24 @@ enum TextureChangeReason {
 	TEXCHANGE_PARAMSONLY = 0x02,
 };
 
+#define FLAG_BIT(x) (1 << x)
+
+enum {
+	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
+	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
+	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
+	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(10),
+	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
+	GPU_SUPPORTS_FBO_ARB = FLAG_BIT(25),
+	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
+	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
+};
+
 struct GPUStateCache {
+	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+
+	u32 featureFlags;
+
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;

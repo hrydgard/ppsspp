@@ -145,8 +145,6 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
-
 #ifndef USING_GLES2
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif

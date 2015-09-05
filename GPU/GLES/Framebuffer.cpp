@@ -1128,24 +1128,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const {
-#ifndef USING_GLES2
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-	// We might get here if hackForce04154000Download_ is hit.
-	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-	// This causes glitches in games that expect the exact values.
-	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
-			useCPU = true;
-		}
-	}
-	return useCPU;
-#else
-	return true;
-#endif
-}
-
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
@@ -1212,7 +1194,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 					nvfb->colorDepth = FBO_8888;
 					break;
 			}
-			if (ShouldDownloadUsingCPU(vfb)) {
+			if (gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
 				nvfb->colorDepth = vfb->colorDepth;
 			}
 
@@ -1309,12 +1291,12 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	bool useNV = false;
 
 #ifndef USING_GLES2
-	if (gl_extensions.FBO_ARB) {
+	if (gstate_c.Supports(GPU_SUPPORTS_FBO_ARB)) {
 		useNV = false;
 		useBlit = true;
 	}
 #else
-	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
+	if (gl_extensions.GLES3 || (gstate_c..Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
 		useNV = !gl_extensions.GLES3;
 		useBlit = true;
 	}
@@ -1497,7 +1479,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
 	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	const bool useCPU = ShouldDownloadUsingCPU(vfb);
+	const bool useCPU = gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD);
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
@@ -1541,7 +1523,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if (vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
-		bool reverseOrder = (gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD);
+		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
