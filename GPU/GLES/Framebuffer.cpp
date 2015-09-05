@@ -818,24 +818,21 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 		src->renderWidth == dst->renderWidth &&
 		src->renderHeight == dst->renderHeight) {
 
-#ifndef USING_GLES2
-		if (gl_extensions.ARB_framebuffer_object) {
-			bool useNV = false;
-#else
-		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-			bool useNV = !gl_extensions.GLES3;
-#endif
+		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+			// Only use NV if ARB isn't supported.
+			bool useNV = !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 			// Let's only do this if not clearing depth.
 			fbo_bind_for_read(src->fbo);
 			glDisable(GL_SCISSOR_TEST);
 
-#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 			if (useNV) {
+#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 				glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			} else 
 #endif // defined(USING_GLES2) && defined(ANDROID)
+			} else {
 				glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			}
 			// If we set dst->depthUpdated here, our optimization above would be pointless.
 
 			glstate.scissorTest.restore();
@@ -1278,7 +1275,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	bool useNV = false;
 
 #ifndef USING_GLES2
-	if (gstate_c.Supports(GPU_SUPPORTS_FBO_ARB)) {
+	if (gstate_c.Supports(GPU_SUPPORTS_FBO)) {
 		useNV = false;
 		useBlit = true;
 	}
@@ -1555,15 +1552,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		}
 
 		GLenum fbStatus;
-#ifndef USING_GLES2
-		if (!gl_extensions.ARB_framebuffer_object) {
-			fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
-		} else {
-			fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-		}
-#else
-		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-#endif
+		fbStatus = (GLenum)fbo_check_framebuffer_status(vfb->fbo);
 
 		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");

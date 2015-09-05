@@ -169,17 +169,13 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	bool useBlit = false;
 	bool useNV = false;
 
-#ifndef USING_GLES2
-	if (gl_extensions.ARB_framebuffer_object) {
+	if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT)) {
 		useNV = false;
 		useBlit = true;
-	}
-#else
-	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-		useNV = !gl_extensions.GLES3;
+	} else if (gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+		useNV = true;
 		useBlit = true;
 	}
-#endif
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
