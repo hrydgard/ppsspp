@@ -719,20 +719,23 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				GETexLevelMode mode = gstate.getTexLevelMode();
+				switch (mode) {
+				case GE_TEXLEVEL_MODE_AUTO:
+					// TODO
+					break;
+				case GE_TEXLEVEL_MODE_CONST:
+					// Sigh, LOD_BIAS is not even in ES 3.0..
 #ifndef USING_GLES2
-			GETexLevelMode mode = gstate.getTexLevelMode();
-			switch (mode) {
-			case GE_TEXLEVEL_MODE_AUTO:
-				// TODO
-				break;
-			case GE_TEXLEVEL_MODE_CONST:
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
-				break;
-			case GE_TEXLEVEL_MODE_SLOPE:
-				// TODO
-				break;
-			}
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
+					break;
+				case GE_TEXLEVEL_MODE_SLOPE:
+					// TODO
+					break;
+				}
+			}
 			entry.lodBias = lodBias;
 		}
 	}
@@ -1419,8 +1422,7 @@ void TextureCache::SetTexture(bool force) {
 			break;
 		}
 
-#ifndef USING_GLES2
-		if (i > 0) {
+		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			int tw = gstate.getTextureWidth(i);
 			int th = gstate.getTextureHeight(i);
 			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
@@ -1428,7 +1430,6 @@ void TextureCache::SetTexture(bool force) {
 			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
 				badMipSizes = true;
 		}
-#endif
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
@@ -1506,34 +1507,28 @@ void TextureCache::SetTexture(bool force) {
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
-#ifndef USING_GLES2
-		if (badMipSizes) {
-			// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-			glGenerateMipmap(GL_TEXTURE_2D);
-		} else {
-			for (int i = 1; i <= maxLevel; i++) {
-				LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
+		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+			if (badMipSizes) {
+				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
+				glGenerateMipmap(GL_TEXTURE_2D);
+			} else {
+				for (int i = 1; i <= maxLevel; i++) {
+					LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
+				}
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 			}
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-		}
-#else
-		// Avoid PowerVR driver bug
-		if (w > 1 && h > 1 && !(gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && h > w)) {  // Really! only seems to fail if height > width
-			// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
-			entry->maxLevel = 0;
+			// Avoid PowerVR driver bug
+			if (w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
+				glGenerateMipmap(GL_TEXTURE_2D);
+			} else {
+				entry->maxLevel = 0;
+			}
 		}
-#endif
-	} else {
-#ifndef USING_GLES2
+	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-#else
-		if (gl_extensions.GLES3) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		}
-#endif
 	}
 
 	int aniso = 1 << g_Config.iAnisotropyLevel;

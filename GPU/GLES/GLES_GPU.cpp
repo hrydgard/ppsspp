@@ -543,6 +543,10 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
+		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	}
+
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
 	features |= GPU_IS_MOBILE;

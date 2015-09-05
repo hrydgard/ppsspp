@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #if !defined(USING_GLES2)
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
+// We do not yet enable OpenGL 3 on Apple, so we need
+// special treatment in the shader generator. However, the GL version check
+// should be enough? TODO
 #if defined(__APPLE__)
 #define FORCE_OPENGL_2_0
 #endif
@@ -373,8 +374,7 @@ enum LogicOpReplaceType {
 };
 
 static inline LogicOpReplaceType ReplaceLogicOpType() {
-#if defined(USING_GLES2)
-	if (gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_COPY_INVERTED:
 		case GE_LOGIC_AND_INVERTED:
@@ -391,7 +391,6 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 			return LOGICOPTYPE_NORMAL;
 		}
 	}
-#endif
 	return LOGICOPTYPE_NORMAL;
 }
 
@@ -426,14 +425,14 @@ void ComputeFragmentShaderID(ShaderID *id) {
 			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
 			id0 |= (gstate_c.flipTexture & 1) << 6;
 
-if (gstate_c.needShaderTexClamp) {
-	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	// 3 bits total.
-	id0 |= 1 << 7;
-	id0 |= gstate.isTexCoordClampedS() << 8;
-	id0 |= gstate.isTexCoordClampedT() << 9;
-	id0 |= (textureAtOffset & 1) << 10;
-}
+			if (gstate_c.needShaderTexClamp) {
+				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+				// 3 bits total.
+				id0 |= 1 << 7;
+				id0 |= gstate.isTexCoordClampedS() << 8;
+				id0 |= gstate.isTexCoordClampedT() << 9;
+				id0 |= (textureAtOffset & 1) << 10;
+			}
 		}
 
 		id0 |= (lmode & 1) << 11;
