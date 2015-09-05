@@ -256,7 +256,6 @@ void CheckGLExtensions() {
 	gl_extensions.OES_texture_npot = strstr(extString, "GL_ARB_texture_non_power_of_two") != 0
 		&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
 
-	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
 	gl_extensions.EXT_blend_func_extended = strstr(extString, "GL_EXT_blend_func_extended") != 0;
 	gl_extensions.ARB_conservative_depth = strstr(extString, "GL_ARB_conservative_depth") != 0;
@@ -264,11 +263,6 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_bgra = strstr(extString, "GL_EXT_bgra") != 0;
 	gl_extensions.EXT_gpu_shader4 = strstr(extString, "GL_EXT_gpu_shader4") != 0;
 	gl_extensions.NV_framebuffer_blit = strstr(extString, "GL_NV_framebuffer_blit") != 0;
-	if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
-		// Force this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
-		// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
-		gl_extensions.ARB_blend_func_extended = false;
-	}
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;
@@ -291,10 +285,6 @@ void CheckGLExtensions() {
 		void *invalidAddress2 = (void *)eglGetProcAddress("AnotherInvalidGlCall2");
 		DLOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
 #endif
-
-		if (gl_extensions.NV_draw_texture) {
-			glDrawTextureNV = (PFNGLDRAWTEXTURENVPROC)eglGetProcAddress("glDrawTextureNV");
-		}
 
 		if (gl_extensions.NV_copy_image) {
 			glCopyImageSubDataNV = (PFNGLCOPYIMAGESUBDATANVPROC)eglGetProcAddress("glCopyImageSubDataNV");
@@ -356,6 +346,7 @@ void CheckGLExtensions() {
 	}
 #endif
 
+	// This is probably a waste of time, implementations lie.
 	if (gl_extensions.IsGLES || strstr(extString, "GL_ARB_ES2_compatibility")) {
 		const GLint precisions[6] = {
 			GL_LOW_FLOAT, GL_MEDIUM_FLOAT, GL_HIGH_FLOAT,
@@ -372,19 +363,13 @@ void CheckGLExtensions() {
 	}
 
 	if (gl_extensions.IsGLES) {
-		gl_extensions.FBO_ARB = true;
-		gl_extensions.FBO_EXT = false;
+		gl_extensions.ARB_framebuffer_object = true;  // TODO: This is a lie! ES2 just has a subset.
+		gl_extensions.EXT_framebuffer_object = false;
 	} else {
-		gl_extensions.FBO_ARB = false;
-		gl_extensions.FBO_EXT = false;
-		gl_extensions.PBO_ARB = true;
-		gl_extensions.PBO_NV = true;
-		if (strlen(extString) != 0) {
-			gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
-			gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
-			gl_extensions.PBO_ARB = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
-			gl_extensions.PBO_NV = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
-		}
+		gl_extensions.ARB_framebuffer_object = strstr(extString, "GL_ARB_framebuffer_object") != 0;
+		gl_extensions.EXT_framebuffer_object = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+		gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
+		gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
 	}
 
 	ProcessGPUFeatures();

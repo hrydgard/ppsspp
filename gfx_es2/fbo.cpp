@@ -133,7 +133,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	CheckGLExtensions();
 
 #ifndef USING_GLES2
-	if(!gl_extensions.FBO_ARB)
+	if(!gl_extensions.ARB_framebuffer_object)
 		return fbo_ext_create(width, height, num_color_textures, z_stencil, colorDepth);
 #endif
 
@@ -269,7 +269,7 @@ FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
 }
 
 static GLenum fbo_get_fb_target(bool read, GLuint **cached) {
-	bool supportsBlit = gl_extensions.FBO_ARB;
+	bool supportsBlit = gl_extensions.ARB_framebuffer_object;
 	if (gl_extensions.IsGLES) {
 		supportsBlit = supportsBlit && (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
 	}
@@ -294,7 +294,7 @@ static void fbo_bind_fb_target(bool read, GLuint name) {
 	GLenum target = fbo_get_fb_target(read, &cached);
 
 	if (*cached != name) {
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			glBindFramebuffer(target, name);
 		} else {
 #ifndef USING_GLES2
@@ -312,7 +312,7 @@ void fbo_unbind() {
 	}
 
 	CheckGLExtensions();
-	if (gl_extensions.FBO_ARB) {
+	if (gl_extensions.ARB_framebuffer_object) {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	} else {
 #ifndef USING_GLES2
@@ -364,7 +364,7 @@ void fbo_destroy(FBO *fbo) {
 		return;
 	}
 
-	if (gl_extensions.FBO_ARB) {
+	if (gl_extensions.ARB_framebuffer_object) {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);

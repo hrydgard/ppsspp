@@ -45,8 +45,8 @@ struct GLExtensions {
 	bool OES_vertex_array_object;
 
 	// ARB
-	bool FBO_ARB;
-	bool PBO_ARB;
+	bool ARB_framebuffer_object;
+	bool ARB_pixel_buffer_object;
 	bool ARB_blend_func_extended;  // dual source blending
 	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
 	bool ARB_shader_image_load_store;
@@ -60,15 +60,14 @@ struct GLExtensions {
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_gpu_shader4;
 	bool EXT_blend_minmax;
-	bool FBO_EXT;
+	bool EXT_framebuffer_object;
 	bool PBO_EXT;
 
 	// NV
 	bool NV_shader_framebuffer_fetch;
-	bool NV_draw_texture;
 	bool NV_copy_image;
 	bool NV_framebuffer_blit;
-	bool PBO_NV; // GL_NV_pixel_buffer_object
+	bool NV_pixel_buffer_object; // GL_NV_pixel_buffer_object
 
 	// ARM
 	bool ARM_shader_framebuffer_fetch;
