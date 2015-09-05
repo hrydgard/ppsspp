@@ -680,6 +680,7 @@ void GLES_GPU::UpdateCmdInfo() {
 
 void GLES_GPU::BeginFrameInternal() {
 	if (resized_) {
+		CheckGPUFeatures();
 		UpdateCmdInfo();
 		transformDraw_.Resized();
 	}

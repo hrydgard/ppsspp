@@ -207,8 +207,6 @@ public:
 
 	static const int DisplayListMaxCount = 64;
 
-	virtual void CheckGPUFeatures() = 0;
-
 	// Initialization
 	virtual void InitClear() = 0;
 	virtual void Reinitialize() = 0;
