@@ -362,15 +362,10 @@ void CheckGLExtensions() {
 		}
 	}
 
-	if (gl_extensions.IsGLES) {
-		gl_extensions.ARB_framebuffer_object = true;  // TODO: This is a lie! ES2 just has a subset.
-		gl_extensions.EXT_framebuffer_object = false;
-	} else {
-		gl_extensions.ARB_framebuffer_object = strstr(extString, "GL_ARB_framebuffer_object") != 0;
-		gl_extensions.EXT_framebuffer_object = strstr(extString, "GL_EXT_framebuffer_object") != 0;
-		gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
-		gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
-	}
+	gl_extensions.ARB_framebuffer_object = strstr(extString, "GL_ARB_framebuffer_object") != 0;
+	gl_extensions.EXT_framebuffer_object = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+	gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
+	gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
 
 	ProcessGPUFeatures();
 
