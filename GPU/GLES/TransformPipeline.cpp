@@ -777,11 +777,7 @@ rotateVBO:
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
 		if (useElements) {
-#if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#else
-			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#endif
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
@@ -830,12 +826,7 @@ rotateVBO:
 			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
 			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
 			if (drawIndexed) {
-#if 1  // USING_GLES2
 				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-#else
-				// This doesn't seem to provide much of a win.
-				glDrawRangeElements(glprim[prim], 0, maxIndex, numTrans, GL_UNSIGNED_SHORT, inds);
-#endif
 			} else {
 				glDrawArrays(glprim[prim], 0, numTrans);
 			}

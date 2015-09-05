@@ -48,22 +48,6 @@
 
 #include "UI/OnScreenDisplay.h"
 
-#if defined(USING_GLES2)
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-#ifndef GL_RGBA8
-#define GL_RGBA8 GL_RGBA
-#endif
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-#endif
-
 extern int g_iNumVideos;
 
 static const char tex_fs[] =
@@ -284,12 +268,9 @@ FramebufferManager::FramebufferManager() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
-	gameUsesSequentialCopies_(false)
-#ifndef USING_GLES2
-	,
+	gameUsesSequentialCopies_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
-#endif
 {
 }
 
@@ -312,9 +293,7 @@ FramebufferManager::~FramebufferManager() {
 		fbo_destroy(it->second.fbo);
 	}
 
-#ifndef USING_GLES2
 	delete [] pixelBufObj_;
-#endif
 	delete [] convBuf_;
 }
 
@@ -1274,17 +1253,13 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	bool useBlit = false;
 	bool useNV = false;
 
-#ifndef USING_GLES2
-	if (gstate_c.Supports(GPU_SUPPORTS_FBO)) {
+	if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT)) {
 		useNV = false;
 		useBlit = true;
-	}
-#else
-	if (gl_extensions.GLES3 || gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
-		useNV = !gl_extensions.GLES3;
+	} else if (gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+		useNV = true;
 		useBlit = true;
 	}
-#endif
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
@@ -1835,12 +1810,11 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-#ifndef USING_GLES2
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-#endif
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-
 	return true;
 }
 
@@ -1864,18 +1838,15 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 		return true;
 	}
 
-#ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-	glReadBuffer(GL_DEPTH_ATTACHMENT);
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_DEPTH_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
 	return true;
-#else
-	return false;
-#endif
 }
 
 bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {

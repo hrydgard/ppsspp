@@ -38,7 +38,6 @@ class TextureCache;
 class TransformDrawEngine;
 class ShaderManager;
 
-#ifndef USING_GLES2
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
 	GLuint handle;
@@ -51,8 +50,6 @@ struct AsyncPBO {
 	GEBufferFormat format;
 	bool reading;
 };
-
-#endif
 
 struct CardboardSettings {
 	bool enabled;
@@ -147,9 +144,7 @@ private:
 
 	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
 
-#ifndef USING_GLES2
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
-#endif
+	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
@@ -187,8 +182,7 @@ private:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
 
-#ifndef USING_GLES2
+	// Not used under ES currently.
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
-#endif
 };

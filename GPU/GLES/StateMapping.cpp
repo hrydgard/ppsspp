@@ -132,7 +132,7 @@ static const GLushort logicOps[] = {
 
 static GLenum toDualSource(GLenum blendfunc) {
 	switch (blendfunc) {
-#ifndef USING_GLES2
+#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
 	case GL_SRC_ALPHA:
 		return GL_SRC1_ALPHA;
 	case GL_ONE_MINUS_SRC_ALPHA:
@@ -420,7 +420,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		}
 	}
 
-	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE) {
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_DUALSOURCE && gstate_c.Supports(GPU_SUPPORTS_DUALSOURCE_BLEND)) {
 		glBlendFuncA = toDualSource(glBlendFuncA);
 		glBlendFuncB = toDualSource(glBlendFuncB);
 	}

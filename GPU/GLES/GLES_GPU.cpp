@@ -512,7 +512,6 @@ void GLES_GPU::CheckGPUFeatures() {
 #ifndef USING_GLES2
 		useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #endif
-		// We might get here if hackForce04154000Download_ is hit.
 		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
 		// This causes glitches in games that expect the exact values.
 		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
