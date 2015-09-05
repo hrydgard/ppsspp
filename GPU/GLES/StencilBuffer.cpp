@@ -170,16 +170,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	glstate.stencilTest.enable();
 	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
-	bool useBlit = false;
-	bool useNV = false;
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT)) {
-		useNV = false;
-		useBlit = true;
-	} else if (gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
-		useNV = true;
-		useBlit = true;
-	}
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.

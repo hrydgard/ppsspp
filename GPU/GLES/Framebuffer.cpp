@@ -1250,16 +1250,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	fbo_bind_as_render_target(dst->fbo);
 	glDisable(GL_SCISSOR_TEST);
 
-	bool useBlit = false;
-	bool useNV = false;
-
-	if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT)) {
-		useNV = false;
-		useBlit = true;
-	} else if (gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
-		useNV = true;
-		useBlit = true;
-	}
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
