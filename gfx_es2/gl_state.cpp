@@ -258,6 +258,7 @@ void CheckGLExtensions() {
 
 	gl_extensions.NV_draw_texture = strstr(extString, "GL_NV_draw_texture") != 0;
 	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
+	gl_extensions.EXT_blend_func_extended = strstr(extString, "GL_EXT_blend_func_extended") != 0;
 	gl_extensions.ARB_conservative_depth = strstr(extString, "GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (strstr(extString, "GL_ARB_shader_image_load_store") != 0) || (strstr(extString, "GL_EXT_shader_image_load_store") != 0);
 	gl_extensions.EXT_bgra = strstr(extString, "GL_EXT_bgra") != 0;
@@ -280,14 +281,7 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
-		gl_extensions.ANY_shader_framebuffer_fetch = gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch;
 		gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
-
-		// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
-		// Tales of Destiny 2 has been reported to display green.
-		if (gl_extensions.ANY_shader_framebuffer_fetch && strstr(renderer, "NVIDIA Tegra 3") != 0) {
-			gl_extensions.ANY_shader_framebuffer_fetch = false;
-		}
 
 #if defined(ANDROID) || defined(BLACKBERRY)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.

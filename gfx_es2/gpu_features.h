@@ -48,6 +48,7 @@ struct GLExtensions {
 	bool FBO_ARB;
 	bool PBO_ARB;
 	bool ARB_blend_func_extended;  // dual source blending
+	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
 	bool ARB_shader_image_load_store;
 	bool ARB_conservative_depth;
 
@@ -75,9 +76,6 @@ struct GLExtensions {
 	// EGL
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
-
-	// Convenience (in case we need to know which, but can treat them mostly the same.)
-	bool ANY_shader_framebuffer_fetch;
 
 	// Bugs
 	int bugs;
