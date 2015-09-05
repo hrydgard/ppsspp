@@ -365,11 +365,11 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new ItemHeader("Version Information"));
 	std::string apiVersion;
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-#ifdef USING_GLES2
-		apiVersion = StringFromFormat("v%d.%d.%d ES", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
-#else
-		apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
-#endif
+		if (gl_extensions.IsGLES) {
+			apiVersion = StringFromFormat("v%d.%d.%d ES", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+		} else {
+			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+		}
 	} else {
 		apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
 		if (apiVersion.size() > 30)
@@ -413,14 +413,13 @@ void SystemInfoScreen::CreateViews() {
 
 	tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
 
-#ifndef USING_GLES2
-	oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
-#else
-	if (gl_extensions.GLES3)
+	if (!gl_extensions.IsGLES) {
+		oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
+	} else if (gl_extensions.GLES3) {
 		oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
-	else
+	} else {
 		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
-#endif
+	}
 
 	exts.clear();
 	SplitString(g_all_gl_extensions, ' ', exts);
