@@ -66,6 +66,7 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
+// Hack!
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
@@ -1446,14 +1447,15 @@ void TextureCache::SetTexture(bool force) {
 			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
 		}
 
-#ifndef MOBILE_DEVICE
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
-		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
-			scaleFactor = 2;
+		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
+		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
+			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 5 : 4, scaleFactor);
+			if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
+				scaleFactor = 2;
+			}
+		} else {
+			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
 		}
-#else
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
-#endif
 	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
 	}
@@ -1698,7 +1700,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_8888:
 		if (!swizzled) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) || w == bufw) {
+			if ((g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
 				if (UseBGRA8888()) {
 					tmpTexBuf32.resize(std::max(bufw, w) * h);
 					finalBuf = tmpTexBuf32.data();
@@ -1791,7 +1793,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!(g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1803,6 +1805,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			pixelSize = 4;
 			break;
 		}
+
 		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
 		int inRowBytes = bufw * pixelSize;
 		int outRowBytes = w * pixelSize;
@@ -1868,7 +1871,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	gpuStats.numTexturesDecoded++;
 
 	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-	if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if ((g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 		useUnpack = true;
 	}

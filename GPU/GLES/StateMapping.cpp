@@ -567,7 +567,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
 	}
 
-	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
+	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], alphaEq);
 	} else {
 		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], alphaEq);

@@ -18,6 +18,8 @@ class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
 	GPUCommon();
 	virtual ~GPUCommon();
+
+	virtual void CheckGPUFeatures() override {}
 	virtual void Reinitialize();
 
 	virtual void InterruptStart(int listid);

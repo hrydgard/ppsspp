@@ -21,6 +21,7 @@
 
 #include "Common/ChunkFile.h"
 
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Host.h"
@@ -31,6 +32,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
@@ -470,13 +472,14 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 
-#ifdef USING_GLES2
-	if (gl_extensions.GLES3)
-		features |= GPU_SUPPORTS_GLSL_ES_300;
-#else
-	if (gl_extensions.VersionGEThan(3, 3, 0))
-		features |= GPU_SUPPORTS_GLSL_330;
-#endif
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.GLES3)
+			features |= GPU_SUPPORTS_GLSL_ES_300;
+	} else {
+		if (gl_extensions.VersionGEThan(3, 3, 0))
+			features |= GPU_SUPPORTS_GLSL_330;
+	}
+
 	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
 	// Tales of Destiny 2 has been reported to display green.
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
@@ -491,26 +494,44 @@ void GLES_GPU::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_FBO_ARB;
 	}
 
+	bool useCPU = false;
+	if (!gl_extensions.IsGLES) {
+		// Urrgh, we don't even define FB_READFBOMEMORY_CPU on mobile
 #ifndef USING_GLES2
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-	// We might get here if hackForce04154000Download_ is hit.
-	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-	// This causes glitches in games that expect the exact values.
-	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
-			useCPU = true;
-		}
-	}
-#else
-	useCPU = true;
+		useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #endif
-	if (useCPU) {
-		features |= GPU_PREFER_CPU_DOWNLOAD;
+		// We might get here if hackForce04154000Download_ is hit.
+		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+		// This causes glitches in games that expect the exact values.
+		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+		if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
+				useCPU = true;
+			}
+		}
+	} else {
+		useCPU = true;
 	}
+
+	if (useCPU)
+		features |= GPU_PREFER_CPU_DOWNLOAD;
 
 	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
 		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
+
+	if (gl_extensions.OES_texture_npot)
+		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+
+	if (gl_extensions.EXT_unpack_subimage || !gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
+
+	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
+		features |= GPU_SUPPORTS_BLEND_MINMAX;
+
+#ifdef MOBILE_DEVICE
+	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
+	features |= GPU_IS_MOBILE;
+#endif
 
 	gstate_c.featureFlags = features;
 }

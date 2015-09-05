@@ -180,6 +180,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		quit_ = false;
 	}
 	RecreateViews();
+	gpu->CheckGPUFeatures();
 }
 
 static void AfterStateLoad(bool success, void *ignored) {

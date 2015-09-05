@@ -253,7 +253,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
-		if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
+		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
 			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;

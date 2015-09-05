@@ -1296,7 +1296,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		useBlit = true;
 	}
 #else
-	if (gl_extensions.GLES3 || (gstate_c..Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+	if (gl_extensions.GLES3 || gstate_c.Supports(GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
 		useNV = !gl_extensions.GLES3;
 		useBlit = true;
 	}
