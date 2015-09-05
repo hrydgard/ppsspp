@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 
+#include "gfx_es2/gl_state.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -28,12 +29,12 @@
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
-#ifdef USING_GLES2
-	WRITE(p, "#version 300 es\n");
-	WRITE(p, "precision mediump float;\n");
-#else
-	WRITE(p, "#version 330\n");
-#endif
+	if (gl_extensions.IsGLES) {
+		WRITE(p, "#version 300 es\n");
+		WRITE(p, "precision mediump float;\n");
+	} else {
+		WRITE(p, "#version 330\n");
+	}
 	WRITE(p, "in vec2 v_texcoord0;\n");
 	WRITE(p, "out vec4 fragColor0;\n");
 	WRITE(p, "uniform sampler2D tex;\n");

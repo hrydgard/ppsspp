@@ -705,15 +705,15 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 	}
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
-#ifdef USING_GLES2
-	// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-	// to it. This broke stuff before, so now it only clears on the first use of an
-	// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-	// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-	if (vfb->last_frame_render != gpuStats.numFlips) {
-		ClearBuffer();
+	if (gl_extensions.IsGLES) {
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
 	}
-#endif
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
