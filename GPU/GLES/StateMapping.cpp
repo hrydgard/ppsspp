@@ -212,6 +212,7 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 	}
 }
 
+// Try to simulate some common logic ops.
 void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
@@ -222,59 +223,60 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 	GLenum srcBlend = GL_ONE;
 	GLenum dstBlend = GL_ZERO;
 	GLenum blendOp = GL_FUNC_ADD;
-#if defined(USING_GLES2)
-	if (gstate.isLogicOpEnabled()) {
-		switch (gstate.getLogicOp())
-		{
-		case GE_LOGIC_CLEAR:
-			srcBlend = GL_ZERO;
-			break;
-		case GE_LOGIC_AND:
-		case GE_LOGIC_AND_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_COPY:
-			// This is the same as off.
-			break;
-		case GE_LOGIC_COPY_INVERTED:
-			// Handled in the shader.
-			break;
-		case GE_LOGIC_AND_INVERTED:
-		case GE_LOGIC_NOR:
-		case GE_LOGIC_NAND:
-		case GE_LOGIC_EQUIV:
-			// Handled in the shader.
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_INVERTED:
-			srcBlend = GL_ONE;
-			dstBlend = GL_ONE;
-			blendOp = GL_FUNC_SUBTRACT;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_NOOP:
-			srcBlend = GL_ZERO;
-			dstBlend = GL_ONE;
-			break;
-		case GE_LOGIC_XOR:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_OR:
-		case GE_LOGIC_OR_INVERTED:
-			// Inverted in shader.
-			dstBlend = GL_ONE;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_OR_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
-			break;
-		case GE_LOGIC_SET:
-			dstBlend = GL_ONE;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
-			break;
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+		if (gstate.isLogicOpEnabled()) {
+			switch (gstate.getLogicOp())
+			{
+			case GE_LOGIC_CLEAR:
+				srcBlend = GL_ZERO;
+				break;
+			case GE_LOGIC_AND:
+			case GE_LOGIC_AND_REVERSE:
+				WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_COPY:
+				// This is the same as off.
+				break;
+			case GE_LOGIC_COPY_INVERTED:
+				// Handled in the shader.
+				break;
+			case GE_LOGIC_AND_INVERTED:
+			case GE_LOGIC_NOR:
+			case GE_LOGIC_NAND:
+			case GE_LOGIC_EQUIV:
+				// Handled in the shader.
+				WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_INVERTED:
+				srcBlend = GL_ONE;
+				dstBlend = GL_ONE;
+				blendOp = GL_FUNC_SUBTRACT;
+				WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_NOOP:
+				srcBlend = GL_ZERO;
+				dstBlend = GL_ONE;
+				break;
+			case GE_LOGIC_XOR:
+				WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_OR:
+			case GE_LOGIC_OR_INVERTED:
+				// Inverted in shader.
+				dstBlend = GL_ONE;
+				WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_OR_REVERSE:
+				WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+				break;
+			case GE_LOGIC_SET:
+				dstBlend = GL_ONE;
+				WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+				break;
+			}
 		}
 	}
-#endif
 
 	// We're not blending, but we may still want to blend for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
@@ -605,9 +607,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.dither.disable();
 
 	if (gstate.isModeClear()) {
-#if !defined(USING_GLES2)
-		// Logic Ops
-		glstate.colorLogicOp.disable();
+#ifndef USING_GLES2
+		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			// Logic Ops
+			glstate.colorLogicOp.disable();
+		}
 #endif
 		// Culling
 		glstate.cullFace.disable();
@@ -639,13 +643,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.disable();
 		}
 	} else {
-#if !defined(USING_GLES2)
-		// Logic Ops
-		if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-			glstate.colorLogicOp.enable();
-			glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
-		} else {
-			glstate.colorLogicOp.disable();
+#ifndef USING_GLES2
+		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			// TODO: Make this dynamic
+			// Logic Ops
+			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+				glstate.colorLogicOp.enable();
+				glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
+			} else {
+				glstate.colorLogicOp.disable();
+			}
 		}
 #endif
 		// Set cull

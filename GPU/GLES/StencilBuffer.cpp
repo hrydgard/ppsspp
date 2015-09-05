@@ -170,7 +170,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	bool useNV = false;
 
 #ifndef USING_GLES2
-	if (gl_extensions.FBO_ARB) {
+	if (gl_extensions.ARB_framebuffer_object) {
 		useNV = false;
 		useBlit = true;
 	}

@@ -520,20 +520,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	if (texture) {
-		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(ANDROID)
-		// Don't remember why I disabled this - no win?
-		if (false && gl_extensions.NV_draw_texture && !program) {
-			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
-			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
-			// so that's a little gnarly, will have to modify all callers.
-			glDrawTextureNV(texture, 0,
-				x, y, w, h, 0.0f,
-				u0, v1, u1, v0);
-			return;
-		}
-#endif
-
+		// Previously had NVDrawTexture fallback here but wasn't worth it.
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
 
@@ -832,7 +819,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 		src->renderHeight == dst->renderHeight) {
 
 #ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			bool useNV = false;
 #else
 		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
@@ -1263,7 +1250,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
-		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
+		if (gl_extensions.ARB_pixel_buffer_object && gl_extensions.OES_texture_npot) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
@@ -1569,7 +1556,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 		GLenum fbStatus;
 #ifndef USING_GLES2
-		if (!gl_extensions.FBO_ARB) {
+		if (!gl_extensions.ARB_framebuffer_object) {
 			fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
 		} else {
 			fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);

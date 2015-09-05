@@ -444,12 +444,15 @@ enum TextureChangeReason {
 
 #define FLAG_BIT(x) (1 << x)
 
+// Some of these are OpenGL-specific even though this file is neutral, unfortunately.
+// Might want to move this mechanism into the backend later.
 enum {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
 	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
 	GPU_SUPPORTS_UNPACK_SUBIMAGE = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
+	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
 	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(10),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_SUPPORTS_FBO_ARB = FLAG_BIT(25),

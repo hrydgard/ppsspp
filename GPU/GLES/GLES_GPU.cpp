@@ -469,8 +469,14 @@ GLES_GPU::~GLES_GPU() {
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GLES_GPU::CheckGPUFeatures() {
 	u32 features = 0;
-	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/)
-		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/) {
+		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
+			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
+			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
+		} else {
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		}
+	}
 
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.GLES3)
@@ -490,7 +496,8 @@ void GLES_GPU::CheckGPUFeatures() {
 		}
 	}
 	
-	if (gl_extensions.FBO_ARB || gl_extensions.IsGLES) {
+	// Note: there's a lie going on in the codebase about what ARB_FBO really is. It's not equal to the FBO in ES 2.0.
+	if (gl_extensions.ARB_framebuffer_object) {
 		features |= GPU_SUPPORTS_FBO_ARB;
 	}
 
@@ -527,6 +534,9 @@ void GLES_GPU::CheckGPUFeatures() {
 
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
+
+	if (!gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_LOGIC_OP;
 
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
