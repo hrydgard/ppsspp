@@ -498,7 +498,7 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
-			if (strstr(gl_extensions.model, BlacklistGPUNames[i]) != 0) {
+			if (strstr(gl_extensions.model, FramebufferFetchBlacklist[i]) != 0) {
 				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 				break;
 			}
