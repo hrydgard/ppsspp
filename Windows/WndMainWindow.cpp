@@ -20,6 +20,7 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/KeyMap.h"
+#include <Windowsx.h>
 
 #include <map>
 #include <string>
