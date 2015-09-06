@@ -29,6 +29,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 // Create an opaque FBO from a native GL FBO, optionally reusing an existing FBO structure.
 // Useful for overriding the backbuffer FBO that is generated outside of this wrapper.
 FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo = NULL);
+int fbo_check_framebuffer_status(FBO *fbo);
 
 // These functions should be self explanatory.
 void fbo_bind_as_render_target(FBO *fbo);

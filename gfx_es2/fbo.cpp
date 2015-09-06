@@ -6,25 +6,6 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gl_state.h"
 
-#if defined(USING_GLES2) && !defined(BLACKBERRY)
-
-#ifndef GL_READ_FRAMEBUFFER
-// Careful - our ES3 header defines these. Means that we must make sure
-// to only use them if ES3 support is detected to be available and otherwise
-// use GL_FRAMEBUFFER only.
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#endif
-
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-
 #ifdef IOS
 extern void bindDefaultFBO();
 #endif
@@ -129,12 +110,32 @@ FBO *fbo_ext_create(int width, int height, int num_color_textures, bool z_stenci
 }
 #endif
 
+int fbo_check_framebuffer_status(FBO *fbo) {
+	GLenum fbStatus;
+#ifndef USING_GLES2
+	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
+		fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
+	} else if (gl_extensions.ARB_framebuffer_object) {
+		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+	} else {
+		fbStatus = 0;
+	}
+#else
+	fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+#endif
+	return (int)fbStatus;
+}
+
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	CheckGLExtensions();
 
 #ifndef USING_GLES2
-	if(!gl_extensions.FBO_ARB)
+	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
 		return fbo_ext_create(width, height, num_color_textures, z_stencil, colorDepth);
+	} else if (!gl_extensions.ARB_framebuffer_object) {
+		return nullptr;
+	}
+	// If GLES2, we have basic FBO support and can just proceed.
 #endif
 
 	FBO *fbo = new FBO();
@@ -269,7 +270,7 @@ FBO *fbo_create_from_native_fbo(GLuint native_fbo, FBO *fbo)
 }
 
 static GLenum fbo_get_fb_target(bool read, GLuint **cached) {
-	bool supportsBlit = gl_extensions.FBO_ARB;
+	bool supportsBlit = gl_extensions.ARB_framebuffer_object;
 	if (gl_extensions.IsGLES) {
 		supportsBlit = supportsBlit && (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit);
 	}
@@ -294,7 +295,7 @@ static void fbo_bind_fb_target(bool read, GLuint name) {
 	GLenum target = fbo_get_fb_target(read, &cached);
 
 	if (*cached != name) {
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			glBindFramebuffer(target, name);
 		} else {
 #ifndef USING_GLES2
@@ -312,13 +313,16 @@ void fbo_unbind() {
 	}
 
 	CheckGLExtensions();
-	if (gl_extensions.FBO_ARB) {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	} else {
 #ifndef USING_GLES2
+	if (gl_extensions.ARB_framebuffer_object) {
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	} else if (gl_extensions.EXT_framebuffer_object) {
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-#endif
 	}
+#else
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+#endif
+
 #ifdef IOS
 	bindDefaultFBO();
 #endif
@@ -364,7 +368,7 @@ void fbo_destroy(FBO *fbo) {
 		return;
 	}
 
-	if (gl_extensions.FBO_ARB) {
+	if (gl_extensions.ARB_framebuffer_object) {
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
@@ -373,7 +377,7 @@ void fbo_destroy(FBO *fbo) {
 		glDeleteRenderbuffers(1, &fbo->z_stencil_buffer);
 		glDeleteRenderbuffers(1, &fbo->z_buffer);
 		glDeleteRenderbuffers(1, &fbo->stencil_buffer);
-	} else {
+	} else if (gl_extensions.EXT_framebuffer_object) {
 #ifndef USING_GLES2
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
 		glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);

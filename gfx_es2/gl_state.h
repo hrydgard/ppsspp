@@ -57,8 +57,25 @@ extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 #define glDeleteVertexArrays glDeleteVertexArraysOES
 #define glIsVertexArray glIsVertexArrayOES
 
+#if !defined(BLACKBERRY)
+#ifndef GL_READ_FRAMEBUFFER
+#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
+#endif
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+#endif
+#endif
+
+#ifndef GL_RGBA8
+#define GL_RGBA8 GL_RGBA
+#endif
+
 #endif /* EGL_NV_system_time */
 
+#ifndef GL_DEPTH24_STENCIL8_OES
+#define GL_DEPTH24_STENCIL8_OES 0x88F0
+#endif
 
 // OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
 // as GL state changes can be expensive on some hardware.

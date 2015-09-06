@@ -157,7 +157,7 @@ bool Texture::LoadPNG(const char *filename, bool genMips) {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 	if (genMips) {
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 #ifndef USING_GLES2
@@ -188,7 +188,7 @@ bool Texture::LoadJPEG(const char *filename, bool genMips) {
 	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 	if (genMips) {
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 #ifndef USING_GLES2
@@ -213,7 +213,7 @@ bool Texture::LoadPNG(const uint8_t *data, size_t size, bool genMips) {
 	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
 	if (genMips) {
-		if (gl_extensions.FBO_ARB) {
+		if (gl_extensions.ARB_framebuffer_object) {
 			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
 #ifndef USING_GLES2
@@ -243,7 +243,7 @@ bool Texture::LoadXOR() {
 	SetTextureParameters(ZIM_GEN_MIPS);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, buf);
-	if(gl_extensions.FBO_ARB){
+	if(gl_extensions.ARB_framebuffer_object){
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}else{
 #ifndef USING_GLES2
@@ -342,7 +342,7 @@ bool Texture::LoadZIM(const char *filename) {
 				colors, data_type, image_data[l]);
 		}
 		if (num_levels == 1 && (flags & ZIM_GEN_MIPS)) {
-			if(gl_extensions.FBO_ARB) {
+			if(gl_extensions.ARB_framebuffer_object) {
 				glGenerateMipmap(GL_TEXTURE_2D);
 			}else{
 #ifndef USING_GLES2

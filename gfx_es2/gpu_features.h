@@ -21,6 +21,7 @@ enum {
 	BUG_FBO_UNUSABLE = 1,
 	BUG_PVR_SHADER_PRECISION_BAD = 2,
 	BUG_PVR_SHADER_PRECISION_TERRIBLE = 4,
+	BUG_PVR_GENMIPMAP_HEIGHT_GREATER = 8,
 };
 
 // Extensions to look at using:
@@ -45,9 +46,10 @@ struct GLExtensions {
 	bool OES_vertex_array_object;
 
 	// ARB
-	bool FBO_ARB;
-	bool PBO_ARB;
+	bool ARB_framebuffer_object;
+	bool ARB_pixel_buffer_object;
 	bool ARB_blend_func_extended;  // dual source blending
+	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
 	bool ARB_shader_image_load_store;
 	bool ARB_conservative_depth;
 
@@ -59,15 +61,14 @@ struct GLExtensions {
 	bool EXT_shader_framebuffer_fetch;
 	bool EXT_gpu_shader4;
 	bool EXT_blend_minmax;
-	bool FBO_EXT;
+	bool EXT_framebuffer_object;
 	bool PBO_EXT;
 
 	// NV
 	bool NV_shader_framebuffer_fetch;
-	bool NV_draw_texture;
 	bool NV_copy_image;
 	bool NV_framebuffer_blit;
-	bool PBO_NV; // GL_NV_pixel_buffer_object
+	bool NV_pixel_buffer_object; // GL_NV_pixel_buffer_object
 
 	// ARM
 	bool ARM_shader_framebuffer_fetch;
@@ -75,9 +76,6 @@ struct GLExtensions {
 	// EGL
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
-
-	// Convenience (in case we need to know which, but can treat them mostly the same.)
-	bool ANY_shader_framebuffer_fetch;
 
 	// Bugs
 	int bugs;
