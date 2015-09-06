@@ -1,0 +1,45 @@
+#pragma once
+
+#include <string>
+#include <vector>
+
+#include <inttypes.h>
+
+// Whole-file reading/writing
+bool writeStringToFile(bool text_file, const std::string &str, const char *filename);
+bool readFileToString(bool text_file, const char *filename, std::string &str);
+
+bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename);
+bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int size, const char *filename);
+
+// Beginnings of a directory utility system. TODO: Improve.
+
+struct FileInfo {
+	std::string name;
+	std::string fullName;
+	bool exists;
+	bool isDirectory;
+	bool isWritable;
+	uint64_t size;
+
+	bool operator <(const FileInfo &other) const;
+};
+
+std::string getFileExtension(const std::string &fn);
+std::string getDir(const std::string &path);
+std::string getFilename(std::string path);
+bool getFileInfo(const char *path, FileInfo *fileInfo);
+
+enum {
+	GETFILES_GETHIDDEN = 1
+};
+size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = 0, int flags = 0);
+void deleteFile(const char *file);
+void deleteDir(const char *file);
+bool exists(const std::string &filename);
+void mkDir(const std::string &path);
+std::string getDir(const std::string &path);
+
+#ifdef _WIN32
+std::vector<std::string> getWindowsDrives();
+#endif
