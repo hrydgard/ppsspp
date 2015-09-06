@@ -29,6 +29,7 @@ SDLJoystick *joystick = NULL;
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
