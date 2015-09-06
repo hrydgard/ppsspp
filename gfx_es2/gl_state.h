@@ -232,9 +232,6 @@ public:
 
 	STATEBIND(glBindBuffer, GL_ARRAY_BUFFER) arrayBuffer;
 	STATEBIND(glBindBuffer, GL_ELEMENT_ARRAY_BUFFER) elementArrayBuffer;
-
-	// Only works on Win32, all other platforms are "force-vsync"
-	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)
 };
 
 #undef STATE1
