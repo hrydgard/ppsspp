@@ -353,7 +353,7 @@ static const int legacyKeyMap[] {
 	NKCODE_L,          //JOY RIGHT
 };
 
-void SimulateGamepad(const uint8 *keys, InputState *input) {
+void SimulateGamepad(const uint8_t *keys, InputState *input) {
 	// Legacy key mapping.
 	input->pad_buttons = 0;
 	input->pad_lstick_x = 0;
@@ -830,7 +830,7 @@ int main(int argc, char *argv[]) {
 		}
 		if (g_QuitRequested)
 			break;
-		const uint8 *keys = SDL_GetKeyboardState(NULL);
+		const uint8_t *keys = SDL_GetKeyboardState(NULL);
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
