@@ -89,7 +89,7 @@ inline bool endsWithNoCase(const std::string &str, const std::string &what) {
 	return strncasecmp(str.c_str() + offset, what.c_str(), what.size()) == 0;
 }
 
-void DataToHexString(const uint8 *data, size_t size, std::string *output);
+void DataToHexString(const uint8_t *data, size_t size, std::string *output);
 inline void StringToHexString(const std::string &data, std::string *output) {
   DataToHexString((uint8_t *)(&data[0]), data.size(), output);
 }

@@ -58,7 +58,7 @@ void SetVertexFormat(const GLSLProgram *program, uint32_t vertexFormat) {
 }
 
 // TODO: Save state so that we can get rid of this.
-void UnsetVertexFormat(const GLSLProgram *program, uint32 vertexFormat) {
+void UnsetVertexFormat(const GLSLProgram *program, uint32_t vertexFormat) {
 	glDisableVertexAttribArray(program->a_position);
 	if (vertexFormat & NRM_MASK)
 		glDisableVertexAttribArray(program->a_normal);

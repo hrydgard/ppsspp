@@ -104,7 +104,7 @@ unsigned int parseHex(const char *_szValue)
 	return Value;
 }
 
-void DataToHexString(const uint8 *data, size_t size, std::string *output) {
+void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 	Buffer buffer;
 	for (size_t i = 0; i < size; i++) {
 		buffer.Printf("%02x ", data[i]);

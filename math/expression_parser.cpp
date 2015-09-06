@@ -58,7 +58,7 @@ const ExpressionOpcode ExpressionOpcodes[] = {
 	{ "",	0,	0,	0,	false }		// EXOP_NONE
 };
 
-bool parseNumber(char* str, int defaultrad, int len, uint32& result)
+bool parseNumber(char* str, int defaultrad, int len, uint32_t& result)
 {
 	int val = 0;
 	int r = 0;
@@ -148,7 +148,7 @@ bool parseNumber(char* str, int defaultrad, int len, uint32& result)
 }
 
 // Parse only a float, and return as float bits.
-static bool parseFloat(const char *str, int len, uint32 &result)
+static bool parseFloat(const char *str, int len, uint32_t &result)
 {
 	bool foundDecimal = false;
 	for (int i = 0; i < len; ++i)
@@ -237,7 +237,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 			}
 			subStr[subPos] = 0;
 
-			uint32 value;
+			uint32_t value;
 			bool isFloat = false;
 			if (parseFloat(subStr,subPos,value) == true)
 				isFloat = true;
@@ -257,7 +257,7 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 			}
 			subStr[subPos] = 0;
 
-			uint32 value;
+			uint32_t value;
 			if (funcs->parseReference(subStr,value) == true)
 			{
 				dest.push_back(ExpressionPair(EXCOMM_REF,value));
@@ -391,11 +391,11 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 	return true;
 }
 
-bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs, uint32& dest)
+bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs, uint32_t& dest)
 {
 	size_t num = 0;
-	uint32 opcode;
-	std::vector<uint32> valueStack;
+	uint32_t opcode;
+	std::vector<uint32_t> valueStack;
 	unsigned int arg[5];
 	float fArg[5];
 	bool useFloat = false;
@@ -440,7 +440,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 					return false;
 				}
 
-				uint32 val;
+				uint32_t val;
 				if(funcs->getMemoryValue(arg[1],arg[0],val,expressionError) == false)
 				{
 					return false;
@@ -449,7 +449,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 				break;
 			case EXOP_MEM:
 				{
-					uint32 val;
+					uint32_t val;
 					if (funcs->getMemoryValue(arg[0],4,val,expressionError) == false)
 					{
 						return false;
@@ -579,7 +579,7 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 	return true;
 }
 
-bool parseExpression(char* exp, IExpressionFunctions* funcs, uint32& dest)
+bool parseExpression(char* exp, IExpressionFunctions* funcs, uint32_t& dest)
 {
 	PostfixExpression postfix;
 	if (initPostfixExpression(exp,funcs,postfix) == false) return false;

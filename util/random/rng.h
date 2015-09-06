@@ -15,7 +15,7 @@ public:
 		m_z = ~seed;
 		if (!m_z) m_z = 31337;
 	}
-	uint32 R32() {
+	uint32_t R32() {
 		m_z = 36969 * (m_z & 65535) + (m_z >> 16);
 		m_w = 18000 * (m_w & 65535) + (m_w >> 16);
 		return (m_z << 16) + m_w;
@@ -25,8 +25,8 @@ public:
 	}
 
 	// public for easy save/load. Yes a bit ugly but better than moving DoState into native.
-	uint32 m_w;
-	uint32 m_z;
+	uint32_t m_w;
+	uint32_t m_z;
 };
 
 

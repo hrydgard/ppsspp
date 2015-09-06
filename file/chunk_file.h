@@ -15,7 +15,7 @@
 #include "base/basictypes.h"
 #include "file/easy_file.h"
 
-inline uint32 flipID(uint32 id) {
+inline uint32_t flipID(uint32_t id) {
 	return ((id>>24)&0xFF) | ((id>>8)&0xFF00) | ((id<<8)&0xFF0000) | ((id<<24)&0xFF000000);
 }
 
@@ -26,7 +26,7 @@ public:
 
 	~ChunkFile();
 
-	bool descend(uint32 id);
+	bool descend(uint32_t id);
 	void ascend();
 
 	int	readInt();

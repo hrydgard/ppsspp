@@ -54,7 +54,7 @@ static unsigned int log2i(unsigned int val) {
 	return ret;
 }
 
-int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int *flags, uint8 **image) {
+int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int *flags, uint8_t **image) {
 	if (zim[0] != 'Z' || zim[1] != 'I' || zim[2] != 'M' || zim[3] != 'G') {
 		ELOG("Not a ZIM file");
 		return 0;
@@ -104,7 +104,7 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 		return 0;
 	}
 
-	image[0] = (uint8 *)malloc(total_data_size);
+	image[0] = (uint8_t *)malloc(total_data_size);
 	for (int i = 1; i < num_levels; i++) {
 		image[i] = image[i-1] + image_data_size[i-1];
 	}

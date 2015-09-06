@@ -17,7 +17,7 @@ uint32_t Decode32(const char **ptr) {
   uint32_t value = 0;
   const char *p = *ptr;
   while (true) {
-    uint8 b = *p++;
+    uint8_t b = *p++;
     if (b & 0x80) {
       *ptr = p;
       return value | (b & 0x7F);

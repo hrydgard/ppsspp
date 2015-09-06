@@ -93,7 +93,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	count_ = 0;
 }
 
-void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
+void DrawBuffer::V(float x, float y, float z, uint32_t color, float u, float v) {
 	if (count_ >= MAX_VERTS) {
 		FLOG("Overflowed the DrawBuffer");
 		return;
@@ -108,24 +108,24 @@ void DrawBuffer::V(float x, float y, float z, uint32 color, float u, float v) {
 	vert->v = v;
 }
 
-void DrawBuffer::Rect(float x, float y, float w, float h, uint32 color, int align) {
+void DrawBuffer::Rect(float x, float y, float w, float h, uint32_t color, int align) {
 	DoAlign(align, &x, &y, &w, &h);
 	RectVGradient(x, y, w, h, color, color);
 }
 
-void DrawBuffer::hLine(float x1, float y, float x2, uint32 color) {
+void DrawBuffer::hLine(float x1, float y, float x2, uint32_t color) {
 	Rect(x1, y, x2 - x1, pixel_in_dps, color);
 }
 
-void DrawBuffer::vLine(float x, float y1, float y2, uint32 color) {
+void DrawBuffer::vLine(float x, float y1, float y2, uint32_t color) {
 	Rect(x, y1, pixel_in_dps, y2 - y1, color);
 }
 
-void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32 color) {
+void DrawBuffer::vLineAlpha50(float x, float y1, float y2, uint32_t color) {
 	Rect(x, y1, pixel_in_dps, y2 - y1, (color | 0xFF000000) & 0x7F000000);
 }
 
-void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom) {
+void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom) {
 	V(x,		 y,     0, colorTop,    0, 0);
 	V(x + w, y,		 0, colorTop,    1, 0);
 	V(x + w, y + h, 0, colorBottom, 1, 1);
@@ -134,7 +134,7 @@ void DrawBuffer::RectVGradient(float x, float y, float w, float h, uint32 colorT
 	V(x,		 y + h, 0, colorBottom, 0, 1);
 }
 
-void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32 color, int align) {
+void DrawBuffer::RectOutline(float x, float y, float w, float h, uint32_t color, int align) {
 	hLine(x, y, x + w + pixel_in_dps, color);
 	hLine(x, y + h, x + w + pixel_in_dps, color);
 
@@ -152,7 +152,7 @@ void DrawBuffer::MultiVGradient(float x, float y, float w, float h, GradientStop
 
 void DrawBuffer::Rect(float x, float y, float w, float h,
 	float u, float v, float uw, float uh,
-	uint32 color) {
+	uint32_t color) {
 		V(x,	   y,     0, color, u, v);
 		V(x + w, y,	   0, color, u + uw, v);
 		V(x + w, y + h, 0, color, u + uw, v + uh);
@@ -161,7 +161,7 @@ void DrawBuffer::Rect(float x, float y, float w, float h,
 		V(x,	   y + h, 0, color, u, v + uh);
 }
 
-void DrawBuffer::Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32 color) {
+void DrawBuffer::Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color) {
 	const AtlasImage &image = atlas->images[atlas_image];
 
 	// No caps yet!
@@ -260,7 +260,7 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 }
 
 // TODO: add arc support
-void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32 color, float u_mul) {
+void DrawBuffer::Circle(float xc, float yc, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul) {
 	float angleDelta = PI * 2 / segments;
 	float uDelta = 1.0f / segments;
 	float t2 = thickness / 2.0f;

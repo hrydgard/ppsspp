@@ -23,15 +23,15 @@ static const unsigned char BitsSetTable256[] = {
   4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8
 };
 
-int CountBits8(uint8 v) {
+int CountBits8(uint8_t v) {
   return BitsSetTable256[v];
 }
 
-int CountBits16(uint16 v) {
+int CountBits16(uint16_t v) {
   return BitsSetTable256[v & 0xFF] + BitsSetTable256[v >> 8];
 }
 
-int CountBits32(uint32 v) {
+int CountBits32(uint32_t v) {
   v = v - ((v >> 1) & 0x55555555);                    // reuse input as temporary
   v = (v & 0x33333333) + ((v >> 2) & 0x33333333);     // temp
   return ((v + (v >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count

@@ -71,33 +71,33 @@ public:
 
 	void Flush(bool set_blend_state = true);
 
-	void Rect(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
-	void hLine(float x1, float y, float x2, uint32 color);
-	void vLine(float x, float y1, float y2, uint32 color);
-	void vLineAlpha50(float x, float y1, float y2, uint32 color);
+	void Rect(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
+	void hLine(float x1, float y, float x2, uint32_t color);
+	void vLine(float x, float y1, float y2, uint32_t color);
+	void vLineAlpha50(float x, float y1, float y2, uint32_t color);
 
-	void Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32 color);
+	void Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color);
 
-	void RectOutline(float x, float y, float w, float h, uint32 color, int align = ALIGN_TOPLEFT);
+	void RectOutline(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
 
-	void RectVGradient(float x, float y, float w, float h, uint32 colorTop, uint32 colorBottom);
-	void RectVDarkFaded(float x, float y, float w, float h, uint32 colorTop) {
+	void RectVGradient(float x, float y, float w, float h, uint32_t colorTop, uint32_t colorBottom);
+	void RectVDarkFaded(float x, float y, float w, float h, uint32_t colorTop) {
 		RectVGradient(x, y, w, h, colorTop, darkenColor(colorTop));
 	}
 
 	void MultiVGradient(float x, float y, float w, float h, GradientStop *stops, int numStops);
 
-	void RectCenter(float x, float y, float w, float h, uint32 color) {
+	void RectCenter(float x, float y, float w, float h, uint32_t color) {
 		Rect(x - w/2, y - h/2, w, h, color);
 	}
-	void Rect(float x, float y, float w, float h, float u, float v, float uw, float uh, uint32 color);
+	void Rect(float x, float y, float w, float h, float u, float v, float uw, float uh, uint32_t color);
 
-	void V(float x, float y, float z, uint32 color, float u, float v);
-	void V(float x, float y, uint32 color, float u, float v) {
+	void V(float x, float y, float z, uint32_t color, float u, float v);
+	void V(float x, float y, uint32_t color, float u, float v) {
 		V(x, y, 0.0f, color, u, v);
 	}
 
-	void Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32 color, float u_mul);
+	void Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul);
 
 	// New drawing APIs
 

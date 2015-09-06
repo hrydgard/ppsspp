@@ -47,7 +47,7 @@ short *wav_read(const char *filename,
 			data = (short *)malloc(sizeof(short) * numSamples * *num_channels);
 			*num_samples = numSamples;
 			if (wBlockAlign == 2 && *num_channels == 1) {
-				cf.readData((uint8*)data,numBytes);
+				cf.readData((uint8_t *)data,numBytes);
 			} else {
 				ELOG("Error - bad blockalign or channels");
 				free(data);

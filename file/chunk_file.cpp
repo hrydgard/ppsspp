@@ -82,7 +82,7 @@ void ChunkFile::writeInt(int i) {
 }
 
 //let's get into the business
-bool ChunkFile::descend(uint32 id) {
+bool ChunkFile::descend(uint32_t id) {
 	id=flipID(id);
 	if (read) {
 		bool found = false;
@@ -233,7 +233,7 @@ void ChunkFile::writeWString(const std::string &str) {
 	delete [] text;
 }
 
-static void toUnicode(const std::string &str, uint16 *t) {
+static void toUnicode(const std::string &str, uint16_t *t) {
 	for (size_t i = 0; i < str.size(); i++) {
 		*t++ = str[i];
 	}
