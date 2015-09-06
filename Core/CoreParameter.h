@@ -29,6 +29,7 @@ enum GPUCore {
 	GPU_GLES,
 	GPU_SOFTWARE,
 	GPU_DIRECTX9,
+	GPU_GLES_HIGH,
 };
 
 class FileLoader;

@@ -629,7 +629,7 @@ void GLES_GPU::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
-inline void GLES_GPU::UpdateVsyncInterval(bool force) {
+void GLES_GPU::UpdateVsyncInterval(bool force) {
 #ifdef _WIN32
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if (PSP_CoreParameter().unthrottle) {
@@ -1996,7 +1996,7 @@ void GLES_GPU::Execute_Generic(u32 op, u32 diff) {
 		break;
 
 
-	case GE_CMD_UNKNOWN_03: 
+	case GE_CMD_UNKNOWN_03:
 	case GE_CMD_UNKNOWN_0D:
 	case GE_CMD_UNKNOWN_11:
 	case GE_CMD_UNKNOWN_29:
@@ -2025,7 +2025,7 @@ void GLES_GPU::Execute_Generic(u32 op, u32 diff) {
 		// This is hit in quite a few games, supposedly it is a no-op.
 		// Might be used for debugging or something?
 		break;
-		
+
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
@@ -2095,7 +2095,7 @@ void GLES_GPU::DoBlockTransfer(u32 skipDrawReason) {
 		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
 		return;
 	}
-	
+
 	// Check that the last address of both source and dest are valid addresses
 
 	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
@@ -2385,3 +2385,4 @@ bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	}
 	return false;
 }
+

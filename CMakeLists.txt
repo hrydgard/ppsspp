@@ -273,6 +273,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 if(ANDROID)
+	message("Android Build")
 	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/android/libs/${ANDROID_ABI}")
 endif()
 
@@ -1450,6 +1451,27 @@ add_dependencies(${CoreLibName} GitVersion)
 if(ARMV7)
 	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
 endif()
+
+set(GPU_HIGH_GLES
+	GPU/High/GLES/HighGLES.cpp
+	GPU/High/GLES/HighGLES.h
+	GPU/High/GLES/ShaderManagerHighGLES.h
+	GPU/High/GLES/ShaderManagerHighGLES.cpp
+	GPU/High/GLES/TextureCacheHighGLES.h
+	GPU/High/GLES/TextureCacheHighGLES.cpp
+	GPU/High/GLES/VertShaderGenGLES.h
+	GPU/High/GLES/VertShaderGenGLES.cpp
+	GPU/High/GLES/FragShaderGenGLES.h
+	GPU/High/GLES/FragShaderGenGLES.cpp
+)
+
+set(GPU_HIGH
+	GPU/High/HighGpu.cpp
+	GPU/High/HighGpu.h
+	GPU/High/Command.cpp
+	GPU/High/Command.h
+)
+
 add_library(GPU OBJECT
 	GPU/Common/DepalettizeShaderCommon.cpp
 	GPU/Common/DepalettizeShaderCommon.h
@@ -1476,6 +1498,8 @@ add_library(GPU OBJECT
 	GPU/Common/TextureScalerCommon.cpp
 	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}
+	${GPU_HIGH}
+	${GPU_HIGH_GLES}
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
 	GPU/Common/SplineCommon.h

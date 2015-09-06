@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,12 +26,16 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "GPU/GLES/TextureScaler.h"
+#include "GPU/High/Command.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
 struct VirtualFramebuffer;
 class FramebufferManager;
 class DepalShaderCache;
-class ShaderManager;
+
+namespace HighGpu {
+
+class ShaderManagerGLES;
 
 inline bool UseBGRA8888() {
 	// TODO: Other platforms?  May depend on vendor which is faster?
@@ -41,12 +45,98 @@ inline bool UseBGRA8888() {
 	return false;
 }
 
-class TextureCache : public TextureCacheCommon {
-public:
-	TextureCache();
-	~TextureCache();
+inline int GetDimWidth(int dim) {
+	return 1 << (dim & 0xF);
+}
+inline int GetDimHeight(int dim) {
+	return 1 << ((dim >> 8) & 0xF);
+}
 
-	void SetTexture(bool force = false);
+// Wow this is starting to grow big. Soon need to start looking at resizing it.
+// Must stay a POD.
+struct TexCacheEntry {
+	// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
+	const static int FRAMES_REGAIN_TRUST = 1000;
+
+	enum Status {
+		STATUS_HASHING = 0x00,
+		STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
+		STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
+		STATUS_MASK = 0x03,
+
+		STATUS_ALPHA_UNKNOWN = 0x04,
+		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
+		STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
+		STATUS_ALPHA_MASK = 0x0c,
+
+		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
+		STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
+		STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
+	};
+
+	// Status, but int so we can zero initialize.
+	int status;
+	u32 addr;
+	u32 hash;
+	VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
+	u32 sizeInRAM;
+	int lastFrame;
+	int numFrames;
+	int numInvalidated;
+	u32 framesUntilNextFullHash;
+	u8 format;
+	u16 dim;
+	u16 bufw;
+	u32 texture;  //GLuint
+	int invalidHint;
+	u32 fullhash;
+	u32 cluthash;
+	int maxLevel;
+	float lodBias;
+
+	// Cache the current filter settings so we can avoid setting it again.
+	// (Old school OpenGL madness where filter settings are attached to each texture).
+	// TODO: Add proper sampler support where available (GLES3+, GL3.0+)
+	u8 magFilt;
+	u8 minFilt;
+	bool sClamp;
+	bool tClamp;
+
+	Status GetHashStatus() {
+		return Status(status & STATUS_MASK);
+	}
+	void SetHashStatus(Status newStatus) {
+		status = (status & ~STATUS_MASK) | newStatus;
+	}
+	Status GetAlphaStatus() {
+		return Status(status & STATUS_ALPHA_MASK);
+	}
+	void SetAlphaStatus(Status newStatus) {
+		status = (status & ~STATUS_ALPHA_MASK) | newStatus;
+	}
+	void SetAlphaStatus(Status newStatus, int level) {
+		// For non-level zero, only set more restrictive.
+		if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
+			SetAlphaStatus(newStatus);
+		} else if (newStatus == STATUS_ALPHA_SIMPLE && GetAlphaStatus() == STATUS_ALPHA_FULL) {
+			SetAlphaStatus(STATUS_ALPHA_SIMPLE);
+		}
+	}
+	bool Matches(u16 dim2, u8 format2, int maxLevel2);
+	int GetWidth() const { return GetDimWidth(dim); }
+	int GetHeight() const { return GetDimHeight(dim); }
+};
+
+class TextureCacheGLES : public TextureCacheCommon {
+public:
+	TextureCacheGLES();
+	~TextureCacheGLES();
+
+	// Separates looking the texture up from applying it.
+	TexCacheEntry *GetTexture(const TextureState *state, const ClutState *clut);
+	void ApplyTexture(TexCacheEntry *tex, const SamplerState *samp);
+
 	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
@@ -66,7 +156,7 @@ public:
 	void SetDepalShaderCache(DepalShaderCache *dpCache) {
 		depalShaderCache_ = dpCache;
 	}
-	void SetShaderManager(ShaderManager *sm) {
+	void SetShaderManager(ShaderManagerGLES *sm) {
 		shaderManager_ = sm;
 	}
 
@@ -75,7 +165,7 @@ public:
 	}
 
 	void ForgetLastTexture() {
-		lastBoundTexture = -1;
+		// TODO: Get rid of all this stateful junk
 		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	}
 
@@ -84,81 +174,6 @@ public:
 	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, const GPUgstate &state);
 
-	// Wow this is starting to grow big. Soon need to start looking at resizing it.
-	// Must stay a POD.
-	struct TexCacheEntry {
-		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
-		const static int FRAMES_REGAIN_TRUST = 1000;
-
-		enum Status {
-			STATUS_HASHING = 0x00,
-			STATUS_RELIABLE = 0x01,        // Don't bother rehashing.
-			STATUS_UNRELIABLE = 0x02,      // Always recheck hash.
-			STATUS_MASK = 0x03,
-
-			STATUS_ALPHA_UNKNOWN = 0x04,
-			STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
-			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
-			STATUS_ALPHA_MASK = 0x0c,
-
-			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
-			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
-			STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
-			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
-		};
-
-		// Status, but int so we can zero initialize.
-		int status;
-		u32 addr;
-		u32 hash;
-		VirtualFramebuffer *framebuffer;  // if null, not sourced from an FBO.
-		u32 sizeInRAM;
-		int lastFrame;
-		int numFrames;
-		int numInvalidated;
-		u32 framesUntilNextFullHash;
-		u8 format;
-		u16 dim;
-		u16 bufw;
-		u32 texture;  //GLuint
-		int invalidHint;
-		u32 fullhash;
-		u32 cluthash;
-		int maxLevel;
-		float lodBias;
-
-		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
-		u8 magFilt;
-		u8 minFilt;
-		bool sClamp;
-		bool tClamp;
-
-		Status GetHashStatus() {
-			return Status(status & STATUS_MASK);
-		}
-		void SetHashStatus(Status newStatus) {
-			status = (status & ~STATUS_MASK) | newStatus;
-		}
-		Status GetAlphaStatus() {
-			return Status(status & STATUS_ALPHA_MASK);
-		}
-		void SetAlphaStatus(Status newStatus) {
-			status = (status & ~STATUS_ALPHA_MASK) | newStatus;
-		}
-		void SetAlphaStatus(Status newStatus, int level) {
-			// For non-level zero, only set more restrictive.
-			if (newStatus == STATUS_ALPHA_UNKNOWN || level == 0) {
-				SetAlphaStatus(newStatus);
-			} else if (newStatus == STATUS_ALPHA_SIMPLE && GetAlphaStatus() == STATUS_ALPHA_FULL) {
-				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
-			}
-		}
-		bool Matches(u16 dim2, u8 format2, int maxLevel2);
-	};
-
-	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
-
 private:
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
@@ -166,12 +181,13 @@ private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
-	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
+	void *ReadIndexedTex(const TextureState *texState, int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
+	void GetSamplingParams(const SamplerState *samp, int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
+	void SetFramebufferSamplingParams(const TexCacheEntry *entry, const SamplerState *samp, u16 bufferWidth, u16 bufferHeight);
+	void UpdateSamplingParams(TexCacheEntry *entry, const SamplerState *samp, bool force);
+	void LoadTextureLevel(TexCacheEntry &entry, const TextureState *texState, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
+	void *DecodeTextureLevel(const TextureState *texState, GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, GLenum dstFmt, int stride, int w, int h);
 	template <typename T>
 	const T *GetCurrentClut();
@@ -179,7 +195,7 @@ private:
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
-	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
+	void SetTextureFramebuffer(const FramebufState *fbState, const TextureState *texState, TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -220,7 +236,6 @@ private:
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
 
-	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
 
 	int decimationCounter_;
@@ -229,7 +244,9 @@ private:
 
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
-	ShaderManager *shaderManager_;
+	ShaderManagerGLES *shaderManager_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);
+
+}  // namespace HighGpu

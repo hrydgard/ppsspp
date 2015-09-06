@@ -786,7 +786,7 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
-	FrameBufferState fbstate;
+	FrameBufferState fbstate = {0};
 	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
 	hleEatCycles(290);
 	if (topaddr == 0) {

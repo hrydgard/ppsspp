@@ -163,7 +163,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		glsl_bind(stencilUploadProgram_);
 	}
 
-	shaderManager_->DirtyLastShader();
+	if (shaderManager_)
+		shaderManager_->DirtyLastShader();
 
 	DisableState();
 	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
@@ -191,7 +192,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	glViewport(0, 0, w, h);
 
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
-	textureCache_->ForgetLastTexture();
+	if (textureCache_)
+		textureCache_->ForgetLastTexture();
 
 	glClearStencil(0);
 	glClear(GL_STENCIL_BUFFER_BIT);

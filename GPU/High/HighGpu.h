@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// High Level GPU
+// Takes an ugly Ge command stream and produces a nice list of draw calls
+// that can then be translated and optimized into any desired API easily.
+
 #pragma once
 
 #include <list>
@@ -22,32 +26,55 @@
 
 #include "gfx_es2/fbo.h"
 
+#include "Common/CommonTypes.h"
 #include "GPU/GPUCommon.h"
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/TransformPipeline.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/DepalettizeShader.h"
-#include "GPU/GLES/FragmentTestCache.h"
+#include "GPU/High/Command.h"
 
-class ShaderManager;
-class LinkedShader;
+namespace HighGpu {
 
-class GLES_GPU : public GPUCommon {
+// This is the consumer of the high level data. This converts the high level drawing commands
+// back to OpenGL, DirectX, Vulkan or Metal calls, and makes those calls.
+// Later, HighGpuFrontend may become the one and only "Backend" with the current concept,
+// and SoftGpu and so on will inherit from this. Although SoftGPU not going through this mechanism
+// also makes some sense...
+//
+// A HighGpu backend has no knowledge of GPUState or gstate_c at all. Its only inputs are CommandPacket
+// and the RAM/VRAM of the PSP, and it outputs are graphics API calls and writes to RAM/VRAM of the PSP in
+// cases like copying back to memory.
+//
+// There is no separate DrawEngine, it's integrated into the HighGpuBackend. Or, well, there can be, but
+// not mandated.
+class HighGpuBackend {
 public:
-	GLES_GPU();
-	~GLES_GPU();
+	virtual ~HighGpuBackend() {}
+	virtual void Execute(CommandPacket *packet) = 0;
+	virtual void DeviceLost() = 0;
+	virtual bool ProcessEvent(GPUEvent ev) = 0;
+	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 
-	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures();
+	// TODO: Try to get rid of these
+	virtual void UpdateStats() = 0;
+	virtual void DoState(PointerWrap &p) = 0;
+	virtual void UpdateVsyncInterval(bool force) = 0;
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
+};
+
+// A HighGpu frontend does not touch the 3D API at all, it simply interprets display lists and bundles
+// the state up into convenient command packets, to be consumed by a HighGpuBackend. The frontend is
+// not 3D API-specific.
+class HighGpuFrontend : public GPUCommon {
+public:
+	explicit HighGpuFrontend(HighGpuBackend *backend);
+	~HighGpuFrontend();
 
 	void InitClear() override;
 	void Reinitialize() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
-	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput() override;
+
 	void BeginFrame() override;
 	void UpdateStats() override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
@@ -67,15 +94,12 @@ public:
 	void ClearShaderCache() override;
 	void CleanupBeforeUI() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCache_.DecodeTexture(dest, state);
+		return false;
 	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override;
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
@@ -87,10 +111,10 @@ public:
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
-	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
+	typedef void (HighGpuFrontend::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
-		u8 flags;
-		GLES_GPU::CmdFunc func;
+		HighGpuFrontend::CmdFunc func;
+		u32 dirtyState;
 	};
 
 	void Execute_Vaddr(u32 op, u32 diff);
@@ -99,45 +123,7 @@ public:
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
-	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_VertexTypeSkinning(u32 op, u32 diff);
-	void Execute_Region(u32 op, u32 diff);
-	void Execute_Scissor(u32 op, u32 diff);
-	void Execute_FramebufType(u32 op, u32 diff);
-	void Execute_ViewportType(u32 op, u32 diff);
-	void Execute_ViewportZType(u32 op, u32 diff);
-	void Execute_TexScaleU(u32 op, u32 diff);
-	void Execute_TexScaleV(u32 op, u32 diff);
-	void Execute_TexOffsetU(u32 op, u32 diff);
-	void Execute_TexOffsetV(u32 op, u32 diff);
-	void Execute_TexAddr0(u32 op, u32 diff);
-	void Execute_TexAddrN(u32 op, u32 diff);
-	void Execute_TexBufw0(u32 op, u32 diff);
-	void Execute_TexBufwN(u32 op, u32 diff);
-	void Execute_TexSize0(u32 op, u32 diff);
-	void Execute_TexSizeN(u32 op, u32 diff);
-	void Execute_TexFormat(u32 op, u32 diff);
-	void Execute_TexMapMode(u32 op, u32 diff);
-	void Execute_TexParamType(u32 op, u32 diff);
-	void Execute_TexEnvColor(u32 op, u32 diff);
-	void Execute_TexLevel(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
-	void Execute_ClutFormat(u32 op, u32 diff);
-	void Execute_Ambient(u32 op, u32 diff);
-	void Execute_MaterialDiffuse(u32 op, u32 diff);
-	void Execute_MaterialEmissive(u32 op, u32 diff);
-	void Execute_MaterialAmbient(u32 op, u32 diff);
-	void Execute_MaterialSpecular(u32 op, u32 diff);
-	void Execute_Light0Param(u32 op, u32 diff);
-	void Execute_Light1Param(u32 op, u32 diff);
-	void Execute_Light2Param(u32 op, u32 diff);
-	void Execute_Light3Param(u32 op, u32 diff);
-	void Execute_FogColor(u32 op, u32 diff);
-	void Execute_FogCoef(u32 op, u32 diff);
-	void Execute_ColorTestMask(u32 op, u32 diff);
-	void Execute_AlphaTest(u32 op, u32 diff);
-	void Execute_StencilTest(u32 op, u32 diff);
-	void Execute_ColorRef(u32 op, u32 diff);
 	void Execute_WorldMtxNum(u32 op, u32 diff);
 	void Execute_WorldMtxData(u32 op, u32 diff);
 	void Execute_ViewMtxNum(u32 op, u32 diff);
@@ -150,43 +136,43 @@ public:
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
-	void FinishDeferred() override;
+	void LoadClut();
 
 private:
-	void Flush() {
-		transformDraw_.Flush();
-	}
-	void DoBlockTransfer(u32 skipDrawReason);
+	// This happens a lot more seldomly than the old flush in the other backends.
+	// Only on a drawsync, end of major displaylist (though not currently) or on buffer full.
+	void FlushCommandPacket();
+
+	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
-	void CheckFlushOp(int cmd, u32 diff);
-	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
-	void ReinitializeInternal();
-	void UpdateVsyncInterval(bool force);
-	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
-
-	FramebufferManager framebufferManager_;
-	TextureCache textureCache_;
-	DepalShaderCache depalShaderCache_;
-	TransformDrawEngine transformDraw_;
-	FragmentTestCache fragmentTestCache_;
-	ShaderManager *shaderManager_;
 
 	bool resized_;
 	int lastVsync_;
 
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
+	u32 dirty_;
+
+	HighGpuBackend *backend_;
+	CommandPacket *cmdPacket_;
+	MemoryArena arena_;
+
+	// This is used to diff the first draw in a packet against.
+	// TODO: Is is better to eliminate it through adding extra logic?
+	Command dummyDraw_;
+
+	// The CLUT no longer lives in the texture cache. It doesn't belong there, more like in the gstate together
+	// with the matrices, as it's a similar kind of state. But it'll have to stay here until we remove all old
+	// style backends, then we can move it to gstate.
+	u8 *clutData_;
+	u32 clutTotalBytes_;
+	u32 clutMaxBytes_;
 };
+
+}  // namespace

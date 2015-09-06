@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,31 +17,23 @@
 
 #pragma once
 
-#include "Common/CommonTypes.h"
+#include "Globals.h"
+#include "GPU/High/Command.h"
 
-struct VirtualFramebuffer;
+// #define USE_BONE_ARRAY
+//
 
-enum FramebufferNotification {
-	NOTIFY_FB_CREATED,
-	NOTIFY_FB_UPDATED,
-	NOTIFY_FB_DESTROYED,
-};
+namespace HighGpu {
 
-enum TextureFiltering {
-	AUTO = 1,
-	NEAREST = 2,
-	LINEAR = 3,
-	LINEARFMV = 4,
-};
+struct ShaderID;
 
-class TextureCacheCommon {
-public:
-	virtual ~TextureCacheCommon();
+bool CanUseHardwareTransform(int prim, bool isModeThrough);
 
-	virtual bool SetOffsetTexture(u32 offset);
-	virtual void ForgetLastTexture() = 0;
-	virtual void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) = 0;
+void ComputeVertexShaderID(ShaderID *id_out, u32 enabled, u32 vertType,
+		const HighGpu::RasterState *raster, const HighGpu::TexScaleState *ts,
+		const HighGpu::LightGlobalState *lgs, const HighGpu::LightState **ls,
+		bool flipTexture, bool useHWTransform);
 
-	// OpenGL leaking...
-	virtual u32 AllocTextureName() { return 0; }
-};
+void GenerateVertexShader(ShaderID id, char *buffer);
+
+}  // namespace HighGpu

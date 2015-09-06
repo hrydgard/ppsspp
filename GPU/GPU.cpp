@@ -20,6 +20,8 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/High/HighGpu.h"
+#include "GPU/High/GLES/HighGLES.h"
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
@@ -44,7 +46,11 @@ bool GPU_Init() {
 		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
+		fprintf(stderr," GLES");
 		SetGPU(new GLES_GPU());
+		break;
+	case GPU_GLES_HIGH:
+		SetGPU(new HighGpu::HighGpuFrontend(new HighGpu::HighGpu_GLES()));
 		break;
 	case GPU_SOFTWARE:
 		SetGPU(new SoftGPU());

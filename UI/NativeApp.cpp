@@ -475,7 +475,7 @@ void NativeInit(int argc, const char *argv[],
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost_manager_init();
 	}
 }
@@ -483,10 +483,12 @@ void NativeInit(int argc, const char *argv[],
 void NativeInitGraphics() {
 #ifndef _WIN32
 	// Force backend to GL
-	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+	if (!g_Config.IsBackendOpenGL()) {
+		g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+	}
 #endif
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		thin3d = T3DCreateGLContext();
 		CheckGLExtensions();
 	} else {
@@ -685,11 +687,11 @@ void NativeRender() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glstate.Restore();
-	} else {
+	} else if (g_Config.IsBackendD3D9()) {
 #ifdef _WIN32
 		DX9::dxstate.depthWrite.set(true);
 		DX9::dxstate.colorMask.set(true, true, true, true);
@@ -704,7 +706,7 @@ void NativeRender() {
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (g_Config.IsBackendD3D9()) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
 		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
@@ -728,7 +730,7 @@ void NativeRender() {
 	}
 
 	thin3d->SetScissorEnabled(false);
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	} else {
@@ -740,11 +742,11 @@ void NativeRender() {
 
 	if (resized) {
 		resized = false;
-		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 #ifdef _WIN32
+		if (g_Config.IsBackendD3D9()) {
 			D3D9_Resize(0);
-#endif
 		}
+#endif
 	}
 }
 
@@ -778,7 +780,7 @@ void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost();
 		glstate.Restore();
 	}
@@ -898,7 +900,7 @@ bool NativeAxis(const AxisInput &axis) {
 	//then a value of 70-80 is the way to go.
 	float xSensitivity = g_Config.iTiltSensitivityX / 50.0;
 	float ySensitivity = g_Config.iTiltSensitivityY / 50.0;
-	
+
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 
@@ -907,11 +909,11 @@ bool NativeAxis(const AxisInput &axis) {
 		case TILT_ANALOG:
 			GenerateAnalogStickEvent(trueTilt);
 			break;
-		
+
 		case TILT_DPAD:
 			GenerateDPadEvent(trueTilt);
 			break;
-		
+
 		case TILT_ACTION_BUTTON:
 			GenerateActionButtonEvent(trueTilt);
 			break;
@@ -950,7 +952,7 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.IsBackendOpenGL()) {
 		gl_lost_manager_shutdown();
 	}
 

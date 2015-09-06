@@ -265,6 +265,7 @@ FramebufferManager::FramebufferManager() :
 	timeLoc_(-1),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
+	transformDraw_(nullptr),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
@@ -305,6 +306,8 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 
 	if (!drawPixelsTex_) {
 		drawPixelsTex_ = textureCache_->AllocTextureName();
+		if (!drawPixelsTex_)
+			return;
 		drawPixelsTexW_ = width;
 		drawPixelsTexH_ = height;
 
@@ -380,6 +383,8 @@ void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY,
 	if (useBufferedRendering_ && vfb->fbo) {
 		fbo_bind_as_render_target(vfb->fbo);
 	}
+	if (!shaderManager_)
+		return;
 	glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
@@ -453,7 +458,8 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 		((color & 0xFF000000) >> 24) / 255.0f,
 	};
 
-	shaderManager_->DirtyLastShader();
+	if (shaderManager_)
+		shaderManager_->DirtyLastShader();
 
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
@@ -528,7 +534,8 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
+	if (shaderManager_)
+		shaderManager_->DirtyLastShader();  // dirty lastShader_
 
 	glsl_bind(program);
 	if (program == postShaderProgram_ && timeLoc_ != -1) {
@@ -658,7 +665,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 void FramebufferManager::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
 		fbo_unbind();
-		// Let's ignore rendering to targets that have not (yet) been displayed.
+		// Let's ignore rendering to targets that have not (yet) been displayed
 		gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 	}
 
@@ -975,7 +982,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 				return;
 			}
 		} else {
-			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			DEBUG_LOG(SCEGE, "Found no FBO to display! displayFramebufPtr_ = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
 			ClearBuffer();
 			return;
@@ -1780,7 +1787,8 @@ void FramebufferManager::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
-	transformDraw_->Flush();
+	if (transformDraw_)
+		transformDraw_->Flush();
 }
 
 void FramebufferManager::Resized() {

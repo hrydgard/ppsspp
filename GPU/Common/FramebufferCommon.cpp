@@ -150,51 +150,51 @@ bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffe
 }
 
 // Heuristics to figure out the size of FBO to create.
-void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height) {
+void FramebufferManagerCommon::EstimateDrawingSize(const FramebufferHeuristicParams &params, int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
 
 	// Games don't always set any of these.  Take the greatest parameter that looks valid based on stride.
-	if (viewport_width > 4 && viewport_width <= fb_stride) {
-		drawing_width = viewport_width;
-		drawing_height = viewport_height;
+	if (params.viewportWidth > 4 && params.viewportWidth <= params.fb_stride) {
+		drawing_width = params.viewportWidth;
+		drawing_height = params.viewportHeight;
 		// Some games specify a viewport with 0.5, but don't have VRAM for 273.  480x272 is the buffer size.
-		if (viewport_width == 481 && region_width == 480 && viewport_height == 273 && region_height == 272) {
+		if (params.viewportWidth == 481 && params.regionWidth == 480 && params.viewportHeight == 273 && params.regionHeight == 272) {
 			drawing_width = 480;
 			drawing_height = 272;
 		}
 		// Sometimes region is set larger than the VRAM for the framebuffer.
 		// However, in one game it's correctly set as a larger height (see #7277) with the same width.
 		// A bit of a hack, but we try to handle that unusual case here.
-		if (region_width <= fb_stride && (region_width > drawing_width || (region_width == drawing_width && region_height > drawing_height)) && region_height <= MAX_FRAMEBUF_HEIGHT) {
-			drawing_width = region_width;
-			drawing_height = std::max(drawing_height, region_height);
+		if (params.regionWidth <= params.fb_stride && (params.regionWidth > drawing_width || (params.regionWidth == drawing_width && params.regionHeight > drawing_height)) && params.regionHeight <= MAX_FRAMEBUF_HEIGHT) {
+			drawing_width = params.regionWidth;
+			drawing_height = std::max(drawing_height, params.regionHeight);
 		}
 		// Scissor is often set to a subsection of the framebuffer, so we pay the least attention to it.
-		if (scissor_width <= fb_stride && scissor_width > drawing_width && scissor_height <= MAX_FRAMEBUF_HEIGHT) {
-			drawing_width = scissor_width;
-			drawing_height = std::max(drawing_height, scissor_height);
+		if (params.scissorWidth <= params.fb_stride && params.scissorWidth > drawing_width && params.scissorHeight <= MAX_FRAMEBUF_HEIGHT) {
+			drawing_width = params.scissorWidth;
+			drawing_height = std::max(drawing_height, params.scissorHeight);
 		}
 	} else {
 		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
-		drawing_width = std::min(std::max(region_width, scissor_width), fb_stride);
-		drawing_height = std::max(region_height, scissor_height);
+		drawing_width = std::min(std::max(params.regionWidth, params.scissorWidth), params.fb_stride);
+		drawing_height = std::max(params.regionHeight, params.scissorHeight);
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
 	if (drawing_height >= MAX_FRAMEBUF_HEIGHT) {
-		if (region_height < MAX_FRAMEBUF_HEIGHT) {
-			drawing_height = region_height;
-		} else if (scissor_height < MAX_FRAMEBUF_HEIGHT) {
-			drawing_height = scissor_height;
+		if (params.regionHeight < MAX_FRAMEBUF_HEIGHT) {
+			drawing_height = params.regionHeight;
+		} else if (params.scissorHeight < MAX_FRAMEBUF_HEIGHT) {
+			drawing_height = params.scissorHeight;
 		}
 	}
 
-	if (viewport_width != region_width) {
+	if (params.viewportWidth != params.regionWidth) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
 		u32 nearest_address = 0xFFFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			const u32 other_address = vfbs_[i]->fb_address | 0x44000000;
-			if (other_address > fb_address && other_address < nearest_address) {
+			if (other_address > params.fb_address && other_address < nearest_address) {
 				nearest_address = other_address;
 			}
 		}
@@ -202,20 +202,21 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 		// Unless the game is using overlapping buffers, the next buffer should be far enough away.
 		// This catches some cases where we can know this.
 		// Hmm.  The problem is that we could only catch it for the first of two buffers...
-		const u32 bpp = fb_format == GE_FORMAT_8888 ? 4 : 2;
-		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
-		if (avail_height < drawing_height && avail_height == region_height) {
-			drawing_width = std::min(region_width, fb_stride);
+		const u32 bpp = params.fmt == GE_FORMAT_8888 ? 4 : 2;
+		int avail_height = (nearest_address - params.fb_address) / (params.fb_stride * bpp);
+		if (avail_height < drawing_height && (avail_height == params.regionHeight)) {
+			drawing_width = std::min(params.regionWidth, params.fb_stride);
 			drawing_height = avail_height;
 		}
 
 		// Some games draw buffers interleaved, with a high stride/region/scissor but default viewport.
-		if (fb_stride == 1024 && region_width == 1024 && scissor_width == 1024) {
+		if (params.fb_stride == 1024 && params.regionWidth == 1024 && params.scissorWidth == 1024) {
 			drawing_width = 1024;
 		}
 	}
 
-	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i", fb_address, viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
+	DEBUG_LOG(G3D, "Est: %08x V: %ix%i, R: %ix%i, S: %ix%i, STR: %i, THR:%i, Z:%08x = %ix%i",
+			params.fb_address, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, params.fb_stride, gstate.isModeThrough(), gstate.isDepthWriteEnabled() ? gstate.getDepthBufAddress() : 0, drawing_width, drawing_height);
 }
 
 void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate) {
@@ -251,13 +252,10 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPU
 VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.framebufChanged = false;
 
-	// Collect all parameters. This whole function has really become a cesspool of heuristics...
-	// but it appears that's what it takes, unless we emulate VRAM layout more accurately somehow.
-
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
-	EstimateDrawingSize(params.fb_address, params.fmt, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorWidth, params.scissorHeight, std::max(params.fb_stride, 4), drawing_width, drawing_height);
+	EstimateDrawingSize(params, drawing_width, drawing_height);
 
 	gstate_c.curRTOffsetX = 0;
 	bool vfbFormatChanged = false;

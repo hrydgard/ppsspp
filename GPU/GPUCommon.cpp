@@ -6,7 +6,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
@@ -22,6 +22,11 @@ GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false)
 {
+	// Sanity check gstate
+	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
+		ERROR_LOG(G3D, "gstate has drifted out of sync!");
+	}
+
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
@@ -1139,8 +1144,7 @@ void GPUCommon::InterruptEnd(int listid) {
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
 void GPUCommon::SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) {
 	easy_guard guard(listLock);
-	if (waitType == GPU_SYNC_DRAW && wokeThreads)
-	{
+	if (waitType == GPU_SYNC_DRAW && wokeThreads) {
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
 			if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
 				dls[i].state = PSP_GE_DL_STATE_NONE;

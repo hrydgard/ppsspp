@@ -28,13 +28,13 @@
 // pixel data.
 
 
-#include "../Globals.h"
+#include "Globals.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "Core/Config.h"
 
 struct GLSLProgram;
-class TextureCache;
+class TextureCacheCommon;
 class TransformDrawEngine;
 class ShaderManager;
 
@@ -65,7 +65,7 @@ public:
 	FramebufferManager();
 	~FramebufferManager();
 
-	void SetTextureCache(TextureCache *tc) {
+	void SetTextureCache(TextureCacheCommon *tc) {
 		textureCache_ = tc;
 	}
 	void SetShaderManager(ShaderManager *sm) {
@@ -162,7 +162,7 @@ private:
 	int plainColorLoc_;
 	int timeLoc_;
 
-	TextureCache *textureCache_;
+	TextureCacheCommon *textureCache_;
 	ShaderManager *shaderManager_;
 	TransformDrawEngine *transformDraw_;
 	bool usePostShader_;

@@ -879,7 +879,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config. It will just restore the defaults.
 		KeyMap::LoadFromIni(controllerIniFile);
 	}
-	
+
 	//so this is all the way down here to overwrite the controller settings
 	//sadly it won't benefit from all the "version conversion" going on up-above
 	//but these configs shouldn't contain older versions anyhow
@@ -890,9 +890,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	CleanRecent();
 
-#ifdef _WIN32
 	iTempGPUBackend = iGPUBackend;
-#endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)
@@ -905,7 +903,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
-		
 		saveGameConfig(gameId_);
 
 		CleanRecent();

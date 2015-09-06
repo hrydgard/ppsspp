@@ -688,3 +688,5 @@ private:
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 };
+
+uint32_t ComputePSPVertexSize(u32 fmt);

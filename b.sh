@@ -56,6 +56,9 @@ do
 		--no-package) echo "Packaging disabled"
 			PACKAGE=0
 			;;
+		--verbose) echo "Verbose"
+			MAKE_OPT="VERBOSE=1 ${MAKE_OPT}"
+			;;
 		--release-package) echo "Blackberry release package enabled"
 			if [ ! -f "Blackberry/build.txt" ]; then
 				echo "1" > "Blackberry/build.txt"
@@ -92,6 +95,8 @@ set -e
 
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
+
+echo CMake args: ${CMAKE_ARGS}
 
 if [ "$CMAKE" == "1" ]; then
 	cmake $HEADLESS $CMAKE_ARGS .. | (grep -v "^-- " || true)

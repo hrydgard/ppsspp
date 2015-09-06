@@ -47,7 +47,10 @@ enum BufferFilter {
 // Software is not among these because it will have one of these perform the blit to display.
 enum {
 	GPU_BACKEND_OPENGL = 0,
-	GPU_BACKEND_DIRECT3D9 = 1,
+#ifdef _WIN32
+	GPU_BACKEND_DIRECT3D9,
+#endif
+	GPU_BACKEND_HIGH_OPENGL,
 };
 
 enum AudioBackendType {
@@ -96,12 +99,12 @@ public:
 	std::string sFont;
 	bool bIgnoreWindowsKey;
 
+#endif
+	bool bRestartRequired;
+
 	// Used for switching the GPU backend in GameSettingsScreen.
 	// Without this, PPSSPP instantly crashes if we edit iGPUBackend directly...
 	int iTempGPUBackend;
-
-	bool bRestartRequired;
-#endif
 
 	bool bPauseWhenMinimized;
 
@@ -390,7 +393,7 @@ public:
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save();
 	void RestoreDefaults();
-	
+
 	//per game config managment, should maybe be in it's own class
 	void changeGameSpecific(const std::string &gameId = "");
 	bool createGameConfig(const std::string &game_id);
@@ -421,7 +424,19 @@ public:
 	bool IsPortrait() const {
 		return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
 	}
-	
+
+	inline bool IsBackendOpenGL() const {
+		return iGPUBackend == GPU_BACKEND_OPENGL || iGPUBackend == GPU_BACKEND_HIGH_OPENGL;
+	}
+
+	inline bool IsBackendD3D9() const {
+#ifdef _WIN32
+		return iGPUBackend == GPU_BACKEND_DIRECT3D9;
+#else
+		return false;
+#endif
+	}
+
 private:
 	std::string gameId_;
 	std::string iniFilename_;

@@ -35,19 +35,6 @@ class FramebufferManagerDX9;
 class DepalShaderCacheDX9;
 class ShaderManagerDX9;
 
-enum TextureFiltering {
-	AUTO = 1,
-	NEAREST = 2,
-	LINEAR = 3,   
-	LINEARFMV = 4,
-};
-
-enum FramebufferNotification {
-	NOTIFY_FB_CREATED,
-	NOTIFY_FB_UPDATED,
-	NOTIFY_FB_DESTROYED,
-};
-
 class TextureCacheDX9 : public TextureCacheCommon {
 public:
 	TextureCacheDX9();

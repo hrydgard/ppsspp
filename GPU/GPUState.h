@@ -73,7 +73,7 @@ struct GPUgstate {
 				pad03,
 				boneMatrixNumber,
 				boneMatrixData,
-				morphwgt[8], //dont use
+				morphwgt[8],
 				pad04[2],
 				patchdivision,
 				patchprimitive,
@@ -213,6 +213,7 @@ struct GPUgstate {
 	bool isFogEnabled() const { return fogEnable & 1; }
 	float getFogCoef1() const { return getFloat24(fog1); }
 	float getFogCoef2() const { return getFloat24(fog2); }
+	u32 getFogColor() const { return fogcolor & 0xFFFFFF; }
 
 	// Cull
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
@@ -276,17 +277,22 @@ struct GPUgstate {
 	u32 getTextureAddress(int level) const { return (texaddr[level] & 0xFFFFF0) | ((texbufwidth[level] << 8) & 0x0F000000); }
 	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
 	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
+	int getTextureStride(int level) const { return texbufwidth[level] & 0xffff; }
 	u16 getTextureDimension(int level) const { return  texsize[level] & 0xf0f;}
 	GETexLevelMode getTexLevelMode() const { return static_cast<GETexLevelMode>(texlevel & 0x3); }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
+	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
+	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
+
+	// Fragment operation
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
 	bool isTextureAlphaUsed() const { return (texfunc & 0x100) != 0; }
-	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
-	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
-	int getTextureEnvColR() const { return texenvcolor&0xFF; }
-	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
-	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
+	int getTextureEnvColR() const { return texenvcolor & 0xFF; }
+	int getTextureEnvColG() const { return (texenvcolor>>8) & 0xFF; }
+	int getTextureEnvColB() const { return (texenvcolor>>16) & 0xFF; }
+	u32 getTextureEnvColor() const { return texenvcolor & 0xFFFFFF; }
+
 	u32 getClutAddress() const { return (clutaddr & 0x00FFFFF0) | ((clutaddrupper << 8) & 0x0F000000); }
 	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
 	int getClutLoadBlocks() const { return (loadclut & 0x3F); }
@@ -362,6 +368,10 @@ struct GPUgstate {
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
 
+	int getTexMinFilter() const { return texfilter & 0x7; }
+	int getTexMagFilter() const { return (texfilter>>8) & 1; }
+	int getTexLodBias() const { return (int)(s8)((texlevel >> 16) & 0xFF); }
+
 	bool isTexCoordClampedS() const { return texwrap & 1; }
 	bool isTexCoordClampedT() const { return (texwrap >> 8) & 1; }
 
@@ -418,12 +428,6 @@ struct GPUgstate {
 	void Save(u32_le *ptr);
 	void Restore(u32_le *ptr);
 };
-
-bool vertTypeIsSkinningEnabled(u32 vertType);
-
-inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
-inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
-inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
@@ -532,3 +536,5 @@ inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
 	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;
 	return (gstate_c.offsetAddr + baseExtended) & 0x0FFFFFFF;
 }
+
+inline bool isTextureFormatIndexed(GETextureFormat texformat) { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
