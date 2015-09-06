@@ -27,7 +27,6 @@
 
 #include "base/logging.h"
 #include "math/math_util.h"
-#include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
 
@@ -36,6 +35,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "UI/OnScreenDisplay.h"

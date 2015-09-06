@@ -222,6 +222,7 @@
     <ClInclude Include="GLES\FragmentTestCache.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
     <ClInclude Include="GLES\GLES_GPU.h" />
+    <ClInclude Include="GLES\GLStateCache.h" />
     <ClInclude Include="GLES\ShaderManager.h" />
     <ClInclude Include="GLES\StateMapping.h" />
     <ClInclude Include="GLES\TextureCache.h" />
@@ -297,6 +298,7 @@
     <ClCompile Include="GLES\FragmentTestCache.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\GLES_GPU.cpp" />
+    <ClCompile Include="GLES\GLStateCache.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\StencilBuffer.cpp" />

@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "ext/xxhash.h"
+#include "math/math_util.h"
 #include "profiler/profiler.h"
 
 #include "Common/ColorConv.h"
@@ -26,6 +28,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
@@ -34,10 +37,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
-
-#include "ext/xxhash.h"
-#include "math/math_util.h"
-#include "native/gfx_es2/gl_state.h"
 
 #ifdef _M_SSE
 #include <xmmintrin.h>

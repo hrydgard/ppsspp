@@ -189,6 +189,9 @@
     <ClInclude Include="Directx9\helper\dx_fbo.h">
       <Filter>DirectX9\helper</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\GLStateCache.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -364,6 +367,9 @@
     </ClCompile>
     <ClCompile Include="Directx9\helper\dx_fbo.cpp">
       <Filter>DirectX9\helper</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\GLStateCache.cpp">
+      <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

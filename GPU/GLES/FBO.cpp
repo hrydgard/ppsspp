@@ -19,8 +19,8 @@
 
 #include "base/logging.h"
 #include "gfx/gl_common.h"
-#include "gfx_es2/gl_state.h"
 
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/FBO.h"
 
 #ifdef IOS

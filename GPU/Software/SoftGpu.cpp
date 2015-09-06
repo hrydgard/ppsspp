@@ -29,7 +29,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
-// #include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Software/SoftGpu.h"

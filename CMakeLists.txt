@@ -923,8 +923,6 @@ add_library(native STATIC
 	native/gfx_es2/draw_buffer.h
 	native/gfx_es2/draw_text.cpp
 	native/gfx_es2/draw_text.h
-	native/gfx_es2/gl_state.cpp
-	native/gfx_es2/gl_state.h
 	native/gfx_es2/gpu_features.cpp
 	native/gfx_es2/gpu_features.h
 	native/gfx_es2/glsl_program.cpp
@@ -1487,6 +1485,8 @@ add_library(GPU OBJECT
 	GPU/GLES/FBO.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
+	GPU/GLES/GLStateCache.cpp
+	GPU/GLES/GLStateCache.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/FragmentTestCache.cpp
