@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
 #include "Core/Reporting.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TextureCache.h"

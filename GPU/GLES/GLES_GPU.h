@@ -20,9 +20,8 @@
 #include <list>
 #include <deque>
 
-#include "gfx_es2/fbo.h"
-
 #include "GPU/GPUCommon.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
@@ -46,6 +45,7 @@ public:
 	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
+	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput() override;
 	void BeginFrame() override;

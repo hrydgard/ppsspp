@@ -23,7 +23,7 @@
 
 #include "d3d9.h"
 
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.

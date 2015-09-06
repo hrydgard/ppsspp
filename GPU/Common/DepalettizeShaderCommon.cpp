@@ -17,10 +17,10 @@
 
 #include <stdio.h>
 
-#include "gfx_es2/gl_state.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 

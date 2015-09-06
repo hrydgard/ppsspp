@@ -620,7 +620,6 @@ void GPUCommon::ReapplyGfxState() {
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
-	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 

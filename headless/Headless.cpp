@@ -70,6 +70,7 @@ struct InputState;
 // Temporary hacks around annoying linking errors.
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
+void GL_SwapInterval(int) { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
 void NativeResized() { }

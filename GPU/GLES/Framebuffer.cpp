@@ -21,8 +21,6 @@
 #include "profiler/profiler.h"
 
 #include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
-#include "gfx_es2/fbo.h"
 
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
@@ -41,6 +39,8 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
+#include "GPU/GLES/GLStateCache.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"

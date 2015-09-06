@@ -28,7 +28,7 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "helper/dx_state.h"
-#include "helper/fbo.h"
+#include "helper/dx_fbo.h"
 
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -775,7 +775,7 @@ namespace DX9 {
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			glstate.viewport.set(0, 0, fbo_w, fbo_h);
+			dxstate.viewport.set(0, 0, fbo_w, fbo_h);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
@@ -787,12 +787,12 @@ namespace DX9 {
 			return;
 			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			} else {
 			// Use post-shader, but run shader at output resolution.
-			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}

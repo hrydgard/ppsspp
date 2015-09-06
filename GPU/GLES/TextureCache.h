@@ -19,12 +19,12 @@
 
 #include <map>
 
-#include "gfx_es2/fbo.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/Common/TextureCacheCommon.h"
 

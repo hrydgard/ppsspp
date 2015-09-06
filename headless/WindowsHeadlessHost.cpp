@@ -15,20 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <stdio.h>
+
 #include "WindowsHeadlessHost.h"
 #include "Compare.h"
 
-#include <stdio.h>
 #include "Common/CommonWindows.h"
-#include <io.h>
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include "Windows/OpenGLBase.h"
 
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -37,11 +37,7 @@ const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
 const int WINDOW_HEIGHT = 272;
 
-typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int value);
-PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = NULL;
-
-HWND CreateHiddenWindow()
-{
+HWND CreateHiddenWindow() {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -60,18 +56,6 @@ HWND CreateHiddenWindow()
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
-}
-
-void SetVSync(int value)
-{
-	const char *extensions = (const char *) glGetString(GL_EXTENSIONS);
-
-	if (!strstr(extensions, "WGL_EXT_swap_control"))
-		return;
-
-	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALFARPROC) wglGetProcAddress("wglSwapIntervalEXT");
-	if (wglSwapIntervalEXT != NULL)
-		wglSwapIntervalEXT(value);
 }
 
 void WindowsHeadlessHost::LoadNativeAssets()
@@ -184,10 +168,9 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
 
-	SetVSync(0);
+	GL_SwapInterval(0);
 
 	glewInit();
-	glstate.Initialize();
 
 	LoadNativeAssets();
 
@@ -196,8 +179,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 
 void WindowsHeadlessHost::ShutdownGraphics()
 {
-	if (hRC)
-	{
+	if (hRC) {
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hRC);
 		hRC = NULL;
@@ -218,8 +200,7 @@ bool WindowsHeadlessHost::ResizeGL()
 	RECT rc;
 	GetWindowRect(hWnd, &rc);
 
-	glstate.viewport.set(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-	glstate.viewport.restore();
+	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f, -1.0f, 1.0f);

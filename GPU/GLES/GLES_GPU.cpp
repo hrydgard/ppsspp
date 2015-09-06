@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
@@ -34,6 +33,7 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferCommon.h"
 
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -44,6 +44,10 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+
+#ifdef _WIN32
+#include "Windows/OpenGLBase.h"
+#endif
 
 enum {
 	FLAG_FLUSHBEFORE = 1,
@@ -463,7 +467,10 @@ GLES_GPU::~GLES_GPU() {
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	shaderManager_ = nullptr;
-	glstate.SetVSyncInterval(0);
+
+#ifdef _WIN32
+	GL_SwapInterval(0);
+#endif
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
@@ -649,7 +656,7 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
-			glstate.SetVSyncInterval(desiredVSyncInterval);
+			GL_SwapInterval(desiredVSyncInterval);
 		//}
 		lastVsync_ = desiredVSyncInterval;
 	}
@@ -676,6 +683,11 @@ void GLES_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GLES_GPU::Execute_VertexType;
 	}
+}
+
+void GLES_GPU::ReapplyGfxStateInternal() {
+	glstate.Restore();
+	GPUCommon::ReapplyGfxStateInternal();
 }
 
 void GLES_GPU::BeginFrameInternal() {

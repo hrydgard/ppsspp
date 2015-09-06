@@ -18,7 +18,7 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
 #include "GPU/ge_constants.h"
 
 class DepalShader {

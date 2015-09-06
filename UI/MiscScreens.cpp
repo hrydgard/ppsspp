@@ -51,7 +51,6 @@
 #include "base/timeutil.h"
 #include "base/colorutil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx_es2/gl_state.h"
 #include "util/random/rng.h"
 
 #include "UI/ui_atlas.h"

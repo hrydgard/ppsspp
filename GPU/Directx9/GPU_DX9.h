@@ -25,7 +25,7 @@
 #include "GPU/Directx9/TransformPipelineDX9.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 namespace DX9 {
@@ -41,6 +41,7 @@ public:
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
+	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput() override;
 	void BeginFrame() override;

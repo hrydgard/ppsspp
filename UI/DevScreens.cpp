@@ -18,7 +18,6 @@
 #include <algorithm>
 
 #include "base/compat.h"
-#include "gfx_es2/gl_state.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"

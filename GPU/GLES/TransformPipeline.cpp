@@ -72,7 +72,6 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
@@ -83,6 +82,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -593,7 +593,6 @@ void TransformDrawEngine::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
-		int maxIndex = 0;  // Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
@@ -709,7 +708,6 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -728,7 +726,6 @@ void TransformDrawEngine::DoFlush() {
 					glstate.arrayBuffer.bind(vbo);
 					glstate.elementArrayBuffer.bind(ebo);
 					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 
 					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
@@ -754,7 +751,6 @@ rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}

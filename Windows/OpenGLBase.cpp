@@ -1,6 +1,26 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+// TODO: What a mess this is :(
+
+#include "Common/Log.h"
 #include "Common/CommonWindows.h"
-#include "native/gfx_es2/gl_state.h"
 #include "native/gfx/gl_common.h"
+#include "native/gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
@@ -237,7 +257,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;
 	}
 
-
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
 		return false;
@@ -245,14 +264,18 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	glstate.Initialize();
-	if (wglSwapIntervalEXT)
-		wglSwapIntervalEXT(0);
+	GL_SwapInterval(0);
+
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}
 	return true;												// Success
+}
+
+void GL_SwapInterval(int interval) {
+	if (wglSwapIntervalEXT)
+		wglSwapIntervalEXT(0);
 }
 
 void GL_Shutdown() { 

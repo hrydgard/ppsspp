@@ -23,10 +23,8 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
-#include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/fbo.h"
 
 #include "input/input_state.h"
 #include "ui/ui.h"
@@ -44,6 +42,7 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
