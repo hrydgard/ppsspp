@@ -42,7 +42,7 @@ int hint_location;
 #define PAGE_MASK (4096-1)
 #elif defined(_WIN32)
 static SYSTEM_INFO sys_info;
-#define PAGE_MASK (sys_info.dwPageSize - 1)
+#define PAGE_MASK (uintptr_t)(sys_info.dwPageSize - 1)
 #else
 #define PAGE_MASK     (getpagesize() - 1)
 #endif

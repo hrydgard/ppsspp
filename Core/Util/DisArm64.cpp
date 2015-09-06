@@ -153,7 +153,7 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		int imm = (SignExtend19(w >> 5) << 2) | ((w >> 29) & 3);
 		if (op & 1) imm <<= 12;
 		u64 daddr = addr + imm;
-		snprintf(instr->text, sizeof(instr->text), "%s x%d, #0x%04x%08x", op ? "adrp" : "adr", Rd, daddr >> 32, daddr & 0xFFFFFFFF);
+		snprintf(instr->text, sizeof(instr->text), "%s x%d, #0x%04x%08x", op ? "adrp" : "adr", Rd, (u32)(daddr >> 32), (u32)(daddr & 0xFFFFFFFF));
 	} else if (((w >> 24) & 0x1F) == 0x11) {
 		// Add/subtract immediate value
 		int op = (w >> 30) & 1;
@@ -175,7 +175,7 @@ static void DataProcessingImmediate(uint32_t w, uint64_t addr, Instruction *inst
 		uint64_t wmask;
 		DecodeBitMasks(N, imms, immr, NULL, &wmask);
 		if (((w >> 31) & 1) && wmask & 0xFFFFFFFF00000000ULL)
-			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x%08x", opname[opc], r, Rd, r, Rn, (wmask >> 32), (wmask & 0xFFFFFFFF));
+			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x%08x", opname[opc], r, Rd, r, Rn, (uint32_t)(wmask >> 32), (uint32_t)(wmask & 0xFFFFFFFF));
 		else
 			snprintf(instr->text, sizeof(instr->text), "%s %c%d, %c%d, #0x%x", opname[opc], r, Rd, r, Rn, (uint32_t)wmask);
 	} else if (((w >> 23) & 0x3f) == 0x26) {
@@ -207,7 +207,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		// Unconditional branch / branch+link
 		int offset = SignExtend26(w) << 2;
 		uint64_t target = addr + offset;
-		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (uint32_t)(target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (uint32_t)(target >> 32), (uint32_t)(target & 0xFFFFFFFF));
 	} else if (((w >> 25) & 0x3F) == 0x1A) {
 		// Compare and branch
 		int op = (w >> 24) & 1;
@@ -223,7 +223,7 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 		int offset = SignExtend19(w >> 5) << 2;
 		uint64_t target = addr + offset;
 		int cond = w & 0xF;
-		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", condnames[cond], (uint32_t)(target >> 32), (target & 0xFFFFFFFF));
+		snprintf(instr->text, sizeof(instr->text), "b.%s %04x%08x", condnames[cond], (uint32_t)(target >> 32), (uint32_t)(target & 0xFFFFFFFF));
 	} else if ((w >> 24) == 0xD4) {
 		if (((w >> 21) & 0x7) == 1 && Rt == 0) {
 			int imm = (w >> 5) & 0xFFFF;
