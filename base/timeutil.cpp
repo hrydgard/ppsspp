@@ -3,7 +3,8 @@
 #include "base/timeutil.h"
 
 // For NV time functions. Ugly!
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 
 #ifdef _WIN32
 #include <windows.h>

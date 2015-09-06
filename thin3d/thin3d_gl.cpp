@@ -7,7 +7,8 @@
 #include "image/zim_load.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
 
 static const unsigned short compToGL[] = {
@@ -91,20 +92,25 @@ public:
 	// uint32_t fixedColor;
 
 	void Apply() {
-		glstate.blend.set(enabled);
-		glstate.blendEquationSeparate.set(eqCol, eqAlpha);
-		glstate.blendFuncSeparate.set(srcCol, dstCol, srcAlpha, dstAlpha);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		// glstate.blendColor.set(fixedColor);
-
+		if (enabled) {
+			glEnable(GL_BLEND);
+			glBlendEquationSeparate(eqCol, eqAlpha);
+			glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
+		} else {
+			glDisable(GL_BLEND);
+		}
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		// glColorMask(maskBits & 1, (maskBits >> 1) & 1, (maskBits >> 2) & 1, (maskBits >> 3) & 1);
+		// glBlendColor(fixedColor);
+		
 #if !defined(USING_GLES2)
-		glstate.colorLogicOp.set(logicEnabled);
 		if (logicEnabled) {
-			glstate.logicOp.set(logicOp);
+			glEnable(GL_LOGIC_OP);
+			glLogicOp(logicOp);
+		} else {
+			glDisable(GL_LOGIC_OP);
 		}
 #endif
-
-		// glstate.colorMask.set(maskBits & 1, (maskBits >> 1) & 1, (maskBits >> 2) & 1, (maskBits >> 3) & 1);
 	}
 };
 
@@ -116,10 +122,14 @@ public:
 	// bool stencilTestEnabled; TODO
 
 	void Apply() {
-		glstate.depthTest.set(depthTestEnabled);
-		glstate.depthFunc.set(depthComp);
-		glstate.depthWrite.set(depthWriteEnabled);
-		glstate.stencilTest.disable();
+		if (depthTestEnabled) {
+			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(depthComp);
+			glDepthMask(depthWriteEnabled);
+		} else {
+			glDisable(GL_DEPTH_TEST);
+		}
+		glDisable(GL_STENCIL_TEST);
 	}
 };
 
@@ -157,11 +167,7 @@ public:
 		glBufferSubData(target_, offset, size, data);
 	}
 	void Bind() {
-		if (target_ == GL_ARRAY_BUFFER) {
-			glstate.arrayBuffer.bind(buffer_);
-		} else {
-			glstate.elementArrayBuffer.bind(buffer_);
-		}
+		glBindBuffer(target_, buffer_);
 	}
 
 	void GLLost() override {
@@ -315,17 +321,25 @@ public:
 	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source);
 
 	void SetScissorEnabled(bool enable) override {
-		glstate.scissorTest.set(enable);
+		if (enable) {
+			glEnable(GL_SCISSOR_TEST);
+		} else {
+			glDisable(GL_SCISSOR_TEST);
+		}
 	}
 
 	void SetScissorRect(int left, int top, int width, int height) override {
-		glstate.scissorRect.set(left, targetHeight_ - (top + height), width, height);
+		glScissor(left, targetHeight_ - (top + height), width, height);
 	}
 
 	void SetViewports(int count, T3DViewport *viewports) override {
 		// TODO: Add support for multiple viewports.
-		glstate.viewport.set(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
-		glstate.depthRange.set(viewports[0].MinDepth, viewports[0].MaxDepth);
+		glViewport(viewports[0].TopLeftX, viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height);
+#if defined(USING_GLES2)
+		glDepthRangef(viewports[0].MinDepth, viewports[0].MaxDepth);
+#else
+		glDepthRange(viewports[0].MinDepth, viewports[0].MaxDepth);
+#endif
 	}
 
 	void SetTextures(int start, int count, Thin3DTexture **textures) override;
@@ -709,9 +723,9 @@ void Thin3DGLContext::SetRenderState(T3DRenderState rs, uint32_t value) {
 	switch (rs) {
 	case T3DRenderState::CULL_MODE:
 		switch (value) {
-		case T3DCullMode::NO_CULL: glstate.cullFace.disable(); break;
-		case T3DCullMode::CCW: glstate.cullFace.enable(); glstate.cullFaceMode.set(GL_CCW); break;
-		case T3DCullMode::CW: glstate.cullFace.enable(); glstate.cullFaceMode.set(GL_CW); break;
+		case T3DCullMode::NO_CULL: glDisable(GL_CULL_FACE); break;
+		case T3DCullMode::CCW: glEnable(GL_CULL_FACE); glCullFace(GL_CCW); break;   // TODO: Should be GL_FRONT
+		case T3DCullMode::CW: glEnable(GL_CULL_FACE); glCullFace(GL_CW); break;
 		}
 		break;
 	}
@@ -771,7 +785,7 @@ void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 		glMask |= GL_COLOR_BUFFER_BIT;
 	}
 	if (mask & T3DClear::DEPTH) {
-#ifdef USING_GLES2
+#if defined(USING_GLES2)
 		glClearDepthf(depthVal);
 #else
 		glClearDepth(depthVal);

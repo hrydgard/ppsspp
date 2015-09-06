@@ -12,9 +12,6 @@
 
 #include "base/basictypes.h"
 #include "gfx_es2/draw_buffer.h"
-#if !(defined(_WIN32) && !defined(USING_QT_UI))
-#include "gfx_es2/gl_state.h"
-#endif
 
 class Thin3DContext;
 class Thin3DTexture;

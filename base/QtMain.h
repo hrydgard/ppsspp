@@ -22,7 +22,7 @@ QTM_USE_NAMESPACE
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/zip_read.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "base/NativeApp.h"

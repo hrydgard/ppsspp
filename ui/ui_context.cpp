@@ -2,10 +2,8 @@
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
-#include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/gl_state.h"
 
 UIContext::UIContext()
 	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {

@@ -54,9 +54,6 @@
     <ClInclude Include="gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="gfx_es2\fbo.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -218,9 +215,6 @@
     </ClInclude>
     <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
       <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\gl_state.h">
-      <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
@@ -387,9 +381,6 @@
     <ClCompile Include="gfx_es2\draw_buffer.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="gfx_es2\fbo.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -523,9 +514,6 @@
     </ClCompile>
     <ClCompile Include="base\BlackberryMain.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\gl_state.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>

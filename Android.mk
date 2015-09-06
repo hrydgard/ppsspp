@@ -79,12 +79,10 @@ LOCAL_SRC_FILES :=\
     thread/threadpool.cpp \
     gfx_es2/glsl_program.cpp \
     gfx_es2/gpu_features.cpp \
-    gfx_es2/gl_state.cpp.arm \
     gfx_es2/gl3stub.c \
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/draw_text.cpp.arm \
     gfx_es2/vertex_format.cpp \
-    gfx_es2/fbo.cpp \
     gfx/gl_debug_log.cpp \
     gfx/gl_lost_manager.cpp \
     gfx/texture.cpp \

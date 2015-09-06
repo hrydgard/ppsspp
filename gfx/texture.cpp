@@ -12,7 +12,7 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/gl_common.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 
 Texture::Texture() : id_(0) {
 	CheckGLExtensions();

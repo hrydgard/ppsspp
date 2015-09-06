@@ -248,10 +248,8 @@
     <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
-    <ClInclude Include="gfx_es2\fbo.h" />
     <ClInclude Include="gfx_es2\gl3stub.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
-    <ClInclude Include="gfx_es2\gl_state.h" />
     <ClInclude Include="gfx_es2\gpu_features.h" />
     <ClInclude Include="gfx_es2\vertex_format.h" />
     <ClInclude Include="i18n\i18n.h" />
@@ -734,7 +732,6 @@
     <ClCompile Include="gfx\texture_gen.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
-    <ClCompile Include="gfx_es2\fbo.cpp" />
     <ClCompile Include="gfx_es2\gl3stub.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -742,7 +739,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
-    <ClCompile Include="gfx_es2\gl_state.cpp" />
     <ClCompile Include="gfx_es2\gpu_features.cpp" />
     <ClCompile Include="gfx_es2\vertex_format.cpp" />
     <ClCompile Include="i18n\i18n.cpp" />
