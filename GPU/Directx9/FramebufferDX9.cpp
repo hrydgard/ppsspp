@@ -28,7 +28,7 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "helper/dx_state.h"
-#include "helper/fbo.h"
+#include "helper/dx_fbo.h"
 
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"

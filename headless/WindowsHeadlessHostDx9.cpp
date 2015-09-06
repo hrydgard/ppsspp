@@ -25,7 +25,7 @@
 #include "base/logging.h"
 #include "thin3d/d3dx9_loader.h"
 #include "GPU/Directx9/helper/global.h"
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 

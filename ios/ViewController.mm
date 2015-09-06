@@ -18,7 +18,7 @@
 #include "input/keycodes.h"
 
 #include "Core/Config.h"
-#include "gfx_es2/fbo.h"
+#include "GPU/GLES/FBO.h"
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)

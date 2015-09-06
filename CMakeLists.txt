@@ -923,8 +923,6 @@ add_library(native STATIC
 	native/gfx_es2/draw_buffer.h
 	native/gfx_es2/draw_text.cpp
 	native/gfx_es2/draw_text.h
-	native/gfx_es2/fbo.cpp
-	native/gfx_es2/fbo.h
 	native/gfx_es2/gl_state.cpp
 	native/gfx_es2/gl_state.h
 	native/gfx_es2/gpu_features.cpp
@@ -1485,6 +1483,8 @@ add_library(GPU OBJECT
 	GPU/Debugger/Stepping.h
 	GPU/GLES/DepalettizeShader.cpp
 	GPU/GLES/DepalettizeShader.h
+	GPU/GLES/FBO.cpp
+	GPU/GLES/FBO.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp

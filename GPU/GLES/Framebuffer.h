@@ -22,14 +22,14 @@
 #include <algorithm>
 
 #include "gfx/gl_common.h"
-#include "gfx_es2/fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
 
-#include "../Globals.h"
+#include "Globals.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "Core/Config.h"
 

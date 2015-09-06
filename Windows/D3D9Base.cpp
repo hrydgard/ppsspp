@@ -3,7 +3,7 @@
 #include <DxErr.h>
 
 #include "GPU/Directx9/helper/global.h"
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 
 #include "base/logging.h"
 #include "util/text/utf8.h"

@@ -21,7 +21,7 @@
 
 #include "../Globals.h"
 #include "helper/global.h"
-#include "helper/fbo.h"
+#include "helper/dx_fbo.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
