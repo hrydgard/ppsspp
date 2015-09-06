@@ -4,7 +4,7 @@ include $(CLEAR_VARS)
 
 #TARGET_PLATFORM := android-8
 
-NATIVE := ../../native
+NATIVE := ../../ext/native
 SRC := ../..
 
 include $(LOCAL_PATH)/Locals.mk
@@ -325,7 +325,7 @@ LOCAL_STATIC_LIBRARIES += ppsspp_core
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
-  $(SRC)/native/android/app-android.cpp \
+  $(NATIVE)/android/app-android.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \

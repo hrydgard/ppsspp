@@ -71,5 +71,5 @@ HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/Timer.h \
 	$$P/Common/Crypto/*.h
 
-INCLUDEPATH += $$P/native
+INCLUDEPATH += $$P/ext/native
 

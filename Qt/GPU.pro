@@ -6,8 +6,8 @@ CONFIG += staticlib
 
 include(Settings.pri)
 
-INCLUDEPATH += $$P/ $$P/native
-!contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/native/ext/glew
+INCLUDEPATH += $$P/ $$P/ext/native
+!contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/ext/native/ext/glew
 
 win32 {
 	SOURCES += $$P/Windows/OpenGLBase.cpp

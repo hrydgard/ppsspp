@@ -1,5 +1,5 @@
 DEFINES += ANDROID
-INCLUDEPATH += $$P/native/ext/libzip
+INCLUDEPATH += $$P/ext/native/ext/libzip
 
 !contains(CONFIG, staticlib) {
 	# Packaging
