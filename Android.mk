@@ -84,7 +84,6 @@ LOCAL_SRC_FILES :=\
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/draw_text.cpp.arm \
     gfx_es2/vertex_format.cpp \
-    gfx_es2/fbo.cpp \
     gfx/gl_debug_log.cpp \
     gfx/gl_lost_manager.cpp \
     gfx/texture.cpp \

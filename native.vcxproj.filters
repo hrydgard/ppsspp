@@ -54,9 +54,6 @@
     <ClInclude Include="gfx_es2\draw_buffer.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="gfx_es2\fbo.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -385,9 +382,6 @@
       <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\draw_buffer.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\fbo.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp">
