@@ -48,22 +48,6 @@
 
 #include "UI/OnScreenDisplay.h"
 
-#if defined(USING_GLES2)
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-#ifndef GL_RGBA8
-#define GL_RGBA8 GL_RGBA
-#endif
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-#endif
-
 extern int g_iNumVideos;
 
 static const char tex_fs[] =
@@ -284,12 +268,9 @@ FramebufferManager::FramebufferManager() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
-	gameUsesSequentialCopies_(false)
-#ifndef USING_GLES2
-	,
+	gameUsesSequentialCopies_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
-#endif
 {
 }
 
@@ -312,9 +293,7 @@ FramebufferManager::~FramebufferManager() {
 		fbo_destroy(it->second.fbo);
 	}
 
-#ifndef USING_GLES2
 	delete [] pixelBufObj_;
-#endif
 	delete [] convBuf_;
 }
 
@@ -520,20 +499,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	if (texture) {
-		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(ANDROID)
-		// Don't remember why I disabled this - no win?
-		if (false && gl_extensions.NV_draw_texture && !program) {
-			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
-			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
-			// so that's a little gnarly, will have to modify all callers.
-			glDrawTextureNV(texture, 0,
-				x, y, w, h, 0.0f,
-				u0, v1, u1, v0);
-			return;
-		}
-#endif
-
+		// Previously had NVDrawTexture fallback here but wasn't worth it.
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
 
@@ -739,15 +705,15 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 	}
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
-#ifdef USING_GLES2
-	// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-	// to it. This broke stuff before, so now it only clears on the first use of an
-	// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-	// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-	if (vfb->last_frame_render != gpuStats.numFlips) {
-		ClearBuffer();
+	if (gl_extensions.IsGLES) {
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
 	}
-#endif
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
@@ -831,24 +797,21 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 		src->renderWidth == dst->renderWidth &&
 		src->renderHeight == dst->renderHeight) {
 
-#ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB) {
-			bool useNV = false;
-#else
-		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-			bool useNV = !gl_extensions.GLES3;
-#endif
+		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+			// Only use NV if ARB isn't supported.
+			bool useNV = !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 			// Let's only do this if not clearing depth.
 			fbo_bind_for_read(src->fbo);
 			glDisable(GL_SCISSOR_TEST);
 
-#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 			if (useNV) {
+#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
 				glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			} else 
 #endif // defined(USING_GLES2) && defined(ANDROID)
+			} else {
 				glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+			}
 			// If we set dst->depthUpdated here, our optimization above would be pointless.
 
 			glstate.scissorTest.restore();
@@ -1128,24 +1091,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const {
-#ifndef USING_GLES2
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-	// We might get here if hackForce04154000Download_ is hit.
-	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-	// This causes glitches in games that expect the exact values.
-	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
-			useCPU = true;
-		}
-	}
-	return useCPU;
-#else
-	return true;
-#endif
-}
-
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
@@ -1212,7 +1157,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 					nvfb->colorDepth = FBO_8888;
 					break;
 			}
-			if (ShouldDownloadUsingCPU(vfb)) {
+			if (gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
 				nvfb->colorDepth = vfb->colorDepth;
 			}
 
@@ -1281,7 +1226,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
-		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
+		if (gl_extensions.ARB_pixel_buffer_object && gl_extensions.OES_texture_npot) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
@@ -1305,20 +1250,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	fbo_bind_as_render_target(dst->fbo);
 	glDisable(GL_SCISSOR_TEST);
 
-	bool useBlit = false;
-	bool useNV = false;
-
-#ifndef USING_GLES2
-	if (gl_extensions.FBO_ARB) {
-		useNV = false;
-		useBlit = true;
-	}
-#else
-	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-		useNV = !gl_extensions.GLES3;
-		useBlit = true;
-	}
-#endif
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
@@ -1497,7 +1430,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
 	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	const bool useCPU = ShouldDownloadUsingCPU(vfb);
+	const bool useCPU = gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD);
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
@@ -1541,7 +1474,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if (vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
-		bool reverseOrder = (gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD);
+		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
@@ -1586,15 +1519,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		}
 
 		GLenum fbStatus;
-#ifndef USING_GLES2
-		if (!gl_extensions.FBO_ARB) {
-			fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
-		} else {
-			fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-		}
-#else
-		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-#endif
+		fbStatus = (GLenum)fbo_check_framebuffer_status(vfb->fbo);
 
 		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
@@ -1877,12 +1802,11 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-#ifndef USING_GLES2
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-#endif
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-
 	return true;
 }
 
@@ -1906,18 +1830,15 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 		return true;
 	}
 
-#ifndef USING_GLES2
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-	glReadBuffer(GL_DEPTH_ATTACHMENT);
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_DEPTH_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
 	return true;
-#else
-	return false;
-#endif
 }
 
 bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {

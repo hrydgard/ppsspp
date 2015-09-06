@@ -21,6 +21,7 @@
 
 #include "Common/ChunkFile.h"
 
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Host.h"
@@ -31,6 +32,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
@@ -396,6 +398,7 @@ GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 GLES_GPU::GLES_GPU()
 : resized_(false) {
 	UpdateVsyncInterval(true);
+	CheckGPUFeatures();
 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -461,6 +464,94 @@ GLES_GPU::~GLES_GPU() {
 	delete shaderManager_;
 	shaderManager_ = nullptr;
 	glstate.SetVSyncInterval(0);
+}
+
+// Take the raw GL extension and versioning data and turn into feature flags.
+void GLES_GPU::CheckGPUFeatures() {
+	u32 features = 0;
+	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/) {
+		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
+			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
+			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
+		} else {
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		}
+	}
+
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.GLES3)
+			features |= GPU_SUPPORTS_GLSL_ES_300;
+	} else {
+		if (gl_extensions.VersionGEThan(3, 3, 0))
+			features |= GPU_SUPPORTS_GLSL_330;
+	}
+
+	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
+	// Tales of Destiny 2 has been reported to display green.
+	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		// Blacklist Tegra 3, doesn't work very well.
+		if (strstr(gl_extensions.model, "NVIDIA Tegra 3") != 0) {
+			features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		}
+	}
+	
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.EXT_framebuffer_object || gl_extensions.IsGLES) {
+		features |= GPU_SUPPORTS_FBO;
+	}
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3) {
+		features |= GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT;
+	}
+	if (gl_extensions.NV_framebuffer_blit) {
+		features |= GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT;
+	}
+
+	bool useCPU = false;
+	if (!gl_extensions.IsGLES) {
+		// Urrgh, we don't even define FB_READFBOMEMORY_CPU on mobile
+#ifndef USING_GLES2
+		useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+#endif
+		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+		// This causes glitches in games that expect the exact values.
+		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+		if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
+				useCPU = true;
+			}
+		}
+	} else {
+		useCPU = true;
+	}
+
+	if (useCPU)
+		features |= GPU_PREFER_CPU_DOWNLOAD;
+
+	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
+		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
+
+	if (gl_extensions.OES_texture_npot)
+		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+
+	if (gl_extensions.EXT_unpack_subimage || !gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
+
+	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
+		features |= GPU_SUPPORTS_BLEND_MINMAX;
+
+	if (!gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_LOGIC_OP;
+
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
+		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	}
+
+#ifdef MOBILE_DEVICE
+	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
+	features |= GPU_IS_MOBILE;
+#endif
+
+	gstate_c.featureFlags = features;
 }
 
 // Let's avoid passing nulls into snprintf().
@@ -589,6 +680,7 @@ void GLES_GPU::UpdateCmdInfo() {
 
 void GLES_GPU::BeginFrameInternal() {
 	if (resized_) {
+		CheckGPUFeatures();
 		UpdateCmdInfo();
 		transformDraw_.Resized();
 	}

@@ -66,6 +66,7 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
+// Hack!
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
@@ -718,20 +719,23 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
+			if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+				GETexLevelMode mode = gstate.getTexLevelMode();
+				switch (mode) {
+				case GE_TEXLEVEL_MODE_AUTO:
+					// TODO
+					break;
+				case GE_TEXLEVEL_MODE_CONST:
+					// Sigh, LOD_BIAS is not even in ES 3.0..
 #ifndef USING_GLES2
-			GETexLevelMode mode = gstate.getTexLevelMode();
-			switch (mode) {
-			case GE_TEXLEVEL_MODE_AUTO:
-				// TODO
-				break;
-			case GE_TEXLEVEL_MODE_CONST:
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
-				break;
-			case GE_TEXLEVEL_MODE_SLOPE:
-				// TODO
-				break;
-			}
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
 #endif
+					break;
+				case GE_TEXLEVEL_MODE_SLOPE:
+					// TODO
+					break;
+				}
+			}
 			entry.lodBias = lodBias;
 		}
 	}
@@ -1418,8 +1422,7 @@ void TextureCache::SetTexture(bool force) {
 			break;
 		}
 
-#ifndef USING_GLES2
-		if (i > 0) {
+		if (i > 0 && gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			int tw = gstate.getTextureWidth(i);
 			int th = gstate.getTextureHeight(i);
 			if (tw != 1 && tw != (gstate.getTextureWidth(i - 1) >> 1))
@@ -1427,7 +1430,6 @@ void TextureCache::SetTexture(bool force) {
 			else if (th != 1 && th != (gstate.getTextureHeight(i - 1) >> 1))
 				badMipSizes = true;
 		}
-#endif
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
@@ -1446,14 +1448,15 @@ void TextureCache::SetTexture(bool force) {
 			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
 		}
 
-#ifndef MOBILE_DEVICE
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 5 : 4, scaleFactor);
-		if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
-			scaleFactor = 2;
+		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
+		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
+			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 5 : 4, scaleFactor);
+			if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
+				scaleFactor = 2;
+			}
+		} else {
+			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
 		}
-#else
-		scaleFactor = std::min(gl_extensions.OES_texture_npot ? 3 : 2, scaleFactor);
-#endif
 	} else {
 		scaleFactor = g_Config.iTexScalingLevel;
 	}
@@ -1504,34 +1507,28 @@ void TextureCache::SetTexture(bool force) {
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
-#ifndef USING_GLES2
-		if (badMipSizes) {
-			// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-			glGenerateMipmap(GL_TEXTURE_2D);
-		} else {
-			for (int i = 1; i <= maxLevel; i++) {
-				LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
+		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
+			if (badMipSizes) {
+				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
+				glGenerateMipmap(GL_TEXTURE_2D);
+			} else {
+				for (int i = 1; i <= maxLevel; i++) {
+					LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
+				}
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 			}
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-		}
-#else
-		// Avoid PowerVR driver bug
-		if (w > 1 && h > 1 && !(gl_extensions.gpuVendor == GPU_VENDOR_POWERVR && h > w)) {  // Really! only seems to fail if height > width
-			// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
-			glGenerateMipmap(GL_TEXTURE_2D);
 		} else {
-			entry->maxLevel = 0;
+			// Avoid PowerVR driver bug
+			if (w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
+				glGenerateMipmap(GL_TEXTURE_2D);
+			} else {
+				entry->maxLevel = 0;
+			}
 		}
-#endif
-	} else {
-#ifndef USING_GLES2
+	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-#else
-		if (gl_extensions.GLES3) {
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-		}
-#endif
 	}
 
 	int aniso = 1 << g_Config.iAnisotropyLevel;
@@ -1698,7 +1695,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_8888:
 		if (!swizzled) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) || w == bufw) {
+			if ((g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
 				if (UseBGRA8888()) {
 					tmpTexBuf32.resize(std::max(bufw, w) * h);
 					finalBuf = tmpTexBuf32.data();
@@ -1791,7 +1788,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!(g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1803,6 +1800,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			pixelSize = 4;
 			break;
 		}
+
 		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
 		int inRowBytes = bufw * pixelSize;
 		int outRowBytes = w * pixelSize;
@@ -1868,7 +1866,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	gpuStats.numTexturesDecoded++;
 
 	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-	if ((g_Config.iTexScalingLevel == 1 && gl_extensions.EXT_unpack_subimage) && w != bufw) {
+	if ((g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 		useUnpack = true;
 	}

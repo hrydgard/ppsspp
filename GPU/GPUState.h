@@ -442,7 +442,33 @@ enum TextureChangeReason {
 	TEXCHANGE_PARAMSONLY = 0x02,
 };
 
+#define FLAG_BIT(x) (1 << x)
+
+// Some of these are OpenGL-specific even though this file is neutral, unfortunately.
+// Might want to move this mechanism into the backend later.
+enum {
+	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
+	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
+	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
+	GPU_SUPPORTS_UNPACK_SUBIMAGE = FLAG_BIT(3),
+	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
+	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
+	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
+	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
+	GPU_SUPPORTS_FBO = FLAG_BIT(25),
+	GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT = FLAG_BIT(26),
+	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(27),
+	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(28),
+	GPU_IS_MOBILE = FLAG_BIT(29),
+	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
+	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
+};
+
 struct GPUStateCache {
+	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+
+	u32 featureFlags;
+
 	u32 vertexAddr;
 	u32 indexAddr;
 	u32 offsetAddr;
