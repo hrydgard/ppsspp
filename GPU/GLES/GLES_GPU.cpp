@@ -56,7 +56,7 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,
 };
 
-static const char *BlacklistGPUNames[] = {
+static const char *FramebufferFetchBlacklist[] = {
 	// Blacklist Tegra 3, doesn't work very well.
 	"NVIDIA Tegra 3",
 	"PowerVR Rogue G6430",
@@ -497,7 +497,7 @@ void GLES_GPU::CheckGPUFeatures() {
 	// Tales of Destiny 2 has been reported to display green.
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-		for (size_t i = 0; i < ARRAY_SIZE(BlacklistGPUNames); i++) {
+		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
 			if (strstr(gl_extensions.model, BlacklistGPUNames[i]) != 0) {
 				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 				break;
