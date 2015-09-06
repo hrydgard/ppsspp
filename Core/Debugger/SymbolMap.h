@@ -22,7 +22,7 @@
 #include <map>
 #include <string>
 
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 
 #include "Common/CommonTypes.h"
 

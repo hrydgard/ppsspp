@@ -1,6 +1,6 @@
 #include <algorithm>
-#include "native/base/mutex.h"
-#include "native/base/timeutil.h"
+#include "base/mutex.h"
+#include "base/timeutil.h"
 #include "Common/ColorConv.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"

@@ -19,8 +19,8 @@
 
 #include "Common/Log.h"
 #include "Common/CommonWindows.h"
-#include "native/gfx/gl_common.h"
-#include "native/gfx_es2/gpu_features.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"

@@ -2,7 +2,7 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "base/mutex.h"
-#include "native/file/chunk_file.h"
+#include "file/chunk_file.h"
 
 #include "Common/CommonTypes.h"
 #include "Core/HW/SimpleAudioDec.h"
