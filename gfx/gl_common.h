@@ -69,13 +69,14 @@ extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
 extern PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
 extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
-#endif
 
 // Rename standard functions to the OES version.
 #define glGenVertexArrays glGenVertexArraysOES
 #define glBindVertexArray glBindVertexArrayOES
 #define glDeleteVertexArrays glDeleteVertexArraysOES
 #define glIsVertexArray glIsVertexArrayOES
+
+#endif
 
 #if !defined(BLACKBERRY)
 #ifndef GL_READ_FRAMEBUFFER
