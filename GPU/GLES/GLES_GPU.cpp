@@ -45,6 +45,10 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
+#ifdef _WIN32
+#include "Windows/OpenGLBase.h"
+#endif
+
 enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
@@ -463,7 +467,10 @@ GLES_GPU::~GLES_GPU() {
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	shaderManager_ = nullptr;
-	glstate.SetVSyncInterval(0);
+
+#ifdef _WIN32
+	GL_SwapInterval(0);
+#endif
 }
 
 // Take the raw GL extension and versioning data and turn into feature flags.
@@ -649,7 +656,7 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
-			glstate.SetVSyncInterval(desiredVSyncInterval);
+			GL_SwapInterval(desiredVSyncInterval);
 		//}
 		lastVsync_ = desiredVSyncInterval;
 	}

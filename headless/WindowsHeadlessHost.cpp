@@ -15,17 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <stdio.h>
+
 #include "WindowsHeadlessHost.h"
 #include "Compare.h"
 
-#include <stdio.h>
 #include "Common/CommonWindows.h"
-#include <io.h>
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#include "Windows/OpenGLBase.h"
 
 #include "base/logging.h"
 #include "gfx/gl_common.h"
@@ -35,9 +36,6 @@
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
 const int WINDOW_HEIGHT = 272;
-
-typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int value);
-PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = NULL;
 
 HWND CreateHiddenWindow() {
 	static WNDCLASSEX wndClass = {
@@ -58,18 +56,6 @@ HWND CreateHiddenWindow() {
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
-}
-
-void SetVSync(int value)
-{
-	const char *extensions = (const char *) glGetString(GL_EXTENSIONS);
-
-	if (!strstr(extensions, "WGL_EXT_swap_control"))
-		return;
-
-	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALFARPROC) wglGetProcAddress("wglSwapIntervalEXT");
-	if (wglSwapIntervalEXT != NULL)
-		wglSwapIntervalEXT(value);
 }
 
 void WindowsHeadlessHost::LoadNativeAssets()
@@ -182,7 +168,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
 
-	SetVSync(0);
+	GL_SwapInterval(0);
 
 	glewInit();
 
@@ -193,8 +179,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 
 void WindowsHeadlessHost::ShutdownGraphics()
 {
-	if (hRC)
-	{
+	if (hRC) {
 		wglMakeCurrent(NULL, NULL);
 		wglDeleteContext(hRC);
 		hRC = NULL;
