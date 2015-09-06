@@ -1,7 +1,7 @@
 #include "Common/CommonWindows.h"
 #include <dsound.h>
 
-#include "native/thread/threadutil.h"
+#include "thread/threadutil.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Windows/W32Util/Misc.h"

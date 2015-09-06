@@ -3,7 +3,7 @@
 #include "TiltEventProcessor.h"
 #include "Core/HLE/sceCtrl.h"
 #include "math.h"
-#include "native/base/logging.h"
+#include "base/logging.h"
 
 
 using namespace TiltEventProcessor;

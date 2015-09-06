@@ -18,8 +18,8 @@
 #include <cstdlib>
 #include <set>
 
-#include "native/thread/thread.h"
-#include "native/thread/threadutil.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
 #include "Core/Core.h"
