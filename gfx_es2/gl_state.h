@@ -3,82 +3,12 @@
 #include <functional>
 #include <string.h>
 #include <string>
+
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
-#ifdef USING_GLES2
-
-#ifndef GL_MIN_EXT
-#define GL_MIN_EXT 0x8007
-#endif
-
-#ifndef GL_MAX_EXT
-#define GL_MAX_EXT 0x8008
-#endif
-
-#if defined(ANDROID) || defined(BLACKBERRY)
-#include <EGL/egl.h>
-// Additional extensions not included in GLES2/gl2ext.h from the NDK
-
-typedef uint64_t EGLuint64NV;
-typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) (void);
-typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC) (void);
-extern PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
-extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
-
-typedef GLvoid* (GL_APIENTRYP PFNGLMAPBUFFERPROC) (GLenum target, GLenum access);
-extern PFNGLMAPBUFFERPROC glMapBuffer;
-
-typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
-extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
-typedef void (EGLAPIENTRYP PFNGLCOPYIMAGESUBDATANVPROC) (GLuint srcName, GLenum
-																											srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName,
-																											GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei
-																											width, GLsizei height, GLsizei depth);
-extern PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
-#ifndef ARM64
-typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
-	GLint srcX0, GLint srcY0, GLint srcX1, GLuint srcY1,
-	GLint dstX0, GLint dstY0, GLint dstX1, GLuint dstY1,
-	GLint mask, GLenum filter);
-#endif
-extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
-
-extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
-extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
-extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
-extern PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
-extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
-#endif
-
-// Rename standard functions to the OES version.
-#define glGenVertexArrays glGenVertexArraysOES
-#define glBindVertexArray glBindVertexArrayOES
-#define glDeleteVertexArrays glDeleteVertexArraysOES
-#define glIsVertexArray glIsVertexArrayOES
-
-#if !defined(BLACKBERRY)
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#endif
-
-#ifndef GL_RGBA8
-#define GL_RGBA8 GL_RGBA
-#endif
-
-#endif /* EGL_NV_system_time */
-
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-
-// OpenGL state cache. Should convert all code to use this instead of directly calling glEnable etc,
-// as GL state changes can be expensive on some hardware.
+// OpenGL state cache.
+// Probably only really worth it in rendering cores on weak mobile hardware.
 class OpenGLState {
 private:
 	template<GLenum cap, bool init>
@@ -91,11 +21,11 @@ private:
 		}
 
 		inline void set(bool value) {
-			if(value && value != _value) {
+			if (value && value != _value) {
 				_value = value;
 				glEnable(cap);
 			}
-			if(!value && value != _value) {
+			if (!value && value != _value) {
 				_value = value;
 				glDisable(cap);
 			}
@@ -113,7 +43,7 @@ private:
 			return _value;
 		}
 		void restore() {
-			if(_value)
+			if (_value)
 				glEnable(cap);
 			else
 				glDisable(cap);
@@ -128,7 +58,7 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		void set(p1type newp1) { \
-			if(newp1 != p1) { \
+			if (newp1 != p1) { \
 				p1 = newp1; \
 				func(p1); \
 			} \
@@ -147,7 +77,7 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		inline void set(p1type newp1, p2type newp2) { \
-			if(newp1 != p1 || newp2 != p2) { \
+			if (newp1 != p1 || newp2 != p2) { \
 				p1 = newp1; \
 				p2 = newp2; \
 				func(p1, p2); \
@@ -168,7 +98,7 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		inline void set(p1type newp1, p2type newp2, p3type newp3) { \
-			if(newp1 != p1 || newp2 != p2 || newp3 != p3) { \
+			if (newp1 != p1 || newp2 != p2 || newp3 != p3) { \
 				p1 = newp1; \
 				p2 = newp2; \
 				p3 = newp3; \
@@ -191,7 +121,7 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
-			if(newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
+			if (newp1 != p1 || newp2 != p2 || newp3 != p3 || newp4 != p4) { \
 				p1 = newp1; \
 				p2 = newp2; \
 				p3 = newp3; \
@@ -213,7 +143,7 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		inline void set(const float v[4]) { \
-			if(memcmp(p,v,sizeof(float)*4)) { \
+			if (memcmp(p,v,sizeof(float)*4)) { \
 				memcpy(p,v,sizeof(float)*4); \
 				func(p[0], p[1], p[2], p[3]); \
 			} \
@@ -245,12 +175,9 @@ private:
 		} \
 	}
 
-	bool initialized;
-
 public:
 	static int state_count;
-	OpenGLState() : initialized(false) {}
-	void Initialize();
+	OpenGLState() {}
 	void Restore();
 
 	// When adding a state here, don't forget to add it to OpenGLState::Restore() too
@@ -314,9 +241,3 @@ public:
 #undef STATE2
 
 extern OpenGLState glstate;
-
-
-extern std::string g_all_gl_extensions;
-extern std::string g_all_egl_extensions;
-
-void CheckGLExtensions();

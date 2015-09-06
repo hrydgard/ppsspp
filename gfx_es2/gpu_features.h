@@ -90,8 +90,11 @@ struct GLExtensions {
 
 extern GLExtensions gl_extensions;
 
-
 // Call this after filling out vendor etc to lookup the bugs etc.
 // Only needs to be called once. Currently called by CheckGLExtensions().
 void ProcessGPUFeatures();
 
+extern std::string g_all_gl_extensions;
+extern std::string g_all_egl_extensions;
+
+void CheckGLExtensions();

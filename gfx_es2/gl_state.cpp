@@ -3,7 +3,7 @@
 #include "base/logging.h"
 #include "base/stringutil.h"
 #include "base/NativeApp.h"
-#include "gl_state.h"
+#include "gfx_es2/gl_state.h"
 
 #ifdef _WIN32
 #include "GL/wglew.h"
@@ -35,14 +35,6 @@ std::string g_all_gl_extensions;
 std::string g_all_egl_extensions;
 
 int OpenGLState::state_count = 0;
-
-void OpenGLState::Initialize() {
-	if (initialized)
-		return;
-	initialized = true;
-
-	Restore();
-}
 
 void OpenGLState::Restore() {
 	int count = 0;

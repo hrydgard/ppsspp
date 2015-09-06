@@ -26,7 +26,7 @@
 #include "math/math_util.h"
 #include "net/resolve.h"
 #include "android/native_audio.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
 
 #include "app-android.h"
 
@@ -364,8 +364,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 	} else {
 		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
 		// Shouldn't really get here. Let's draw magenta.
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glDepthMask(GL_TRUE);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(1.0, 0.0, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}

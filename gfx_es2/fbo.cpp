@@ -4,6 +4,8 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"
 #include "gfx/gl_common.h"
+
+// TODO: Remove, after moving fbo.cpp into PPSSPP
 #include "gfx_es2/gl_state.h"
 
 #ifdef IOS
