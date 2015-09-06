@@ -240,6 +240,7 @@
     <ClInclude Include="file\ini_file.h" />
     <ClInclude Include="file\vfs.h" />
     <ClInclude Include="file\zip_read.h" />
+    <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
     <ClInclude Include="gfx\texture_gen.h" />

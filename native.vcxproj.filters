@@ -360,6 +360,7 @@
     <ClInclude Include="thread\executor.h">
       <Filter>thread</Filter>
     </ClInclude>
+    <ClInclude Include="gfx\gl_common.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
