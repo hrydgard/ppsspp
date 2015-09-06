@@ -192,48 +192,38 @@ void GenerateVertexShader(int prim, u32 vertType, char *buffer, bool useHWTransf
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
-#if defined(USING_GLES2)
-	// Let's wait until we have a real use for this.
-	// ES doesn't support dual source alpha :(
-	if (gl_extensions.GLES3) {
-		WRITE(p, "#version 300 es\n");
-		glslES30 = true;
+	if (gl_extensions.IsGLES) {
+		// ES doesn't support dual source alpha :(
+		if (gl_extensions.GLES3) {
+			WRITE(p, "#version 300 es\n");
+			glslES30 = true;
+		} else {
+			WRITE(p, "#version 100\n");  // GLSL ES 1.0
+		}
+		WRITE(p, "precision highp float;\n");
+
+		// PowerVR needs highp to do the fog in MHU correctly.
+		// Others don't, and some can't handle highp in the fragment shader.
+		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+		highpTexcoord = highpFog;
 	} else {
-		WRITE(p, "#version 100\n");  // GLSL ES 1.0
-	}
-	WRITE(p, "precision highp float;\n");
-
-	// PowerVR needs highp to do the fog in MHU correctly.
-	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-	highpTexcoord = highpFog;
-
-#elif !defined(FORCE_OPENGL_2_0)
+		// TODO: Handle this in VersionGEThan?
+#if !defined(FORCE_OPENGL_2_0)
 	if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glslES30 = true;
 		WRITE(p, "#version 330\n");
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		WRITE(p, "#version 130\n");
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
 	} else {
 		WRITE(p, "#version 110\n");
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
+	}
+#endif
+
+		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
 		WRITE(p, "#define lowp\n");
 		WRITE(p, "#define mediump\n");
 		WRITE(p, "#define highp\n");
 	}
-#else
-	// Need to remove lowp/mediump for Mac
-	WRITE(p, "#define lowp\n");
-	WRITE(p, "#define mediump\n");
-	WRITE(p, "#define highp\n");
-#endif
 
 	if (glslES30) {
 		attribute = "in";

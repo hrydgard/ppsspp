@@ -500,87 +500,77 @@ void GenerateFragmentShader(char *buffer) {
 	bool bitwiseOps = false;
 	const char *lastFragData = nullptr;
 
-#if defined(USING_GLES2)
-	// Let's wait until we have a real use for this.
-	// ES doesn't support dual source alpha :(
-	if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
-		WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
-		fragColor0 = "fragColor0";
-		texture = "texture";
-		glslES30 = true;
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-	} else {
-		WRITE(p, "#version 100\n");  // GLSL ES 1.0
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+	if (gl_extensions.IsGLES) {
+		// ES doesn't support dual source alpha :(
+		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
+			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
+			fragColor0 = "fragColor0";
+			texture = "texture";
+			glslES30 = true;
 			bitwiseOps = true;
-			texelFetch = "texelFetch2D";
+			texelFetch = "texelFetch";
+		} else {
+			WRITE(p, "#version 100\n");  // GLSL ES 1.0
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+				bitwiseOps = true;
+				texelFetch = "texelFetch2D";
+			}
 		}
-	}
 
-	// PowerVR needs highp to do the fog in MHU correctly.
-	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-	highpTexcoord = highpFog;
+		// PowerVR needs highp to do the fog in MHU correctly.
+		// Others don't, and some can't handle highp in the fragment shader.
+		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+		highpTexcoord = highpFog;
 
-	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-		if (gl_extensions.EXT_shader_framebuffer_fetch) {
-			WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-			lastFragData = "gl_LastFragData[0]";
-		} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-			// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-			WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-			lastFragData = "gl_LastFragData[0]";
-		} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-			WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-			lastFragData = "gl_LastFragColorARM";
+		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+			if (gl_extensions.EXT_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragData[0]";
+			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
+				// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
+				WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragData[0]";
+			} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragColorARM";
+			}
 		}
-	}
 
-	WRITE(p, "precision lowp float;\n");
-	
-#elif !defined(FORCE_OPENGL_2_0)
-	if (gl_extensions.VersionGEThan(3, 3, 0)) {
-		fragColor0 = "fragColor0";
-		texture = "texture";
-		glslES30 = true;
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-		WRITE(p, "#version 330\n");
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
-	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-		fragColor0 = "fragColor0";
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-		WRITE(p, "#version 130\n");
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-		}
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
+		WRITE(p, "precision lowp float;\n");
 	} else {
-		WRITE(p, "#version 110\n");
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+		// TODO: Handle this in VersionGEThan?
+#if !defined(FORCE_OPENGL_2_0)
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			fragColor0 = "fragColor0";
+			texture = "texture";
+			glslES30 = true;
 			bitwiseOps = true;
-			texelFetch = "texelFetch2D";
+			texelFetch = "texelFetch";
+			WRITE(p, "#version 330\n");
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			fragColor0 = "fragColor0";
+			bitwiseOps = true;
+			texelFetch = "texelFetch";
+			WRITE(p, "#version 130\n");
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			}
+		} else {
+			WRITE(p, "#version 110\n");
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+				bitwiseOps = true;
+				texelFetch = "texelFetch2D";
+			}
 		}
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
-	}
-#else
-	// Need to remove lowp/mediump for Mac
-	WRITE(p, "#define lowp\n");
-	WRITE(p, "#define mediump\n");
-	WRITE(p, "#define highp\n");
 #endif
+
+		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
+	}
 
 	if (glslES30) {
 		varying = "in";
