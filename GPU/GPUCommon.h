@@ -133,7 +133,7 @@ protected:
 	void CheckDrawSync();
 	int  GetNextListIndex();
 	void ProcessDLQueueInternal();
-	void ReapplyGfxStateInternal();
+	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
 	virtual void ProcessEvent(GPUEvent ev);
 	virtual bool ShouldExitEventLoop() {

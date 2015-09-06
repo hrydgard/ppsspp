@@ -48,8 +48,8 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"  // TODO: Get rid of this from here
 #include "gfx_es2/draw_text.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
@@ -85,9 +85,6 @@
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
 #include "HostTypes.h"
-#ifdef _WIN32
-#include "GPU/Directx9/helper/dx_state.h"
-#endif
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
@@ -571,11 +568,6 @@ void NativeInitGraphics() {
 	screenManager->setUIContext(uiContext);
 	screenManager->setThin3DContext(thin3d);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
@@ -684,19 +676,6 @@ void NativeRender() {
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
-
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glstate.Restore();
-	} else {
-#ifdef _WIN32
-		DX9::dxstate.depthWrite.set(true);
-		DX9::dxstate.colorMask.set(true, true, true, true);
-		DX9::dxstate.Restore();
-#endif
-	}
-
 	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
@@ -725,17 +704,6 @@ void NativeRender() {
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
-	}
-
-	thin3d->SetScissorEnabled(false);
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	} else {
-#ifdef _WIN32
-		DX9::dxstate.depthWrite.set(true);
-		DX9::dxstate.colorMask.set(true, true, true, true);
-#endif
 	}
 
 	if (resized) {
@@ -780,7 +748,6 @@ void NativeDeviceLost() {
 
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		gl_lost();
-		glstate.Restore();
 	}
 	// Should dirty EVERYTHING
 }

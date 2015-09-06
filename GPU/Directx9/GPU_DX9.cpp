@@ -509,6 +509,11 @@ void DIRECTX9_GPU::BeginFrame() {
 	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
 }
 
+void DIRECTX9_GPU::ReapplyGfxStateInternal() {
+	DX9::dxstate.Restore();
+	GPUCommon::ReapplyGfxStateInternal();
+}
+
 void DIRECTX9_GPU::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();

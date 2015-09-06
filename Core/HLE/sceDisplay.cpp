@@ -33,9 +33,7 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
-#ifndef _XBOX
-#include "gfx_es2/gl_state.h"
-#endif
+#include "gfx_es2/gpu_features.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreTiming.h"

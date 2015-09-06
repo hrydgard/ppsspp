@@ -678,6 +678,11 @@ void GLES_GPU::UpdateCmdInfo() {
 	}
 }
 
+void GLES_GPU::ReapplyGfxStateInternal() {
+	glstate.Restore();
+	GPUCommon::ReapplyGfxStateInternal();
+}
+
 void GLES_GPU::BeginFrameInternal() {
 	if (resized_) {
 		CheckGPUFeatures();

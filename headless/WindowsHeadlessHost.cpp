@@ -28,7 +28,6 @@
 #include "GPU/GPUState.h"
 
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -40,8 +39,7 @@ const int WINDOW_HEIGHT = 272;
 typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int value);
 PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = NULL;
 
-HWND CreateHiddenWindow()
-{
+HWND CreateHiddenWindow() {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -187,7 +185,6 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	SetVSync(0);
 
 	glewInit();
-	glstate.Initialize();
 
 	LoadNativeAssets();
 
@@ -218,8 +215,7 @@ bool WindowsHeadlessHost::ResizeGL()
 	RECT rc;
 	GetWindowRect(hWnd, &rc);
 
-	glstate.viewport.set(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-	glstate.viewport.restore();
+	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f, -1.0f, 1.0f);

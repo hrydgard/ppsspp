@@ -1,6 +1,6 @@
 #include "Common/CommonWindows.h"
-#include "native/gfx_es2/gl_state.h"
 #include "native/gfx/gl_common.h"
+#include "native/gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
@@ -237,7 +237,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;
 	}
 
-
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
 		return false;
@@ -245,7 +244,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	glstate.Initialize();
 	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(0);
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
