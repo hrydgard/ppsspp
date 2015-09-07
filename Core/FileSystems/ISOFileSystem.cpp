@@ -320,7 +320,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 	{
 		TreeEntry *ne = 0;
 		std::string name = "";
-		if (path.length()>0)
+		if (path.length() > 0)
 		{
             const std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
 			for (size_t i = 0; i < e->children.size(); i++)
@@ -416,7 +416,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		return 0;
 	}
 
-	if (entry.file==&entireISO)
+	if (entry.file == &entireISO)
 		entry.isBlockSectorMode = true;
 
 	entry.seekPos = 0;
@@ -682,7 +682,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
-		x.startSector = entry->startingPosition/2048;
+		x.startSector = entry->startingPosition / 2048;
 	}
 	return x;
 }
