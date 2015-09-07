@@ -256,7 +256,12 @@ namespace MainWindow
 	}
 
 	static bool IsWindowSmall() {
-		return g_Config.IsPortrait() ? (g_Config.iWindowHeight < 480 + 80) : (g_Config.iWindowWidth < 480 + 80);
+		// Can't take this from config as it will not be set if windows is maximized.
+		RECT rc;
+		GetWindowRect(hwndMain, &rc);
+		int width = rc.right - rc.left;
+		int height = rc.bottom - rc.top;
+		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
