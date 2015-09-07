@@ -433,6 +433,7 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 }
 
 bool AnalogTestScreen::axis(const AxisInput &axis) {
+	UIScreen::axis(axis);
 	// This is mainly to catch axis events that would otherwise get translated
 	// into arrow keys, since seeing keyboard arrow key events appear when using
 	// a controller would be confusing for the user.

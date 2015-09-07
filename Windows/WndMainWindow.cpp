@@ -1018,8 +1018,10 @@ namespace MainWindow
 					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
 						PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
 					}
+					lastMouseDown = 0.0;
+				} else {
+					lastMouseDown = real_time_now();
 				}
-				lastMouseDown = real_time_now();
 			}
 			break;
 
