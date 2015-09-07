@@ -263,7 +263,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			}
 			else
 			{
-				e->name = std::string((char *)&dir.firstIdChar, dir.identifierLength);
+				e->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
 				relative = false;
 			}
 
@@ -322,7 +322,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 		std::string name = "";
 		if (path.length()>0)
 		{
-            std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
+            const std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
 			for (size_t i = 0; i < e->children.size(); i++)
 			{
 				const std::string &n = e->children[i]->name;
