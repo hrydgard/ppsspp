@@ -325,7 +325,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
             std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
 			for (size_t i = 0; i < e->children.size(); i++)
 			{
-				std::string n = e->children[i]->name;
+				const std::string &n = e->children[i]->name;
 
 				if (firstPathComponent == n)
 				{
