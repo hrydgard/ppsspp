@@ -26,6 +26,7 @@
 #include <string>
 
 #include "base/NativeApp.h"
+#include "base/timeutil.h"
 #include "Globals.h"
 
 #include "shellapi.h"
@@ -1010,6 +1011,15 @@ namespace MainWindow
 				NativeTouch(touch);
 				SetCapture(hWnd);
 
+				// Simulate doubleclick, doesn't work with RawInput enabled
+				static double lastMouseDown;
+				double now = real_time_now();
+				if ((now - lastMouseDown) < 0.2) {
+					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
+						PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
+					}
+				}
+				lastMouseDown = real_time_now();
 			}
 			break;
 
