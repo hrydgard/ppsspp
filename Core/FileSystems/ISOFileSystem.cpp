@@ -68,9 +68,9 @@ struct DirectoryEntry
 {
 	u8 size;
 	u8 sectorsInExtendedRecord;
-	u32_le firstDataSectorLE;	// LBA
+	u32_le firstDataSectorLE;       // LBA
 	u32_be firstDataSectorBE;
-	u32_le dataLengthLE;				// Size
+	u32_le dataLengthLE;            // Size
 	u32_be dataLengthBE;
 	u8 years;
 	u8 month;
@@ -79,12 +79,12 @@ struct DirectoryEntry
 	u8 minute;
 	u8 second;
 	u8 offsetFromGMT;
-	u8 flags; // 2 = directory
+	u8 flags;                       // 2 = directory
 	u8 fileUnitSize;
 	u8 interleaveGap;
 	u16_le volSeqNumberLE;
 	u16_be volSeqNumberBE;
-	u8 identifierLength; //identifier comes right after
+	u8 identifierLength;            //identifier comes right after
 	u8 firstIdChar;
 
 #if COMMON_LITTLE_ENDIAN
@@ -341,7 +341,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 			e = ne;
 			size_t l = name.length();
 			path.erase(0, l);
-			if (path.length() == 0 || (path.length()==1 && path[0] == '/'))
+			if (path.length() == 0 || (path.length() == 1 && path[0] == '/'))
 				return e;
 			path.erase(0, 1);
 			while (path[0] == '/')
