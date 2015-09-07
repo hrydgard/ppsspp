@@ -1014,7 +1014,7 @@ namespace MainWindow
 				// Simulate doubleclick, doesn't work with RawInput enabled
 				static double lastMouseDown;
 				double now = real_time_now();
-				if ((now - lastMouseDown) < 0.2) {
+				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
 					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
 						PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
 					}
