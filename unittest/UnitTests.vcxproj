@@ -69,19 +69,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
