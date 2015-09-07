@@ -695,14 +695,17 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 	{
 		return myVector;
 	}
-;
-	for (size_t i=0; i<entry->children.size(); i++)
-)
+
+    const std::string dot(".");
+    const std::string dotdot("..");
+
+	for (size_t i = 0; i < entry->children.size(); i++)
 	{
-		TreeEntry *e = entry->children[i]
-		if(!strcmp(e->name.c_str(), ".") || !strcmp(e->name.c_str(), "..")) // do not include the relative entries in the list
-			continue;
-ue;
+		TreeEntry *e = entry->children[i];
+
+        // do not include the relative entries in the list
+        if (e->name == dot || e->name == dotdot)
+            continue;
 
 		PSPFileInfo x;
 		x.name = e->name;
