@@ -322,12 +322,12 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 		std::string name = "";
 		if (path.length()>0)
 		{
-			for (size_t i=0; i<e->children.size(); i++)
+            std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
+			for (size_t i = 0; i < e->children.size(); i++)
 			{
-				std::string n = (e->children[i]->name);
-				std::string curPath = path.substr(0, path.find_first_of('/'));
+				std::string n = e->children[i]->name;
 
-				if (curPath == n)
+				if (firstPathComponent == n)
 				{
 					//yay we got it
 					ne = e->children[i];
@@ -695,13 +695,14 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 	{
 		return myVector;
 	}
-
+;
 	for (size_t i=0; i<entry->children.size(); i++)
+)
 	{
-		TreeEntry *e = entry->children[i];
-
+		TreeEntry *e = entry->children[i]
 		if(!strcmp(e->name.c_str(), ".") || !strcmp(e->name.c_str(), "..")) // do not include the relative entries in the list
 			continue;
+ue;
 
 		PSPFileInfo x;
 		x.name = e->name;
