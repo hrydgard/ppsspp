@@ -1124,10 +1124,7 @@ void Config::RestoreDefaults() {
 bool Config::hasGameConfig(const std::string &pGameId)
 {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
-
-	IniFile existsCheck;
-	bool exists = existsCheck.Load(fullIniFilePath);
-	return exists;
+	return File::Exists(fullIniFilePath);
 }
 
 void Config::changeGameSpecific(const std::string &pGameId)
