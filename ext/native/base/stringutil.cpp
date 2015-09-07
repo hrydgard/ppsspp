@@ -117,28 +117,30 @@ void DataToHexString(const uint8_t *data, size_t size, std::string *output) {
 std::string StringFromFormat(const char* format, ...)
 {
 	va_list args;
-	char *buf = NULL;
 	std::string temp = "";
 #ifdef _WIN32
 	int required = 0;
 
 	va_start(args, format);
 	required = _vscprintf(format, args);
-	buf = new char[required + 1];
-	if(vsnprintf(buf, required, format, args) < 0)
-		buf[0] = '\0';
+	// Using + 2 to be safe between MSVC versions.
+	// In MSVC 2015 and later, vsnprintf counts the trailing zero (per c++11.)
+	temp.resize(required + 2);
+	if (vsnprintf(&temp[0], required + 1, format, args) < 0) {
+		temp.resize(0);
+	} else {
+		temp.resize(required);
+	}
 	va_end(args);
-
-	buf[required] = '\0';
-	temp = buf;
-	delete[] buf;
 #else
+	char *buf = nullptr;
+
 	va_start(args, format);
-	if(vasprintf(&buf, format, args) < 0)
-		buf = NULL;
+	if (vasprintf(&buf, format, args) < 0)
+		buf = nullptr;
 	va_end(args);
 
-	if(buf != NULL) {
+	if (buf != nullptr) {
 		temp = buf;
 		free(buf);
 	}
