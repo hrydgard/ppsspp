@@ -100,7 +100,7 @@ private:
 	std::vector<std::string> restrictTree;
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
-	TreeEntry *GetFromPath(std::string path, bool catchError = true);
+	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
 	std::string EntryFullPath(TreeEntry *e);
 };
 

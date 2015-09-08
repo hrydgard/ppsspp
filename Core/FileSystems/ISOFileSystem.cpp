@@ -298,60 +298,69 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 		}
 	}
 
-    root->fastChildren.reserve(root->children.size());
-    for (TreeEntry *e : root->children) {
-        root->fastChildren[e->name] = e;
-    }
+	root->fastChildren.reserve(root->children.size());
+	for (TreeEntry *e : root->children) {
+		root->fastChildren[e->name] = e;
+	}
 }
 
-ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)
+ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError)
 {
-	if (path.length() == 0) {
+	const size_t pathLength = path.length();
+	
+	if (pathLength == 0) {
 		// Ah, the device!	"umd0:"
 		return &entireISO;
 	}
 
-	if (path.substr(0,2) == "./")
-		path.erase(0,2);
+	size_t pathIndex = 0;
+	
+	// Skip "./"
+	if (pathLength > pathIndex + 1 && path[pathIndex] == '.' && path[pathIndex + 1] == '/')
+		pathIndex += 2;
 
-	if (path[0] == '/')
-		path.erase(0,1);
-
+	// Skip "/"
+	if (pathLength > pathIndex && path[pathIndex] == '/')
+		++pathIndex;
+	
+	if (pathLength <= pathIndex)
+		return treeroot;
+	
 	TreeEntry *e = treeroot;
-	if (path.length() == 0)
-		return e;
-
 	while (true)
 	{
-		TreeEntry *ne = 0;
+		TreeEntry *ne = nullptr;
 		std::string name = "";
-		if (path.length() > 0)
+		if (pathLength > pathIndex)
 		{
-            const std::string firstPathComponent = path.substr(0, path.find_first_of('/'));
-            auto child = e->fastChildren.find(firstPathComponent);
-            if (child != e->fastChildren.end()) {
-                //yay we got it
-                ne = child->second;
-                name = child->first;
-            }
+			size_t nextSlashIndex = path.find_first_of('/', pathIndex);
+			if (nextSlashIndex == std::string::npos)
+				nextSlashIndex = pathLength;
+
+			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
+			auto child = e->fastChildren.find(firstPathComponent);
+			if (child != e->fastChildren.end()) {
+				//yay we got it
+				ne = child->second;
+				name = child->first;
+			}
 		}
+
 		if (ne)
 		{
 			e = ne;
-			size_t l = name.length();
-			path.erase(0, l);
-			if (path.length() == 0 || (path.length() == 1 && path[0] == '/'))
+			pathIndex += name.length();
+			while (pathIndex < pathLength && path[pathIndex] == '/')
+				++pathIndex;
+
+			if (pathLength <= pathIndex)
 				return e;
-			path.erase(0, 1);
-			while (path[0] == '/')
-				path.erase(0, 1);
 		}
 		else
 		{
 			if (catchError)
-			{
 				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
-			}
+
 			return 0;
 		}
 	}
