@@ -1,5 +1,7 @@
-#include "global.h"
-#include "fbo.h"
+
+
+#include "GPU/Directx9/helper/global.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 #include "thin3d/d3dx9_loader.h"
 #include "Common/CommonFuncs.h"
 

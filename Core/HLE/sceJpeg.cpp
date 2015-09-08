@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "native/ext/jpge/jpgd.h"
+#include "ext/jpge/jpgd.h"
 
 #include "Common/Common.h"
 #include "Common/ChunkFile.h"

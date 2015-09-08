@@ -55,34 +55,36 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 	return ClipCoords(projection_matrix * coords4);
 }
 
-// TODO: This is ugly
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag)
-{
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
 	ScreenCoords ret;
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	float vpx1 = getFloat24(gstate.viewportx1);
-	float vpx2 = getFloat24(gstate.viewportx2);
-	float vpy1 = getFloat24(gstate.viewporty1);
-	float vpy2 = getFloat24(gstate.viewporty2);
-	float vpz1 = getFloat24(gstate.viewportz1);
-	float vpz2 = getFloat24(gstate.viewportz2);
 
-	float retx = coords.x * vpx1 / coords.w + vpx2;
-	float rety = coords.y * vpy1 / coords.w + vpy2;
-	float retz = coords.z * vpz1 / coords.w + vpz2;
+	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
+	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
+	// with some pretty crazy inputs, which PSP games are happy to do at times.
+	float xScale = gstate.getViewportXScale();
+	float xCenter = gstate.getViewportXCenter();
+	float yScale = gstate.getViewportYScale();
+	float yCenter = gstate.getViewportYCenter();
+	float zScale = gstate.getViewportZScale();
+	float zCenter = gstate.getViewportZCenter();
 
+	float x = coords.x * xScale / coords.w + xCenter;
+	float y = coords.y * yScale / coords.w + yCenter;
+	float z = coords.z * zScale / coords.w + zCenter;
+
+	// Is this really right?
 	if (gstate.clipEnable & 0x1) {
-		if (retz < 0.f)
-			retz = 0.f;
-		if (retz > 65535.f)
-			retz = 65535.f;
+		if (z < 0.f)
+			z = 0.f;
+		if (z > 65535.f)
+			z = 65535.f;
 	}
 
-	if (outside_range_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
+	if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0 || z < 0 || z > 65535.f))
 		*outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
-	return ScreenCoords(retx * 16, rety * 16, retz);
+	return ScreenCoords(x * 16, y * 16, z);
 }
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
@@ -213,8 +215,7 @@ struct SplinePatch {
 SplinePatch *TransformUnit::patchBuffer_ = 0;
 int TransformUnit::patchBufferSize_ = 0;
 
-void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
-{
+void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options;
 	memset(&options, 0, sizeof(options));

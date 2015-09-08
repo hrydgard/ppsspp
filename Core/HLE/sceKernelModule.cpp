@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <set>
 
-#include "native/base/stringutil.h"
+#include "base/stringutil.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"

@@ -29,7 +29,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
-#include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Software/SoftGpu.h"
@@ -187,9 +186,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
-	glstate.blend.disable();
-	glstate.viewport.set(0, 0, dstwidth, dstheight);
-	glstate.scissorTest.disable();
+	glDisable(GL_BLEND);
+	glViewport(0, 0, dstwidth, dstheight);
+	glDisable(GL_SCISSOR_TEST);
 
 	glBindTexture(GL_TEXTURE_2D, temp_texture);
 
@@ -275,8 +274,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		{texvert_u, 1}
 	};
 
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
 	glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
 	glEnableVertexAttribArray(attr_pos);

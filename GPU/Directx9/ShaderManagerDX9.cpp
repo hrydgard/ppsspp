@@ -176,6 +176,10 @@ void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
 	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
 }
 
+void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
+	pD3Ddevice->SetVertexShaderConstantF(creg, data, 1);
+}
+
 void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
 	const u32 col[4] = {
 		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
@@ -309,11 +313,11 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
 		if (g_Config.bDepthRangeHack) {
-			float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-			float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+			float zScale = gstate.getViewportZScale() / 65535.0f;
+			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
 			// if far depth range < 0
-			if (zOff + zScale < 0.0f) {
+			if (zCenter + zScale < 0.0f) {
 				// if perspective projection
 				if (flippedMatrix[11] < 0.0f) {
 					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
@@ -325,7 +329,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 					float n = b / (a - 1.0f);
 					float f = b / (a + 1.0f);
 
-					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
+					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
 
 					a = (n + f) / (n - f);
 					b = (2.0f * n * f) / (n - f);
@@ -475,6 +479,30 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
+	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
+		float viewZScale = gstate.getViewportZScale();
+		float viewZCenter = gstate.getViewportZCenter();
+
+		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
+		// it afterwards anyway.
+		// It seems that we should adjust for D3D projection matrix. We got squashed up to only 0-1, so we divide
+		// the scale factor by 2, and add an offset. But, this doesn't work! I get near-perfect results not doing it.
+		// viewZScale *= 2.0f;
+
+		// Need to take the possibly inverted proj matrix into account.
+		if (gstate_c.vpDepth < 0.0)
+			viewZScale *= -1.0f;
+		viewZCenter -= 32767.5f;
+		float viewZInvScale;
+		if (viewZScale != 0.0) {
+			viewZInvScale = 1.0f / viewZScale;
+		} else {
+			viewZInvScale = 0.0;
+		}
+
+		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+	}
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());

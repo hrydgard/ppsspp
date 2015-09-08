@@ -2,7 +2,7 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "base/mutex.h"
-#include "native/file/chunk_file.h"
+#include "file/chunk_file.h"
 
 #include "Common/CommonTypes.h"
 #include "Core/HW/SimpleAudioDec.h"
@@ -182,11 +182,6 @@ void SetBackgroundAudioGame(const std::string &path) {
 	lock_guard lock(bgMutex);
 	if (path == bgGamePath) {
 		// Do nothing
-		return;
-	}
-
-	if (!g_Config.bEnableSound) {
-		ClearBackgroundAudio();
 		return;
 	}
 

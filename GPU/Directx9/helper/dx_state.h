@@ -6,14 +6,14 @@
 
 namespace DX9 {
 
-class DirectxState {
+class DirectXState {
 private:
 	template<D3DRENDERSTATETYPE cap, bool init>
 	class BoolState {
 		bool _value;
 	public:
 		BoolState() : _value(init) {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
         }
 
 		inline void set(bool value) {
@@ -45,7 +45,7 @@ private:
 		DWORD p1;
 	public:
 		DxState1() : _state1(state1), p1(p1def) {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
         }
 
 		inline void set(DWORD newp1) {
@@ -65,7 +65,7 @@ private:
 		DWORD p1;
 	public:
 		DxSampler0State1() : _state1(state1), p1(p1def) {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
 		}
 
 		inline void set(DWORD newp1) {
@@ -89,7 +89,7 @@ private:
 		};
 	public:
 		DxSampler0State1Float() : _state1(state1), p1d(p1def) {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
 		}
 
 		inline void set(FLOAT newp1) {
@@ -111,7 +111,7 @@ private:
 		DWORD p2;
 	public:
 		DxState2() : _state1(state1),_state2(state2), p1(p1def), p2(p2def) {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
         }
 
 		inline void set(DWORD newp1, DWORD newp2) {
@@ -213,7 +213,7 @@ private:
 	public:
 		SavedBlendFactor() {
 			c = 0xFFFFFFFF;
-			DirectxState::state_count++;
+			DirectXState::state_count++;
 		}
 		inline void set(const float v[4]) {
 			DWORD newc = D3DCOLOR_COLORVALUE(v[0], v[1], v[2], v[3]);
@@ -232,7 +232,7 @@ private:
 	public:
 		SavedColorMask() {
 			mask = D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA;
-			DirectxState::state_count++;
+			DirectXState::state_count++;
 		}
 
 		inline void set(bool r, bool g, bool b, bool a) {
@@ -264,7 +264,7 @@ private:
 	class BoolUnused {
 	public:
 		BoolUnused() {
-			DirectxState::state_count++;
+			DirectXState::state_count++;
 		}
 		inline void set(bool) {
 			
@@ -349,7 +349,7 @@ private:
 
 public:
 	static int state_count;
-	DirectxState() : initialized(false) {}
+	DirectXState() : initialized(false) {}
 	void Initialize();
 	void Restore();
 
@@ -400,7 +400,7 @@ public:
 #undef STATE1
 #undef STATE2
 
-extern DirectxState dxstate;
+extern DirectXState dxstate;
 
 struct GLExtensions {
 	bool OES_depth24;
@@ -408,7 +408,6 @@ struct GLExtensions {
 	bool OES_depth_texture;
 	bool EXT_discard_framebuffer;
 	bool FBO_ARB;
-	bool FBO_EXT;
 };
 
 extern GLExtensions gl_extensions;

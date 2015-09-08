@@ -16,17 +16,17 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
 #include "Core/Reporting.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TextureCache.h"
 
-static const char *stencil_fs =
-#ifdef USING_GLES2
+static const char *gles_prefix =
 "#version 100\n"
-"precision highp float;\n"
-#endif
+"precision highp float;\n";
+
+static const char *stencil_fs =
 "varying vec2 v_texcoord0;\n"
 "uniform float u_stencilValue;\n"
 "uniform sampler2D tex;\n"
@@ -39,10 +39,6 @@ static const char *stencil_fs =
 "}\n";
 
 static const char *stencil_vs =
-#ifdef USING_GLES2
-"#version 100\n"
-"precision highp float;\n"
-#endif
 "attribute vec4 a_position;\n"
 "attribute vec2 a_texcoord0;\n"
 "varying vec2 v_texcoord0;\n"
@@ -50,6 +46,14 @@ static const char *stencil_vs =
 "  v_texcoord0 = a_texcoord0;\n"
 "  gl_Position = a_position;\n"
 "}\n";
+
+std::string GLSLES100PrefixProgram(std::string code) {
+	if (gl_extensions.IsGLES) {
+		return std::string(gles_prefix) + code;
+	} else {
+		return code;
+	}
+}
 
 static u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
 	const u32 *ptr = (const u32 *)ptr8;
@@ -146,7 +150,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 
 	if (!stencilUploadProgram_) {
 		std::string errorString;
-		stencilUploadProgram_ = glsl_create_source(stencil_vs, stencil_fs, &errorString);
+		stencilUploadProgram_ = glsl_create_source(GLSLES100PrefixProgram(stencil_vs).c_str(), GLSLES100PrefixProgram(stencil_fs).c_str(), &errorString);
 		if (!stencilUploadProgram_) {
 			ERROR_LOG_REPORT(G3D, "Failed to compile stencilUploadProgram! This shouldn't happen.\n%s", errorString.c_str());
 		} else {
@@ -166,20 +170,8 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 	glstate.stencilTest.enable();
 	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 
-	bool useBlit = false;
-	bool useNV = false;
-
-#ifndef USING_GLES2
-	if (gl_extensions.FBO_ARB) {
-		useNV = false;
-		useBlit = true;
-	}
-#else
-	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-		useNV = !gl_extensions.GLES3;
-		useBlit = true;
-	}
-#endif
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.

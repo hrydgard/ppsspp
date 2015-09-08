@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 #include "Core/FileSystems/FileSystem.h"
 
 class MetaFileSystem : public IHandleAllocator, public IFileSystem

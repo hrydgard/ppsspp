@@ -23,6 +23,7 @@
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false) {
 	if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
+		// TODO: Should probably set some flag?
 		return;
 	}
 

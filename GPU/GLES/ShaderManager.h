@@ -88,6 +88,8 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
+	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
+
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
 #else
@@ -132,10 +134,10 @@ public:
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR	 = (1 << 2),
-	DIRTY_FOGCOEF    = (1 << 3),
-	DIRTY_TEXENV		 = (1 << 4),
-	DIRTY_ALPHACOLORREF	 = (1 << 5),
+	DIRTY_FOGCOLOR = (1 << 2),
+	DIRTY_FOGCOEF = (1 << 3),
+	DIRTY_TEXENV = (1 << 4),
+	DIRTY_ALPHACOLORREF = (1 << 5),
 
 	// 1 << 6 is free! Wait, not anymore...
 	DIRTY_STENCILREPLACEVALUE = (1 << 6),
@@ -155,7 +157,10 @@ enum {
 	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+
+	// Texclamp is fairly rare so let's share it's bit with DIRTY_DEPTHRANGE.
 	DIRTY_TEXCLAMP = (1 << 19),
+	DIRTY_DEPTHRANGE = (1 << 19),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually

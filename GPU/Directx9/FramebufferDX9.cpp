@@ -28,7 +28,7 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "helper/dx_state.h"
-#include "helper/fbo.h"
+#include "helper/dx_fbo.h"
 
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -387,7 +387,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) {
+	void FramebufferManagerDX9::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 		if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		}
@@ -420,7 +420,13 @@ namespace DX9 {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-			BlitFramebufferDepth(prevVfb, vfb);
+			if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+				// If depth wasn't updated, then we're at least "two degrees" away from the data.
+				// This is an optimization: it probably doesn't need to be copied in this case.
+			} else {
+				// TODO: Needs work
+				BlitFramebufferDepth(prevVfb, vfb);
+			}
 		}
 		if (vfb->drawnFormat != vfb->format) {
 			// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
@@ -512,60 +518,47 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
-			return;
-		}
-
-		// If depth wasn't updated, then we're at least "two degrees" away from the data.
-		// This is an optimization: it probably doesn't need to be copied in this case.
-		if (!src->depthUpdated) {
-			return;
-		}
-
 		if (src->z_address == dst->z_address &&
 			src->z_stride != 0 && dst->z_stride != 0 &&
 			src->renderWidth == dst->renderWidth &&
 			src->renderHeight == dst->renderHeight) {
 
-			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				// Doesn't work.  Use a shader maybe?
-				/*fbo_unbind();
+			// Doesn't work.  Use a shader maybe?
+			/*fbo_unbind();
 
-				LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
-				LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
+			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
+			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
 
-				if (srcTex && dstTex) {
-					D3DSURFACE_DESC srcDesc;
-					srcTex->GetLevelDesc(0, &srcDesc);
-					D3DSURFACE_DESC dstDesc;
-					dstTex->GetLevelDesc(0, &dstDesc);
+			if (srcTex && dstTex) {
+				D3DSURFACE_DESC srcDesc;
+				srcTex->GetLevelDesc(0, &srcDesc);
+				D3DSURFACE_DESC dstDesc;
+				dstTex->GetLevelDesc(0, &dstDesc);
 
-					D3DLOCKED_RECT srcLock;
-					D3DLOCKED_RECT dstLock;
-					HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
-					HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
-					if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-						int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
-						u32 h = std::min(srcDesc.Height, dstDesc.Height);
-						const u8 *srcp = (const u8 *)srcLock.pBits;
-						u8 *dstp = (u8 *)dstLock.pBits;
-						for (u32 y = 0; y < h; ++y) {
-							memcpy(dstp, srcp, pitch);
-							dstp += dstLock.Pitch;
-							srcp += srcLock.Pitch;
-						}
-					}
-					if (SUCCEEDED(srcLockRes)) {
-						srcTex->UnlockRect(0);
-					}
-					if (SUCCEEDED(dstLockRes)) {
-						dstTex->UnlockRect(0);
+				D3DLOCKED_RECT srcLock;
+				D3DLOCKED_RECT dstLock;
+				HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
+				HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
+				if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
+					int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 h = std::min(srcDesc.Height, dstDesc.Height);
+					const u8 *srcp = (const u8 *)srcLock.pBits;
+					u8 *dstp = (u8 *)dstLock.pBits;
+					for (u32 y = 0; y < h; ++y) {
+						memcpy(dstp, srcp, pitch);
+						dstp += dstLock.Pitch;
+						srcp += srcLock.Pitch;
 					}
 				}
-
-				RebindFramebuffer();*/
+				if (SUCCEEDED(srcLockRes)) {
+					srcTex->UnlockRect(0);
+				}
+				if (SUCCEEDED(dstLockRes)) {
+					dstTex->UnlockRect(0);
+				}
 			}
+
+			RebindFramebuffer();*/
 		}
 	}
 
@@ -782,7 +775,7 @@ namespace DX9 {
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			glstate.viewport.set(0, 0, fbo_w, fbo_h);
+			dxstate.viewport.set(0, 0, fbo_w, fbo_h);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
@@ -794,12 +787,12 @@ namespace DX9 {
 			return;
 			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			} else {
 			// Use post-shader, but run shader at output resolution.
-			glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}
@@ -1218,7 +1211,11 @@ namespace DX9 {
 	void FramebufferManagerDX9::FlushBeforeCopy() {
 		// Flush anything not yet drawn before blitting, downloading, or uploading.
 		// This might be a stalled list, or unflushed before a block transfer, etc.
-		SetRenderFrameBuffer();
+
+		// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+		// all the irrelevant state checking it'll use to decide what to do. Should
+		// do something more focused here.
+		SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 		transformDraw_->Flush();
 	}
 

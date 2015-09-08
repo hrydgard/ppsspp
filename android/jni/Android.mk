@@ -1,30 +1,10 @@
 LOCAL_PATH := $(call my-dir)
 
-# BEGIN Native Audio Separate Library - copy paste this section to your Android.mk
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -D__STDC_CONSTANT_MACROS
-# yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
-NATIVE := ../../native
-LOCAL_SRC_FILES := \
-		$(NATIVE)/android/native-audio-so.cpp
-LOCAL_C_INCLUDES := \
-		$(LOCAL_PATH)/$(NATIVE) \
-		$(LOCAL_PATH)
-LOCAL_LDLIBS := -lOpenSLES -llog
-		
-include $(BUILD_SHARED_LIBRARY)
-
-# END Native Audio Separate Library - copy paste this section to your Android.mk
-
 include $(CLEAR_VARS)
 
 #TARGET_PLATFORM := android-8
 
-NATIVE := ../../native
+NATIVE := ../../ext/native
 SRC := ../..
 
 include $(LOCAL_PATH)/Locals.mk
@@ -168,11 +148,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/GPU/Math3D.cpp \
+  $(SRC)/GPU/GPU.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FramebufferCommon.cpp \
+  $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
@@ -188,6 +170,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
   $(SRC)/GPU/GLES/DepalettizeShader.cpp \
   $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
+  $(SRC)/GPU/GLES/GLStateCache.cpp.arm \
+  $(SRC)/GPU/GLES/FBO.cpp \
   $(SRC)/GPU/GLES/StencilBuffer.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
@@ -341,7 +325,7 @@ LOCAL_STATIC_LIBRARIES += ppsspp_core
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
 LOCAL_SRC_FILES := \
-  $(SRC)/native/android/app-android.cpp \
+  $(NATIVE)/android/app-android.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
@@ -446,19 +430,19 @@ ifeq ($(UNITTEST),1)
 	$(SRC)/ext/armips/Util/Util.cpp
 
   ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
-    TESTARMEMITTER_FILE = $(SRC)/UnitTest/TestArm64Emitter.cpp
+    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArm64Emitter.cpp
   else
-    TESTARMEMITTER_FILE = $(SRC)/UnitTest/TestArmEmitter.cpp
+    TESTARMEMITTER_FILE = $(SRC)/unittest/TestArmEmitter.cpp
   endif
 
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(LIBARMIPS_FILES) \
     $(SRC)/Core/MIPS/MIPSAsm.cpp \
-    $(SRC)/UnitTest/JitHarness.cpp \
-    $(SRC)/UnitTest/TestVertexJit.cpp \
+    $(SRC)/unittest/JitHarness.cpp \
+    $(SRC)/unittest/TestVertexJit.cpp \
     $(TESTARMEMITTER_FILE) \
-    $(SRC)/UnitTest/UnitTest.cpp
+    $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)
 endif

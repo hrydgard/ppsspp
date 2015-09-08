@@ -28,6 +28,7 @@
 #include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUCommon.h"
+#include "GPU/GPUState.h"
 
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUmd.h"

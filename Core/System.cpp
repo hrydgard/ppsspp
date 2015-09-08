@@ -23,9 +23,9 @@
 #endif
 
 #include "math/math_util.h"
-#include "native/thread/thread.h"
-#include "native/thread/threadutil.h"
-#include "native/base/mutex.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
+#include "base/mutex.h"
 #include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
@@ -268,7 +268,6 @@ void UpdateLoadedFile(FileLoader *fileLoader) {
 
 void CPU_RunLoop() {
 	setCurrentThreadName("CPU");
-	FPU_SetFastMode();
 
 	if (CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
 		CPU_Init();

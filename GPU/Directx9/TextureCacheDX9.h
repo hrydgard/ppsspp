@@ -21,9 +21,9 @@
 
 #include "../Globals.h"
 #include "helper/global.h"
-#include "helper/fbo.h"
+#include "helper/dx_fbo.h"
+#include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureScalerDX9.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
@@ -61,7 +61,7 @@ public:
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
-	void LoadClut();
+	void LoadClut(u32 clutAddr, u32 loadBytes);
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
@@ -166,7 +166,7 @@ private:
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
-	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 bytesPerPixel, u32 level);
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw);
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, int maxLevel);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
@@ -177,7 +177,7 @@ private:
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
-	void UpdateCurrentClut();
+	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);

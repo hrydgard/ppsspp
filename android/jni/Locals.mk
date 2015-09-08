@@ -15,7 +15,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)
 
 LOCAL_STATIC_LIBRARIES := native libzip
-LOCAL_LDLIBS := -lz -lGLESv2 -lEGL -ldl -llog
+LOCAL_LDLIBS := -lz -lGLESv2 -lOpenSLES -lEGL -ldl -llog
 
 # ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
@@ -46,7 +46,7 @@ ifeq ($(TARGET_ARCH_ABI),x86)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
 
-  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3
+  LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32 -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
 endif
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
   LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavformat.a

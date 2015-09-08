@@ -431,8 +431,7 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 
 	int pos = _POS;
 	int size = _SIZE + 1;
-	// Workaround for a compiler bug.
-	u32 mask = size == 32 ? 0xFFFFFFFF : (1 << size) - 1;
+	u32 mask = 0xFFFFFFFFUL >> (32 - size);
 
 	// Don't change $zr.
 	if (rt == 0)

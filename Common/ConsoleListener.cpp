@@ -234,19 +234,19 @@ void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int S
 	if (BufferFirst)
 	{
 		// Change screen buffer size
-		COORD Co = {BufferWidth, BufferHeight};
+		COORD Co = {(SHORT)BufferWidth, (SHORT)BufferHeight};
 		SB = SetConsoleScreenBufferSize(hConsole, Co);
 		// Change the screen buffer window size
-		SMALL_RECT coo = {0,0,ScreenWidth, ScreenHeight}; // top, left, right, bottom
+		SMALL_RECT coo = {(SHORT)0, (SHORT)0, (SHORT)ScreenWidth, (SHORT)ScreenHeight}; // top, left, right, bottom
 		SW = SetConsoleWindowInfo(hConsole, TRUE, &coo);
 	}
 	else
 	{
 		// Change the screen buffer window size
-		SMALL_RECT coo = {0,0, ScreenWidth, ScreenHeight}; // top, left, right, bottom
+		SMALL_RECT coo = {(SHORT)0, (SHORT)0, (SHORT)ScreenWidth, (SHORT)ScreenHeight}; // top, left, right, bottom
 		SW = SetConsoleWindowInfo(hConsole, TRUE, &coo);
 		// Change screen buffer size
-		COORD Co = {BufferWidth, BufferHeight};
+		COORD Co = {(SHORT)BufferWidth, (SHORT)BufferHeight};
 		SB = SetConsoleScreenBufferSize(hConsole, Co);
 	}
 #endif

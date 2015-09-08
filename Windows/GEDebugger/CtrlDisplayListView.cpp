@@ -4,6 +4,8 @@
 #include "Windows/Main.h"
 #include "Core/Config.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/GPUState.h"
+
 #include <algorithm>
 
 static const int numCPUs = 1;

@@ -1475,7 +1475,7 @@ bool isBroadcastMAC(const SceNetEtherAddr * addr) {
 bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	sockaddr_in addr;
 	getLocalIp(&addr);
-	uint32 localIp = addr.sin_addr.s_addr;
+	uint32_t localIp = addr.sin_addr.s_addr;
 
 	if (ip == localIp){
 		getLocalMac(mac);

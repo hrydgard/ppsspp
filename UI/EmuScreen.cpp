@@ -23,10 +23,8 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
-#include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
-#include "gfx_es2/fbo.h"
 
 #include "input/input_state.h"
 #include "ui/ui.h"
@@ -44,6 +42,7 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
@@ -923,20 +922,20 @@ void EmuScreen::render() {
 		screenManager()->getUIContext()->End();
 	}
 
-#ifdef USING_GLES2
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 		GLenum attachments[2] = { GL_DEPTH, GL_STENCIL };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, attachments);
 	} else if (!gl_extensions.GLES3) {
+#ifdef USING_GLES2
 		// Tiled renderers like PowerVR should benefit greatly from this. However - seems I can't call it?
 		bool hasDiscard = gl_extensions.EXT_discard_framebuffer;  // TODO
 		if (hasDiscard) {
 			//const GLenum targets[3] = { GL_COLOR_EXT, GL_DEPTH_EXT, GL_STENCIL_EXT };
 			//glDiscardFramebufferEXT(GL_FRAMEBUFFER, 3, targets);
 		}
-	}
 #endif
+	}
 }
 
 void EmuScreen::deviceLost() {

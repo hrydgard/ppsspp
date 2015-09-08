@@ -1,8 +1,9 @@
 #include <algorithm>
-#include "native/base/mutex.h"
-#include "native/base/timeutil.h"
+#include "base/mutex.h"
+#include "base/timeutil.h"
 #include "Common/ColorConv.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "ChunkFile.h"
@@ -24,6 +25,11 @@ GPUCommon::GPUCommon() :
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
+	InitGfxState();
+}
+
+GPUCommon::~GPUCommon() {
+	ShutdownGfxState();
 }
 
 void GPUCommon::Reinitialize() {
@@ -614,7 +620,6 @@ void GPUCommon::ReapplyGfxState() {
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
-	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
@@ -639,7 +644,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
-inline void GPUCommon::UpdateState(GPUState state) {
+inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
 		downcount = 0;

@@ -20,6 +20,8 @@
 
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
+
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 

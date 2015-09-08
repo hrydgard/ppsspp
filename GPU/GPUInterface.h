@@ -19,11 +19,14 @@
 
 #include <list>
 #include <string>
+#include <vector>
 
-#include "GPU/GPUState.h"
+#include "GPU/GPU.h"
 #include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
 
 struct PspGeListArgs;
+struct GPUgstate;
 class PointerWrap;
 
 enum DisplayListStatus {
@@ -52,8 +55,7 @@ enum DisplayListState {
   PSP_GE_DL_STATE_PAUSED = 4,
 };
 
-enum SignalBehavior
-{
+enum SignalBehavior {
 	PSP_GE_SIGNAL_NONE             = 0x00,
 	PSP_GE_SIGNAL_HANDLER_SUSPEND  = 0x01,
 	PSP_GE_SIGNAL_HANDLER_CONTINUE = 0x02,
@@ -89,8 +91,7 @@ enum SignalBehavior
 	PSP_GE_SIGNAL_BREAK2           = 0xFF,
 };
 
-enum GPUState
-{
+enum GPURunState {
 	GPUSTATE_RUNNING = 0,
 	GPUSTATE_DONE = 1,
 	GPUSTATE_STALL = 2,
@@ -98,15 +99,13 @@ enum GPUState
 	GPUSTATE_ERROR = 4,
 };
 
-enum GPUSyncType
-{
+enum GPUSyncType {
 	GPU_SYNC_DRAW,
 	GPU_SYNC_LIST,
 };
 
 // Used for debug
-struct FramebufferInfo
-{
+struct FramebufferInfo {
 	u32 fb_address;
 	u32 z_address;
 	int format;
@@ -115,15 +114,13 @@ struct FramebufferInfo
 	void* fbo;
 };
 
-struct DisplayListStackEntry
-{
+struct DisplayListStackEntry {
 	u32 pc;
 	u32 offsetAddr;
 	u32 baseAddr;
 };
 
-struct DisplayList
-{
+struct DisplayList {
 	int id;
 	u32 startpc;
 	u32 pc;

@@ -17,7 +17,7 @@
 
 #include <map>
 #include <set>
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 #include "Core/ThreadEventQueue.h"
 
 class NoBase {

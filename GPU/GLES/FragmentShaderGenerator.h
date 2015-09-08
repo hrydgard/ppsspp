@@ -58,4 +58,4 @@ bool IsColorTestAgainstZero();
 bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader();
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);

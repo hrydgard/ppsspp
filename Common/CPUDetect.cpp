@@ -29,6 +29,8 @@
 #include "StringUtils.h"
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
 #define _interlockedbittestandreset workaround_ms_header_bug_platform_sdk6_reset
 #define _interlockedbittestandset64 workaround_ms_header_bug_platform_sdk6_set64

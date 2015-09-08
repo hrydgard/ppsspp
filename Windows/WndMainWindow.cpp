@@ -20,11 +20,13 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/KeyMap.h"
+#include <Windowsx.h>
 
 #include <map>
 #include <string>
 
 #include "base/NativeApp.h"
+#include "base/timeutil.h"
 #include "Globals.h"
 
 #include "shellapi.h"
@@ -66,7 +68,6 @@
 #include "Windows/RawInput.h"
 #include "Windows/TouchInputHandler.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
 #include "gfx_es2/gpu_features.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
@@ -255,7 +256,12 @@ namespace MainWindow
 	}
 
 	static bool IsWindowSmall() {
-		return g_Config.IsPortrait() ? (g_Config.iWindowHeight < 480 + 80) : (g_Config.iWindowWidth < 480 + 80);
+		// Can't take this from config as it will not be set if windows is maximized.
+		RECT rc;
+		GetWindowRect(hwndMain, &rc);
+		int width = rc.right - rc.left;
+		int height = rc.bottom - rc.top;
+		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
 	}
 
 	static void ResizeDisplay(bool noWindowMovement = false) {
@@ -1010,6 +1016,17 @@ namespace MainWindow
 				NativeTouch(touch);
 				SetCapture(hWnd);
 
+				// Simulate doubleclick, doesn't work with RawInput enabled
+				static double lastMouseDown;
+				double now = real_time_now();
+				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
+					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
+						PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
+					}
+					lastMouseDown = 0.0;
+				} else {
+					lastMouseDown = real_time_now();
+				}
 			}
 			break;
 

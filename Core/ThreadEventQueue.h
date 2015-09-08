@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include <deque>
@@ -184,6 +184,7 @@ protected:
 			break;
 
 		case EVENT_SYNC:
+			// Nothing special to do, this event it just to wait on, see SyncThread.
 			break;
 
 		default:

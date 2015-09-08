@@ -3,7 +3,7 @@
 #include <DxErr.h>
 
 #include "GPU/Directx9/helper/global.h"
-#include "GPU/Directx9/helper/fbo.h"
+#include "GPU/Directx9/helper/dx_fbo.h"
 
 #include "base/logging.h"
 #include "util/text/utf8.h"
@@ -213,8 +213,9 @@ void D3D9_Resize(HWND window) {
 		pp.BackBufferHeight = yres;
 		HRESULT hr = device->Reset(&pp);
 		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Unable to reset device: %s", DXGetErrorStringA(hr));
-			PanicAlert("Unable to reset D3D9 device: %s", DXGetErrorStringA(hr));
+      // Had to remove DXGetErrorStringA calls here because dxerr.lib is deprecated and will not link with VS 2015.
+			ERROR_LOG_REPORT(G3D, "Unable to reset D3D device");
+			PanicAlert("Unable to reset D3D9 device");
 		}
 		DX9::fbo_init(d3d);
 	}

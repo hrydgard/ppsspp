@@ -857,7 +857,7 @@ rotateVBO:
 				framebufferManager_->SetDepthUpdated();
 			}
 			if (mask & D3DCLEAR_TARGET) {
-				framebufferManager_->SetColorUpdated();
+				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			}
 
 			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
@@ -876,7 +876,7 @@ rotateVBO:
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
-	framebufferManager_->SetColorUpdated();
+	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 	host->GPUNotifyDraw();
 }

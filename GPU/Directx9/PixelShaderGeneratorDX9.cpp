@@ -237,7 +237,7 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
-ReplaceBlendType ReplaceBlendWithShader() {
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
@@ -249,7 +249,7 @@ ReplaceBlendType ReplaceBlendWithShader() {
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
@@ -268,11 +268,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
@@ -291,17 +291,17 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -309,11 +309,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
@@ -345,7 +345,7 @@ ReplaceBlendType ReplaceBlendWithShader() {
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			return REPLACE_BLEND_STANDARD;
@@ -423,7 +423,7 @@ void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -515,7 +515,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)

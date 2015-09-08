@@ -845,7 +845,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 
 	host->UpdateUI();
 
-	KeyMap::UpdateConfirmCancelKeys();
+	KeyMap::UpdateNativeMenuKeys();
 }
 
 /*

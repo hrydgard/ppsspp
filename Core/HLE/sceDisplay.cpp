@@ -33,9 +33,7 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
-#ifndef _XBOX
-#include "gfx_es2/gl_state.h"
-#endif
+#include "gfx_es2/gpu_features.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreTiming.h"
@@ -50,6 +48,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 
+#include "GPU/GPU.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -60,16 +59,14 @@ struct FrameBufferState {
 	int pspFramebufLinesize;
 };
 
-struct WaitVBlankInfo
-{
+struct WaitVBlankInfo {
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(1) {}
 	WaitVBlankInfo(u32 tid, int vcount) : threadID(tid), vcountUnblock(vcount) {}
 	SceUID threadID;
 	// Number of vcounts to block for.
 	int vcountUnblock;
 
-	void DoState(PointerWrap &p)
-	{
+	void DoState(PointerWrap &p) {
 		auto s = p.Section("WaitVBlankInfo", 1);
 		if (!s)
 			return;
@@ -217,8 +214,6 @@ void __DisplayInit() {
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
 
-	InitGfxState();
-
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
 
@@ -274,6 +269,11 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 
 	p.Do(gstate);
+
+	// TODO: GPU stuff is really not the responsibility of sceDisplay.
+	// Display just displays the buffers the GPU has drawn, they are really completely distinct.
+	// Maybe a bit tricky to move at this point, though...
+
 	gstate_c.DoState(p);
 #ifndef _XBOX
 	if (s < 2) {
@@ -300,7 +300,6 @@ void __DisplayDoState(PointerWrap &p) {
 void __DisplayShutdown() {
 	vblankListeners.clear();
 	vblankWaitingThreads.clear();
-	ShutdownGfxState();
 }
 
 void __DisplayListenVblank(VblankCallback callback) {
@@ -326,16 +325,14 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	WaitVBlankInfo waitData(0);
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		WaitVBlankInfo *t = &vblankWaitingThreads[i];
-		if (t->threadID == threadID)
-		{
+		if (t->threadID == threadID) {
 			waitData = *t;
 			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i);
 			break;
 		}
 	}
 
-	if (waitData.threadID != threadID)
-	{
+	if (waitData.threadID != threadID) {
 		WARN_LOG_REPORT(SCEDISPLAY, "sceDisplayWaitVblankCB: could not find waiting thread info.");
 		return;
 	}
@@ -498,19 +495,19 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
-	
+
 	if (!throttle && g_Config.bFrameSkipUnthrottle) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 7) {
 			skipFrame = false;
 		}
-		return;	
+		return;
 	}
 
 	if (!throttle && !doFrameSkip)
 		return;
-	
+
 	time_update();
 
 	float scaledTimestep = timestep;
@@ -530,7 +527,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		nextFrameTime = std::max(lastFrameTime + scaledTimestep, time_now_d() - maxFallBehindFrames * scaledTimestep);
 	}
 	curFrameTime = time_now_d();
-	
+
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
@@ -707,8 +704,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	}
 }
 
-void hleAfterFlip(u64 userdata, int cyclesLate)
-{
+void hleAfterFlip(u64 userdata, int cyclesLate) {
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
 
 	// This seems like as good a time as any to check if the config changed.
@@ -769,7 +765,7 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
-	
+
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
 		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID MODE(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -1017,11 +1013,11 @@ static float sceDisplayGetFramePerSec() {
 }
 
 static u32 sceDisplayIsForeground() {
-  	DEBUG_LOG(SCEDISPLAY,"IMPL sceDisplayIsForeground()");	
+	DEBUG_LOG(SCEDISPLAY,"IMPL sceDisplayIsForeground()");
 	if (!hasSetMode || framebuf.topaddr == 0)
 		return 0;
 	else
-  		return 1;   // return value according to JPCSP comment
+		return 1;   // return value according to JPCSP comment
 }
 
 static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {

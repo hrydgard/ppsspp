@@ -433,7 +433,9 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
-#ifdef USING_GLES2
+
+	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4...
+#ifdef MOBILE_DEVICE
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 0, true, true),
 #else
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 8, true, true),
@@ -1161,10 +1163,7 @@ void Config::RestoreDefaults() {
 bool Config::hasGameConfig(const std::string &pGameId)
 {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
-
-	IniFile existsCheck;
-	bool exists = existsCheck.Load(fullIniFilePath);
-	return exists;
+	return File::Exists(fullIniFilePath);
 }
 
 void Config::changeGameSpecific(const std::string &pGameId)

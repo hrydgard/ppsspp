@@ -25,7 +25,6 @@ struct InputState;
 class Host {
 public:
 	virtual ~Host() {}
-	//virtual void StartThread()
 	virtual void UpdateUI() {}
 
 	virtual void UpdateMemView() {}

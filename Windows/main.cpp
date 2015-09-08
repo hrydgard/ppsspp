@@ -112,6 +112,7 @@ std::string GetWindowsVersion() {
 	const bool IsWindows7SP1 = DoesVersionMatchWindows(6, 1, 1, 0);
 	const bool IsWindows8 = DoesVersionMatchWindows(6, 2);
 	const bool IsWindows8_1 = DoesVersionMatchWindows(6, 3);
+	const bool IsWindows10 = DoesVersionMatchWindows(10, 0);
 
 	if (IsWindowsXPSP2)
 		return "Microsoft Windows XP, Service Pack 2";
@@ -139,6 +140,9 @@ std::string GetWindowsVersion() {
 
 	if (IsWindows8_1)
 		return "Microsoft Windows 8.1";
+
+	if (IsWindows10)
+		return "Microsoft Windows 10";
 
 	return "Unsupported version of Microsoft Windows.";
 }

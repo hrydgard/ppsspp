@@ -3417,7 +3417,7 @@ void ARM64FloatEmitter::FCMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FCMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0x1D, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 0, 2 | (size >> 6), 0xD, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -3425,7 +3425,7 @@ void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 }
 void ARM64FloatEmitter::FCMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
-	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0x1C, Rd, Rn);
+	Emit2RegMisc(IsQuad(Rd), 1, 2 | (size >> 6), 0xC, Rd, Rn);
 }
 void ARM64FloatEmitter::FCMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
@@ -3517,11 +3517,11 @@ void ARM64FloatEmitter::UXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn)
 	UXTL(src_size, Rd, Rn, true);
 }
 
-static uint32 EncodeImmShiftLeft(u8 src_size, u32 shift) {
+static u32 EncodeImmShiftLeft(u8 src_size, u32 shift) {
 	return src_size + shift;
 }
 
-static uint32 EncodeImmShiftRight(u8 src_size, u32 shift) {
+static u32 EncodeImmShiftRight(u8 src_size, u32 shift) {
 	return src_size * 2 - shift;
 }
 

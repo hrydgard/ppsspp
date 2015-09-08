@@ -32,7 +32,9 @@
 #include "Core/HLE/FunctionWrappers.h"
 
 #include "GPU/Math3D.h"
+#include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include <emmintrin.h>
@@ -686,14 +688,14 @@ static int Hook_brandish_download_frame() {
 }
 
 static int Hook_growlanser_create_saveicon() {
-    const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
-    const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP]);
-    const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
-    if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
-        gpu->PerformMemoryDownload(fb_address, sz);
-        CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
-    }
-    return 0;
+	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
+	const u32 fmt = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP]);
+	const u32 sz = fmt == GE_FORMAT_8888 ? 0x00088000 : 0x00044000;
+	if (Memory::IsVRAMAddress(fb_address) && fmt <= 3) {
+		gpu->PerformMemoryDownload(fb_address, sz);
+		CBreakPoints::ExecMemCheck(fb_address, true, sz, currentMIPS->pc);
+	}
+	return 0;
 }
 
 static int Hook_sd_gundam_g_generation_download_frame() {
@@ -983,7 +985,7 @@ static int Hook_utawarerumono_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1010,7 +1012,7 @@ static int Hook_gakuenheaven_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1019,7 +1021,7 @@ static int Hook_youkosohitsujimura_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 

@@ -72,7 +72,6 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Math3D.h"
@@ -83,6 +82,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GLES/StateMapping.h"
 #include "GPU/GLES/TextureCache.h"
@@ -593,7 +593,6 @@ void TransformDrawEngine::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
-		int maxIndex = 0;  // Compiler warns about this because it's only used in the #ifdeffed out RangeElements path.
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
@@ -709,7 +708,6 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
@@ -728,7 +726,6 @@ void TransformDrawEngine::DoFlush() {
 					glstate.arrayBuffer.bind(vbo);
 					glstate.elementArrayBuffer.bind(ebo);
 					vertexCount = vai->numVerts;
-					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 
 					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
@@ -754,7 +751,6 @@ rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
-			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
@@ -777,11 +773,7 @@ rotateVBO:
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
 		if (useElements) {
-#if 1  // USING_GLES2
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#else
-			glDrawRangeElements(glprim[prim], 0, maxIndex, vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-#endif
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);
 		}
@@ -830,12 +822,7 @@ rotateVBO:
 			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
 			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
 			if (drawIndexed) {
-#if 1  // USING_GLES2
 				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-#else
-				// This doesn't seem to provide much of a win.
-				glDrawRangeElements(glprim[prim], 0, maxIndex, numTrans, GL_UNSIGNED_SHORT, inds);
-#endif
 			} else {
 				glDrawArrays(glprim[prim], 0, numTrans);
 			}
@@ -876,7 +863,7 @@ rotateVBO:
 			// Stencil takes alpha.
 			glClearStencil(clearColor >> 24);
 			glClear(target);
-			framebufferManager_->SetColorUpdated();
+			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 		}
 	}
 
@@ -891,7 +878,7 @@ rotateVBO:
 	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
-	framebufferManager_->SetColorUpdated();
+	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
