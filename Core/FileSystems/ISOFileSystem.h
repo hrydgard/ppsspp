@@ -69,12 +69,12 @@ private:
 		bool isDirectory;
 
 		TreeEntry *parent;
-        
-        // slow lookup, in PSP-accurate sorting order
+
+		// slow lookup, in PSP-accurate sorting order
 		std::vector<TreeEntry *> children;
-        
-        // fast lookup, in undefined order
-        std::unordered_map<std::string, TreeEntry *> fastChildren;
+
+		// fast lookup, in undefined order
+		std::unordered_map<std::string, TreeEntry *> fastChildren;
 	};
 
 	struct OpenFileEntry

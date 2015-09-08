@@ -307,14 +307,14 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError)
 {
 	const size_t pathLength = path.length();
-	
+
 	if (pathLength == 0) {
 		// Ah, the device!	"umd0:"
 		return &entireISO;
 	}
 
 	size_t pathIndex = 0;
-	
+
 	// Skip "./"
 	if (pathLength > pathIndex + 1 && path[pathIndex] == '.' && path[pathIndex + 1] == '/')
 		pathIndex += 2;
@@ -322,10 +322,10 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 	// Skip "/"
 	if (pathLength > pathIndex && path[pathIndex] == '/')
 		++pathIndex;
-	
+
 	if (pathLength <= pathIndex)
 		return treeroot;
-	
+
 	TreeEntry *e = treeroot;
 	while (true)
 	{
@@ -336,7 +336,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 			size_t nextSlashIndex = path.find_first_of('/', pathIndex);
 			if (nextSlashIndex == std::string::npos)
 				nextSlashIndex = pathLength;
-
+		
 			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
 			auto child = e->fastChildren.find(firstPathComponent);
 			if (child != e->fastChildren.end()) {
@@ -699,21 +699,19 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);
-	if (!entry)
-	{
+	if (! entry)
 		return myVector;
-	}
 
-    const std::string dot(".");
-    const std::string dotdot("..");
+	const std::string dot(".");
+	const std::string dotdot("..");
 
 	for (size_t i = 0; i < entry->children.size(); i++)
 	{
 		TreeEntry *e = entry->children[i];
 
-        // do not include the relative entries in the list
-        if (e->name == dot || e->name == dotdot)
-            continue;
+		// do not include the relative entries in the list
+		if (e->name == dot || e->name == dotdot)
+			continue;
 
 		PSPFileInfo x;
 		x.name = e->name;
