@@ -547,6 +547,7 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+	void TST(ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 
 	// Wrap the above for saner syntax
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { AND(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
@@ -557,6 +558,7 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EON(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ANDS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void TST(ARM64Reg Rn, ARM64Reg Rm) { TST(Rn, Rm, ArithOption(Is64Bit(Rn) ? ZR : WZR, ST_LSL, 0)); }
 
 	// Convenience wrappers around ORR. These match the official convenience syntax.
 	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);

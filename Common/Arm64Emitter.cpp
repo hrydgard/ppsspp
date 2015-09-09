@@ -1410,6 +1410,10 @@ void ARM64XEmitter::BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shif
 {
 	EncodeLogicalInst(7, Rd, Rn, Rm, Shift);
 }
+void ARM64XEmitter::TST(ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift)
+{
+	ANDS(Is64Bit(Rn) ? ZR : WZR, Rn, Rm, Shift);
+}
 
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift) {
 	ORR(Rd, Is64Bit(Rd) ? ZR : WZR, Rm, Shift);
