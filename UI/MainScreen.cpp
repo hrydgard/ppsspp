@@ -310,7 +310,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
-	if (!ginfo->id.empty() && g_Config.hasGameConfig(ginfo->id))
+	if (!ginfo->id.empty() && ginfo->hasConfig)
 	{
 		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}

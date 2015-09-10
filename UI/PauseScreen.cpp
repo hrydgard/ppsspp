@@ -408,6 +408,7 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 		g_Config.unloadGameConfig();
 		g_Config.deleteGameConfig(info->id);
+		info->hasConfig = false;
 		screenManager()->RecreateAllViews();
 	}
 }
@@ -418,6 +419,10 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 	g_Config.createGameConfig(gameId);
 	g_Config.changeGameSpecific(gameId);
 	g_Config.saveGameConfig(gameId);
+	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	if (info) {
+		info->hasConfig = true;
+	}
 
 	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;

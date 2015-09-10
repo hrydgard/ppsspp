@@ -556,6 +556,8 @@ handleELF:
 				break;
 		}
 
+		info_->hasConfig = g_Config.hasGameConfig(info_->id);
+
 		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();

@@ -96,7 +96,7 @@ class GameInfo {
 public:
 	GameInfo()
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-		  iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
+			hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
 		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
 		  gameSize(0), saveDataSize(0), installDataSize(0), fileLoader(nullptr) {}
 	~GameInfo();
@@ -133,6 +133,7 @@ public:
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;
+	bool hasConfig;
 
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
