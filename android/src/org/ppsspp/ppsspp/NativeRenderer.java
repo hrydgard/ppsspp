@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -48,7 +48,6 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		surfaceView.getHolder().setFixedSize(xres, yres);
 	}
 
-	@Override
 	public void onDrawFrame(GL10 unused /*use GLES20*/) {
 		if (isDark) {
 			GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
@@ -59,14 +58,12 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		}
 	}
 
-	@Override
 	public void onSurfaceCreated(GL10 unused, EGLConfig config) {
 		// Log.i(TAG, "onSurfaceCreated - EGL context is new or was lost");
 		// Actually, it seems that it is here we should recreate lost GL objects.
 		displayInit();
 	}
  
-	@Override
 	public void onSurfaceChanged(GL10 unused, int width, int height) {
 		Point sz = new Point();
 		mActivity.GetScreenSize(sz);

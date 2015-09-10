@@ -25,7 +25,7 @@
 #include "audio/mixer.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
-#include "android/native_audio.h"
+#include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
 
 #include "app-android.h"
@@ -162,7 +162,7 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
 // On Android we don't use any of the values it returns.
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEnv *env, jclass) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_isLandscape(JNIEnv *env, jclass) {
 	std::string app_name, app_nice_name, version;
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
@@ -170,17 +170,17 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEn
 }
 
 // Allow the app to intercept the back button.
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
 	return NativeIsAtTopLevel();
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioConfig
 	(JNIEnv *env, jclass, jint optimalFPB, jint optimalSR) {
 	optimalFramesPerBuffer = optimalFPB;
 	optimalSampleRate = optimalSR;
 }
 
-extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
+extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	(JNIEnv *env, jclass, jstring jquery) {
 	std::string query = GetJavaString(env, jquery);
 	std::string result = NativeQueryConfig(query);
@@ -188,7 +188,7 @@ extern "C" jstring Java_com_henrikrydgard_libnative_NativeApp_queryConfig
 	return jresult;
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
   (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jint jAndroidVersion) {
@@ -256,7 +256,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	ILOG("NativeApp.init() -- end");
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	sampleRate = optimalSampleRate;
 	if (NativeQueryConfig("force44khz") != "0" || optimalSampleRate == 0) {
 		sampleRate = 44100;
@@ -278,21 +278,21 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, j
 	AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioShutdown(JNIEnv *, jclass) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass) {
 	AndroidAudio_Shutdown();
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeApp.resume() - resuming audio");
 	AndroidAudio_Resume();
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 	ILOG("NativeApp.pause() - pausing audio");
 	AndroidAudio_Pause();
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
 	NativeShutdown();
 	VFSShutdown();
@@ -302,7 +302,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jc
 
 static jmethodID postCommand;
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	ILOG("NativeApp.displayInit()");
 	if (!renderer_inited) {
 		NativeInitGraphics();
@@ -316,7 +316,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
 	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
 
 	g_dpi = dpi;
@@ -333,7 +333,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JN
 	NativeResized();
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
 	static bool hasSetThreadName = false;
 	if (!hasSetThreadName) {
 		hasSetThreadName = true;
@@ -386,7 +386,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 	}
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
 		NativeDeviceLost();
 		ILOG("NativeDeviceLost completed.");
@@ -396,7 +396,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(
 	}
 }
 
-extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
+extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 	float scaledX = x * dp_xscale;
 	float scaledY = y * dp_yscale;
@@ -426,7 +426,7 @@ extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	return retval;
 }
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key, jboolean isRepeat) {
 	KeyInput keyInput;
 	keyInput.deviceId = deviceId;
 	keyInput.keyCode = key;
@@ -437,7 +437,7 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *,
 	return NativeKey(keyInput);
 }
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
 	keyInput.deviceId = deviceId;
 	keyInput.keyCode = key;
@@ -445,12 +445,12 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, j
 	return NativeKey(keyInput);
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_beginJoystickEvent(
 	JNIEnv *env, jclass) {
 	// mutex lock?
 }
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	if (!renderer_inited)
 		return false;
@@ -482,19 +482,19 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 	return NativeAxis(axis);
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_endJoystickEvent(
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_endJoystickEvent(
 	JNIEnv *env, jclass) {
 	// mutex unlock?
 }
 
 
-extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
 	// TODO: Support mousewheel for android
 	return true;
 }
 
-extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
+extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *, jclass, float x, float y, float z) {
 	if (!renderer_inited)
 		return false;
 
@@ -525,7 +525,7 @@ extern "C" jboolean JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerom
 	return retvalX || retvalY || retvalZ;
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 

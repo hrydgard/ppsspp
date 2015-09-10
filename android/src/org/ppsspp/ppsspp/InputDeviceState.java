@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 import android.annotation.TargetApi;
 import android.os.Build;

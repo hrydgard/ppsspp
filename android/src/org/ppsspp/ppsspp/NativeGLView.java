@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.

@@ -1,6 +1,6 @@
 #include "base/logging.h"
-#include "android/native_audio.h"
-#include "android/native-audio-so.h"
+#include "android/jni/native_audio.h"
+#include "android/jni/native-audio-so.h"
 
 struct AudioState {
 	void *so;

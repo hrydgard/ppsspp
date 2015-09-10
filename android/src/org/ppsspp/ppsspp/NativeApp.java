@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 
 // Note that the display* methods are in NativeRenderer.java 

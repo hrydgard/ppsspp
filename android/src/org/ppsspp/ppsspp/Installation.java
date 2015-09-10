@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 import java.io.File;
 import java.io.FileOutputStream;

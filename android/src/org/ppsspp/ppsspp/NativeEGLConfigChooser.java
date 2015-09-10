@@ -1,4 +1,4 @@
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -60,7 +60,6 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		return attr;
 	}
 	
-	@Override
 	public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
 		// The absolute minimum. We will do our best to choose a better config though.
 		int[] configSpec = {

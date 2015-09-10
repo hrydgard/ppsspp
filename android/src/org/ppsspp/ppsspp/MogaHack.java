@@ -18,7 +18,7 @@
  * 
  * Authors: Paul Lamb
  */
-package com.henrikrydgard.libnative;
+package org.ppsspp.ppsspp;
 
 import java.util.List;
 
