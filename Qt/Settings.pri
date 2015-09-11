@@ -20,7 +20,8 @@ include(Platform/ArchDetection.pri)
 # Work out platform name
 include(Platform/OSDetection.pri)
 # OS dependent paths
-!system_ffmpeg: INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include
+!system_ffmpeg: INCLUDEPATH += $$P/ffmpeg/$${PLATFORM_NAME}/$${PLATFORM_ARCH}/include 
+system_ffmpeg: DEFINES += USE_SYSTEM_FFMPEG
 
 !contains(CONFIG, staticlib) {
 	QMAKE_LIBDIR += $$CONFIG_DIR

@@ -420,6 +420,7 @@ include_directories(ext/native/ext/stb_vorbis)
 
 if(USE_FFMPEG)
 	if(USE_SYSTEM_FFMPEG)
+		add_definitions(-DUSE_SYSTEM_FFMPEG)
 		include(FindFFMPEG)
 	else()
 		set(FFMPEG_FOUND OFF)

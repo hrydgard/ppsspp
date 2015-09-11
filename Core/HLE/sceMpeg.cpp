@@ -32,6 +32,11 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+#ifdef USE_SYSTEM_FFMPEG
+#define PIX_FMT_RGBA AV_PIX_FMT_RGBA
+#define CODEC_ID_H264 AV_CODEC_ID_H264
+#endif
+
 // MPEG AVC elementary stream.
 static const int MPEG_AVC_ES_SIZE = 2048;          // MPEG packet size.
 
