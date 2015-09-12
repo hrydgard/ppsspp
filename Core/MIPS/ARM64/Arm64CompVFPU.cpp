@@ -662,7 +662,7 @@ namespace MIPSComp {
 					SetJumpTarget(unordered);
 					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
 					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
-					fp.FMOV(SCRATCH2, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
 					// And together to find if both have negative set.
 					TST(SCRATCH1, SCRATCH2);
 					FixupBranch cmpPositive = B(CC_PL);
@@ -690,7 +690,7 @@ namespace MIPSComp {
 					SetJumpTarget(unordered);
 					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
 					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
-					fp.FMOV(SCRATCH2, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
 					// And together to find if both have negative set.
 					TST(SCRATCH1, SCRATCH2);
 					FixupBranch cmpPositive = B(CC_PL);
