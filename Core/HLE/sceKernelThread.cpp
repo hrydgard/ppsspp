@@ -1506,7 +1506,6 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 		reason = "started wait";
 
 	hleReSchedule(processCallbacks, reason);
-	// TODO: Remove thread from Ready queue?
 }
 
 void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr)
@@ -1640,20 +1639,57 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 	return kernelObjects.Destroy<Thread>(threadID);
 }
 
+static void __ReportThreadQueueEmpty() {
+	// We failed to find a thread to schedule.
+	// This means something horrible happened to the idle threads.
+	u32 error;
+	Thread *idleThread0 = kernelObjects.Get<Thread>(threadIdleID[0], error);
+	Thread *idleThread1 = kernelObjects.Get<Thread>(threadIdleID[1], error);
+
+	char idleDescription0[256];
+	int idleStatus0 = -1;
+	if (idleThread0) {
+		idleThread0->GetQuickInfo(idleDescription0, sizeof(idleDescription0));
+		idleStatus0 = idleThread0->nt.status;
+	} else {
+		sprintf(idleDescription0, "DELETED");
+	}
+
+	char idleDescription1[256];
+	int idleStatus1 = -1;
+	if (idleThread1) {
+		idleThread1->GetQuickInfo(idleDescription1, sizeof(idleDescription1));
+		idleStatus1 = idleThread0->nt.status;
+	} else {
+		sprintf(idleDescription1, "DELETED");
+	}
+
+	ERROR_LOG_REPORT_ONCE(threadqueueempty, SCEKERNEL, "Failed to reschedule: out of threads on queue (%d, %d)", idleStatus0, idleStatus1);
+	WARN_LOG(SCEKERNEL, "Failed to reschedule: idle0 -> %s", idleDescription0);
+	WARN_LOG(SCEKERNEL, "Failed to reschedule: idle1 -> %s", idleDescription1);
+}
+
 // Returns NULL if the current thread is fine.
 static Thread *__KernelNextThread() {
 	SceUID bestThread;
 
 	// If the current thread is running, it's a valid candidate.
 	Thread *cur = __GetCurrentThread();
-	if (cur && cur->isRunning())
-	{
+	if (cur && cur->isRunning()) {
 		bestThread = threadReadyQueue.pop_first_better(cur->nt.currentPriority);
 		if (bestThread != 0)
 			__KernelChangeReadyState(cur, currentThread, true);
-	}
-	else
+	} else {
 		bestThread = threadReadyQueue.pop_first();
+
+		if (bestThread == 0) {
+			// Zoinks.  No thread?
+			__ReportThreadQueueEmpty();
+
+			// Let's try to get back on track, if possible.
+			bestThread = threadIdleID[1];
+		}
+	}
 
 	// Assume threadReadyQueue has not become corrupt.
 	if (bestThread != 0)
