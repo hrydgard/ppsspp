@@ -40,6 +40,7 @@
 #include "util/text/parsers.h"
 #include "Core/Config.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -50,7 +51,9 @@ int System_GetPropertyInt(SystemProperty prop) { return -1; }
 void NativeMessageReceived(const char *message, const char *value) {}
 void GL_SwapInterval(int) {}
 
+#ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923
+#endif
 
 // asin acos atan: https://github.com/michaldrobot/ShaderFastLibs/blob/master/ShaderFastMathLib.h
 
@@ -91,14 +94,14 @@ float fastasin(double x) {
 	return sign * (y - sqrtthing);
 }
 
-double atan_66s(double x) { 
-	const double c1=1.6867629106; 
-	const double c2=0.4378497304; 
-	const double c3=1.6867633134; 
-	
-	double x2; // The input argument squared 
+double atan_66s(double x) {
+	const double c1=1.6867629106;
+	const double c2=0.4378497304;
+	const double c3=1.6867633134;
 
-	x2=x * x; 
+	double x2; // The input argument squared
+
+	x2 = x * x;
 	return (x*(c1 + x2*c2)/(c3 + x2));
 }
 
@@ -149,7 +152,7 @@ void fcs(float angle, float &sinout, float &cosout) {
 	// Extract quarter bits 
 	int quarter = phasein >> BITSPERQUARTER;
 	// Recognize quarter
-	if (!quarter) { 
+	if (!quarter) {
 		// First quarter, angle = 0 .. pi/2
 		float x = modphase - 0.5f;      // 1 sub
 		float temp = (2 - 4*C)*x*x + C; // 2 mul, 1 add
@@ -197,13 +200,11 @@ void fcs2(float theta, float &outsine, float &outcosine) {
 	gamma *= 4;
 	gamma -= 2;
 
-	const float B = 2;
-
-	float x = 2 * gamma - gamma * abs(gamma);
-	float y = 2 * theta - theta * abs(theta);
+	float x = 2 * gamma - gamma * fabs(gamma);
+	float y = 2 * theta - theta * fabs(theta);
 	const float P = 0.225;
-	outsine = P * (y * abs(y) - y) + y;   // Q * y + P * y * abs(y)
-	outcosine = P * (x * abs(x) - x) + x;   // Q * y + P * y * abs(y)
+	outsine = P * (y * fabsf(y) - y) + y;   // Q * y + P * y * abs(y)
+	outcosine = P * (x * fabsf(x) - x) + x;   // Q * y + P * y * abs(y)
 }
 
 
@@ -362,6 +363,39 @@ void TestGetMatrix(int matrix, MatrixSize sz) {
 			ILOG("WRONG!");
 	}
 }
+
+bool TestParseLBN() {
+	const char *validStrings[] = {
+		"/sce_lbn0x5fa0_size0x1428",
+		"/sce_lbn7050_sizeee850",
+		"/sce_lbn0x5eeeh_size0x234x",  // Check for trailing chars. See #7960.
+		"/sce_lbneee__size434.",  // Check for trailing chars. See #7960.
+	};
+	int expectedResults[][2] = {
+		{0x5fa0, 0x1428},
+		{0x7050, 0xee850},
+		{0x5eee, 0x234},
+		{0xeee,  0x434},
+	};
+	const char *invalidStrings[] = {
+		"/sce_lbn0x5fa0_sze0x1428",
+		"",
+		"//",
+	};
+	for (int i = 0; i < ARRAY_SIZE(validStrings); i++) {
+		u32 startSector = 0, readSize = 0;
+		// printf("testing %s\n", validStrings[i]);
+		EXPECT_TRUE(parseLBN(validStrings[i], &startSector, &readSize));
+		EXPECT_EQ_INT(startSector, expectedResults[i][0]);
+		EXPECT_EQ_INT(readSize, expectedResults[i][1]);
+	}
+	for (int i = 0; i < ARRAY_SIZE(invalidStrings); i++) {
+		u32 startSector, readSize;
+		EXPECT_FALSE(parseLBN(invalidStrings[i], &startSector, &readSize));
+	}
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -391,7 +425,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
 	TEST_ITEM(Jit),
-	TEST_ITEM(MatrixTranspose)
+	TEST_ITEM(MatrixTranspose),
+	TEST_ITEM(ParseLBN),
 };
 
 int main(int argc, const char *argv[]) {
