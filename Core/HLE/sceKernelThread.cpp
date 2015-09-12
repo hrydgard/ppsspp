@@ -619,6 +619,16 @@ struct ThreadQueueList
 		SceUID *data;
 		// Size of data array.
 		int capacity;
+
+		inline int size() const {
+			return end - first;
+		}
+		inline bool empty() const {
+			return first == end;
+		}
+		inline int full() const {
+			return end == capacity;
+		}
 	};
 
 	ThreadQueueList()
@@ -629,11 +639,7 @@ struct ThreadQueueList
 
 	~ThreadQueueList()
 	{
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			if (queues[i].data != NULL)
-				free(queues[i].data);
-		}
+		clear();
 	}
 
 	// Only for debugging, returns priority level.
@@ -641,7 +647,7 @@ struct ThreadQueueList
 	{
 		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
-			if (queues[i].data == NULL)
+			if (queues[i].data == nullptr)
 				continue;
 
 			Queue *cur = &queues[i];
@@ -660,7 +666,7 @@ struct ThreadQueueList
 		Queue *cur = first;
 		while (cur != invalid())
 		{
-			if (cur->end - cur->first > 0)
+			if (cur->size() > 0)
 				return cur->data[cur->first++];
 			cur = cur->next;
 		}
@@ -672,10 +678,11 @@ struct ThreadQueueList
 	inline SceUID pop_first_better(u32 priority)
 	{
 		Queue *cur = first;
+		// Don't bother looking past (worse than) this priority.
 		Queue *stop = &queues[priority];
 		while (cur < stop)
 		{
-			if (cur->end - cur->first > 0)
+			if (cur->size() > 0)
 				return cur->data[cur->first++];
 			cur = cur->next;
 		}
@@ -687,6 +694,7 @@ struct ThreadQueueList
 	{
 		Queue *cur = &queues[priority];
 		cur->data[--cur->first] = threadID;
+		// If we ran out of room toward the front, add more room for next time.
 		if (cur->first == 0)
 			rebalance(priority);
 	}
@@ -695,22 +703,27 @@ struct ThreadQueueList
 	{
 		Queue *cur = &queues[priority];
 		cur->data[cur->end++] = threadID;
-		if (cur->end == cur->capacity)
+		if (cur->full())
 			rebalance(priority);
 	}
 
 	inline void remove(u32 priority, const SceUID threadID)
 	{
 		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
 		for (int i = cur->first; i < cur->end; ++i)
 		{
 			if (cur->data[i] == threadID)
 			{
-				int remaining = --cur->end - i;
+				// How many more after this one?
+				int remaining = cur->end - i;
+				// If there are more, move them into place.
 				if (remaining > 0)
 					memmove(&cur->data[i], &cur->data[i + 1], remaining * sizeof(SceUID));
+
+				// Now we're one shorter.
+				--cur->end;
 				return;
 			}
 		}
@@ -721,12 +734,13 @@ struct ThreadQueueList
 	inline void rotate(u32 priority)
 	{
 		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
+		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
-		if (cur->end - cur->first > 1)
+		if (cur->size() > 1)
 		{
+			// Grab the front and push it on the end.
 			cur->data[cur->end++] = cur->data[cur->first++];
-			if (cur->end == cur->capacity)
+			if (cur->full())
 				rebalance(priority);
 		}
 	}
@@ -735,7 +749,7 @@ struct ThreadQueueList
 	{
 		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
-			if (queues[i].data != NULL)
+			if (queues[i].data != nullptr)
 				free(queues[i].data);
 		}
 		memset(queues, 0, sizeof(queues));
@@ -745,13 +759,13 @@ struct ThreadQueueList
 	inline bool empty(u32 priority) const
 	{
 		const Queue *cur = &queues[priority];
-		return cur->first == cur->end;
+		return cur->empty();
 	}
 
 	inline void prepare(u32 priority)
 	{
 		Queue *cur = &queues[priority];
-		if (cur->next == NULL)
+		if (cur->next == nullptr)
 			link(priority, INITIAL_CAPACITY);
 	}
 
@@ -776,7 +790,7 @@ struct ThreadQueueList
 		for (int i = 0; i < NUM_QUEUES; ++i)
 		{
 			Queue *cur = &queues[i];
-			int size = cur->end - cur->first;
+			int size = cur->size();
 			p.Do(size);
 			int capacity = cur->capacity;
 			p.Do(capacity);
@@ -802,10 +816,12 @@ private:
 		return (Queue *) -1;
 	}
 
+	// Initialize a priority level and link to other queues.
 	void link(u32 priority, int size)
 	{
-		_dbg_assert_msg_(SCEKERNEL, queues[priority].data == NULL, "ThreadQueueList::Queue should only be initialized once.");
+		_dbg_assert_msg_(SCEKERNEL, queues[priority].data == nullptr, "ThreadQueueList::Queue should only be initialized once.");
 
+		// Make sure we stay a multiple of INITIAL_CAPACITY.
 		if (size <= INITIAL_CAPACITY)
 			size = INITIAL_CAPACITY;
 		else
@@ -815,15 +831,20 @@ private:
 			while (size < goal)
 				size *= 2;
 		}
+
+		// Allocate the queue.
 		Queue *cur = &queues[priority];
 		cur->data = (SceUID *) malloc(sizeof(SceUID) * size);
 		cur->capacity = size;
+		// Start smack in the middle so it can move both directions.
 		cur->first = size / 2;
 		cur->end = size / 2;
 
 		for (int i = (int) priority - 1; i >= 0; --i)
 		{
-			if (queues[i].next != NULL)
+			// This queue is before ours, and points past us.
+			// We'll have it point to our new queue, inserting into the chain.
+			if (queues[i].next != nullptr)
 			{
 				cur->next = queues[i].next;
 				queues[i].next = cur;
@@ -831,24 +852,31 @@ private:
 			}
 		}
 
+		// Never found above - that means there's no better queue yet.
+		// The new one is now first, and whoever was first is after it.
 		cur->next = first;
 		first = cur;
 	}
 
+	// Move or allocate as necessary to maintain free space on both sides.
 	void rebalance(u32 priority)
 	{
 		Queue *cur = &queues[priority];
-		int size = cur->end - cur->first;
+		int size = cur->size();
+		// Basically full.  Time for a larger queue?
 		if (size >= cur->capacity - 2)
 		{
-			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * 2 * sizeof(SceUID));
-			if (new_data != NULL)
+			int new_capacity = cur->capacity * 2;
+			SceUID *new_data = (SceUID *)realloc(cur->data, new_capacity * sizeof(SceUID));
+			if (new_data != nullptr)
 			{
-				cur->capacity *= 2;
+				// Success, it's bigger now.
+				cur->capacity = new_capacity;
 				cur->data = new_data;
 			}
 		}
 
+		// If we center all the items, it should start here.
 		int newFirst = (cur->capacity - size) / 2;
 		if (newFirst != cur->first)
 		{
