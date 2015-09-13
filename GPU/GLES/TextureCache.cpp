@@ -1023,19 +1023,63 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
-		static const float pos[12] = {
-			-1, -1, -1,
-			 1, -1, -1,
-			 1,  1, -1,
-			-1,  1, -1
+
+		struct Pos {
+			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
+			}
+			float x;
+			float y;
+			float z;
 		};
-		static const float uv[8] = {
-			0, 0,
-			1, 0,
-			1, 1,
-			0, 1,
+		struct UV {
+			UV(float u_, float v_) : u(u_), v(v_) {
+			}
+			float u;
+			float v;
+		};
+
+		Pos pos[4] = {
+			{-1, -1, -1},
+			{ 1, -1, -1},
+			{ 1,  1, -1},
+			{-1,  1, -1},
+		};
+		UV uv[4] = {
+			{0, 0},
+			{1, 0},
+			{1, 1},
+			{0, 1},
 		};
 		static const GLubyte indices[4] = { 0, 1, 3, 2 };
+
+		// If min is not < max, then we don't have values (wasn't set during decode.)
+		if (gstate_c.vertMinV < gstate_c.vertMaxV) {
+			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
+			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
+			// Inverse of half = double.
+			const float invHalfWidth = invWidth * 2.0f;
+			const float invHalfHeight = invHeight * 2.0f;
+
+			const float left = gstate_c.vertMinU * invHalfWidth - 1.0f;
+			const float right = gstate_c.vertMaxU * invHalfWidth - 1.0f;
+			const float top = -(gstate_c.vertMinV * invHalfHeight - 1.0f);
+			const float bottom = -(gstate_c.vertMaxV * invHalfHeight - 1.0f);
+			// Points are: BL, BR, TR, TL.
+			pos[0] = Pos(left, bottom, -1.0f);
+			pos[1] = Pos(right, bottom, -1.0f);
+			pos[2] = Pos(right, top, -1.0f);
+			pos[3] = Pos(left, top, -1.0f);
+
+			// And also the UVs, same order.
+			const float uvleft = gstate_c.vertMinU * invWidth;
+			const float uvright = gstate_c.vertMaxU * invWidth;
+			const float uvtop = 1.0f - gstate_c.vertMinV * invHeight;
+			const float uvbottom = 1.0f - gstate_c.vertMaxV * invHeight;
+			uv[0] = UV(uvleft, uvbottom);
+			uv[1] = UV(uvright, uvbottom);
+			uv[2] = UV(uvright, uvtop);
+			uv[3] = UV(uvleft, uvtop);
+		}
 
 		shaderManager_->DirtyLastShader();
 
@@ -1050,7 +1094,7 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		glBindTexture(GL_TEXTURE_2D, clutTexture);
 		glActiveTexture(GL_TEXTURE0);
 
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, true);
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
@@ -1073,11 +1117,11 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 
 		fbo_bind_color_as_texture(depalFBO, 0);
 		glstate.Restore();
-		framebufferManager_->RebindFramebuffer();
 	} else {
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer);
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV);
 	}
 
+	framebufferManager_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	lastBoundTexture = -1;

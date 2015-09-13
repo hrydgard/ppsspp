@@ -115,6 +115,12 @@ extern GPUgstate gstate;
 
 void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
 
+enum BindFramebufferColorFlags {
+	BINDFBCOLOR_SKIP_COPY = 0,
+	BINDFBCOLOR_MAY_COPY = 1,
+	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
+};
+
 class FramebufferManagerCommon {
 public:
 	FramebufferManagerCommon();

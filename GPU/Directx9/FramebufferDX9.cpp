@@ -608,7 +608,7 @@ namespace DX9 {
 		return offscreen;
 	}
 
-	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
+	void FramebufferManagerDX9::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags) {
 		if (framebuffer == NULL) {
 			framebuffer = currentRenderVfb_;
 		}
@@ -621,6 +621,7 @@ namespace DX9 {
 
 		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 		// Let's just not bother with the copy in that case.
+		bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
 		if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 			skipCopy = true;
 		}
@@ -630,7 +631,22 @@ namespace DX9 {
 			if (renderCopy) {
 				VirtualFramebuffer copyInfo = *framebuffer;
 				copyInfo.fbo = renderCopy;
-				BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
+
+				int x = 0;
+				int y = 0;
+				int w = framebuffer->drawnWidth;
+				int h = framebuffer->drawnHeight;
+
+				// If max is not > min, we probably could not detect it.  Skip.
+				// See the vertex decoder, where this is updated.
+				if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertMaxU > gstate_c.vertMinU) {
+					x = gstate_c.vertMinU;
+					y = gstate_c.vertMinV;
+					w = gstate_c.vertMaxU - x;
+					h = gstate_c.vertMaxV - y;
+				}
+
+				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);
 
 				RebindFramebuffer();
 				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));

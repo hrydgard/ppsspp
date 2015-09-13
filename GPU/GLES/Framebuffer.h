@@ -98,7 +98,7 @@ public:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, bool skipCopy = false);
+	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;

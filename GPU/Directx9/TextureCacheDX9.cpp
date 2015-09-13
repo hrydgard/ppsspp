@@ -960,12 +960,60 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		float xoff = -0.5f / framebuffer->renderWidth;
 		float yoff = 0.5f / framebuffer->renderHeight;
 
-		const float pos[12 + 8] = {
-			-1 + xoff, 1 + yoff, 0,    0, 0,
-			1 + xoff, 1 + yoff, 0,     1, 0,
-			1 + xoff, -1 + yoff, 0,    1, 1,
-			-1 + xoff, -1 + yoff, 0,   0, 1,
+		struct Pos {
+			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
+			}
+			float x;
+			float y;
+			float z;
 		};
+		struct UV {
+			UV(float u_, float v_) : u(u_), v(v_) {
+			}
+			float u;
+			float v;
+		};
+
+		struct PosUV {
+			Pos pos;
+			UV uv;
+		};
+
+		PosUV verts[4] = {
+			{ { -1 + xoff,  1 + yoff, -1 }, { 0, 0 } },
+			{ {  1 + xoff,  1 + yoff, -1 }, { 1, 0 } },
+			{ {  1 + xoff, -1 + yoff, -1 }, { 1, 1 } },
+			{ { -1 + xoff, -1 + yoff, -1 }, { 0, 1 } },
+		};
+
+		// If min is not < max, then we don't have values (wasn't set during decode.)
+		if (gstate_c.vertMinV < gstate_c.vertMaxV) {
+			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
+			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
+			// Inverse of half = double.
+			const float invHalfWidth = invWidth * 2.0f;
+			const float invHalfHeight = invHeight * 2.0f;
+
+			const float left = gstate_c.vertMinU * invHalfWidth - 1.0f + xoff;
+			const float right = gstate_c.vertMaxU * invHalfWidth - 1.0f + xoff;
+			const float top = gstate_c.vertMinV * invHalfHeight - 1.0f + yoff;
+			const float bottom = gstate_c.vertMaxV * invHalfHeight - 1.0f + yoff;
+			// Points are: BL, BR, TR, TL.
+			verts[0].pos = Pos(left, bottom, -1.0f);
+			verts[1].pos = Pos(right, bottom, -1.0f);
+			verts[2].pos = Pos(right, top, -1.0f);
+			verts[3].pos = Pos(left, top, -1.0f);
+
+			// And also the UVs, same order.
+			const float uvleft = gstate_c.vertMinU * invWidth;
+			const float uvright = gstate_c.vertMaxU * invWidth;
+			const float uvtop = 1.0f - gstate_c.vertMinV * invHeight;
+			const float uvbottom = 1.0f - gstate_c.vertMaxV * invHeight;
+			verts[0].uv = UV(uvleft, uvbottom);
+			verts[1].uv = UV(uvright, uvbottom);
+			verts[2].uv = UV(uvright, uvtop);
+			verts[3].uv = UV(uvleft, uvtop);
+		}
 
 		shaderManager_->DirtyLastShader();
 
@@ -977,7 +1025,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
-		framebufferManager_->BindFramebufferColor(0, framebuffer, true);
+		framebufferManager_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
@@ -999,7 +1047,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		vp.Height = framebuffer->renderHeight;
 		pD3Ddevice->SetViewport(&vp);
 
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pos, (3 + 2) * sizeof(float));
+		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
 		}
@@ -1011,7 +1059,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 
 		framebufferManager_->RebindFramebuffer();
 	} else {
-		framebufferManager_->BindFramebufferColor(0, framebuffer);
+		framebufferManager_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV);
 	}
 
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
