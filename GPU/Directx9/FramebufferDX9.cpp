@@ -644,6 +644,12 @@ namespace DX9 {
 					y = gstate_c.vertMinV;
 					w = gstate_c.vertMaxU - x;
 					h = gstate_c.vertMaxV - y;
+
+					// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
+					if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
+						x += gstate_c.curTextureXOffset;
+						y += gstate_c.curTextureYOffset;
+					}
 				}
 
 				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);

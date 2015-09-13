@@ -1060,10 +1060,15 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 			const float invHalfWidth = invWidth * 2.0f;
 			const float invHalfHeight = invHeight * 2.0f;
 
-			const float left = gstate_c.vertMinU * invHalfWidth - 1.0f;
-			const float right = gstate_c.vertMaxU * invHalfWidth - 1.0f;
-			const float top = -(gstate_c.vertMinV * invHalfHeight - 1.0f);
-			const float bottom = -(gstate_c.vertMaxV * invHalfHeight - 1.0f);
+			const int u1 = gstate_c.vertMinU + gstate_c.curTextureXOffset;
+			const int v1 = gstate_c.vertMinV + gstate_c.curTextureYOffset;
+			const int u2 = gstate_c.vertMaxU + gstate_c.curTextureXOffset;
+			const int v2 = gstate_c.vertMaxV + gstate_c.curTextureYOffset;
+
+			const float left = u1 * invHalfWidth - 1.0f;
+			const float right = u2 * invHalfWidth - 1.0f;
+			const float top = -(v1 * invHalfHeight - 1.0f);
+			const float bottom = -(v2 * invHalfHeight - 1.0f);
 			// Points are: BL, BR, TR, TL.
 			pos[0] = Pos(left, bottom, -1.0f);
 			pos[1] = Pos(right, bottom, -1.0f);
@@ -1071,10 +1076,10 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 			pos[3] = Pos(left, top, -1.0f);
 
 			// And also the UVs, same order.
-			const float uvleft = gstate_c.vertMinU * invWidth;
-			const float uvright = gstate_c.vertMaxU * invWidth;
-			const float uvtop = 1.0f - gstate_c.vertMinV * invHeight;
-			const float uvbottom = 1.0f - gstate_c.vertMaxV * invHeight;
+			const float uvleft = u1 * invWidth;
+			const float uvright = u2 * invWidth;
+			const float uvtop = 1.0f - v1 * invHeight;
+			const float uvbottom = 1.0f - v2 * invHeight;
 			uv[0] = UV(uvleft, uvbottom);
 			uv[1] = UV(uvright, uvbottom);
 			uv[2] = UV(uvright, uvtop);
@@ -1118,7 +1123,7 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		fbo_bind_color_as_texture(depalFBO, 0);
 		glstate.Restore();
 	} else {
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV);
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 	}
 
 	framebufferManager_->RebindFramebuffer();
