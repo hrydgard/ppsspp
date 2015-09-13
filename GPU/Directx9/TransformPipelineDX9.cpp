@@ -694,6 +694,9 @@ void TransformDrawEngineDX9::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
+
+						_dbg_assert_msg_(G3D, gstate_c.vertMinV >= gstate_c.vertMaxV, "Should not have checked UVs when caching.");
+
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);

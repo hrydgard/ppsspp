@@ -684,6 +684,8 @@ void TransformDrawEngine::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
+						_dbg_assert_msg_(G3D, gstate_c.vertMinV >= gstate_c.vertMaxV, "Should not have checked UVs when caching.");
+
 						vai->vbo = AllocateBuffer();
 						glstate.arrayBuffer.bind(vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
