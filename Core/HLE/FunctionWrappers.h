@@ -134,6 +134,11 @@ template<int func(const char *, int, int, int, int, int, int)> void WrapI_CIIIII
 	RETURN(retval);
 }
 
+template<int func(int, int, int, const char *)> void WrapI_IIIC() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), Memory::GetCharPointer(PARAM(3)));
+	RETURN(retval);
+}
+
 // Hm, do so many params get passed in registers?
 template<int func(int, int, int, int, int, int, u32)> void WrapI_IIIIIIU() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6));
