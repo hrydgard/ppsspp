@@ -922,7 +922,7 @@ static int sceKernelDeleteHeap(int heapId)
 const HLEFunction SysMemForKernel[] =
 {
 	{0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,                "sceKernelAllocHeapMemory",                  'I', "ii"      },
-	{0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                      "sceKernelDeleteHeap",                       'I', "ii"        },
+	{0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                      "sceKernelDeleteHeap",                       'I', "i"       },
 	{0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                   "sceKernelCreateHeap",                       'I', "iiis"    },
 };
 
