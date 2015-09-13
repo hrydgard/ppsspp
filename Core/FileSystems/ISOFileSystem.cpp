@@ -297,11 +297,6 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			root->children.push_back(e);
 		}
 	}
-
-	root->fastChildren.reserve(root->children.size());
-	for (TreeEntry *e : root->children) {
-		root->fastChildren[e->name] = e;
-	}
 }
 
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError)
@@ -338,14 +333,20 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 				nextSlashIndex = pathLength;
 
 			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
-			auto child = e->fastChildren.find(firstPathComponent);
-			if (child != e->fastChildren.end()) {
-				//yay we got it
-				ne = child->second;
-				name = child->first;
+			for (size_t i = 0; i < e->children.size(); i++)
+			{
+				const std::string &n = e->children[i]->name;
+				
+				if (firstPathComponent == n)
+				{
+					//yay we got it
+					ne = e->children[i];
+					name = n;
+					break;
+				}
 			}
 		}
-
+		
 		if (ne)
 		{
 			e = ne;

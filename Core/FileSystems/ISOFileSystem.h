@@ -19,7 +19,6 @@
 
 #include <map>
 #include <list>
-#include <unordered_map>
 
 #include "FileSystem.h"
 
@@ -69,12 +68,7 @@ private:
 		bool isDirectory;
 
 		TreeEntry *parent;
-
-		// slow lookup, in PSP-accurate sorting order
 		std::vector<TreeEntry *> children;
-
-		// fast lookup, in undefined order
-		std::unordered_map<std::string, TreeEntry *> fastChildren;
 	};
 
 	struct OpenFileEntry
