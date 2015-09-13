@@ -90,6 +90,7 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		decodeCounter_(0),
 		dcid_(0),
 		uvScale(0),
+		fboTexNeedBind_(false),
 		fboTexBound_(false) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
@@ -777,6 +778,8 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		ApplyDrawStateLate();
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -827,6 +830,9 @@ rotateVBO:
 			prim, decoded, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, -1.0f);
+
+		ApplyDrawStateLate();
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {

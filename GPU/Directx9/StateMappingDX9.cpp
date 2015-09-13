@@ -150,11 +150,7 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 		return false;
 	}
 
-	framebufferManager_->BindFramebufferColor(1, nullptr, false);
-	// If we are rendering at a higher resolution, linear is probably best for the dest color.
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	fboTexBound_ = true;
+	fboTexNeedBind_ = true;
 
 	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 	return true;
@@ -807,6 +803,23 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
+	}
+}
+
+void TransformDrawEngineDX9::ApplyDrawStateLate() {
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		// TODO: Test texture?
+
+		if (fboTexNeedBind_) {
+			framebufferManager_->BindFramebufferColor(1, nullptr, false);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
 	}
 }
 

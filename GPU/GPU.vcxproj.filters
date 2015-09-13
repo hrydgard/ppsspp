@@ -192,6 +192,9 @@
     <ClInclude Include="GLES\GLStateCache.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="Common\GPUStateUtils.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">

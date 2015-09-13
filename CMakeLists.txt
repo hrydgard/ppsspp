@@ -1453,6 +1453,7 @@ add_library(GPU OBJECT
 	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
+	GPU/Common/GPUStateUtils.h
 	GPU/Common/DrawEngineCommon.cpp
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/SplineCommon.cpp
