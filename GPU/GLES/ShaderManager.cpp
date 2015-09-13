@@ -747,6 +747,7 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = 0;
+	lastVShaderSame_ = false;
 }
 
 // This is to be used when debugging why incompatible shaders are being linked, like is

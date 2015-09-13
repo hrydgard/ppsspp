@@ -684,6 +684,8 @@ void TransformDrawEngine::DoFlush() {
 							vai->numVerts = indexGen.PureCount();
 						}
 
+						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+
 						vai->vbo = AllocateBuffer();
 						glstate.arrayBuffer.bind(vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -881,6 +883,12 @@ rotateVBO:
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+
+	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
+	gstate_c.vertBounds.minU = 512;
+	gstate_c.vertBounds.minV = 512;
+	gstate_c.vertBounds.maxU = 0;
+	gstate_c.vertBounds.maxV = 0;
 
 #ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();

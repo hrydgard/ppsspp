@@ -51,7 +51,6 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		minFilt |= 1;
 	}
 	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
-		// TODO: IsAlphaTestTriviallyTrue() is unsafe here.  vertexFullAlpha is not calculated yet.
 		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
 			magFilt |= 1;
 			minFilt |= 1;

@@ -15,6 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// This allows highlighting to work.  Yay.
+#ifdef __INTELLISENSE__
+#define ARM64
+#endif
+
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
@@ -32,7 +37,7 @@ static const float by32768 = 1.0f / 32768.0f;
 
 using namespace Arm64Gen;
 
-// Pointers, X regs
+// Pointers, X regs (X0 - X17 safe to use.)
 static const ARM64Reg srcReg = X0;
 static const ARM64Reg dstReg = X1;
 
@@ -46,6 +51,10 @@ static const ARM64Reg scratchReg64 = X6;
 static const ARM64Reg scratchReg2 = W7;
 static const ARM64Reg scratchReg3 = W8;
 static const ARM64Reg fullAlphaReg = W12;
+static const ARM64Reg boundsMinUReg = W13;
+static const ARM64Reg boundsMinVReg = W14;
+static const ARM64Reg boundsMaxUReg = W15;
+static const ARM64Reg boundsMaxVReg = W16;
 
 static const ARM64Reg fpScratchReg = S4;
 static const ARM64Reg fpScratchReg2 = S5;
@@ -218,6 +227,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		MOVI2R(fullAlphaReg, 0xFF);
 	}
 
+	if (dec.tc && dec.throughmode) {
+		// TODO: Smarter, only when doing bounds.
+		MOVP2R(scratchReg64, &gstate_c.vertBounds.minU);
+		LDRH(INDEX_UNSIGNED, boundsMinUReg, scratchReg64, offsetof(KnownVertexBounds, minU));
+		LDRH(INDEX_UNSIGNED, boundsMaxUReg, scratchReg64, offsetof(KnownVertexBounds, maxU));
+		LDRH(INDEX_UNSIGNED, boundsMinVReg, scratchReg64, offsetof(KnownVertexBounds, minV));
+		LDRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
+	}
+
 	const u8 *loopStart = GetCodePtr();
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (!CompileStep(dec, i)) {
@@ -241,6 +259,15 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		FixupBranch skip = B(CC_NEQ);
 		STRB(INDEX_UNSIGNED, fullAlphaReg, tempRegPtr, 0);
 		SetJumpTarget(skip);
+	}
+
+	if (dec.tc && dec.throughmode) {
+		// TODO: Smarter, only when doing bounds.
+		MOVP2R(scratchReg64, &gstate_c.vertBounds.minU);
+		STRH(INDEX_UNSIGNED, boundsMinUReg, scratchReg64, offsetof(KnownVertexBounds, minU));
+		STRH(INDEX_UNSIGNED, boundsMaxUReg, scratchReg64, offsetof(KnownVertexBounds, maxU));
+		STRH(INDEX_UNSIGNED, boundsMinVReg, scratchReg64, offsetof(KnownVertexBounds, minV));
+		STRH(INDEX_UNSIGNED, boundsMaxVReg, scratchReg64, offsetof(KnownVertexBounds, maxV));
 	}
 
 	fp.ABI_PopRegisters(regs_to_save_fp);
@@ -554,7 +581,20 @@ void VertexDecoderJitCache::Jit_TcU16() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16Through() {
-	LDUR(tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->tcoff);
+	LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->tcoff + 2);
+
+	auto updateSide = [&](ARM64Reg src, CCFlags cc, ARM64Reg dst) {
+		CMP(src, dst);
+		CSEL(dst, src, dst, cc);
+	};
+
+	updateSide(tempReg1, CC_LT, boundsMinUReg);
+	updateSide(tempReg1, CC_GT, boundsMaxUReg);
+	updateSide(tempReg2, CC_LT, boundsMinVReg);
+	updateSide(tempReg2, CC_GT, boundsMaxVReg);
+
+	ORR(tempReg1, tempReg1, tempReg2, ArithOption(tempReg2, ST_LSL, 16));
 	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 

@@ -709,6 +709,22 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 void VertexDecoderJitCache::Jit_TcU16Through() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
+
+	MOV(32, R(tempReg2), R(tempReg1));
+	SHR(32, R(tempReg2), Imm8(16));
+
+	auto updateSide = [&](X64Reg r, CCFlags skipCC, u16 *value) {
+		CMP(16, R(r), M(value));
+		FixupBranch skip = J_CC(skipCC);
+		MOV(16, M(value), R(r));
+		SetJumpTarget(skip);
+	};
+
+	// TODO: Can this actually be fast?  Hmm, floats aren't better.
+	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
+	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
+	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
+	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {

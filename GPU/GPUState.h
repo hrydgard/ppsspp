@@ -464,6 +464,13 @@ enum {
 	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
 };
 
+struct KnownVertexBounds {
+	u16 minU;
+	u16 minV;
+	u16 maxU;
+	u16 maxV;
+};
+
 struct GPUStateCache {
 	bool Supports(int flag) { return (featureFlags & flag) != 0; }
 
@@ -506,6 +513,8 @@ struct GPUStateCache {
 	float vpYOffset;
 	float vpWidthScale;
 	float vpHeightScale;
+
+	KnownVertexBounds vertBounds;
 
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;

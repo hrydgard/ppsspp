@@ -88,6 +88,8 @@ TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0
 
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	SetupTextureDecoder();
+
+	nextTexture_ = nullptr;
 }
 
 TextureCache::~TextureCache() {
@@ -786,7 +788,12 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
+static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCache::TexCacheEntry *entry) {
+	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
+		// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+		h = std::max(272, (int)entry->maxSeenV);
+	}
+
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 
@@ -938,61 +945,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 		}
 		if (depal) {
-			GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-			FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-			fbo_bind_as_render_target(depalFBO);
-			static const float pos[12] = {
-				-1, -1, -1,
-				 1, -1, -1,
-				 1,  1, -1,
-				-1,  1, -1
-			};
-			static const float uv[8] = {
-				0, 0,
-				1, 0,
-				1, 1,
-				0, 1,
-			};
-			static const GLubyte indices[4] = { 0, 1, 3, 2 };
-
-			shaderManager_->DirtyLastShader();
-
-			glUseProgram(depal->program);
-
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-			glEnableVertexAttribArray(depal->a_position);
-			glEnableVertexAttribArray(depal->a_texcoord0);
-
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, clutTexture);
-			glActiveTexture(GL_TEXTURE0);
-
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, true);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-			glDisable(GL_BLEND);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			glDisable(GL_SCISSOR_TEST);
-			glDisable(GL_CULL_FACE);
-			glDisable(GL_DEPTH_TEST);
-			glDisable(GL_STENCIL_TEST);
-#if !defined(USING_GLES2)
-			glDisable(GL_LOGIC_OP);
-#endif
-			glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
-
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-			glDisableVertexAttribArray(depal->a_position);
-			glDisableVertexAttribArray(depal->a_texcoord0);
-
-			fbo_bind_color_as_texture(depalFBO, 0);
-			glstate.Restore();
-			framebufferManager_->RebindFramebuffer();
-
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
 
@@ -1001,7 +953,6 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer);
 
 			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
 			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
@@ -1020,7 +971,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
 		}
-		SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+		nextTexture_ = entry;
 	} else {
 		if (framebuffer->fbo) {
 			fbo_destroy(framebuffer->fbo);
@@ -1029,6 +981,155 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
 	}
+}
+
+void TextureCache::ApplyTexture() {
+	if (nextTexture_ == nullptr) {
+		return;
+	}
+
+	if (nextTexture_->framebuffer) {
+		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
+	} else {
+		// If the texture is >= 512 pixels tall...
+		if (nextTexture_->dim >= 0x900) {
+			// Texture scale/offset and gen modes don't apply in through.
+			// So we can optimize how much of the texture we look at.
+			if (gstate.isModeThrough()) {
+				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertBounds.maxV);
+			} else {
+				// Otherwise, we need to reset to ensure we use the whole thing.
+				// Can't tell how much is used.
+				// TODO: We could tell for texcoord UV gen, and apply scale to max?
+				nextTexture_->maxSeenV = 512;
+			}
+		}
+
+		glBindTexture(GL_TEXTURE_2D, nextTexture_->textureName);
+		lastBoundTexture = nextTexture_->textureName;
+		UpdateSamplingParams(*nextTexture_, false);
+	}
+
+	nextTexture_ = nullptr;
+}
+
+void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	DepalShader *depal = nullptr;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+		depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+	}
+	if (depal) {
+		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		fbo_bind_as_render_target(depalFBO);
+
+		struct Pos {
+			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
+			}
+			float x;
+			float y;
+			float z;
+		};
+		struct UV {
+			UV(float u_, float v_) : u(u_), v(v_) {
+			}
+			float u;
+			float v;
+		};
+
+		Pos pos[4] = {
+			{-1, -1, -1},
+			{ 1, -1, -1},
+			{ 1,  1, -1},
+			{-1,  1, -1},
+		};
+		UV uv[4] = {
+			{0, 0},
+			{1, 0},
+			{1, 1},
+			{0, 1},
+		};
+		static const GLubyte indices[4] = { 0, 1, 3, 2 };
+
+		// If min is not < max, then we don't have values (wasn't set during decode.)
+		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
+			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
+			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
+			// Inverse of half = double.
+			const float invHalfWidth = invWidth * 2.0f;
+			const float invHalfHeight = invHeight * 2.0f;
+
+			const int u1 = gstate_c.vertBounds.minU + gstate_c.curTextureXOffset;
+			const int v1 = gstate_c.vertBounds.minV + gstate_c.curTextureYOffset;
+			const int u2 = gstate_c.vertBounds.maxU + gstate_c.curTextureXOffset;
+			const int v2 = gstate_c.vertBounds.maxV + gstate_c.curTextureYOffset;
+
+			const float left = u1 * invHalfWidth - 1.0f;
+			const float right = u2 * invHalfWidth - 1.0f;
+			const float top = -(v1 * invHalfHeight - 1.0f);
+			const float bottom = -(v2 * invHalfHeight - 1.0f);
+			// Points are: BL, BR, TR, TL.
+			pos[0] = Pos(left, bottom, -1.0f);
+			pos[1] = Pos(right, bottom, -1.0f);
+			pos[2] = Pos(right, top, -1.0f);
+			pos[3] = Pos(left, top, -1.0f);
+
+			// And also the UVs, same order.
+			const float uvleft = u1 * invWidth;
+			const float uvright = u2 * invWidth;
+			const float uvtop = 1.0f - v1 * invHeight;
+			const float uvbottom = 1.0f - v2 * invHeight;
+			uv[0] = UV(uvleft, uvbottom);
+			uv[1] = UV(uvright, uvbottom);
+			uv[2] = UV(uvright, uvtop);
+			uv[3] = UV(uvleft, uvtop);
+		}
+
+		shaderManager_->DirtyLastShader();
+
+		glUseProgram(depal->program);
+
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glEnableVertexAttribArray(depal->a_position);
+		glEnableVertexAttribArray(depal->a_texcoord0);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, clutTexture);
+		glActiveTexture(GL_TEXTURE0);
+
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+		glDisable(GL_BLEND);
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glDisable(GL_SCISSOR_TEST);
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_STENCIL_TEST);
+#if !defined(USING_GLES2)
+		glDisable(GL_LOGIC_OP);
+#endif
+		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+
+		glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		glDisableVertexAttribArray(depal->a_position);
+		glDisableVertexAttribArray(depal->a_texcoord0);
+
+		fbo_bind_color_as_texture(depalFBO, 0);
+		glstate.Restore();
+	} else {
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+	}
+
+	framebufferManager_->RebindFramebuffer();
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+
+	lastBoundTexture = -1;
 }
 
 bool TextureCache::SetOffsetTexture(u32 offset) {
@@ -1057,8 +1158,8 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	}
 
 	if (success && entry->framebuffer) {
+		// This will not apply the texture immediately.
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return true;
 	}
@@ -1136,7 +1237,6 @@ void TextureCache::SetTexture(bool force) {
 		if (entry->framebuffer) {
 			if (match) {
 				SetTextureFramebuffer(entry, entry->framebuffer);
-				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFlips;
 				return;
 			} else {
@@ -1187,13 +1287,13 @@ void TextureCache::SetTexture(bool force) {
 
 			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				hashFail = true;
 				rehash = false;
 			}
 
 			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
 				} else if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
@@ -1254,12 +1354,10 @@ void TextureCache::SetTexture(bool force) {
 			//got one!
 			entry->lastFrame = gpuStats.numFlips;
 			if (entry->textureName != lastBoundTexture) {
-				glBindTexture(GL_TEXTURE_2D, entry->textureName);
-				lastBoundTexture = entry->textureName;
+				nextTexture_ = entry;
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
-			UpdateSamplingParams(*entry, false);
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
@@ -1328,7 +1426,7 @@ void TextureCache::SetTexture(bool force) {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
+	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
@@ -1353,7 +1451,6 @@ void TextureCache::SetTexture(bool force) {
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		lastBoundTexture = -1;
 		entry->lastFrame = gpuStats.numFlips;
 		return;
 	}
@@ -1486,6 +1583,8 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
+	// This will rebind it, but that's okay.
+	nextTexture_ = entry;
 	UpdateSamplingParams(*entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);

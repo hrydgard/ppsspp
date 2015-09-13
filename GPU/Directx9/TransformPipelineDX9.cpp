@@ -694,6 +694,9 @@ void TransformDrawEngineDX9::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
+
+						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
@@ -883,6 +886,12 @@ rotateVBO:
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+
+	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
+	gstate_c.vertBounds.minU = 512;
+	gstate_c.vertBounds.minV = 512;
+	gstate_c.vertBounds.maxU = 0;
+	gstate_c.vertBounds.maxV = 0;
 
 	host->GPUNotifyDraw();
 }
