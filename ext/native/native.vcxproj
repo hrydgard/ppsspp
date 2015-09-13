@@ -171,7 +171,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <None Include="..\ios\main.mm">
+    <None Include="..\..\ios\main.mm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -188,9 +188,6 @@
     <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="android\app-android.h" />
-    <ClInclude Include="android\native-audio-so.h" />
-    <ClInclude Include="android\native_audio.h" />
     <ClInclude Include="audio\mixer.h" />
     <ClInclude Include="audio\wav_read.h" />
     <ClInclude Include="base\backtrace.h" />
@@ -302,24 +299,6 @@
     <ClInclude Include="util\text\utf8.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="android\app-android.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="android\native-audio-so.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="android\native_audio.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="audio\mixer.cpp" />
     <ClCompile Include="audio\wav_read.cpp" />
     <ClCompile Include="base\backtrace.cpp" />

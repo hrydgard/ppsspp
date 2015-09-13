@@ -605,6 +605,7 @@
     <ClInclude Include="HLE\sceUtility.h" />
     <ClInclude Include="HLE\sceKernelVTimer.h" />
     <ClInclude Include="HLE\sceVaudio.h" />
+    <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\BufferQueue.h" />

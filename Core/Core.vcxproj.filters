@@ -1164,6 +1164,9 @@
     <ClInclude Include="FileLoaders\DiskCachingFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\ThreadQueueList.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

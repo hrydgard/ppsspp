@@ -18,13 +18,13 @@
     <None Include="ui\CMakeLists.txt">
       <Filter>ui</Filter>
     </None>
-    <None Include="..\ios\main.mm" />
     <None Include="ext\libzip\Android.mk">
       <Filter>ext\libzip</Filter>
     </None>
     <None Include="math\fast\fast_matrix_neon.S">
       <Filter>math\fast</Filter>
     </None>
+    <None Include="..\..\ios\main.mm" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -174,12 +174,6 @@
     <ClInclude Include="net\resolve.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="android\native_audio.h">
-      <Filter>android</Filter>
-    </ClInclude>
-    <ClInclude Include="android\native-audio-so.h">
-      <Filter>android</Filter>
-    </ClInclude>
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
@@ -270,11 +264,9 @@
     <ClInclude Include="data\compression.h">
       <Filter>data</Filter>
     </ClInclude>
-    <ClInclude Include="android\app-android.h" />
     <ClInclude Include="math\expression_parser.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="input\keycodes.h" />
     <ClInclude Include="gfx_es2\draw_text.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -344,7 +336,6 @@
     <ClInclude Include="thin3d\d3dx9_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
-    <ClInclude Include="base\compat.h" />
     <ClInclude Include="net\http_headers.h">
       <Filter>net</Filter>
     </ClInclude>
@@ -354,7 +345,15 @@
     <ClInclude Include="thread\executor.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="gfx\gl_common.h" />
+    <ClInclude Include="base\compat.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="gfx\gl_common.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
+    <ClInclude Include="input\keycodes.h">
+      <Filter>input</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -473,15 +472,6 @@
     </ClCompile>
     <ClCompile Include="net\resolve.cpp">
       <Filter>net</Filter>
-    </ClCompile>
-    <ClCompile Include="android\app-android.cpp">
-      <Filter>android</Filter>
-    </ClCompile>
-    <ClCompile Include="android\native_audio.cpp">
-      <Filter>android</Filter>
-    </ClCompile>
-    <ClCompile Include="android\native-audio-so.cpp">
-      <Filter>android</Filter>
     </ClCompile>
     <ClCompile Include="ui\screen.cpp">
       <Filter>ui</Filter>
@@ -819,7 +809,6 @@
     <ClCompile Include="thin3d\d3dx9_loader.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
-    <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="net\http_headers.cpp">
       <Filter>net</Filter>
     </ClCompile>
@@ -828,6 +817,9 @@
     </ClCompile>
     <ClCompile Include="thread\executor.cpp">
       <Filter>thread</Filter>
+    </ClCompile>
+    <ClCompile Include="base\compat.cpp">
+      <Filter>base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -881,9 +873,6 @@
     </Filter>
     <Filter Include="net">
       <UniqueIdentifier>{6a548b3d-3a4c-4114-aa2f-0b42bf7bf2ce}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="android">
-      <UniqueIdentifier>{b7bc9a09-29c1-447b-9255-fe0709d10689}</UniqueIdentifier>
     </Filter>
     <Filter Include="tools">
       <UniqueIdentifier>{4515306f-4664-46bf-a89b-abfec5520a15}</UniqueIdentifier>

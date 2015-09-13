@@ -1215,6 +1215,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
+	Core/HLE/ThreadQueueList.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAdler.cpp
