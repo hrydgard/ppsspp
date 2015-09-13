@@ -721,10 +721,10 @@ void VertexDecoderJitCache::Jit_TcU16Through() {
 	};
 
 	// TODO: Can this actually be fast?  Hmm, floats aren't better.
-	updateSide(tempReg1, CC_GE, &gstate_c.vertMinU);
-	updateSide(tempReg1, CC_LE, &gstate_c.vertMaxU);
-	updateSide(tempReg2, CC_GE, &gstate_c.vertMinV);
-	updateSide(tempReg2, CC_LE, &gstate_c.vertMaxV);
+	updateSide(tempReg1, CC_GE, &gstate_c.vertBounds.minU);
+	updateSide(tempReg1, CC_LE, &gstate_c.vertBounds.maxU);
+	updateSide(tempReg2, CC_GE, &gstate_c.vertBounds.minV);
+	updateSide(tempReg2, CC_LE, &gstate_c.vertBounds.maxV);
 }
 
 void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {

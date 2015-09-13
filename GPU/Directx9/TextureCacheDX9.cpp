@@ -926,7 +926,7 @@ void TextureCacheDX9::ApplyTexture() {
 			// Texture scale/offset and gen modes don't apply in through.
 			// So we can optimize how much of the texture we look at.
 			if (gstate.isModeThrough()) {
-				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertMaxV);
+				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertBounds.maxV);
 			} else {
 				// Otherwise, we need to reset to ensure we use the whole thing.
 				// Can't tell how much is used.
@@ -987,17 +987,17 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		};
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (gstate_c.vertMinV < gstate_c.vertMaxV) {
+		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
 			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
 			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
 			// Inverse of half = double.
 			const float invHalfWidth = invWidth * 2.0f;
 			const float invHalfHeight = invHeight * 2.0f;
 
-			const int u1 = gstate_c.vertMinU + gstate_c.curTextureXOffset;
-			const int v1 = gstate_c.vertMinV + gstate_c.curTextureYOffset;
-			const int u2 = gstate_c.vertMaxU + gstate_c.curTextureXOffset;
-			const int v2 = gstate_c.vertMaxV + gstate_c.curTextureYOffset;
+			const int u1 = gstate_c.vertBounds.minU + gstate_c.curTextureXOffset;
+			const int v1 = gstate_c.vertBounds.minV + gstate_c.curTextureYOffset;
+			const int u2 = gstate_c.vertBounds.maxU + gstate_c.curTextureXOffset;
+			const int v2 = gstate_c.vertBounds.maxV + gstate_c.curTextureYOffset;
 
 			const float left = u1 * invHalfWidth - 1.0f + xoff;
 			const float right = u2 * invHalfWidth - 1.0f + xoff;

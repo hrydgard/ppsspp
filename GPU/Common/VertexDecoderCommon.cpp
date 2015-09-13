@@ -296,10 +296,10 @@ void VertexDecoder::Step_TcU16Through() const
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 
-	gstate_c.vertMinU = std::min(gstate_c.vertMinU, uvdata[0]);
-	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, uvdata[0]);
-	gstate_c.vertMinV = std::min(gstate_c.vertMinV, uvdata[1]);
-	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, uvdata[1]);
+	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, uvdata[0]);
+	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, uvdata[0]);
+	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, uvdata[1]);
+	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU16ThroughDouble() const
@@ -325,10 +325,10 @@ void VertexDecoder::Step_TcU16ThroughToFloat() const
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 
-	gstate_c.vertMinU = std::min(gstate_c.vertMinU, uvdata[0]);
-	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, uvdata[0]);
-	gstate_c.vertMinV = std::min(gstate_c.vertMinV, uvdata[1]);
-	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, uvdata[1]);
+	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, uvdata[0]);
+	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, uvdata[0]);
+	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, uvdata[1]);
+	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU16ThroughDoubleToFloat() const
@@ -354,10 +354,10 @@ void VertexDecoder::Step_TcFloatThrough() const
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
 
-	gstate_c.vertMinU = std::min(gstate_c.vertMinU, (u16)uvdata[0]);
-	gstate_c.vertMaxU = std::max(gstate_c.vertMaxU, (u16)uvdata[0]);
-	gstate_c.vertMinV = std::min(gstate_c.vertMinV, (u16)uvdata[1]);
-	gstate_c.vertMaxV = std::max(gstate_c.vertMaxV, (u16)uvdata[1]);
+	gstate_c.vertBounds.minU = std::min(gstate_c.vertBounds.minU, (u16)uvdata[0]);
+	gstate_c.vertBounds.maxU = std::max(gstate_c.vertBounds.maxU, (u16)uvdata[0]);
+	gstate_c.vertBounds.minV = std::min(gstate_c.vertBounds.minV, (u16)uvdata[1]);
+	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, (u16)uvdata[1]);
 }
 
 void VertexDecoder::Step_TcU8Prescale() const {

@@ -874,11 +874,11 @@ void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, Virtu
 
 			// If max is not > min, we probably could not detect it.  Skip.
 			// See the vertex decoder, where this is updated.
-			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertMaxU > gstate_c.vertMinU) {
-				x = gstate_c.vertMinU;
-				y = gstate_c.vertMinV;
-				w = gstate_c.vertMaxU - x;
-				h = gstate_c.vertMaxV - y;
+			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+				x = gstate_c.vertBounds.minU;
+				y = gstate_c.vertBounds.minV;
+				w = gstate_c.vertBounds.maxU - x;
+				h = gstate_c.vertBounds.maxV - y;
 
 				// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
 				if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
