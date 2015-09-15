@@ -976,3 +976,8 @@ void Register_ThreadManForKernel()
 {
 	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);		
 }
+
+void Register_LoadExecForKernel()
+{
+	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
+}
