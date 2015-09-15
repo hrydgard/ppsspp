@@ -940,34 +940,6 @@ const HLEFunction LoadExecForKernel[] =
 	{0X4AC57943, &WrapI_I<LoadExecForKernel_4AC57943>,               "LoadExecForKernel_4AC57943",                'i', "i"       },
 	{0XA3D5E142, nullptr,                                            "LoadExecForKernel_a3d5e142",                '?', ""        },
 };
- 
-void Register_LoadExecForKernel()
-{
-	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
-}
-
-static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name)
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-
-static int sceKernelAllocHeapMemory(int heapId, int size)
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-static int sceKernelDeleteHeap(int heapId) 
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-const HLEFunction SysMemForKernel[] =
-{
-	{0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,                "sceKernelAllocHeapMemory",                  'I', "ii"      },
-	{0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                      "sceKernelDeleteHeap",                       'I', "i"       },
-	{0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                   "sceKernelCreateHeap",                       'I', "iiis"    },
-};
 
 const HLEFunction ExceptionManagerForKernel[] =
 {
@@ -980,11 +952,6 @@ const HLEFunction ExceptionManagerForKernel[] =
 	{0X15ADC862, nullptr,                                            "sceKernelRegisterNmiHandler",               '?', ""        },
 	{0XB15357C9, nullptr,                                            "sceKernelReleaseNmiHandler",                '?', ""        },
 };
-
-void Register_SysMemForKernel()
-{
-	RegisterModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
-}
 
 void Register_ExceptionManagerForKernel()
 {
@@ -1023,4 +990,9 @@ void Register_UtilsForKernel()
 void Register_ThreadManForKernel()
 {
 	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);		
+}
+
+void Register_LoadExecForKernel()
+{
+	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
