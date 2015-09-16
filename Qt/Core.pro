@@ -6,7 +6,9 @@ CONFIG += staticlib
 include(Settings.pri)
 
 INCLUDEPATH += $$P/ $$P/ext/native $$P/Core/MIPS $$P/ext/xbrz
-!contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/ext/native/ext/glew
+!exists( /usr/include/GL/glew.h ) {
+	!contains(DEFINES, USING_GLES2): INCLUDEPATH += $$P/ext/native/ext/glew
+}
 
 arm {
 	SOURCES += $$P/Core/MIPS/ARM/*.cpp #CoreARM

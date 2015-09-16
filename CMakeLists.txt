@@ -386,19 +386,29 @@ endif()
 
 if(NOT USING_GLES2)
 	include_directories(${OPENGL_INCLUDE_DIR})
-
-	add_definitions(-DGLEW_STATIC)
-	add_library(glew STATIC
-		ext/native/ext/glew/GL/glew.h
-		ext/native/ext/glew/GL/glxew.h
-		ext/native/ext/glew/GL/wglew.h
-		ext/native/ext/glew/glew.c)
-	target_link_libraries(glew ${OPENGL_LIBRARIES})
-	include_directories(ext/native/ext/glew)
-	set(GLEW_LIBRARIES glew)
+	find_package(GLEW)
+	if(NOT GLEW_FOUND)
+		add_definitions(-DGLEW_STATIC)
+		add_library(glew STATIC
+			ext/native/ext/glew/GL/glew.h
+			ext/native/ext/glew/GL/glxew.h
+			ext/native/ext/glew/GL/wglew.h
+			ext/native/ext/glew/glew.c)
+		target_link_libraries(glew ${OPENGL_LIBRARIES})
+		include_directories(ext/native/ext/glew)
+		set(GLEW_LIBRARIES glew)
+	endif()
+else()
+	find_package(X11)
 endif()
 
-add_subdirectory(ext/snappy)
+find_package(Snappy)
+if(SNAPPY_FOUND)
+	add_definitions(-DSHARED_SNAPPY)
+else()
+	add_subdirectory(ext/snappy)
+endif()
+
 add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
@@ -575,6 +585,7 @@ endif()
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
+	add_definitions(-DSHARED_ZLIB)
 else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
@@ -618,7 +629,9 @@ include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT SNAPPY_FOUND)
+		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -627,65 +640,70 @@ if (NOT MSVC)
 endif()
 
 
-add_library(libzip STATIC
-	ext/native/ext/libzip/zip.h
-	ext/native/ext/libzip/mkstemp.c
-	ext/native/ext/libzip/zip_add.c
-	ext/native/ext/libzip/zip_add_dir.c
-	ext/native/ext/libzip/zip_close.c
-	ext/native/ext/libzip/zip_delete.c
-	ext/native/ext/libzip/zip_dirent.c
-	ext/native/ext/libzip/zip_entry_free.c
-	ext/native/ext/libzip/zip_entry_new.c
-	ext/native/ext/libzip/zip_err_str.c
-	ext/native/ext/libzip/zip_error.c
-	ext/native/ext/libzip/zip_error_clear.c
-	ext/native/ext/libzip/zip_error_get.c
-	ext/native/ext/libzip/zip_error_get_sys_type.c
-	ext/native/ext/libzip/zip_error_strerror.c
-	ext/native/ext/libzip/zip_error_to_str.c
-	ext/native/ext/libzip/zip_fclose.c
-	ext/native/ext/libzip/zip_file_error_clear.c
-	ext/native/ext/libzip/zip_file_error_get.c
-	ext/native/ext/libzip/zip_file_get_offset.c
-	ext/native/ext/libzip/zip_file_strerror.c
-	ext/native/ext/libzip/zip_filerange_crc.c
-	ext/native/ext/libzip/zip_fopen.c
-	ext/native/ext/libzip/zip_fopen_index.c
-	ext/native/ext/libzip/zip_fread.c
-	ext/native/ext/libzip/zip_free.c
-	ext/native/ext/libzip/zip_get_archive_comment.c
-	ext/native/ext/libzip/zip_get_archive_flag.c
-	ext/native/ext/libzip/zip_get_file_comment.c
-	ext/native/ext/libzip/zip_get_name.c
-	ext/native/ext/libzip/zip_get_num_files.c
-	ext/native/ext/libzip/zip_memdup.c
-	ext/native/ext/libzip/zip_name_locate.c
-	ext/native/ext/libzip/zip_new.c
-	ext/native/ext/libzip/zip_open.c
-	ext/native/ext/libzip/zip_rename.c
-	ext/native/ext/libzip/zip_replace.c
-	ext/native/ext/libzip/zip_set_archive_comment.c
-	ext/native/ext/libzip/zip_set_archive_flag.c
-	ext/native/ext/libzip/zip_set_file_comment.c
-	ext/native/ext/libzip/zip_set_name.c
-	ext/native/ext/libzip/zip_source_buffer.c
-	ext/native/ext/libzip/zip_source_file.c
-	ext/native/ext/libzip/zip_source_filep.c
-	ext/native/ext/libzip/zip_source_free.c
-	ext/native/ext/libzip/zip_source_function.c
-	ext/native/ext/libzip/zip_source_zip.c
-	ext/native/ext/libzip/zip_stat.c
-	ext/native/ext/libzip/zip_stat_index.c
-	ext/native/ext/libzip/zip_stat_init.c
-	ext/native/ext/libzip/zip_strerror.c
-	ext/native/ext/libzip/zip_unchange.c
-	ext/native/ext/libzip/zip_unchange_all.c
-	ext/native/ext/libzip/zip_unchange_archive.c
-	ext/native/ext/libzip/zip_unchange_data.c)
-target_link_libraries(libzip ${ZLIB_LIBRARY})
-include_directories(ext/native/ext/libzip)
-set(LIBZIP_LIBRARY libzip)
+find_package(LibZip)
+if(LIBZIP_FOUND)
+	add_definitions(-DSHARED_LIBZIP)
+else()
+	add_library(libzip STATIC
+		ext/native/ext/libzip/zip.h
+		ext/native/ext/libzip/mkstemp.c
+		ext/native/ext/libzip/zip_add.c
+		ext/native/ext/libzip/zip_add_dir.c
+		ext/native/ext/libzip/zip_close.c
+		ext/native/ext/libzip/zip_delete.c
+		ext/native/ext/libzip/zip_dirent.c
+		ext/native/ext/libzip/zip_entry_free.c
+		ext/native/ext/libzip/zip_entry_new.c
+		ext/native/ext/libzip/zip_err_str.c
+		ext/native/ext/libzip/zip_error.c
+		ext/native/ext/libzip/zip_error_clear.c
+		ext/native/ext/libzip/zip_error_get.c
+		ext/native/ext/libzip/zip_error_get_sys_type.c
+		ext/native/ext/libzip/zip_error_strerror.c
+		ext/native/ext/libzip/zip_error_to_str.c
+		ext/native/ext/libzip/zip_fclose.c
+		ext/native/ext/libzip/zip_file_error_clear.c
+		ext/native/ext/libzip/zip_file_error_get.c
+		ext/native/ext/libzip/zip_file_get_offset.c
+		ext/native/ext/libzip/zip_file_strerror.c
+		ext/native/ext/libzip/zip_filerange_crc.c
+		ext/native/ext/libzip/zip_fopen.c
+		ext/native/ext/libzip/zip_fopen_index.c
+		ext/native/ext/libzip/zip_fread.c
+		ext/native/ext/libzip/zip_free.c
+		ext/native/ext/libzip/zip_get_archive_comment.c
+		ext/native/ext/libzip/zip_get_archive_flag.c
+		ext/native/ext/libzip/zip_get_file_comment.c
+		ext/native/ext/libzip/zip_get_name.c
+		ext/native/ext/libzip/zip_get_num_files.c
+		ext/native/ext/libzip/zip_memdup.c
+		ext/native/ext/libzip/zip_name_locate.c
+		ext/native/ext/libzip/zip_new.c
+		ext/native/ext/libzip/zip_open.c
+		ext/native/ext/libzip/zip_rename.c
+		ext/native/ext/libzip/zip_replace.c
+		ext/native/ext/libzip/zip_set_archive_comment.c
+		ext/native/ext/libzip/zip_set_archive_flag.c
+		ext/native/ext/libzip/zip_set_file_comment.c
+		ext/native/ext/libzip/zip_set_name.c
+		ext/native/ext/libzip/zip_source_buffer.c
+		ext/native/ext/libzip/zip_source_file.c
+		ext/native/ext/libzip/zip_source_filep.c
+		ext/native/ext/libzip/zip_source_free.c
+		ext/native/ext/libzip/zip_source_function.c
+		ext/native/ext/libzip/zip_source_zip.c
+		ext/native/ext/libzip/zip_stat.c
+		ext/native/ext/libzip/zip_stat_index.c
+		ext/native/ext/libzip/zip_stat_init.c
+		ext/native/ext/libzip/zip_strerror.c
+		ext/native/ext/libzip/zip_unchange.c
+		ext/native/ext/libzip/zip_unchange_all.c
+		ext/native/ext/libzip/zip_unchange_archive.c
+		ext/native/ext/libzip/zip_unchange_data.c)
+	target_link_libraries(libzip)
+	include_directories(ext/native/ext/libzip)
+	set(LIBZIP_LIBRARY libzip)
+endif()
 
 # FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
 find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
@@ -1019,7 +1037,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)

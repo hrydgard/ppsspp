@@ -18,7 +18,7 @@
 // Hackery for our broken path structure
 #include <ftbitmap.h>
 #else
-#include <freetype/ftbitmap.h>
+#include <freetype2/ftbitmap.h>
 #endif
 #include <set>
 #include <map>
@@ -188,7 +188,7 @@ struct Image {
     png_destroy_write_struct(&png_ptr, &info_ptr);
   }
   void SaveZIM(const char *zim_name, int zim_format) {
-    uint8 *image_data = new uint8[width() * height() * 4];
+    uint8_t *image_data = new uint8_t[width() * height() * 4];
     for (int y = 0; y < height(); y++) {
       memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
     }

@@ -20,7 +20,11 @@
 #include <cstring>
 
 #include "file/file_util.h"
+#ifdef SHARED_LIBZIP
+#include <zip.h>
+#else
 #include "ext/libzip/zip.h"
+#endif
 #include "thread/thread.h"
 #include "util/text/utf8.h"
 
