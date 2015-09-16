@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef SHARED_ZLIB
+#include <zlib.h>
+#else
 #include "../ext/zlib/zlib.h"
+#endif
 
 #include "sceAdler.h"
 #include "Common/Log.h"

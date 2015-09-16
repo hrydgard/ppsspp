@@ -403,8 +403,10 @@ else()
 endif()
 
 find_package(Snappy)
-if(NOT SNAPPY_FOUND)
-	add_subdirectory(ext/snappy)	
+if(SNAPPY_FOUND)
+	add_definitions(-DSHARED_SNAPPY)
+else()
+	add_subdirectory(ext/snappy)
 endif()
 
 add_subdirectory(ext/udis86)
@@ -583,6 +585,7 @@ endif()
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
+	add_definitions(-DSHARED_ZLIB)
 else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
@@ -638,7 +641,9 @@ endif()
 
 
 find_package(LibZip)
-if(NOT LIBZIP_FOUND)
+if(LIBZIP_FOUND)
+	add_definitions(-DSHARED_LIBZIP)
+else()
 	add_library(libzip STATIC
 		ext/native/ext/libzip/zip.h
 		ext/native/ext/libzip/mkstemp.c

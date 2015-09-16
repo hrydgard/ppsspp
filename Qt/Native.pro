@@ -11,10 +11,12 @@ linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
 
 INCLUDEPATH += $$P/ext/native
 
-!contains(DEFINES,USING_GLES2) {
-	SOURCES += $$P/ext/native/ext/glew/glew.c
-	HEADERS += $$P/ext/native/ext/glew/GL/*.h
-	INCLUDEPATH += $$P/ext/native/ext/glew
+!exists( /usr/include/GL/glew.h ) {
+	!contains(DEFINES,USING_GLES2) {
+		SOURCES += $$P/ext/native/ext/glew/glew.c
+		HEADERS += $$P/ext/native/ext/glew/GL/*.h
+		INCLUDEPATH += $$P/ext/native/ext/glew
+	}
 }
 
 # RG_ETC1
@@ -41,10 +43,11 @@ HEADERS += $$P/ext/native/ext/stb_vorbis/stb_vorbis.h
 INCLUDEPATH += $$P/ext/native/ext/stb_vorbis
 
 # Snappy
-
-SOURCES += $$P/ext/snappy/*.cpp
-HEADERS += $$P/ext/snappy/*.h
-INCLUDEPATH += $$P/ext/snappy
+!exists( /usr/include/snappy-c.h ) {
+	SOURCES += $$P/ext/snappy/*.cpp
+	HEADERS += $$P/ext/snappy/*.h
+	INCLUDEPATH += $$P/ext/snappy
+}
 
 # udis86
 
@@ -67,8 +70,10 @@ win32|contains(QT_CONFIG, no-zlib) {
 }
 
 # Libzip
-SOURCES += $$P/ext/native/ext/libzip/*.c
-HEADERS += $$P/ext/native/ext/libzip/*.h
+!exists( /usr/include/zip.h ) {
+	SOURCES += $$P/ext/native/ext/libzip/*.c
+	HEADERS += $$P/ext/native/ext/libzip/*.h
+}
 
 # Native
 
