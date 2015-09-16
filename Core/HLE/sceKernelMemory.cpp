@@ -2302,19 +2302,83 @@ void Register_SysMemUserForUser() {
 }
 
 
+struct HeapInformation : public KernelObject {
+	//HeapInformation() :alloc(0) {}
+	HeapInformation() {}
+	int uid;
+	int partitionId;
+	u32 size;
+	int flags;
+	u32 address;
+	std::string name;
+	BlockAllocator alloc;
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }//  wrong
+	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }//  wrong
+};
+
+std::map<u32, HeapInformation *> heapList;
+
+static HeapInformation  *getHeap(u32 heapId) {
+	auto found = heapList.find(heapId);
+	if (found == heapList.end()) {
+		return NULL;
+	}
+	return found->second;
+}
+
+const u32 HEAP_BLOCK_HEADER_SIZE = 8;
+const bool frombottom = false;
+
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name)
 {
-	return hleLogError(SCEKERNEL, 0, "");
+	HeapInformation *heap = new HeapInformation;
+	heap->partitionId = partitionId;
+	heap->flags = flags;
+	heap->name = *Name;
+	int allocSize = (size + 3) & ~3;
+	heap->size = allocSize;
+	u32 addr = userMemory.Alloc(heap->size, frombottom, "SysMemForKernel-Heap");
+	if (addr == (u32)-1) {
+		ERROR_LOG(HLE, "sceKernelCreateHeap(): Failed to allocate %i bytes memory", size);
+		heap->uid = -1;
+		delete heap;
+	}
+	heap->address = addr;
+	heap->alloc.Init(heap->address + 128, heap->size - 128);
+	SceUID uid = kernelObjects.Create(heap);
+	heap->uid = uid;
+	heapList[uid] = heap;
+
+	
+	return hleLogError(SCEKERNEL, uid, "");
 }
 
 
 static int sceKernelAllocHeapMemory(int heapId, int size)
 {
-	return hleLogError(SCEKERNEL, 0, "");
+	HeapInformation *heap = getHeap(heapId);
+	if (!heap) {
+		ERROR_LOG(HLE, "sceKernelAllocHeapMemory cannot find heapId", heapId);
+		return 0;
+	}
+
+	// There's 8 bytes at the end of every block, reserved.
+	u32 memSize = HEAP_BLOCK_HEADER_SIZE + size;
+	u32 addr = heap->alloc.Alloc(memSize, true);
+	return hleLogError(SCEKERNEL, addr, "");
 }
 
 static int sceKernelDeleteHeap(int heapId)
 {
+	HeapInformation *heap = getHeap(heapId);
+	if (!heap) {
+		ERROR_LOG(HLE, "sceKernelDeleteHeap(%i): invalid heapId", heapId);
+		return -1;
+	}
+	userMemory.Free(heap->address);
+	kernelObjects.Destroy<FPL>(heap->uid);
+	heapList.erase(heapId);
+	delete heap;
 	return hleLogError(SCEKERNEL, 0, "");
 }
 
