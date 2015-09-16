@@ -90,7 +90,7 @@ arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 HEADERS += $$P/UI/*.h
 
 INCLUDEPATH += $$P $$P/Common $$P/ext/native $$P/ext/native/ext
-exists( /usr/include/GL/glew.h ) {
+!exists( /usr/include/GL/glew.h ) {
 	INCLUDEPATH += $$P/ext/native/ext/glew
 }
 
