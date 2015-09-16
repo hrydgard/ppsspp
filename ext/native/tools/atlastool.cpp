@@ -18,7 +18,7 @@
 // Hackery for our broken path structure
 #include <ftbitmap.h>
 #else
-#include <freetype/ftbitmap.h>
+#include <freetype2/ftbitmap.h>
 #endif
 #include <set>
 #include <map>
