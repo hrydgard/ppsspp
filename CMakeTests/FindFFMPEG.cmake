@@ -30,70 +30,82 @@
 # (To distribute this file outside of ppsspp, substitute the full
 #  License text for the above reference.)
 
-find_path(FFMPEG_INCLUDE_DIR1 avformat.h
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/ffmpeg
-  $ENV{FFMPEG_DIR}/libavformat
-  $ENV{FFMPEG_DIR}/include/libavformat
-  $ENV{FFMPEG_DIR}/include/ffmpeg
-  /usr/local/include/ffmpeg
-  /usr/include/ffmpeg
-  /usr/include/libavformat
-  /usr/include/ffmpeg/libavformat
-  /usr/local/include/libavformat
-)
+if(EXISTS "/etc/debian_version")
+	set (PLATFORM "Debian")
+endif()
 
-find_path(FFMPEG_INCLUDE_DIR2 avcodec.h
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/ffmpeg
-  $ENV{FFMPEG_DIR}/libavcodec
-  $ENV{FFMPEG_DIR}/include/libavcodec
-  $ENV{FFMPEG_DIR}/include/ffmpeg
-  /usr/local/include/ffmpeg
-  /usr/include/ffmpeg
-  /usr/include/libavcodec
-  /usr/include/ffmpeg/libavcodec
-  /usr/local/include/libavcodec
-)
+if(${PLATFORM} MATCHES "Debian")
+  find_path(FFMPEG_INCLUDE_DIR1 libavformat/avformat.h)
+  find_path(FFMPEG_INCLUDE_DIR2 libavcodec/avcodec.h)
+  find_path(FFMPEG_INCLUDE_DIR3 libavutil/avutil.h)
+  find_path(FFMPEG_INCLUDE_DIR4 libswresample/swresample.h)
+  find_path(FFMPEG_INCLUDE_DIR5 libswscale/swscale.h)
+else()
+  find_path(FFMPEG_INCLUDE_DIR1 avformat.h
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/ffmpeg
+    $ENV{FFMPEG_DIR}/libavformat
+    $ENV{FFMPEG_DIR}/include/libavformat
+    $ENV{FFMPEG_DIR}/include/ffmpeg
+    /usr/local/include/ffmpeg
+    /usr/include/ffmpeg
+    /usr/include/libavformat
+    /usr/include/ffmpeg/libavformat
+    /usr/local/include/libavformat
+  )
 
-find_path(FFMPEG_INCLUDE_DIR3 avutil.h
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/ffmpeg
-  $ENV{FFMPEG_DIR}/libavutil
-  $ENV{FFMPEG_DIR}/include/libavutil
-  $ENV{FFMPEG_DIR}/include/ffmpeg
-  /usr/local/include/ffmpeg
-  /usr/include/ffmpeg
-  /usr/include/libavutil
-  /usr/include/ffmpeg/libavutil
-  /usr/local/include/libavutil
-)
+  find_path(FFMPEG_INCLUDE_DIR2 avcodec.h
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/ffmpeg
+    $ENV{FFMPEG_DIR}/libavcodec
+    $ENV{FFMPEG_DIR}/include/libavcodec
+    $ENV{FFMPEG_DIR}/include/ffmpeg
+    /usr/local/include/ffmpeg
+    /usr/include/ffmpeg
+    /usr/include/libavcodec
+    /usr/include/ffmpeg/libavcodec
+    /usr/local/include/libavcodec
+  )
 
-find_path(FFMPEG_INCLUDE_DIR4 swresample.h
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/ffmpeg
-  $ENV{FFMPEG_DIR}/libswresample
-  $ENV{FFMPEG_DIR}/include/libswresample
-  $ENV{FFMPEG_DIR}/include/ffmpeg
-  /usr/local/include/ffmpeg
-  /usr/include/ffmpeg
-  /usr/include/libswresample
-  /usr/include/ffmpeg/libswresample
-  /usr/local/include/libswresample
-)
+  find_path(FFMPEG_INCLUDE_DIR3 avutil.h
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/ffmpeg
+    $ENV{FFMPEG_DIR}/libavutil
+    $ENV{FFMPEG_DIR}/include/libavutil
+    $ENV{FFMPEG_DIR}/include/ffmpeg
+    /usr/local/include/ffmpeg
+    /usr/include/ffmpeg
+    /usr/include/libavutil
+    /usr/include/ffmpeg/libavutil
+    /usr/local/include/libavutil
+  )
 
-find_path(FFMPEG_INCLUDE_DIR5 swscale.h
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/ffmpeg
-  $ENV{FFMPEG_DIR}/libswscale
-  $ENV{FFMPEG_DIR}/include/libswscale
-  $ENV{FFMPEG_DIR}/include/ffmpeg
-  /usr/local/include/ffmpeg
-  /usr/include/ffmpeg
-  /usr/include/libswscale
-  /usr/include/ffmpeg/libswscale
-  /usr/local/include/libswscale
-)
+  find_path(FFMPEG_INCLUDE_DIR4 swresample.h
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/ffmpeg
+    $ENV{FFMPEG_DIR}/libswresample
+    $ENV{FFMPEG_DIR}/include/libswresample
+    $ENV{FFMPEG_DIR}/include/ffmpeg
+    /usr/local/include/ffmpeg
+    /usr/include/ffmpeg
+    /usr/include/libswresample
+    /usr/include/ffmpeg/libswresample
+    /usr/local/include/libswresample
+  )
+
+  find_path(FFMPEG_INCLUDE_DIR5 swscale.h
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/ffmpeg
+    $ENV{FFMPEG_DIR}/libswscale
+    $ENV{FFMPEG_DIR}/include/libswscale
+    $ENV{FFMPEG_DIR}/include/ffmpeg
+    /usr/local/include/ffmpeg
+    /usr/include/ffmpeg
+    /usr/include/libswscale
+    /usr/include/ffmpeg/libswscale
+    /usr/local/include/libswscale
+  )
+endif()
 
 if(FFMPEG_INCLUDE_DIR1 AND
    FFMPEG_INCLUDE_DIR2 AND
@@ -109,45 +121,53 @@ if(FFMPEG_INCLUDE_DIR1 AND
   )
 endif()
 
-find_library(FFMPEG_avformat_LIBRARY avformat
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/lib
-  $ENV{FFMPEG_DIR}/libavformat
-  /usr/local/lib
-  /usr/lib
-)
+if(${PLATFORM} MATCHES "Debian")
+  find_library(FFMPEG_avformat_LIBRARY avformat-ffmpeg)
+  find_library(FFMPEG_avcodec_LIBRARY avcodec-ffmpeg)
+  find_library(FFMPEG_avutil_LIBRARY avutil-ffmpeg)
+  find_library(FFMPEG_swresample_LIBRARY swresample-ffmpeg)
+  find_library(FFMPEG_swscale_LIBRARY swscale-ffmpeg)
+else()
+  find_library(FFMPEG_avformat_LIBRARY avformat
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/lib
+    $ENV{FFMPEG_DIR}/libavformat
+    /usr/local/lib
+    /usr/lib
+  )
 
-find_library(FFMPEG_avcodec_LIBRARY avcodec
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/lib
-  $ENV{FFMPEG_DIR}/libavcodec
-  /usr/local/lib
-  /usr/lib
-)
+  find_library(FFMPEG_avcodec_LIBRARY avcodec
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/lib
+    $ENV{FFMPEG_DIR}/libavcodec
+    /usr/local/lib
+    /usr/lib
+  )
 
-find_library(FFMPEG_avutil_LIBRARY avutil
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/lib
-  $ENV{FFMPEG_DIR}/libavutil
-  /usr/local/lib
-  /usr/lib
-)
+  find_library(FFMPEG_avutil_LIBRARY avutil
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/lib
+    $ENV{FFMPEG_DIR}/libavutil
+    /usr/local/lib
+    /usr/lib
+  )
 
-find_library(FFMPEG_swresample_LIBRARY swresample
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/lib
-  $ENV{FFMPEG_DIR}/libswresample
-  /usr/local/lib
-  /usr/lib
-)
+  find_library(FFMPEG_swresample_LIBRARY swresample
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/lib
+    $ENV{FFMPEG_DIR}/libswresample
+    /usr/local/lib
+    /usr/lib
+  )
 
-find_library(FFMPEG_swscale_LIBRARY swscale
-  $ENV{FFMPEG_DIR}
-  $ENV{FFMPEG_DIR}/lib
-  $ENV{FFMPEG_DIR}/libswscale
-  /usr/local/lib
-  /usr/lib
-)
+  find_library(FFMPEG_swscale_LIBRARY swscale
+    $ENV{FFMPEG_DIR}
+    $ENV{FFMPEG_DIR}/lib
+    $ENV{FFMPEG_DIR}/libswscale
+    /usr/local/lib
+    /usr/lib
+  )
+endif()
 
 if(FFMPEG_INCLUDE_DIR)
   if(FFMPEG_avformat_LIBRARY AND
@@ -157,11 +177,22 @@ if(FFMPEG_INCLUDE_DIR)
      FFMPEG_swscale_LIBRARY
   )
     set(FFMPEG_FOUND "YES")
-    set(FFMPEG_LIBRARIES ${FFMPEG_avformat_LIBRARY}
-                         ${FFMPEG_avcodec_LIBRARY}
-                         ${FFMPEG_avutil_LIBRARY}
-                         ${FFMPEG_swresample_LIBRARY}
-                         ${FFMPEG_swscale_LIBRARY}
-    )
+    if(${PLATFORM} MATCHES "Debian")
+      set(FFMPEG_LIBRARIES avformat-ffmpeg
+                           avcodec-ffmpeg
+                           avutil-ffmpeg
+                           swresample-ffmpeg
+                           swscale-ffmpeg
+      )
+    else()
+      set(FFMPEG_LIBRARIES ${FFMPEG_avformat_LIBRARY}
+                           ${FFMPEG_avcodec_LIBRARY}
+                           ${FFMPEG_avutil_LIBRARY}
+                           ${FFMPEG_swresample_LIBRARY}
+                           ${FFMPEG_swscale_LIBRARY}
+      )
+    endif()
   endif()
 endif()
+
+unset (PLATFORM)
