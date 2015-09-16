@@ -2304,7 +2304,6 @@ void Register_SysMemUserForUser()
 
 
 struct HeapInformation : public KernelObject {
-	//HeapInformation() :alloc(0) {}
 	HeapInformation() {}
 	int uid;
 	int partitionId;
