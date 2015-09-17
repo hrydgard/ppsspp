@@ -365,7 +365,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 #elif defined(_WIN32) && !defined(_XBOX)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
-			switch ((int)localeId & 0xFFFF) {
+			switch ((int)(intptr_t)localeId & 0xFFFF) {
 			case 0x407:
 				qwertz = true;
 				break;

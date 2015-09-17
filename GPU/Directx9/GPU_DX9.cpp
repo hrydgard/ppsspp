@@ -2101,7 +2101,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
 			tex->GetLevelDesc(level, &desc);
-			RECT rect = {0, 0, desc.Width, desc.Height};
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
 			hr = tex->LockRect(level, &locked, &rect, D3DLOCK_READONLY);
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.

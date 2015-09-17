@@ -50,6 +50,7 @@
 #include "GPU/GLES/Framebuffer.h"
 
 #if defined(_WIN32)
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "Windows/WndMainWindow.h"
 #include <shlobj.h>
 #include "util/text/utf8.h"

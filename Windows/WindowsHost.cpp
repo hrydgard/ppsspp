@@ -24,6 +24,7 @@
 #include "objbase.h"
 #include "objidl.h"
 #include "shlguid.h"
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "shlobj.h"
 
 // native stuff

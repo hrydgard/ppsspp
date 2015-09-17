@@ -2,11 +2,11 @@
 <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="Headless.cpp" />
-    <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="WindowsHeadlessHost.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
     <ClCompile Include="WindowsHeadlessHostDx9.cpp" />
+    <ClCompile Include="..\ext\native\ext\glew\glew.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />

@@ -4,6 +4,8 @@
 // If your platform is not supported, it is suggested to use Qt instead.
 
 #ifdef _WIN32
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shlobj.h>

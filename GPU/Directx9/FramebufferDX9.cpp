@@ -773,7 +773,7 @@ namespace DX9 {
 				const u32 rw = PSP_CoreParameter().pixelWidth;
 				const u32 rh = PSP_CoreParameter().pixelHeight;
 				const RECT srcRect = {(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight)};
-				const RECT dstRect = {x * rw / w, y * rh / h, (x + w) * rw / w, (y + h) * rh / h};
+				const RECT dstRect = {(LONG)(x * rw / w, y * rh / h), (LONG)((x + w) * rw / w, (y + h) * rh / h)};
 				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
@@ -1087,7 +1087,7 @@ namespace DX9 {
 				D3DLOCKED_RECT locked;
 				u32 widthFactor = vfb->renderWidth / vfb->bufferWidth;
 				u32 heightFactor = vfb->renderHeight / vfb->bufferHeight;
-				RECT rect = {x * widthFactor, y * heightFactor, (x + w) * widthFactor, (y + h) * heightFactor};
+				RECT rect = {(LONG)(x * widthFactor), (LONG)(y * heightFactor), (LONG)((x + w) * widthFactor), (LONG)((y + h) * heightFactor)};
 				hr = offscreen->LockRect(&locked, &rect, D3DLOCK_READONLY);
 				if (SUCCEEDED(hr)) {
 					// TODO: Handle the other formats?  We don't currently create them, I think.
@@ -1340,7 +1340,7 @@ namespace DX9 {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
 			tex->GetLevelDesc(0, &desc);
-			RECT rect = {0, 0, desc.Width, desc.Height};
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
 			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
 
 			if (SUCCEEDED(hr)) {
@@ -1381,7 +1381,7 @@ namespace DX9 {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
 			tex->GetLevelDesc(0, &desc);
-			RECT rect = {0, 0, desc.Width, desc.Height};
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
 			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
 
 			if (SUCCEEDED(hr)) {

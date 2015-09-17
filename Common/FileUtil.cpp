@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
+
 #include "FileUtil.h"
 #include "StringUtils.h"
 

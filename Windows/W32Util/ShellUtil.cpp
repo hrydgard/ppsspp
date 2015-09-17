@@ -1,7 +1,8 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
+
 #include "stdafx.h"
-#include "shlobj.h"
 
 #include "base/functional.h"
 #include "thread/thread.h"
