@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMap.h"
 #include "Common/CommonTypes.h"
@@ -177,9 +179,9 @@ enum OskKeyboardLanguage
 
 // Internal enum, not from PSP.
 enum
-{ 
-	LOWERCASE, 
-	UPPERCASE 
+{
+	LOWERCASE,
+	UPPERCASE
 };
 
 const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
@@ -212,7 +214,7 @@ public:
 	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 protected:
-	virtual bool UseAutoStatus() {
+	virtual bool UseAutoStatus() override {
 		return false;
 	}
 
@@ -227,7 +229,7 @@ private:
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
 	std::wstring CombinationKorean(bool isInput); // for Korea
 	void RemoveKorean(); // for Korean character removal
-	
+
 	u32 FieldMaxLength();
 	int GetIndex(const wchar_t* src, wchar_t ch);
 

@@ -31,10 +31,6 @@ int json_value::numSiblings() const {
 }
 
 const json_value *json_value::get(const char *child_name) const {
-	if (!this) {
-		FLOG("Cannot get from null node");
-		return 0;
-	}
 	if (!child_name) {
 		FLOG("JSON: Cannot get from null child name");
 		return 0;

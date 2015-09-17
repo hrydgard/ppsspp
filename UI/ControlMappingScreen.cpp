@@ -356,13 +356,13 @@ class JoystickHistoryView : public UI::InertView {
 public:
 	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-		  xAxis_(xAxis), xDevice_(xDevice),
-			yAxis_(yAxis), yDevice_(yDevice), 
+			xAxis_(xAxis), xDevice_(xDevice),
+			yAxis_(yAxis), yDevice_(yDevice),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
 	void Update(const InputState &input_state) override;
-	void Axis(const AxisInput &input) {
+	void Axis(const AxisInput &input) override{
 		if (input.axisId == xAxis_) {
 			curX_ = input.value;
 		} else if (input.axisId == yAxis_) {
@@ -379,8 +379,8 @@ private:
 	};
 
 	int xAxis_;
-	int yAxis_;
 	int xDevice_;
+	int yAxis_;
 	int yDevice_;
 
 	float curX_;

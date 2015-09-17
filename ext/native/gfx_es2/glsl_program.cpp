@@ -251,8 +251,8 @@ void GLSLProgram::GLLost() {
 	// glDeleteShader(this->fsh_);
 	// glDeleteProgram(this->program_);
 	ILOG("Restoring GLSL program %s/%s",
-		this->vshader_filename ? this->vshader_filename : "(mem)",
-		this->fshader_filename ? this->fshader_filename : "(mem)");
+		strlen(this->vshader_filename) > 0 ? this->vshader_filename : "(mem)",
+		strlen(this->fshader_filename) > 0 ? this->fshader_filename : "(mem)");
 	this->program_ = 0;
 	this->vsh_ = 0;
 	this->fsh_ = 0;

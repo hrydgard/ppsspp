@@ -128,7 +128,7 @@ protected:
 	virtual bool FillVertical() const override { return false; }
 	bool ShowButtons() const override { return true; }
 
-	virtual void CreatePopupContents(UI::ViewGroup *parent) {
+	virtual void CreatePopupContents(UI::ViewGroup *parent) override {
 		// TODO: Find an appropriate size for the image view
 		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)))->SetCanBeFocused(false);
 	}

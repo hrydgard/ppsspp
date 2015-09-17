@@ -68,7 +68,7 @@ public:
 	int Abort();
 
 protected:
-	virtual bool UseAutoStatus() {
+	virtual bool UseAutoStatus() override {
 		return false;
 	}
 

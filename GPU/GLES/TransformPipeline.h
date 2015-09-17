@@ -128,7 +128,7 @@ public:
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost();
+	void GLLost() override;
 	void Resized();
 
 	void DecimateTrackedVertexArrays();

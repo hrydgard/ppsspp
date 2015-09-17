@@ -268,16 +268,16 @@ public:
 		glDeleteProgram(program_);
 	}
 	bool Link();
-	
+
 	void Apply();
 	void Unapply();
 
 	int GetUniformLoc(const char *name);
 
-	void SetVector(const char *name, float *value, int n);
+	void SetVector(const char *name, float *value, int n) override;
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
 
-	void GLLost() {
+	void GLLost() override {
 		vshader->Compile(vshader->GetSource().c_str());
 		fshader->Compile(fshader->GetSource().c_str());
 		Link();
@@ -317,8 +317,8 @@ public:
 	}
 
 	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source);
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source);
+	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) override;
+	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		if (enable) {
@@ -424,7 +424,7 @@ public:
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
 	}
-	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : format_(format), tex_(0), target_(TypeToTarget(type)), mipLevels_(mipLevels) {
+	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
@@ -436,7 +436,7 @@ public:
 		Destroy();
 	}
 
-	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
 		format_ = format;
 		target_ = TypeToTarget(type);
 		mipLevels_ = mipLevels;
@@ -459,7 +459,7 @@ public:
 		glBindTexture(target_, tex_);
 	}
 
-	void GLLost() {
+	void GLLost() override {
 		if (!filename_.empty()) {
 			if (LoadFromFile(filename_.c_str())) {
 				ILOG("Reloaded lost texture %s", filename_.c_str());
@@ -471,7 +471,7 @@ public:
 			tex_ = 0;
 		}
 	}
-	void Finalize(int zim_flags);
+	void Finalize(int zim_flags) override;
 
 private:
 	GLuint tex_;

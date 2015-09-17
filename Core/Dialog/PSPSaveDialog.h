@@ -81,7 +81,7 @@ public:
 	void ExecuteIOAction();
 
 protected:
-	virtual bool UseAutoStatus() {
+	virtual bool UseAutoStatus() override {
 		return false;
 	}
 

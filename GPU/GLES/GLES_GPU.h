@@ -76,14 +76,14 @@ public:
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList();
+	std::vector<FramebufferInfo> GetFramebufferList() override;
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 

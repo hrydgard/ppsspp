@@ -97,7 +97,7 @@ public:
 
 protected:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	UI::EventReturn OnDigitButton(UI::EventParams &e);
 	UI::EventReturn OnBackspace(UI::EventParams &e);
 
@@ -114,7 +114,7 @@ private:
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
 	JitCompareScreen() : currentBlock_(-1) {}
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 
 private:
 	void UpdateDisasm();
@@ -137,8 +137,8 @@ private:
 	UI::TextEdit *blockAddr_;
 	UI::TextView *blockStats_;
 
-	UI::LinearLayout *leftDisasm_;	
-	UI::LinearLayout *rightDisasm_;	
+	UI::LinearLayout *leftDisasm_;
+	UI::LinearLayout *rightDisasm_;
 };
 
 
