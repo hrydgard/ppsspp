@@ -422,14 +422,20 @@ void JoystickHistoryView::Update(const InputState &input_state) {
 }
 
 bool AnalogTestScreen::key(const KeyInput &key) {
+	bool retval = true;
+	if (UI::IsEscapeKey(key)) {
+		screenManager()->finishDialog(this, DR_BACK);
+		return true;
+	}
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
 		(key.flags & KEY_UP) ? "UP" : "",
 		(key.flags & KEY_DOWN) ? "DOWN" : "",
 		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
 	lastKeyEvent_->SetText(buf);
-	return true;
+	return retval;
 }
 
 bool AnalogTestScreen::axis(const AxisInput &axis) {
@@ -439,9 +445,9 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	// a controller would be confusing for the user.
 	char buf[512];
 	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
-		int value = axis.value > AXIS_BIND_THRESHOLD ? 1 : -1;
 		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
 			axis.axisId, axis.value, axis.deviceId);
+		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
 		lastKeyEvent_->SetText(buf);
 		return true;
 	}
@@ -472,7 +478,9 @@ void AnalogTestScreen::CreateViews() {
 
 	root_->Add(theTwo);
 
-	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
+	lastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

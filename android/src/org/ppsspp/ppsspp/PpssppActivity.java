@@ -1,8 +1,6 @@
 package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
-import android.app.UiModeManager;
-import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Bundle;

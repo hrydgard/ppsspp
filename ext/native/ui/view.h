@@ -600,6 +600,9 @@ public:
 	void SetText(const std::string &text) {
 		text_ = text;
 	}
+	const std::string &GetText() const {
+		return text_;
+	}
 	void SetRightText(const std::string &text) {
 		rightText_ = text;
 	}
@@ -676,6 +679,7 @@ public:
 	void Draw(UIContext &dc) override;
 
 	void SetText(const std::string &text) { text_ = text; }
+	const std::string &GetText() const { return text_; }
 	void SetSmall(bool small) { small_ = small; }
 	void SetTextColor(uint32_t color) { textColor_ = color; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
