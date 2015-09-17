@@ -2315,11 +2315,11 @@ struct HeapInformation : public KernelObject {
 	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }//  wrong
 };
 
-std::map<u32, HeapInformation *> heapList;
+std::map<u32, HeapInformation *> heapInformationList;
 
 static HeapInformation  *getHeap(u32 heapId) {
-	auto found = heapList.find(heapId);
-	if (found == heapList.end()) {
+	auto found = heapInformationList.find(heapId);
+	if (found == heapInformationList.end()) {
 		return NULL;
 	}
 	return found->second;
@@ -2346,7 +2346,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 	heap->alloc.Init(heap->address + 128, heap->size - 128);
 	SceUID uid = kernelObjects.Create(heap);
 	heap->uid = uid;
-	heapList[uid] = heap;
+	heapInformationList[uid] = heap;
 
 	
 	return hleLogError(SCEKERNEL, uid, "");
@@ -2376,7 +2376,7 @@ static int sceKernelDeleteHeap(int heapId)
 	}
 	userMemory.Free(heap->address);
 	kernelObjects.Destroy<FPL>(heap->uid);
-	heapList.erase(heapId);
+	heapInformationList.erase(heapId);
 	delete heap;
 	return hleLogError(SCEKERNEL, 0, "");
 }
