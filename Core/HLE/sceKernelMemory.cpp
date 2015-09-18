@@ -2313,9 +2313,29 @@ struct HeapInformation : public KernelObject {
 	BlockAllocator alloc;
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }//  wrong
 	int GetIDType() const override { return SCE_KERNEL_TMID_Fpl; }//  wrong
+	
+	void DoState(PointerWrap &p) {
+		p.Do(uid);
+		p.Do(partitionId);
+		p.Do(size);
+		p.Do(flags);
+		p.Do(address);
+		p.Do(name);
+		p.Do(alloc);
+	}
 };
 
 std::map<u32, HeapInformation *> heapInformationList;
+
+void __HeapInformationDoState(PointerWrap &p) {
+	auto s = p.Section("kernelHeap", 1);
+	if (!s)
+		return;
+
+	if (s >= 1) {
+		p.Do(heapInformationList);
+	}
+}
 
 static HeapInformation  *getHeap(u32 heapId) {
 	auto found = heapInformationList.find(heapId);
