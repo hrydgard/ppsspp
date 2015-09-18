@@ -2370,7 +2370,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 	heapInformationList[uid] = heap;
 
 	
-	return hleLogError(SCEKERNEL, uid, "");
+	return hleLogSuccessInfoX(SCEKERNEL, uid, "");
 }
 
 
@@ -2385,7 +2385,7 @@ static int sceKernelAllocHeapMemory(int heapId, int size)
 	// There's 8 bytes at the end of every block, reserved.
 	u32 memSize = HEAP_BLOCK_HEADER_SIZE + size;
 	u32 addr = heap->alloc.Alloc(memSize, true);
-	return hleLogError(SCEKERNEL, addr, "");
+	return hleLogSuccessInfoX(SCEKERNEL, addr, "");
 }
 
 static int sceKernelDeleteHeap(int heapId)
@@ -2398,7 +2398,7 @@ static int sceKernelDeleteHeap(int heapId)
 	userMemory.Free(heap->address);
 	kernelObjects.Destroy<FPL>(heap->uid);
 	heapInformationList.erase(heapId);
-	return hleLogError(SCEKERNEL, 0, "");
+	return hleLogSuccessInfoX(SCEKERNEL, 0, "");
 }
 
 const HLEFunction SysMemForKernel[] =
