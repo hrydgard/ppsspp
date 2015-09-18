@@ -67,9 +67,9 @@ struct DirectoryEntry
 {
 	u8 size;
 	u8 sectorsInExtendedRecord;
-	u32_le firstDataSectorLE;	// LBA
+	u32_le firstDataSectorLE;       // LBA
 	u32_be firstDataSectorBE;
-	u32_le dataLengthLE;				// Size
+	u32_le dataLengthLE;            // Size
 	u32_be dataLengthBE;
 	u8 years;
 	u8 month;
@@ -78,12 +78,12 @@ struct DirectoryEntry
 	u8 minute;
 	u8 second;
 	u8 offsetFromGMT;
-	u8 flags; // 2 = directory
+	u8 flags;                       // 2 = directory
 	u8 fileUnitSize;
 	u8 interleaveGap;
 	u16_le volSeqNumberLE;
 	u16_be volSeqNumberBE;
-	u8 identifierLength; //identifier comes right after
+	u8 identifierLength;            //identifier comes right after
 	u8 firstIdChar;
 
 #if COMMON_LITTLE_ENDIAN
@@ -262,7 +262,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			}
 			else
 			{
-				e->name = std::string((char *)&dir.firstIdChar, dir.identifierLength);
+				e->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
 				relative = false;
 			}
 
@@ -298,41 +298,45 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 	}
 }
 
-ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catchError)
+ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError)
 {
-	if (path.length() == 0) {
+	const size_t pathLength = path.length();
+
+	if (pathLength == 0) {
 		// Ah, the device!	"umd0:"
 		return &entireISO;
 	}
 
-	if (path.substr(0,2) == "./")
-		path.erase(0,2);
+	size_t pathIndex = 0;
 
-	if (path[0] == '/')
-		path.erase(0,1);
+	// Skip "./"
+	if (pathLength > pathIndex + 1 && path[pathIndex] == '.' && path[pathIndex + 1] == '/')
+		pathIndex += 2;
+
+	// Skip "/"
+	if (pathLength > pathIndex && path[pathIndex] == '/')
+		++pathIndex;
+
+	if (pathLength <= pathIndex)
+		return treeroot;
 
 	TreeEntry *e = treeroot;
-	if (path.length() == 0)
-		return e;
-
 	while (true)
 	{
-		TreeEntry *ne = 0;
+		TreeEntry *ne = nullptr;
 		std::string name = "";
-		if (path.length()>0)
+		if (pathLength > pathIndex)
 		{
-			for (size_t i=0; i<e->children.size(); i++)
-			{
-				std::string n = (e->children[i]->name);
-				for (size_t j = 0; j < n.size(); j++) {
-					n[j] = tolower(n[j]);
-				}
-				std::string curPath = path.substr(0, path.find_first_of('/'));
-				for (size_t j = 0; j < curPath.size(); j++) {
-					curPath[j] = tolower(curPath[j]);
-				}
+			size_t nextSlashIndex = path.find_first_of('/', pathIndex);
+			if (nextSlashIndex == std::string::npos)
+				nextSlashIndex = pathLength;
 
-				if (curPath == n)
+			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
+			for (size_t i = 0; i < e->children.size(); i++)
+			{
+				const std::string &n = e->children[i]->name;
+				
+				if (firstPathComponent == n)
 				{
 					//yay we got it
 					ne = e->children[i];
@@ -341,23 +345,22 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 				}
 			}
 		}
+		
 		if (ne)
 		{
 			e = ne;
-			size_t l = name.length();
-			path.erase(0, l);
-			if (path.length() == 0 || (path.length()==1 && path[0] == '/'))
+			pathIndex += name.length();
+			if (pathIndex < pathLength && path[pathIndex] == '/')
+				++pathIndex;
+
+			if (pathLength <= pathIndex)
 				return e;
-			path.erase(0, 1);
-			while (path[0] == '/')
-				path.erase(0, 1);
 		}
 		else
 		{
 			if (catchError)
-			{
 				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
-			}
+
 			return 0;
 		}
 	}
@@ -421,7 +424,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		return 0;
 	}
 
-	if (entry.file==&entireISO)
+	if (entry.file == &entireISO)
 		entry.isBlockSectorMode = true;
 
 	entry.seekPos = 0;
@@ -687,7 +690,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
-		x.startSector = entry->startingPosition/2048;
+		x.startSector = entry->startingPosition / 2048;
 	}
 	return x;
 }
@@ -696,16 +699,18 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);
-	if (!entry)
-	{
+	if (! entry)
 		return myVector;
-	}
 
-	for (size_t i=0; i<entry->children.size(); i++)
+	const std::string dot(".");
+	const std::string dotdot("..");
+
+	for (size_t i = 0; i < entry->children.size(); i++)
 	{
 		TreeEntry *e = entry->children[i];
 
-		if(!strcmp(e->name.c_str(), ".") || !strcmp(e->name.c_str(), "..")) // do not include the relative entries in the list
+		// do not include the relative entries in the list
+		if (e->name == dot || e->name == dotdot)
 			continue;
 
 		PSPFileInfo x;
