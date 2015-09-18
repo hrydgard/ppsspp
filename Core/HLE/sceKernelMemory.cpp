@@ -2378,7 +2378,6 @@ static int sceKernelDeleteHeap(int heapId)
 	userMemory.Free(heap->address);
 	kernelObjects.Destroy<FPL>(heap->uid);
 	heapInformationList.erase(heapId);
-	delete heap;
 	return hleLogError(SCEKERNEL, 0, "");
 }
 
