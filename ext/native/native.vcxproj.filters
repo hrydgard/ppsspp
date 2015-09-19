@@ -111,9 +111,6 @@
     <ClInclude Include="file\path.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="gfx_es2\vertex_format.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="base\NativeApp.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -382,9 +379,6 @@
     </ClCompile>
     <ClCompile Include="file\path.cpp">
       <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx_es2\vertex_format.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="base\display.cpp">
       <Filter>base</Filter>

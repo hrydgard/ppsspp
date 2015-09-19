@@ -923,8 +923,6 @@ add_library(native STATIC
 	ext/native/gfx_es2/gpu_features.h
 	ext/native/gfx_es2/glsl_program.cpp
 	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/vertex_format.cpp
-	ext/native/gfx_es2/vertex_format.h
 	ext/native/gfx_es2/gl3stub.c
 	ext/native/gfx_es2/gl3stub.h
 	ext/native/i18n/i18n.cpp

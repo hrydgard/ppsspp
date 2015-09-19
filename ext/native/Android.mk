@@ -73,7 +73,6 @@ LOCAL_SRC_FILES :=\
     gfx_es2/gl3stub.c \
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/draw_text.cpp.arm \
-    gfx_es2/vertex_format.cpp \
     gfx/gl_debug_log.cpp \
     gfx/gl_lost_manager.cpp \
     gfx/texture_atlas.cpp \
