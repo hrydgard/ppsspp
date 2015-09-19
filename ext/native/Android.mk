@@ -39,7 +39,6 @@ LOCAL_SRC_FILES :=\
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
     file/fd_util.cpp \
-    file/easy_file.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
     file/path.cpp \

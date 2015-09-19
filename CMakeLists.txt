@@ -894,8 +894,6 @@ add_library(native STATIC
 	ext/native/ext/vjson/block_allocator.h
 	ext/native/file/chunk_file.cpp
 	ext/native/file/chunk_file.h
-	ext/native/file/easy_file.cpp
-	ext/native/file/easy_file.h
 	ext/native/file/fd_util.cpp
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp

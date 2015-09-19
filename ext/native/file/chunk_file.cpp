@@ -1,6 +1,7 @@
 #include "base/logging.h"
 #include "file/chunk_file.h"
 #include "file/zip_read.h"
+#include "file/file_util.h"
 
 //#define CHUNKDEBUG
 
@@ -27,12 +28,12 @@ ChunkFile::ChunkFile(const char *filename, bool _read) {
 		return;
 	}
 
-	if (file.open(filename, FILE_WRITE)) {
-		didFail=false;
-		eof=file.fileSize();
+	file = openCFile(filename, "wb");
+	if (file) {
+		didFail = false;
+		eof = 0;
 	}	else {
-		didFail=true;
-		return;
+		didFail = true;
 	}
 }
 
@@ -48,42 +49,36 @@ ChunkFile::ChunkFile(const uint8_t *read_data, int data_size) {
 }
 
 ChunkFile::~ChunkFile() {
-	if (fastMode)
-		delete [] data;
-	else
-		file.close();
+	if (fastMode) {
+		delete[] data;
+	} else {
+		fclose(file);
+	}
 }
 
 int ChunkFile::readInt() {
 	if (data && pos<eof) {
-		/*
-		int temp = *(int *)(data+pos);
-		pos+=4;
-		*/
 		pos += 4;
 		if (fastMode)
 			return *(int *)(data + pos - 4);
-		else
-			return file.readInt();
+		else {
+			int i;
+			fread(&i, 1, 4, file);
+			return i;
+		}
 	}	else {
 		return 0;
 	}
 }
 
 void ChunkFile::writeInt(int i) {
-	/*
-	*(int *)(data+pos) = i;
+	fwrite(&i, 1, 4, file);
 	pos+=4;
-	*/
-#ifndef DEMO_VERSION	//if this is missing.. heheh
-	file.writeInt(i);
-	pos+=4;
-#endif
 }
 
 //let's get into the business
 bool ChunkFile::descend(uint32_t id) {
-	id=flipID(id);
+	id = flipID(id);
 	if (read) {
 		bool found = false;
 
@@ -143,9 +138,10 @@ bool ChunkFile::descend(uint32_t id) {
 }
 
 void ChunkFile::seekTo(int _pos) {
-	if (!fastMode)
-		file.seekBeg(_pos);
-	pos=_pos;
+	if (!fastMode) {
+		fseek(file, 0, SEEK_SET);
+	}
+	pos = _pos;
 }
 
 //let's ascend out
@@ -174,7 +170,7 @@ void ChunkFile::readData(void *what, int count) {
 	if (fastMode)
 		memcpy(what, data + pos, count);
 	else
-		file.read(what,count);
+		fread(what, 1, count, file);
 
 	pos+=count;
 	char temp[4]; //discarded
@@ -182,21 +178,21 @@ void ChunkFile::readData(void *what, int count) {
 	if (count) {
 		count=4-count;
 		if (!fastMode)
-			file.read(temp,count);
+			fread(temp, 1, count, file);   // could just as well seek
 		pos+=count;
 	}
 }
 
 //write a block
 void ChunkFile::writeData(const void *what, int count) {
-	file.write(what, count);
+	fwrite(what, 1, count, file);
 	pos+=count;
 	char temp[5]={0,0,0,0,0};
 	count &= 3; 
 	if (count)
 	{
 		count=4-count;
-		file.write(temp,count);
+		fwrite(temp, 1, count, file);
 		pos+=count;
 	}
 }

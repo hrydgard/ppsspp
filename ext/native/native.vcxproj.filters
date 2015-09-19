@@ -63,9 +63,6 @@
     <ClInclude Include="file\chunk_file.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="file\easy_file.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="file\vfs.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -339,9 +336,6 @@
       <Filter>profiler</Filter>
     </ClCompile>
     <ClCompile Include="file\chunk_file.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\easy_file.cpp">
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="file\zip_read.cpp">
