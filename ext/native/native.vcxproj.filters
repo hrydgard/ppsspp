@@ -168,9 +168,6 @@
     <ClInclude Include="base\backtrace.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="math\lin\aabb.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="math\lin\plane.h">
       <Filter>math</Filter>
     </ClInclude>
@@ -451,9 +448,6 @@
     </ClCompile>
     <ClCompile Include="base\backtrace.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="math\lin\aabb.cpp">
-      <Filter>math</Filter>
     </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>

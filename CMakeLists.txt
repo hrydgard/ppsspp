@@ -960,8 +960,6 @@ add_library(native STATIC
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
 	ext/native/math/expression_parser.h
-	ext/native/math/lin/aabb.cpp
-	ext/native/math/lin/aabb.h
 	ext/native/math/lin/matrix4x4.cpp
 	ext/native/math/lin/matrix4x4.h
 	ext/native/math/lin/plane.cpp
@@ -1008,13 +1006,10 @@ add_library(native STATIC
 	ext/native/ui/virtual_input.h
 	ext/native/util/bits/bits.cpp
 	ext/native/util/bits/bits.h
-	ext/native/util/bits/hamming.h
 	ext/native/util/bits/varint.cpp
 	ext/native/util/bits/varint.h
 	ext/native/util/hash/hash.cpp
 	ext/native/util/hash/hash.h
-	ext/native/util/random/perlin.cpp
-	ext/native/util/random/perlin.h
 	ext/native/util/random/rng.h
 	ext/native/util/text/utf8.h
 	ext/native/util/text/utf8.cpp

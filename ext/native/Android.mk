@@ -57,7 +57,6 @@ LOCAL_SRC_FILES :=\
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
-    math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
     math/lin/quat.cpp.arm \
     math/lin/vec3.cpp.arm \
@@ -95,7 +94,6 @@ LOCAL_SRC_FILES :=\
     ui/ui_context.cpp \
     ui/screen.cpp \
     ui/virtual_input.cpp \
-    util/random/perlin.cpp \
     util/text/utf8.cpp \
     util/text/parsers.cpp \
     util/hash/hash.cpp
