@@ -7,7 +7,6 @@
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
 #include "util/text/utf8.h"
 #include "ui/ui.h"
@@ -571,28 +570,6 @@ void ImageView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	float scale = bounds_.w / img.w;
 	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
-}
-
-void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// TODO: involve sizemode
-	if (texture_) {
-		w = (float)texture_->Width();
-		h = (float)texture_->Height();
-	} else {
-		w = 16;
-		h = 16;
-	}
-}
-
-void TextureView::Draw(UIContext &dc) {
-	// TODO: involve sizemode
-	if (texture_) {
-		dc.Flush();
-		texture_->Bind(0);
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
-		dc.Flush();
-		dc.RebindTexture();
-	}
 }
 
 void Thin3DTextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

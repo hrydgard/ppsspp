@@ -109,10 +109,8 @@ void ScreenManager::render() {
 				iter--;
 				iter--;
 				Layer backback = *iter;
-				UIDisableBegin();
 				// Also shift to the right somehow...
 				backback.screen->render();
-				UIDisableEnd();
 				stack_.back().screen->render();
 				break;
 			}
