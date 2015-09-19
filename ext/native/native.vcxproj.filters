@@ -135,9 +135,6 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="file\dialog.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="base\mutex.h">
       <Filter>base</Filter>
     </ClInclude>
@@ -427,9 +424,6 @@
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="file\dialog.cpp">
-      <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="util\bits\bits.cpp">
       <Filter>util</Filter>

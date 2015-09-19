@@ -41,7 +41,6 @@ LOCAL_SRC_FILES :=\
     ext/stb_vorbis/stb_vorbis.c.arm \
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
-    file/dialog.cpp \
     file/fd_util.cpp \
     file/easy_file.cpp \
     file/chunk_file.cpp \
