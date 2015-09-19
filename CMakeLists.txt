@@ -913,13 +913,8 @@ add_library(native STATIC
 	ext/native/gfx/gl_debug_log.h
 	ext/native/gfx/gl_lost_manager.cpp
 	ext/native/gfx/gl_lost_manager.h
-	ext/native/gfx/texture.cpp
-	ext/native/gfx/texture.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
-#	ext/native/gfx/texture_dx11.cpp
-	ext/native/gfx/texture_gen.cpp
-	ext/native/gfx/texture_gen.h
 	ext/native/gfx_es2/draw_buffer.cpp
 	ext/native/gfx_es2/draw_buffer.h
 	ext/native/gfx_es2/draw_text.cpp

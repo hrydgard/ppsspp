@@ -76,9 +76,7 @@ LOCAL_SRC_FILES :=\
     gfx_es2/vertex_format.cpp \
     gfx/gl_debug_log.cpp \
     gfx/gl_lost_manager.cpp \
-    gfx/texture.cpp \
     gfx/texture_atlas.cpp \
-    gfx/texture_gen.cpp \
     image/zim_load.cpp \
     image/zim_save.cpp \
     image/png_load.cpp \

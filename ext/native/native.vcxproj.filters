@@ -90,9 +90,6 @@
     <ClInclude Include="base\timeutil.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="gfx\texture.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="input\gesture_detector.h">
       <Filter>input</Filter>
     </ClInclude>
@@ -104,9 +101,6 @@
     </ClInclude>
     <ClInclude Include="base\colorutil.h">
       <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\texture_gen.h">
-      <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="json\json_writer.h">
       <Filter>json</Filter>
@@ -371,9 +365,6 @@
     <ClCompile Include="base\timeutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="gfx\texture.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
     <ClCompile Include="input\gesture_detector.cpp">
       <Filter>input</Filter>
     </ClCompile>
@@ -382,9 +373,6 @@
     </ClCompile>
     <ClCompile Include="base\colorutil.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\texture_gen.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="json\json_writer.cpp">
       <Filter>json</Filter>

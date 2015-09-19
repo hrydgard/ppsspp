@@ -83,9 +83,7 @@ SOURCES +=  $$P/ext/native/audio/*.cpp \
 	$$P/ext/native/file/*.cpp \
 	$$P/ext/native/gfx/gl_debug_log.cpp \
 	$$P/ext/native/gfx/gl_lost_manager.cpp \
-	$$P/ext/native/gfx/texture.cpp \
 	$$P/ext/native/gfx/texture_atlas.cpp \
-	$$P/ext/native/gfx/texture_gen.cpp \
 	$$P/ext/native/gfx_es2/*.cpp \
 	$$P/ext/native/gfx_es2/*.c \
 	$$P/ext/native/i18n/*.cpp \

@@ -231,8 +231,6 @@
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
-    <ClInclude Include="gfx\texture_gen.h" />
-    <ClInclude Include="gfx\texture.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
@@ -689,9 +687,7 @@
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
-    <ClCompile Include="gfx\texture.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
-    <ClCompile Include="gfx\texture_gen.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
     <ClCompile Include="gfx_es2\gl3stub.c">

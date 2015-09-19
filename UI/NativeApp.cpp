@@ -51,7 +51,6 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
-#include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/fast/fast_math.h"

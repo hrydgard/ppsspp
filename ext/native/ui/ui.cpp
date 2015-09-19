@@ -8,7 +8,6 @@
 #include "base/colorutil.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
-#include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 
