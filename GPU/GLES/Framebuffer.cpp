@@ -1657,6 +1657,13 @@ void FramebufferManager::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+#ifndef _WIN32  // We do the same thing elsewhere
+		int zoom = g_Config.iInternalResolution;
+		if (zoom == 0) // auto mode
+			zoom = (pixelWidth_ + 479) / 480;
+		PSP_CoreParameter().renderWidth = 480 * zoom;
+		PSP_CoreParameter().renderHeight = 272 * zoom;
+#endif
 		resized_ = false;
 	}
 
