@@ -2,7 +2,6 @@ set(SRCS
   colorutil.cpp
   timeutil.cpp
   ../thread/threadutil.cpp
-  error_context.cpp
   display.cpp
   buffer.cpp
 	backtrace.cpp)

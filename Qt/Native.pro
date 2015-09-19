@@ -83,8 +83,6 @@ SOURCES +=  $$P/ext/native/audio/*.cpp \
 	$$P/ext/native/base/colorutil.cpp \
 	$$P/ext/native/base/compat.cpp \
 	$$P/ext/native/base/display.cpp \
-	$$P/ext/native/base/error_context.cpp \
-	$$P/ext/native/base/fastlist_test.cpp \
 	$$P/ext/native/base/stringutil.cpp \
 	$$P/ext/native/base/timeutil.cpp \
 	$$P/ext/native/data/compression.cpp \
@@ -126,13 +124,10 @@ HEADERS +=  $$P/ext/native/audio/*.h \
 	$$P/ext/native/base/color.h \
 	$$P/ext/native/base/colorutil.h \
 	$$P/ext/native/base/display.h \
-	$$P/ext/native/base/error_context.h \
-	$$P/ext/native/base/fastlist.h \
 	$$P/ext/native/base/linked_ptr.h \
 	$$P/ext/native/base/logging.h \
 	$$P/ext/native/base/mutex.h \
 	$$P/ext/native/base/scoped_ptr.h \
-	$$P/ext/native/base/stats.h \
 	$$P/ext/native/base/stringutil.h \
 	$$P/ext/native/base/timeutil.h \
 	$$P/ext/native/data/compression.h \

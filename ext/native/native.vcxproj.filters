@@ -87,9 +87,6 @@
     <ClInclude Include="base\scoped_ptr.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="base\stats.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_lost_manager.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -100,9 +97,6 @@
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="base\timeutil.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\error_context.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="gfx\texture.h">
@@ -181,9 +175,6 @@
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="base\backtrace.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\fastlist.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="math\lin\aabb.h">
@@ -408,9 +399,6 @@
       <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="base\timeutil.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="base\error_context.cpp">
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="gfx\texture.cpp">

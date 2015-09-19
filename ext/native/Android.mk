@@ -15,7 +15,6 @@ LOCAL_SRC_FILES :=\
     base/display.cpp \
     base/timeutil.cpp \
     base/colorutil.cpp \
-    base/error_context.cpp \
     base/stringutil.cpp \
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \

@@ -888,16 +888,11 @@ add_library(native STATIC
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/error_context.cpp
-	ext/native/base/error_context.h
-	ext/native/base/fastlist.h
-	ext/native/base/fastlist_test.cpp
 	ext/native/base/functional.h
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
 	ext/native/base/mutex.h
 	ext/native/base/scoped_ptr.h
-	ext/native/base/stats.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp

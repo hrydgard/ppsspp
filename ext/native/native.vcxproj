@@ -196,15 +196,11 @@
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
-    <ClInclude Include="base\error_context.h" />
-    <ClInclude Include="base\fastlist.h" />
     <ClInclude Include="base\functional.h" />
-    <ClInclude Include="base\linked_ptr.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\scoped_ptr.h" />
-    <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
     <ClInclude Include="data\compression.h" />
@@ -311,7 +307,6 @@
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="base\display.cpp" />
-    <ClCompile Include="base\error_context.cpp" />
     <ClCompile Include="base\PCMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
