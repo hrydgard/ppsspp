@@ -26,33 +26,30 @@
 #include <string>
 
 #include "base/NativeApp.h"
-#include "base/timeutil.h"
 #include "Globals.h"
 
 #include "shellapi.h"
 #include "commctrl.h"
-
+#include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/InputBox.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/GEDebugger/GEDebugger.h"
+#include "Core/MIPS/JitCommon/NativeJit.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+
 #include "main.h"
 
 #include "Core/Core.h"
-#include "Core/MemMap.h"
-#include "Core/SaveState.h"
-#include "Core/System.h"
-#include "Core/Config.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -117,8 +114,6 @@ namespace MainWindow
 	static int prevCursorY = -1;
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
-	static W32Util::AsyncBrowseDialog *browseDialog;
-	static bool browsePauseAfter;
 	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
 	static int g_WindowState;
 
@@ -536,62 +531,6 @@ namespace MainWindow
 			delete memoryWindow[0];
 		memoryWindow[0] = 0;
 	}
-
-	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
-		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
-		for (int i = 0; i < (int)filter.length(); i++) {
-			if (filter[i] == '|')
-				filter[i] = '\0';
-		}
-
-		browsePauseAfter = false;
-		if (GetUIState() == UISTATE_INGAME) {
-			browsePauseAfter = Core_IsStepping();
-			if (!browsePauseAfter)
-				Core_EnableStepping(true);
-		}
-
-		W32Util::MakeTopMost(GetHWND(), false);
-		if (browseDirectory) {
-			browseDialog = new W32Util::AsyncBrowseDialog(GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"Choose directory");
-		} else {
-			browseDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"LoadFile", ConvertUTF8ToWString(defaultPath), filter, L"*.pbp;*.elf;*.iso;*.cso;");
-		}
-	}
-
-	void BrowseAndBootDone() {
-		std::string filename;
-		if (!browseDialog->GetResult(filename)) {
-			if (!browsePauseAfter) {
-				Core_EnableStepping(false);
-			}
-		} else {
-			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
-				Core_EnableStepping(false);
-			}
-
-			// TODO: What is this for / what does it fix?
-			if (browseDialog->GetType() != W32Util::AsyncBrowseDialog::DIR) {
-				// Decode the filename with fullpath.
-				char drive[MAX_PATH];
-				char dir[MAX_PATH];
-				char fname[MAX_PATH];
-				char ext[MAX_PATH];
-				_splitpath(filename.c_str(), drive, dir, fname, ext);
-
-				filename = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			}
-
-			filename = ReplaceAll(filename, "\\", "/");
-			NativeMessageReceived("boot", filename.c_str());
-		}
-
-		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
-
-		delete browseDialog;
-		browseDialog = 0;
-	}
-
 
 	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 		// Only apply a factor > 1 in windowed mode.
