@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "json.h"
-#include "file/easy_file.h"
 #include "file/zip_read.h"
 #include "file/vfs.h"
 

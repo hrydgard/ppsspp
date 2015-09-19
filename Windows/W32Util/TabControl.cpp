@@ -1,6 +1,6 @@
 #include "TabControl.h"
 #include "DialogManager.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include <windowsx.h>
 #include <commctrl.h>
 

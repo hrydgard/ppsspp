@@ -17,7 +17,7 @@
 #include "Windows/Debugger/CtrlRegisterList.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"

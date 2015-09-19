@@ -6,4 +6,8 @@
 
 namespace MainWindow {
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam);
+	void TranslateMenus(HWND hWnd, HMENU menu);
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
+	void BrowseAndBootDone();
+	void setTexScalingMultiplier(int level);
 }

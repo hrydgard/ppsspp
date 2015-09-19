@@ -20,7 +20,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
@@ -38,6 +38,8 @@ namespace MainWindow {
 	extern HINSTANCE hInst;
 	static const int numCPUs = 1;  // what?
 	extern bool noFocusPause;
+	static W32Util::AsyncBrowseDialog *browseDialog;
+	static bool browsePauseAfter;
 
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
@@ -313,7 +315,63 @@ namespace MainWindow {
 		UpdateMenus();
 	}
 
-	void UmdSwitchAction() {
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
+		static std::wstring filter = L"All supported file types (*.iso *.cso *.pbp *.elf *.prx *.zip)|*.pbp;*.elf;*.iso;*.cso;*.prx;*.zip|PSP ROMs (*.iso *.cso *.pbp *.elf *.prx)|*.pbp;*.elf;*.iso;*.cso;*.prx|Homebrew/Demos installers (*.zip)|*.zip|All files (*.*)|*.*||";
+		for (int i = 0; i < (int)filter.length(); i++) {
+			if (filter[i] == '|')
+				filter[i] = '\0';
+		}
+
+		browsePauseAfter = false;
+		if (GetUIState() == UISTATE_INGAME) {
+			browsePauseAfter = Core_IsStepping();
+			if (!browsePauseAfter)
+				Core_EnableStepping(true);
+		}
+
+		W32Util::MakeTopMost(GetHWND(), false);
+		if (browseDirectory) {
+			browseDialog = new W32Util::AsyncBrowseDialog(GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"Choose directory");
+		} else {
+			browseDialog = new W32Util::AsyncBrowseDialog(W32Util::AsyncBrowseDialog::OPEN, GetHWND(), WM_USER_BROWSE_BOOT_DONE, L"LoadFile", ConvertUTF8ToWString(defaultPath), filter, L"*.pbp;*.elf;*.iso;*.cso;");
+		}
+	}
+
+	void BrowseAndBootDone() {
+		std::string filename;
+		if (!browseDialog->GetResult(filename)) {
+			if (!browsePauseAfter) {
+				Core_EnableStepping(false);
+			}
+		} else {
+			if (GetUIState() == UISTATE_INGAME || GetUIState() == UISTATE_PAUSEMENU) {
+				Core_EnableStepping(false);
+			}
+
+			// TODO: What is this for / what does it fix?
+			if (browseDialog->GetType() != W32Util::AsyncBrowseDialog::DIR) {
+				// Decode the filename with fullpath.
+				char drive[MAX_PATH];
+				char dir[MAX_PATH];
+				char fname[MAX_PATH];
+				char ext[MAX_PATH];
+				_splitpath(filename.c_str(), drive, dir, fname, ext);
+
+				filename = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
+			}
+
+			filename = ReplaceAll(filename, "\\", "/");
+			NativeMessageReceived("boot", filename.c_str());
+		}
+
+		W32Util::MakeTopMost(GetHWND(), g_Config.bTopMost);
+
+		delete browseDialog;
+		browseDialog = 0;
+	}
+
+
+	static void UmdSwitchAction() {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
 
@@ -328,30 +386,30 @@ namespace MainWindow {
 		}
 	}
 
-	void SaveStateActionFinished(bool result, void *userdata) {
+	static void SaveStateActionFinished(bool result, void *userdata) {
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
-
+	// not static
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		NativeMessageReceived("gpu clear cache", "");
 	}
 
-	void setTexFiltering(int type) {
+	static void setTexFiltering(int type) {
 		g_Config.iTexFiltering = type;
 	}
 
-	void setBufFilter(int type) {
+	static void setBufFilter(int type) {
 		g_Config.iBufFilter = type;
 	}
 
-	void setTexScalingType(int type) {
+	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
 		NativeMessageReceived("gpu clear cache", "");
 	}
 
-	void setRenderingMode(int mode = -1) {
+	static void setRenderingMode(int mode = -1) {
 		if (mode >= FB_NON_BUFFERED_MODE)
 			g_Config.iRenderingMode = mode;
 		else {
@@ -383,11 +441,11 @@ namespace MainWindow {
 		NativeMessageReceived("gpu resized", "");
 	}
 
-	void setFpsLimit(int fps) {
+	static void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
 	}
 
-	void setFrameSkipping(int framesToSkip = -1) {
+	static void setFrameSkipping(int framesToSkip = -1) {
 		if (framesToSkip >= FRAMESKIP_OFF)
 			g_Config.iFrameSkip = framesToSkip;
 		else {
@@ -408,7 +466,7 @@ namespace MainWindow {
 		osm.Show(messageStream.str());
 	}
 
-	void enableCheats(bool cheats) {
+	static void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
 	}
 

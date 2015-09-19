@@ -33,8 +33,7 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 }
 #endif
 
-namespace File
-{
+namespace File {
 
 // FileSystem tree node/ 
 struct FSTEntry
@@ -107,8 +106,7 @@ const std::string &GetExeDirectory();
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder
-class IOFile : NonCopyable
-{
+class IOFile : NonCopyable {
 public:
 	IOFile();
 	IOFile(std::FILE* file);

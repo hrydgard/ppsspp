@@ -4,6 +4,7 @@
 #include <string>
 
 #include "Core/System.h"
+#include "MainWindowMenu.h"
 
 namespace MainWindow
 {
@@ -61,13 +62,8 @@ namespace MainWindow
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
-	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
-	void SaveStateActionFinished(bool result, void *userdata);
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
 	void ToggleDebugConsoleVisibility();
-	void TranslateMenus(HWND hWnd, HMENU menu);
-	void setTexScalingMultiplier(int level);
-	void UmdSwitchAction();
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
 }

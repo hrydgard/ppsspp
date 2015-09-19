@@ -61,9 +61,6 @@
     <ClCompile Include="InputBox.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
-    <ClCompile Include="WndMainWindow.cpp">
-      <Filter>Windows\UI</Filter>
-    </ClCompile>
     <ClCompile Include="DSoundStream.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -152,6 +149,9 @@
     <ClCompile Include="MainWindowMenu.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
+    <ClCompile Include="MainWindow.cpp">
+      <Filter>Windows\UI</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -185,9 +185,6 @@
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
     <ClInclude Include="InputBox.h">
-      <Filter>Windows\UI</Filter>
-    </ClInclude>
-    <ClInclude Include="WndMainWindow.h">
       <Filter>Windows\UI</Filter>
     </ClInclude>
     <ClInclude Include="DSoundStream.h">
@@ -276,6 +273,9 @@
       <Filter>Windows\GE Debugger</Filter>
     </ClInclude>
     <ClInclude Include="MainWindowMenu.h">
+      <Filter>Windows\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="MainWindow.h">
       <Filter>Windows\UI</Filter>
     </ClInclude>
   </ItemGroup>

@@ -2,7 +2,6 @@
 
 // RIFF file format reader/writer. Very old code, basically a total mess but it still works.
 // Has nothing to do with the ChunkFile.h used in Dolphin or PPSSPP.
-// LAMEFile should be removed.
 
 // TO REMEMBER WHEN USING:
 
@@ -11,9 +10,9 @@
 // otherwise the scheme breaks.
 
 #include <string>
+#include <stdio.h>
 
 #include "base/basictypes.h"
-#include "file/easy_file.h"
 
 inline uint32_t flipID(uint32_t id) {
 	return ((id>>24)&0xFF) | ((id>>8)&0xFF00) | ((id<<8)&0xFF0000) | ((id<<24)&0xFF000000);
@@ -49,7 +48,7 @@ public:
 
 private:
 	std::string fn;
-	LAMEFile file;
+	FILE *file;
 	struct ChunkInfo {
 		int startLocation;
 		int parentStartLocation;
