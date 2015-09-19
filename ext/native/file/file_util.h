@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <stdio.h>
+
 #include <inttypes.h>
 
 // Whole-file reading/writing
