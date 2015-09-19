@@ -138,9 +138,6 @@
     <ClInclude Include="base\mutex.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="util\bits\bits.h">
-      <Filter>util</Filter>
-    </ClInclude>
     <ClInclude Include="data\listable.h">
       <Filter>data</Filter>
     </ClInclude>
@@ -421,9 +418,6 @@
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="util\bits\bits.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="math\math_util.cpp">
       <Filter>math</Filter>

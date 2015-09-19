@@ -1,6 +1,5 @@
 set(SRCS
   bits/bits.cpp
-  bits/varint.cpp
   hash/hash.cpp
   text/utf8.cpp
 )

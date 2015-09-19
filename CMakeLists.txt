@@ -1004,10 +1004,6 @@ add_library(native STATIC
 	ext/native/ui/viewgroup.h
 	ext/native/ui/virtual_input.cpp
 	ext/native/ui/virtual_input.h
-	ext/native/util/bits/bits.cpp
-	ext/native/util/bits/bits.h
-	ext/native/util/bits/varint.cpp
-	ext/native/util/bits/varint.h
 	ext/native/util/hash/hash.cpp
 	ext/native/util/hash/hash.h
 	ext/native/util/random/rng.h
