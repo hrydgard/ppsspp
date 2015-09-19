@@ -71,7 +71,7 @@ win32|contains(QT_CONFIG, no-zlib) {
 
 # Native
 
-SOURCES +=  $$P/ext/native/audio/*.cpp \
+SOURCES += \
 	$$P/ext/native/base/backtrace.cpp \
 	$$P/ext/native/base/buffer.cpp \
 	$$P/ext/native/base/colorutil.cpp \
@@ -109,7 +109,7 @@ SOURCES +=  $$P/ext/native/audio/*.cpp \
 armv7: SOURCES += $$files($$P/ext/native/math/fast/fast_matrix_neon.S)
 
 
-HEADERS +=  $$P/ext/native/audio/*.h \
+HEADERS += \
 	$$P/ext/native/base/backtrace.h \
 	$$P/ext/native/base/basictypes.h \
 	$$P/ext/native/base/buffer.h \
