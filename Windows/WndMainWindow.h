@@ -57,7 +57,6 @@ namespace MainWindow
 	void UpdateMenus();
 	void UpdateCommands();
 	void SetWindowTitle(const wchar_t *title);
-	void Update();
 	void Redraw();
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
@@ -66,7 +65,9 @@ namespace MainWindow
 	void SaveStateActionFinished(bool result, void *userdata);
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
 	void ToggleDebugConsoleVisibility();
-	void TranslateMenus();
+	void TranslateMenus(HWND hWnd, HMENU menu);
 	void setTexScalingMultiplier(int level);
 	void UmdSwitchAction();
+	void SetInternalResolution(int res = -1);
+	void SetWindowSize(int zoom);
 }
