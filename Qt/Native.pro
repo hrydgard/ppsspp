@@ -100,9 +100,7 @@ SOURCES += \
 	$$P/ext/native/thin3d/thin3d_gl.cpp \
 	$$P/ext/native/thread/*.cpp \
 	$$P/ext/native/ui/*.cpp \
-	$$P/ext/native/util/bits/*.cpp \
 	$$P/ext/native/util/hash/hash.cpp \
-	$$P/ext/native/util/random/perlin.cpp \
 	$$P/ext/native/util/text/utf8.cpp \
 	$$P/ext/native/util/text/parsers.cpp
 
@@ -135,7 +133,6 @@ HEADERS += \
 	$$P/ext/native/profiler/profiler.h \
 	$$P/ext/native/thread/*.h \
 	$$P/ext/native/ui/*.h \
-	$$P/ext/native/util/bits/*.h \
 	$$P/ext/native/util/hash/hash.h \
 	$$P/ext/native/util/random/*.h \
 	$$P/ext/native/util/text/utf8.h \
