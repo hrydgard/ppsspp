@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// TODO: Get rid of the internal window.
+// Tried before but Intel drivers screw up when minimizing, or something ?
+
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 // It's improving slowly, though. :)
 
@@ -112,10 +115,11 @@ namespace MainWindow
 	static int cursorCounter = 0;
 	static int prevCursorX = -1;
 	static int prevCursorY = -1;
+
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
-	static bool g_inModeSwitch; // when true, don't react to WM_SIZE
 	static int g_WindowState;
+	static bool g_IgnoreWM_SIZE = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -246,31 +250,6 @@ namespace MainWindow
 		return g_Config.IsPortrait() ? (height < 480 + 80) : (width < 480 + 80);
 	} 
 
-	static void ResizeDisplay(bool noWindowMovement = false) {
-		AssertCurrentThreadName("Main");
-		int width = 0, height = 0;
-		RECT rc;
-		GetClientRect(hwndMain, &rc);
-		if (!noWindowMovement) {
-			width = rc.right - rc.left;
-			height = rc.bottom - rc.top;
-			// Moves the internal window, not the frame. TODO: Get rid of the internal window. Tried before but Intel drivers screw up when minimizing, or something?
-			MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
-			// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
-			// Need to clean all of this up...
-			PSP_CoreParameter().pixelWidth = width;
-			PSP_CoreParameter().pixelHeight = height;
-		}
-
-		UpdateRenderResolution();
-		
-		if (!noWindowMovement) {
-			if (UpdateScreenScale(width, height, IsWindowSmall())) {
-				NativeMessageReceived("gpu resized", "");
-			}
-		}
-	}
-
 	void SetWindowSize(int zoom) {
 		AssertCurrentThreadName("Main");
 		RECT rc, rcOuter;
@@ -282,7 +261,6 @@ namespace MainWindow
 			GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		}
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ResizeDisplay(false);
 		ShowScreenResolution();
 	}
 
@@ -323,7 +301,9 @@ namespace MainWindow
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen) {
 		// Make sure no rendering is happening during the switch.
 		Core_NotifyWindowHidden(true);
-		g_inModeSwitch = true;  // Make sure WM_SIZE doesn't call Core_NotifyWindowHidden(false)...
+
+		int oldWindowState = g_WindowState;
+		g_IgnoreWM_SIZE = true;
 
 		DWORD dwOldStyle;
 		DWORD dwNewStyle;
@@ -341,7 +321,7 @@ namespace MainWindow
 		} else {
 			// If the window was maximized before going fullscreen, make sure to restore first
 			// in order not to have the taskbar show up on top of PPSSPP.
-			if (g_WindowState == SIZE_MAXIMIZED) {
+			if (oldWindowState == SIZE_MAXIMIZED) {
 				ShowWindow(hwndMain, SW_RESTORE);
 			}
 			// Remember the normal window rectangle.
@@ -357,29 +337,30 @@ namespace MainWindow
 
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-		// Remove the menu bar.
+		// Remove the menu bar. This can trigger WM_SIZE
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
+
+		g_Config.bFullScreen = goingFullscreen;
+
+		g_IgnoreWM_SIZE = false;
 
 		// Resize to the appropriate view.
 		// If we're returning to window mode, re-apply the appropriate size setting.
 		if (goingFullscreen) {
 			ShowWindow(hwndMain, SW_MAXIMIZE);
 		} else {
-			ShowWindow(hwndMain, g_WindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
+			ShowWindow(hwndMain, oldWindowState == SIZE_MAXIMIZED ? SW_MAXIMIZE : SW_RESTORE);
 		}
 
-		g_Config.bFullScreen = goingFullscreen;
 		CorrectCursor();
 
 		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		ResizeDisplay(false);
 		if (showOSM) {
 			ShowScreenResolution();
 		}
 		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		g_inModeSwitch = false;
 		Core_NotifyWindowHidden(false);
 		WindowsRawInput::NotifyMenu();
 	}
@@ -545,7 +526,6 @@ namespace MainWindow
 			break;
 
 		case WM_SIZE:
-			ILOG("WM_SIZE inner (%d)", (int)wParam);
 			break;
 
 		case WM_SETFOCUS:
@@ -721,31 +701,54 @@ namespace MainWindow
 			break;
 
 		case WM_SIZE:
-			if (!g_inModeSwitch) {
-				ILOG("WM_SIZE (%d)", (int)wParam);
-				switch (wParam) {
-				case SIZE_MAXIMIZED:
-				case SIZE_RESTORED:
+			switch (wParam) {
+			case SIZE_RESTORED:
+			case SIZE_MAXIMIZED:
+				if (g_IgnoreWM_SIZE) {
+					return DefWindowProc(hWnd, message, wParam, lParam);
+				} else {
+					SavePosition();
 					Core_NotifyWindowHidden(false);
 					if (!g_Config.bPauseWhenMinimized) {
 						NativeMessageReceived("window minimized", "false");
 					}
-					SavePosition();
-					ResizeDisplay();
-					g_WindowState = wParam;
-					break;
-				case SIZE_MINIMIZED:
-					Core_NotifyWindowHidden(true);
-					if (!g_Config.bPauseWhenMinimized) {
-						NativeMessageReceived("window minimized", "true");
+
+					int width = 0, height = 0;
+					RECT rc;
+					GetClientRect(hwndMain, &rc);
+					width = rc.right - rc.left;
+					height = rc.bottom - rc.top;
+					// Moves the internal window, not the frame.
+					MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
+					// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
+					// Need to clean all of this up...
+					// TODO: This is done fully unsynchronized with rendering. This could have bad consequences.
+					// We need to make sure that rendering gets its width and height at the start of each frame
+					// and then sticks with it.
+					PSP_CoreParameter().pixelWidth = width;
+					PSP_CoreParameter().pixelHeight = height;
+
+					UpdateRenderResolution();
+
+					if (UpdateScreenScale(width, height, IsWindowSmall())) {
+						NativeMessageReceived("gpu resized", "");
 					}
-					break;
-				default:
-					break;
+
+					// Don't save the window state if fullscreen.
+					if (!g_Config.bFullScreen) {
+						g_WindowState = wParam;
+					}
 				}
-			} else {
-				ILOG("WM_SIZE (%d) (ignored)", (int)wParam);
-				return DefWindowProc(hWnd, message, wParam, lParam);
+				break;
+
+			case SIZE_MINIMIZED:
+				Core_NotifyWindowHidden(true);
+				if (!g_Config.bPauseWhenMinimized) {
+					NativeMessageReceived("window minimized", "true");
+				}
+				break;
+			default:
+				break;
 			}
 			break;
 
@@ -888,7 +891,6 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_SCREEN:
-			ResizeDisplay(true);
 			ShowScreenResolution();
 			break;
 

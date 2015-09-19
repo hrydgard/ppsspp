@@ -156,10 +156,6 @@ void WindowsHost::UpdateUI() {
 	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
-void WindowsHost::UpdateScreen() {
-	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
-}
-
 void WindowsHost::UpdateMemView() {
 	for (int i = 0; i < numCPUs; i++)
 		if (memoryWindow[i])
