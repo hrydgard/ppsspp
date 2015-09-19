@@ -3,7 +3,7 @@
 // "Immediate mode"-lookalike buffered drawing. Very fast way to draw 2D.
 
 #include "base/basictypes.h"
-#include "base/color.h"
+#include "base/colorutil.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture_atlas.h"
 #include "math/geom2d.h"

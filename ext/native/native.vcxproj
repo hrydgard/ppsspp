@@ -190,7 +190,6 @@
     <ClInclude Include="base\backtrace.h" />
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
-    <ClInclude Include="base\color.h" />
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
@@ -275,7 +274,6 @@
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
     <ClInclude Include="ui\virtual_input.h" />
-    <ClInclude Include="util\random\perlin.h" />
     <ClInclude Include="util\random\rng.h" />
     <ClInclude Include="util\text\parsers.h" />
     <ClInclude Include="util\text\shiftjis.h" />
@@ -738,10 +736,6 @@
     <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\hash\hash.cpp" />
-    <ClCompile Include="util\random\perlin.cpp">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
-    </ClCompile>
     <ClCompile Include="util\text\parsers.cpp" />
     <ClCompile Include="util\text\utf8.cpp" />
   </ItemGroup>

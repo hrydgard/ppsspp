@@ -111,7 +111,6 @@ HEADERS += \
 	$$P/ext/native/base/backtrace.h \
 	$$P/ext/native/base/basictypes.h \
 	$$P/ext/native/base/buffer.h \
-	$$P/ext/native/base/color.h \
 	$$P/ext/native/base/colorutil.h \
 	$$P/ext/native/base/display.h \
 	$$P/ext/native/base/linked_ptr.h \

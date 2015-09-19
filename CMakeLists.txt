@@ -874,7 +874,6 @@ add_library(native STATIC
 	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h
-	ext/native/base/color.h
 	ext/native/base/colorutil.cpp
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp

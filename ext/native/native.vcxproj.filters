@@ -30,9 +30,6 @@
     <ClInclude Include="gfx\gl_debug_log.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="base\color.h">
-      <Filter>image</Filter>
-    </ClInclude>
     <ClInclude Include="image\png_load.h">
       <Filter>image</Filter>
     </ClInclude>
@@ -152,9 +149,6 @@
     </ClInclude>
     <ClInclude Include="math\lin\plane.h">
       <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="util\random\perlin.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
@@ -412,9 +406,6 @@
     </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="util\random\perlin.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="ui\virtual_input.cpp">
       <Filter>ui</Filter>
@@ -759,9 +750,6 @@
     </Filter>
     <Filter Include="ext">
       <UniqueIdentifier>{5c54b5e2-1bb2-4783-9df6-de4ff7105570}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="audio">
-      <UniqueIdentifier>{4ea45f6c-de87-44a9-95b2-e1ec7e3601d0}</UniqueIdentifier>
     </Filter>
     <Filter Include="profiler">
       <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
