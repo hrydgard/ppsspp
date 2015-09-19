@@ -51,7 +51,7 @@
 
 #if defined(_WIN32)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include <shlobj.h>
 #include "util/text/utf8.h"
 #include "Windows/W32Util/ShellUtil.h"

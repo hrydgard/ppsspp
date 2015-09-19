@@ -54,7 +54,7 @@
 
 #ifdef _WIN32
 #include "Windows/W32Util/ShellUtil.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #endif
 
 #ifdef ANDROID_NDK_PROFILER

@@ -57,7 +57,7 @@
 
 #include "resource.h"
 
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/WindowsHost.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"

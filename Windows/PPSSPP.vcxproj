@@ -330,7 +330,7 @@
     <ClCompile Include="W32Util\ShellUtil.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="W32Util\TabControl.cpp" />
-    <ClCompile Include="WndMainWindow.cpp" />
+    <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="OpenGLBase.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
@@ -380,7 +380,7 @@
     <ClInclude Include="W32Util\TabControl.h" />
     <ClInclude Include="W32Util\XPTheme.h" />
     <ClInclude Include="InputBox.h" />
-    <ClInclude Include="WndMainWindow.h" />
+    <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />
     <ClInclude Include="OpenGLBase.h" />
     <ClInclude Include="WindowsHost.h" />

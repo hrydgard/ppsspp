@@ -4,7 +4,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Windows/W32Util/Misc.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 
 #include "Core/MIPS/MIPSAsm.h"

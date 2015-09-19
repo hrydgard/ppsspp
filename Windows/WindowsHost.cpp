@@ -38,12 +38,12 @@
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "EmuThread.h"
-#include "DSoundStream.h"
-#include "WindowsHost.h"
-#include "WndMainWindow.h"
-#include "OpenGLBase.h"
-#include "D3D9Base.h"
+#include "Windows/EmuThread.h"
+#include "Windows/DSoundStream.h"
+#include "Windows/WindowsHost.h"
+#include "Windows/MainWindow.h"
+#include "Windows/OpenGLBase.h"
+#include "Windows/D3D9Base.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -56,7 +56,7 @@
 #include "Core/Debugger/SymbolMap.h"
 
 #include "Common/StringUtils.h"
-#include "main.h"
+#include "Windows/main.h"
 
 static const int numCPUs = 1;
 
