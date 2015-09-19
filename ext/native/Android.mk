@@ -7,8 +7,6 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := libnative
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
-    audio/wav_read.cpp \
-    audio/mixer.cpp.arm \
     base/backtrace.cpp \
     base/buffer.cpp \
     base/compat.cpp \
@@ -38,7 +36,6 @@ LOCAL_SRC_FILES :=\
     ext/jpge/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
-    ext/stb_vorbis/stb_vorbis.c.arm \
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
     file/fd_util.cpp \

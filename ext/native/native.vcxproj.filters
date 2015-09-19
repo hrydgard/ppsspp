@@ -57,12 +57,6 @@
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="audio\wav_read.h">
-      <Filter>audio</Filter>
-    </ClInclude>
-    <ClInclude Include="audio\mixer.h">
-      <Filter>audio</Filter>
-    </ClInclude>
     <ClInclude Include="profiler\profiler.h">
       <Filter>profiler</Filter>
     </ClInclude>
@@ -182,9 +176,6 @@
     </ClInclude>
     <ClInclude Include="ui\ui_context.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
-      <Filter>ext</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
@@ -359,12 +350,6 @@
     <ClCompile Include="gfx_es2\glsl_program.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="audio\wav_read.cpp">
-      <Filter>audio</Filter>
-    </ClCompile>
-    <ClCompile Include="audio\mixer.cpp">
-      <Filter>audio</Filter>
-    </ClCompile>
     <ClCompile Include="profiler\profiler.cpp">
       <Filter>profiler</Filter>
     </ClCompile>
@@ -460,9 +445,6 @@
     </ClCompile>
     <ClCompile Include="base\BlackberryMain.cpp" />
     <ClCompile Include="base\PCMain.cpp" />
-    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
-      <Filter>ext</Filter>
-    </ClCompile>
     <ClCompile Include="base\BlackberryMain.cpp">
       <Filter>base</Filter>
     </ClCompile>

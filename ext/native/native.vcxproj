@@ -187,8 +187,6 @@
     <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="audio\mixer.h" />
-    <ClInclude Include="audio\wav_read.h" />
     <ClInclude Include="base\backtrace.h" />
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
@@ -220,7 +218,6 @@
     <ClInclude Include="ext\libzip\zipint.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
-    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h" />
     <ClInclude Include="ext\vjson\block_allocator.h" />
     <ClInclude Include="ext\vjson\json.h" />
     <ClInclude Include="file\chunk_file.h" />
@@ -289,8 +286,6 @@
     <ClInclude Include="util\text\utf8.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="audio\mixer.cpp" />
-    <ClCompile Include="audio\wav_read.cpp" />
     <ClCompile Include="base\backtrace.cpp" />
     <ClCompile Include="base\BlackberryMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -683,7 +678,6 @@
     </ClCompile>
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
-    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="ext\vjson\block_allocator.cpp" />
     <ClCompile Include="ext\vjson\json.cpp" />
     <ClCompile Include="file\chunk_file.cpp" />

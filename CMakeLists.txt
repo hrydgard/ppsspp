@@ -423,11 +423,6 @@ add_library(rg_etc1 STATIC
 	ext/native/ext/rg_etc1/rg_etc1.h)
 include_directories(ext/native/ext/rg_etc1)
 
-add_library(stb_vorbis STATIC
-	ext/native/ext/stb_vorbis/stb_vorbis.c
-	ext/native/ext/stb_vorbis/stb_vorbis.h)
-include_directories(ext/native/ext/stb_vorbis)
-
 if(USE_FFMPEG)
 	if(USE_SYSTEM_FFMPEG)
 		find_package(FFMPEG)
@@ -876,10 +871,6 @@ add_library(native STATIC
 	${nativeExtra}
 	ext/native/base/backtrace.cpp
 	ext/native/base/backtrace.h
-	ext/native/audio/mixer.cpp
-	ext/native/audio/mixer.h
-	ext/native/audio/wav_read.cpp
-	ext/native/audio/wav_read.h
 	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h
@@ -1022,7 +1013,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)

@@ -36,12 +36,6 @@ SOURCES += $$P/ext/native/ext/jpge/*.cpp
 HEADERS += $$P/ext/native/ext/jpge/*.h
 INCLUDEPATH += $$P/ext/native/ext/jpge
 
-# Stb_vorbis
-
-SOURCES += $$P/ext/native/ext/stb_vorbis/stb_vorbis.c
-HEADERS += $$P/ext/native/ext/stb_vorbis/stb_vorbis.h
-INCLUDEPATH += $$P/ext/native/ext/stb_vorbis
-
 # Snappy
 !exists( /usr/include/snappy-c.h ) {
 	SOURCES += $$P/ext/snappy/*.cpp
