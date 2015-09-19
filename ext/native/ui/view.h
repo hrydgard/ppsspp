@@ -743,25 +743,6 @@ private:
 
 // TextureView takes a texture that is assumed to be alive during the lifetime
 // of the view.
-class TextureView : public InertView {
-public:
-	TextureView(Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
-
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-
-	void SetTexture(Texture *texture) { texture_ = texture; }
-	void SetColor(uint32_t color) { color_ = color; }
-
-private:
-	Texture *texture_;
-	uint32_t color_;
-	ImageSizeMode sizeMode_;
-};
-
-// TextureView takes a texture that is assumed to be alive during the lifetime
-// of the view.
 class Thin3DTextureView : public InertView {
 public:
 	Thin3DTextureView(Thin3DTexture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
