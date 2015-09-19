@@ -718,15 +718,17 @@ namespace MainWindow
 					GetClientRect(hwndMain, &rc);
 					width = rc.right - rc.left;
 					height = rc.bottom - rc.top;
-					// Moves the internal window, not the frame.
+
+					// Moves the internal display window to match the inner size of the main window.
 					MoveWindow(hwndDisplay, 0, 0, width, height, TRUE);
-					// This is taken care of anyway later, but makes sure that ShowScreenResolution gets the right numbers.
-					// Need to clean all of this up...
-					// TODO: This is done fully unsynchronized with rendering. This could have bad consequences.
-					// We need to make sure that rendering gets its width and height at the start of each frame
-					// and then sticks with it.
-					PSP_CoreParameter().pixelWidth = width;
-					PSP_CoreParameter().pixelHeight = height;
+
+					// Setting pixelWidth to be too small could have odd consequences.
+					if (width >= 4 && height >= 4) {
+						// The framebuffer manager reads these once per frame, hopefully safe enough.. should really use a mutex or some
+						// much better mechanism.
+						PSP_CoreParameter().pixelWidth = width;
+						PSP_CoreParameter().pixelHeight = height;
+					}
 
 					UpdateRenderResolution();
 
