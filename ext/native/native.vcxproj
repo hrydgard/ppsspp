@@ -200,7 +200,6 @@
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
-    <ClInclude Include="base\scoped_ptr.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
     <ClInclude Include="data\compression.h" />
@@ -264,7 +263,6 @@
     <ClInclude Include="math\math_util.h" />
     <ClInclude Include="math\fast\fast_math.h" />
     <ClInclude Include="math\fast\fast_matrix.h" />
-    <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\http_headers.h" />
     <ClInclude Include="net\http_server.h" />
@@ -735,7 +733,6 @@
     <ClCompile Include="math\fast\fast_matrix_sse.c">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
-    <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\http_headers.cpp" />
     <ClCompile Include="net\http_server.cpp" />

@@ -11,12 +11,12 @@
 #include <vector>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 
 #include "base/logging.h"
 #include "base/functional.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
-#include "base/scoped_ptr.h"
 #include "gfx/texture_atlas.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
@@ -365,7 +365,7 @@ public:
 
 protected:
 	// Inputs to layout
-	scoped_ptr<LayoutParams> layoutParams_;
+	std::unique_ptr<LayoutParams> layoutParams_;
 
 	std::string tag_;
 	Visibility visibility_;
@@ -377,7 +377,7 @@ protected:
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
 	Bounds bounds_;
 
-	scoped_ptr<Matrix4x4> transform_;
+	std::unique_ptr<Matrix4x4> transform_;
 
 private:
 	bool *enabledPtr_;

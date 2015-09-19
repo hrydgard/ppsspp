@@ -892,7 +892,6 @@ add_library(native STATIC
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
 	ext/native/base/mutex.h
-	ext/native/base/scoped_ptr.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp
@@ -976,6 +975,8 @@ add_library(native STATIC
 	ext/native/math/lin/vec3.h
 	ext/native/math/math_util.cpp
 	ext/native/math/math_util.h
+	ext/native/net/http_server.cpp
+	ext/native/net/http_server.h
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
 	ext/native/net/resolve.cpp

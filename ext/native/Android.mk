@@ -63,7 +63,6 @@ LOCAL_SRC_FILES :=\
     math/lin/quat.cpp.arm \
     math/lin/vec3.cpp.arm \
     math/lin/matrix4x4.cpp.arm \
-    midi/midi_input.cpp \
     net/http_client.cpp \
     net/http_server.cpp \
     net/http_headers.cpp \

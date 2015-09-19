@@ -25,6 +25,7 @@
 #include "base/buffer.h"
 #include "file/fd_util.h"
 #include "net/http_server.h"
+#include "thread/executor.h"
 
 namespace http {
 

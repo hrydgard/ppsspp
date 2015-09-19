@@ -84,9 +84,6 @@
     <ClInclude Include="base\basictypes.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="base\scoped_ptr.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="gfx\gl_lost_manager.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -137,9 +134,6 @@
     </ClInclude>
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="midi\midi_input.h">
-      <Filter>midi</Filter>
     </ClInclude>
     <ClInclude Include="file\dialog.h">
       <Filter>file</Filter>
@@ -433,9 +427,6 @@
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="midi\midi_input.cpp">
-      <Filter>midi</Filter>
     </ClCompile>
     <ClCompile Include="file\dialog.cpp">
       <Filter>file</Filter>
@@ -846,9 +837,6 @@
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="midi">
-      <UniqueIdentifier>{4710a9a2-d1fa-4920-ba1b-a7527902be53}</UniqueIdentifier>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>

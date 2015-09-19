@@ -127,7 +127,6 @@ HEADERS +=  $$P/ext/native/audio/*.h \
 	$$P/ext/native/base/linked_ptr.h \
 	$$P/ext/native/base/logging.h \
 	$$P/ext/native/base/mutex.h \
-	$$P/ext/native/base/scoped_ptr.h \
 	$$P/ext/native/base/stringutil.h \
 	$$P/ext/native/base/timeutil.h \
 	$$P/ext/native/data/compression.h \
