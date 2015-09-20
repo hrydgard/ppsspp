@@ -378,7 +378,6 @@
     <ClInclude Include="W32Util\PropertySheet.h" />
     <ClInclude Include="W32Util\ShellUtil.h" />
     <ClInclude Include="W32Util\TabControl.h" />
-    <ClInclude Include="W32Util\XPTheme.h" />
     <ClInclude Include="InputBox.h" />
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />

@@ -70,10 +70,6 @@
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
 
-#ifdef THEMES
-#include "XPTheme.h"
-#endif
-
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
 
@@ -142,9 +138,6 @@ namespace MainWindow
 	}
 
 	void Init(HINSTANCE hInstance) {
-#ifdef THEMES
-		WTL::CTheme::IsThemingSupported();
-#endif
 		// Register classes - Main Window
 		WNDCLASSEX wcex;
 		memset(&wcex, 0, sizeof(wcex));

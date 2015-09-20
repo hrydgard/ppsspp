@@ -181,9 +181,6 @@
     <ClInclude Include="W32Util\ShellUtil.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
-    <ClInclude Include="W32Util\XPTheme.h">
-      <Filter>Windows\W32Util</Filter>
-    </ClInclude>
     <ClInclude Include="InputBox.h">
       <Filter>Windows\UI</Filter>
     </ClInclude>
