@@ -46,6 +46,7 @@ static bool enableGLDebug = false;
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
 
+	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
 		SetEvent(pauseEvent);
 		resumeRequested = true;

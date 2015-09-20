@@ -145,30 +145,35 @@ namespace MainWindow
 #ifdef THEMES
 		WTL::CTheme::IsThemingSupported();
 #endif
-		//Register classes
+		// Register classes - Main Window
 		WNDCLASSEX wcex;
+		memset(&wcex, 0, sizeof(wcex));
 		wcex.cbSize = sizeof(WNDCLASSEX); 
-		wcex.style = CS_PARENTDC;
-		wcex.lpfnWndProc	= (WNDPROC)WndProc;
-		wcex.cbClsExtra		= 0;
-		wcex.cbWndExtra		= 0;
-		wcex.hInstance		= hInstance;
-		wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP); 
-		wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
-		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wcex.style = 0;  // Show in taskbar
+		wcex.lpfnWndProc = (WNDPROC)WndProc;
+		wcex.hInstance = hInstance;
+		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+		wcex.hbrBackground = NULL;  // Always covered by display window
 		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
-		wcex.lpszClassName	= szWindowClass;
-		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
+		wcex.lpszClassName = szWindowClass;
+		wcex.hIcon = LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP);
+		wcex.hIconSm = (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
 		RegisterClassEx(&wcex);
 
-		wcex.style = CS_HREDRAW | CS_VREDRAW;
-		wcex.lpfnWndProc = (WNDPROC)DisplayProc;
-		wcex.hIcon = 0;
-		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcex.lpszMenuName = 0;
-		wcex.lpszClassName = szDisplayClass;
-		wcex.hIconSm = 0;
-		RegisterClassEx(&wcex);
+		WNDCLASSEX wcdisp;
+		memset(&wcdisp, 0, sizeof(wcdisp));
+		// Display Window
+		wcdisp.cbSize = sizeof(WNDCLASSEX);
+		wcdisp.style = CS_HREDRAW | CS_VREDRAW;
+		wcdisp.lpfnWndProc = (WNDPROC)DisplayProc;
+		wcdisp.hInstance = hInstance;
+		wcdisp.hCursor = LoadCursor(NULL, IDC_ARROW);
+		wcdisp.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wcdisp.lpszMenuName = 0;
+		wcdisp.lpszClassName = szDisplayClass;
+		wcdisp.hIcon = 0;
+		wcdisp.hIconSm = 0;
+		RegisterClassEx(&wcdisp);
 	}
 
 	void SavePosition() {
@@ -310,16 +315,15 @@ namespace MainWindow
 		int oldWindowState = g_WindowState;
 		g_IgnoreWM_SIZE = true;
 
-		DWORD dwOldStyle;
-		DWORD dwNewStyle;
+		DWORD dwStyle;
 
 		if (!goingFullscreen) {
-			// Put caption and border styles back.
-			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+			dwStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 
-			dwOldStyle &= ~WS_POPUP;
-
-			dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME | WS_SYSMENU;
+			// Remove popup
+			dwStyle &= ~WS_POPUP;
+			// Re-add caption and border styles.
+			dwStyle |= WS_OVERLAPPEDWINDOW;
 			
 			// Put back the menu bar.
 			::SetMenu(hWnd, menu);
@@ -333,14 +337,13 @@ namespace MainWindow
 			::GetWindowRect(hWnd, &g_normalRC);
 
 			// Remove caption and border styles.
-			dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
-			dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU);
-
-			// Add WS_POPUP
-			dwNewStyle |= WS_POPUP;
+			dwStyle = ::GetWindowLong(hWnd, GWL_STYLE);
+			dwStyle &= ~WS_OVERLAPPEDWINDOW;
+			// Add Popup
+			dwStyle |= WS_POPUP;
 		}
 
-		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
+		::SetWindowLong(hWnd, GWL_STYLE, dwStyle);
 
 		// Remove the menu bar. This can trigger WM_SIZE
 		::SetMenu(hWnd, goingFullscreen ? NULL : menu);
@@ -448,6 +451,8 @@ namespace MainWindow
 		if (!hwndMain)
 			return FALSE;
 
+		SetWindowLong(hwndMain, GWL_EXSTYLE, WS_EX_APPWINDOW);
+
 		RECT rcClient;
 		GetClientRect(hwndMain, &rcClient);
 
@@ -458,10 +463,6 @@ namespace MainWindow
 
 		menu = GetMenu(hwndMain);
 
-#ifdef FINAL
-		RemoveMenu(menu,2,MF_BYPOSITION);
-		RemoveMenu(menu,2,MF_BYPOSITION);
-#endif
 		MENUINFO info;
 		ZeroMemory(&info,sizeof(MENUINFO));
 		info.cbSize = sizeof(MENUINFO);
