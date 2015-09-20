@@ -300,7 +300,12 @@ namespace MainWindow
 
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen) {
 		// Make sure no rendering is happening during the switch.
-		Core_NotifyWindowHidden(true);
+
+		bool isOpenGL = g_Config.iGPUBackend == GPU_BACKEND_OPENGL;
+
+		if (isOpenGL) {
+			GL_Pause();
+		}
 
 		int oldWindowState = g_WindowState;
 		g_IgnoreWM_SIZE = true;
@@ -361,8 +366,11 @@ namespace MainWindow
 		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
-		Core_NotifyWindowHidden(false);
 		WindowsRawInput::NotifyMenu();
+
+		if (isOpenGL) {
+			GL_Resume();
+		}
 	}
 
 	RECT DetermineWindowRectangle() {
