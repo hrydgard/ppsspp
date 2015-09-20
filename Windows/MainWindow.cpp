@@ -572,7 +572,7 @@ namespace MainWindow
 				double now = real_time_now();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
 					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
-						PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
+						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;
 				} else {
@@ -800,7 +800,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_TOGGLE_FULLSCREEN:
-			ToggleFullscreen(hwndMain, !g_Config.bFullScreen);
+			ToggleFullscreen(hwndMain, wParam ? true : false);
 			break;
 
 		case WM_INPUT:
@@ -950,6 +950,10 @@ namespace MainWindow
 			LogManager::GetInstance()->GetConsoleListener()->Show(true);
 			EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
 		}
+	}
+
+	void SendToggleFullscreen(bool fullscreen) {
+		PostMessage(hwndMain, WM_USER_TOGGLE_FULLSCREEN, fullscreen, 0);
 	}
 
 }  // namespace

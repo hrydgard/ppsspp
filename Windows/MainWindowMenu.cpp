@@ -831,7 +831,7 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_FULLSCREEN:
-			PostMessage(hWnd, WM_USER_TOGGLE_FULLSCREEN, 0, 0);
+			SendToggleFullscreen(!g_Config.bFullScreen);
 			break;
 
 		case ID_OPTIONS_VERTEXCACHE:
