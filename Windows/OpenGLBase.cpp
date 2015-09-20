@@ -274,8 +274,9 @@ bool GL_Init(HWND window, std::string *error_message) {
 }
 
 void GL_SwapInterval(int interval) {
+	// glew loads wglSwapIntervalEXT if available
 	if (wglSwapIntervalEXT)
-		wglSwapIntervalEXT(0);
+		wglSwapIntervalEXT(interval);
 }
 
 void GL_Shutdown() { 
