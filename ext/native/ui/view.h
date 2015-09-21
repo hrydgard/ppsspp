@@ -11,18 +11,22 @@
 #include <vector>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 
 #include "base/logging.h"
 #include "base/functional.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
-#include "base/scoped_ptr.h"
 #include "gfx/texture_atlas.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/geom2d.h"
 
 #undef small
+
+#ifdef __SYMBIAN32__
+#define unique_ptr auto_ptr
+#endif
 
 struct KeyInput;
 struct TouchInput;
@@ -365,7 +369,7 @@ public:
 
 protected:
 	// Inputs to layout
-	scoped_ptr<LayoutParams> layoutParams_;
+	std::unique_ptr<LayoutParams> layoutParams_;
 
 	std::string tag_;
 	Visibility visibility_;
@@ -377,7 +381,7 @@ protected:
 	// Outputs of layout. X/Y are absolute screen coordinates, hierarchy is "gone" here.
 	Bounds bounds_;
 
-	scoped_ptr<Matrix4x4> transform_;
+	std::unique_ptr<Matrix4x4> transform_;
 
 private:
 	bool *enabledPtr_;
@@ -738,25 +742,6 @@ public:
 
 private:
 	int atlasImage_;
-	ImageSizeMode sizeMode_;
-};
-
-// TextureView takes a texture that is assumed to be alive during the lifetime
-// of the view.
-class TextureView : public InertView {
-public:
-	TextureView(Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
-
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-
-	void SetTexture(Texture *texture) { texture_ = texture; }
-	void SetColor(uint32_t color) { color_ = color; }
-
-private:
-	Texture *texture_;
-	uint32_t color_;
 	ImageSizeMode sizeMode_;
 };
 

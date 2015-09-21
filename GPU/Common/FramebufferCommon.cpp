@@ -86,6 +86,10 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
 	hackForce04154000Download_(false) {
+	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
+	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
@@ -111,6 +115,10 @@ void FramebufferManagerCommon::BeginFrame() {
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
+	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
+	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 }
 
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -326,8 +334,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		}
 	}
 
-	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+	float renderWidthFactor = renderWidth_ / 480.0f;
+	float renderHeightFactor = renderHeight_ / 272.0f;
 
 	if (hackForce04154000Download_ && params.fb_address == 0x00154000) {
 		renderWidthFactor = 1.0;
@@ -782,8 +790,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 }
 
 void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
-	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+	float renderWidthFactor = renderWidth_ / 480.0f;
+	float renderHeightFactor = renderHeight_ / 272.0f;
 	bool force1x = false;
 	switch (g_Config.iBloomHack) {
 	case 1:

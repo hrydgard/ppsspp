@@ -10,7 +10,7 @@
 #include "../Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/resource.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"

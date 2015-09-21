@@ -316,6 +316,7 @@
     <ClCompile Include="GEDebugger\VertexPreview.cpp" />
     <ClCompile Include="InputDevice.cpp" />
     <ClCompile Include="KeyboardDevice.cpp" />
+    <ClCompile Include="MainWindowMenu.cpp" />
     <ClCompile Include="RawInput.cpp" />
     <ClCompile Include="TouchInputHandler.cpp" />
     <ClCompile Include="W32Util\DialogManager.cpp" />
@@ -329,7 +330,7 @@
     <ClCompile Include="W32Util\ShellUtil.cpp" />
     <ClCompile Include="InputBox.cpp" />
     <ClCompile Include="W32Util\TabControl.cpp" />
-    <ClCompile Include="WndMainWindow.cpp" />
+    <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="OpenGLBase.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
@@ -369,6 +370,7 @@
     <ClInclude Include="GEDebugger\TabVertices.h" />
     <ClInclude Include="InputDevice.h" />
     <ClInclude Include="KeyboardDevice.h" />
+    <ClInclude Include="MainWindowMenu.h" />
     <ClInclude Include="RawInput.h" />
     <ClInclude Include="TouchInputHandler.h" />
     <ClInclude Include="W32Util\DialogManager.h" />
@@ -376,9 +378,8 @@
     <ClInclude Include="W32Util\PropertySheet.h" />
     <ClInclude Include="W32Util\ShellUtil.h" />
     <ClInclude Include="W32Util\TabControl.h" />
-    <ClInclude Include="W32Util\XPTheme.h" />
     <ClInclude Include="InputBox.h" />
-    <ClInclude Include="WndMainWindow.h" />
+    <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />
     <ClInclude Include="OpenGLBase.h" />
     <ClInclude Include="WindowsHost.h" />

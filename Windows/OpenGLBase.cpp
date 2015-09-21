@@ -33,6 +33,10 @@
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
+static volatile bool pauseRequested;
+static volatile bool resumeRequested;
+static HANDLE pauseEvent;
+static HANDLE resumeEvent;
 
 static int xres, yres;
 
@@ -42,9 +46,46 @@ static bool enableGLDebug = false;
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
 
+	// Used during fullscreen switching to prevent rendering.
+	if (pauseRequested) {
+		SetEvent(pauseEvent);
+		resumeRequested = true;
+		DWORD result = WaitForSingleObject(resumeEvent, INFINITE);
+		if (result == WAIT_TIMEOUT) {
+			ERROR_LOG(G3D, "Wait for resume timed out. Resuming rendering");
+		}
+		pauseRequested = false;
+	}
+
 	// According to some sources, doing this *after* swapbuffers can reduce frame latency
-	// at a large performance cost.
+	// at a large performance cost. So let's not.
 	// glFinish();
+}
+
+void GL_Pause() {
+	if (!hRC) {
+		return;
+	}
+
+	pauseRequested = true;
+	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
+	if (result == WAIT_TIMEOUT) {
+		ERROR_LOG(G3D, "Wait for pause timed out");
+	}
+	// OK, we now know the rendering thread is paused.
+}
+
+void GL_Resume() {
+	if (!hRC) {
+		return;
+	}
+
+	if (!resumeRequested) {
+		ERROR_LOG(G3D, "Not waiting to get resumed");
+	} else {
+		SetEvent(resumeEvent);
+	}
+	resumeRequested = false;
 }
 
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
@@ -270,15 +311,26 @@ bool GL_Init(HWND window, std::string *error_message) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 	}
+
+	pauseRequested = false;
+	resumeRequested = false;
+
+	// These are auto-reset events.
+	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
 	return true;												// Success
 }
 
 void GL_SwapInterval(int interval) {
+	// glew loads wglSwapIntervalEXT if available
 	if (wglSwapIntervalEXT)
-		wglSwapIntervalEXT(0);
+		wglSwapIntervalEXT(interval);
 }
 
 void GL_Shutdown() { 
+	CloseHandle(pauseEvent);
+	CloseHandle(resumeEvent);
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {

@@ -267,6 +267,12 @@ protected:
 
 	bool hackForce04154000Download_;
 
+	// Sampled in BeginFrame for safety.
+	float renderWidth_;
+	float renderHeight_;
+	int pixelWidth_;
+	int pixelHeight_;
+
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {
 		FBO_OLD_AGE = 5,

@@ -187,24 +187,16 @@
     <None Include="math\fast\fast_matrix_neon.S" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="audio\mixer.h" />
-    <ClInclude Include="audio\wav_read.h" />
     <ClInclude Include="base\backtrace.h" />
     <ClInclude Include="base\basictypes.h" />
     <ClInclude Include="base\buffer.h" />
-    <ClInclude Include="base\color.h" />
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
-    <ClInclude Include="base\error_context.h" />
-    <ClInclude Include="base\fastlist.h" />
     <ClInclude Include="base\functional.h" />
-    <ClInclude Include="base\linked_ptr.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />
-    <ClInclude Include="base\scoped_ptr.h" />
-    <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
     <ClInclude Include="data\compression.h" />
@@ -225,12 +217,9 @@
     <ClInclude Include="ext\libzip\zipint.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
-    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h" />
     <ClInclude Include="ext\vjson\block_allocator.h" />
     <ClInclude Include="ext\vjson\json.h" />
     <ClInclude Include="file\chunk_file.h" />
-    <ClInclude Include="file\dialog.h" />
-    <ClInclude Include="file\easy_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
     <ClInclude Include="file\path.h" />
@@ -240,15 +229,12 @@
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
-    <ClInclude Include="gfx\texture_gen.h" />
-    <ClInclude Include="gfx\texture.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
     <ClInclude Include="gfx_es2\draw_text.h" />
     <ClInclude Include="gfx_es2\gl3stub.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gpu_features.h" />
-    <ClInclude Include="gfx_es2\vertex_format.h" />
     <ClInclude Include="i18n\i18n.h" />
     <ClInclude Include="image\png_load.h" />
     <ClInclude Include="image\zim_load.h" />
@@ -260,7 +246,6 @@
     <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\expression_parser.h" />
     <ClInclude Include="math\geom2d.h" />
-    <ClInclude Include="math\lin\aabb.h" />
     <ClInclude Include="math\lin\matrix4x4.h" />
     <ClInclude Include="math\lin\plane.h" />
     <ClInclude Include="math\lin\quat.h" />
@@ -268,7 +253,6 @@
     <ClInclude Include="math\math_util.h" />
     <ClInclude Include="math\fast\fast_math.h" />
     <ClInclude Include="math\fast\fast_matrix.h" />
-    <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\http_headers.h" />
     <ClInclude Include="net\http_server.h" />
@@ -289,8 +273,6 @@
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
     <ClInclude Include="ui\virtual_input.h" />
-    <ClInclude Include="util\bits\bits.h" />
-    <ClInclude Include="util\random\perlin.h" />
     <ClInclude Include="util\random\rng.h" />
     <ClInclude Include="util\text\parsers.h" />
     <ClInclude Include="util\text\shiftjis.h" />
@@ -298,8 +280,6 @@
     <ClInclude Include="util\text\utf8.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="audio\mixer.cpp" />
-    <ClCompile Include="audio\wav_read.cpp" />
     <ClCompile Include="base\backtrace.cpp" />
     <ClCompile Include="base\BlackberryMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -311,7 +291,6 @@
     <ClCompile Include="base\colorutil.cpp" />
     <ClCompile Include="base\compat.cpp" />
     <ClCompile Include="base\display.cpp" />
-    <ClCompile Include="base\error_context.cpp" />
     <ClCompile Include="base\PCMain.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -693,12 +672,9 @@
     </ClCompile>
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
-    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="ext\vjson\block_allocator.cpp" />
     <ClCompile Include="ext\vjson\json.cpp" />
     <ClCompile Include="file\chunk_file.cpp" />
-    <ClCompile Include="file\dialog.cpp" />
-    <ClCompile Include="file\easy_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
     <ClCompile Include="file\path.cpp" />
@@ -706,9 +682,7 @@
     <ClCompile Include="file\zip_read.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
-    <ClCompile Include="gfx\texture.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
-    <ClCompile Include="gfx\texture_gen.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="gfx_es2\draw_text.cpp" />
     <ClCompile Include="gfx_es2\gl3stub.c">
@@ -719,7 +693,6 @@
     </ClCompile>
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gpu_features.cpp" />
-    <ClCompile Include="gfx_es2\vertex_format.cpp" />
     <ClCompile Include="i18n\i18n.cpp" />
     <ClCompile Include="image\png_load.cpp" />
     <ClCompile Include="image\zim_load.cpp" />
@@ -729,7 +702,6 @@
     <ClCompile Include="json\json_writer.cpp" />
     <ClCompile Include="math\curves.cpp" />
     <ClCompile Include="math\expression_parser.cpp" />
-    <ClCompile Include="math\lin\aabb.cpp" />
     <ClCompile Include="math\lin\matrix4x4.cpp" />
     <ClCompile Include="math\lin\plane.cpp" />
     <ClCompile Include="math\lin\quat.cpp" />
@@ -740,7 +712,6 @@
     <ClCompile Include="math\fast\fast_matrix_sse.c">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
     </ClCompile>
-    <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\http_headers.cpp" />
     <ClCompile Include="net\http_server.cpp" />
@@ -762,12 +733,7 @@
     <ClCompile Include="ui\view.cpp" />
     <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
-    <ClCompile Include="util\bits\bits.cpp" />
     <ClCompile Include="util\hash\hash.cpp" />
-    <ClCompile Include="util\random\perlin.cpp">
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
-      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>
-    </ClCompile>
     <ClCompile Include="util\text\parsers.cpp" />
     <ClCompile Include="util\text\utf8.cpp" />
   </ItemGroup>

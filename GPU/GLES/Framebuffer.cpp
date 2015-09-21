@@ -133,7 +133,7 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
 		// No depth/stencil for post processing
-		FBO *fbo = fbo_create(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight, 1, false, FBO_8888);
+		FBO *fbo = fbo_create(renderWidth_, renderHeight_, 1, false, FBO_8888);
 		extraFBOs_.push_back(fbo);
 
 		// The new FBO is still bound after creation, but let's bind it anyway.
@@ -207,13 +207,13 @@ void FramebufferManager::CompileDraw2DProgram() {
 				glsl_bind(postShaderProgram_);
 				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
-				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+				float u_delta = 1.0f / renderWidth_;
+				float v_delta = 1.0f / renderHeight_;
 				float u_pixel_delta = u_delta;
 				float v_pixel_delta = v_delta;
 				if (postShaderAtOutputResolution_) {
 					float x, y, w, h;
-					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, ROTATION_LOCKED_HORIZONTAL);
+					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 					u_pixel_delta = 1.0f / w;
 					v_pixel_delta = 1.0f / h;
 				}
@@ -401,30 +401,30 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f);
 		}
 
 		// Right Eye Image
 		glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f);
 		}
 	} else {
 		// Fullscreen Image
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_, uvRotation);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, NULL, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, NULL, uvRotation);
 		}
 	}
 }
@@ -752,8 +752,8 @@ void FramebufferManager::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb,
 void FramebufferManager::SetLineWidth() {
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(PSP_CoreParameter().renderWidth / 480)));
-		glPointSize(std::max(1.0f, (float)(PSP_CoreParameter().renderWidth / 480.f)));
+		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
+		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
 	} else {
 		glLineWidth(g_Config.iInternalResolution);
 		glPointSize((float)g_Config.iInternalResolution);
@@ -906,13 +906,13 @@ struct CardboardSettings * FramebufferManager::GetCardboardSettings(struct Cardb
 	if (cardboardSettings) {
 		// Calculate Cardboard Settings
 		float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-		float cardboardScreenWidth = PSP_CoreParameter().pixelWidth / 2.0f * cardboardScreenScale;
-		float cardboardScreenHeight = PSP_CoreParameter().pixelHeight / 2.0f * cardboardScreenScale;
-		float cardboardMaxXShift = (PSP_CoreParameter().pixelWidth / 2.0f - cardboardScreenWidth) / 2.0f;
+		float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
+		float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+		float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
 		float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
 		float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-		float cardboardRightEyeX = PSP_CoreParameter().pixelWidth / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-		float cardboardMaxYShift = PSP_CoreParameter().pixelHeight / 2.0f - cardboardScreenHeight / 2.0f;
+		float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+		float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
 		float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 		float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
@@ -930,7 +930,7 @@ struct CardboardSettings * FramebufferManager::GetCardboardSettings(struct Cardb
 
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
-	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 	currentRenderVfb_ = 0;
 
 	u32 offsetX = 0;
@@ -1032,7 +1032,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		// Output coordinates
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 
@@ -1045,15 +1045,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1076,15 +1076,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1096,15 +1096,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 			}
 		}
 
@@ -1656,13 +1656,14 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 void FramebufferManager::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+#ifndef _WIN32  // We do the same thing elsewhere
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) // auto mode
-			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
-
+			zoom = (pixelWidth_ + 479) / 480;
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
+#endif
 		resized_ = false;
 	}
 
@@ -1833,9 +1834,13 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 
 bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	fbo_unbind_read();
-	buffer.Allocate(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GPU_DBG_FORMAT_888_RGB, true);
+
+	int pw = PSP_CoreParameter().pixelWidth;
+	int ph = PSP_CoreParameter().pixelHeight;
+
+	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 

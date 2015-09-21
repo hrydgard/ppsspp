@@ -24,14 +24,13 @@
     <None Include="math\fast\fast_matrix_neon.S">
       <Filter>math\fast</Filter>
     </None>
-    <None Include="..\..\ios\main.mm" />
+    <None Include="..\..\ios\main.mm">
+      <Filter>base</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
       <Filter>gfx</Filter>
-    </ClInclude>
-    <ClInclude Include="base\color.h">
-      <Filter>image</Filter>
     </ClInclude>
     <ClInclude Include="image\png_load.h">
       <Filter>image</Filter>
@@ -57,12 +56,6 @@
     <ClInclude Include="gfx_es2\glsl_program.h">
       <Filter>gfx</Filter>
     </ClInclude>
-    <ClInclude Include="audio\wav_read.h">
-      <Filter>audio</Filter>
-    </ClInclude>
-    <ClInclude Include="audio\mixer.h">
-      <Filter>audio</Filter>
-    </ClInclude>
     <ClInclude Include="profiler\profiler.h">
       <Filter>profiler</Filter>
     </ClInclude>
@@ -72,9 +65,6 @@
     <ClInclude Include="file\chunk_file.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="file\easy_file.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="file\vfs.h">
       <Filter>file</Filter>
     </ClInclude>
@@ -82,12 +72,6 @@
       <Filter>file</Filter>
     </ClInclude>
     <ClInclude Include="base\basictypes.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\scoped_ptr.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="base\stats.h">
       <Filter>base</Filter>
     </ClInclude>
     <ClInclude Include="gfx\gl_lost_manager.h">
@@ -102,12 +86,6 @@
     <ClInclude Include="base\timeutil.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="base\error_context.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx\texture.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="input\gesture_detector.h">
       <Filter>input</Filter>
     </ClInclude>
@@ -120,9 +98,6 @@
     <ClInclude Include="base\colorutil.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="gfx\texture_gen.h">
-      <Filter>gfx</Filter>
-    </ClInclude>
     <ClInclude Include="json\json_writer.h">
       <Filter>json</Filter>
     </ClInclude>
@@ -131,9 +106,6 @@
     </ClInclude>
     <ClInclude Include="file\path.h">
       <Filter>file</Filter>
-    </ClInclude>
-    <ClInclude Include="gfx_es2\vertex_format.h">
-      <Filter>gfx</Filter>
     </ClInclude>
     <ClInclude Include="base\NativeApp.h">
       <Filter>base</Filter>
@@ -144,17 +116,8 @@
     <ClInclude Include="ui\ui.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="midi\midi_input.h">
-      <Filter>midi</Filter>
-    </ClInclude>
-    <ClInclude Include="file\dialog.h">
-      <Filter>file</Filter>
-    </ClInclude>
     <ClInclude Include="base\mutex.h">
       <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="util\bits\bits.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="data\listable.h">
       <Filter>data</Filter>
@@ -177,23 +140,11 @@
     <ClInclude Include="ui\screen.h">
       <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="base\linked_ptr.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="base\backtrace.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="base\fastlist.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="math\lin\aabb.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="math\lin\plane.h">
       <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="util\random\perlin.h">
-      <Filter>util</Filter>
     </ClInclude>
     <ClInclude Include="util\random\rng.h">
       <Filter>util</Filter>
@@ -206,9 +157,6 @@
     </ClInclude>
     <ClInclude Include="ui\ui_context.h">
       <Filter>ui</Filter>
-    </ClInclude>
-    <ClInclude Include="ext\stb_vorbis\stb_vorbis.h">
-      <Filter>ext</Filter>
     </ClInclude>
     <ClInclude Include="gfx_es2\gpu_features.h">
       <Filter>gfx</Filter>
@@ -383,19 +331,10 @@
     <ClCompile Include="gfx_es2\glsl_program.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
-    <ClCompile Include="audio\wav_read.cpp">
-      <Filter>audio</Filter>
-    </ClCompile>
-    <ClCompile Include="audio\mixer.cpp">
-      <Filter>audio</Filter>
-    </ClCompile>
     <ClCompile Include="profiler\profiler.cpp">
       <Filter>profiler</Filter>
     </ClCompile>
     <ClCompile Include="file\chunk_file.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="file\easy_file.cpp">
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="file\zip_read.cpp">
@@ -410,12 +349,6 @@
     <ClCompile Include="base\timeutil.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="base\error_context.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\texture.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
     <ClCompile Include="input\gesture_detector.cpp">
       <Filter>input</Filter>
     </ClCompile>
@@ -424,9 +357,6 @@
     </ClCompile>
     <ClCompile Include="base\colorutil.cpp">
       <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="gfx\texture_gen.cpp">
-      <Filter>gfx</Filter>
     </ClCompile>
     <ClCompile Include="json\json_writer.cpp">
       <Filter>json</Filter>
@@ -437,23 +367,11 @@
     <ClCompile Include="file\path.cpp">
       <Filter>file</Filter>
     </ClCompile>
-    <ClCompile Include="gfx_es2\vertex_format.cpp">
-      <Filter>gfx</Filter>
-    </ClCompile>
     <ClCompile Include="base\display.cpp">
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="ui\ui.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="midi\midi_input.cpp">
-      <Filter>midi</Filter>
-    </ClCompile>
-    <ClCompile Include="file\dialog.cpp">
-      <Filter>file</Filter>
-    </ClCompile>
-    <ClCompile Include="util\bits\bits.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="math\math_util.cpp">
       <Filter>math</Filter>
@@ -479,14 +397,8 @@
     <ClCompile Include="base\backtrace.cpp">
       <Filter>base</Filter>
     </ClCompile>
-    <ClCompile Include="math\lin\aabb.cpp">
-      <Filter>math</Filter>
-    </ClCompile>
     <ClCompile Include="math\lin\plane.cpp">
       <Filter>math</Filter>
-    </ClCompile>
-    <ClCompile Include="util\random\perlin.cpp">
-      <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="ui\virtual_input.cpp">
       <Filter>ui</Filter>
@@ -496,11 +408,6 @@
     </ClCompile>
     <ClCompile Include="ui\ui_context.cpp">
       <Filter>ui</Filter>
-    </ClCompile>
-    <ClCompile Include="base\BlackberryMain.cpp" />
-    <ClCompile Include="base\PCMain.cpp" />
-    <ClCompile Include="ext\stb_vorbis\stb_vorbis.c">
-      <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="base\BlackberryMain.cpp">
       <Filter>base</Filter>
@@ -559,7 +466,6 @@
     <ClCompile Include="util\hash\hash.cpp">
       <Filter>util</Filter>
     </ClCompile>
-    <ClCompile Include="base\QtMain.cpp" />
     <ClCompile Include="ext\libpng17\png.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
@@ -821,6 +727,15 @@
     <ClCompile Include="base\compat.cpp">
       <Filter>base</Filter>
     </ClCompile>
+    <ClCompile Include="base\BlackberryMain.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="base\PCMain.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="base\QtMain.cpp">
+      <Filter>base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -834,9 +749,6 @@
     </Filter>
     <Filter Include="ext">
       <UniqueIdentifier>{5c54b5e2-1bb2-4783-9df6-de4ff7105570}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="audio">
-      <UniqueIdentifier>{4ea45f6c-de87-44a9-95b2-e1ec7e3601d0}</UniqueIdentifier>
     </Filter>
     <Filter Include="profiler">
       <UniqueIdentifier>{c57b41dd-cc33-46ac-b479-19676455ae54}</UniqueIdentifier>
@@ -858,9 +770,6 @@
     </Filter>
     <Filter Include="ui">
       <UniqueIdentifier>{d738c2d1-749d-4b60-b98f-f3da0bbbf40c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="midi">
-      <UniqueIdentifier>{4710a9a2-d1fa-4920-ba1b-a7527902be53}</UniqueIdentifier>
     </Filter>
     <Filter Include="util">
       <UniqueIdentifier>{e36ca540-863c-496b-b0f4-b1ece3e72feb}</UniqueIdentifier>

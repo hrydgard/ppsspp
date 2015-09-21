@@ -17,7 +17,7 @@
 #include "Windows/Debugger/CtrlRegisterList.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
@@ -26,10 +26,6 @@
 
 #include "base/stringutil.h"
 #include "util/text/utf8.h"
-
-#ifdef THEMES
-#include "Windows/XPTheme.h"
-#endif
 
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
@@ -95,18 +91,13 @@ LRESULT CALLBACK FuncListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 	return (LRESULT)CallWindowProc((WNDPROC)DefFuncListProc,hDlg,message,wParam,lParam);
 }
 
-CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
-{
+CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent) {
 	cpu = _cpu;
 	lastTicks = PSP_IsInited() ? CoreTiming::GetTicks() : 0;
 	keepStatusBarText = false;
 	hideBottomTabs = false;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
-#ifdef THEMES
-	//if (WTL::CTheme::IsThemingSupported())
-		//EnableThemeDialogTexture(m_hDlg ,ETDT_ENABLETAB);
-#endif
 
 	RECT windowRect;
 	GetWindowRect(m_hDlg,&windowRect);

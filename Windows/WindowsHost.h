@@ -35,7 +35,6 @@ public:
 	void UpdateMemView() override;
 	void UpdateDisassembly() override;
 	void UpdateUI() override;
-	void UpdateScreen() override;
 	void SetDebugMode(bool mode) override;
 
 	bool InitGraphics(std::string *error_message) override;

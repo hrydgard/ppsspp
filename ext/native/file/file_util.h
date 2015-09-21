@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+#include <stdio.h>
+
 #include <inttypes.h>
 
 // Whole-file reading/writing
@@ -29,6 +31,7 @@ std::string getFileExtension(const std::string &fn);
 std::string getDir(const std::string &path);
 std::string getFilename(std::string path);
 bool getFileInfo(const char *path, FileInfo *fileInfo);
+FILE *openCFile(const std::string &filename, const char *mode);
 
 enum {
 	GETFILES_GETHIDDEN = 1

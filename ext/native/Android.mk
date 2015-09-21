@@ -7,15 +7,12 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := libnative
 LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES :=\
-    audio/wav_read.cpp \
-    audio/mixer.cpp.arm \
     base/backtrace.cpp \
     base/buffer.cpp \
     base/compat.cpp \
     base/display.cpp \
     base/timeutil.cpp \
     base/colorutil.cpp \
-    base/error_context.cpp \
     base/stringutil.cpp \
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
@@ -39,12 +36,9 @@ LOCAL_SRC_FILES :=\
     ext/jpge/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
-    ext/stb_vorbis/stb_vorbis.c.arm \
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
-    file/dialog.cpp \
     file/fd_util.cpp \
-    file/easy_file.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
     file/path.cpp \
@@ -59,12 +53,10 @@ LOCAL_SRC_FILES :=\
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
-    math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
     math/lin/quat.cpp.arm \
     math/lin/vec3.cpp.arm \
     math/lin/matrix4x4.cpp.arm \
-    midi/midi_input.cpp \
     net/http_client.cpp \
     net/http_server.cpp \
     net/http_headers.cpp \
@@ -80,12 +72,9 @@ LOCAL_SRC_FILES :=\
     gfx_es2/gl3stub.c \
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/draw_text.cpp.arm \
-    gfx_es2/vertex_format.cpp \
     gfx/gl_debug_log.cpp \
     gfx/gl_lost_manager.cpp \
-    gfx/texture.cpp \
     gfx/texture_atlas.cpp \
-    gfx/texture_gen.cpp \
     image/zim_load.cpp \
     image/zim_save.cpp \
     image/png_load.cpp \
@@ -98,7 +87,6 @@ LOCAL_SRC_FILES :=\
     ui/ui_context.cpp \
     ui/screen.cpp \
     ui/virtual_input.cpp \
-    util/random/perlin.cpp \
     util/text/utf8.cpp \
     util/text/parsers.cpp \
     util/hash/hash.cpp

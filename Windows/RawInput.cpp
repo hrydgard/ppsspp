@@ -21,7 +21,7 @@
 #include "input/input_state.h"
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/WindowsHost.h"
 #include "Common/CommonFuncs.h"
 #include "Core/Config.h"

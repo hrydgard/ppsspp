@@ -423,11 +423,6 @@ add_library(rg_etc1 STATIC
 	ext/native/ext/rg_etc1/rg_etc1.h)
 include_directories(ext/native/ext/rg_etc1)
 
-add_library(stb_vorbis STATIC
-	ext/native/ext/stb_vorbis/stb_vorbis.c
-	ext/native/ext/stb_vorbis/stb_vorbis.h)
-include_directories(ext/native/ext/stb_vorbis)
-
 if(USE_FFMPEG)
 	if(USE_SYSTEM_FFMPEG)
 		find_package(FFMPEG)
@@ -876,28 +871,17 @@ add_library(native STATIC
 	${nativeExtra}
 	ext/native/base/backtrace.cpp
 	ext/native/base/backtrace.h
-	ext/native/audio/mixer.cpp
-	ext/native/audio/mixer.h
-	ext/native/audio/wav_read.cpp
-	ext/native/audio/wav_read.h
 	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h
-	ext/native/base/color.h
 	ext/native/base/colorutil.cpp
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/error_context.cpp
-	ext/native/base/error_context.h
-	ext/native/base/fastlist.h
-	ext/native/base/fastlist_test.cpp
 	ext/native/base/functional.h
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
 	ext/native/base/mutex.h
-	ext/native/base/scoped_ptr.h
-	ext/native/base/stats.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp
@@ -910,10 +894,6 @@ add_library(native STATIC
 	ext/native/ext/vjson/block_allocator.h
 	ext/native/file/chunk_file.cpp
 	ext/native/file/chunk_file.h
-	ext/native/file/dialog.cpp
-	ext/native/file/dialog.h
-	ext/native/file/easy_file.cpp
-	ext/native/file/easy_file.h
 	ext/native/file/fd_util.cpp
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp
@@ -930,13 +910,8 @@ add_library(native STATIC
 	ext/native/gfx/gl_debug_log.h
 	ext/native/gfx/gl_lost_manager.cpp
 	ext/native/gfx/gl_lost_manager.h
-	ext/native/gfx/texture.cpp
-	ext/native/gfx/texture.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
-#	ext/native/gfx/texture_dx11.cpp
-	ext/native/gfx/texture_gen.cpp
-	ext/native/gfx/texture_gen.h
 	ext/native/gfx_es2/draw_buffer.cpp
 	ext/native/gfx_es2/draw_buffer.h
 	ext/native/gfx_es2/draw_text.cpp
@@ -945,8 +920,6 @@ add_library(native STATIC
 	ext/native/gfx_es2/gpu_features.h
 	ext/native/gfx_es2/glsl_program.cpp
 	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/vertex_format.cpp
-	ext/native/gfx_es2/vertex_format.h
 	ext/native/gfx_es2/gl3stub.c
 	ext/native/gfx_es2/gl3stub.h
 	ext/native/i18n/i18n.cpp
@@ -968,8 +941,6 @@ add_library(native STATIC
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
 	ext/native/math/expression_parser.h
-	ext/native/math/lin/aabb.cpp
-	ext/native/math/lin/aabb.h
 	ext/native/math/lin/matrix4x4.cpp
 	ext/native/math/lin/matrix4x4.h
 	ext/native/math/lin/plane.cpp
@@ -981,6 +952,8 @@ add_library(native STATIC
 	ext/native/math/lin/vec3.h
 	ext/native/math/math_util.cpp
 	ext/native/math/math_util.h
+	ext/native/net/http_server.cpp
+	ext/native/net/http_server.h
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
 	ext/native/net/resolve.cpp
@@ -1012,15 +985,8 @@ add_library(native STATIC
 	ext/native/ui/viewgroup.h
 	ext/native/ui/virtual_input.cpp
 	ext/native/ui/virtual_input.h
-	ext/native/util/bits/bits.cpp
-	ext/native/util/bits/bits.h
-	ext/native/util/bits/hamming.h
-	ext/native/util/bits/varint.cpp
-	ext/native/util/bits/varint.h
 	ext/native/util/hash/hash.cpp
 	ext/native/util/hash/hash.h
-	ext/native/util/random/perlin.cpp
-	ext/native/util/random/perlin.h
 	ext/native/util/random/rng.h
 	ext/native/util/text/utf8.h
 	ext/native/util/text/utf8.cpp
@@ -1037,7 +1003,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)

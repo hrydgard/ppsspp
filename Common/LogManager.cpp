@@ -203,24 +203,26 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 			file = fileshort + 1;
 	}
 	
-	char msg[MAX_MSGLEN * 2];
+	char msg[MAX_MSGLEN];
 	char *msgPos = msg;
 	if (hleCurrentThreadName != NULL) {
-		msgPos += sprintf(msgPos, "%s %-12.12s %c[%s]: %s:%d ",
+		msgPos += snprintf(msgPos, MAX_MSGLEN, "%s %-12.12s %c[%s]: %s:%d ",
 			formattedTime,
 			hleCurrentThreadName, level_to_char[(int)level],
 			log->GetShortName(),
 			file, line);
 	} else {
-		msgPos += sprintf(msgPos, "%s %s:%d %c[%s]: ",
+		msgPos += snprintf(msgPos, MAX_MSGLEN, "%s %s:%d %c[%s]: ",
 			formattedTime,
 			file, line, level_to_char[(int)level],
 			log->GetShortName());
 	}
 
-	msgPos += vsnprintf(msgPos, MAX_MSGLEN, format, args);
-	// This will include the null terminator.
-	memcpy(msgPos, "\n", sizeof("\n"));
+	int prefixLen = msgPos - msg;
+
+	msgPos += vsnprintf(msgPos, MAX_MSGLEN - prefixLen - 2, format, args);
+	msgPos[0] = '\n';
+	msgPos[1] = '\0';
 
 	log->Trigger(level, msg);
 }
