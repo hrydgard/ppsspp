@@ -17,6 +17,9 @@
 
 #if defined(_MSC_VER)
 #pragma warning(disable:4091)  // workaround bug in VS2015 headers
+#ifndef UNICODE
+#error Win32 build requires a unicode build
+#endif
 #endif
 
 #include "FileUtil.h"
@@ -119,10 +122,8 @@ bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::o
 
 // Remove any ending forward slashes from directory paths
 // Modifies argument.
-static void StripTailDirSlashes(std::string &fname)
-{
-	if (fname.length() > 1)
-	{
+static void StripTailDirSlashes(std::string &fname) {
+	if (fname.length() > 1) {
 		size_t i = fname.length() - 1;
 #ifdef _WIN32
 		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
@@ -134,52 +135,23 @@ static void StripTailDirSlashes(std::string &fname)
 	return;
 }
 
-// _WIN32 only since std::strings are used everywhere else.
-#if defined(_WIN32) && defined(UNICODE)
-static void StripTailDirSlashes(std::wstring &fname)
-{
-	if (fname.length() > 1)
-	{
-		size_t i = fname.length() - 1;
+// Returns true if file filename exists. Will return true on directories.
+bool Exists(const std::string &filename) {
+	std::string fn = filename;
+	StripTailDirSlashes(fn);
 
-		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
-			return;
+#if defined(_WIN32)
+	std::wstring copy = ConvertUTF8ToWString(fn);
 
-		while (wcschr((const wchar_t*)_T(DIR_SEP_CHRS), fname[i]))
-			fname[i--] = '\0';
-	}
-	return;
-}
-#endif
-
-// Returns true if file filename exists
-bool Exists(const std::string &filename)
-{
 	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
-	// Save the old error mode 
-#ifdef _WIN32
 	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
-#endif
-
-	struct stat64 file_info;
-#if defined(_WIN32) && defined(UNICODE)
-	std::wstring copy = ConvertUTF8ToWString(filename);
-	StripTailDirSlashes(copy);
-
-	int result = _wstat64(copy.c_str(), &file_info);
-#else
-	std::string copy(filename);
-	StripTailDirSlashes(copy);
-
-	int result = stat64(copy.c_str(), &file_info);
-#endif
-
-	// Set the old error mode
-#ifdef _WIN32
+	bool success = GetFileAttributes(copy.c_str()) != INVALID_FILE_ATTRIBUTES;
 	SetErrorMode(OldMode);
+	return success;
+#else
+	struct stat64 file_info;
+	return stat64(fn.c_str(), &file_info) == 0;
 #endif
-
-	return (result == 0);
 }
 
 // Returns true if stat represents a directory
@@ -191,21 +163,20 @@ bool IsDirectory(const struct stat64 &file_info)
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename)
 {
+	std::string fn = filename;
+	StripTailDirSlashes(fn);
+
 	struct stat64 file_info;
 #if defined(_WIN32) && defined(UNICODE)
-	std::wstring copy = ConvertUTF8ToWString(filename);
-	StripTailDirSlashes(copy);
-
+	std::wstring copy = ConvertUTF8ToWString(fn);
 	int result = _wstat64(copy.c_str(), &file_info);
 #else
-	std::string copy(filename);
-	StripTailDirSlashes(copy);
-
+	std::string copy(fn);
 	int result = stat64(copy.c_str(), &file_info);
 #endif
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
-				 filename.c_str(), GetLastErrorMsg());
+				 fn.c_str(), GetLastErrorMsg());
 		return false;
 	}
 
