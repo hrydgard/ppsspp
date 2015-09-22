@@ -858,6 +858,7 @@ set(NativeAppSource
 	UI/SavedataScreen.cpp
 	UI/Store.cpp
 	UI/CwCheatScreen.cpp
+	UI/DarkFrostScreen.cpp
 	UI/InstallZipScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID)
@@ -1140,6 +1141,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/ThreadEventQueue.h
+	Core/DarkFrost.cpp
+	Core/DarkFrost.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
