@@ -257,9 +257,11 @@ namespace UI {
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	restoreFocus_ = HasFocus();
 
+	I18NCategory *category = category_ ? GetI18NCategory(category_) : nullptr;
+
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
-		choices.push_back(category_ ? category_->T(choices_[i]) : choices_[i]);
+		choices.push_back(category ? category->T(choices_[i]) : choices_[i]);
 	}
 
 	Screen *popupScreen = new ListPopupScreen(text_, choices, *value_ - minVal_,
@@ -273,11 +275,12 @@ void PopupMultiChoice::Update(const InputState &input_state) {
 }
 
 void PopupMultiChoice::UpdateText() {
+	I18NCategory *category = GetI18NCategory(category_);
 	// Clamp the value to be safe.
 	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
-		valueText_ = category_ ? category_->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+		valueText_ = category ? category->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
 	}
 }
 
@@ -520,9 +523,11 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	dc.SetFontStyle(dc.theme->uiFont);
 
+	I18NCategory *category = GetI18NCategory(category_);
+
 	if (sValue_ != nullptr) {
-		if (category_)
-			valueText << category_->T(*sValue_);
+		if (category)
+			valueText << category->T(*sValue_);
 		else
 			valueText << *sValue_;
 	} else if (iValue_ != nullptr) {

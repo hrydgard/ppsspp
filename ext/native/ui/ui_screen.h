@@ -191,7 +191,7 @@ private:
 class PopupMultiChoice : public UI::Choice {
 public:
 	PopupMultiChoice(int *value, const std::string &text, const char **choices, int minVal, int numChoices,
-		I18NCategory *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = 0)
+		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = 0)
 		: UI::Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
 		category_(category), screenManager_(screenManager) {
 		if (*value >= numChoices+minVal) *value = numChoices+minVal-1;
@@ -215,7 +215,7 @@ private:
 	const char **choices_;
 	int minVal_;
 	int numChoices_;
-	I18NCategory *category_;
+	const char *category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
 	bool restoreFocus_;
@@ -287,7 +287,7 @@ public:
 	ChoiceWithValueDisplay(int *value, const std::string &text, LayoutParams *layoutParams = 0)
 		: Choice(text, layoutParams), iValue_(value), category_(nullptr) { sValue_ = nullptr; }
 
-	ChoiceWithValueDisplay(std::string *value, const std::string &text, I18NCategory *category, LayoutParams *layoutParams = 0)
+	ChoiceWithValueDisplay(std::string *value, const std::string &text, const char *category, LayoutParams *layoutParams = 0)
 		: Choice(text, layoutParams), sValue_(value), category_(category) { iValue_ = nullptr; }
 
 	virtual void Draw(UIContext &dc) override;
@@ -295,7 +295,7 @@ public:
 private:
 	int *iValue_;
 	std::string *sValue_;
-	I18NCategory *category_;
+	const char *category_;
 };
 
 }  // namespace UI
