@@ -24,7 +24,7 @@
 
 class GamePauseScreen : public UIDialogScreenWithGameBackground {
 public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), finishNextFrame_(false) {}
+	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), finishNextFrame_(false), gamePath_(filename) {}
 	virtual ~GamePauseScreen();
 
 	void onFinish(DialogResult result) override;
@@ -58,6 +58,7 @@ private:
 
 	// hack
 	bool finishNextFrame_;
+	std::string gamePath_;
 };
 
 class PrioritizedWorkQueue;

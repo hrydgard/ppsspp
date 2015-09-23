@@ -33,19 +33,19 @@ namespace SaveState
 
 	// Cycle through the 5 savestate slots
 	void NextSlot();
-	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
-	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
+	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
-	bool HasSaveInSlot(int slot);
-	bool HasScreenshotInSlot(int slot);
+	bool HasSaveInSlot(const std::string &gameFilename, int slot);
+	bool HasScreenshotInSlot(const std::string &gameFilename, int slot);
 
 	int GetCurrentSlot();
 
 	// Returns -1 if there's no newest slot.
-	int GetNewestSlot();
+	int GetNewestSlot(const std::string &gameFilename);
 
-	std::string GetSlotDateAsString(int slot);
-	std::string GenerateSaveSlotFilename(int slot, const char *extension);
+	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
+	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.

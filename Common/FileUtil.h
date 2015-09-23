@@ -67,6 +67,12 @@ bool IsDirectory(const std::string &filename);
 // Returns file attributes.
 bool GetFileDetails(const std::string &filename, FileDetails *details);
 
+// Extracts the directory from a path.
+std::string GetDir(const std::string &path);
+
+// Extracts the filename from a path.
+std::string GetFilename(std::string path);
+
 // Returns struct with modification date of file
 bool GetModifTime(const std::string &filename, tm &return_time);
 

@@ -19,6 +19,7 @@
 #include <cstdio>
 
 #include "file/file_util.h"
+#include "Common/FileUtil.h"
 
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
@@ -40,8 +41,7 @@ FileLoader *ConstructFileLoader(const std::string &filename) {
 }
 
 // TODO : improve, look in the file more
-IdentifiedFileType Identify_File(FileLoader *fileLoader)
-{
+IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	if (fileLoader == nullptr) {
 		ERROR_LOG(LOADER, "Invalid fileLoader");
 		return FILETYPE_ERROR;
@@ -87,26 +87,19 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 	if (fileLoader->IsDirectory()) {
 		std::string filename = fileLoader->Path();
 		if (filename.size() > 4) {
-			FileInfo fileInfo;
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
-			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &fileInfo)) {
-				if (fileInfo.exists) {
-					return FILETYPE_PSP_PBP_DIRECTORY;
-				}
+			if (File::Exists((filename + "/EBOOT.PBP").c_str())) {
+				return FILETYPE_PSP_PBP_DIRECTORY;
 			}
 
 			// check if it's a disc directory
-			if (getFileInfo((filename + "/PSP_GAME").c_str(), &fileInfo)) {
-				if (fileInfo.exists) {
-					return FILETYPE_PSP_DISC_DIRECTORY;
-				}
+			if (File::Exists((filename + "/PSP_GAME").c_str())) {
+				return FILETYPE_PSP_DISC_DIRECTORY;
 			}
 
 			// Not that, okay, let's guess it's a savedata directory if it has a param.sfo...
-			if (getFileInfo((filename + "/PARAM.SFO").c_str(), &fileInfo)) {
-				if (fileInfo.exists) {
-					return FILETYPE_PSP_SAVEDATA_DIRECTORY;
-				}
+			if (File::Exists((filename + "/PARAM.SFO").c_str())) {
+				return FILETYPE_PSP_SAVEDATA_DIRECTORY;
 			}
 		}
 
@@ -179,7 +172,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader)
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
-		std::string path = getDir(filename);
+		std::string path = File::GetDir(filename);
 		// If loading from memstick...
 		size_t pos = path.find("/PSP/GAME/");
 		if (pos != std::string::npos) {

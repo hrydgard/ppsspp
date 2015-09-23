@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
+#pragma warning(disable:4091)
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
 #include <string>

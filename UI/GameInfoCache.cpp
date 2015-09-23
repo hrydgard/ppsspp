@@ -311,7 +311,7 @@ public:
 		info_->path = gamePath_;
 		info_->fileType = Identify_File(info_->GetFileLoader());
 		// Fallback title
-		info_->title = getFilename(info_->path);
+		info_->title = File::GetFilename(info_->path);
 
 		switch (info_->fileType) {
 		case FILETYPE_PSP_PBP:
@@ -384,7 +384,7 @@ public:
 		case FILETYPE_PSP_ELF:
 handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
-			info_->title = getFilename(filename);
+			info_->title = File::GetFilename(filename);
 			info_->id = "ELF000000";
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;

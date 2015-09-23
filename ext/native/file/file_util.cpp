@@ -309,34 +309,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	return foundEntries;
 }
 
-std::string getDir(const std::string &path)
-{
-	if (path == "/")
-		return path;
-	int n = (int)path.size() - 1;
-	while (n >= 0 && path[n] != '\\' && path[n] != '/')
-		n--;
-	std::string cutpath = n > 0 ? path.substr(0, n) : "";
-	for (size_t i = 0; i < cutpath.size(); i++)
-	{
-		if (cutpath[i] == '\\') cutpath[i] = '/';
-	}
-#ifndef _WIN32
-	if (!cutpath.size()) {
-		return "/";
-	}
-#endif
-	return cutpath;
-}
-
-std::string getFilename(std::string path) {
-	size_t off = getDir(path).size() + 1;
-	if (off < path.size())
-		return path.substr(off);
-	else
-		return path;
-}
-
 #ifdef _WIN32
 // Returns a vector with the device names
 std::vector<std::string> getWindowsDrives()
