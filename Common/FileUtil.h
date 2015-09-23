@@ -48,9 +48,9 @@ struct FSTEntry
 struct FileDetails {
 	bool isDirectory;
 	u64 size;
-	uint64_t st_atime;
-	uint64_t st_mtime;
-	uint64_t st_ctime;
+	uint64_t atime;
+	uint64_t mtime;
+	uint64_t ctime;
 	uint32_t access;  // st_mode & 0x1ff
 };
 

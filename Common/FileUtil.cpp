@@ -440,9 +440,9 @@ bool GetFileDetails(const std::string &filename, FileDetails *details) {
 		return false;
 	details->isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	details->size = ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
-	details->st_atime = FiletimeToStatTime(attr.ftLastAccessTime);
-	details->st_mtime = FiletimeToStatTime(attr.ftLastWriteTime);
-	details->st_ctime = FiletimeToStatTime(attr.ftCreationTime);
+	details->atime = FiletimeToStatTime(attr.ftLastAccessTime);
+	details->mtime = FiletimeToStatTime(attr.ftLastWriteTime);
+	details->ctime = FiletimeToStatTime(attr.ftCreationTime);
 	if (attr.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
 		details->access = 0444;  // Read
 	} else {
@@ -460,9 +460,9 @@ bool GetFileDetails(const std::string &filename, FileDetails *details) {
 	if (stat64(filename.c_str(), &buf) == 0) {
 		details->size = buf.st_size;
 		details->isDirectory = S_ISDIR(buf.st_mode);
-		details->st_atime = buf.st_atime;
-		details->st_mtime = buf.st_mtime;
-		details->st_ctime = buf.st_ctime;
+		details->atime = buf.st_atime;
+		details->mtime = buf.st_mtime;
+		details->ctime = buf.st_ctime;
 		details->access = buf.st_mode & 0x1ff;
 		return true;
 	} else {
@@ -475,7 +475,7 @@ bool GetModifTime(const std::string &filename, tm &return_time) {
 	memset(&return_time, 0, sizeof(return_time));
 	FileDetails details;
 	if (GetFileDetails(filename, &details)) {
-		time_t t = details.st_mtime;
+		time_t t = details.mtime;
 		localtime_r((time_t*)&t, &return_time);
 		return true;
 	} else {

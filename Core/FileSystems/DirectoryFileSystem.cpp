@@ -687,9 +687,9 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		} else {
 			x.size = details.size;
 			x.access = details.access;
-			time_t atime = details.st_atime;
-			time_t ctime = details.st_ctime;
-			time_t mtime = details.st_mtime;
+			time_t atime = details.atime;
+			time_t ctime = details.ctime;
+			time_t mtime = details.mtime;
 
 			localtime_r((time_t*)&atime, &x.atime);
 			localtime_r((time_t*)&ctime, &x.ctime);
