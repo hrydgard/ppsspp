@@ -1653,18 +1653,41 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	fbo_unbind_read();
 }
 
+#ifdef _WIN32
+void ShowScreenResolution();
+#endif
+
 void FramebufferManager::EndFrame() {
 	if (resized_) {
 		DestroyAllFBOs();
 		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-#ifndef _WIN32  // We do the same thing elsewhere
+
+		// Actually, auto mode should be more granular...
+		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
-			zoom = (pixelWidth_ + 479) / 480;
-		PSP_CoreParameter().renderWidth = 480 * zoom;
-		PSP_CoreParameter().renderHeight = 272 * zoom;
-#endif
+		if (zoom == 0) { // auto mode
+											// Use the longest dimension
+			if (g_Config.IsPortrait()) {
+				zoom = (pixelWidth_ + 479) / 480;
+			} else {
+				zoom = (pixelHeight_ + 479) / 480;
+			}
+		}
+		if (zoom <= 1)
+			zoom = 1;
+
+		if (g_Config.IsPortrait()) {
+			PSP_CoreParameter().renderWidth = 272 * zoom;
+			PSP_CoreParameter().renderHeight = 480 * zoom;
+		} else {
+			PSP_CoreParameter().renderWidth = 480 * zoom;
+			PSP_CoreParameter().renderHeight = 272 * zoom;
+		}
+
 		resized_ = false;
+#ifdef _WIN32
+		ShowScreenResolution();
+#endif
 	}
 
 #ifndef USING_GLES2
