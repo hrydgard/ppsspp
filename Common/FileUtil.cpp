@@ -423,6 +423,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 
 bool GetModifTime(const std::string &filename, tm &return_time) {
 	memset(&return_time, 0, sizeof(return_time));
+
 	if (!Exists(filename)) {
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
 		return false;
@@ -434,22 +435,22 @@ bool GetModifTime(const std::string &filename, tm &return_time) {
 	}
 
 #ifdef _WIN32
-	struct _stat64 buf;
+	struct _stat buf;
 	// TODO: Find a Win32 way
-	if (_wstat64(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
-		INFO_LOG(COMMON, "GetCreateTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
+	if (_wstat(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
+		INFO_LOG(COMMON, "GetModifTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
 		localtime_r((time_t*)&buf.st_mtime, &return_time);
 		return true;
 	}
 #else
 	struct stat64 buf;
-	if (stat64(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
-		INFO_LOG(COMMON, "GetCreateTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
+	if (stat64(filename.c_str(), &buf) == 0) {
+		INFO_LOG(COMMON, "GetModifTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
 		localtime_r((time_t*)&buf.st_mtime, &return_time);
 		return true;
 	}
 #endif
-	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s", filename.c_str(), GetLastErrorMsg());
+	ERROR_LOG(COMMON, "GetModifTime: Stat failed %s: %s", filename.c_str(), GetLastErrorMsg());
 	return false;
 }
 
@@ -470,11 +471,10 @@ u64 GetFileSize(const std::string &filename) {
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
 		return 0;
 	}
-	if (IsDirectory(file_info)) {
+	if (S_ISDIR(file_info.st_mode)) {
 		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.c_str());
 		return 0;
 	}
-
 	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.c_str(), (long long)file_info.st_size);
 	return file_info.st_size;
 #endif

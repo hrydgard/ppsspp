@@ -432,7 +432,7 @@ _zip_headercomp(struct zip_dirent *h1, int local1p, struct zip_dirent *h2,
 
 
 static struct zip *
-#ifdef _UNICODE
+#ifdef UNICODE
 _zip_allocate_new(const wchar_t *fn, int *zep)
 #else
 _zip_allocate_new(const char *fn, int *zep)
