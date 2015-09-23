@@ -421,37 +421,66 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #endif
 }
 
-bool GetModifTime(const std::string &filename, tm &return_time) {
-	memset(&return_time, 0, sizeof(return_time));
-
-	if (!Exists(filename)) {
-		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
-		return false;
-	}
-
-	if (IsDirectory(filename)) {
-		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
-		return false;
-	}
-
 #ifdef _WIN32
-	struct _stat buf;
-	// TODO: Find a Win32 way
-	if (_wstat(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
-		INFO_LOG(COMMON, "GetModifTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
-		localtime_r((time_t*)&buf.st_mtime, &return_time);
-		return true;
+
+static int64_t FiletimeToStatTime(FILETIME ft) {
+	const int windowsTickResolution = 10000000;
+	const int64_t secToUnixEpoch = 11644473600LL;
+	int64_t ticks = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+	return (int64_t)(ticks / windowsTickResolution - secToUnixEpoch);
+}
+
+#endif
+
+// Returns file attributes.
+bool GetFileDetails(const std::string &filename, FileDetails *details) {
+#ifdef _WIN32
+	WIN32_FILE_ATTRIBUTE_DATA attr;
+	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
+		return false;
+	details->isDirectory = (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+	details->size = ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
+	details->st_atime = FiletimeToStatTime(attr.ftLastAccessTime);
+	details->st_mtime = FiletimeToStatTime(attr.ftLastWriteTime);
+	details->st_ctime = FiletimeToStatTime(attr.ftCreationTime);
+	if (attr.dwFileAttributes & FILE_ATTRIBUTE_READONLY) {
+		details->access = 0444;  // Read
+	} else {
+		details->access = 0666;  // Read/Write
 	}
+	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+		details->access |= 0111;  // Execute
+	}
+	return true;
 #else
+	if (!Exists(filename)) {
+		return false;
+	}
 	struct stat64 buf;
 	if (stat64(filename.c_str(), &buf) == 0) {
-		INFO_LOG(COMMON, "GetModifTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
-		localtime_r((time_t*)&buf.st_mtime, &return_time);
+		details->size = buf.st_size;
+		details->isDirectory = S_ISDIR(buf.st_mode);
+		details->st_atime = buf.st_atime;
+		details->st_mtime = buf.st_mtime;
+		details->st_ctime = buf.st_ctime;
+		details->access = buf.st_mode & 0x1ff;
 		return true;
+	} else {
+		return false;
 	}
 #endif
-	ERROR_LOG(COMMON, "GetModifTime: Stat failed %s: %s", filename.c_str(), GetLastErrorMsg());
-	return false;
+}
+
+bool GetModifTime(const std::string &filename, tm &return_time) {
+	memset(&return_time, 0, sizeof(return_time));
+	FileDetails details;
+	if (GetFileDetails(filename, &details)) {
+		time_t t = details.st_mtime;
+		localtime_r((time_t*)&t, &return_time);
+		return true;
+	} else {
+		return false;
+	}
 }
 
 // Returns the size of file (64bit)
@@ -481,8 +510,7 @@ u64 GetFileSize(const std::string &filename) {
 }
 
 // Overloaded GetSize, accepts FILE*
-u64 GetFileSize(FILE *f)
-{
+u64 GetFileSize(FILE *f) {
 	// can't use off_t here because it can be 32-bit
 	u64 pos = ftello(f);
 	if (fseeko(f, 0, SEEK_END) != 0) {

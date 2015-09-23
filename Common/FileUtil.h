@@ -45,6 +45,15 @@ struct FSTEntry
 	std::vector<FSTEntry> children;
 };
 
+struct FileDetails {
+	bool isDirectory;
+	u64 size;
+	uint64_t st_atime;
+	uint64_t st_mtime;
+	uint64_t st_ctime;
+	uint32_t access;  // st_mode & 0x1ff
+};
+
 // Mostly to handle utf-8 filenames better on Windows.
 FILE *OpenCFile(const std::string &filename, const char *mode);
 bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode);
@@ -54,6 +63,9 @@ bool Exists(const std::string &filename);
 
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename);
+
+// Returns file attributes.
+bool GetFileDetails(const std::string &filename, FileDetails *details);
 
 // Returns struct with modification date of file
 bool GetModifTime(const std::string &filename, tm &return_time);

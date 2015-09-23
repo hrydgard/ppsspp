@@ -676,22 +676,25 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.exists = true;
 
 	if (x.type != FILETYPE_DIRECTORY) {
-#ifdef _WIN32
-		struct _stat64i32 s;
-		// TODO: Find a Win32 way to get the atime, ctime etc.
-		if (_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s) != 0) {
-			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: _wstat64i32 failed: %s", fullName.c_str());
-		}
-#else
-		struct stat s;
-		stat(fullName.c_str(), &s);
-#endif
+		File::FileDetails details;
+		if (!File::GetFileDetails(fullName, &details)) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
+			x.size = 0;
+			x.access = 0;
+			memset(&x.atime, 0, sizeof(x.atime));
+			memset(&x.ctime, 0, sizeof(x.ctime));
+			memset(&x.mtime, 0, sizeof(x.mtime));
+		} else {
+			x.size = details.size;
+			x.access = details.access;
+			time_t atime = details.st_atime;
+			time_t ctime = details.st_ctime;
+			time_t mtime = details.st_mtime;
 
-		x.size = File::GetFileSize(fullName);
-		x.access = s.st_mode & 0x1FF;
-		localtime_r((time_t*)&s.st_atime, &x.atime);
-		localtime_r((time_t*)&s.st_ctime, &x.ctime);
-		localtime_r((time_t*)&s.st_mtime, &x.mtime);
+			localtime_r((time_t*)&atime, &x.atime);
+			localtime_r((time_t*)&ctime, &x.ctime);
+			localtime_r((time_t*)&mtime, &x.mtime);
+		}
 	}
 
 	return x;
