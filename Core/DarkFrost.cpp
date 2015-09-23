@@ -17,3 +17,35 @@
 #include "util/text/utf8.h"
 #endif
 
+std::string gameTitle;
+std::string fname;
+static DarkFrostEngine *darkFrostEngine;
+static bool cheatsEnabled;
+static bool realAddressing;
+
+DarkFrostEngine::DarkFrostEngine()
+{
+	cheatsEnabled=false;
+	realAddressing=false;
+}
+
+void DarkFrostEngine::setEngine(DarkFrostEngine *nDarkFrostEngine)
+{
+	darkFrostEngine=nDarkFrostEngine;
+}
+
+void DarkFrostEngine::loadCheats()
+{
+	//
+}
+
+void DarkFrostEngine::saveCheats()
+{
+	//
+}
+
+void DarkFrostEngine::toggleRealAddressing() { realAddressing=!realAddressing; }
+bool DarkFrostEngine::getRealAddressing() { return realAddressing; }
+
+void DarkFrostEngine::toggleCheatsEnabled() { cheatsEnabled=!cheatsEnabled; }
+bool DarkFrostEngine::getCheatsEnabled() { return cheatsEnabled; }

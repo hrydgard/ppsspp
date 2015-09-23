@@ -29,12 +29,20 @@
 class DarkFrostScreen : public UIDialogScreenWithBackground {
 public:
 	DarkFrostScreen() {}
+	void init();
 	UI::EventReturn OnBack(UI::EventParams &params);
 
 	UI::EventReturn OnCheater(UI::EventParams &params);
+	UI::EventReturn OnOptions(UI::EventParams &params);
 	UI::EventReturn OnSearcher(UI::EventParams &params);
 	UI::EventReturn OnRAM(UI::EventParams &params);
 	UI::EventReturn OnDecoder(UI::EventParams &params);
+
+	UI::EventReturn OnRealAddressing(UI::EventParams &params);
+	UI::EventReturn OnLoadCheats(UI::EventParams &params);
+	UI::EventReturn OnSaveCheats(UI::EventParams &params);
+	UI::EventReturn OnResetCopier(UI::EventParams &params);
+	UI::EventReturn OnCheatsActivitated(UI::EventParams &params);
 
 protected:
 	virtual void CreateViews();

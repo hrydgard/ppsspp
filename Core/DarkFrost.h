@@ -7,3 +7,19 @@
 #include "Core/MemMap.h"
 
 //class PointerWrap;
+
+class DarkFrostEngine
+{
+	public:
+		DarkFrostEngine();
+		void loadCheats();
+		void saveCheats();
+		
+		void setEngine(DarkFrostEngine *nDarkFrostEngine);
+
+		void toggleRealAddressing();
+		bool getRealAddressing();
+
+		void toggleCheatsEnabled();
+		bool getCheatsEnabled();
+};

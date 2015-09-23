@@ -34,6 +34,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
 #include "UI/SavedataScreen.h"
+#include "UI/DarkFrostScreen.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
@@ -97,6 +98,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *co = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *sa = GetI18NCategory("Savedata");
+	I18NCategory *df = GetI18NCategory("DarkFrost");
 	I18NCategory *sy = GetI18NCategory("System");
 	I18NCategory *n = GetI18NCategory("Networking");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
@@ -476,6 +478,7 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new ItemHeader(ms->T("Tools")));
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
+	tools->Add(new Choice(df->T("DarkFrost")))->OnClick.Handle(this, &GameSettingsScreen::OnDarkFrost);
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
@@ -980,6 +983,13 @@ UI::EventReturn GameSettingsScreen::OnSavedataManager(UI::EventParams &e) {
 	screenManager()->push(saveData);
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn GameSettingsScreen::OnDarkFrost(UI::EventParams &e) {
+	auto darkFrost = new DarkFrostScreen();
+	screenManager()->push(darkFrost);
+	return UI::EVENT_DONE;
+}
+
 
 UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 	screenManager()->push(new SystemInfoScreen());

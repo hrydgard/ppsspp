@@ -100,6 +100,7 @@ private:
 	UI::EventReturn OnAudioBackend(UI::EventParams &e);
 
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
+	UI::EventReturn OnDarkFrost(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
