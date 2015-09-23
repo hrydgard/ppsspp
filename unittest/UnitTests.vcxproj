@@ -109,7 +109,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>USING_WIN_UI;GLEW_STATIC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_64=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/native/ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
