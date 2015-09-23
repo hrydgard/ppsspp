@@ -144,12 +144,6 @@ bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int s
 	return true;
 }
 
-
-#define DIR_SEP "/"
-#define DIR_SEP_CHR '\\'
-
-#ifndef METRO
-
 // Returns true if filename is a directory
 bool isDirectory(const std::string &filename) {
 	FileInfo info;
@@ -177,7 +171,6 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	struct stat64 file_info;
 
 	std::string copy(path);
-	stripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
 
@@ -315,8 +308,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 		std::sort(files->begin(), files->end());
 	return foundEntries;
 }
-
-#endif
 
 std::string getDir(const std::string &path)
 {
