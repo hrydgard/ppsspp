@@ -59,13 +59,10 @@ bool IsDirectory(const std::string &filename);
 bool GetModifTime(const std::string &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
-u64 GetSize(const std::string &filename);
-
-// Overloaded GetSize, accepts file descriptor
-u64 GetSize(const int fd);
+u64 GetFileSize(const std::string &filename);
 
 // Overloaded GetSize, accepts FILE*
-u64 GetSize(FILE *f);
+u64 GetFileSize(FILE *f);
 
 // Returns true if successful, or path already exists.
 bool CreateDir(const std::string &filename);

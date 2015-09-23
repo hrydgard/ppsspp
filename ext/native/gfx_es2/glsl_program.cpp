@@ -74,28 +74,6 @@ GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src
 	return program;
 }
 
-bool glsl_up_to_date(GLSLProgram *program) {
-	struct stat vs, fs;
-	stat(program->vshader_filename, &vs);
-	stat(program->fshader_filename, &fs);
-	if ((time_t)vs.st_mtime != program->vshader_mtime ||
-			(time_t)fs.st_mtime != program->fshader_mtime) {
-		return false;
-	} else {
-		return true;
-	}
-}
-
-void glsl_refresh() {
-	ILOG("glsl_refresh()");
-	for (std::set<GLSLProgram *>::const_iterator iter = active_programs.begin();
-		iter != active_programs.end(); ++iter) {
-			if (!glsl_up_to_date(*iter)) {
-				glsl_recompile(*iter);
-			}
-	}
-}
-
 // Not wanting to change ReadLocalFile semantics.
 // Needs to use delete [], not delete like auto_ptr, and can't use unique_ptr because of Symbian.
 struct AutoCharArrayBuf {

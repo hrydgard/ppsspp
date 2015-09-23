@@ -591,6 +591,7 @@ void InitSysDirectories() {
 	if (!File::Exists(g_Config.memStickDirectory)) {
 		if (!File::CreateDir(g_Config.memStickDirectory))
 			g_Config.memStickDirectory = myDocsPath;
+		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
 
 	const std::string testFile = g_Config.memStickDirectory + "/_writable_test.$$$";

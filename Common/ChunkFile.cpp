@@ -169,7 +169,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 	}
 
 	// Check file size
-	const u64 fileSize = File::GetSize(_rFilename);
+	const u64 fileSize = File::GetFileSize(_rFilename);
 	static const u64 headerSize = sizeof(SChunkHeader);
 	if (fileSize < headerSize)
 	{

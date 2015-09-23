@@ -61,8 +61,3 @@ void glsl_bind(const GLSLProgram *program);
 void glsl_unbind();
 int glsl_attrib_loc(const GLSLProgram *program, const char *name);
 int glsl_uniform_loc(const GLSLProgram *program, const char *name);
-
-// Expensive, try to only call this once per second or so and only when developing.
-// fstat-s all the source files of all the shaders to see if they
-// should be recompiled, and recompiles them if so.
-void glsl_refresh();

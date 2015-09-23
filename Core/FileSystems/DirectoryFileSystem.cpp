@@ -660,7 +660,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.name = filename;
 
 	std::string fullName = GetLocalPath(filename);
-	if (! File::Exists(fullName)) {
+	if (!File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
 		if (! FixPathCase(basePath,filename, FPC_FILE_MUST_EXIST))
 			return x;
@@ -675,21 +675,23 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
-	if (x.type != FILETYPE_DIRECTORY)
-	{
+	if (x.type != FILETYPE_DIRECTORY) {
 #ifdef _WIN32
 		struct _stat64i32 s;
-		_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s);
+		// TODO: Find a Win32 way to get the atime, ctime etc.
+		if (_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s) != 0) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: _wstat64i32 failed: %s", fullName.c_str());
+		}
 #else
 		struct stat s;
 		stat(fullName.c_str(), &s);
 #endif
 
-		x.size = File::GetSize(fullName);
+		x.size = File::GetFileSize(fullName);
 		x.access = s.st_mode & 0x1FF;
-		localtime_r((time_t*)&s.st_atime,&x.atime);
-		localtime_r((time_t*)&s.st_ctime,&x.ctime);
-		localtime_r((time_t*)&s.st_mtime,&x.mtime);
+		localtime_r((time_t*)&s.st_atime, &x.atime);
+		localtime_r((time_t*)&s.st_ctime, &x.ctime);
+		localtime_r((time_t*)&s.st_mtime, &x.mtime);
 	}
 
 	return x;
@@ -703,8 +705,7 @@ bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &ou
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
-static void tmFromFiletime(tm &dest, FILETIME &src)
-{
+static void tmFromFiletime(tm &dest, FILETIME &src) {
 	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
 	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
 

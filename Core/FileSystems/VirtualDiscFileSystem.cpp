@@ -130,7 +130,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 				ERROR_LOG(FILESYS, "Unable to open virtual file: %s", entry.fileName.c_str());
 			}
 		} else {
-			entry.totalSize = File::GetSize(GetLocalPath(entry.fileName));
+			entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName));
 		}
 
 		// Try to keep currentBlockIndex sane, in case there are other files.
@@ -272,7 +272,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 
 	FileListEntry entry = {""};
 	entry.fileName = fileName;
-	entry.totalSize = File::GetSize(fullName);
+	entry.totalSize = File::GetFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;
 
@@ -595,10 +595,18 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	}
 
 	if (x.type != FILETYPE_DIRECTORY) {
+#ifdef _WIN32
+		struct _stat64i32 s;
+		// TODO: Find a Win32 way to get the atime, ctime etc.
+		if (_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s) != 0) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: _wstat64i32 failed: %s", fullName.c_str());
+		}
+#else
 		struct stat s;
 		stat(fullName.c_str(), &s);
+#endif
 
-		x.size = File::GetSize(fullName);
+		x.size = File::GetFileSize(fullName);
 
 		x.startSector = fileList[fileIndex].firstBlock;
 		x.numSectors = (x.size+2047)/2048;

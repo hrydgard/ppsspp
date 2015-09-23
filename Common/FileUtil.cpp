@@ -154,33 +154,31 @@ bool Exists(const std::string &filename) {
 #endif
 }
 
-// Returns true if stat represents a directory
-bool IsDirectory(const struct stat64 &file_info)
-{
-	return S_ISDIR(file_info.st_mode);
-}
-
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename)
 {
 	std::string fn = filename;
 	StripTailDirSlashes(fn);
 
-	struct stat64 file_info;
-#if defined(_WIN32) && defined(UNICODE)
+#if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
-	int result = _wstat64(copy.c_str(), &file_info);
+	DWORD result = GetFileAttributes(copy.c_str());
+	if (result == INVALID_FILE_ATTRIBUTES) {
+		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
+		return false;
+	}
+	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
 	std::string copy(fn);
+	struct stat64 file_info;
 	int result = stat64(copy.c_str(), &file_info);
-#endif
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
 				 fn.c_str(), GetLastErrorMsg());
 		return false;
 	}
-
-	return IsDirectory(file_info);
+	return S_ISDIR(file_info.st_mode);
+#endif
 }
 
 // Deletes a given filename, return true on success
@@ -423,72 +421,67 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 #endif
 }
 
-bool GetModifTime(const std::string &filename, tm &return_time)
-{
+bool GetModifTime(const std::string &filename, tm &return_time) {
 	memset(&return_time, 0, sizeof(return_time));
-	if (!Exists(filename))
-	{
+	if (!Exists(filename)) {
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: No such file", filename.c_str());
 		return false;
 	}
 
-	if (IsDirectory(filename))
-	{
+	if (IsDirectory(filename)) {
 		WARN_LOG(COMMON, "GetCreateTime: failed %s: is a directory", filename.c_str());
 		return false;
 	}
 
-	struct stat64 buf;
-	if (stat64(filename.c_str(), &buf) == 0)
-	{
+#ifdef _WIN32
+	struct _stat64 buf;
+	// TODO: Find a Win32 way
+	if (_wstat64(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
 		INFO_LOG(COMMON, "GetCreateTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
 		localtime_r((time_t*)&buf.st_mtime, &return_time);
 		return true;
 	}
-
+#else
+	struct stat64 buf;
+	if (stat64(ConvertUTF8ToWString(filename.c_str()).c_str(), &buf) == 0) {
+		INFO_LOG(COMMON, "GetCreateTime: %s: %lld", filename.c_str(), (long long)buf.st_mtime);
+		localtime_r((time_t*)&buf.st_mtime, &return_time);
+		return true;
+	}
+#endif
 	ERROR_LOG(COMMON, "GetCreateTime: Stat failed %s: %s", filename.c_str(), GetLastErrorMsg());
 	return false;
 }
 
-// Returns the size of filename (64bit)
-u64 GetSize(const std::string &filename)
-{
-	struct stat64 file_info;
+// Returns the size of file (64bit)
+// TODO: Add a way to return an error.
+u64 GetFileSize(const std::string &filename) {
 #if defined(_WIN32) && defined(UNICODE)
-	int result = _wstat64(ConvertUTF8ToWString(filename).c_str(), &file_info);
+	WIN32_FILE_ATTRIBUTE_DATA attr;
+	if (!GetFileAttributesEx(ConvertUTF8ToWString(filename).c_str(), GetFileExInfoStandard, &attr))
+		return 0;
+	if (attr.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+		return 0;
+	return ((u64)attr.nFileSizeHigh << 32) | (u64)attr.nFileSizeLow;
 #else
+	struct stat64 file_info;
 	int result = stat64(filename.c_str(), &file_info);
-#endif
-	if (result != 0)
-	{
+	if (result != 0) {
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
 		return 0;
 	}
-
-	if (IsDirectory(file_info))
-	{
+	if (IsDirectory(file_info)) {
 		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.c_str());
 		return 0;
 	}
 
 	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.c_str(), (long long)file_info.st_size);
 	return file_info.st_size;
-}
-
-// Overloaded GetSize, accepts file descriptor
-u64 GetSize(const int fd)
-{
-	struct stat64 buf;
-	if (fstat64(fd, &buf) != 0) {
-		ERROR_LOG(COMMON, "GetSize: stat failed %i: %s",
-			fd, GetLastErrorMsg());
-		return 0;
-	}
-	return buf.st_size;
+#endif
 }
 
 // Overloaded GetSize, accepts FILE*
-u64 GetSize(FILE *f)
+u64 GetFileSize(FILE *f)
 {
 	// can't use off_t here because it can be 32-bit
 	u64 pos = ftello(f);
@@ -780,7 +773,7 @@ void IOFile::SetHandle(std::FILE* file)
 u64 IOFile::GetSize()
 {
 	if (IsOpen())
-		return File::GetSize(m_file);
+		return File::GetFileSize(m_file);
 	else
 		return 0;
 }
