@@ -55,7 +55,7 @@ bool GameInfo::Delete() {
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			const char *fileToRemove = filePath_.c_str();
-			deleteFile(fileToRemove);
+			File::Delete(fileToRemove);
 			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
 			if (i != g_Config.recentIsos.end()) {
 				g_Config.recentIsos.erase(i);
@@ -84,7 +84,7 @@ bool GameInfo::Delete() {
 	case FILETYPE_ARCHIVE_7Z:
 		{
 			const char *fileToRemove = filePath_.c_str();
-			deleteFile(fileToRemove);
+			File::Delete(fileToRemove);
 			return true;
 		}
 
@@ -227,10 +227,10 @@ bool GameInfo::DeleteAllSaveData() {
 
 		u64 totalSize = 0;
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			deleteFile(fileInfo[i].fullName.c_str());
+			File::Delete(fileInfo[i].fullName.c_str());
 		}
 
-		deleteDir(saveDataDir[j].c_str());
+		File::DeleteDir(saveDataDir[j].c_str());
 	}
 	return true;
 }

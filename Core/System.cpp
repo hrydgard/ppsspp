@@ -591,18 +591,19 @@ void InitSysDirectories() {
 	if (!File::Exists(g_Config.memStickDirectory)) {
 		if (!File::CreateDir(g_Config.memStickDirectory))
 			g_Config.memStickDirectory = myDocsPath;
+		INFO_LOG(COMMON, "Memstick directory not present, creating at '%s'", g_Config.memStickDirectory.c_str());
 	}
 
-	const std::string testFile = "/_writable_test.$$$";
+	const std::string testFile = g_Config.memStickDirectory + "/_writable_test.$$$";
 
 	// If any directory is read-only, fall back to the Documents directory.
 	// We're screwed anyway if we can't write to Documents, or can't detect it.
-	if (!File::CreateEmptyFile(g_Config.memStickDirectory + testFile))
+	if (!File::CreateEmptyFile(testFile))
 		g_Config.memStickDirectory = myDocsPath;
 
 	// Clean up our mess.
-	if (File::Exists(g_Config.memStickDirectory + testFile))
-		File::Delete(g_Config.memStickDirectory + testFile);
+	if (File::Exists(testFile))
+		File::Delete(testFile);
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

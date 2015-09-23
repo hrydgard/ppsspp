@@ -339,9 +339,9 @@ void NativeInit(int argc, const char *argv[],
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
