@@ -110,10 +110,10 @@ void GameManager::Update() {
 			InstallGame(zipName);
 			// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
 			// TODO: Handle disk full?
-			deleteFile(zipName.c_str());
+			File::Delete(zipName.c_str());
 		} else {
 			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled.", curDownload_->ResultCode());
-			deleteFile(zipName.c_str());
+			File::Delete(zipName.c_str());
 		}
 		curDownload_.reset();
 	}
@@ -251,7 +251,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 						buffer = 0;
 						fclose(f);
 						zip_fclose(zf);
-						deleteFile(outFilename.c_str());
+						File::Delete(outFilename.c_str());
 						// Yes it's a goto. Sue me. I think it's appropriate here.
 						goto bail;
 					}
@@ -278,7 +278,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	installInProgress_ = false;
 	installError_ = "";
 	if (deleteAfter) {
-		deleteFile(zipfile.c_str());
+		File::Delete(zipfile.c_str());
 	}
 	InstallDone();
 	return true;
@@ -290,13 +290,13 @@ bail:
 	installInProgress_ = false;
 	installError_ = sy->T("Storage full");
 	if (deleteAfter) {
-		deleteFile(zipfile.c_str());
+		File::Delete(zipfile.c_str());
 	}
 	for (size_t i = 0; i < createdFiles.size(); i++) {
-		deleteFile(createdFiles[i].c_str());
+		File::Delete(createdFiles[i].c_str());
 	}
 	for (auto iter = createdDirs.begin(); iter != createdDirs.end(); ++iter) {
-		deleteDir(iter->c_str());
+		File::DeleteDir(iter->c_str());
 	}
 	InstallDone();
 	return false;

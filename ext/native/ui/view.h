@@ -673,11 +673,11 @@ private:
 
 class TextView : public InertView {
 public:
-	TextView(const std::string &text, LayoutParams *layoutParams = 0) 
-		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false) {}
+	TextView(const std::string &text, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), text_(text), textAlign_(0), textColor_(0xFFFFFFFF), small_(false), shadow_(false), focusable_(false), clip_(true) {}
 
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false) {}
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
@@ -688,6 +688,7 @@ public:
 	void SetTextColor(uint32_t color) { textColor_ = color; }
 	void SetShadow(bool shadow) { shadow_ = shadow; }
 	void SetFocusable(bool focusable) { focusable_ = focusable; }
+	void SetClip(bool clip) { clip_ = clip; }
 
 	bool CanBeFocused() const override { return focusable_; }
 
@@ -698,6 +699,7 @@ private:
 	bool small_;
 	bool shadow_;
 	bool focusable_;
+	bool clip_;
 };
 
 class TextEdit : public View {

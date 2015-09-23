@@ -36,6 +36,11 @@
 
 #include <zlib.h>
 
+// Symbian is nuts
+#if !defined(_WIN32) && defined(UNICODE)
+#undef UNICODE
+#endif
+
 #ifdef _MSC_VER
 #define ZIP_EXTERN
 #define fseeko fseek

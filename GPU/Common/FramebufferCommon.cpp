@@ -16,6 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <sstream>
+
+#include "i18n/i18n.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
@@ -25,6 +28,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "UI/OnScreenDisplay.h"  // Gross dependency!
 
 void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
@@ -828,4 +832,16 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	checkFlag(FB_USAGE_DISPLAYED_FRAMEBUFFER, vfb->last_frame_displayed);
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
 	checkFlag(FB_USAGE_RENDERTARGET, vfb->last_frame_render);
+}
+
+void FramebufferManagerCommon::ShowScreenResolution() {
+	I18NCategory *gr = GetI18NCategory("Graphics");
+
+	std::ostringstream messageStream;
+	messageStream << gr->T("Internal Resolution") << ": ";
+	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
+	messageStream << gr->T("Window Size") << ": ";
+	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
+
+	osm.Show(messageStream.str(), 2.0f);
 }

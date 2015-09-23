@@ -200,45 +200,6 @@ namespace MainWindow
 		rcOuter.top = g_Config.iWindowY;
 	}
 
-	static void ShowScreenResolution() {
-		I18NCategory *gr = GetI18NCategory("Graphics");
-
-		std::ostringstream messageStream;
-		messageStream << gr->T("Internal Resolution") << ": ";
-		messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
-		messageStream << gr->T("Window Size") << ": ";
-		messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
-
-		osm.Show(messageStream.str(), 2.0f);
-	}
-
-	static void UpdateRenderResolution() {
-		RECT rc;
-		GetClientRect(hwndMain, &rc);
-
-		// Actually, auto mode should be more granular...
-		// Round up to a zoom factor for the render size.
-		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) { // auto mode
-			// Use the longest dimension
-			if (g_Config.IsPortrait()) {
-				zoom = (rc.bottom - rc.top + 479) / 480;
-			} else {
-				zoom = (rc.right - rc.left + 479) / 480;
-			}
-		}
-		if (zoom <= 1)
-			zoom = 1;
-
-		if (g_Config.IsPortrait()) {
-			PSP_CoreParameter().renderWidth = 272 * zoom;
-			PSP_CoreParameter().renderHeight = 480 * zoom;
-		} else {
-			PSP_CoreParameter().renderWidth = 480 * zoom;
-			PSP_CoreParameter().renderHeight = 272 * zoom;
-		}
-	}
-
 	static bool IsWindowSmall() {
 		// Can't take this from config as it will not be set if windows is maximized.
 		RECT rc;
@@ -259,7 +220,6 @@ namespace MainWindow
 			GetWindowRectAtResolution(480 * (int)zoom, 272 * (int)zoom, rc, rcOuter);
 		}
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
-		ShowScreenResolution();
 	}
 
 	void SetInternalResolution(int res) {
@@ -276,9 +236,6 @@ namespace MainWindow
 
 		if (gpu)
 			gpu->Resized();
-
-		UpdateRenderResolution();
-		ShowScreenResolution();
 	}
 
 	void CorrectCursor() {
@@ -319,8 +276,6 @@ namespace MainWindow
 			PSP_CoreParameter().pixelWidth = width;
 			PSP_CoreParameter().pixelHeight = height;
 		}
-
-		UpdateRenderResolution();
 
 		if (UpdateScreenScale(width, height, IsWindowSmall())) {
 			NativeMessageReceived("gpu resized", "");
@@ -395,10 +350,6 @@ namespace MainWindow
 
 		CorrectCursor();
 
-		bool showOSM = (g_Config.iInternalResolution == RESOLUTION_AUTO);
-		if (showOSM) {
-			ShowScreenResolution();
-		}
 		ShowOwnedPopups(hwndMain, goingFullscreen ? FALSE : TRUE);
 		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
 
@@ -900,10 +851,6 @@ namespace MainWindow
 
 		case WM_USER_UPDATE_UI:
 			TranslateMenus(hwndMain, menu);
-			break;
-
-		case WM_USER_UPDATE_SCREEN:
-			ShowScreenResolution();
 			break;
 
 		case WM_USER_WINDOW_TITLE_CHANGED:
