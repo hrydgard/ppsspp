@@ -17,8 +17,8 @@
 #include "util/text/utf8.h"
 #endif
 
-std::string gameTitle;
-std::string fname;
+std::string gameDir="ms0:/darkfrost/codes/__________.txt";
+std::string gameId;//length of 10
 static DarkFrostEngine *darkFrostEngine;
 static bool cheatsEnabled;
 static bool realAddressing;

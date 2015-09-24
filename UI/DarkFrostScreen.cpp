@@ -48,7 +48,12 @@ void DarkFrostScreen::CreateViews() {
 
 	using namespace UI;
 	I18NCategory *df = GetI18NCategory("DarkFrost");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *ch = GetI18NCategory("Cheater");
+	I18NCategory *opt = GetI18NCategory("Options");
+	I18NCategory *sr = GetI18NCategory("Searcher");
+	I18NCategory *ram = GetI18NCategory("RAM");
+	I18NCategory *de = GetI18NCategory("Decoder");
+	I18NCategory *ab = GetI18NCategory("About");
 
 	init();
 
@@ -62,72 +67,80 @@ void DarkFrostScreen::CreateViews() {
 	leftColumn->Add(tabHolder);
 	root_->Add(leftColumn);
 
-	//tabs
-	tabHolder->Add(new ItemHeader(df->T("Menu")));
-	tabHolder->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	tabHolder->Add(new Choice(df->T("Cheater")))->OnClick.Handle(this, &DarkFrostScreen::OnCheater);
-	tabHolder->Add(new Choice(df->T("Options")))->OnClick.Handle(this, &DarkFrostScreen::OnOptions);
-	tabHolder->Add(new Choice(df->T("Searcher")))->OnClick.Handle(this, &DarkFrostScreen::OnSearcher);
-	tabHolder->Add(new Choice(df->T("RAM")))->OnClick.Handle(this, &DarkFrostScreen::OnRAM);
-	tabHolder->Add(new Choice(df->T("Decoder")))->OnClick.Handle(this, &DarkFrostScreen::OnDecoder);
-
-	//right content
-	ViewGroup *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//rightScroll=rightColumn
-	LinearLayout *rightContent = new LinearLayout(ORIENT_VERTICAL);
-	rightContent->SetSpacing(0);
-	rightScroll->Add(rightContent);
-	root_->Add(rightScroll);
-
-	//content
-	rightContent->Add(new ItemHeader(df->T("DarkFrost for PPSSPP by demon450")));
-	rightContent->Add(new TextView(df->T("- DarkFrost is a plugin for the psp ported to work on PPSSPP")));
-	rightContent->Add(new TextView(df->T("- Based off of DarkFrost v6 BETA")));
-
 	//CHEATER
+	ViewGroup *cheaterScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//cheaterScroll=rightColumn
+	LinearLayout *cheaterContent = new LinearLayout(ORIENT_VERTICAL);
+	cheaterContent->SetSpacing(0);
+	cheaterScroll->Add(cheaterContent);
+	tabHolder->AddTab(df->T("Cheater"), cheaterScroll);
 
-	//OPTIONS PAGE
+	//CHEATER CONTENT
+	cheaterContent->Add(new ItemHeader(ch->T("Cheater")));
 
-	//right content
+	//OPTIONS
 	ViewGroup *optionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//optionsScroll=rightColumn
 	LinearLayout *optionsContent = new LinearLayout(ORIENT_VERTICAL);
 	optionsContent->SetSpacing(0);
 	optionsScroll->Add(optionsContent);
-	root_->Add(optionsScroll);
+	tabHolder->AddTab(df->T("Options"), optionsScroll);
 
-	//content
+	//OPTIONS CONTENT
 	optionsContent->Add(new ItemHeader(df->T("DarkFrost Options")));
-	optionsContent->Add(new Checkbox(df->T("REAL Addressing")))->OnClick.Handle(this, &DarkFrostScreen::OnRealAddressing);//checkbox
-	optionsContent->Add(new Choice(di->T("Load Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnLoadCheats);
-	optionsContent->Add(new Choice(df->T("Save Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnSaveCheats);
-	optionsContent->Add(new Choice(df->T("Reset Copier")))->OnClick.Handle(this, &DarkFrostScreen::OnResetCopier);
-	//optionsContent->Add(new Checkbox(df->T("Cheats Activated")))->OnClick.Handle(this, &DarkFrostScreen::OnCheatsActivitated);//checkbox
-	CheckBox *cheatsActivatedCB = optionsContent->Add(new CheckBox(darkFrostEngine->getCheatsEnabled(), df->T("Cheats Activitated")));
-	//cheatsActivatedCB->SetDisabledPtr(darkFrostEngine->getCheatsEnabled());
-}
+	//optionsContent->Add(new CheckBox(&darkFrostEngine->getRealAddressing(), opt->T("REAL Addressing"))));
+	optionsContent->Add(new Choice(opt->T("Load Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnLoadCheats);
+	optionsContent->Add(new Choice(opt->T("Save Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnSaveCheats);
+	optionsContent->Add(new Choice(opt->T("Reset Copier")))->OnClick.Handle(this, &DarkFrostScreen::OnResetCopier);
+	//optionsContent->Add(new CheckBox(&darkFrostEngine->getCheatsEnabled(), opt->T("Cheats Activated")))->OnClick.Handle(this, &DarkFrostScreen::OnCheatsActivated);
 
-UI::EventReturn DarkFrostScreen::OnCheater(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
-}
+	//SEARCHER
+	ViewGroup *searcherScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//searcherScroll=rightColumn
+	LinearLayout *searcherContent = new LinearLayout(ORIENT_VERTICAL);
+	searcherContent->SetSpacing(0);
+	searcherScroll->Add(searcherContent);
+	tabHolder->AddTab(df->T("Searcher"), searcherScroll);
 
-UI::EventReturn DarkFrostScreen::OnOptions(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
-}
+	//SEARCHER CONTENT
+	searcherContent->Add(new ItemHeader(sr->T("Searcher")));
 
-UI::EventReturn DarkFrostScreen::OnSearcher(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
-}
+	//RAM
+	ViewGroup *ramScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//ramScroll=rightColumn
+	LinearLayout *ramContent = new LinearLayout(ORIENT_VERTICAL);
+	ramContent->SetSpacing(0);
+	ramScroll->Add(ramContent);
+	tabHolder->AddTab(df->T("RAM"), ramScroll);
 
-UI::EventReturn DarkFrostScreen::OnRAM(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
-}
+	//RAM CONTENT
+	ramContent->Add(new ItemHeader(ram->T("RAM")));
 
-UI::EventReturn DarkFrostScreen::OnDecoder(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
+	//DECODER
+	ViewGroup *decoderScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//decoderScroll=rightColumn
+	LinearLayout *decoderContent = new LinearLayout(ORIENT_VERTICAL);
+	decoderContent->SetSpacing(0);
+	decoderScroll->Add(decoderContent);
+	tabHolder->AddTab(df->T("Decoder"), decoderScroll);
+
+	//DECODER CONTENT
+	decoderContent->Add(new ItemHeader(de->T("Decoder")));
+
+	//ABOUT
+	ViewGroup *aboutScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//aboutScroll=rightColumn
+	LinearLayout *aboutContent = new LinearLayout(ORIENT_VERTICAL);
+	aboutContent->SetSpacing(0);
+	aboutScroll->Add(aboutContent);
+	tabHolder->AddTab(df->T("About"), aboutScroll);
+
+	//ABOUT CONTENT
+	aboutContent->Add(new ItemHeader(df->T("DarkFrost for PPSSPP by demon450")));
+	aboutContent->Add(new TextView(ab->T("- DarkFrost is a plugin for the psp ported to work on PPSSPP")));
+	aboutContent->Add(new TextView(ab->T("- Based off of DarkFrost v6 BETA")));
+
+	//BACK BUTTON
+	tabHolder->Add(new Choice(df->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	//ViewGroup *backScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//need it just cuz
+	//tabHolder->AddTab(df->T("Back"), backScroll)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	//BANNER
+	root_->Add(new ImageView(I_DF, IS_DEFAULT, new LinearLayoutParams(FILL_PARENT, FILL_PARENT)));
 }
 
 UI::EventReturn DarkFrostScreen::OnRealAddressing(UI::EventParams &params) {
@@ -150,7 +163,7 @@ UI::EventReturn DarkFrostScreen::OnResetCopier(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DarkFrostScreen::OnCheatsActivitated(UI::EventParams &params) {
-	//
+UI::EventReturn DarkFrostScreen::OnCheatsActivated(UI::EventParams &params) {
+	darkFrostEngine->toggleCheatsEnabled();
 	return UI::EVENT_DONE;
 }

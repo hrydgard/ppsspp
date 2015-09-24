@@ -34071,7 +34071,7 @@ const AtlasFont font_UBUNTU24 = {
 const AtlasFont *ui_fonts[1] = {
   &font_UBUNTU24,
 };
-const AtlasImage ui_images[34] = {
+const AtlasImage ui_images[35] = {
 #ifndef USING_QT_UI
   {0.387451f, 0.047607f, 0.394775f, 0.054932f, 16, 16, "I_SOLIDWHITE"},
   {0.960693f, 0.000244f, 0.978271f, 0.017822f, 37, 37, "I_CROSS"},
@@ -34107,6 +34107,7 @@ const AtlasImage ui_images[34] = {
   {0.723877f, 0.000244f, 0.752197f, 0.025635f, 59, 53, "I_FOLDER"},
   {0.753174f, 0.000244f, 0.782471f, 0.023193f, 61, 48, "I_UP_DIRECTORY"},
   {0.880127f, 0.041260f, 0.895264f, 0.056396f, 32, 32, "I_GEAR"},
+  {0.177002f, 0.000244f, 0.257568f, 0.028076f, 166, 58, "I_DF"},
 #else /* USING_QT_UI */
   {0.180664f, 0.448242f, 0.209961f, 0.477539f, 16, 16, "I_SOLIDWHITE"},
   {0.657227f, 0.491211f, 0.727539f, 0.561523f, 37, 37, "I_CROSS"},
@@ -34142,10 +34143,11 @@ const AtlasImage ui_images[34] = {
   {0.879883f, 0.000977f, 0.993164f, 0.102539f, 59, 53, "I_FOLDER"},
   {0.766602f, 0.454102f, 0.883789f, 0.545898f, 61, 48, "I_UP_DIRECTORY"},
   {0.879883f, 0.106445f, 0.940430f, 0.166992f, 32, 32, "I_GEAR"},
+  {0.497070f, 0.208008f, 0.819336f, 0.319336f, 166, 58, "I_DF"},
 #endif /* USING_QT_UI */
 };
 const Atlas ui_atlas = {
   "ui_atlas.zim",
   ui_fonts, 1,
-  ui_images, 34,
+  ui_images, 35,
 };
