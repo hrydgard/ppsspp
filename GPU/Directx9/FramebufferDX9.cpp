@@ -1132,13 +1132,13 @@ namespace DX9 {
 				PSP_CoreParameter().renderHeight = 272 * zoom;
 			}
 
+			ShowScreenResolution();
 			resized_ = false;
 		}
 #if 0
 		// We flush to memory last requested framebuffer, if any
 		PackFramebufferAsync_(NULL);
 #endif
-		ShowScreenResolution();
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {
