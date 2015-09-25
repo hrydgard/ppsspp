@@ -685,8 +685,8 @@ namespace MainWindow
 			}
 			break;
 
-    case WM_ERASEBKGND:
-      // This window is always covered by DisplayWindow. No reason to erase.
+		case WM_ERASEBKGND:
+			// This window is always covered by DisplayWindow. No reason to erase.
 			return 1;
 
 		case WM_MOVE:

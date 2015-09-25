@@ -151,8 +151,6 @@ private:
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
 
-	TexCacheEntry *nextTexture_;
-
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
 
