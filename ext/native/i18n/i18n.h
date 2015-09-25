@@ -49,12 +49,12 @@ public:
 	void SetMap(const std::map<std::string, std::string> &m);
 	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
-	const char *GetName() const { return name_; }
+	const char *GetName() const { return name_.c_str(); }
 
 private:
 	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
 
-	const char *name_;
+	std::string name_;
 
 	std::map<std::string, I18NEntry> map_;
 	std::map<std::string, std::string> missedKeyLog_;
