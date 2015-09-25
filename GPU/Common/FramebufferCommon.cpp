@@ -330,6 +330,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+				} else {
+					// Even though we won't resize it, let's at least change the size params.
+					vfb->width = drawing_width;
+					vfb->height = drawing_height;
 				}
 			}
 		} else {

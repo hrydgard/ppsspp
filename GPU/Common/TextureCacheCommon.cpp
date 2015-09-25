@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GPUState.h"
@@ -27,6 +28,18 @@ TextureCacheCommon::~TextureCacheCommon() {}
 
 bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 	return false;
+}
+
+int TextureCacheCommon::AttachedDrawingHeight() {
+	if (nextTexture_) {
+		if (nextTexture_->framebuffer) {
+			return nextTexture_->framebuffer->height;
+		}
+		u16 dim = nextTexture_->dim;
+		const u8 dimY = dim >> 8;
+		return 1 << dimY;
+	}
+	return 0;
 }
 
 void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel) {
