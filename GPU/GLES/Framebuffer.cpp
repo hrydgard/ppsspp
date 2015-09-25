@@ -1667,10 +1667,10 @@ void FramebufferManager::EndFrame() {
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) { // auto mode
 											// Use the longest dimension
-			if (g_Config.IsPortrait()) {
-				zoom = (pixelWidth_ + 479) / 480;
+			if (!g_Config.IsPortrait()) {
+				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 			} else {
-				zoom = (pixelHeight_ + 479) / 480;
+				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 			}
 		}
 		if (zoom <= 1)

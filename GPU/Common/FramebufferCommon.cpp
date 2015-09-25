@@ -847,5 +847,5 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	messageStream << gr->T("Window Size") << ": ";
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
-	osm.Show(messageStream.str(), 2.0f);
+	osm.Show(messageStream.str(), 2.0f, 0xFFFFFF, -1, true, "resize");
 }
