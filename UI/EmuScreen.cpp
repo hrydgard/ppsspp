@@ -254,8 +254,8 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		if (saveStatePreview_) {
 			int curSlot = SaveState::GetCurrentSlot();
 			std::string fn;
-			if (SaveState::HasSaveInSlot(curSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(curSlot, "jpg");
+			if (SaveState::HasSaveInSlot(gamePath_, curSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_, curSlot, "jpg");
 			}
 
 			saveStatePreview_->SetFilename(fn);
@@ -366,11 +366,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
+		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (SaveState::HasSaveInSlot(g_Config.iCurrentStateSlot)) {
-			SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveState::Callback());
+		if (SaveState::HasSaveInSlot(gamePath_, g_Config.iCurrentStateSlot)) {
+			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
 		}
 		break;
 	case VIRTKEY_NEXT_SLOT:
@@ -948,9 +948,9 @@ void EmuScreen::deviceLost() {
 
 void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
-	int lastSlot = SaveState::GetNewestSlot();
+	int lastSlot = SaveState::GetNewestSlot(gamePath_);
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(lastSlot, SaveState::Callback(), 0);
+		SaveState::LoadSlot(gamePath_, lastSlot, SaveState::Callback(), 0);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }

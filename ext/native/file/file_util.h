@@ -28,8 +28,6 @@ struct FileInfo {
 };
 
 std::string getFileExtension(const std::string &fn);
-std::string getDir(const std::string &path);
-std::string getFilename(std::string path);
 bool getFileInfo(const char *path, FileInfo *fileInfo);
 FILE *openCFile(const std::string &filename, const char *mode);
 
@@ -37,7 +35,6 @@ enum {
 	GETFILES_GETHIDDEN = 1
 };
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter = 0, int flags = 0);
-std::string getDir(const std::string &path);
 
 #ifdef _WIN32
 std::vector<std::string> getWindowsDrives();
