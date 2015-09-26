@@ -332,13 +332,13 @@ PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, con
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
-PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), screenManager_(screenManager) {
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), screenManager_(screenManager), units_(units) {
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
-PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager) {
+PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager), units_(units) {
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
@@ -376,7 +376,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_, step_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_, step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -431,24 +431,69 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
-	LinearLayout *lin = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 5))));
-	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(1.0f));
-	lin->Add(slider_);
+	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
+	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
+	slider_->OnClick.Handle(this, &SliderFloatPopupScreen::OnSliderChange);
+	vert->Add(slider_);
+	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
 	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	char temp[64];
+	sprintf(temp, "%0.3f", sliderValue_);
+	edit_ = new TextEdit(temp, "", new LinearLayoutParams(10.0f));
+	edit_->SetMaxLen(16);
+	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
+	changing_ = false;
+	lin->Add(edit_);
+	if (&units_)
+		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
+
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	UI::SetFocusedView(slider_);
 }
 
 EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
+	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
+		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
+	}
 	sliderValue_ -= step_;
 	slider_->Clamp();
+	changing_ = true;
+	char temp[64];
+	sprintf(temp, "%0.3f", sliderValue_);
+	edit_->SetText(temp);
+	changing_ = false;
 	return EVENT_DONE;
 }
 
 EventReturn SliderFloatPopupScreen::OnIncrease(EventParams &params) {
+	if (sliderValue_ > minValue_ && sliderValue_ < maxValue_) {
+		sliderValue_ = step_ * floor((sliderValue_ / step_) + 0.5f);
+	}
 	sliderValue_ += step_;
 	slider_->Clamp();
+	changing_ = true;
+	char temp[64];
+	sprintf(temp, "%0.3f", sliderValue_);
+	edit_->SetText(temp);
+	changing_ = false;
+	return EVENT_DONE;
+}
+
+EventReturn SliderFloatPopupScreen::OnSliderChange(EventParams &params) {
+	changing_ = true;
+	char temp[64];
+	sprintf(temp, "%0.3f", sliderValue_);
+	edit_->SetText(temp);
+	changing_ = false;
+	return EVENT_DONE;
+}
+
+EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
+	if (!changing_) {
+		sliderValue_ = atof(edit_->GetText().c_str());
+		slider_->Clamp();
+	}
 	return EVENT_DONE;
 }
 

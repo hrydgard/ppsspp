@@ -151,8 +151,8 @@ private:
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f) 
-	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title, float step = 1.0f, const std::string &units = "")
+	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 	Event OnChange;
@@ -160,13 +160,18 @@ public:
 private:
 	EventReturn OnIncrease(EventParams &params);
 	EventReturn OnDecrease(EventParams &params);
+	EventReturn OnTextChange(EventParams &params);
+	EventReturn OnSliderChange(EventParams &params);
 	virtual void OnCompleted(DialogResult result) override;
 	UI::SliderFloat *slider_;
+	UI::TextEdit *edit_;
+	std::string units_;
 	float sliderValue_;
 	float *value_;
 	float minValue_;
 	float maxValue_;
 	float step_;
+	bool changing_;
 };
 
 class TextEditPopupScreen : public PopupScreen {
@@ -245,8 +250,8 @@ private:
 
 class PopupSliderChoiceFloat : public Choice {
 public:
-	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
-	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
 	virtual void Draw(UIContext &dc) override;
 
@@ -259,6 +264,7 @@ private:
 	float minValue_;
 	float maxValue_;
 	float step_;
+	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
 };
