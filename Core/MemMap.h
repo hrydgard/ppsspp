@@ -276,7 +276,6 @@ inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const 
 	MemcpyUnchecked(GetPointer(to_address), from_address, len);
 }
 
-// TODO: This considers 0x88900000 a valid address. Probably not good.
 inline bool IsValidAddress(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;

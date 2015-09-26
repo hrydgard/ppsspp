@@ -204,6 +204,11 @@ void CPU_Init() {
 		break;
 	}
 
+	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
+	std::string discID = g_paramSFO.GetValueString("DISC_ID");
+	if (!discID.empty())
+		coreParameter.compat.Load(discID);
+
 	Memory::Init();
 	mipsr4k.Reset();
 

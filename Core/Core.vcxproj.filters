@@ -622,6 +622,9 @@
     <ClCompile Include="FileLoaders\DiskCachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="Compatibility.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1166,6 +1169,9 @@
     </ClInclude>
     <ClInclude Include="HLE\ThreadQueueList.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="Compatibility.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

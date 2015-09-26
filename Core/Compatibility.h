@@ -1,0 +1,70 @@
+// Copyright (c) 2015- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#pragma once
+
+#include <string>
+#include <stdint.h>
+
+// Compatibility flags are controlled by assets/compat.ini.
+// Alternatively, if PSP/SYSTEM/compat.ini exists, it is merged on top, to enable editing
+// the file on Android for tests.
+//
+// This file is not meant to be user-editable, although is kept as a separate ini
+// file instead of compiled into the code for debugging purposes.
+//
+// The uses cases are strict:
+//   * Enable fixes for things we can't reasonably emulate without completely ruining
+//     performance for other games, such as the screen copies in Dangan Ronpa
+//   * Disabling accuracy features like 16-bit depth rounding, when we can't seem to
+//     implement them at all in a 100% compatible way
+//   * Emergency game-specific compatibility fixes before releases, such as the GTA
+//     music problem where every attempted fix has reduced compatibility with other games
+//   * Enable "unsafe" performance optimizations that some games can tolerate and
+//     others cannot. We do not currently have any of those.
+//
+// This functionality should NOT be used for any of the following:
+//   * Cheats
+//   * Fun hacks, like enlarged heads or whatever
+//   * Fixing general compatibility issues. First try to find a general solution. Try hard.
+//
+// We already have the Action Replay-based cheat system for such use cases.
+
+struct CompatFlags {
+	bool NoDepthRounding;
+	// GTAMusicFix, ...
+};
+
+class IniFile;
+
+class Compatibility {
+public:
+	Compatibility() {
+		Clear();
+	}
+
+	// Flags enforced read-only through const. Only way to change them is to load assets/compat.ini.
+	const CompatFlags &flags() const { return flags_; }
+
+	void Load(const std::string &gameID);
+
+private:
+	void Clear();
+	void LoadIniSection(IniFile &iniFile, std::string section);
+
+	CompatFlags flags_;
+};
