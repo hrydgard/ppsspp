@@ -58,7 +58,7 @@ void OnScreenMessages::Show(const std::string &text, float duration_s, uint32_t 
 	std::lock_guard<std::recursive_mutex> guard(mutex_);
 	if (checkUnique) {
 		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
-			if (iter->text == text || (id && !strcmp(iter->id, id))) {
+			if (iter->text == text || (id && iter->id && !strcmp(iter->id, id))) {
 				Message msg = *iter;
 				msg.endTime = now + duration_s;
 				msg.text = text;
