@@ -1345,44 +1345,6 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 }
 
 #ifdef USE_FFMPEG
-static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
-	Atrac *atrac = (Atrac *)opaque;
-	if (atrac->bufferPos > atrac->first.filesize)
-		return -1;
-	int size = std::min((int)atrac->atracBufSize, buf_size);
-	size = std::max(std::min(((int)atrac->first.size - (int)atrac->bufferPos), size), 0);
-	if (size > 0)
-		memcpy(buf, atrac->data_buf + atrac->bufferPos, size);
-	atrac->bufferPos += size;
-	return size;
-}
-
-static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence) {
-	Atrac *atrac = (Atrac*)opaque;
-	if (offset > atrac->first.filesize)
-		return -1;
-
-	switch (whence) {
-	case SEEK_SET:
-		atrac->bufferPos = (u32)offset;
-		break;
-	case SEEK_CUR:
-		atrac->bufferPos += (u32)offset;
-		break;
-	case SEEK_END:
-		atrac->bufferPos = atrac->first.filesize - (u32)offset;
-		break;
-#ifdef USE_FFMPEG
-	case AVSEEK_SIZE:
-		return atrac->first.filesize;
-#endif
-	}
-	return atrac->bufferPos;
-}
-
-#endif // USE_FFMPEG
-
-#ifdef USE_FFMPEG
 static int __AtracUpdateOutputMode(Atrac *atrac, int wanted_channels) {
 	if (atrac->pSwrCtx && atrac->atracOutputChannels == wanted_channels)
 		return 0;
@@ -1531,7 +1493,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
 		return __AtracSetContext(atrac);
 	}
-
 
 	return 0;
 }
