@@ -137,13 +137,11 @@ struct Atrac {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
-		pFormatCtx = nullptr;
-		pAVIOCtx = nullptr;
+		pCodec = nullptr;
 		pCodecCtx = nullptr;
 		pSwrCtx = nullptr;
 		pFrame = nullptr;
 		packet = nullptr;
-		audio_stream_index = 0;
 #endif // USE_FFMPEG
 		atracContext = 0;
 	}
@@ -234,6 +232,12 @@ struct Atrac {
 		return (u32)(firstSampleoffset + sample / atracSamplesPerFrame * atracBytesPerFrame );
 	}
 
+	u32 getFileOffsetBySample(int sample) const {
+		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		// This matches where ffmpeg was getting the packets, but it's not clear why the first atracBytesPerFrame is there...
+		return (u32)(dataOff + atracBytesPerFrame + (sample + atracSamplesPerFrame - 1) / atracSamplesPerFrame * atracBytesPerFrame);
+	}
+
 	int getRemainFrames() const {
 		// games would like to add atrac data when it wants.
 		// Do not try to guess when it want to add data.
@@ -288,32 +292,28 @@ struct Atrac {
 	PSPPointer<SceAtracId> atracContext;
 
 #ifdef USE_FFMPEG
-	AVFormatContext *pFormatCtx;
-	AVIOContext	    *pAVIOCtx;
+	const AVCodec   *pCodec;
 	AVCodecContext  *pCodecCtx;
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
 	AVPacket        *packet;
-	int audio_stream_index;
 
 	void ReleaseFFMPEGContext() {
 		if (pFrame)
 			av_free(pFrame);
-		if (pAVIOCtx && pAVIOCtx->buffer)
-			av_free(pAVIOCtx->buffer);
-		if (pAVIOCtx)
-			av_free(pAVIOCtx);
 		if (pSwrCtx)
 			swr_free(&pSwrCtx);
+		if (pCodecCtx && pCodecCtx->extradata) {
+			delete [] pCodecCtx->extradata;
+			pCodecCtx->extradata = nullptr;
+			pCodecCtx->extradata_size = 0;
+		}
 		if (pCodecCtx)
 			avcodec_close(pCodecCtx);
-		if (pFormatCtx)
-			avformat_close_input(&pFormatCtx);
 		if (packet)
 			av_free_packet(packet);
 		delete packet;
-		pFormatCtx = nullptr;
-		pAVIOCtx = nullptr;
+		pCodec = nullptr;
 		pCodecCtx = nullptr;
 		pSwrCtx = nullptr;
 		pFrame = nullptr;
@@ -321,8 +321,6 @@ struct Atrac {
 	}
 
 	void ForceSeekToSample(int sample) {
-		av_seek_frame(pFormatCtx, audio_stream_index, sample + 0x200000, 0);
-		av_seek_frame(pFormatCtx, audio_stream_index, sample, 0);
 		avcodec_flush_buffers(pCodecCtx);
 
 		// Discard any pending packet data.
@@ -345,19 +343,6 @@ struct Atrac {
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
 		if (sample != currentSample) {
-			// "Seeking" by reading frames seems to work much better.
-			av_seek_frame(pFormatCtx, audio_stream_index, 0, AVSEEK_FLAG_BACKWARD);
-			avcodec_flush_buffers(pCodecCtx);
-
-			for (int i = 0; i < seekFrame; i += atracSamplesPerFrame) {
-				while (FillPacket() && DecodePacket() == ATDECODE_FEEDME) {
-					continue;
-				}
-			}
-		} else {
-			// For some reason, if we skip seeking, we get the wrong amount of data.
-			// (even without flushing the packet...)
-			av_seek_frame(pFormatCtx, audio_stream_index, seekFrame, 0);
 			avcodec_flush_buffers(pCodecCtx);
 		}
 		currentSample = sample;
@@ -367,55 +352,33 @@ struct Atrac {
 		if (packet->size > 0) {
 			return true;
 		}
-		do {
-			// This is double-free safe, so we just call it before each read and at the end.
-			av_free_packet(packet);
-			if (av_read_frame(pFormatCtx, packet) < 0) {
-				return false;
-			}
-			// We keep reading until we get the right stream index.
-		} while (packet->stream_index != audio_stream_index);
+
+		u32 off = getFileOffsetBySample(currentSample);
+		if (off < first.filesize) {
+			av_init_packet(packet);
+			packet->data = data_buf + off;
+			packet->size = atracBytesPerFrame;
+			packet->pos = off;
+			bufferPos = off + atracBytesPerFrame;
+		} else {
+			av_init_packet(packet);
+			packet->data = data_buf + dataOff;
+			packet->size = atracBytesPerFrame;
+			packet->pos = dataOff;
+			bufferPos = dataOff + atracBytesPerFrame;
+		}
 
 		return true;
 	}
 
 	AtracDecodeResult DecodePacket() {
-		AVPacket tempPacket;
-		AVPacket *decodePacket = packet;
-		if (packet->size < (int)atracBytesPerFrame) {
-			// Whoops, we have a packet that is smaller than a frame.  Let's meld a new one.
-			u32 initialSize = packet->size;
-			int needed = atracBytesPerFrame - initialSize;
-			av_init_packet(&tempPacket);
-			av_copy_packet(&tempPacket, packet);
-			av_grow_packet(&tempPacket, needed);
-
-			// Okay, we're "out of data", let's get more.
-			packet->size = 0;
-
-			if (FillPacket()) {
-				int to_copy = packet->size >= needed ? needed : packet->size;
-				memcpy(tempPacket.data + initialSize, packet->data, to_copy);
-				packet->size -= to_copy;
-				packet->data += to_copy;
-				tempPacket.size = initialSize + to_copy;
-			} else {
-				tempPacket.size = initialSize;
-			}
-			decodePacket = &tempPacket;
-		}
-
 		int got_frame = 0;
-		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, decodePacket);
-		if (packet != decodePacket) {
-			av_free_packet(&tempPacket);
-		}
+		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, packet);
+		av_free_packet(packet);
 		if (bytes_read == AVERROR_PATCHWELCOME) {
 			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 			// Let's try the next packet.
-			if (packet == decodePacket) {
-				packet->size = 0;
-			}
+			packet->size = 0;
 			// TODO: Or actually, should we return a blank frame and pretend it worked?
 			return ATDECODE_FEEDME;
 		} else if (bytes_read < 0) {
@@ -424,10 +387,6 @@ struct Atrac {
 			return ATDECODE_FAILED;
 		}
 
-		if (packet == decodePacket) {
-			packet->size -= bytes_read;
-			packet->data += bytes_read;
-		}
 		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
 	}
 #endif // USE_FFMPEG
@@ -753,6 +712,7 @@ int Atrac::AnalyzeAA3() {
 		atracBytesPerFrame = (codecParams & 0x03FF) * 8;
 		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 1024;
 		atracChannels = 2;
+		// TODO: "extradata"?
 		break;
 	case 1:
 		codecType = PSP_MODE_AT_3_PLUS;
@@ -769,6 +729,7 @@ int Atrac::AnalyzeAA3() {
 		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
+	// TODO: Wrong, probably?  Need to set after "EA3" header.
 	dataOff = 0;
 	firstSampleoffset = 0;
 	if (endSample < 0 && atracBytesPerFrame != 0) {
@@ -1444,49 +1405,54 @@ int __AtracSetContext(Atrac *atrac) {
 
 	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
 
-	atrac->pFormatCtx = avformat_alloc_context();
-	atrac->pAVIOCtx = avio_alloc_context(tempbuf, atrac->atracBufSize, 0, (void*)atrac, _AtracReadbuffer, NULL, _AtracSeekbuffer);
-	atrac->pFormatCtx->pb = atrac->pAVIOCtx;
-
-	int ret;
-	// Load audio buffer
-	if((ret = avformat_open_input((AVFormatContext**)&atrac->pFormatCtx, NULL, NULL, NULL)) != 0) {
-		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
-		// TODO: This is not exactly correct, but if the header is right and there's not enough data
-		// (which is likely the case here), this is the correct error.
-		return ATRAC_ERROR_ALL_DATA_DECODED;
-	}
-
-	if((ret = avformat_find_stream_info(atrac->pFormatCtx, NULL)) < 0) {
-		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
+	AVCodecID ff_codec;
+	if (atrac->codecType == PSP_MODE_AT_3) {
+		ff_codec = AV_CODEC_ID_ATRAC3;
+	} else if (atrac->codecType == PSP_MODE_AT_3_PLUS) {
+		ff_codec = AV_CODEC_ID_ATRAC3P;
+	} else {
+		ERROR_LOG_REPORT(ME, "Unexpected codec type %d", atrac->codecType);
 		return -1;
 	}
 
-	AVCodec *pCodec;
-	// select the audio stream
-	ret = av_find_best_stream(atrac->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &pCodec, 0);
-	if (ret < 0) {
-		if (ret == AVERROR_DECODER_NOT_FOUND) {
-			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
-		} else {
-			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
-		}
-		return -1;
+	atrac->pCodec = avcodec_find_decoder(ff_codec);
+	atrac->pCodecCtx = avcodec_alloc_context3(atrac->pCodec);
+
+	if (atrac->codecType == PSP_MODE_AT_3) {
+		// For ATRAC3, we need the "extradata" in the RIFF header.
+		// TODO: Fix, TODO dealloc, etc.
+		atrac->pCodecCtx->extradata = new u8[14];
+		atrac->pCodecCtx->extradata_size = 14;
+		// TODO: These are common values, but this ignores the "joint stereo" flag.
+		memset(atrac->pCodecCtx->extradata, 0, 14);
+		atrac->pCodecCtx->extradata[0] = 1;
+		atrac->pCodecCtx->extradata[3] = 0x10;
+		atrac->pCodecCtx->extradata[10] = 1;
 	}
-	atrac->audio_stream_index = ret;
-	atrac->pCodecCtx = atrac->pFormatCtx->streams[atrac->audio_stream_index]->codec;
 
 	// Appears we need to force mono in some cases. (See CPkmn's comments in issue #4248)
-	if (atrac->atracChannels == 1)
+	if (atrac->atracChannels == 1) {
+		atrac->pCodecCtx->channels = 1;
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
+	} else if (atrac->atracChannels == 2) {
+		atrac->pCodecCtx->channels = 2;
+		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_STEREO;
+	} else {
+		ERROR_LOG_REPORT(ME, "Unexpected channel count %d", atrac->atracChannels);
+		return -1;
+	}
+
 
 	// Explicitly set the block_align value (needed by newer FFmpeg versions, see #5772.)
 	if (atrac->pCodecCtx->block_align == 0) {
 		atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
 	}
+	// Only one supported, it seems?
+	atrac->pCodecCtx->sample_rate = 44100;
 
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
-	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
+	int ret;
+	if ((ret = avcodec_open2(atrac->pCodecCtx, atrac->pCodec, NULL)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
 	}
@@ -2097,6 +2063,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			atrac->data_buf = new u8[atrac->first.filesize];
 			memcpy(atrac->data_buf, at3Header, headersize);
 			atrac->currentSample = 0;
+			// TODO: Check failure?
 			__AtracSetContext(atrac);
 			return 0;
 		}
