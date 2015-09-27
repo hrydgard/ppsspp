@@ -18,6 +18,16 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.1
+-----------------
+* Support for ARM64 on Android, for improved performance on new devices
+* Support Android TV, like nVidia Shield TV
+* GPU emulation fixes like correct depth rounding, fixing text in Phantasy Star
+* Screen rotation, useful for vertical games like Star Soldier
+* Many minor performance improvements and compatibility bug fixes
+* Support savestates for homebrew apps
+* Simple integrated "Homebrew Store" to download PSP homebrew apps
+
 What's new in 1.0.1
 -------------------
 * Bugfixes like the save state scroll issue, cosmetic issues like overscroll
