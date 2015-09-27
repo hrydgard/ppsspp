@@ -27,6 +27,8 @@ What's new in 1.1
 * Many minor performance improvements and compatibility bug fixes
 * Support savestates for homebrew apps
 * Simple integrated "Homebrew Store" to download PSP homebrew apps
+* Minor AdHoc multiplayer improvements. Still many issues left.
+* Disable a dangerous optimization on ARM, causing walk-through-walls in Tenchu
 
 What's new in 1.0.1
 -------------------
