@@ -130,7 +130,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
 		atracChannels(0),atracOutputChannels(2),
-		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
+		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), jointStereo(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
 		failedDecode(false), resetBuffer(false), codecType(0) {
@@ -164,12 +164,15 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 4);
+		auto s = p.Section("Atrac", 1, 5);
 		if (!s)
 			return;
 
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
+		if (s >= 5) {
+			p.Do(jointStereo);
+		}
 
 		p.Do(atracID);
 		p.Do(first);
@@ -267,6 +270,7 @@ struct Atrac {
 	u32 atracBitrate;
 	u16 atracBytesPerFrame;
 	u32 atracBufSize;
+	int jointStereo;
 
 	int currentSample;
 	int endSample;
@@ -607,6 +611,12 @@ int Atrac::Analyze() {
 				}
 
 				// TODO: There are some format specific bytes here which seem to have fixed values?
+				// Probably don't need them.
+
+				if (at3fmt->fmtTag == AT3_MAGIC) {
+					// This is the offset to the jointStereo field.
+					jointStereo = Memory::Read_U32(first.addr + offset + 24);
+				}
 			}
 			break;
 		case FACT_CHUNK_MAGIC:
@@ -712,7 +722,7 @@ int Atrac::AnalyzeAA3() {
 		atracBytesPerFrame = (codecParams & 0x03FF) * 8;
 		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 1024;
 		atracChannels = 2;
-		// TODO: "extradata"?
+		jointStereo = (codecParams >> 17) & 1;
 		break;
 	case 1:
 		codecType = PSP_MODE_AT_3_PLUS;
@@ -1419,13 +1429,16 @@ int __AtracSetContext(Atrac *atrac) {
 
 	if (atrac->codecType == PSP_MODE_AT_3) {
 		// For ATRAC3, we need the "extradata" in the RIFF header.
-		// TODO: Fix, TODO dealloc, etc.
 		atrac->pCodecCtx->extradata = new u8[14];
 		atrac->pCodecCtx->extradata_size = 14;
-		// TODO: These are common values, but this ignores the "joint stereo" flag.
 		memset(atrac->pCodecCtx->extradata, 0, 14);
+
+		// We don't pull this from the RIFF so that we can support OMA also.
+		// The only thing that changes are the jointStereo values.
 		atrac->pCodecCtx->extradata[0] = 1;
 		atrac->pCodecCtx->extradata[3] = 0x10;
+		atrac->pCodecCtx->extradata[6] = atrac->jointStereo;
+		atrac->pCodecCtx->extradata[8] = atrac->jointStereo;
 		atrac->pCodecCtx->extradata[10] = 1;
 	}
 
