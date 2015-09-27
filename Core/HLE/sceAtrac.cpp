@@ -729,8 +729,7 @@ int Atrac::AnalyzeAA3() {
 		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
-	// TODO: Wrong, probably?  Need to set after "EA3" header.
-	dataOff = 0;
+	dataOff = 10 + tagSize + 96;
 	firstSampleoffset = 0;
 	if (endSample < 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
