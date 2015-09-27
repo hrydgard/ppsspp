@@ -329,6 +329,7 @@
     <None Include="PPSSPP.manifest">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\assets\compat.ini" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

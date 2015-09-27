@@ -23,13 +23,14 @@ void Compatibility::Load(const std::string &gameID) {
 	IniFile compat;
 	Clear();
 
-	std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
-	if (compat.Load(path)) {
+	// This loads from assets.
+	if (compat.LoadFromVFS("compat.ini")) {
 		LoadIniSection(compat, gameID);
 	}
 
-	// This loads from assets.
-	if (compat.LoadFromVFS("compat.ini")) {
+	// This one is user-editable. Need to load it after the system one.
+	std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
+	if (compat.Load(path)) {
 		LoadIniSection(compat, gameID);
 	}
 }
@@ -40,4 +41,5 @@ void Compatibility::Clear() {
 
 void Compatibility::LoadIniSection(IniFile &iniFile, std::string section) {
 	iniFile.Get(section.c_str(), "NoDepthRounding", &flags_.NoDepthRounding, flags_.NoDepthRounding);
+	iniFile.Get(section.c_str(), "GTAMusicFix", &flags_.GTAMusicFix, flags_.GTAMusicFix);
 }

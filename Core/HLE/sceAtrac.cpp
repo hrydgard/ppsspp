@@ -17,13 +17,16 @@
 
 #include <algorithm>
 
+#include "Core/CoreParameter.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/Compatibility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
@@ -332,6 +335,12 @@ struct Atrac {
 	}
 
 	void SeekToSample(int sample) {
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			s64 seek_pos = (s64)sample;
+			av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
+			return;
+		}
+
 		const u32 atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
 		// Discard any pending packet data.
@@ -394,11 +403,19 @@ struct Atrac {
 			packet->size = 0;
 
 			if (FillPacket()) {
-				int to_copy = packet->size >= needed ? needed : packet->size;
-				memcpy(tempPacket.data + initialSize, packet->data, to_copy);
-				packet->size -= to_copy;
-				packet->data += to_copy;
-				tempPacket.size = initialSize + to_copy;
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					if (packet->size >= needed) {
+						memcpy(tempPacket.data + initialSize, packet->data, needed);
+						packet->size -= needed;
+						packet->data += needed;
+					}
+				} else {
+					int to_copy = packet->size >= needed ? needed : packet->size;
+					memcpy(tempPacket.data + initialSize, packet->data, to_copy);
+					packet->size -= to_copy;
+					packet->data += to_copy;
+					tempPacket.size = initialSize + to_copy;
+				}
 			} else {
 				tempPacket.size = initialSize;
 			}
@@ -876,17 +893,28 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			int skipSamples = 0;
+			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
+			}
 			u32 maxSamples = atrac->endSample - atrac->currentSample;
 			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
 			if (unalignedSamples != 0) {
 				// We're off alignment, possibly due to a loop.  Force it back on.
 				maxSamples = atracSamplesPerFrame - unalignedSamples;
-				skipSamples = unalignedSamples;
+				if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					skipSamples = unalignedSamples;
+				}
 			}
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
-				atrac->SeekToSample(atrac->currentSample);
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
+					atrac->SeekToSample(forceseekSample);
+					atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
+				} else {
+					atrac->SeekToSample(atrac->currentSample);
+				}
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket()) {
@@ -962,7 +990,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			int finishFlag = 0;
 			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				atrac->SeekToSample(atrac->loopStartSample);
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					atrac->currentSample = 0;
+				} else {
+					atrac->SeekToSample(atrac->loopStartSample);
+				}
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
 			} else if (atrac->currentSample >= atrac->endSample ||
@@ -1312,7 +1344,9 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 			// Reset temp buf for adding more stream data and set full filled buffer.
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		} else {
-			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
+			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
+			}
 		}
 
 		atrac->first.offset = 0;
@@ -1354,13 +1388,18 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			atrac->currentSample = sample;
+		}
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 			atrac->SeekToSample(sample);
 		} else
 #endif // USE_FFMPEG
 		{
-			atrac->currentSample = sample;
+			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->currentSample = sample;
+			}
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
 	}
@@ -2188,7 +2227,13 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		}
 
 		int numSamples = 0;
-		atrac->ForceSeekToSample(atrac->currentSample);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			int forceseekSample = 0x200000;
+			atrac->SeekToSample(forceseekSample);
+			atrac->SeekToSample(atrac->currentSample);
+		} else {
+			atrac->ForceSeekToSample(atrac->currentSample);
+		}
 
 		if (!atrac->failedDecode) {
 			AtracDecodeResult res;
@@ -2217,11 +2262,18 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		atrac->currentSample += numSamples;
 		numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			atrac->SeekToSample(atrac->currentSample);
+		}
 
 		if (atrac->bufferPos >= atrac->first.size) {
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
-			atrac->ForceSeekToSample(0);
+			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->currentSample = 0;
+			} else {
+				atrac->ForceSeekToSample(0);
+			}
 		}
 		else
 			atrac->first.writableBytes = 0;
