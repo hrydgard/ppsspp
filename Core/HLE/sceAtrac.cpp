@@ -263,6 +263,7 @@ struct Atrac {
 
 	u32 decodePos;
 	u32 decodeEnd;
+	// Used only by low-level decoding.
 	u32 bufferPos;
 
 	u16 atracChannels;
@@ -353,25 +354,31 @@ struct Atrac {
 	}
 
 	bool FillPacket() {
-		if (packet->size > 0) {
-			return true;
-		}
-
 		u32 off = getFileOffsetBySample(currentSample);
 		if (off < first.filesize) {
 			av_init_packet(packet);
 			packet->data = data_buf + off;
 			packet->size = atracBytesPerFrame;
 			packet->pos = off;
-			bufferPos = off + atracBytesPerFrame;
+
+			return true;
 		} else {
-			av_init_packet(packet);
-			packet->data = data_buf + dataOff;
-			packet->size = atracBytesPerFrame;
-			packet->pos = dataOff;
-			bufferPos = dataOff + atracBytesPerFrame;
+			return false;
 		}
 
+		return true;
+	}
+
+	bool FillLowLevelPacket() {
+		av_init_packet(packet);
+		if (bufferPos < (u32)dataOff) {
+			bufferPos = dataOff;
+		}
+
+		packet->data = data_buf + bufferPos;
+		packet->size = atracBytesPerFrame;
+		packet->pos = bufferPos;
+		bufferPos += atracBytesPerFrame;
 		return true;
 	}
 
@@ -2131,7 +2138,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 		if (!atrac->failedDecode) {
 			AtracDecodeResult res;
-			while (atrac->FillPacket()) {
+			while (atrac->FillLowLevelPacket()) {
 				res = atrac->DecodePacket();
 				if (res == ATDECODE_FAILED) {
 					break;
@@ -2161,6 +2168,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
 			atrac->ForceSeekToSample(0);
+			atrac->bufferPos = atrac->dataOff;
 		}
 		else
 			atrac->first.writableBytes = 0;
