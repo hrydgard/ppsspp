@@ -211,6 +211,8 @@ public:
 	void SetRenderSize(VirtualFramebuffer *vfb);
 
 protected:
+	void UpdateSize();
+
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer() = 0;
 	virtual void ClearDepthBuffer() = 0;

@@ -1109,7 +1109,7 @@ namespace DX9 {
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();
-			dxstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// Actually, auto mode should be more granular...
 			// Round up to a zoom factor for the render size.
 			int zoom = g_Config.iInternalResolution;
@@ -1132,6 +1132,7 @@ namespace DX9 {
 				PSP_CoreParameter().renderHeight = 272 * zoom;
 			}
 
+			UpdateSize();
 			ShowScreenResolution();
 			resized_ = false;
 		}

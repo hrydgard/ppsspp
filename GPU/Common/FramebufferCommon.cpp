@@ -90,17 +90,13 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
 	hackForce04154000Download_(false) {
-	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
-	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
-	pixelWidth_ = PSP_CoreParameter().pixelWidth;
-	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+	UpdateSize();
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
 }
 
 void FramebufferManagerCommon::Init() {
-
 	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
 	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
@@ -114,15 +110,18 @@ void FramebufferManagerCommon::Init() {
 	BeginFrame();
 }
 
+void FramebufferManagerCommon::UpdateSize() {
+	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
+	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
+}
+
 void FramebufferManagerCommon::BeginFrame() {
 	DecimateFBOs();
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	updateVRAM_ = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
-	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
-	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
-	pixelWidth_ = PSP_CoreParameter().pixelWidth;
-	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 }
 
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
