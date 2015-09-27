@@ -1132,6 +1132,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Config.h
 	Core/Core.cpp
 	Core/Core.h
+	Core/Compatibility.cpp
+	Core/Compatibility.h
 	Core/CoreParameter.h
 	Core/CoreTiming.cpp
 	Core/CoreTiming.h

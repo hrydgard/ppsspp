@@ -558,9 +558,13 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	}
+
+	// In the future, also disable this when we get a proper 16-bit depth buffer.
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
 
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.

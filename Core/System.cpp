@@ -204,6 +204,14 @@ void CPU_Init() {
 		break;
 	}
 
+	// Here we have read the PARAM.SFO, let's see if we need any compatibility overrides.
+	// Homebrew usually has an empty discID, and even if they do have a disc id, it's not
+	// likely to collide with any commercial ones.
+	std::string discID = g_paramSFO.GetValueString("DISC_ID");
+	if (!discID.empty()) {
+		coreParameter.compat.Load(discID);
+	}
+
 	Memory::Init();
 	mipsr4k.Reset();
 
