@@ -466,6 +466,17 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
 	}
+
+	u32 features = 0;
+
+	// Set some flags that may be convenient in the future if we merge the backends more.
+	features |= GPU_SUPPORTS_BLEND_MINMAX;
+	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
+	gstate_c.featureFlags = features;
 }
 
 DIRECTX9_GPU::~DIRECTX9_GPU() {

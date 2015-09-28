@@ -199,7 +199,7 @@ static int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 param
 	}
 	heap->address = addr;
 
-	// Some of the heap is reseved by the implementation (the first 128 bytes, and 8 after each block.)
+	// Some of the heap is reserved by the implementation (the first 128 bytes, and 8 after each block.)
 	heap->alloc.Init(heap->address + 128, heap->size - 128);
 	heapList[heap->address] = heap;
 	DEBUG_LOG(HLE, "%08x=sceHeapCreateHeap(%s, %08x, %08x, %08x)", heap->address, name, heapSize, attr, paramsPtr);

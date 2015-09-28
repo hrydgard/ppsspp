@@ -216,10 +216,10 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
-	: message_(message), callback_(callback) {
-		I18NCategory *di = GetI18NCategory("Dialog");
-		yesButtonText_ = di->T(yesButtonText.c_str());
-		noButtonText_ = di->T(noButtonText.c_str());
+		: message_(message), callback_(callback) {
+	I18NCategory *di = GetI18NCategory("Dialog");
+	yesButtonText_ = di->T(yesButtonText.c_str());
+	noButtonText_ = di->T(noButtonText.c_str());
 }
 
 void PromptScreen::CreateViews() {
@@ -235,7 +235,7 @@ void PromptScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new TextView(message_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+	leftColumn->Add(new TextView(message_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)))->SetClip(false);
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumnItems);

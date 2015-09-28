@@ -1237,7 +1237,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
 		}
 
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
@@ -1248,7 +1248,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
 
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);

@@ -578,7 +578,7 @@ namespace MainWindow {
 		case ID_FILE_QUICKLOADSTATE:
 		{
 			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			break;
 		}
 
@@ -587,14 +587,14 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty())
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::LoadSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			}
 			break;
 		}
 		case ID_FILE_QUICKSAVESTATE:
 		{
 			SetCursor(LoadCursor(0, IDC_WAIT));
-			SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+			SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 			break;
 		}
 
@@ -603,7 +603,7 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_SAVE_STATE].empty())
 			{
 				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
+				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 				break;
 			}
 		}

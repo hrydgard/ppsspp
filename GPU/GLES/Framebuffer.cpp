@@ -1659,18 +1659,20 @@ void ShowScreenResolution();
 
 void FramebufferManager::EndFrame() {
 	if (resized_) {
+		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs();
-		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+		// Probably not necessary
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
 		if (zoom == 0) { // auto mode
 											// Use the longest dimension
-			if (g_Config.IsPortrait()) {
-				zoom = (pixelWidth_ + 479) / 480;
+			if (!g_Config.IsPortrait()) {
+				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 			} else {
-				zoom = (pixelHeight_ + 479) / 480;
+				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 			}
 		}
 		if (zoom <= 1)
@@ -1683,6 +1685,8 @@ void FramebufferManager::EndFrame() {
 			PSP_CoreParameter().renderWidth = 480 * zoom;
 			PSP_CoreParameter().renderHeight = 272 * zoom;
 		}
+
+		UpdateSize();
 
 		resized_ = false;
 #ifdef _WIN32

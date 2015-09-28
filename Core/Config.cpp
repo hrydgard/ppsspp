@@ -786,21 +786,21 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
-	 if (iMaxRecent == 0)
+	if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
-	 if (iMaxRecent > 0) {
-		 recentIsos.clear();
-		 for (int i = 0; i < iMaxRecent; i++) {
-			 char keyName[64];
-			 std::string fileName;
+	if (iMaxRecent > 0) {
+		recentIsos.clear();
+		for (int i = 0; i < iMaxRecent; i++) {
+			char keyName[64];
+			std::string fileName;
 
-			 snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-				 recentIsos.push_back(fileName);
-			 }
-		 }
-	 }
+			snprintf(keyName, sizeof(keyName), "FileName%d", i);
+			if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
+				recentIsos.push_back(fileName);
+			}
+		}
+	}
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
