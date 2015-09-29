@@ -34,6 +34,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
+#include "UI/DFExtMenu.h"
 #include "UI/DarkFrostScreen.h"
 
 static DarkFrostEngine *darkFrostEngine;
@@ -101,6 +102,14 @@ void DarkFrostScreen::CreateViews() {
 
 	//SEARCHER CONTENT
 	searcherContent->Add(new ItemHeader(sr->T("Searcher")));
+	searcherContent->Add(new Choice(opt->T("Find Exact Value")))->OnClick.Handle(this, &DarkFrostScreen::OnExactValue);
+	searcherContent->Add(new Choice(opt->T("Find Unknown Value - 8bit/BYTE")))->OnClick.Handle(this, &DarkFrostScreen::OnUnknownValue8);
+	searcherContent->Add(new Choice(opt->T("Find Unknown Value - 16bit/WORD")))->OnClick.Handle(this, &DarkFrostScreen::OnUnknownValue16);
+	searcherContent->Add(new Choice(opt->T("Find Unknown Value - 32bit/DWORD")))->OnClick.Handle(this, &DarkFrostScreen::OnUnknownValue32);
+	searcherContent->Add(new Choice(opt->T("Find Text")))->OnClick.Handle(this, &DarkFrostScreen::OnFindText);
+	searcherContent->Add(new Choice(opt->T("Search Range")))->OnClick.Handle(this, &DarkFrostScreen::OnSearchRange);
+	searcherContent->Add(new Choice(opt->T("DMA Searcher")))->OnClick.Handle(this, &DarkFrostScreen::OnDMASearcher);
+	searcherContent->Add(new Choice(opt->T("Remove Searches")))->OnClick.Handle(this, &DarkFrostScreen::OnRemoveSearches);
 
 	//RAM
 	ViewGroup *ramScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));//ramScroll=rightColumn
@@ -143,6 +152,11 @@ void DarkFrostScreen::CreateViews() {
 	root_->Add(new ImageView(I_DF, IS_DEFAULT, new LinearLayoutParams(FILL_PARENT, FILL_PARENT)));
 }
 
+UI::EventReturn DarkFrostScreen::OnBack(UI::EventParams &params) {
+	//
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn DarkFrostScreen::OnRealAddressing(UI::EventParams &params) {
 	darkFrostEngine->toggleRealAddressing();
 	return UI::EVENT_DONE;
@@ -160,6 +174,53 @@ UI::EventReturn DarkFrostScreen::OnSaveCheats(UI::EventParams &params) {
 
 UI::EventReturn DarkFrostScreen::OnResetCopier(UI::EventParams &params) {
 	//
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnExactValue(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(1);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnUnknownValue8(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(2);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnUnknownValue16(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(3);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnUnknownValue32(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(4);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnFindText(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(5);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnSearchRange(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(6);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnDMASearcher(UI::EventParams &params) {
+	auto extMenu = new DFExtMenu(7);
+	screenManager()->push(extMenu);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DarkFrostScreen::OnRemoveSearches(UI::EventParams &params) {
+	//delete the search files here
 	return UI::EVENT_DONE;
 }
 

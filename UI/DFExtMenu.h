@@ -29,30 +29,11 @@
 #include "../Core/DarkFrost.h"
 #endif
 
-class DFExtMenu;
-
-class DarkFrostScreen : public UIDialogScreenWithBackground {
+class DFExtMenu : public UIDialogScreenWithBackground {
 public:
-	DarkFrostScreen() {}
-	void init();
-	UI::EventReturn OnBack(UI::EventParams &params);
-
-	//options
-	UI::EventReturn OnRealAddressing(UI::EventParams &params);
-	UI::EventReturn OnLoadCheats(UI::EventParams &params);
-	UI::EventReturn OnSaveCheats(UI::EventParams &params);
-	UI::EventReturn OnResetCopier(UI::EventParams &params);
-	UI::EventReturn OnCheatsActivated(UI::EventParams &params);
-
-	//searcher
-	UI::EventReturn OnExactValue(UI::EventParams &params);
-	UI::EventReturn OnUnknownValue8(UI::EventParams &params);
-	UI::EventReturn OnUnknownValue16(UI::EventParams &params);
-	UI::EventReturn OnUnknownValue32(UI::EventParams &params);
-	UI::EventReturn OnFindText(UI::EventParams &params);
-	UI::EventReturn OnSearchRange(UI::EventParams &params);
-	UI::EventReturn OnDMASearcher(UI::EventParams &params);
-	UI::EventReturn OnRemoveSearches(UI::EventParams &params);
+	DFExtMenu();
+	DFExtMenu(int);
+	//UI::EventReturn OnBack(UI::EventParams &params);
 
 protected:
 	virtual void CreateViews();

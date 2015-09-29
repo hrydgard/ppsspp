@@ -8,6 +8,8 @@
 
 //class PointerWrap;
 
+#define _DF
+
 class DarkFrostEngine
 {
 	public:
