@@ -178,6 +178,7 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 	{CTRL_RIGHT, JOYSTICK_AXIS_HAT_X, +1},
 	{CTRL_UP, JOYSTICK_AXIS_HAT_Y, -1},
 	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
+	{VIRTKEY_SPEED_TOGGLE, JOYSTICK_AXIS_LTRIGGER, +1 },
 	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RTRIGGER, +1 },
 	{VIRTKEY_PAUSE, NKCODE_BACK },
 };
@@ -865,7 +866,7 @@ void RestoreDefault() {
 #elif defined(ANDROID)
 	// Autodetect a few common devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (IsNvidiaShield(name)) {
+	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
 	} else if (IsOuya(name)) {  // TODO: check!
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
