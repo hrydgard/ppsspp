@@ -359,6 +359,7 @@ void StoreScreen::ParseListing(std::string json) {
 			e.size = game->getInt("size");
 			e.downloadURL = game->getString("download-url", "");
 			e.iconURL = game->getString("icon-url", "");
+			e.hidden = game->getBool("hidden", false);
 			const char *file = game->getString("file", 0);
 			if (!file)
 				continue;
@@ -413,7 +414,8 @@ std::vector<StoreEntry> StoreScreen::FilterEntries() {
 	std::vector<StoreEntry> filtered;
 	for (size_t i = 0; i < entries_.size(); i++) {
 		// TODO: Actually filter by category etc.
-		filtered.push_back(entries_[i]);
+		if (!entries_[i].hidden)
+			filtered.push_back(entries_[i]);
 	}
 	return filtered;
 }
