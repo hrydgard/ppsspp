@@ -88,9 +88,8 @@ void DarkFrostScreen::CreateViews() {
 	//OPTIONS CONTENT
 	optionsContent->Add(new ItemHeader(df->T("DarkFrost Options")));
 	//optionsContent->Add(new CheckBox(&darkFrostEngine->getRealAddressing(), opt->T("REAL Addressing"))));
-	optionsContent->Add(new Choice(opt->T("Load Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnLoadCheats);
+	optionsContent->Add(new Choice(opt->T("Reload Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnReloadCheats);
 	optionsContent->Add(new Choice(opt->T("Save Cheats")))->OnClick.Handle(this, &DarkFrostScreen::OnSaveCheats);
-	optionsContent->Add(new Choice(opt->T("Reset Copier")))->OnClick.Handle(this, &DarkFrostScreen::OnResetCopier);
 	//optionsContent->Add(new CheckBox(&darkFrostEngine->getCheatsEnabled(), opt->T("Cheats Activated")))->OnClick.Handle(this, &DarkFrostScreen::OnCheatsActivated);
 
 	//SEARCHER
@@ -162,59 +161,54 @@ UI::EventReturn DarkFrostScreen::OnRealAddressing(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn DarkFrostScreen::OnLoadCheats(UI::EventParams &params) {
-	//
+UI::EventReturn DarkFrostScreen::OnReloadCheats(UI::EventParams &params) {
+	darkFrostEngine->reloadCheats();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnSaveCheats(UI::EventParams &params) {
-	//
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn DarkFrostScreen::OnResetCopier(UI::EventParams &params) {
-	//
+	darkFrostEngine->saveCheats();
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnExactValue(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(1);
+	auto extMenu = new DFExtMenu(1, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnUnknownValue8(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(2);
+	auto extMenu = new DFExtMenu(2, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnUnknownValue16(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(3);
+	auto extMenu = new DFExtMenu(3, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnUnknownValue32(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(4);
+	auto extMenu = new DFExtMenu(4, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnFindText(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(5);
+	auto extMenu = new DFExtMenu(5, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnSearchRange(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(6);
+	auto extMenu = new DFExtMenu(6, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DarkFrostScreen::OnDMASearcher(UI::EventParams &params) {
-	auto extMenu = new DFExtMenu(7);
+	auto extMenu = new DFExtMenu(7, darkFrostEngine);
 	screenManager()->push(extMenu);
 	return UI::EVENT_DONE;
 }

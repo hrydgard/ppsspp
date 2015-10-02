@@ -34,16 +34,23 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
+#include "UI/DevScreens.h"
 #include "UI/DFExtMenu.h"
 
+static DarkFrostEngine *darkFrostEngine;
 int extMenu;
+unsigned int exactValue;
+bool refreshed;
 
 DFExtMenu::DFExtMenu() {
 	extMenu=-1;
+	refreshed=false;
 }
 
-DFExtMenu::DFExtMenu(int nExtMenu) {
+DFExtMenu::DFExtMenu(int nExtMenu, DarkFrostEngine *nDarkFrostEngine) {
+	darkFrostEngine=nDarkFrostEngine;
 	extMenu=nExtMenu;
+	refreshed=false;
 }
 
 void DFExtMenu::CreateViews() {
@@ -51,14 +58,18 @@ void DFExtMenu::CreateViews() {
 	using namespace UI;
 	I18NCategory *em = GetI18NCategory("extMenu");
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));//new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	//Content Holder
-	ViewGroup *aboutScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	ViewGroup *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
 	content->SetSpacing(0);
-	aboutScroll->Add(content);
-	root_->Add(aboutScroll);
+	contentScroll->Add(content);
+	root_->Add(contentScroll);
+
+	auto exactPrompt = new AddressPromptScreen(em->T("Value to Search"));
+	char buffer[64];
+	//unsigned char asciiVal[5];
 
 	switch(extMenu)
 	{
@@ -68,7 +79,20 @@ void DFExtMenu::CreateViews() {
 			break;
 		case 1://EXACT SEARCH
 			content->Add(new ItemHeader(em->T("Exact Search")));
-			content->Add(new TextView(em->T("Extra Menu #1")));
+			//prompt for the value
+			if(!refreshed)
+			{
+				exactPrompt->OnChoice.Handle(this, &DFExtMenu::OnAddressPrompt);
+				screenManager()->push(exactPrompt);
+			}
+			
+			//display the hakval
+			content->Add(new TextView(em->T("Hex         Decimal     ASCII        Float")));
+			//for(int i=0;i<4;i++) asciiVal[i]=darkFrostEngine->getASCII(exactValue, i);
+			sprintf(buffer, "0x%08lX  %010u  %c%c%c%c", exactValue, exactValue,
+				*((unsigned char*)&exactValue), *((unsigned char*)&exactValue+1),
+				*((unsigned char*)&exactValue+2), *((unsigned char*)&exactValue+3));
+			content->Add(new TextView(em->T(buffer)));
 			break;
 		case 2://DIFF SEARCH 8 BIT
 			content->Add(new ItemHeader(em->T("Unknown Value 8 Bit")));
@@ -91,5 +115,17 @@ void DFExtMenu::CreateViews() {
 	//BACK
 	LinearLayout *standardBack = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	AddStandardBack(standardBack);
-	root_->Add(standardBack);
+	content->Add(standardBack);
+}
+
+UI::EventReturn DFExtMenu::OnAddressPrompt(UI::EventParams &params) {
+	//nothing yet
+	unsigned int oldValue=exactValue;
+	exactValue=params.a;
+	if(exactValue != oldValue)
+	{
+		refreshed=true;
+		CreateViews();
+	}
+	return UI::EVENT_DONE;
 }

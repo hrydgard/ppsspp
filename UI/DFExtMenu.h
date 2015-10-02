@@ -32,8 +32,9 @@
 class DFExtMenu : public UIDialogScreenWithBackground {
 public:
 	DFExtMenu();
-	DFExtMenu(int);
-	//UI::EventReturn OnBack(UI::EventParams &params);
+	DFExtMenu(int, DarkFrostEngine *darkFrostEngine);
+
+	UI::EventReturn OnAddressPrompt(UI::EventParams &params);
 
 protected:
 	virtual void CreateViews();

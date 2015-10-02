@@ -17,16 +17,13 @@
 #include "util/text/utf8.h"
 #endif
 
-std::string gameDir="ms0:/darkfrost/codes/__________.txt";
-std::string gameId;//length of 10
 static DarkFrostEngine *darkFrostEngine;
-static bool cheatsEnabled;
-static bool realAddressing;
 
 DarkFrostEngine::DarkFrostEngine()
 {
 	cheatsEnabled=false;
 	realAddressing=false;
+	valueFormat=0;
 }
 
 void DarkFrostEngine::setEngine(DarkFrostEngine *nDarkFrostEngine)
@@ -34,7 +31,7 @@ void DarkFrostEngine::setEngine(DarkFrostEngine *nDarkFrostEngine)
 	darkFrostEngine=nDarkFrostEngine;
 }
 
-void DarkFrostEngine::loadCheats()
+void DarkFrostEngine::reloadCheats()
 {
 	//
 }
@@ -45,7 +42,14 @@ void DarkFrostEngine::saveCheats()
 }
 
 void DarkFrostEngine::toggleRealAddressing() { realAddressing=!realAddressing; }
-bool DarkFrostEngine::getRealAddressing() { return realAddressing; }
+bool DarkFrostEngine::getRealAddressing() const { return realAddressing; }
 
 void DarkFrostEngine::toggleCheatsEnabled() { cheatsEnabled=!cheatsEnabled; }
-bool DarkFrostEngine::getCheatsEnabled() { return cheatsEnabled; }
+bool DarkFrostEngine::getCheatsEnabled() const { return cheatsEnabled; }
+
+unsigned char DarkFrostEngine::getASCII(unsigned int value, unsigned int byte)
+{
+	unsigned char val=*((unsigned char*)(&value+byte));
+	if((val<=0x20) || (val==0xFF)) val='.';
+	return val;
+}

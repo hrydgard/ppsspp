@@ -39,9 +39,8 @@ public:
 
 	//options
 	UI::EventReturn OnRealAddressing(UI::EventParams &params);
-	UI::EventReturn OnLoadCheats(UI::EventParams &params);
+	UI::EventReturn OnReloadCheats(UI::EventParams &params);
 	UI::EventReturn OnSaveCheats(UI::EventParams &params);
-	UI::EventReturn OnResetCopier(UI::EventParams &params);
 	UI::EventReturn OnCheatsActivated(UI::EventParams &params);
 
 	//searcher
