@@ -132,6 +132,7 @@ void GameScreen::CallbackDeleteConfig(bool yes)
 	{
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 		g_Config.deleteGameConfig(info->id);
+		info->hasConfig = false;
 		screenManager()->RecreateAllViews();
 	}
 }
