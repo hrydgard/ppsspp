@@ -190,6 +190,11 @@ public:
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
+	void WaitUntilDone(GameInfo *info) {
+		// Hack - should really wait specifically for that item.
+		gameInfoWQ_->WaitUntilDone();
+	}
+
 private:
 	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);
 
