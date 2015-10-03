@@ -80,7 +80,7 @@ public:
 
 				raw_data_ = (uint8_t *)malloc(numBytes);
 				raw_data_size_ = numBytes;
-				if (/*raw_bytes_per_frame_ == 280 && */ num_channels == 2) {
+				if (/*raw_bytes_per_frame_ == 280 && */ num_channels == 1 || num_channels == 2) {
 					file_.readData(raw_data_, numBytes);
 				} else {
 					ELOG("Error - bad blockalign or channels");
@@ -174,6 +174,7 @@ static void ClearBackgroundAudio() {
 		at3Reader = 0;
 	}
 	playbackOffset = 0;
+	gameLastChanged = 0;
 }
 
 void SetBackgroundAudioGame(const std::string &path) {
@@ -209,6 +210,11 @@ int PlayBackgroundAudio() {
 		GameInfo *gameInfo = g_gameInfoCache.GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
 		if (!gameInfo)
 			return 0;
+
+		if (gameInfo->pending) {
+			// Should try again shortly..
+			return 0;
+		}
 
 		if (gameInfo->sndFileData.size()) {
 			const std::string &data = gameInfo->sndFileData;

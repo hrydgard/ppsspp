@@ -563,7 +563,7 @@ handleELF:
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
-
+		info_->pending = false;
 		info_->DisposeFileLoader();
 	}
 
