@@ -34,6 +34,7 @@ public:
 	void Flush();
 	bool Done() { return done_; }
 	void Stop();
+	void WaitUntilDone();
 
 private:
 	bool done_;
