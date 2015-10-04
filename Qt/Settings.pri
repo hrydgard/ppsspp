@@ -1,4 +1,4 @@
-VERSION = 1.0.1.0
+VERSION = 1.1.0.0
 DEFINES += USING_QT_UI USE_FFMPEG
 
 exists( /usr/include/snappy-c.h ) {
