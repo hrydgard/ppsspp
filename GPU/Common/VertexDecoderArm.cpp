@@ -20,6 +20,8 @@
 #define ARM
 #endif
 
+#include <stddef.h>
+
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
