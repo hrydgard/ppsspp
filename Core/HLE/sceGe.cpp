@@ -66,6 +66,11 @@ public:
 	GeIntrHandler() : IntrHandler(PSP_GE_INTR) {}
 
 	bool run(PendingInterrupt& pend) override {
+		if (ge_pending_cb.empty()) {
+			ERROR_LOG_REPORT(SCEGE, "Unable to run GE interrupt: no pending interrupt");
+			return false;
+		}
+
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
 
