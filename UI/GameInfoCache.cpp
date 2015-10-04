@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Common.h"
+
 #include <string>
 #include <map>
 #include <memory>
@@ -45,6 +47,9 @@
 GameInfoCache g_gameInfoCache;
 
 GameInfo::~GameInfo() {
+	delete iconTexture;
+	delete pic0Texture;
+	delete pic1Texture;
 	delete fileLoader;
 }
 

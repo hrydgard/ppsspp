@@ -30,15 +30,8 @@ namespace MIPSComp {
 class AsmRoutineManager : public Gen::XCodeBlock {
 private:
 	void Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo);
-	void GenerateCommon();
 
 public:
-	AsmRoutineManager() {
-	}
-	~AsmRoutineManager() {
-		FreeCodeSpace();
-	}
-
 	void Init(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo) {
 		AllocCodeSpace(8192);
 		Generate(mips, jit, jo);
