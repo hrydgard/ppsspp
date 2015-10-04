@@ -107,7 +107,9 @@ void ProcessWorkQueueOnThreadWhile(PrioritizedWorkQueue *wq) {
 
 void StopProcessingWorkQueue(PrioritizedWorkQueue *wq) {
 	wq->Stop();
-	workThread->join();
-	delete workThread;
+	if (workThread) {
+		workThread->join();
+		delete workThread;
+	}
 	workThread = 0;
 }
