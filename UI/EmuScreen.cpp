@@ -369,9 +369,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
 		break;
 	case VIRTKEY_LOAD_STATE:
-		if (SaveState::HasSaveInSlot(gamePath_, g_Config.iCurrentStateSlot)) {
-			SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
-		}
+		SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		SaveState::NextSlot();
