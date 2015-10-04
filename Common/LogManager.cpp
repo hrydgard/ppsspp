@@ -36,13 +36,15 @@ const char *hleCurrentThreadName = NULL;
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...) {
-	if (!g_Config.bEnableLogging) return;
+	if (!g_Config.bEnableLogging)
+		return;
 
 	va_list args;
 	va_start(args, fmt);
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->Log(level, type,
-			file, line, fmt, args);
+	LogManager *instance = LogManager::GetInstance();
+	if (instance) {
+		instance->Log(level, type, file, line, fmt, args);
+	}
 	va_end(args);
 }
 
@@ -205,25 +207,32 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	
 	char msg[MAX_MSGLEN];
 	char *msgPos = msg;
+	size_t prefixLen;
 	if (hleCurrentThreadName != NULL) {
-		msgPos += snprintf(msgPos, MAX_MSGLEN, "%s %-12.12s %c[%s]: %s:%d ",
+		prefixLen = snprintf(msgPos, MAX_MSGLEN, "%s %-12.12s %c[%s]: %s:%d ",
 			formattedTime,
 			hleCurrentThreadName, level_to_char[(int)level],
 			log->GetShortName(),
 			file, line);
 	} else {
-		msgPos += snprintf(msgPos, MAX_MSGLEN, "%s %s:%d %c[%s]: ",
+		prefixLen = snprintf(msgPos, MAX_MSGLEN, "%s %s:%d %c[%s]: ",
 			formattedTime,
 			file, line, level_to_char[(int)level],
 			log->GetShortName());
 	}
 
-	int prefixLen = msgPos - msg;
-
-	msgPos += vsnprintf(msgPos, MAX_MSGLEN - prefixLen - 2, format, args);
-	msgPos[0] = '\n';
-	msgPos[1] = '\0';
-
+	msgPos += prefixLen;
+	size_t space = MAX_MSGLEN - prefixLen - 2;
+	size_t neededBytes = vsnprintf(msgPos, space, format, args);
+	if (neededBytes > space) {
+		// Cut at the end.
+		msg[MAX_MSGLEN - 2] = '\n';
+		msg[MAX_MSGLEN - 1] = '\0';
+	} else {
+		// Plenty of space left.
+		msgPos[neededBytes] = '\n';
+		msgPos[neededBytes + 1] = '\0';
+	}
 	log->Trigger(level, msg);
 }
 
