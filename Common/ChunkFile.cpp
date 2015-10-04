@@ -223,6 +223,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 		snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(COMMON, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
+			delete [] uncomp_buffer;
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
@@ -233,6 +234,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string& _rFilename
 	return ERROR_NONE;
 }
 
+// Takes ownership of buffer.
 CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *buffer, size_t sz) {
 	INFO_LOG(COMMON, "ChunkReader: Writing %s" , _rFilename.c_str());
 
@@ -240,6 +242,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string& _rFilename
 	if (!pFile)
 	{
 		ERROR_LOG(COMMON, "ChunkReader: Error opening file for write");
+		delete[] buffer;
 		return ERROR_BAD_FILE;
 	}
 
@@ -277,11 +280,13 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string& _rFilename
 		if (!pFile.WriteArray(&header, 1))
 		{
 			ERROR_LOG(COMMON, "ChunkReader: Failed writing header");
+			delete[] buffer;
 			return ERROR_BAD_FILE;
 		}
 		if (!pFile.WriteBytes(&buffer[0], sz))
 		{
 			ERROR_LOG(COMMON, "ChunkReader: Failed writing data");
+			delete[] buffer;
 			return ERROR_BAD_FILE;
 		}
 		delete [] buffer;

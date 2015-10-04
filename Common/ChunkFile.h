@@ -636,13 +636,12 @@ public:
 	{
 		*_failureReason = "LoadStateWrongVersion";
 
-		u8 *ptr;
+		u8 *ptr = nullptr;
 		size_t sz;
 		Error error = LoadFile(_rFilename, _Revision, _VersionString, ptr, sz, _failureReason);
 		if (error == ERROR_NONE) {
-			u8 *buf = ptr;
 			error = LoadPtr(ptr, _class);
-			delete[] buf;
+			delete [] ptr;
 		}
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
@@ -661,9 +660,9 @@ public:
 		u8 *buffer = new u8[sz];
 		Error error = SavePtr(buffer, _class);
 
+		// SaveFile takes ownership of buffer
 		if (error == ERROR_NONE)
 			error = SaveFile(_rFilename, _Revision, _VersionString, buffer, sz);
-
 		return error;
 	}
 	
