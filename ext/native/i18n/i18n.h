@@ -35,6 +35,7 @@ struct I18NCandidate {
 
 class I18NCategory {
 public:
+	// NOTE: Name must be a global constant string - it is not copied.
 	I18NCategory(const char *name) : name_(name) {}
 	const char *T(const char *key, const char *def = 0);
 	const char *T(const std::string &key) {
@@ -48,6 +49,7 @@ public:
 	void SetMap(const std::map<std::string, std::string> &m);
 	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
+	const char *GetName() const { return name_.c_str(); }
 
 private:
 	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
@@ -91,6 +93,8 @@ extern I18NRepo i18nrepo;
 // These are simply talking to the one global instance of I18NRepo.
 
 inline I18NCategory *GetI18NCategory(const char *categoryName) {
+	if (!categoryName)
+		return nullptr;
 	return i18nrepo.GetCategory(categoryName);
 }
 

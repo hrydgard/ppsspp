@@ -46,6 +46,7 @@ GameScreen::~GameScreen() {
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	g_gameInfoCache.WaitUntilDone(info);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
@@ -89,7 +90,7 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
 	if (info && !info->id.empty())
 	{
-		if (g_Config.hasGameConfig(info->id))
+		if (info->hasConfig)
 		{
 			rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
 			rightColumnItems->Add(new Choice(ga->T("Delete Game Config")))->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
@@ -120,6 +121,7 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_,0);
 	g_Config.createGameConfig(info->id);
 	g_Config.saveGameConfig(info->id);
+	info->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
 	return UI::EVENT_DONE;
@@ -131,6 +133,7 @@ void GameScreen::CallbackDeleteConfig(bool yes)
 	{
 		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 		g_Config.deleteGameConfig(info->id);
+		info->hasConfig = false;
 		screenManager()->RecreateAllViews();
 	}
 }

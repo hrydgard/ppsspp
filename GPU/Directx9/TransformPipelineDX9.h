@@ -247,6 +247,7 @@ private:
 
 	UVScale *uvScale;
 
+	bool fboTexNeedBind_;
 	bool fboTexBound_;
 };
 

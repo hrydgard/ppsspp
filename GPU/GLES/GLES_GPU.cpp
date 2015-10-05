@@ -60,6 +60,13 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,
 };
 
+static const char *FramebufferFetchBlacklist[] = {
+	// Blacklist Tegra 3, doesn't work very well.
+	"NVIDIA Tegra 3",
+	"PowerVR Rogue G6430",
+	"PowerVR SGX 540",
+};
+
 struct CommandTableEntry {
 	u8 cmd;
 	u8 flags;
@@ -497,9 +504,11 @@ void GLES_GPU::CheckGPUFeatures() {
 	// Tales of Destiny 2 has been reported to display green.
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
 		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-		// Blacklist Tegra 3, doesn't work very well.
-		if (strstr(gl_extensions.model, "NVIDIA Tegra 3") != 0) {
-			features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
+			if (strstr(gl_extensions.model, FramebufferFetchBlacklist[i]) != 0) {
+				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+				break;
+			}
 		}
 	}
 	
@@ -549,9 +558,13 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES) {
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
-	}
+
+	// In the future, also disable this when we get a proper 16-bit depth buffer.
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
 
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.

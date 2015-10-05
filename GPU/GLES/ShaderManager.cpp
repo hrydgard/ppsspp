@@ -51,7 +51,7 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const
 	shader = glCreateShader(shaderType);
 	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
-	GLint success;
+	GLint success = 0;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
 #define MAX_INFO_LOG_SIZE 2048
@@ -747,6 +747,7 @@ void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
 	lastShader_ = 0;
+	lastVShaderSame_ = false;
 }
 
 // This is to be used when debugging why incompatible shaders are being linked, like is

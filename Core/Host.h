@@ -22,6 +22,7 @@
 
 struct InputState;
 
+// TODO: Whittle this down. Collecting a bunch of random stuff like this isn't good design :P
 class Host {
 public:
 	virtual ~Host() {}
@@ -37,7 +38,6 @@ public:
 
 	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}
-	virtual void UpdateScreen() {}
 	virtual void GoFullscreen(bool) {}
 	virtual void ShutdownSound() = 0;
 	virtual void PollControllers(InputState &input_state) {}

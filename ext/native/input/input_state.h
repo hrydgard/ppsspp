@@ -88,6 +88,7 @@ public:
 	int deviceId;
 	int keyCode;
 
+	// If you want to use std::find and match ANY, you need to perform an explicit search for that.
 	bool operator < (const KeyDef &other) const {
 		if (deviceId < other.deviceId) return true;
 		if (deviceId > other.deviceId) return false;

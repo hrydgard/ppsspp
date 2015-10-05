@@ -178,6 +178,7 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 	{CTRL_RIGHT, JOYSTICK_AXIS_HAT_X, +1},
 	{CTRL_UP, JOYSTICK_AXIS_HAT_Y, -1},
 	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
+	{VIRTKEY_SPEED_TOGGLE, JOYSTICK_AXIS_LTRIGGER, +1 },
 	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RTRIGGER, +1 },
 	{VIRTKEY_PAUSE, NKCODE_BACK },
 };
@@ -288,12 +289,13 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
-static void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
+void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
 	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
 		keycodes->push_back((keycode_t)i->keyCode);
 	}
 }
 
+// TODO: This is such a mess...
 void UpdateNativeMenuKeys() {
 	std::vector<KeyDef> confirmKeys, cancelKeys;
 	std::vector<KeyDef> tabLeft, tabRight;
@@ -311,10 +313,19 @@ void UpdateNativeMenuKeys() {
 	KeyFromPspButton(CTRL_LEFT, &leftKeys);
 	KeyFromPspButton(CTRL_RIGHT, &rightKeys);
 
+#ifdef ANDROID
+	// Hardcode DPAD on Android
+	upKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_UP));
+	downKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_DOWN));
+	leftKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_LEFT));
+	rightKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_RIGHT));
+#endif
+
 	// Push several hard-coded keys before submitting to native.
 	const KeyDef hardcodedConfirmKeys[] = {
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_SPACE),
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ENTER),
+		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_A),
 	};
 
 	// If they're not already bound, add them in.
@@ -326,6 +337,7 @@ void UpdateNativeMenuKeys() {
 	const KeyDef hardcodedCancelKeys[] = {
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
 		KeyDef(DEVICE_ID_ANY, NKCODE_BACK),
+		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_B),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
@@ -365,7 +377,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 #elif defined(_WIN32) && !defined(_XBOX)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
-			switch ((int)localeId & 0xFFFF) {
+			switch ((int)(intptr_t)localeId & 0xFFFF) {
 			case 0x407:
 				qwertz = true;
 				break;
@@ -854,7 +866,7 @@ void RestoreDefault() {
 #elif defined(ANDROID)
 	// Autodetect a few common devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (IsNvidiaShield(name)) {
+	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
 	} else if (IsOuya(name)) {  // TODO: check!
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
@@ -890,7 +902,7 @@ void LoadFromIni(IniFile &file) {
 
 		// Erase default mapping
 		g_controllerMap.erase(psp_button_names[i].key);
-		if (value.empty()) 
+		if (value.empty())
 			continue;
 
 		std::vector<std::string> mappings;
@@ -935,6 +947,10 @@ bool IsOuya(const std::string &name) {
 
 bool IsNvidiaShield(const std::string &name) {
 	return name == "NVIDIA:SHIELD";
+}
+
+bool IsNvidiaShieldTV(const std::string &name) {
+	return name == "NVIDIA:SHIELD Android TV";
 }
 
 bool IsXperiaPlay(const std::string &name) {

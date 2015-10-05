@@ -16,6 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <sstream>
+
+#include "i18n/i18n.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
@@ -25,6 +28,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "UI/OnScreenDisplay.h"  // Gross dependency!
 
 void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
@@ -86,13 +90,13 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
 	hackForce04154000Download_(false) {
+	UpdateSize();
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
 }
 
 void FramebufferManagerCommon::Init() {
-
 	const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 	// This applies a hack to Dangan Ronpa, its demo, and its sequel.
 	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
@@ -104,6 +108,13 @@ void FramebufferManagerCommon::Init() {
 	ClearBuffer();
 
 	BeginFrame();
+}
+
+void FramebufferManagerCommon::UpdateSize() {
+	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
+	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
+	pixelWidth_ = PSP_CoreParameter().pixelWidth;
+	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 }
 
 void FramebufferManagerCommon::BeginFrame() {
@@ -191,10 +202,11 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 
 	if (viewport_width != region_width) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
+		const u32 fb_normalized_address = fb_address | 0x44000000;
 		u32 nearest_address = 0xFFFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			const u32 other_address = vfbs_[i]->fb_address | 0x44000000;
-			if (other_address > fb_address && other_address < nearest_address) {
+			if (other_address > fb_normalized_address && other_address < nearest_address) {
 				nearest_address = other_address;
 			}
 		}
@@ -203,7 +215,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 		// This catches some cases where we can know this.
 		// Hmm.  The problem is that we could only catch it for the first of two buffers...
 		const u32 bpp = fb_format == GE_FORMAT_8888 ? 4 : 2;
-		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
+		int avail_height = (nearest_address - fb_normalized_address) / (fb_stride * bpp);
 		if (avail_height < drawing_height && avail_height == region_height) {
 			drawing_width = std::min(region_width, fb_stride);
 			drawing_height = avail_height;
@@ -317,6 +329,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+				} else {
+					// Even though we won't resize it, let's at least change the size params.
+					vfb->width = drawing_width;
+					vfb->height = drawing_height;
 				}
 			}
 		} else {
@@ -325,8 +341,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		}
 	}
 
-	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+	float renderWidthFactor = renderWidth_ / 480.0f;
+	float renderHeightFactor = renderHeight_ / 272.0f;
 
 	if (hackForce04154000Download_ && params.fb_address == 0x00154000) {
 		renderWidthFactor = 1.0;
@@ -781,8 +797,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 }
 
 void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
-	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+	float renderWidthFactor = renderWidth_ / 480.0f;
+	float renderHeightFactor = renderHeight_ / 272.0f;
 	bool force1x = false;
 	switch (g_Config.iBloomHack) {
 	case 1:
@@ -819,4 +835,16 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 	checkFlag(FB_USAGE_DISPLAYED_FRAMEBUFFER, vfb->last_frame_displayed);
 	checkFlag(FB_USAGE_TEXTURE, vfb->last_frame_used);
 	checkFlag(FB_USAGE_RENDERTARGET, vfb->last_frame_render);
+}
+
+void FramebufferManagerCommon::ShowScreenResolution() {
+	I18NCategory *gr = GetI18NCategory("Graphics");
+
+	std::ostringstream messageStream;
+	messageStream << gr->T("Internal Resolution") << ": ";
+	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
+	messageStream << gr->T("Window Size") << ": ";
+	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
+
+	osm.Show(messageStream.str(), 2.0f, 0xFFFFFF, -1, true, "resize");
 }

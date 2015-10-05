@@ -603,15 +603,23 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		}
 	}
 
+	// Hack for old savestates: Avoid stack overflow (MIPSCompileOp/CompReplacementFunc)
+	// Not sure about the cause.
+	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC(), true);
+	if (origInstruction.encoding == op.encoding) {
+		ERROR_LOG(HLE, "Replacement broken (savestate problem?): %08x", op.encoding);
+		return;
+	}
+
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
+		MIPSCompileOp(origInstruction);
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true));
+			MIPSCompileOp(origInstruction);
 		} else {
 			FlushAll();
 			MOV(32, R(ECX), M(&mips_->r[MIPS_REG_RA]));

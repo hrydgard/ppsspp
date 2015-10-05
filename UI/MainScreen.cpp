@@ -54,7 +54,7 @@
 
 #ifdef _WIN32
 #include "Windows/W32Util/ShellUtil.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #endif
 
 #ifdef ANDROID_NDK_PROFILER
@@ -310,7 +310,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
-	if (!ginfo->id.empty() && g_Config.hasGameConfig(ginfo->id))
+	if (!ginfo->id.empty() && ginfo->hasConfig)
 	{
 		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}
@@ -789,7 +789,9 @@ void MainScreen::CreateViews() {
 #endif
 	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
-	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetSmall(true);
+	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
+	ver->SetSmall(true);
+	ver->SetClip(false);
 #if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif

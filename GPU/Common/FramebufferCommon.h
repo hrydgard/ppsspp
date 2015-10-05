@@ -115,6 +115,13 @@ extern GPUgstate gstate;
 
 void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
 
+enum BindFramebufferColorFlags {
+	BINDFBCOLOR_SKIP_COPY = 0,
+	BINDFBCOLOR_MAY_COPY = 1,
+	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
+	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
+};
+
 class FramebufferManagerCommon {
 public:
 	FramebufferManagerCommon();
@@ -204,6 +211,8 @@ public:
 	void SetRenderSize(VirtualFramebuffer *vfb);
 
 protected:
+	void UpdateSize();
+
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer() = 0;
 	virtual void ClearDepthBuffer() = 0;
@@ -222,6 +231,8 @@ protected:
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) = 0;
+
+	void ShowScreenResolution();
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
@@ -259,6 +270,12 @@ protected:
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 	bool hackForce04154000Download_;
+
+	// Sampled in BeginFrame for safety.
+	float renderWidth_;
+	float renderHeight_;
+	int pixelWidth_;
+	int pixelHeight_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {

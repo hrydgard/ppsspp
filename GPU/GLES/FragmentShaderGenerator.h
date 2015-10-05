@@ -52,10 +52,6 @@ enum ReplaceBlendType {
 	REPLACE_BLEND_COPY_FBO,
 };
 
-bool IsAlphaTestAgainstZero();
-bool IsAlphaTestTriviallyTrue();
-bool IsColorTestAgainstZero();
-bool IsColorTestTriviallyTrue();
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);

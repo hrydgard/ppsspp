@@ -468,7 +468,7 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 
 	Rt = DecodeReg(Rt);
 	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
-	        (bits << 19) | (distance << 5) | Rt);
+	        (bits << 19) | (((u32)distance << 5) & 0x7FFE0) | Rt);
 }
 
 void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
@@ -783,7 +783,7 @@ void ARM64XEmitter::EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64R
 		imm >>= 2;
 	}
 
-	_assert_msg_(JIT, imm >= -64 && imm <= 63, "%s recieved too large imm: %d", imm);
+	_assert_msg_(JIT, imm >= -64 && imm <= 63, "%s recieved too large imm: %d", __FUNCTION__, imm);
 
 	Rt = DecodeReg(Rt);
 	Rt2 = DecodeReg(Rt2);
@@ -867,11 +867,11 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 		}
 		break;
 		case 5: // B (uncoditional)
-			_assert_msg_(DYNA_REC, IsInRangeImm26(distance), "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
+			_assert_msg_(DYNA_REC, IsInRangeImm26(distance), "%s(%d): Received too large distance: %llx", __FUNCTION__, branch.type, distance);
 			inst = (0x5 << 26) | MaskImm26(distance);
 		break;
 		case 6: // BL (unconditional)
-			_assert_msg_(DYNA_REC, IsInRangeImm26(distance), "%s(%d): Received too large distance: %lx", __FUNCTION__, branch.type, distance);
+			_assert_msg_(DYNA_REC, IsInRangeImm26(distance), "%s(%d): Received too large distance: %llx", __FUNCTION__, branch.type, distance);
 			inst = (0x25 << 26) | MaskImm26(distance);
 		break;
 	}
@@ -959,7 +959,7 @@ void ARM64XEmitter::B(CCFlags cond, const void* ptr)
 
 	distance >>= 2;
 
-	_assert_msg_(DYNA_REC, IsInRangeImm19(distance), "%s: Received too large distance: %p->%p %ld %lx", __FUNCTION__, m_code, ptr, distance, distance);
+	_assert_msg_(DYNA_REC, IsInRangeImm19(distance), "%s: Received too large distance: %p->%p %lld %llx", __FUNCTION__, m_code, ptr, distance, distance);
 	Write32((0x54 << 24) | (MaskImm19(distance) << 5) | cond);
 }
 
@@ -1409,6 +1409,10 @@ void ARM64XEmitter::ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shif
 void ARM64XEmitter::BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift)
 {
 	EncodeLogicalInst(7, Rd, Rn, Rm, Shift);
+}
+void ARM64XEmitter::TST(ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift)
+{
+	ANDS(Is64Bit(Rn) ? ZR : WZR, Rn, Rm, Shift);
 }
 
 void ARM64XEmitter::MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift) {

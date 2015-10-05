@@ -29,11 +29,11 @@ public:
 		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
 	}
 
-	virtual bool Key(const KeyInput &input) { return false; }
-	virtual void Update(const InputState &input) {}
-	virtual void Touch(const TouchInput &input);
-	virtual void Draw(UIContext &dc);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual bool Key(const KeyInput &input) override { return false; }
+	virtual void Update(const InputState &input) override {}
+	virtual void Touch(const TouchInput &input) override;
+	virtual void Draw(UIContext &dc) override;
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	virtual bool IsDown() { return pointerDownMask_ != 0; }
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
@@ -57,7 +57,7 @@ public:
 
 	}
 	virtual void Touch(const TouchInput &input) override;
-	virtual bool IsDown() { return *value_; }
+	virtual bool IsDown() override { return *value_; }
 
 private:
 	bool *value_;
@@ -69,7 +69,7 @@ public:
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
 	void Touch(const TouchInput &input) override;
-	virtual bool IsDown();
+	virtual bool IsDown() override;
 
 private:
 	int pspButtonBit_;

@@ -30,6 +30,10 @@
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
 
+#if defined(_M_IX86) && !defined(_ARCH_32)
+#error Make sure _ARCH_32 is defined correctly.
+#endif
+
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
 // crash the whole emulator.

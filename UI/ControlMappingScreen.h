@@ -80,4 +80,5 @@ protected:
 	virtual void CreateViews() override;
 
 	UI::TextView *lastKeyEvent_;
+	UI::TextView *lastLastKeyEvent_;
 };

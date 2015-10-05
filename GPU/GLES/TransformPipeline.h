@@ -128,7 +128,7 @@ public:
 	}
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost();
+	void GLLost() override;
 	void Resized();
 
 	void DecimateTrackedVertexArrays();
@@ -250,5 +250,6 @@ private:
 
 	UVScale *uvScale;
 
+	bool fboTexNeedBind_;
 	bool fboTexBound_;
 };

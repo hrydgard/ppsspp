@@ -90,6 +90,7 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 		decodeCounter_(0),
 		dcid_(0),
 		uvScale(0),
+		fboTexNeedBind_(false),
 		fboTexBound_(false) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
@@ -693,6 +694,9 @@ void TransformDrawEngineDX9::DoFlush() {
 						if (!useElements && indexGen.PureCount()) {
 							vai->numVerts = indexGen.PureCount();
 						}
+
+						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
+
 						void * pVb;
 						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
@@ -777,6 +781,8 @@ rotateVBO:
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		ApplyDrawStateLate();
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
 		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
 		if (pHardwareVertexDecl) {
@@ -828,6 +834,9 @@ rotateVBO:
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, -1.0f);
 
+		ApplyDrawStateLate();
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
+
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS, result.stencilValue, 255);
@@ -877,6 +886,12 @@ rotateVBO:
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+
+	// Now seems as good a time as any to reset the min/max coords, which we may examine later.
+	gstate_c.vertBounds.minU = 512;
+	gstate_c.vertBounds.minV = 512;
+	gstate_c.vertBounds.maxU = 0;
+	gstate_c.vertBounds.maxV = 0;
 
 	host->GPUNotifyDraw();
 }

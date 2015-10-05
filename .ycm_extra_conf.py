@@ -40,7 +40,7 @@ flags = [
 '-Wno-missing-field-initializers',
 '-fexceptions',
 '-DNDEBUG',
-'-Inative',
+'-Iext/native',
 '-ICommon',
 # THIS IS IMPORTANT! Without a "-std=<something>" flag, clang won't know which
 # language to use when compiling headers. So it will guess. Badly. So C++

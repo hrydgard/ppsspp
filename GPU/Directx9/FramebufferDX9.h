@@ -71,7 +71,7 @@ public:
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
-	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy = false);
+	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
 

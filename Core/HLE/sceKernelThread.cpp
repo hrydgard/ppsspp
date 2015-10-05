@@ -41,6 +41,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/HLE/ThreadQueueList.h"
 
 typedef struct
 {
@@ -598,270 +599,6 @@ public:
 	std::vector<SceUID> waitingThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
 	std::map<SceUID, u64> pausedWaits;
-};
-
-struct ThreadQueueList
-{
-	// Number of queues (number of priority levels starting at 0.)
-	static const int NUM_QUEUES = 128;
-	// Initial number of threads a single queue can handle.
-	static const int INITIAL_CAPACITY = 32;
-
-	struct Queue
-	{
-		// Next ever-been-used queue (worse priority.)
-		Queue *next;
-		// First valid item in data.
-		int first;
-		// One after last valid item in data.
-		int end;
-		// A too-large array with room on the front and end.
-		SceUID *data;
-		// Size of data array.
-		int capacity;
-	};
-
-	ThreadQueueList()
-	{
-		memset(queues, 0, sizeof(queues));
-		first = invalid();
-	}
-
-	~ThreadQueueList()
-	{
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			if (queues[i].data != NULL)
-				free(queues[i].data);
-		}
-	}
-
-	// Only for debugging, returns priority level.
-	int contains(const SceUID uid)
-	{
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			if (queues[i].data == NULL)
-				continue;
-
-			Queue *cur = &queues[i];
-			for (int j = cur->first; j < cur->end; ++j)
-			{
-				if (cur->data[j] == uid)
-					return i;
-			}
-		}
-
-		return -1;
-	}
-
-	inline SceUID pop_first()
-	{
-		Queue *cur = first;
-		while (cur != invalid())
-		{
-			if (cur->end - cur->first > 0)
-				return cur->data[cur->first++];
-			cur = cur->next;
-		}
-
-		_dbg_assert_msg_(SCEKERNEL, false, "ThreadQueueList should not be empty.");
-		return 0;
-	}
-
-	inline SceUID pop_first_better(u32 priority)
-	{
-		Queue *cur = first;
-		Queue *stop = &queues[priority];
-		while (cur < stop)
-		{
-			if (cur->end - cur->first > 0)
-				return cur->data[cur->first++];
-			cur = cur->next;
-		}
-
-		return 0;
-	}
-
-	inline void push_front(u32 priority, const SceUID threadID)
-	{
-		Queue *cur = &queues[priority];
-		cur->data[--cur->first] = threadID;
-		if (cur->first == 0)
-			rebalance(priority);
-	}
-
-	inline void push_back(u32 priority, const SceUID threadID)
-	{
-		Queue *cur = &queues[priority];
-		cur->data[cur->end++] = threadID;
-		if (cur->end == cur->capacity)
-			rebalance(priority);
-	}
-
-	inline void remove(u32 priority, const SceUID threadID)
-	{
-		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
-
-		for (int i = cur->first; i < cur->end; ++i)
-		{
-			if (cur->data[i] == threadID)
-			{
-				int remaining = --cur->end - i;
-				if (remaining > 0)
-					memmove(&cur->data[i], &cur->data[i + 1], remaining * sizeof(SceUID));
-				return;
-			}
-		}
-
-		// Wasn't there.
-	}
-
-	inline void rotate(u32 priority)
-	{
-		Queue *cur = &queues[priority];
-		_dbg_assert_msg_(SCEKERNEL, cur->next != NULL, "ThreadQueueList::Queue should already be linked up.");
-
-		if (cur->end - cur->first > 1)
-		{
-			cur->data[cur->end++] = cur->data[cur->first++];
-			if (cur->end == cur->capacity)
-				rebalance(priority);
-		}
-	}
-
-	inline void clear()
-	{
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			if (queues[i].data != NULL)
-				free(queues[i].data);
-		}
-		memset(queues, 0, sizeof(queues));
-		first = invalid();
-	}
-
-	inline bool empty(u32 priority) const
-	{
-		const Queue *cur = &queues[priority];
-		return cur->first == cur->end;
-	}
-
-	inline void prepare(u32 priority)
-	{
-		Queue *cur = &queues[priority];
-		if (cur->next == NULL)
-			link(priority, INITIAL_CAPACITY);
-	}
-
-	void DoState(PointerWrap &p)
-	{
-		auto s = p.Section("ThreadQueueList", 1);
-		if (!s)
-			return;
-
-		int numQueues = NUM_QUEUES;
-		p.Do(numQueues);
-		if (numQueues != NUM_QUEUES)
-		{
-			p.SetError(p.ERROR_FAILURE);
-			ERROR_LOG(SCEKERNEL, "Savestate loading error: invalid data");
-			return;
-		}
-
-		if (p.mode == p.MODE_READ)
-			clear();
-
-		for (int i = 0; i < NUM_QUEUES; ++i)
-		{
-			Queue *cur = &queues[i];
-			int size = cur->end - cur->first;
-			p.Do(size);
-			int capacity = cur->capacity;
-			p.Do(capacity);
-
-			if (capacity == 0)
-				continue;
-
-			if (p.mode == p.MODE_READ)
-			{
-				link(i, capacity);
-				cur->first = (cur->capacity - size) / 2;
-				cur->end = cur->first + size;
-			}
-
-			if (size != 0)
-				p.DoArray(&cur->data[cur->first], size);
-		}
-	}
-
-private:
-	Queue *invalid() const
-	{
-		return (Queue *) -1;
-	}
-
-	void link(u32 priority, int size)
-	{
-		_dbg_assert_msg_(SCEKERNEL, queues[priority].data == NULL, "ThreadQueueList::Queue should only be initialized once.");
-
-		if (size <= INITIAL_CAPACITY)
-			size = INITIAL_CAPACITY;
-		else
-		{
-			int goal = size;
-			size = INITIAL_CAPACITY;
-			while (size < goal)
-				size *= 2;
-		}
-		Queue *cur = &queues[priority];
-		cur->data = (SceUID *) malloc(sizeof(SceUID) * size);
-		cur->capacity = size;
-		cur->first = size / 2;
-		cur->end = size / 2;
-
-		for (int i = (int) priority - 1; i >= 0; --i)
-		{
-			if (queues[i].next != NULL)
-			{
-				cur->next = queues[i].next;
-				queues[i].next = cur;
-				return;
-			}
-		}
-
-		cur->next = first;
-		first = cur;
-	}
-
-	void rebalance(u32 priority)
-	{
-		Queue *cur = &queues[priority];
-		int size = cur->end - cur->first;
-		if (size >= cur->capacity - 2)
-		{
-			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * 2 * sizeof(SceUID));
-			if (new_data != NULL)
-			{
-				cur->capacity *= 2;
-				cur->data = new_data;
-			}
-		}
-
-		int newFirst = (cur->capacity - size) / 2;
-		if (newFirst != cur->first)
-		{
-			memmove(&cur->data[newFirst], &cur->data[cur->first], size * sizeof(SceUID));
-			cur->first = newFirst;
-			cur->end = newFirst + size;
-		}
-	}
-
-	// The first queue that's ever been used.
-	Queue *first;
-	// The priority level queues of thread ids.
-	Queue queues[NUM_QUEUES];
 };
 
 struct WaitTypeFuncs
@@ -1500,7 +1237,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
 		}
 
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
@@ -1511,7 +1248,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	}
 	else
 	{
-		DEBUG_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
 
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
@@ -1769,7 +1506,6 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 		reason = "started wait";
 
 	hleReSchedule(processCallbacks, reason);
-	// TODO: Remove thread from Ready queue?
 }
 
 void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr)
@@ -1903,20 +1639,57 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 	return kernelObjects.Destroy<Thread>(threadID);
 }
 
+static void __ReportThreadQueueEmpty() {
+	// We failed to find a thread to schedule.
+	// This means something horrible happened to the idle threads.
+	u32 error;
+	Thread *idleThread0 = kernelObjects.Get<Thread>(threadIdleID[0], error);
+	Thread *idleThread1 = kernelObjects.Get<Thread>(threadIdleID[1], error);
+
+	char idleDescription0[256];
+	int idleStatus0 = -1;
+	if (idleThread0) {
+		idleThread0->GetQuickInfo(idleDescription0, sizeof(idleDescription0));
+		idleStatus0 = idleThread0->nt.status;
+	} else {
+		sprintf(idleDescription0, "DELETED");
+	}
+
+	char idleDescription1[256];
+	int idleStatus1 = -1;
+	if (idleThread1) {
+		idleThread1->GetQuickInfo(idleDescription1, sizeof(idleDescription1));
+		idleStatus1 = idleThread0->nt.status;
+	} else {
+		sprintf(idleDescription1, "DELETED");
+	}
+
+	ERROR_LOG_REPORT_ONCE(threadqueueempty, SCEKERNEL, "Failed to reschedule: out of threads on queue (%d, %d)", idleStatus0, idleStatus1);
+	WARN_LOG(SCEKERNEL, "Failed to reschedule: idle0 -> %s", idleDescription0);
+	WARN_LOG(SCEKERNEL, "Failed to reschedule: idle1 -> %s", idleDescription1);
+}
+
 // Returns NULL if the current thread is fine.
 static Thread *__KernelNextThread() {
 	SceUID bestThread;
 
 	// If the current thread is running, it's a valid candidate.
 	Thread *cur = __GetCurrentThread();
-	if (cur && cur->isRunning())
-	{
+	if (cur && cur->isRunning()) {
 		bestThread = threadReadyQueue.pop_first_better(cur->nt.currentPriority);
 		if (bestThread != 0)
 			__KernelChangeReadyState(cur, currentThread, true);
-	}
-	else
+	} else {
 		bestThread = threadReadyQueue.pop_first();
+
+		if (bestThread == 0) {
+			// Zoinks.  No thread?
+			__ReportThreadQueueEmpty();
+
+			// Let's try to get back on track, if possible.
+			bestThread = threadIdleID[1];
+		}
+	}
 
 	// Assume threadReadyQueue has not become corrupt.
 	if (bestThread != 0)

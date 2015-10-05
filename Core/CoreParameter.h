@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "Core/Compatibility.h"
+
 enum CPUCore {
 	CPU_INTERPRETER,
 	CPU_JIT,
@@ -69,4 +71,6 @@ struct CoreParameter {
 	bool frozen;
 
 	FileLoader *mountIsoLoader;
+
+	Compatibility compat;
 };

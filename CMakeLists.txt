@@ -386,19 +386,29 @@ endif()
 
 if(NOT USING_GLES2)
 	include_directories(${OPENGL_INCLUDE_DIR})
-
-	add_definitions(-DGLEW_STATIC)
-	add_library(glew STATIC
-		ext/native/ext/glew/GL/glew.h
-		ext/native/ext/glew/GL/glxew.h
-		ext/native/ext/glew/GL/wglew.h
-		ext/native/ext/glew/glew.c)
-	target_link_libraries(glew ${OPENGL_LIBRARIES})
-	include_directories(ext/native/ext/glew)
-	set(GLEW_LIBRARIES glew)
+	find_package(GLEW)
+	if(NOT GLEW_FOUND)
+		add_definitions(-DGLEW_STATIC)
+		add_library(glew STATIC
+			ext/native/ext/glew/GL/glew.h
+			ext/native/ext/glew/GL/glxew.h
+			ext/native/ext/glew/GL/wglew.h
+			ext/native/ext/glew/glew.c)
+		target_link_libraries(glew ${OPENGL_LIBRARIES})
+		include_directories(ext/native/ext/glew)
+		set(GLEW_LIBRARIES glew)
+	endif()
+else()
+	find_package(X11)
 endif()
 
-add_subdirectory(ext/snappy)
+find_package(Snappy)
+if(SNAPPY_FOUND)
+	add_definitions(-DSHARED_SNAPPY)
+else()
+	add_subdirectory(ext/snappy)
+endif()
+
 add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
@@ -413,14 +423,9 @@ add_library(rg_etc1 STATIC
 	ext/native/ext/rg_etc1/rg_etc1.h)
 include_directories(ext/native/ext/rg_etc1)
 
-add_library(stb_vorbis STATIC
-	ext/native/ext/stb_vorbis/stb_vorbis.c
-	ext/native/ext/stb_vorbis/stb_vorbis.h)
-include_directories(ext/native/ext/stb_vorbis)
-
 if(USE_FFMPEG)
 	if(USE_SYSTEM_FFMPEG)
-		include(FindFFMPEG)
+		find_package(FFMPEG)
 	else()
 		set(FFMPEG_FOUND OFF)
 	endif()
@@ -539,29 +544,29 @@ endif(USE_FFMPEG)
 if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
 	message(STATUS "FFMPEG library locations:")
 	if(FFMPEG_FOUND)
-		message(STATUS "libavcodec location: ${FFMPEG_avcodec_LIBRARY}")
-		message(STATUS "libavformat location: ${FFMPEG_avformat_LIBRARY}")
-		message(STATUS "libavutil location: ${FFMPEG_avutil_LIBRARY}")
-		message(STATUS "libswresample location: ${FFMPEG_swresample_LIBRARY}")
-		message(STATUS "libswscale location: ${FFMPEG_swscale_LIBRARY}")
+		message(STATUS "  libavcodec location: ${FFMPEG_avcodec_LIBRARY}")
+		message(STATUS "  libavformat location: ${FFMPEG_avformat_LIBRARY}")
+		message(STATUS "  libavutil location: ${FFMPEG_avutil_LIBRARY}")
+		message(STATUS "  libswresample location: ${FFMPEG_swresample_LIBRARY}")
+		message(STATUS "  libswscale location: ${FFMPEG_swscale_LIBRARY}")
 	elseif(DEFINED PLATFORM_ARCH)
 		set(TEMP ${CMAKE_SOURCE_DIR}/ffmpeg/${PLATFORM_ARCH}/lib)
-		message(STATUS "libavcodec location: ${TEMP}/libavcodec.a")
-		message(STATUS "libavformat location: ${TEMP}/libavformat.a")
-		message(STATUS "libavutil location: ${TEMP}/libavutil.a")
-		message(STATUS "libswresample location: ${TEMP}/libswresample.a")
-		message(STATUS "libswscale location: ${TEMP}/libswscale.a")
+		message(STATUS "  libavcodec location: ${TEMP}/libavcodec.a")
+		message(STATUS "  libavformat location: ${TEMP}/libavformat.a")
+		message(STATUS "  libavutil location: ${TEMP}/libavutil.a")
+		message(STATUS "  libswresample location: ${TEMP}/libswresample.a")
+		message(STATUS "  libswscale location: ${TEMP}/libswscale.a")
 	else()
 		get_target_property(TEMP libavcodec IMPORTED_LOCATION)
-		message(STATUS "libavcodec location: ${TEMP}")
+		message(STATUS "  libavcodec location: ${TEMP}")
 		get_target_property(TEMP libavformat IMPORTED_LOCATION)
-		message(STATUS "libavformat location: ${TEMP}")
+		message(STATUS "  libavformat location: ${TEMP}")
 		get_target_property(TEMP libavutil IMPORTED_LOCATION)
-		message(STATUS "libavutil location: ${TEMP}")
+		message(STATUS "  libavutil location: ${TEMP}")
 		get_target_property(TEMP libswresample IMPORTED_LOCATION)
-		message(STATUS "libswresample location: ${TEMP}")
+		message(STATUS "  libswresample location: ${TEMP}")
 		get_target_property(TEMP libswscale IMPORTED_LOCATION)
-		message(STATUS "libswscale location: ${TEMP}")
+		message(STATUS "  libswscale location: ${TEMP}")
 	endif()
 else()
 	message(STATUS "ERROR: No FFMPEG library locations")
@@ -575,6 +580,7 @@ endif()
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
+	add_definitions(-DSHARED_ZLIB)
 else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
@@ -618,7 +624,9 @@ include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT SNAPPY_FOUND)
+		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -627,65 +635,70 @@ if (NOT MSVC)
 endif()
 
 
-add_library(libzip STATIC
-	ext/native/ext/libzip/zip.h
-	ext/native/ext/libzip/mkstemp.c
-	ext/native/ext/libzip/zip_add.c
-	ext/native/ext/libzip/zip_add_dir.c
-	ext/native/ext/libzip/zip_close.c
-	ext/native/ext/libzip/zip_delete.c
-	ext/native/ext/libzip/zip_dirent.c
-	ext/native/ext/libzip/zip_entry_free.c
-	ext/native/ext/libzip/zip_entry_new.c
-	ext/native/ext/libzip/zip_err_str.c
-	ext/native/ext/libzip/zip_error.c
-	ext/native/ext/libzip/zip_error_clear.c
-	ext/native/ext/libzip/zip_error_get.c
-	ext/native/ext/libzip/zip_error_get_sys_type.c
-	ext/native/ext/libzip/zip_error_strerror.c
-	ext/native/ext/libzip/zip_error_to_str.c
-	ext/native/ext/libzip/zip_fclose.c
-	ext/native/ext/libzip/zip_file_error_clear.c
-	ext/native/ext/libzip/zip_file_error_get.c
-	ext/native/ext/libzip/zip_file_get_offset.c
-	ext/native/ext/libzip/zip_file_strerror.c
-	ext/native/ext/libzip/zip_filerange_crc.c
-	ext/native/ext/libzip/zip_fopen.c
-	ext/native/ext/libzip/zip_fopen_index.c
-	ext/native/ext/libzip/zip_fread.c
-	ext/native/ext/libzip/zip_free.c
-	ext/native/ext/libzip/zip_get_archive_comment.c
-	ext/native/ext/libzip/zip_get_archive_flag.c
-	ext/native/ext/libzip/zip_get_file_comment.c
-	ext/native/ext/libzip/zip_get_name.c
-	ext/native/ext/libzip/zip_get_num_files.c
-	ext/native/ext/libzip/zip_memdup.c
-	ext/native/ext/libzip/zip_name_locate.c
-	ext/native/ext/libzip/zip_new.c
-	ext/native/ext/libzip/zip_open.c
-	ext/native/ext/libzip/zip_rename.c
-	ext/native/ext/libzip/zip_replace.c
-	ext/native/ext/libzip/zip_set_archive_comment.c
-	ext/native/ext/libzip/zip_set_archive_flag.c
-	ext/native/ext/libzip/zip_set_file_comment.c
-	ext/native/ext/libzip/zip_set_name.c
-	ext/native/ext/libzip/zip_source_buffer.c
-	ext/native/ext/libzip/zip_source_file.c
-	ext/native/ext/libzip/zip_source_filep.c
-	ext/native/ext/libzip/zip_source_free.c
-	ext/native/ext/libzip/zip_source_function.c
-	ext/native/ext/libzip/zip_source_zip.c
-	ext/native/ext/libzip/zip_stat.c
-	ext/native/ext/libzip/zip_stat_index.c
-	ext/native/ext/libzip/zip_stat_init.c
-	ext/native/ext/libzip/zip_strerror.c
-	ext/native/ext/libzip/zip_unchange.c
-	ext/native/ext/libzip/zip_unchange_all.c
-	ext/native/ext/libzip/zip_unchange_archive.c
-	ext/native/ext/libzip/zip_unchange_data.c)
-target_link_libraries(libzip ${ZLIB_LIBRARY})
-include_directories(ext/native/ext/libzip)
-set(LIBZIP_LIBRARY libzip)
+find_package(LibZip)
+if(LIBZIP_FOUND)
+	add_definitions(-DSHARED_LIBZIP)
+else()
+	add_library(libzip STATIC
+		ext/native/ext/libzip/zip.h
+		ext/native/ext/libzip/mkstemp.c
+		ext/native/ext/libzip/zip_add.c
+		ext/native/ext/libzip/zip_add_dir.c
+		ext/native/ext/libzip/zip_close.c
+		ext/native/ext/libzip/zip_delete.c
+		ext/native/ext/libzip/zip_dirent.c
+		ext/native/ext/libzip/zip_entry_free.c
+		ext/native/ext/libzip/zip_entry_new.c
+		ext/native/ext/libzip/zip_err_str.c
+		ext/native/ext/libzip/zip_error.c
+		ext/native/ext/libzip/zip_error_clear.c
+		ext/native/ext/libzip/zip_error_get.c
+		ext/native/ext/libzip/zip_error_get_sys_type.c
+		ext/native/ext/libzip/zip_error_strerror.c
+		ext/native/ext/libzip/zip_error_to_str.c
+		ext/native/ext/libzip/zip_fclose.c
+		ext/native/ext/libzip/zip_file_error_clear.c
+		ext/native/ext/libzip/zip_file_error_get.c
+		ext/native/ext/libzip/zip_file_get_offset.c
+		ext/native/ext/libzip/zip_file_strerror.c
+		ext/native/ext/libzip/zip_filerange_crc.c
+		ext/native/ext/libzip/zip_fopen.c
+		ext/native/ext/libzip/zip_fopen_index.c
+		ext/native/ext/libzip/zip_fread.c
+		ext/native/ext/libzip/zip_free.c
+		ext/native/ext/libzip/zip_get_archive_comment.c
+		ext/native/ext/libzip/zip_get_archive_flag.c
+		ext/native/ext/libzip/zip_get_file_comment.c
+		ext/native/ext/libzip/zip_get_name.c
+		ext/native/ext/libzip/zip_get_num_files.c
+		ext/native/ext/libzip/zip_memdup.c
+		ext/native/ext/libzip/zip_name_locate.c
+		ext/native/ext/libzip/zip_new.c
+		ext/native/ext/libzip/zip_open.c
+		ext/native/ext/libzip/zip_rename.c
+		ext/native/ext/libzip/zip_replace.c
+		ext/native/ext/libzip/zip_set_archive_comment.c
+		ext/native/ext/libzip/zip_set_archive_flag.c
+		ext/native/ext/libzip/zip_set_file_comment.c
+		ext/native/ext/libzip/zip_set_name.c
+		ext/native/ext/libzip/zip_source_buffer.c
+		ext/native/ext/libzip/zip_source_file.c
+		ext/native/ext/libzip/zip_source_filep.c
+		ext/native/ext/libzip/zip_source_free.c
+		ext/native/ext/libzip/zip_source_function.c
+		ext/native/ext/libzip/zip_source_zip.c
+		ext/native/ext/libzip/zip_stat.c
+		ext/native/ext/libzip/zip_stat_index.c
+		ext/native/ext/libzip/zip_stat_init.c
+		ext/native/ext/libzip/zip_strerror.c
+		ext/native/ext/libzip/zip_unchange.c
+		ext/native/ext/libzip/zip_unchange_all.c
+		ext/native/ext/libzip/zip_unchange_archive.c
+		ext/native/ext/libzip/zip_unchange_data.c)
+	target_link_libraries(libzip)
+	include_directories(ext/native/ext/libzip)
+	set(LIBZIP_LIBRARY libzip)
+endif()
 
 # FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
 find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
@@ -859,28 +872,17 @@ add_library(native STATIC
 	${nativeExtra}
 	ext/native/base/backtrace.cpp
 	ext/native/base/backtrace.h
-	ext/native/audio/mixer.cpp
-	ext/native/audio/mixer.h
-	ext/native/audio/wav_read.cpp
-	ext/native/audio/wav_read.h
 	ext/native/base/basictypes.h
 	ext/native/base/buffer.cpp
 	ext/native/base/buffer.h
-	ext/native/base/color.h
 	ext/native/base/colorutil.cpp
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/error_context.cpp
-	ext/native/base/error_context.h
-	ext/native/base/fastlist.h
-	ext/native/base/fastlist_test.cpp
 	ext/native/base/functional.h
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
 	ext/native/base/mutex.h
-	ext/native/base/scoped_ptr.h
-	ext/native/base/stats.h
 	ext/native/base/stringutil.cpp
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp
@@ -893,10 +895,6 @@ add_library(native STATIC
 	ext/native/ext/vjson/block_allocator.h
 	ext/native/file/chunk_file.cpp
 	ext/native/file/chunk_file.h
-	ext/native/file/dialog.cpp
-	ext/native/file/dialog.h
-	ext/native/file/easy_file.cpp
-	ext/native/file/easy_file.h
 	ext/native/file/fd_util.cpp
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp
@@ -913,13 +911,8 @@ add_library(native STATIC
 	ext/native/gfx/gl_debug_log.h
 	ext/native/gfx/gl_lost_manager.cpp
 	ext/native/gfx/gl_lost_manager.h
-	ext/native/gfx/texture.cpp
-	ext/native/gfx/texture.h
 	ext/native/gfx/texture_atlas.cpp
 	ext/native/gfx/texture_atlas.h
-#	ext/native/gfx/texture_dx11.cpp
-	ext/native/gfx/texture_gen.cpp
-	ext/native/gfx/texture_gen.h
 	ext/native/gfx_es2/draw_buffer.cpp
 	ext/native/gfx_es2/draw_buffer.h
 	ext/native/gfx_es2/draw_text.cpp
@@ -928,8 +921,6 @@ add_library(native STATIC
 	ext/native/gfx_es2/gpu_features.h
 	ext/native/gfx_es2/glsl_program.cpp
 	ext/native/gfx_es2/glsl_program.h
-	ext/native/gfx_es2/vertex_format.cpp
-	ext/native/gfx_es2/vertex_format.h
 	ext/native/gfx_es2/gl3stub.c
 	ext/native/gfx_es2/gl3stub.h
 	ext/native/i18n/i18n.cpp
@@ -951,8 +942,6 @@ add_library(native STATIC
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
 	ext/native/math/expression_parser.h
-	ext/native/math/lin/aabb.cpp
-	ext/native/math/lin/aabb.h
 	ext/native/math/lin/matrix4x4.cpp
 	ext/native/math/lin/matrix4x4.h
 	ext/native/math/lin/plane.cpp
@@ -964,6 +953,8 @@ add_library(native STATIC
 	ext/native/math/lin/vec3.h
 	ext/native/math/math_util.cpp
 	ext/native/math/math_util.h
+	ext/native/net/http_server.cpp
+	ext/native/net/http_server.h
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
 	ext/native/net/resolve.cpp
@@ -995,15 +986,8 @@ add_library(native STATIC
 	ext/native/ui/viewgroup.h
 	ext/native/ui/virtual_input.cpp
 	ext/native/ui/virtual_input.h
-	ext/native/util/bits/bits.cpp
-	ext/native/util/bits/bits.h
-	ext/native/util/bits/hamming.h
-	ext/native/util/bits/varint.cpp
-	ext/native/util/bits/varint.h
 	ext/native/util/hash/hash.cpp
 	ext/native/util/hash/hash.h
-	ext/native/util/random/perlin.cpp
-	ext/native/util/random/perlin.h
 	ext/native/util/random/rng.h
 	ext/native/util/text/utf8.h
 	ext/native/util/text/utf8.cpp
@@ -1020,7 +1004,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
@@ -1149,6 +1133,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Config.h
 	Core/Core.cpp
 	Core/Core.h
+	Core/Compatibility.cpp
+	Core/Compatibility.h
 	Core/CoreParameter.h
 	Core/CoreTiming.cpp
 	Core/CoreTiming.h
@@ -1216,6 +1202,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
+	Core/HLE/ThreadQueueList.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAdler.cpp
@@ -1454,6 +1441,7 @@ add_library(GPU OBJECT
 	GPU/Common/FramebufferCommon.h
 	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
+	GPU/Common/GPUStateUtils.h
 	GPU/Common/DrawEngineCommon.cpp
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/SplineCommon.cpp
@@ -1611,6 +1599,7 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/shaders
 	assets/ppge_atlas.zim
+	assets/compat.ini
 	assets/langregion.ini
 	assets/unknown.png)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
@@ -1708,6 +1697,7 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
         XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+        XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 	)
 endif()
 

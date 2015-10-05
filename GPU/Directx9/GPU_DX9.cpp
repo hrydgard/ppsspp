@@ -466,6 +466,17 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
 	}
+
+	u32 features = 0;
+
+	// Set some flags that may be convenient in the future if we merge the backends more.
+	features |= GPU_SUPPORTS_BLEND_MINMAX;
+	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
+	gstate_c.featureFlags = features;
 }
 
 DIRECTX9_GPU::~DIRECTX9_GPU() {
@@ -2101,7 +2112,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
 			tex->GetLevelDesc(level, &desc);
-			RECT rect = {0, 0, desc.Width, desc.Height};
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
 			hr = tex->LockRect(level, &locked, &rect, D3DLOCK_READONLY);
 
 			// If it fails, this means it's a render-to-texture, so we have to get creative.

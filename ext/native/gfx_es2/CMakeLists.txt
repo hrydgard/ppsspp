@@ -1,11 +1,9 @@
 set(SRCS
   draw_buffer.cpp
 	draw_text.cpp
-  fbo.cpp
   glsl_program.cpp
 	gpu_features.cpp
-  gl_state.cpp
-  vertex_format.cpp)
+  gl_state.cpp)
 
 set(SRCS ${SRCS})
 

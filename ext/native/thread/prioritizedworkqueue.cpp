@@ -32,6 +32,23 @@ void PrioritizedWorkQueue::Flush() {
 	queue_.clear();
 }
 
+void PrioritizedWorkQueue::WaitUntilDone() {
+	if (queue_.empty())
+		return;
+	// This could be made more elegant..
+	while (true) {
+		bool empty;
+		{
+			lock_guard guard(mutex_);
+			empty = queue_.empty();
+		}
+		if (empty) {
+			break;
+		}
+		sleep_ms(10);
+	}
+}
+
 
 // The worker should simply call this in a loop. Will block when appropriate.
 PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
@@ -90,7 +107,9 @@ void ProcessWorkQueueOnThreadWhile(PrioritizedWorkQueue *wq) {
 
 void StopProcessingWorkQueue(PrioritizedWorkQueue *wq) {
 	wq->Stop();
-	workThread->join();
-	delete workThread;
+	if (workThread) {
+		workThread->join();
+		delete workThread;
+	}
 	workThread = 0;
 }

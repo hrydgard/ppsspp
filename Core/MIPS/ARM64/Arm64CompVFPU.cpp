@@ -654,12 +654,58 @@ namespace MIPSComp {
 				switch ((op >> 23) & 7) {
 				case 2:  // vmin
 				{
+					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch unordered = B(CC_VS);
 					fp.FMIN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch skip = B();
+
+					SetJumpTarget(unordered);
+					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
+					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
+					// And together to find if both have negative set.
+					TST(SCRATCH1, SCRATCH2);
+					FixupBranch cmpPositive = B(CC_PL);
+					// If both are negative, "min" is the greater of the two, since it has the largest mantissa.
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
+					FixupBranch skipPositive = B();
+					// If either one is positive, we just want the lowest one.
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
+					SetJumpTarget(skipPositive);
+					// Now, whether negative or positive, move to the result.
+					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
+					SetJumpTarget(skip);
 					break;
 				}
 				case 3:  // vmax
 				{
+					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch unordered = B(CC_VS);
 					fp.FMAX(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch skip = B();
+
+					SetJumpTarget(unordered);
+					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
+					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
+					// And together to find if both have negative set.
+					TST(SCRATCH1, SCRATCH2);
+					FixupBranch cmpPositive = B(CC_PL);
+					// If both are negative, "max" is the least of the two, since it has the lowest mantissa.
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
+					FixupBranch skipPositive = B();
+					// If either one is positive, we just want the highest one.
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
+					SetJumpTarget(skipPositive);
+					// Now, whether negative or positive, move to the result.
+					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
+					SetJumpTarget(skip);
 					break;
 				}
 				case 6:  // vsge

@@ -26,8 +26,7 @@
 
 bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize);
 
-class ISOFileSystem : public IFileSystem
-{
+class ISOFileSystem : public IFileSystem {
 public:
 	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath = "");
 	~ISOFileSystem();
@@ -49,15 +48,14 @@ public:
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
 
-	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	bool MkDir(const std::string &dirname) override {return false;}
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
 
 private:
-	struct TreeEntry
-	{
+	struct TreeEntry {
 		TreeEntry(){}
 		~TreeEntry();
 
@@ -68,11 +66,10 @@ private:
 		bool isDirectory;
 
 		TreeEntry *parent;
-		std::vector<TreeEntry*> children;
+		std::vector<TreeEntry *> children;
 	};
 
-	struct OpenFileEntry
-	{
+	struct OpenFileEntry {
 		TreeEntry *file;
 		unsigned int seekPos;  // TODO: Make 64-bit?
 		bool isRawSector;   // "/sce_lbn" mode
@@ -80,7 +77,7 @@ private:
 		u32 sectorStart;
 		u32 openSize;
 	};
-	
+
 	typedef std::map<u32,OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
@@ -94,7 +91,7 @@ private:
 	std::vector<std::string> restrictTree;
 
 	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
-	TreeEntry *GetFromPath(std::string path, bool catchError = true);
+	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
 	std::string EntryFullPath(TreeEntry *e);
 };
 
@@ -147,7 +144,7 @@ public:
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override {
 		return isoFileSystem_->WriteFile(handle, pointer, size, usec);
 	}
-	bool GetHostPath(const std::string &inpath, std::string &outpath) { return false; }
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override { return false; }
 	bool MkDir(const std::string &dirname) override { return false; }
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }

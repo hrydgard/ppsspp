@@ -423,7 +423,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 			NativeMbxPacket p;
 			for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 			{
-				Memory::ReadStruct<NativeMbxPacket>(next, &p);
+				Memory::ReadStructUnchecked<NativeMbxPacket>(next, &p);
 				if (addPacket->priority < p.priority)
 				{
 					if (i == 0)

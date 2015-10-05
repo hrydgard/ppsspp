@@ -11,10 +11,12 @@ linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
 
 INCLUDEPATH += $$P/ext/native
 
-!contains(DEFINES,USING_GLES2) {
-	SOURCES += $$P/ext/native/ext/glew/glew.c
-	HEADERS += $$P/ext/native/ext/glew/GL/*.h
-	INCLUDEPATH += $$P/ext/native/ext/glew
+!exists( /usr/include/GL/glew.h ) {
+	!contains(DEFINES,USING_GLES2) {
+		SOURCES += $$P/ext/native/ext/glew/glew.c
+		HEADERS += $$P/ext/native/ext/glew/GL/*.h
+		INCLUDEPATH += $$P/ext/native/ext/glew
+	}
 }
 
 # RG_ETC1
@@ -34,17 +36,12 @@ SOURCES += $$P/ext/native/ext/jpge/*.cpp
 HEADERS += $$P/ext/native/ext/jpge/*.h
 INCLUDEPATH += $$P/ext/native/ext/jpge
 
-# Stb_vorbis
-
-SOURCES += $$P/ext/native/ext/stb_vorbis/stb_vorbis.c
-HEADERS += $$P/ext/native/ext/stb_vorbis/stb_vorbis.h
-INCLUDEPATH += $$P/ext/native/ext/stb_vorbis
-
 # Snappy
-
-SOURCES += $$P/ext/snappy/*.cpp
-HEADERS += $$P/ext/snappy/*.h
-INCLUDEPATH += $$P/ext/snappy
+!exists( /usr/include/snappy-c.h ) {
+	SOURCES += $$P/ext/snappy/*.cpp
+	HEADERS += $$P/ext/snappy/*.h
+	INCLUDEPATH += $$P/ext/snappy
+}
 
 # udis86
 
@@ -67,28 +64,26 @@ win32|contains(QT_CONFIG, no-zlib) {
 }
 
 # Libzip
-SOURCES += $$P/ext/native/ext/libzip/*.c
-HEADERS += $$P/ext/native/ext/libzip/*.h
+!exists( /usr/include/zip.h ) {
+	SOURCES += $$P/ext/native/ext/libzip/*.c
+	HEADERS += $$P/ext/native/ext/libzip/*.h
+}
 
 # Native
 
-SOURCES +=  $$P/ext/native/audio/*.cpp \
+SOURCES += \
 	$$P/ext/native/base/backtrace.cpp \
 	$$P/ext/native/base/buffer.cpp \
 	$$P/ext/native/base/colorutil.cpp \
 	$$P/ext/native/base/compat.cpp \
 	$$P/ext/native/base/display.cpp \
-	$$P/ext/native/base/error_context.cpp \
-	$$P/ext/native/base/fastlist_test.cpp \
 	$$P/ext/native/base/stringutil.cpp \
 	$$P/ext/native/base/timeutil.cpp \
 	$$P/ext/native/data/compression.cpp \
 	$$P/ext/native/file/*.cpp \
 	$$P/ext/native/gfx/gl_debug_log.cpp \
 	$$P/ext/native/gfx/gl_lost_manager.cpp \
-	$$P/ext/native/gfx/texture.cpp \
 	$$P/ext/native/gfx/texture_atlas.cpp \
-	$$P/ext/native/gfx/texture_gen.cpp \
 	$$P/ext/native/gfx_es2/*.cpp \
 	$$P/ext/native/gfx_es2/*.c \
 	$$P/ext/native/i18n/*.cpp \
@@ -105,29 +100,22 @@ SOURCES +=  $$P/ext/native/audio/*.cpp \
 	$$P/ext/native/thin3d/thin3d_gl.cpp \
 	$$P/ext/native/thread/*.cpp \
 	$$P/ext/native/ui/*.cpp \
-	$$P/ext/native/util/bits/*.cpp \
 	$$P/ext/native/util/hash/hash.cpp \
-	$$P/ext/native/util/random/perlin.cpp \
 	$$P/ext/native/util/text/utf8.cpp \
 	$$P/ext/native/util/text/parsers.cpp
 
 armv7: SOURCES += $$files($$P/ext/native/math/fast/fast_matrix_neon.S)
 
 
-HEADERS +=  $$P/ext/native/audio/*.h \
+HEADERS += \
 	$$P/ext/native/base/backtrace.h \
 	$$P/ext/native/base/basictypes.h \
 	$$P/ext/native/base/buffer.h \
-	$$P/ext/native/base/color.h \
 	$$P/ext/native/base/colorutil.h \
 	$$P/ext/native/base/display.h \
-	$$P/ext/native/base/error_context.h \
-	$$P/ext/native/base/fastlist.h \
 	$$P/ext/native/base/linked_ptr.h \
 	$$P/ext/native/base/logging.h \
 	$$P/ext/native/base/mutex.h \
-	$$P/ext/native/base/scoped_ptr.h \
-	$$P/ext/native/base/stats.h \
 	$$P/ext/native/base/stringutil.h \
 	$$P/ext/native/base/timeutil.h \
 	$$P/ext/native/data/compression.h \
@@ -144,7 +132,6 @@ HEADERS +=  $$P/ext/native/audio/*.h \
 	$$P/ext/native/profiler/profiler.h \
 	$$P/ext/native/thread/*.h \
 	$$P/ext/native/ui/*.h \
-	$$P/ext/native/util/bits/*.h \
 	$$P/ext/native/util/hash/hash.h \
 	$$P/ext/native/util/random/*.h \
 	$$P/ext/native/util/text/utf8.h \

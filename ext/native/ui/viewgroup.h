@@ -29,9 +29,9 @@ public:
 	virtual void Axis(const AxisInput &input) override;
 
 	// By default, a container will layout to its own bounds.
-	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
-	virtual void Layout() = 0;
-	virtual void Update(const InputState &input_state);
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;
+	virtual void Layout() override = 0;
+	virtual void Update(const InputState &input_state) override;
 
 	virtual void Draw(UIContext &dc) override;
 
@@ -48,7 +48,7 @@ public:
 	}
 
 	virtual bool SetFocus() override;
-	virtual bool SubviewFocused(View *view);
+	virtual bool SubviewFocused(View *view) override;
 	virtual void RemoveSubview(View *view);
 
 	void SetDefaultFocusView(View *view) { defaultFocusView_ = view; }
@@ -57,8 +57,8 @@ public:
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
 
-	virtual bool CanBeFocused() const { return false; }
-	virtual bool IsViewGroup() const { return true; }
+	virtual bool CanBeFocused() const override { return false; }
+	virtual bool IsViewGroup() const override { return true; }
 
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
@@ -85,8 +85,8 @@ protected:
 // It simply centers the child view.
 class FrameLayout : public ViewGroup {
 public:
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	void Layout();
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
 };
 
 enum {
@@ -342,7 +342,7 @@ public:
 	virtual View *CreateItemView(int index) override;
 	virtual int GetNumItems() override { return (int)items_.size(); }
 	virtual bool AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) override;
-	void SetSelected(int sel) { selected_ = sel; }
+	void SetSelected(int sel) override { selected_ = sel; }
 	virtual std::string GetTitle(int index) const override { return items_[index]; }
 	virtual int GetSelected() override { return selected_; }
 

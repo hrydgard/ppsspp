@@ -49,6 +49,7 @@ struct StoreEntry {
 	std::string file;  // This is the folder name of the installed one too, and hence a "unique-ish" identifier.
 	std::string category;
 	std::string downloadURL;  // Only set for games that are not hosted on store.ppsspp.org
+	bool hidden;
 	u64 size;
 };
 

@@ -190,13 +190,7 @@ bool TransformDrawEngine::ApplyShaderBlending() {
 		return false;
 	}
 
-	framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr);
-	glActiveTexture(GL_TEXTURE1);
-	// If we are rendering at a higher resolution, linear is probably best for the dest color.
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glActiveTexture(GL_TEXTURE0);
-	fboTexBound_ = true;
+	fboTexNeedBind_ = true;
 
 	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 	return true;
@@ -905,6 +899,21 @@ void TransformDrawEngine::ApplyDrawStateLate() {
 	if (!gstate.isModeClear()) {
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
 			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+		}
+
+		textureCache_->ApplyTexture();
+
+		if (fboTexNeedBind_) {
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY_WITH_UV);
+			framebufferManager_->RebindFramebuffer();
+
+			glActiveTexture(GL_TEXTURE1);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glActiveTexture(GL_TEXTURE0);
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
 		}
 	}
 }

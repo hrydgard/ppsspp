@@ -130,6 +130,7 @@ namespace KeyMap {
 
 	void NotifyPadConnected(const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
+	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsBlackberryQWERTY(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
 	bool IsOuya(const std::string &name);

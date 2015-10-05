@@ -450,8 +450,8 @@ void SoftwareTransform(
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
 			const u32 bpp = fbman->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
-			const u32 fb_size = bpp * fbman->GetTargetStride() * gstate_c.curTextureHeight;
-			const u32 prevH = gstate_c.curTextureHeight;
+			const u32 prevH = texCache->AttachedDrawingHeight();
+			const u32 fb_size = bpp * fbman->GetTargetStride() * prevH;
 			const u32 prevYOffset = gstate_c.curTextureYOffset;
 			if (texCache->SetOffsetTexture(fb_size)) {
 				const float oldWidthFactor = widthFactor;

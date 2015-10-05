@@ -1,5 +1,17 @@
-VERSION = 1.0.1.0
+VERSION = 1.1.0.0
 DEFINES += USING_QT_UI USE_FFMPEG
+
+exists( /usr/include/snappy-c.h ) {
+	DEFINES += SHARED_SNAPPY
+}
+
+unix:contains(QT_CONFIG, system-zlib) {
+	DEFINES += SHARED_ZLIB
+}
+
+exists( /usr/include/zip.h ) {
+	DEFINES += SHARED_LIBZIP
+}
 
 # Global specific
 win32:CONFIG(release, debug|release): CONFIG_DIR = $$join(OUT_PWD,,,/release)

@@ -7,7 +7,6 @@
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
 #include "util/text/utf8.h"
 #include "ui/ui.h"
@@ -220,13 +219,20 @@ void Clickable::Touch(const TouchInput &input) {
 	}
 }
 
+static bool MatchesKeyDef(const std::vector<KeyDef> &defs, const KeyInput &key) {
+	// In addition to the actual search, we need to do another search where we replace the device ID with "ANY".
+	return
+		std::find(defs.begin(), defs.end(), KeyDef(key.deviceId, key.keyCode)) != defs.end() ||
+		std::find(defs.begin(), defs.end(), KeyDef(DEVICE_ID_ANY, key.keyCode)) != defs.end();
+}
+
 // TODO: O/X confirm preference for xperia play?
 
 bool IsDPadKey(const KeyInput &key) {
 	if (dpadKeys.empty()) {
 		return key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT;
 	} else {
-		return std::find(dpadKeys.begin(), dpadKeys.end(), KeyDef(key.deviceId, key.keyCode)) != dpadKeys.end();
+		return MatchesKeyDef(dpadKeys, key);
 	}
 }
 
@@ -238,7 +244,7 @@ bool IsAcceptKey(const KeyInput &key) {
 			return key.keyCode == NKCODE_BUTTON_A || key.keyCode == NKCODE_BUTTON_CROSS || key.keyCode == NKCODE_BUTTON_1;
 		}
 	} else {
-		return std::find(confirmKeys.begin(), confirmKeys.end(), KeyDef(key.deviceId, key.keyCode)) != confirmKeys.end();
+		return MatchesKeyDef(confirmKeys, key);
 	}
 }
 
@@ -250,7 +256,7 @@ bool IsEscapeKey(const KeyInput &key) {
 			return key.keyCode == NKCODE_BUTTON_CIRCLE || key.keyCode == NKCODE_BUTTON_B || key.keyCode == NKCODE_BUTTON_2;
 		}
 	} else {
-		return std::find(cancelKeys.begin(), cancelKeys.end(), KeyDef(key.deviceId, key.keyCode)) != cancelKeys.end();
+		return MatchesKeyDef(cancelKeys, key);
 	}
 }
 
@@ -258,7 +264,7 @@ bool IsTabLeftKey(const KeyInput &key) {
 	if (tabLeftKeys.empty()) {
 		return key.keyCode == NKCODE_BUTTON_L1;
 	} else {
-		return std::find(tabLeftKeys.begin(), tabLeftKeys.end(), KeyDef(key.deviceId, key.keyCode)) != tabLeftKeys.end();
+		return MatchesKeyDef(tabLeftKeys, key);
 	}
 }
 
@@ -266,7 +272,7 @@ bool IsTabRightKey(const KeyInput &key) {
 	if (tabRightKeys.empty()) {
 		return key.keyCode == NKCODE_BUTTON_R1;
 	} else {
-		return std::find(tabRightKeys.begin(), tabRightKeys.end(), KeyDef(key.deviceId, key.keyCode)) != tabRightKeys.end();
+		return MatchesKeyDef(tabRightKeys, key);
 	}
 }
 
@@ -566,28 +572,6 @@ void ImageView::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
-void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// TODO: involve sizemode
-	if (texture_) {
-		w = (float)texture_->Width();
-		h = (float)texture_->Height();
-	} else {
-		w = 16;
-		h = 16;
-	}
-}
-
-void TextureView::Draw(UIContext &dc) {
-	// TODO: involve sizemode
-	if (texture_) {
-		dc.Flush();
-		texture_->Bind(0);
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
-		dc.Flush();
-		dc.RebindTexture();
-	}
-}
-
 void Thin3DTextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	// TODO: involve sizemode
 	if (texture_) {
@@ -633,7 +617,7 @@ void TextView::Draw(UIContext &dc) {
 	bool clip = false;
 	if (w > bounds_.w || h > bounds_.h)
 		clip = true;
-	if (bounds_.w < 0 || bounds_.h < 0) {
+	if (bounds_.w < 0 || bounds_.h < 0 || !clip_) {
 		// We have a layout but, but try not to screw up rendering.
 		// TODO: Fix properly.
 		clip = false;

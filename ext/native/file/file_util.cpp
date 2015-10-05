@@ -144,42 +144,6 @@ bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int s
 	return true;
 }
 
-
-#define DIR_SEP "/"
-#define DIR_SEP_CHR '\\'
-
-#ifndef METRO
-
-// Remove any ending forward slashes from directory paths
-// Modifies argument.
-static void stripTailDirSlashes(std::string &fname)
-{
-	if (fname.length() > 1)
-	{
-		size_t i = fname.length() - 1;
-		while (fname[i] == DIR_SEP_CHR)
-			fname[i--] = '\0';
-	}
-	return;
-}
-
-// Returns true if file filename exists
-bool exists(const std::string &filename) {
-#ifdef _WIN32
-	std::wstring wstr = ConvertUTF8ToWString(filename);
-	return GetFileAttributes(wstr.c_str()) != 0xFFFFFFFF;
-#else
-	struct stat64 file_info;
-
-	std::string copy(filename);
-	stripTailDirSlashes(copy);
-
-	int result = stat64(copy.c_str(), &file_info);
-
-	return (result == 0);
-#endif
-}
-
 // Returns true if filename is a directory
 bool isDirectory(const std::string &filename) {
 	FileInfo info;
@@ -207,7 +171,6 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	struct stat64 file_info;
 
 	std::string copy(path);
-	stripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
 
@@ -344,70 +307,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	if (files)
 		std::sort(files->begin(), files->end());
 	return foundEntries;
-}
-
-void deleteFile(const char *file)
-{
-#ifdef _WIN32
-	if (!DeleteFile(ConvertUTF8ToWString(file).c_str())) {
-		ELOG("Error deleting %s: %i", file, GetLastError());
-	}
-#else
-	int err = unlink(file);
-	if (err) {
-		ELOG("Error unlinking %s: %i", file, err);
-	}
-#endif
-}
-
-void deleteDir(const char *dir)
-{
-#ifdef _WIN32
-	if (!RemoveDirectory(ConvertUTF8ToWString(dir).c_str())) {
-		ELOG("Error deleting directory %s: %i", dir, GetLastError());
-	}
-#else
-	rmdir(dir);
-#endif
-}
-
-#endif
-
-std::string getDir(const std::string &path)
-{
-	if (path == "/")
-		return path;
-	int n = (int)path.size() - 1;
-	while (n >= 0 && path[n] != '\\' && path[n] != '/')
-		n--;
-	std::string cutpath = n > 0 ? path.substr(0, n) : "";
-	for (size_t i = 0; i < cutpath.size(); i++)
-	{
-		if (cutpath[i] == '\\') cutpath[i] = '/';
-	}
-#ifndef _WIN32
-	if (!cutpath.size()) {
-		return "/";
-	}
-#endif
-	return cutpath;
-}
-
-std::string getFilename(std::string path) {
-	size_t off = getDir(path).size() + 1;
-	if (off < path.size())
-		return path.substr(off);
-	else
-		return path;
-}
-
-void mkDir(const std::string &path)
-{
-#ifdef _WIN32
-	mkdir(path.c_str());
-#else
-	mkdir(path.c_str(), 0777);
-#endif
 }
 
 #ifdef _WIN32
