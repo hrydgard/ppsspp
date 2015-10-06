@@ -269,6 +269,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
+	case SYSPROP_DEVICE_TYPE:
+		return DEVICE_TYPE_DESKTOP;
 	default:
 		return -1;
 	}
