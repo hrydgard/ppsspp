@@ -327,6 +327,7 @@ static ConfigSetting generalSettings[] = {
 };
 
 static bool DefaultForceFlushToZero() {
+	// This seems .. dubious?
 #ifdef ARM
 	return true;
 #else
