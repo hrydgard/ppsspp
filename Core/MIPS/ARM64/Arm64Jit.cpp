@@ -524,6 +524,7 @@ void Arm64Jit::WriteDownCountR(ARM64Reg reg, bool updateFlags) {
 	}
 }
 
+// Destroys SCRATCH2
 void Arm64Jit::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
@@ -537,8 +538,8 @@ void Arm64Jit::RestoreRoundingMode(bool force) {
 	}
 }
 
+// Destroys SCRATCH1 and SCRATCH2
 void Arm64Jit::ApplyRoundingMode(bool force) {
-	// NOTE: Must not destroy SCRATCH1.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
 		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
@@ -551,7 +552,6 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 		CMPI2R(SCRATCH2, 4);
 		// At this point, if it was zero, we can skip the rest.
 		FixupBranch skip = B(CC_EQ);
-		PUSH(SCRATCH1);
 
 		// MIPS Rounding Mode:       ARM Rounding Mode
 		//   0: Round nearest        0
@@ -584,13 +584,12 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
 		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
 
-		POP(SCRATCH1);
 		SetJumpTarget(skip);
 	}
 }
 
+// Destroys SCRATCH1 and SCRATCH2
 void Arm64Jit::UpdateRoundingMode() {
-	// NOTE: Must not destroy SCRATCH1.
 	LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
 
 	TSTI2R(SCRATCH2, 1 << 24);
@@ -603,11 +602,9 @@ void Arm64Jit::UpdateRoundingMode() {
 	CMPI2R(SCRATCH2, 3);
 
 	FixupBranch skip2 = B(CC_EQ);
-	PUSH(SCRATCH1_64);
 	MOVI2R(SCRATCH2, 1);
 	MOVP2R(SCRATCH1_64, &js.hasSetRounding);
 	STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
-	POP(SCRATCH1_64);
 	SetJumpTarget(skip2);
 }
 
