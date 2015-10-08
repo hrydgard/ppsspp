@@ -119,13 +119,13 @@ static void JitLogMiss(MIPSOpcode op)
 // JitBlockCache doesn't use this, just stores it.
 #pragma warning(disable:4355)
 #endif
-Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
-{
+Jit::Jit(MIPSState *mips)
+		: blocks(mips, this), mips_(mips) {
 	blocks.Init();
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
-	asm_.Init(mips, this, &jo);
+	GenerateFixedCode(jo);
 	safeMemFuncs.Init(&thunks);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
@@ -220,34 +220,29 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
-void Jit::RestoreRoundingMode(bool force, XEmitter *emitter) {
+void Jit::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
-		if (emitter == NULL)
-			emitter = this;
-		emitter->CALL(asm_.restoreRoundingMode);
+		CALL(restoreRoundingMode);
 	}
 }
 
-void Jit::ApplyRoundingMode(bool force, XEmitter *emitter) {
+void Jit::ApplyRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
-		if (emitter == NULL)
-			emitter = this;
-		emitter->CALL(asm_.applyRoundingMode);
+		CALL(applyRoundingMode);
 	}
 }
 
-void Jit::UpdateRoundingMode(XEmitter *emitter) {
-	if (emitter == NULL)
-		emitter = this;
-	emitter->CALL(asm_.updateRoundingMode);
+void Jit::UpdateRoundingMode() {
+	CALL(updateRoundingMode);
 }
 
 void Jit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
+	GenerateFixedCode(jo);
 }
 
 void Jit::InvalidateCache()
@@ -337,7 +332,7 @@ void Jit::Compile(u32 em_address)
 void Jit::RunLoopUntil(u64 globalticks)
 {
 	PROFILE_THIS_SCOPE("jit");
-	((void (*)())asm_.enterDispatcher)();
+	((void (*)())enterDispatcher)();
 }
 
 u32 Jit::GetCompilerPC() {
@@ -367,7 +362,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	FixupBranch skip = J_CC(CC_NS);
 	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
-	JMP(asm_.outerLoop, true);  // downcount hit zero - go advance.
+	JMP(outerLoop, true);  // downcount hit zero - go advance.
 	SetJumpTarget(skip);
 
 	b->normalEntry = GetCodePtr();
@@ -445,15 +440,13 @@ void Jit::AddContinuedBlock(u32 dest)
 	js.lastContinuedPC = dest;
 }
 
-bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
-{
+bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
 
 	// Returns 0 when it's valid, but unknown.
 	if (jitAddr == 0)
 		name = "UnknownOrDeletedBlock";
-	else if (jitAddr != (u32)-1)
-	{
+	else if (jitAddr != (u32)-1) {
 		char temp[1024];
 		const std::string label = symbolMap.GetDescription(jitAddr);
 		if (!label.empty())
@@ -462,7 +455,7 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
 			snprintf(temp, sizeof(temp), "%08x", jitAddr);
 		name = temp;
 	}
-	else if (asm_.IsInSpace(ptr))
+	else if (IsInSpace(ptr))
 		name = "RunLoopUntil";
 	else if (thunks.IsInSpace(ptr))
 		name = "Thunk";
@@ -660,7 +653,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	} else {
 		// No blocklinking.
 		MOV(32, M(&mips_->pc), Imm32(destination));
-		JMP(asm_.dispatcher, true);
+		JMP(dispatcher, true);
 
 		// Normally, exits are 15 bytes (MOV + &pc + dest + JMP + dest) on 64 or 32 bit.
 		// But just in case we somehow optimized, pad.
@@ -699,8 +692,8 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		// Need to set neg flag again.
 		SUB(32, M(&mips_->downcount), Imm8(0));
 		if (reg == EAX)
-			J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
-		JMP(asm_.dispatcher, true);
+			J_CC(CC_NS, dispatcherInEAXNoCheck, true);
+		JMP(dispatcher, true);
 
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
@@ -717,15 +710,15 @@ void Jit::WriteExitDestInReg(X64Reg reg)
 		}
 
 		SUB(32, M(&mips_->downcount), Imm8(0));
-		JMP(asm_.dispatcherCheckCoreState, true);
+		JMP(dispatcherCheckCoreState, true);
 	}
 	else if (reg == EAX)
 	{
-		J_CC(CC_NS, asm_.dispatcherInEAXNoCheck, true);
-		JMP(asm_.dispatcher, true);
+		J_CC(CC_NS, dispatcherInEAXNoCheck, true);
+		JMP(dispatcher, true);
 	}
 	else
-		JMP(asm_.dispatcher, true);
+		JMP(dispatcher, true);
 }
 
 void Jit::WriteSyscallExit()
@@ -736,7 +729,7 @@ void Jit::WriteSyscallExit()
 		ABI_CallFunction(&JitMemCheckCleanup);
 		ApplyRoundingMode();
 	}
-	JMP(asm_.dispatcherCheckCoreState, true);
+	JMP(dispatcherCheckCoreState, true);
 }
 
 bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
@@ -756,7 +749,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		ApplyRoundingMode();
 		// Just to fix the stack.
 		LOAD_FLAGS;
-		JMP(asm_.dispatcherCheckCoreState, true);
+		JMP(dispatcherCheckCoreState, true);
 		SetJumpTarget(skip);
 
 		ApplyRoundingMode();

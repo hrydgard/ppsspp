@@ -23,7 +23,6 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/x86/Jit.h"
-#include "Core/MIPS/x86/Asm.h"
 #include "Core/MIPS/x86/RegCache.h"
 
 using namespace Gen;
