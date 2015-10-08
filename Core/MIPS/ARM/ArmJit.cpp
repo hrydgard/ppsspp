@@ -593,7 +593,7 @@ void ArmJit::RestoreRoundingMode(bool force) {
 	}
 }
 
-// Does not destroy R0 (SCRATCHREG1). Destroys R1 (SCRATCHREG2).
+// Does not destroy R0 (SCRATCHREG1). Destroys R14 (SCRATCHREG2).
 void ArmJit::ApplyRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
@@ -601,7 +601,7 @@ void ArmJit::ApplyRoundingMode(bool force) {
 	}
 }
 
-// Does (must!) not destroy R0 (SCRATCHREG1). Destroys R1 (SCRATCHREG2).
+// Does (must!) not destroy R0 (SCRATCHREG1). Destroys R14 (SCRATCHREG2).
 void ArmJit::UpdateRoundingMode() {
 	QuickCallFunction(R1, updateRoundingMode);
 }

@@ -74,15 +74,21 @@ using namespace ArmJitConstants;
 void ArmJit::GenerateFixedCode() {
 	const u8 *start = GetCodePtr();
 
+	// LR == SCRATCHREG2....  Maybe we could find some other register to use to avoid having to
+	// push LR?
+
 	restoreRoundingMode = AlignCode16(); {
+		PUSH(1, R_LR);
 		VMRS(SCRATCHREG2);
 		// Assume we're always in round-to-nearest mode beforehand. Flush-to-zero is off.
 		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2((3 | 4) << 22));
 		VMSR(SCRATCHREG2);
-		B(R_LR);
+		POP(1, R_PC);
 	}
 
+	// Must preserve SCRATCHREG1 (R0)
 	applyRoundingMode = AlignCode16(); {
+		PUSH(2, SCRATCHREG1, R_LR);
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
 
 		TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
@@ -93,9 +99,8 @@ void ArmJit::GenerateFixedCode() {
 		// We can only skip if the rounding mode is zero and flush is not set.
 		CMP(SCRATCHREG2, Operand2(3));
 
-		// At this point, if it was zero, we can skip the rest.
+		// At this point, if it was zero, we can skip the rest.  (could even return)
 		FixupBranch skip = B_CC(CC_EQ);
-		PUSH(1, SCRATCHREG1);
 
 		// MIPS Rounding Mode:       ARM Rounding Mode
 		//   0: Round nearest        0
@@ -116,12 +121,13 @@ void ArmJit::GenerateFixedCode() {
 		ORR(SCRATCHREG1, SCRATCHREG1, Operand2(SCRATCHREG2, ST_LSL, 22));
 		VMSR(SCRATCHREG1);
 
-		POP(1, SCRATCHREG1);
 		SetJumpTarget(skip);
-		B(R_LR);
+		POP(2, SCRATCHREG1, R_PC);
 	}
 
+	// Must preserve SCRATCHREG1 (R0)
 	updateRoundingMode = AlignCode16(); {
+		PUSH(2, SCRATCHREG1, R_LR);
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
 
 		TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
@@ -133,14 +139,14 @@ void ArmJit::GenerateFixedCode() {
 		CMP(SCRATCHREG2, Operand2(3));
 
 		FixupBranch skip = B_CC(CC_EQ);
-		PUSH(1, SCRATCHREG1);
 		MOVI2R(SCRATCHREG2, 1);
 		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
 		STRB(SCRATCHREG2, SCRATCHREG1, 0);
-		POP(1, SCRATCHREG1);
 		SetJumpTarget(skip);
-		B(R_LR);
+		POP(2, SCRATCHREG1, R_PC);
 	}
+
+	FlushLitPool();
 
 	enterDispatcher = AlignCode16();
 
