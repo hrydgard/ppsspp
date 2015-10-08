@@ -587,14 +587,10 @@ void ArmJit::WriteDownCountR(ARMReg reg) {
 
 void ArmJit::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
+	if (force || js.hasSetRounding) {
 		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode beforehand.
-		// Also on ARM, we're always in flush-to-zero in C++, so stay that way.
-		if (!g_Config.bForceFlushToZero) {
-			ORR(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2(4 << 22));
-		}
-		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
+		// Assume we're always in round-to-nearest mode beforehand. Flush-to-zero is off.
+		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2((3 | 4) << 22));
 		VMSR(SCRATCHREG2);
 	}
 }
@@ -602,19 +598,17 @@ void ArmJit::RestoreRoundingMode(bool force) {
 void ArmJit::ApplyRoundingMode(bool force) {
 	// NOTE: Must not destroy R0.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
+	if (force || js.hasSetRounding) {
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
-		if (!g_Config.bForceFlushToZero) {
-			TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
-			AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
-			SetCC(CC_NEQ);
-			ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
-			SetCC(CC_AL);
-			// We can only skip if the rounding mode is zero and flush is set.
-			CMP(SCRATCHREG2, Operand2(4));
-		} else {
-			ANDS(SCRATCHREG2, SCRATCHREG2, Operand2(3));
-		}
+
+		TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
+		AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+		SetCC(CC_NEQ);
+		ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
+		SetCC(CC_AL);
+		// We can only skip if the rounding mode is zero and flush is not set.
+		CMP(SCRATCHREG2, Operand2(3));
+
 		// At this point, if it was zero, we can skip the rest.
 		FixupBranch skip = B_CC(CC_EQ);
 		PUSH(1, SCRATCHREG1);
@@ -624,12 +618,8 @@ void ArmJit::ApplyRoundingMode(bool force) {
 		//   1: Round to zero        3
 		//   2: Round up (ceil)      1
 		//   3: Round down (floor)   2
-		if (!g_Config.bForceFlushToZero) {
-			AND(SCRATCHREG1, SCRATCHREG2, Operand2(3));
-			CMP(SCRATCHREG1, Operand2(1));
-		} else {
-			CMP(SCRATCHREG2, Operand2(1));
-		}
+		AND(SCRATCHREG1, SCRATCHREG2, Operand2(3));
+		CMP(SCRATCHREG1, Operand2(1));
 
 		SetCC(CC_EQ); ADD(SCRATCHREG2, SCRATCHREG2, Operand2(2));
 		SetCC(CC_GT); SUB(SCRATCHREG2, SCRATCHREG2, Operand2(1));
@@ -637,10 +627,8 @@ void ArmJit::ApplyRoundingMode(bool force) {
 
 		VMRS(SCRATCHREG1);
 		// Assume we're always in round-to-nearest mode beforehand.
-		if (!g_Config.bForceFlushToZero) {
-			// But we need to clear flush to zero in this case anyway.
-			BIC(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(7 << 22));
-		}
+		// But we need to clear flush to zero in this case anyway.
+		BIC(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2((3 | 4) << 22));
 		ORR(SCRATCHREG1, SCRATCHREG1, Operand2(SCRATCHREG2, ST_LSL, 22));
 		VMSR(SCRATCHREG1);
 
@@ -650,29 +638,24 @@ void ArmJit::ApplyRoundingMode(bool force) {
 }
 
 void ArmJit::UpdateRoundingMode() {
-	// NOTE: Must not destory R0.
-	if (g_Config.bSetRoundingMode) {
-		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
-		if (!g_Config.bForceFlushToZero) {
-			TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
-			AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
-			SetCC(CC_NEQ);
-			ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
-			SetCC(CC_AL);
-			// We can only skip if the rounding mode is zero and flush is set.
-			CMP(SCRATCHREG2, Operand2(4));
-		} else {
-			ANDS(SCRATCHREG2, SCRATCHREG2, Operand2(3));
-		}
+	// NOTE: Must not destroy R0.
+	LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
 
-		FixupBranch skip = B_CC(CC_EQ);
-		PUSH(1, SCRATCHREG1);
-		MOVI2R(SCRATCHREG2, 1);
-		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
-		STRB(SCRATCHREG2, SCRATCHREG1, 0);
-		POP(1, SCRATCHREG1);
-		SetJumpTarget(skip);
-	}
+	TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
+	AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+	SetCC(CC_NEQ);
+	ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
+	SetCC(CC_AL);
+	// We can only skip if the rounding mode is zero and flush is not set.
+	CMP(SCRATCHREG2, Operand2(3));
+
+	FixupBranch skip = B_CC(CC_EQ);
+	PUSH(1, SCRATCHREG1);
+	MOVI2R(SCRATCHREG2, 1);
+	MOVP2R(SCRATCHREG1, &js.hasSetRounding);
+	STRB(SCRATCHREG2, SCRATCHREG1, 0);
+	POP(1, SCRATCHREG1);
+	SetJumpTarget(skip);
 }
 
 // IDEA - could have a WriteDualExit that takes two destinations and two condition flags,

@@ -223,7 +223,7 @@ void Jit::WriteDowncount(int offset)
 void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
+	if (force || js.hasSetRounding)
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -237,7 +237,7 @@ void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
+	if (force || js.hasSetRounding)
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -247,9 +247,7 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		// If it's 0, we don't actually bother setting.  This is the most common.
 		// We always use nearest as the default rounding mode with
 		// flush-to-zero disabled.
-		FixupBranch skip;
-		if (!g_Config.bForceFlushToZero)
-			skip = emitter->J_CC(CC_Z);
+		FixupBranch skip = emitter->J_CC(CC_Z);
 
 		emitter->STMXCSR(M(&mips_->temp));
 
@@ -263,42 +261,33 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		emitter->SHL(32, R(EAX), Imm8(13));
 		emitter->OR(32, M(&mips_->temp), R(EAX));
 
-		if (g_Config.bForceFlushToZero) {
-			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
-		} else {
-			emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
-			FixupBranch skip3 = emitter->J_CC(CC_Z);
-			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
-			emitter->SetJumpTarget(skip3);
-		}
+		emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
+		FixupBranch skip3 = emitter->J_CC(CC_Z);
+		emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
+		emitter->SetJumpTarget(skip3);
 
 		emitter->LDMXCSR(M(&mips_->temp));
-
-		if (!g_Config.bForceFlushToZero)
-			emitter->SetJumpTarget(skip);
+		emitter->SetJumpTarget(skip);
 	}
 }
 
 void Jit::UpdateRoundingMode(XEmitter *emitter)
 {
-	if (g_Config.bSetRoundingMode)
-	{
-		if (emitter == NULL)
-			emitter = this;
+	if (emitter == NULL)
+		emitter = this;
 
-		// If it's only ever 0, we don't actually bother applying or restoring it.
-		// This is the most common situation.
-		emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
-		FixupBranch skip = emitter->J_CC(CC_Z);
+	// If it's only ever 0, we don't actually bother applying or restoring it.
+	// This is the most common situation.
+	emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
+	FixupBranch skip = emitter->J_CC(CC_Z);
 #ifdef _M_X64
-		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-		emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
-		emitter->MOV(8, MatR(RAX), Imm8(1));
+	// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
+	emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+	emitter->MOV(8, MatR(RAX), Imm8(1));
 #else
-		emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
+	emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
 #endif
-		emitter->SetJumpTarget(skip);
-	}
+	emitter->SetJumpTarget(skip);
 }
 
 void Jit::ClearCache()
