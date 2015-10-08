@@ -44,16 +44,9 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 
-#if defined(ARM)
-#include "Core/MIPS/ARM/ArmAsm.h"
-#elif defined(_M_IX86) || defined(_M_X64)
+#if defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
-#elif defined(ARM64)
-#include "Core/MIPS/ARM64/Arm64Asm.h"
-#else
-// FakeJit doesn't need an emitter, no blocks will be created
-#include "Core/MIPS/MIPS.h"
 #endif
 // #include "JitBase.h"
 

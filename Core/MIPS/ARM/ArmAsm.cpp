@@ -24,7 +24,6 @@
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
 #include "Core/MIPS/ARM/ArmJit.h"
-#include "Core/MIPS/ARM/ArmAsm.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace ArmGen;

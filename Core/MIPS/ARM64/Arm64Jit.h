@@ -22,7 +22,6 @@
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
-#include "Core/MIPS/ARM64/Arm64Asm.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"

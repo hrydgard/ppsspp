@@ -1055,7 +1055,6 @@ set(CoreExtraLibs)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM/ArmAsm.cpp
-		Core/MIPS/ARM/ArmAsm.h
 		Core/MIPS/ARM/ArmCompALU.cpp
 		Core/MIPS/ARM/ArmCompBranch.cpp
 		Core/MIPS/ARM/ArmCompFPU.cpp
@@ -1075,7 +1074,6 @@ if(ARM)
 elseif(ARM64)
   set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM64/Arm64Asm.cpp
-		Core/MIPS/ARM64/Arm64Asm.h
 		Core/MIPS/ARM64/Arm64CompALU.cpp
 		Core/MIPS/ARM64/Arm64CompBranch.cpp
 		Core/MIPS/ARM64/Arm64CompFPU.cpp

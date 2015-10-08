@@ -25,7 +25,6 @@
 #include "Common/CPUDetect.h"
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
-#include "Core/MIPS/ARM64/Arm64Asm.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace Arm64Gen;
