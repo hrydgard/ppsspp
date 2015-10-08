@@ -287,7 +287,7 @@ private:
 
 public:
 	// Code pointers
-	const u8 *enterCode;
+	const u8 *enterDispatcher;
 
 	const u8 *outerLoop;
 	const u8 *outerLoopPCInR0;
@@ -295,6 +295,10 @@ public:
 	const u8 *dispatcherPCInR0;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
 
 	const u8 *breakpointBailout;
 };

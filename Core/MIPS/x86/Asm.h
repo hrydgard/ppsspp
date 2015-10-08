@@ -38,7 +38,7 @@ public:
 		WriteProtect();
 	}
 
-	const u8 *enterCode;
+	const u8 *enterDispatcher;
 
 	const u8 *outerLoop;
 	const u8 *dispatcher;
@@ -47,4 +47,8 @@ public:
 	const u8 *dispatcherInEAXNoCheck;
 
 	const u8 *breakpointBailout;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
 };

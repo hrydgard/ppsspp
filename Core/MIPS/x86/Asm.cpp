@@ -37,6 +37,7 @@ using namespace X64JitConstants;
 //TODO - make an option
 //#if _DEBUG
 static bool enableDebug = false; 
+
 //#else
 //		bool enableDebug = false; 
 //#endif
@@ -55,14 +56,70 @@ static bool enableDebug = false;
 
 extern volatile CoreState coreState;
 
-void ImHere()
-{
+void ImHere() {
 	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo)
-{
-	enterCode = AlignCode16();
+void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit, MIPSComp::JitOptions *jo) {
+	const u8 *start = AlignCode16();
+
+	restoreRoundingMode = AlignCode16(); {
+		STMXCSR(M(&mips->temp));
+		// Clear the rounding mode and flush-to-zero bits back to 0.
+		AND(32, M(&mips->temp), Imm32(~(7 << 13)));
+		LDMXCSR(M(&mips->temp));
+		RET();
+	}
+
+	applyRoundingMode = AlignCode16(); {
+		MOV(32, R(EAX), M(&mips->fcr31));
+		AND(32, R(EAX), Imm32(0x1000003));
+
+		// If it's 0, we don't actually bother setting.  This is the most common.
+		// We always use nearest as the default rounding mode with
+		// flush-to-zero disabled.
+		FixupBranch skip = J_CC(CC_Z);
+
+		STMXCSR(M(&mips->temp));
+
+		// The MIPS bits don't correspond exactly, so we have to adjust.
+		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
+		TEST(8, R(AL), Imm8(1));
+		FixupBranch skip2 = J_CC(CC_Z);
+		XOR(32, R(EAX), Imm8(2));
+		SetJumpTarget(skip2);
+
+		SHL(32, R(EAX), Imm8(13));
+		OR(32, M(&mips->temp), R(EAX));
+
+		TEST(32, M(&mips->fcr31), Imm32(1 << 24));
+		FixupBranch skip3 = J_CC(CC_Z);
+		OR(32, M(&mips->temp), Imm32(1 << 15));
+		SetJumpTarget(skip3);
+
+		LDMXCSR(M(&mips->temp));
+		SetJumpTarget(skip);
+		RET();
+	}
+
+	updateRoundingMode = AlignCode16(); {
+		// If it's only ever 0, we don't actually bother applying or restoring it.
+		// This is the most common situation.
+		TEST(32, M(&mips->fcr31), Imm32(0x01000003));
+		FixupBranch skip = J_CC(CC_Z);
+#ifdef _M_X64
+		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
+		MOV(64, R(RAX), Imm64((uintptr_t)&jit->js.hasSetRounding));
+		MOV(8, MatR(RAX), Imm8(1));
+#else
+		MOV(8, M(&jit->js.hasSetRounding), Imm8(1));
+#endif
+		SetJumpTarget(skip);
+
+		RET();
+	}
+
+	enterDispatcher = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.

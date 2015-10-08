@@ -140,7 +140,6 @@ public:
 	void Comp_DoNothing(MIPSOpcode op);
 
 	int Replace_fabsf();
-	int Replace_dl_write_matrix();
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
@@ -304,6 +303,7 @@ private:
 
 	friend class JitSafeMem;
 	friend class JitSafeMemFuncs;
+	friend class AsmRoutineManager;
 };
 
 }	// namespace MIPSComp

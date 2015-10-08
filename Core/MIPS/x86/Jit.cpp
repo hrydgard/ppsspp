@@ -220,74 +220,28 @@ void Jit::WriteDowncount(int offset)
 	SUB(32, M(&mips_->downcount), downcount > 127 ? Imm32(downcount) : Imm8(downcount));
 }
 
-void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
-{
+void Jit::RestoreRoundingMode(bool force, XEmitter *emitter) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (force || js.hasSetRounding)
-	{
+	if (force || js.hasSetRounding) {
 		if (emitter == NULL)
 			emitter = this;
-		emitter->STMXCSR(M(&mips_->temp));
-		// Clear the rounding mode and flush-to-zero bits back to 0.
-		emitter->AND(32, M(&mips_->temp), Imm32(~(7 << 13)));
-		emitter->LDMXCSR(M(&mips_->temp));
+		emitter->CALL(asm_.restoreRoundingMode);
 	}
 }
 
-void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
-{
+void Jit::ApplyRoundingMode(bool force, XEmitter *emitter) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (force || js.hasSetRounding)
-	{
+	if (force || js.hasSetRounding) {
 		if (emitter == NULL)
 			emitter = this;
-		emitter->MOV(32, R(EAX), M(&mips_->fcr31));
-		emitter->AND(32, R(EAX), Imm32(0x1000003));
-
-		// If it's 0, we don't actually bother setting.  This is the most common.
-		// We always use nearest as the default rounding mode with
-		// flush-to-zero disabled.
-		FixupBranch skip = emitter->J_CC(CC_Z);
-
-		emitter->STMXCSR(M(&mips_->temp));
-
-		// The MIPS bits don't correspond exactly, so we have to adjust.
-		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
-		emitter->TEST(8, R(AL), Imm8(1));
-		FixupBranch skip2 = emitter->J_CC(CC_Z);
-		emitter->XOR(32, R(EAX), Imm8(2));
-		emitter->SetJumpTarget(skip2);
-
-		emitter->SHL(32, R(EAX), Imm8(13));
-		emitter->OR(32, M(&mips_->temp), R(EAX));
-
-		emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
-		FixupBranch skip3 = emitter->J_CC(CC_Z);
-		emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
-		emitter->SetJumpTarget(skip3);
-
-		emitter->LDMXCSR(M(&mips_->temp));
-		emitter->SetJumpTarget(skip);
+		emitter->CALL(asm_.applyRoundingMode);
 	}
 }
 
-void Jit::UpdateRoundingMode(XEmitter *emitter)
-{
+void Jit::UpdateRoundingMode(XEmitter *emitter) {
 	if (emitter == NULL)
 		emitter = this;
-
-	// If it's only ever 0, we don't actually bother applying or restoring it.
-	// This is the most common situation.
-	emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
-	FixupBranch skip = emitter->J_CC(CC_Z);
-#ifdef _M_X64
-	// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-	emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
-	emitter->MOV(8, MatR(RAX), Imm8(1));
-#else
-	emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
-#endif
-	emitter->SetJumpTarget(skip);
+	emitter->CALL(asm_.updateRoundingMode);
 }
 
 void Jit::ClearCache()
@@ -383,7 +337,7 @@ void Jit::Compile(u32 em_address)
 void Jit::RunLoopUntil(u64 globalticks)
 {
 	PROFILE_THIS_SCOPE("jit");
-	((void (*)())asm_.enterCode)();
+	((void (*)())asm_.enterDispatcher)();
 }
 
 u32 Jit::GetCompilerPC() {
