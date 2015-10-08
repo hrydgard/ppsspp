@@ -527,101 +527,23 @@ void Arm64Jit::WriteDownCountR(ARM64Reg reg, bool updateFlags) {
 void Arm64Jit::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
-		MRS(SCRATCH2_64, FIELD_FPCR);
-		// Assume we're always in round-to-nearest mode beforehand.
-		// Also on ARM, we're always in flush-to-zero in C++, so stay that way.
-		if (!g_Config.bForceFlushToZero) {
-			ORRI2R(SCRATCH2, SCRATCH2, 4 << 22);
-		}
-		ANDI2R(SCRATCH2, SCRATCH2, ~(3 << 22));
-		_MSR(FIELD_FPCR, SCRATCH2_64);
+		QuickCallFunction(SCRATCH2_64, restoreRoundingMode);
 	}
 }
 
 void Arm64Jit::ApplyRoundingMode(bool force) {
-	// NOTE: Must not destroy SCRATCH1.
+	// NOTE: Must not destroy SCRATCH1. TODO: Why?
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (g_Config.bSetRoundingMode && (force || !g_Config.bForceFlushToZero || js.hasSetRounding)) {
-		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
-		if (!g_Config.bForceFlushToZero) {
-			TSTI2R(SCRATCH2, 1 << 24);
-			ANDI2R(SCRATCH2, SCRATCH2, 3);
-			FixupBranch skip1 = B(CC_EQ);
-			ADDI2R(SCRATCH2, SCRATCH2, 4);
-			SetJumpTarget(skip1);
-			// We can only skip if the rounding mode is zero and flush is set.
-			CMPI2R(SCRATCH2, 4);
-		} else {
-			ANDSI2R(SCRATCH2, SCRATCH2, 3);
-		}
-		// At this point, if it was zero, we can skip the rest.
-		FixupBranch skip = B(CC_EQ);
-		PUSH(SCRATCH1);
-
-		// MIPS Rounding Mode:       ARM Rounding Mode
-		//   0: Round nearest        0
-		//   1: Round to zero        3
-		//   2: Round up (ceil)      1
-		//   3: Round down (floor)   2
-		if (!g_Config.bForceFlushToZero) {
-			ANDI2R(SCRATCH1, SCRATCH2, 3);
-			CMPI2R(SCRATCH1, 1);
-		} else {
-			CMPI2R(SCRATCH2, 1);
-		}
-
-		FixupBranch skipadd = B(CC_NEQ);
-		ADDI2R(SCRATCH2, SCRATCH2, 2);
-		SetJumpTarget(skipadd);
-		FixupBranch skipsub = B(CC_LE);
-		SUBI2R(SCRATCH2, SCRATCH2, 1);
-		SetJumpTarget(skipsub);
-
-		MRS(SCRATCH1_64, FIELD_FPCR);
-		// Assume we're always in round-to-nearest mode beforehand.
-		if (!g_Config.bForceFlushToZero) {
-			// But we need to clear flush to zero in this case anyway.
-			ANDI2R(SCRATCH1, SCRATCH1, ~(7 << 22));
-		}
-		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
-		_MSR(FIELD_FPCR, SCRATCH1_64);
-
-		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
-		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
-		// We already index this array including the FZ bit.  Easy.
-		LSL(SCRATCH2, SCRATCH2, 3);
-		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
-		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
-		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
-
-		POP(SCRATCH1);
-		SetJumpTarget(skip);
+		// ILOG("setting rounding mode");
+		QuickCallFunction(SCRATCH2_64, applyRoundingMode);
 	}
 }
 
 void Arm64Jit::UpdateRoundingMode() {
-	// NOTE: Must not destroy SCRATCH1.
+	// NOTE: Must not destroy SCRATCH1. TODO: Why?
 	if (g_Config.bSetRoundingMode) {
-		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
-		if (!g_Config.bForceFlushToZero) {
-			TSTI2R(SCRATCH2, 1 << 24);
-			ANDI2R(SCRATCH2, SCRATCH2, 3);
-			FixupBranch skip = B(CC_EQ);
-			ADDI2R(SCRATCH2, SCRATCH2, 4);
-			SetJumpTarget(skip);
-			// We can only skip if the rounding mode is zero and flush is set.
-			CMPI2R(SCRATCH2, 4);
-		} else {
-			ANDSI2R(SCRATCH2, SCRATCH2, 3);
-		}
-
-		FixupBranch skip = B(CC_EQ);
-		PUSH(SCRATCH1_64);
-		MOVI2R(SCRATCH2, 1);
-		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
-		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
-		POP(SCRATCH1_64);
-		SetJumpTarget(skip);
+		QuickCallFunction(SCRATCH2_64, updateRoundingMode);
 	}
 }
 
