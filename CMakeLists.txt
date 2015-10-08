@@ -789,7 +789,9 @@ elseif(IOS)
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
 	
-	set(nativeExtraLibs ${nativeExtraLibs} iconv)
+	if(NOT ICONV_LIBRARY)
+		set(nativeExtraLibs ${nativeExtraLibs} iconv)
+	endif()
 
 	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
