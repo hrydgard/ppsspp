@@ -223,7 +223,7 @@ void Jit::WriteDowncount(int offset)
 void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding))
+	if (force || js.hasSetRounding)
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -237,7 +237,7 @@ void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding))
+	if (force || js.hasSetRounding)
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -273,24 +273,21 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 
 void Jit::UpdateRoundingMode(XEmitter *emitter)
 {
-	if (g_Config.bSetRoundingMode)
-	{
-		if (emitter == NULL)
-			emitter = this;
+	if (emitter == NULL)
+		emitter = this;
 
-		// If it's only ever 0, we don't actually bother applying or restoring it.
-		// This is the most common situation.
-		emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
-		FixupBranch skip = emitter->J_CC(CC_Z);
+	// If it's only ever 0, we don't actually bother applying or restoring it.
+	// This is the most common situation.
+	emitter->TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
+	FixupBranch skip = emitter->J_CC(CC_Z);
 #ifdef _M_X64
-		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-		emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
-		emitter->MOV(8, MatR(RAX), Imm8(1));
+	// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
+	emitter->MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+	emitter->MOV(8, MatR(RAX), Imm8(1));
 #else
-		emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
+	emitter->MOV(8, M(&js.hasSetRounding), Imm8(1));
 #endif
-		emitter->SetJumpTarget(skip);
-	}
+	emitter->SetJumpTarget(skip);
 }
 
 void Jit::ClearCache()

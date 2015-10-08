@@ -509,7 +509,6 @@ void GameSettingsScreen::CreateViews() {
 #ifndef MOBILE_DEVICE
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (0 = off, mem hog)"), screenManager()));
 #endif
-	systemSettings->Add(new CheckBox(&g_Config.bSetRoundingMode, sy->T("Respect FPU rounding (disable for old GEB saves)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	systemSettings->Add(new ItemHeader(sy->T("General")));
 

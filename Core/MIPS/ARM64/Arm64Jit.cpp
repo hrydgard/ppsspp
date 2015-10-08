@@ -526,7 +526,7 @@ void Arm64Jit::WriteDownCountR(ARM64Reg reg, bool updateFlags) {
 
 void Arm64Jit::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding)) {
+	if (force || js.hasSetRounding) {
 		MRS(SCRATCH2_64, FIELD_FPCR);
 		// We are not in flush-to-zero mode outside the JIT, so let's turn it off.
 		uint32_t mask = ~(4 << 22);
@@ -540,7 +540,7 @@ void Arm64Jit::RestoreRoundingMode(bool force) {
 void Arm64Jit::ApplyRoundingMode(bool force) {
 	// NOTE: Must not destroy SCRATCH1.
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding)) {
+	if (force || js.hasSetRounding) {
 		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
 		TSTI2R(SCRATCH2, 1 << 24);
 		ANDI2R(SCRATCH2, SCRATCH2, 3);
@@ -591,26 +591,24 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 
 void Arm64Jit::UpdateRoundingMode() {
 	// NOTE: Must not destroy SCRATCH1.
-	if (g_Config.bSetRoundingMode) {
-		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
+	LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
 
-		TSTI2R(SCRATCH2, 1 << 24);
-		ANDI2R(SCRATCH2, SCRATCH2, 3);
-		FixupBranch skip = B(CC_EQ);
-		ADDI2R(SCRATCH2, SCRATCH2, 4);
-		SetJumpTarget(skip);
+	TSTI2R(SCRATCH2, 1 << 24);
+	ANDI2R(SCRATCH2, SCRATCH2, 3);
+	FixupBranch skip = B(CC_EQ);
+	ADDI2R(SCRATCH2, SCRATCH2, 4);
+	SetJumpTarget(skip);
 
-		// We can only skip if the rounding mode is zero and flush is not set.
-		CMPI2R(SCRATCH2, 3);
+	// We can only skip if the rounding mode is zero and flush is not set.
+	CMPI2R(SCRATCH2, 3);
 
-		FixupBranch skip2 = B(CC_EQ);
-		PUSH(SCRATCH1_64);
-		MOVI2R(SCRATCH2, 1);
-		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
-		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
-		POP(SCRATCH1_64);
-		SetJumpTarget(skip2);
-	}
+	FixupBranch skip2 = B(CC_EQ);
+	PUSH(SCRATCH1_64);
+	MOVI2R(SCRATCH2, 1);
+	MOVP2R(SCRATCH1_64, &js.hasSetRounding);
+	STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
+	POP(SCRATCH1_64);
+	SetJumpTarget(skip2);
 }
 
 // IDEA - could have a WriteDualExit that takes two destinations and two condition flags,
