@@ -117,7 +117,6 @@ public:
 	bool bForceLagSync;
 	bool bFuncReplacements;
 	bool bSetRoundingMode;
-	bool bForceFlushToZero;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;

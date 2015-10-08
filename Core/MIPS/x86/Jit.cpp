@@ -223,7 +223,7 @@ void Jit::WriteDowncount(int offset)
 void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
+	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding))
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -237,7 +237,7 @@ void Jit::RestoreRoundingMode(bool force, XEmitter *emitter)
 void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
-	if (g_Config.bSetRoundingMode && (force || g_Config.bForceFlushToZero || js.hasSetRounding))
+	if (g_Config.bSetRoundingMode && (force || js.hasSetRounding))
 	{
 		if (emitter == NULL)
 			emitter = this;
@@ -247,9 +247,7 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		// If it's 0, we don't actually bother setting.  This is the most common.
 		// We always use nearest as the default rounding mode with
 		// flush-to-zero disabled.
-		FixupBranch skip;
-		if (!g_Config.bForceFlushToZero)
-			skip = emitter->J_CC(CC_Z);
+		FixupBranch skip = emitter->J_CC(CC_Z);
 
 		emitter->STMXCSR(M(&mips_->temp));
 
@@ -263,19 +261,13 @@ void Jit::ApplyRoundingMode(bool force, XEmitter *emitter)
 		emitter->SHL(32, R(EAX), Imm8(13));
 		emitter->OR(32, M(&mips_->temp), R(EAX));
 
-		if (g_Config.bForceFlushToZero) {
-			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
-		} else {
-			emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
-			FixupBranch skip3 = emitter->J_CC(CC_Z);
-			emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
-			emitter->SetJumpTarget(skip3);
-		}
+		emitter->TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
+		FixupBranch skip3 = emitter->J_CC(CC_Z);
+		emitter->OR(32, M(&mips_->temp), Imm32(1 << 15));
+		emitter->SetJumpTarget(skip3);
 
 		emitter->LDMXCSR(M(&mips_->temp));
-
-		if (!g_Config.bForceFlushToZero)
-			emitter->SetJumpTarget(skip);
+		emitter->SetJumpTarget(skip);
 	}
 }
 
