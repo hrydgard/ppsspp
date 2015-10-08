@@ -463,7 +463,7 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func) {
 		SaveStaticRegisters();
-		// TODO: Perhaps keep the rounding mode for interp?
+		// TODO: Perhaps keep the rounding mode for interp? Should probably, right?
 		RestoreRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
@@ -507,13 +507,21 @@ void Arm64Jit::LoadStaticRegisters() {
 	}
 }
 
-void Arm64Jit::WriteDownCount(int offset) {
+void Arm64Jit::WriteDownCount(int offset, bool updateFlags) {
 	int theDowncount = js.downcountAmount + offset;
-	SUBSI2R(DOWNCOUNTREG, DOWNCOUNTREG, theDowncount, SCRATCH1);
+	if (updateFlags) {
+		SUBSI2R(DOWNCOUNTREG, DOWNCOUNTREG, theDowncount, SCRATCH1);
+	} else {
+		SUBI2R(DOWNCOUNTREG, DOWNCOUNTREG, theDowncount, SCRATCH1);
+	}
 }
 
-void Arm64Jit::WriteDownCountR(ARM64Reg reg) {
-	SUBS(DOWNCOUNTREG, DOWNCOUNTREG, reg);
+void Arm64Jit::WriteDownCountR(ARM64Reg reg, bool updateFlags) {
+	if (updateFlags) {
+		SUBS(DOWNCOUNTREG, DOWNCOUNTREG, reg);
+	} else {
+		SUB(DOWNCOUNTREG, DOWNCOUNTREG, reg);
+	}
 }
 
 void Arm64Jit::RestoreRoundingMode(bool force) {
@@ -631,7 +639,7 @@ void Arm64Jit::WriteExit(u32 destination, int exit_num) {
 	// Link opportunity!
 	int block = blocks.GetBlockNumberFromStartAddress(destination);
 	if (block >= 0 && jo.enableBlocklink) {
-		// It exists! Joy of joy!
+		// The target block exists! Directly link to its checked entrypoint.
 		B(blocks.GetBlock(block)->checkedEntry);
 		b->linkStatus[exit_num] = true;
 	} else {

@@ -187,8 +187,8 @@ private:
 	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
-	void WriteDownCount(int offset = 0);
-	void WriteDownCountR(Arm64Gen::ARM64Reg reg);
+	void WriteDownCount(int offset = 0, bool updateFlags = true);
+	void WriteDownCountR(Arm64Gen::ARM64Reg reg, bool updateFlags = true);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();

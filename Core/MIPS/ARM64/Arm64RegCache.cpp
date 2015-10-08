@@ -58,6 +58,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		mr[statics[i].mr].loc = ML_ARMREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
+		mr[statics[i].mr].spillLock = true;
 	}
 }
 
@@ -99,11 +100,10 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 	}
 }
 
-void Arm64RegCache::EmitLoadStaticAllocs() {
+void Arm64RegCache::EmitLoadStaticRegisters() {
 	int count;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	// TODO: Use LDP when possible.
-	// This only needs to run once (by Asm) so checks don't need to be fast.
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
 		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
@@ -113,10 +113,10 @@ void Arm64RegCache::EmitLoadStaticAllocs() {
 	}
 }
 
-void Arm64RegCache::EmitSaveStaticAllocs() {
+void Arm64RegCache::EmitSaveStaticRegisters() {
 	int count;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
-	// TODO: Use LDP when possible.
+	// TODO: Use STP when possible.
 	// This only needs to run once (by Asm) so checks don't need to be fast.
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);

@@ -134,9 +134,9 @@ public:
 
 	int GetMipsRegOffset(MIPSGPReg r);
 
-	// Call these when leaving/entering the JIT
-	void EmitLoadStaticAllocs();
-	void EmitSaveStaticAllocs();
+	// These are called once on startup to generate functions, that you should then call.
+	void EmitLoadStaticRegisters();
+	void EmitSaveStaticRegisters();
 
 private:
 	struct StaticAllocation {
