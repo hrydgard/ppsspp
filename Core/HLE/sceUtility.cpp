@@ -281,7 +281,7 @@ static u32 sceUtilityLoadModule(u32 module) {
 	}
 
 	// Some games, like Kamen Rider Climax Heroes OOO, require an error if dependencies aren't loaded yet.
-	for (const int *dep = info->dependencies; *dep != 0; ++dep) {
+	for (const int *dep = info->dependencies; dep && *dep == 0; ++dep) {
 		if (currentlyLoadedModules.find(*dep) == currentlyLoadedModules.end()) {
 			ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): dependent module %i not loaded", module, *dep);
 			return hleDelayResult(SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "utility module load attempt", 25000);
