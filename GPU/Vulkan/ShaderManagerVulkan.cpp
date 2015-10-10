@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -20,11 +20,13 @@
 #endif
 
 #include <map>
-#include "helper/global.h"
+
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
+#include "math/dataconv.h"
 #include "util/text/utf8.h"
+#include "thin3d/vulkan_utils.h"
 
 #include "Common/Common.h"
 #include "Core/Config.h"
@@ -32,23 +34,24 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
-#include "GPU/Directx9/ShaderManagerDX9.h"
-#include "GPU/Directx9/TransformPipelineDX9.h"
-#include "GPU/Directx9/FramebufferDX9.h"
+#include "GPU/Vulkan/ShaderManagerVulkan.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
+#include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/ShaderCompiler.h"
+#include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
+#include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "UI/OnScreenDisplay.h"
 
-namespace DX9 {
-
-PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
+VulkanFragmentShader::VulkanFragmentShader(VkDevice device, ShaderID id, const char *code, bool useHWTransform)
+	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
-	bool success;
+
 	std::string errorMessage;
-
-	success = CompilePixelShader(code, &shader, NULL, errorMessage);
-
+	std::vector<uint32_t> spirv;
+	bool success = CompileGLSLVulkan(code, spirv, errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -59,27 +62,26 @@ PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), fa
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
-		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	} else {
+		success = CreateShaderModule(device_, spirv, &module_);
 	}
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
 		return;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
 }
 
-PSShader::~PSShader() {
-	pD3Ddevice->SetPixelShader(NULL);
-	if (shader)
-		shader->Release();
+VulkanFragmentShader::~VulkanFragmentShader() {
+	if (module_) {
+		vkDestroyShaderModule(device_, module_, nullptr);
+	}
 }
 
-std::string PSShader::GetShaderString(DebugShaderStringType type) const {
+std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) const {
 	switch (type) {
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
@@ -90,15 +92,15 @@ std::string PSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+VulkanVertexShader::VulkanVertexShader(VkDevice device, ShaderID id, const char *code, int vertType, bool useHWTransform) 
+	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
 #endif
-	bool success;
 	std::string errorMessage;
-
-	success = CompileVertexShader(code, &shader, NULL, errorMessage);
+	std::vector<uint32_t> spirv;
+	bool success = CompileGLSLVulkan(code, spirv, errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -109,27 +111,27 @@ VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id)
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
-		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
+	} else {
+		success = CreateShaderModule(device_, spirv, &module_);
 	}
 
 	if (!success) {
 		failed_ = true;
-		if (shader)
-			shader->Release();
-		shader = NULL;
+		module_ = nullptr;
 		return;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
 }
 
-VSShader::~VSShader() {
-	pD3Ddevice->SetVertexShader(NULL);
-	if (shader)
-		shader->Release();
+VulkanVertexShader::~VulkanVertexShader() {
+	if (module_) {
+		vkDestroyShaderModule(device_, module_, nullptr);
+	}
 }
 
-std::string VSShader::GetShaderString(DebugShaderStringType type) const {
+std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) const {
 	switch (type) {
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
@@ -140,115 +142,29 @@ std::string VSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) * (1.0f / 255.0f),
-		((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-		((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-		0.0f
-	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
-}
-
-void ShaderManagerDX9::PSSetColorUniform3Alpha255(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha,
-	};
-	pD3Ddevice->SetPixelShaderConstantF(creg, col, 1);
-}
-
-void ShaderManagerDX9::PSSetFloat(int creg, float value) {
-	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
-}
-
-void ShaderManagerDX9::PSSetFloatArray(int creg, const float *value, int count) {
-	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	for (int i = 0; i < count; i++) {
-		f[i] = value[i];
-	}
-	pD3Ddevice->SetPixelShaderConstantF(creg, f, 1);
-}
-
-void ShaderManagerDX9::VSSetFloat(int creg, float value) {
-	const float f[4] = { value, 0.0f, 0.0f, 0.0f };
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
-}
-
-void ShaderManagerDX9::VSSetFloatArray(int creg, const float *value, int count) {
-	float f[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	for (int i = 0; i < count; i++) {
-		f[i] = value[i];
-	}
-	pD3Ddevice->SetVertexShaderConstantF(creg, f, 1);
-}
-
+/*
 // Utility
-void ShaderManagerDX9::VSSetColorUniform3(int creg, u32 color) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		0.0f
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
-}
-
-void ShaderManagerDX9::VSSetFloatUniform4(int creg, float data[4]) {
-	pD3Ddevice->SetVertexShaderConstantF(creg, data, 1);
-}
-
-void ShaderManagerDX9::VSSetFloat24Uniform3(int creg, const u32 data[3]) {
-	const u32 col[4] = {
-		data[0] >> 8, data[1] >> 8, data[2] >> 8, 0
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, (const float *)&col[0], 1);
-}
-
-void ShaderManagerDX9::VSSetColorUniform3Alpha(int creg, u32 color, u8 alpha) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		alpha/255.0f
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
-}
-
-void ShaderManagerDX9::VSSetColorUniform3ExtraFloat(int creg, u32 color, float extra) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		extra
-	};
-	pD3Ddevice->SetVertexShaderConstantF(creg, col, 1);
-}
-
-// Utility
-void ShaderManagerDX9::VSSetMatrix4x3(int creg, const float *m4x3) {
+void ShaderManagerVulkan::VSSetMatrix4x3(int creg, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
 	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
 }
 
-void ShaderManagerDX9::VSSetMatrix4x3_3(int creg, const float *m4x3) {
+void ShaderManagerVulkan::VSSetMatrix4x3_3(int creg, const float *m4x3) {
 	float m3x4[16];
 	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
 	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
 }
 
-void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
+void ShaderManagerVulkan::VSSetMatrix(int creg, const float* pMatrix) {
 	float transp[16];
 	Transpose4x4(transp, pMatrix);
 	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
 }
+*/
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
-static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY) {
+static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
 	// Half pixel offset hack
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
@@ -260,45 +176,35 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 	if (invertedY)
 		yoff = -yoff;
 
-	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
-	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
-	in.translateAndScale(trans, scale);
+	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 }
 
-static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
+static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
 	float xoff = -0.5f / gstate_c.curRTRenderWidth;
 	float yoff = 0.5f / gstate_c.curRTRenderHeight;
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
-		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
+		Uint8x3ToFloat4(ub_fragment.texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		Uint8x3ToFloat4_Alpha(ub_fragment.alphaColorRef, gstate.getColorTestRef(), (float)gstate.getAlphaTestRef());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		PSSetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
+		Uint8x3ToFloat4(ub_fragment.colorTestMask, gstate.colortestmask);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
-		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
+		Uint8x3ToFloat4(ub_fragment.fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
-		PSSetFloat(CONST_PS_STENCILREPLACE, (float)gstate.getStencilTestRef() * (1.0f / 255.0f));
+		Uint8x1ToFloat4(ub_fragment.stencilReplace, gstate.getStencilTestRef());
 	}
-
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		PSSetColorUniform3(CONST_PS_BLENDFIXA, gstate.getFixA());
-		PSSetColorUniform3(CONST_PS_BLENDFIXB, gstate.getFixB());
-
-		const float fbotexSize[2] = {
-			1.0f / (float)gstate_c.curRTRenderWidth,
-			1.0f / (float)gstate_c.curRTRenderHeight,
-		};
-		PSSetFloatArray(CONST_PS_FBOTEXSIZE, fbotexSize, 2);
+		Uint8x3ToFloat4(ub_fragment.blendFixA, gstate.getFixA());
+		Uint8x3ToFloat4(ub_fragment.blendFixB, gstate.getFixB());
 	}
-
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
@@ -318,12 +224,12 @@ void ShaderManagerDX9::PSUpdateUniforms(int dirtyUniforms) {
 			gstate_c.curTextureXOffset * invW,
 			gstate_c.curTextureYOffset * invH,
 		};
-		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
-		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+		CopyFloat4(ub_fragment.texClamp, texclamp);
+		CopyFloat2(ub_fragment.texClampOffset, texclampoff);
 	}
 }
 
-void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
+void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
@@ -343,28 +249,28 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
+		
+		const bool invertedZ = gstate_c.vpDepthScale < 0;
+		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY, invertedZ);
 
-		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
-
-		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
+		CopyMatrix4x4(ub_transformCommon.proj, flippedMatrix.getReadPtr());
 	}
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
-
-		ConvertProjMatrixToD3DThrough(proj_through);
-
-		VSSetMatrix(CONST_VS_PROJ_THROUGH, proj_through.getReadPtr());
+		ConvertProjMatrixToVulkanThrough(proj_through);
+		CopyMatrix4x4(ub_transformCommon.proj, proj_through.getReadPtr());
 	}
+
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
-		VSSetMatrix4x3_3(CONST_VS_WORLD, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(ub_transformCommon.world, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
-		VSSetMatrix4x3_3(CONST_VS_VIEW, gstate.viewMatrix);
+		ConvertMatrix4x3To4x4(ub_transformCommon.view, gstate.viewMatrix);
 	}
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
-		VSSetMatrix4x3_3(CONST_VS_TEXMTX, gstate.tgenMatrix);
+		ConvertMatrix4x3To4x4(ub_transformCommon.tex, gstate.tgenMatrix);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
 		float fogcoef[2] = {
@@ -387,7 +293,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
 		}
 #endif
-		VSSetFloatArray(CONST_VS_FOGCOEF, fogcoef, 2);
+		CopyFloat2(ub_transformCommon.fogCoef, fogcoef);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -417,7 +323,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 #else
 	for (int i = 0; i < 8; i++) {
 		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			VSSetMatrix4x3_3(CONST_VS_BONE0 + 3 * i, gstate.boneMatrix + 12 * i);
+			ConvertMatrix4x3To4x4(ub_bones.bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 #endif
@@ -432,24 +338,14 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		const float heightFactor = (float)h * invH;
 
 		float uvscaleoff[4];
-
 		switch (gstate.getUVGenMode()) {
 		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 		case GE_TEXMAP_UNKNOWN:
-			if (g_Config.bPrescaleUV) {
-				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
-				// except consider *Scale and *Off to be 1 and 0.
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
-				uvscaleoff[2] = 0.0f;
-				uvscaleoff[3] = 0.0f;
-			} else {
-				uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			}
+			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
+			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			break;
 
 		// These two work the same whether or not we prescale UV.
@@ -476,22 +372,24 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		default:
 			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
-		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
+		CopyFloat4(ub_transformCommon.uvScaleOffset, uvscaleoff);
 	}
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
-		// Depth is [0, 1] mapping to [minz, maxz], not too hard.
-		float vpZScale = gstate.getViewportZScale();
-		float vpZCenter = gstate.getViewportZCenter();
+		float viewZScale = gstate.getViewportZScale();
+		float viewZCenter = gstate.getViewportZCenter();
 
-		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
-		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
-		float viewZScale = halfActualZRange * 2.0f;
-		// Account for the half pixel offset.
-		float viewZCenter = minz + (DepthSliceFactor() / 256.0f) * 0.5f;
+		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
+		// it afterwards anyway.
+		// It seems that we should adjust for D3D projection matrix. We got squashed up to only 0-1, so we divide
+		// the scale factor by 2, and add an offset. But, this doesn't work! I get near-perfect results not doing it.
+		// viewZScale *= 2.0f;
+
+		// Need to take the possibly inverted proj matrix into account.
+		if (gstate_c.vpDepthScale < 0.0)
+			viewZScale *= -1.0f;
+		viewZCenter -= 32767.5f;
 		float viewZInvScale;
-
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {
@@ -499,24 +397,27 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		}
 
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
-		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
+		CopyFloat4(ub_transformCommon.depthRange, data);
 	}
+
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
-		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
+		Uint8x3ToFloat4_AlphaUint8(ub_lightGlobal.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
-		VSSetColorUniform3Alpha(CONST_VS_MATAMBIENTALPHA, gstate.materialambient, gstate.getMaterialAmbientA());
+		// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
+		Uint8x3ToFloat4_AlphaUint8(ub_transformCommon.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
-		VSSetColorUniform3(CONST_VS_MATDIFFUSE, gstate.materialdiffuse);
+		Uint8x3ToFloat4(ub_lightGlobal.materialDiffuse, gstate.materialdiffuse);
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
-		VSSetColorUniform3(CONST_VS_MATEMISSIVE, gstate.materialemissive);
+		Uint8x3ToFloat4(ub_lightGlobal.materialEmissive, gstate.materialemissive);
 	}
 	if (dirtyUniforms & DIRTY_MATSPECULAR) {
-		VSSetColorUniform3ExtraFloat(CONST_VS_MATSPECULAR, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		Uint8x3ToFloat4_Alpha(ub_lightGlobal.materialEmissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
+
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
@@ -530,30 +431,30 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 				else
 					len = 1.0f / len;
 				float vec[3] = { x * len, y * len, z * len };
-				VSSetFloatArray(CONST_VS_LIGHTPOS + i, vec, 3);
+				CopyFloat3To4(ub_lights.lpos[i], vec);
 			} else {
-				VSSetFloat24Uniform3(CONST_VS_LIGHTPOS + i, &gstate.lpos[i * 3]);
+				ExpandFloat24x3ToFloat4(ub_lights.lpos[i], &gstate.lpos[i * 3]);
 			}
-			VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
-			VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
-			VSSetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
-			VSSetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
-			VSSetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
-			VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
-			VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
+			ExpandFloat24x3ToFloat4(ub_lights.ldir[i], &gstate.ldir[i * 3]);
+			ExpandFloat24x3ToFloat4(ub_lights.latt[i], &gstate.latt[i * 3]);
+			CopyFloat1To4(ub_lights.lightAngle[i], getFloat24(gstate.lcutoff[i]));
+			CopyFloat1To4(ub_lights.lightSpotCoef[i], getFloat24(gstate.lconv[i]));
+			Uint8x3ToFloat4(ub_lights.lightAmbient[i], gstate.lcolor[i * 3]);
+			Uint8x3ToFloat4(ub_lights.lightDiffuse[i], gstate.lcolor[i * 3 + 1]);
+			Uint8x3ToFloat4(ub_lights.lightSpecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9() : lastVShader_(nullptr), lastPShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+ShaderManagerVulkan::ShaderManagerVulkan(VkDevice device) : device_(device), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
 }
 
-ShaderManagerDX9::~ShaderManagerDX9() {
+ShaderManagerVulkan::~ShaderManagerVulkan() {
 	delete [] codeBuffer_;
 }
 
-void ShaderManagerDX9::Clear() {
+void ShaderManagerVulkan::Clear() {
 	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
 		delete iter->second;
 	}
@@ -568,26 +469,27 @@ void ShaderManagerDX9::Clear() {
 	DirtyShader();
 }
 
-void ShaderManagerDX9::ClearCache(bool deleteThem) {
+void ShaderManagerVulkan::ClearCache(bool deleteThem) {
 	Clear();
 }
 
 
-void ShaderManagerDX9::DirtyShader() {
+void ShaderManagerVulkan::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID_.clear();
 	lastVSID_.clear();
 	lastVShader_ = nullptr;
-	lastPShader_ = nullptr;
+	lastFShader_ = nullptr;
 	globalDirty_ = 0xFFFFFFFF;
 }
 
-void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
+void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 	lastVShader_ = nullptr;
-	lastPShader_ = nullptr;
+	lastFShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
+
+void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	ShaderID VSID;
@@ -596,21 +498,24 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
+	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
 		if (globalDirty_) {
 			PSUpdateUniforms(globalDirty_);
 			VSUpdateUniforms(globalDirty_);
 			globalDirty_ = 0;
 		}
-		return lastVShader_;	// Already all set.
+		*vshader = lastVShader_;
+		*fshader = lastFShader_;
+		// Already all set, no need to look up in shader maps.
+		return;
 	}
 
 	VSCache::iterator vsIter = vsCache_.find(VSID);
-	VSShader *vs;
+	VulkanVertexShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderDX9(VSID, codeBuffer_);
-		vs = new VSShader(VSID, codeBuffer_, useHWTransform);
+		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
+		vs = new VulkanVertexShader(device_, VSID, codeBuffer_, vertType, useHWTransform);
 
 		if (vs->Failed()) {
 			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
@@ -624,8 +529,8 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderDX9(VSID, codeBuffer_);
-			vs = new VSShader(VSID, codeBuffer_, false);
+			GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
+			vs = new VulkanVertexShader(device_, VSID, codeBuffer_, vertType, false);
 		}
 
 		vsCache_[VSID] = vs;
@@ -635,11 +540,11 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	lastVSID_ = VSID;
 
 	FSCache::iterator fsIter = fsCache_.find(FSID);
-	PSShader *fs;
+	VulkanFragmentShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderDX9(FSID, codeBuffer_);
-		fs = new PSShader(FSID, codeBuffer_);
+		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_);
+		fs = new VulkanFragmentShader(device_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -652,16 +557,11 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		VSUpdateUniforms(globalDirty_);
 		globalDirty_ = 0;
 	}
-
-	pD3Ddevice->SetPixelShader(fs->shader);
-	pD3Ddevice->SetVertexShader(vs->shader);
-
-	lastPShader_ = fs;
-	lastVShader_ = vs;
-	return vs;
+	*vshader = vs;
+	*fshader = fs;
 }
 
-std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType type) {
+std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType type) {
 	std::string id;
 	std::vector<std::string> ids;
 	switch (type) {
@@ -685,7 +585,7 @@ std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType typ
 	return ids;
 }
 
-std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	ShaderID shaderId;
 	shaderId.FromString(id);
 	switch (type) {
@@ -710,5 +610,3 @@ std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderTy
 		return "N/A";
 	}
 }
-
-}  // namespace

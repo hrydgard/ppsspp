@@ -5,6 +5,7 @@
 
 #include "base/logging.h"
 #include "image/zim_load.h"
+#include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx/gl_common.h"
@@ -73,13 +74,6 @@ static const char *glsl_fragment_prelude =
 "#ifdef GL_ES\n"
 "precision mediump float;\n"
 "#endif\n";
-
-static inline void Uint32ToFloat4(uint32_t u, float f[4]) {
-	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
-	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
-	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
-	f[3] = ((u >> 24) & 0xFF) * (1.0f / 255.0f);
-}
 
 class Thin3DGLBlendState : public Thin3DBlendState {
 public:
@@ -326,8 +320,8 @@ public:
 	}
 
 	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
+	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		if (enable) {
@@ -645,7 +639,7 @@ void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures
 }
 
 
-Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DGLShader *shader = new Thin3DGLShader(false);
 	if (shader->Compile(glsl_source)) {
 		return shader;
@@ -655,7 +649,7 @@ Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const
 	}
 }
 
-Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DGLShader *shader = new Thin3DGLShader(true);
 	if (shader->Compile(glsl_source)) {
 		return shader;
@@ -816,7 +810,7 @@ void Thin3DGLContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 
 void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	float col[4];
-	Uint32ToFloat4(colorval, col);
+	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
 	if (mask & T3DClear::COLOR) {
 		glClearColor(col[0], col[1], col[2], col[3]);

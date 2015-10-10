@@ -17,16 +17,20 @@
 
 #pragma once
 
-enum DebugShaderType {
-	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
-	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
+#include "Common/GraphicsContext.h"
+#include "Windows/GPU/WindowsGraphicsContext.h"
+#include "thin3d/thin3d.h"
+
+class WindowsVulkanContext : public WindowsGraphicsContext {
+public:
+	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
+	void Shutdown() override;
+	void SwapInterval(int interval) override;
+	void SwapBuffers() override;
+	void Resize() override;
+
+	Thin3DContext *CreateThin3DContext() override;
 };
 
-enum DebugShaderStringType {
-	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
-};
+void Vulkan_BeginSurfaceRender();
+void Vulkan_EndSurfaceRender();

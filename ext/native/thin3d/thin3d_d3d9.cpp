@@ -403,8 +403,8 @@ public:
 	Thin3DTexture *CreateTexture() override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
 
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
+	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	void SetBlendState(Thin3DBlendState *state) {
@@ -465,7 +465,7 @@ Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 Thin3DDX9Context::~Thin3DDX9Context() {
 }
 
-Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DDX9Shader *shader = new Thin3DDX9Shader(false);
 	if (shader->Compile(device_, hlsl_source, "vs_2_0")) {
 		return shader;
@@ -475,7 +475,7 @@ Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, cons
 	}
 }
 
-Thin3DShader *Thin3DDX9Context::CreateFragmentShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DDX9Context::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DDX9Shader *shader = new Thin3DDX9Shader(true);
 	if (shader->Compile(device_, hlsl_source, "ps_2_0")) {
 		return shader;

@@ -17,8 +17,13 @@
 
 #pragma once
 
+#include <map>
+
 #include "Common/CommonTypes.h"
 #include "GPU/Common/GPUDebugInterface.h"
+
+#include <map>
+#include <vector>
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,

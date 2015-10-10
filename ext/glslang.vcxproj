@@ -147,6 +147,7 @@
     <ClCompile Include="glslang\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="glslang\glslang\GenericCodeGen\Link.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Constant.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\InfoSink.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Initialize.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Intermediate.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="glslang\glslang\Include\ResourceLimits.h" />
     <ClInclude Include="glslang\glslang\Include\ShHandle.h" />
     <ClInclude Include="glslang\glslang\Include\Types.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\gl_types.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\Initialize.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\localintermediate.h" />

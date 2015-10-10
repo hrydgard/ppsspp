@@ -305,6 +305,15 @@
     <ClInclude Include="file\free.h">
       <Filter>file</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\vulkan_utils.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="math\dataconv.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="thin3d\VulkanContext.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -741,6 +750,15 @@
     </ClCompile>
     <ClCompile Include="file\free.cpp">
       <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\vulkan_utils.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\thin3d_vulkan.cpp">
+      <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\VulkanContext.cpp">
+      <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
