@@ -305,6 +305,9 @@
     <ClInclude Include="file\free.h">
       <Filter>file</Filter>
     </ClInclude>
+    <ClInclude Include="math\dataconv.h">
+      <Filter>math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

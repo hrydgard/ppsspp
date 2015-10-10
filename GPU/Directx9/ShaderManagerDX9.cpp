@@ -404,12 +404,12 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		}
 		if (allDirty) {
 			// Set them all with one call
-			glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
+			//glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
 		} else {
 			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
 			for (int i = 0; i < numBones; i++) {
 				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-					glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
+					//glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
 				}
 			}
 		}
