@@ -126,6 +126,7 @@ Jit::Jit(MIPSState *mips)
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
 	GenerateFixedCode(jo);
+
 	safeMemFuncs.Init(&thunks);
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();

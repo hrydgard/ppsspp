@@ -316,8 +316,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
-
-	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 }
 
 }  // namespace MIPSComp
