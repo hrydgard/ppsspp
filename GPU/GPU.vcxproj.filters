@@ -201,6 +201,16 @@
     <ClInclude Include="Common\ShaderId.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Vulkan\GPU_Vulkan.h" />
+    <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
+    <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
+    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
+    <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
+    <ClInclude Include="Vulkan\VulkanUtil.h" />
+    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
+    <ClInclude Include="Vulkan\ShaderCompiler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -386,5 +396,14 @@
     <ClCompile Include="Common\ShaderId.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
+    <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
+    <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
+    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
+    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\ShaderCompiler.cpp" />
   </ItemGroup>
 </Project>

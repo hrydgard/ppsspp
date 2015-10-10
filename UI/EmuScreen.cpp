@@ -99,8 +99,19 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = GPU_GLES;
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
+		coreParam.gpuCore = GPU_GLES;
+		break;
+	case GPUBackend::DIRECT3D9:
 		coreParam.gpuCore = GPU_DIRECTX9;
+		break;
+	case GPUBackend::DIRECT3D11:
+		coreParam.gpuCore = GPU_DIRECTX11;
+		break;
+	case GPUBackend::VULKAN:
+		coreParam.gpuCore = GPU_VULKAN;
+		break;
 	}
 	if (g_Config.bSoftwareRendering) {
 		coreParam.gpuCore = GPU_SOFTWARE;
@@ -956,6 +967,7 @@ void EmuScreen::render() {
 	}
 
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
+	/*
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 		GLenum attachments[2] = { GL_DEPTH, GL_STENCIL };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, attachments);
@@ -969,6 +981,7 @@ void EmuScreen::render() {
 		}
 #endif
 	}
+	*/
 }
 
 void EmuScreen::deviceLost() {

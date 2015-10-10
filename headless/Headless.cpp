@@ -71,6 +71,7 @@ struct InputState;
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void GL_SwapInterval(int) { }
+void Vulkan_SwapBuffers() {}
 void NativeUpdate(InputState &input_state) { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }

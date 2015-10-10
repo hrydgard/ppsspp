@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Text Include="glslang\glslang\ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <Filter Include="SPIRV">
       <UniqueIdentifier>{300f8b24-cec5-41dc-bf7f-e60745f3e383}</UniqueIdentifier>
     </Filter>
@@ -110,6 +107,9 @@
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -202,9 +202,6 @@
     <ClInclude Include="glslang\glslang\MachineIndependent\SymbolTable.h">
       <Filter>glslang</Filter>
     </ClInclude>
-    <ClInclude Include="glslang\glslang\MachineIndependent\unistd.h">
-      <Filter>glslang</Filter>
-    </ClInclude>
     <ClInclude Include="glslang\glslang\MachineIndependent\Versions.h">
       <Filter>glslang</Filter>
     </ClInclude>
@@ -212,12 +209,12 @@
       <Filter>glslang</Filter>
     </ClInclude>
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="glslang\glslang\MachineIndependent\glslang.y">
-      <Filter>glslang</Filter>
-    </None>
-    <None Include="glslang\glslang\MachineIndependent\Makefile">
       <Filter>glslang</Filter>
     </None>
   </ItemGroup>

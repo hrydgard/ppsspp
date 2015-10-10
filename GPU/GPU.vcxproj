@@ -244,6 +244,16 @@
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
+    <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
+    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
+    <ClInclude Include="Vulkan\GPU_Vulkan.h" />
+    <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
+    <ClInclude Include="Vulkan\ShaderCompiler.h" />
+    <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
+    <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
+    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\VulkanUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
@@ -322,6 +332,15 @@
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />
+    <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
+    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
+    <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
+    <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\ShaderCompiler.cpp" />
+    <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
+    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

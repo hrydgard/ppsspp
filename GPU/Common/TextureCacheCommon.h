@@ -24,6 +24,9 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "Common/MemoryUtil.h"
 
+#include <map>
+#include <vector>
+
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
 	TEX_FILTER_NEAREST = 2,

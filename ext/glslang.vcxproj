@@ -114,6 +114,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -132,6 +134,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,12 +145,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="glslang\glslang\ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="glslang\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="glslang\glslang\GenericCodeGen\Link.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Constant.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\InfoSink.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Initialize.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Intermediate.cpp" />
@@ -191,6 +193,7 @@
     <ClInclude Include="glslang\glslang\Include\ResourceLimits.h" />
     <ClInclude Include="glslang\glslang\Include\ShHandle.h" />
     <ClInclude Include="glslang\glslang\Include\Types.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\gl_types.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\Initialize.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\localintermediate.h" />
@@ -202,7 +205,6 @@
     <ClInclude Include="glslang\glslang\MachineIndependent\Scan.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\ScanContext.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\SymbolTable.h" />
-    <ClInclude Include="glslang\glslang\MachineIndependent\unistd.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\Versions.h" />
     <ClInclude Include="glslang\glslang\Public\ShaderLang.h" />
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
@@ -217,7 +219,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="glslang\glslang\MachineIndependent\glslang.y" />
-    <None Include="glslang\glslang\MachineIndependent\Makefile" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
