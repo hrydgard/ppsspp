@@ -158,6 +158,10 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
 		_MSR(FIELD_FPCR, SCRATCH1_64);
 
+		SetJumpTarget(skip);
+
+		// !! Can't skip this part at all, unless we restore it in restoreRoundingMode (which would not really be cheaper)
+
 		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
 		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
 		// We already index this array including the FZ bit.  Easy.
@@ -165,8 +169,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
 		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
 		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
-
-		SetJumpTarget(skip);
 		RET();
 	}
 
@@ -314,6 +316,8 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
+
+	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 }
 
 }  // namespace MIPSComp
