@@ -318,6 +318,8 @@ private:
 	const u8 *applyRoundingMode;
 	const u8 *updateRoundingMode;
 
+	const u8 *endOfPregeneratedCode;
+
 	friend class JitSafeMem;
 	friend class JitSafeMemFuncs;
 };

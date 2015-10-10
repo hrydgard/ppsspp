@@ -215,6 +215,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
+
+	endOfPregeneratedCode = GetCodePtr();
 }
 
 }  // namespace

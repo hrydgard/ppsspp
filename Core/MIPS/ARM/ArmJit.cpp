@@ -387,7 +387,7 @@ void ArmJit::AddContinuedBlock(u32 dest)
 
 bool ArmJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
-	// TODO: Not used by anything yet.
+	// TODO: Not used by anything yet (except the modified VerySleepy on Windows)
 	return false;
 }
 

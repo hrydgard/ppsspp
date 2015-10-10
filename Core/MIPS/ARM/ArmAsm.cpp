@@ -74,9 +74,7 @@ using namespace ArmJitConstants;
 void ArmJit::GenerateFixedCode() {
 	const u8 *start = GetCodePtr();
 
-	// LR == SCRATCHREG2....  Maybe we could find some other register to use to avoid having to
-	// push LR?
-
+	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.
 	restoreRoundingMode = AlignCode16(); {
 		PUSH(1, R_LR);
 		VMRS(SCRATCHREG2);
@@ -86,7 +84,7 @@ void ArmJit::GenerateFixedCode() {
 		POP(1, R_PC);
 	}
 
-	// Must preserve SCRATCHREG1 (R0)
+	// Must preserve SCRATCHREG1 (R0), destroys SCRATCHREG2 (LR)
 	applyRoundingMode = AlignCode16(); {
 		PUSH(2, SCRATCHREG1, R_LR);
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
@@ -125,7 +123,7 @@ void ArmJit::GenerateFixedCode() {
 		POP(2, SCRATCHREG1, R_PC);
 	}
 
-	// Must preserve SCRATCHREG1 (R0)
+	// Must preserve SCRATCHREG1 (R0), destroys SCRATCHREG2 (LR)
 	updateRoundingMode = AlignCode16(); {
 		PUSH(2, SCRATCHREG1, R_LR);
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));

@@ -444,9 +444,9 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
 
 	// Returns 0 when it's valid, but unknown.
-	if (jitAddr == 0)
+	if (jitAddr == 0) {
 		name = "UnknownOrDeletedBlock";
-	else if (jitAddr != (u32)-1) {
+	} else if (jitAddr != (u32)-1) {
 		char temp[1024];
 		const std::string label = symbolMap.GetDescription(jitAddr);
 		if (!label.empty())
@@ -454,18 +454,20 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		else
 			snprintf(temp, sizeof(temp), "%08x", jitAddr);
 		name = temp;
-	}
-	else if (IsInSpace(ptr))
-		name = "RunLoopUntil";
-	else if (thunks.IsInSpace(ptr))
+	} else if (IsInSpace(ptr)) {
+		if (ptr < endOfPregeneratedCode) {
+			name = "PreGenCode";
+		} else {
+			name = "Unknown";
+		}
+	} else if (thunks.IsInSpace(ptr)) {
 		name = "Thunk";
-	else if (safeMemFuncs.IsInSpace(ptr))
+	} else if (safeMemFuncs.IsInSpace(ptr)) {
 		name = "JitSafeMem";
-	else if (IsInSpace(ptr))
-		name = "Unknown";
-	// Not anywhere in jit, then.
-	else
+	} else {
+		// Not anywhere in jit, then.
 		return false;
+	}
 
 	// If we got here, one of the above cases matched.
 	return true;
