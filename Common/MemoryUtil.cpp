@@ -32,12 +32,11 @@
 #endif
 
 
-
 #if defined(_M_X64)
 #ifndef _WIN32
 #include <unistd.h>
 #endif
-int hint_location;
+static int hint_location;
 #ifdef __APPLE__
 #define PAGE_MASK (4096-1)
 #elif defined(_WIN32)
@@ -65,32 +64,32 @@ void ResetExecutableMemory(void* ptr)
 #endif
 
 #if defined(_WIN32) && defined(_M_X64)
-static uintptr_t last_addr;
+static uintptr_t last_executable_addr;
 static void *SearchForFreeMem(size_t size)
 {
-	if (!last_addr)
-		last_addr = (uintptr_t) &hint_location - sys_info.dwPageSize;
-	last_addr -= size;
+	if (!last_executable_addr)
+		last_executable_addr = (uintptr_t) &hint_location - sys_info.dwPageSize;
+	last_executable_addr -= size;
 
 	MEMORY_BASIC_INFORMATION info;
-	while (VirtualQuery((void *)last_addr, &info, sizeof(info)) == sizeof(info))
+	while (VirtualQuery((void *)last_executable_addr, &info, sizeof(info)) == sizeof(info))
 	{
 		// went too far, unusable for executable memory
-		if (last_addr + 0x80000000 < (uintptr_t) &hint_location)
+		if (last_executable_addr + 0x80000000 < (uintptr_t) &hint_location)
 			return NULL;
 
-		uintptr_t end = last_addr + size;
+		uintptr_t end = last_executable_addr + size;
 		if (info.State != MEM_FREE)
 		{
-			last_addr = (uintptr_t) info.AllocationBase - size;
+			last_executable_addr = (uintptr_t) info.AllocationBase - size;
 			continue;
 		}
 
 		if ((uintptr_t)info.BaseAddress + (uintptr_t)info.RegionSize >= end &&
-			(uintptr_t)info.BaseAddress <= last_addr)
-			return (void *)last_addr;
+			(uintptr_t)info.BaseAddress <= last_executable_addr)
+			return (void *)last_executable_addr;
 
-		last_addr -= size;
+		last_executable_addr -= size;
 	}
 
 	return NULL;
@@ -100,20 +99,27 @@ static void *SearchForFreeMem(size_t size)
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 
-void* AllocateExecutableMemory(size_t size, bool exec)
-{
+void *AllocateExecutableMemory(size_t size, bool exec) {
 #if defined(_WIN32)
-	void* ptr;
+	void *ptr;
 #if defined(_M_X64)
-	if (exec && (uintptr_t) &hint_location > 0xFFFFFFFFULL)
-	{
-		if (!last_addr)
+	if (exec && (uintptr_t)&hint_location > 0xFFFFFFFFULL) {
+		if (sys_info.dwPageSize == 0)
 			GetSystemInfo(&sys_info);
 
-		size_t _size = round_page(size);
-		ptr = SearchForFreeMem(_size);
-		if (ptr)
-			ptr = VirtualAlloc(ptr, _size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+		size_t aligned_size = round_page(size);
+		ptr = SearchForFreeMem(aligned_size);
+		if (!ptr) {
+			// Let's try again, from the top.
+			// When we deallocate, this doesn't change, so we eventually run out of space.
+			last_executable_addr = 0;
+			ptr = SearchForFreeMem(aligned_size);
+		}
+		if (ptr) {
+			ptr = VirtualAlloc(ptr, aligned_size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+		} else {
+			ERROR_LOG(COMMON, "Unable to find nearby executable memory for jit");
+		}
 	}
 	else
 #endif
@@ -157,23 +163,20 @@ void* AllocateExecutableMemory(size_t size, bool exec)
 
 #endif /* defined(_WIN32) */
 
-	// printf("Mapped executable memory at %p (size %ld)\n", ptr,
-	//	(unsigned long)size);
-
 #if !defined(_WIN32) && !defined(__SYMBIAN32__)
-	if (ptr == MAP_FAILED)
-	{
-		ptr = NULL;
+	static const void *failed_result = MAP_FAILED;
 #else
-	if (ptr == NULL)
-	{
+	static const void *failed_result = nullptr;
 #endif
-		PanicAlert("Failed to allocate executable memory");
+
+	if (ptr == failed_result) {
+		ptr = nullptr;
+		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 #if defined(_M_X64) && !defined(_WIN32)
-	else if (exec && (uintptr_t) map_hint <= 0xFFFFFFFF)
-	{
-		map_hint += round_page(size); /* round up if we're below 32-bit mark, probably allocating sequentially */
+	else if (exec && (uintptr_t)map_hint <= 0xFFFFFFFF) {
+		// Round up if we're below 32-bit mark, probably allocating sequentially.
+		map_hint += round_page(size);
 	}
 #endif
 
@@ -225,16 +228,14 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 	return ptr;
 }
 
-void FreeMemoryPages(void* ptr, size_t size)
+void FreeMemoryPages(void *ptr, size_t size)
 {
 	size = (size + 4095) & (~4095);
 	if (ptr)
 	{
 #ifdef _WIN32
-	
 		if (!VirtualFree(ptr, 0, MEM_RELEASE))
 			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
-		ptr = NULL; // Is this our responsibility?
 #elif defined(__SYMBIAN32__)
 		free(ptr);
 #else
