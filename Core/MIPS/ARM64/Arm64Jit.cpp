@@ -70,8 +70,8 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 	fpr.SetEmitter(this, &fp);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode(jo);
-
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
+	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 }
 
 Arm64Jit::~Arm64Jit() {
@@ -88,6 +88,10 @@ void Arm64Jit::DoState(PointerWrap &p) {
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;
+	}
+
+	if (p.GetMode() == PointerWrap::MODE_READ) {
+		js.currentRoundingFunc = convertS0ToSCRATCH1[(mips_->fcr31) & 3];
 	}
 }
 

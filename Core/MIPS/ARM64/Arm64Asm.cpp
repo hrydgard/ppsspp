@@ -130,9 +130,10 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		FixupBranch skip1 = B(CC_EQ);
 		ADDI2R(SCRATCH2, SCRATCH2, 4);
 		SetJumpTarget(skip1);
-		// We can only skip if the rounding mode is zero and flush is set.
-		CMPI2R(SCRATCH2, 4);
-		// At this point, if it was zero, we can skip the rest.
+
+		// We can skip if the rounding mode is nearest (0) and flush is not set.
+		// (as restoreRoundingMode cleared it out anyway)
+		CMPI2R(SCRATCH2, 0);
 		FixupBranch skip = B(CC_EQ);
 
 		// MIPS Rounding Mode:       ARM Rounding Mode
@@ -150,21 +151,12 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		SUBI2R(SCRATCH2, SCRATCH2, 1);
 		SetJumpTarget(skipsub);
 
+		// Actually change the system FPCR register
 		MRS(SCRATCH1_64, FIELD_FPCR);
-
 		// Clear both flush-to-zero and rounding before re-setting them.
 		ANDI2R(SCRATCH1, SCRATCH1, ~((4 | 3) << 22));
-
 		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
 		_MSR(FIELD_FPCR, SCRATCH1_64);
-
-		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
-		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
-		// We already index this array including the FZ bit.  Easy.
-		LSL(SCRATCH2, SCRATCH2, 3);
-		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
-		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
-		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
 
 		SetJumpTarget(skip);
 		RET();
@@ -179,15 +171,23 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		ADDI2R(SCRATCH2, SCRATCH2, 4);
 		SetJumpTarget(skip);
 
+		PUSH(SCRATCH2);
 		// We can only skip if the rounding mode is zero and flush is not set.
 		// TODO: This actually seems to compare against 3??
-		CMPI2R(SCRATCH2, 3);
-
+		CMPI2R(SCRATCH2, 0);
 		FixupBranch skip2 = B(CC_EQ);
 		MOVI2R(SCRATCH2, 1);
 		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
 		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
 		SetJumpTarget(skip2);
+		POP(SCRATCH2);
+
+		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
+		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
+		LSL(SCRATCH2, SCRATCH2, 3);
+		LDR(SCRATCH2_64, SCRATCH1_64, SCRATCH2);
+		MOVP2R(SCRATCH1_64, &js.currentRoundingFunc);
+		STR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH1_64, 0);
 		RET();
 	}
 
@@ -291,7 +291,8 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	RET();
 
 	// Generate some integer conversion funcs.
-	static const RoundingMode roundModes[8] = {ROUND_N, ROUND_P, ROUND_M, ROUND_Z, ROUND_N, ROUND_P, ROUND_M, ROUND_Z,};
+	// MIPS order!
+	static const RoundingMode roundModes[8] = { ROUND_N, ROUND_Z, ROUND_P, ROUND_M, ROUND_N, ROUND_Z, ROUND_P, ROUND_M };
 	for (size_t i = 0; i < ARRAY_SIZE(roundModes); ++i) {
 		convertS0ToSCRATCH1[i] = AlignCode16();
 
