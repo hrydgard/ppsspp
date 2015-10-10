@@ -180,6 +180,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		SetJumpTarget(skip);
 
 		// We can only skip if the rounding mode is zero and flush is not set.
+		// TODO: This actually seems to compare against 3??
 		CMPI2R(SCRATCH2, 3);
 
 		FixupBranch skip2 = B(CC_EQ);
@@ -187,6 +188,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
 		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
 		SetJumpTarget(skip2);
+		RET();
 	}
 
 	enterDispatcher = AlignCode16();

@@ -133,7 +133,9 @@ void ArmJit::GenerateFixedCode() {
 		SetCC(CC_NEQ);
 		ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
 		SetCC(CC_AL);
+
 		// We can only skip if the rounding mode is zero and flush is not set.
+		// TODO: This actually seems to compare against 3??
 		CMP(SCRATCHREG2, Operand2(3));
 
 		FixupBranch skip = B_CC(CC_EQ);
