@@ -89,6 +89,10 @@ void Arm64Jit::DoState(PointerWrap &p) {
 	} else {
 		js.hasSetRounding = 1;
 	}
+
+	if (p.GetMode() == PointerWrap::MODE_READ) {
+		js.currentRoundingFunc = convertS0ToSCRATCH1[(mips_->fcr31) & 3];
+	}
 }
 
 // This is here so the savestate matches between jit and non-jit.
