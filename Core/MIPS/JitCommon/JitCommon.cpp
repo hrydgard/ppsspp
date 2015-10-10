@@ -154,14 +154,11 @@ const char *ppsspp_resolver(struct ud*,
 		*offset = addr - (uint64_t)(&currentMIPS->v[0]);
 		return "mips.v";
 	}
+
 	// But these do.
 	if (MIPSComp::jit->IsInSpace((u8 *)(intptr_t)addr)) {
 		*offset = addr - (uint64_t)MIPSComp::jit->GetBasePtr();
 		return "jitcode";
-	}
-	if (MIPSComp::jit->Asm().IsInSpace((u8 *)(intptr_t)addr)) {
-		*offset = addr - (uint64_t)MIPSComp::jit->Asm().GetBasePtr();
-		return "dispatcher";
 	}
 
 	return NULL;

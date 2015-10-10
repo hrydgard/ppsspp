@@ -251,7 +251,7 @@ private:
 
 public:
 	// Code pointers
-	const u8 *enterCode;
+	const u8 *enterDispatcher;
 
 	const u8 *outerLoop;
 	const u8 *outerLoopPCInSCRATCH1;
@@ -264,6 +264,10 @@ public:
 
 	const u8 *saveStaticRegisters;
 	const u8 *loadStaticRegisters;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1[8];

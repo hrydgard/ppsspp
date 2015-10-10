@@ -46,7 +46,6 @@
 
 #if defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Analyzer.h"
-#include "Core/MIPS/x86/Asm.h"
 #endif
 // #include "JitBase.h"
 
@@ -593,7 +592,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
 	XEmitter emit((u8 *)b->checkedEntry);
 	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
-	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
+	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
 
 #elif defined(ARM64)
 

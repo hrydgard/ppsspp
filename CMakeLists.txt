@@ -1091,7 +1091,6 @@ elseif(ARM64)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/x86/Asm.cpp
-		Core/MIPS/x86/Asm.h
 		Core/MIPS/x86/CompALU.cpp
 		Core/MIPS/x86/CompBranch.cpp
 		Core/MIPS/x86/CompFPU.cpp
