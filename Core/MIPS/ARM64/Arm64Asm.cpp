@@ -130,9 +130,10 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		FixupBranch skip1 = B(CC_EQ);
 		ADDI2R(SCRATCH2, SCRATCH2, 4);
 		SetJumpTarget(skip1);
-		// We can only skip if the rounding mode is zero and flush is set.
-		CMPI2R(SCRATCH2, 4);
-		// At this point, if it was zero, we can skip the rest.
+
+		// We can skip if the rounding mode is nearest (0) and flush is not set.
+		// (as restoreRoundingMode cleared it out anyway)
+		CMPI2R(SCRATCH2, 0);
 		FixupBranch skip = B(CC_EQ);
 
 		// MIPS Rounding Mode:       ARM Rounding Mode
@@ -154,7 +155,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 		// Clear both flush-to-zero and rounding before re-setting them.
 		ANDI2R(SCRATCH1, SCRATCH1, ~((4 | 3) << 22));
-
 		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 22));
 		_MSR(FIELD_FPCR, SCRATCH1_64);
 
@@ -181,8 +181,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 		// We can only skip if the rounding mode is zero and flush is not set.
 		// TODO: This actually seems to compare against 3??
-		CMPI2R(SCRATCH2, 3);
-
+		CMPI2R(SCRATCH2, 0);
 		FixupBranch skip2 = B(CC_EQ);
 		MOVI2R(SCRATCH2, 1);
 		MOVP2R(SCRATCH1_64, &js.hasSetRounding);

@@ -75,13 +75,11 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 	applyRoundingMode = AlignCode16(); {
 		MOV(32, R(EAX), M(&mips_->fcr31));
-		AND(32, R(EAX), Imm32(0x1000003));
+		AND(32, R(EAX), Imm32(0x01000003));
 
-		// If it's 0, we don't actually bother setting.  This is the most common.
-		// We always use nearest as the default rounding mode with
-		// flush-to-zero disabled.
+		// If it's 0 (nearest + no flush0), we don't actually bother setting - we cleared the rounding
+		// mode out in restoreRoundingMode anyway. This is the most common.
 		FixupBranch skip = J_CC(CC_Z);
-
 		STMXCSR(M(&mips_->temp));
 
 		// The MIPS bits don't correspond exactly, so we have to adjust.
@@ -91,7 +89,10 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		XOR(32, R(EAX), Imm8(2));
 		SetJumpTarget(skip2);
 
+		// Adjustment complete, now reconstruct MXCSR
 		SHL(32, R(EAX), Imm8(13));
+		// Before setting new bits, we must clear the old ones.
+		AND(32, M(&mips_->temp), Imm32(~(7 << 13)));   // Clearing bits 13-14 (rounding mode) and 15 (flush to zero)
 		OR(32, M(&mips_->temp), R(EAX));
 
 		TEST(32, M(&mips_->fcr31), Imm32(1 << 24));

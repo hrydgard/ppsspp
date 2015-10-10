@@ -78,7 +78,7 @@ void ArmJit::GenerateFixedCode() {
 	restoreRoundingMode = AlignCode16(); {
 		PUSH(1, R_LR);
 		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode beforehand. Flush-to-zero is off.
+		// Outside the JIT we run with round-to-nearest and flush0 off.
 		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2((3 | 4) << 22));
 		VMSR(SCRATCHREG2);
 		POP(1, R_PC);
@@ -94,10 +94,10 @@ void ArmJit::GenerateFixedCode() {
 		SetCC(CC_NEQ);
 		ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
 		SetCC(CC_AL);
-		// We can only skip if the rounding mode is zero and flush is not set.
-		CMP(SCRATCHREG2, Operand2(3));
 
-		// At this point, if it was zero, we can skip the rest.  (could even return)
+		// We can skip if the rounding mode is nearest (0) and flush is not set.
+		// (as restoreRoundingMode cleared it out anyway)
+		CMP(SCRATCHREG2, Operand2(0));
 		FixupBranch skip = B_CC(CC_EQ);
 
 		// MIPS Rounding Mode:       ARM Rounding Mode
@@ -127,18 +127,9 @@ void ArmJit::GenerateFixedCode() {
 	updateRoundingMode = AlignCode16(); {
 		PUSH(2, SCRATCHREG1, R_LR);
 		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
-
-		TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
-		AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
-		SetCC(CC_NEQ);
-		ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
-		SetCC(CC_AL);
-
-		// We can only skip if the rounding mode is zero and flush is not set.
-		// TODO: This actually seems to compare against 3??
-		CMP(SCRATCHREG2, Operand2(3));
-
-		FixupBranch skip = B_CC(CC_EQ);
+		MOVI2R(SCRATCHREG1, 0x1000003);
+		TST(SCRATCHREG2, SCRATCHREG1);
+		FixupBranch skip = B_CC(CC_EQ);  // zero
 		MOVI2R(SCRATCHREG2, 1);
 		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
 		STRB(SCRATCHREG2, SCRATCHREG1, 0);
