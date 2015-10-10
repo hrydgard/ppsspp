@@ -19,6 +19,7 @@
 #include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
 #include "Common/CPUDetect.h"
+#include "Common/StringUtils.h"
 
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -350,8 +351,39 @@ void Arm64Jit::AddContinuedBlock(u32 dest) {
 }
 
 bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	// TODO: Not used by anything yet (except the modified VerySleepy on Windows)
-	return false;
+	// Used in disassembly viewer.
+	if (ptr == applyRoundingMode)
+		name = "applyRoundingMode";
+	else if (ptr == updateRoundingMode)
+		name = "updateRoundingMode";
+	else if (ptr == dispatcher)
+		name = "dispatcher";
+	else if (ptr == dispatcherPCInSCRATCH1)
+		name = "dispatcher (PC in SCRATCH1)";
+	else if (ptr == dispatcherNoCheck)
+		name = "dispatcherNoCheck";
+	else if (ptr == enterDispatcher)
+		name = "enterDispatcher";
+	else if (ptr == restoreRoundingMode)
+		name = "restoreRoundingMode";
+	else if (ptr == saveStaticRegisters)
+		name = "saveStaticRegisters";
+	else if (ptr == loadStaticRegisters)
+		name = "loadStaticRegisters";
+	else {
+		u32 addr = blocks.GetAddressFromBlockPtr(ptr);
+		std::vector<int> numbers;
+		blocks.GetBlockNumbersFromAddress(addr, &numbers);
+		if (!numbers.empty()) {
+			const JitBlock *block = blocks.GetBlock(numbers[0]);
+			if (block) {
+				name = StringFromFormat("(block %d at %08x)", numbers[0], block->originalAddress);
+				return true;
+			}
+		}
+		return false;
+	}
+	return true;
 }
 
 void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
@@ -385,7 +417,7 @@ bool Arm64Jit::ReplaceJalTo(u32 dest) {
 		QuickCallFunction(SCRATCH1_64, (const void *)(entry->replaceFunc));
 		ApplyRoundingMode();
 		LoadStaticRegisters();
-		WriteDownCountR(W0);
+		WriteDownCountR(W0);  // W0 is the return value from entry->replaceFunc. Neither LoadStaticRegisters nor ApplyRoundingMode can trash it.
 	}
 
 	js.compilerPC += 4;

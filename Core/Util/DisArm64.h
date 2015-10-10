@@ -20,5 +20,7 @@
 
 #include <stdint.h>
 
-void Arm64Dis(uint64_t addr, uint32_t w, char *output, int bufsize, bool includeWord);
+typedef bool (*SymbolCallback)(char *buffer, int bufsize, uint8_t *address);
+
+void Arm64Dis(uint64_t addr, uint32_t w, char *output, int bufsize, bool includeWord, SymbolCallback symbolCallback = nullptr);
 

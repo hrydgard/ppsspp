@@ -25,6 +25,7 @@
 
 #include "Common/Arm64Emitter.h"
 #include "Common/StringUtils.h"
+#include "Core/Util/DisArm64.h"
 
 struct Instruction {
 	char text[128];
@@ -200,14 +201,19 @@ static const char *GetSystemRegName(int o0, int op1, int CRn, int CRm, int op2) 
 	}
 }
 
-static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr) {
+static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *instr, SymbolCallback symbolCallback) {
+	char buffer[128];
 	int Rt = w & 0x1f;
 	int Rn = (w >> 5) & 0x1f;
 	if (((w >> 26) & 0x1F) == 5) {
 		// Unconditional branch / branch+link
 		int offset = SignExtend26(w) << 2;
 		uint64_t target = addr + offset;
-		snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (uint32_t)(target >> 32), (uint32_t)(target & 0xFFFFFFFF));
+		if (symbolCallback && symbolCallback(buffer, sizeof(buffer), (uint8_t *)(uintptr_t)target)) {
+			snprintf(instr->text, sizeof(instr->text), "b%s %s", (w >> 31) ? "l" : "", buffer);
+		} else {
+			snprintf(instr->text, sizeof(instr->text), "b%s %04x%08x", (w >> 31) ? "l" : "", (uint32_t)(target >> 32), (uint32_t)(target & 0xFFFFFFFF));
+		}
 	} else if (((w >> 25) & 0x3F) == 0x1A) {
 		// Compare and branch
 		int op = (w >> 24) & 1;
@@ -994,7 +1000,7 @@ static void FPandASIMD2(uint32_t w, uint64_t addr, Instruction *instr) {
 	}
 }
 
-static void DisassembleInstruction(uint32_t w, uint64_t addr, Instruction *instr) {
+static void DisassembleInstruction(uint32_t w, uint64_t addr, Instruction *instr, SymbolCallback symbolCallback) {
 	memset(instr, 0, sizeof(*instr));
 	
 	// Identify the main encoding groups. See C3.1 A64 instruction index by encoding
@@ -1007,7 +1013,7 @@ static void DisassembleInstruction(uint32_t w, uint64_t addr, Instruction *instr
 		DataProcessingImmediate(w, addr, instr);
 		break;
 	case 0xA: case 0xB:
-		BranchExceptionAndSystem(w, addr, instr);
+		BranchExceptionAndSystem(w, addr, instr, symbolCallback);
 		break;
 	case 4: case 6: case 0xC: case 0xE:
 		LoadStore(w, addr, instr);
@@ -1024,9 +1030,9 @@ static void DisassembleInstruction(uint32_t w, uint64_t addr, Instruction *instr
 	}
 }
 
-void Arm64Dis(uint64_t addr, uint32_t w, char *output, int bufsize, bool includeWord) {
+void Arm64Dis(uint64_t addr, uint32_t w, char *output, int bufsize, bool includeWord, SymbolCallback symbolCallback) {
 	Instruction instr;
-	DisassembleInstruction(w, addr, &instr);
+	DisassembleInstruction(w, addr, &instr, symbolCallback);
 	char temp[256];
 	if (includeWord) {
 		snprintf(output, bufsize, "%08x\t%s", w, instr.text);

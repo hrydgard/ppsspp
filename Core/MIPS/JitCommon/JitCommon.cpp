@@ -94,6 +94,18 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 }
 
 #if defined(ARM64) || defined(DISASM_ALL)
+
+static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
+	if (MIPSComp::jit) {
+		std::string name;
+		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
+			truncate_cpy(buffer, bufsize, name.c_str());
+			return true;
+		}
+	}
+	return false;
+}
+
 std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 	std::vector<std::string> lines;
 
@@ -118,7 +130,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 				continue;
 			}
 		}
-		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false);
+		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false, Arm64SymbolCallback);
 		std::string buf = temp;
 		if (buf == "BKPT 1") {
 			bkpt_count++;
