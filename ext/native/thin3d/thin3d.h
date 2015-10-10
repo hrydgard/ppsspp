@@ -304,8 +304,8 @@ public:
 	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
-	virtual Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) = 0;
-	virtual Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) = 0;
+	virtual Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
@@ -328,8 +328,15 @@ public:
 	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
 	virtual void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
 	virtual void DrawUP(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
+	
+	// Render pass management. Default implementations here.
+	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
+		Clear(0xF, colorval, depthVal, stencilVal);
+	}
+	virtual void End() {}
+	
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
-
+	
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
 	void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
@@ -361,3 +368,7 @@ struct IDirect3DDevice9Ex;
 struct IDirect3D9Ex;
 Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
 #endif
+
+class VulkanContext;
+
+Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);

@@ -20,6 +20,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/GLES_GPU.h"
+#include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
@@ -56,6 +57,9 @@ bool GPU_Init(GraphicsContext *ctx) {
 #if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU());
 #endif
+		break;
+	case GPU_VULKAN:
+		SetGPU(new GPU_Vulkan());
 		break;
 	}
 

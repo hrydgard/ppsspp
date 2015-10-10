@@ -383,7 +383,7 @@ void LogoScreen::Next() {
 void LogoScreen::update(InputState &input_state) {
 	UIScreen::update(input_state);
 	frames_++;
-	if (frames_ > 180 || input_state.pointer_down[0]) {
+	if (frames_ > 1800000 || input_state.pointer_down[0]) {
 		Next();
 	}
 }

@@ -110,6 +110,9 @@
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -212,6 +215,9 @@
       <Filter>glslang</Filter>
     </ClInclude>
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="glslang\glslang\MachineIndependent\glslang.y">

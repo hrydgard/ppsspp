@@ -152,6 +152,7 @@
     <ClCompile Include="GPU\WindowsGLContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\WindowsVulkanContext.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -278,6 +279,7 @@
     <ClInclude Include="GPU\WindowsGraphicsContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\WindowsVulkanContext.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">

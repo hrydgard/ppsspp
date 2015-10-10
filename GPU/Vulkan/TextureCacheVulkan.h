@@ -17,16 +17,26 @@
 
 #pragma once
 
-enum DebugShaderType {
-	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
-	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
-};
+#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/GPUState.h"
 
-enum DebugShaderStringType {
-	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
+class TextureCacheVulkan : public TextureCacheCommon {
+public:
+	bool SetOffsetTexture(u32 offset) override {
+		return false;
+	}
+	bool DecodeTexture(u8 *dest, const GPUgstate &state) {
+		return false;
+	}
+
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override {
+		return false;
+	}
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) override {
+
+	}
+
+	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override {
+
+	}
 };
