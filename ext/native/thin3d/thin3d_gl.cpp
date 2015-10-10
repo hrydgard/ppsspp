@@ -320,8 +320,8 @@ public:
 	}
 
 	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source) override;
+	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		if (enable) {
@@ -633,7 +633,7 @@ void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures
 }
 
 
-Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DGLShader *shader = new Thin3DGLShader(false);
 	if (shader->Compile(glsl_source)) {
 		return shader;
@@ -643,7 +643,7 @@ Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const
 	}
 }
 
-Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source) {
+Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
 	Thin3DGLShader *shader = new Thin3DGLShader(true);
 	if (shader->Compile(glsl_source)) {
 		return shader;

@@ -17,16 +17,11 @@
 
 #pragma once
 
-enum DebugShaderType {
-	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
-	SHADER_TYPE_PIPELINE = 4,  // Vulkan and DX12 combines a bunch of state into pipeline objects. Might as well make them inspectable.
-};
+#include <vector>
+#include "GPU/Vulkan/VulkanUtil.h"
 
-enum DebugShaderStringType {
-	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
-};
+// Wrapper around the GLSL compiler library. Compiles GLSL into SPIR-V consumable by Vulkan.
+bool CompileGLSLVulkan(const char *code, std::vector<uint32_t> &spirv, std::string &errorMessage);
+
+// TODO: Compute shaders
+

@@ -7,6 +7,10 @@
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
 
+// ================================== PIXEL/FRAGMENT SHADERS
+
+// The Vulkan ones can be re-used with modern GL later if desired, as they're just GLSL.
+
 static const char * const glsl_fsTexCol =
 "#ifdef GL_ES\n"
 "precision lowp float;\n"
@@ -23,6 +27,16 @@ static const char * const hlslFsTexCol =
 "  return input.color * tex2D(Sampler0, input.uv);\n"
 "}\n";
 
+static const char * const vulkan_fsTexCol =
+"#version 140\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout(location = 0) in vec4 oColor0;\n"
+"layout(location = 1) in vec2 oTexCoord0;\n"
+"layout(location = 0) out vec4 fragColor0\n;"
+"layout(binding = 2) uniform sampler2D Sampler0;\n"
+"void main() { fragColor0 = texture2D(Sampler0, oTexCoord0) * oColor0; }\n";
+
 static const char * const glsl_fsCol =
 "#ifdef GL_ES\n"
 "precision lowp float;\n"
@@ -35,6 +49,18 @@ static const char * const hlslFsCol =
 "float4 main(PS_INPUT input) : COLOR0 {\n"
 "  return input.color;\n"
 "}\n";
+
+static const char * const vulkan_fsCol =
+"#version 140\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout(location = 0) in vec4 oColor0;\n"
+"layout(location = 0) out vec4 fragColor0\n;"
+"void main() { fragColor0 = oColor0; }\n";
+
+
+
+// ================================== VERTEX SHADERS
 
 static const char * const glsl_vsCol =
 "attribute vec3 Position;\n"
@@ -56,6 +82,22 @@ static const char * const hlslVsCol =
 "  output.Color0 = input.Color0;\n"
 "  return output;\n"
 "}\n";
+
+static const char * const vulkan_vsCol =
+"#version 140\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (std140, binding = 1) uniform bufferVals {\n"
+"    mat4 WorldViewProj;\n"
+"} myBufferVals;\n"
+"layout (location = 0) in vec4 pos;\n"
+"layout (location = 1) in vec4 inColor;\n"
+"layout (location = 0) out vec4 outColor;\n"
+"void main() {\n"
+"   outColor = inColor;\n"
+"   gl_Position = myBufferVals.WorldViewProj * pos;\n"
+"}\n";
+
 
 static const char * const glsl_vsTexCol =
 "attribute vec3 Position;\n"
@@ -82,6 +124,25 @@ static const char * const hlslVsTexCol =
 "  return output;\n"
 "}\n";
 
+static const char * const vulkan_vsTexCol =
+"#version 140\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n"
+"layout (std140, binding = 1) uniform bufferVals {\n"
+"    mat4 WorldViewProj;\n"
+"} myBufferVals;\n"
+"layout (location = 0) in vec4 pos;\n"
+"layout (location = 1) in vec4 inColor;\n"
+"layout (location = 2) in vec2 inTexCoord;\n"
+"layout (location = 0) out vec4 outColor;\n"
+"layout (location = 1) out vec2 outTexCoord;\n"
+"void main() {\n"
+"   outColor = inColor;\n"
+"   outTexCoord = inTexCoord;\n"
+"   gl_Position = myBufferVals.WorldViewProj * pos;\n"
+"}\n";
+
+
 void Thin3DContext::CreatePresets() {
 	// Build prebuilt objects
 	T3DBlendStateDesc off = { false };
@@ -94,11 +155,11 @@ void Thin3DContext::CreatePresets() {
 	bsPresets_[BS_STANDARD_ALPHA] = CreateBlendState(standard_alpha);
 	bsPresets_[BS_PREMUL_ALPHA] = CreateBlendState(premul_alpha);
 
-	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateVertexShader(glsl_vsTexCol, hlslVsTexCol);
-	vsPresets_[VS_COLOR_2D] = CreateVertexShader(glsl_vsCol, hlslVsCol);
+	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateVertexShader(glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
+	vsPresets_[VS_COLOR_2D] = CreateVertexShader(glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
-	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateFragmentShader(glsl_fsTexCol, hlslFsTexCol);
-	fsPresets_[FS_COLOR_2D] = CreateFragmentShader(glsl_fsCol, hlslFsCol);
+	fsPresets_[FS_TEXTURE_COLOR_2D] = CreateFragmentShader(glsl_fsTexCol, hlslFsTexCol, vulkan_fsTexCol);
+	fsPresets_[FS_COLOR_2D] = CreateFragmentShader(glsl_fsCol, hlslFsCol, vulkan_fsCol);
 
 	ssPresets_[SS_TEXTURE_COLOR_2D] = CreateShaderSet(vsPresets_[VS_TEXTURE_COLOR_2D], fsPresets_[FS_TEXTURE_COLOR_2D]);
 	ssPresets_[SS_COLOR_2D] = CreateShaderSet(vsPresets_[VS_COLOR_2D], fsPresets_[FS_COLOR_2D]);
