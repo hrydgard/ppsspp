@@ -441,34 +441,51 @@ void Jit::AddContinuedBlock(u32 dest)
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
+	if (ptr == applyRoundingMode)
+		name = "applyRoundingMode";
+	else if (ptr == updateRoundingMode)
+		name = "updateRoundingMode";
+	else if (ptr == dispatcher)
+		name = "dispatcher";
+	else if (ptr == dispatcherInEAXNoCheck)
+		name = "dispatcher (PC in EAX)";
+	else if (ptr == dispatcherNoCheck)
+		name = "dispatcherNoCheck";
+	else if (ptr == dispatcherCheckCoreState)
+		name = "dispatcherCheckCoreState";
+	else if (ptr == enterDispatcher)
+		name = "enterDispatcher";
+	else if (ptr == restoreRoundingMode)
+		name = "restoreRoundingMode";
+	else {
+		u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
 
-	// Returns 0 when it's valid, but unknown.
-	if (jitAddr == 0) {
-		name = "UnknownOrDeletedBlock";
-	} else if (jitAddr != (u32)-1) {
-		char temp[1024];
-		const std::string label = symbolMap.GetDescription(jitAddr);
-		if (!label.empty())
-			snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
-		else
-			snprintf(temp, sizeof(temp), "%08x", jitAddr);
-		name = temp;
-	} else if (IsInSpace(ptr)) {
-		if (ptr < endOfPregeneratedCode) {
-			name = "PreGenCode";
+		// Returns 0 when it's valid, but unknown.
+		if (jitAddr == 0) {
+			name = "UnknownOrDeletedBlock";
+		} else if (jitAddr != (u32)-1) {
+			char temp[1024];
+			const std::string label = symbolMap.GetDescription(jitAddr);
+			if (!label.empty())
+				snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
+			else
+				snprintf(temp, sizeof(temp), "%08x", jitAddr);
+			name = temp;
+		} else if (IsInSpace(ptr)) {
+			if (ptr < endOfPregeneratedCode) {
+				name = "PreGenCode";
+			} else {
+				name = "Unknown";
+			}
+		} else if (thunks.IsInSpace(ptr)) {
+			name = "Thunk";
+		} else if (safeMemFuncs.IsInSpace(ptr)) {
+			name = "JitSafeMem";
 		} else {
-			name = "Unknown";
+			// Not anywhere in jit, then.
+			return false;
 		}
-	} else if (thunks.IsInSpace(ptr)) {
-		name = "Thunk";
-	} else if (safeMemFuncs.IsInSpace(ptr)) {
-		name = "JitSafeMem";
-	} else {
-		// Not anywhere in jit, then.
-		return false;
 	}
-
 	// If we got here, one of the above cases matched.
 	return true;
 }

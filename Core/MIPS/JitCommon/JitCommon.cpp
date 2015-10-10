@@ -168,11 +168,15 @@ const char *ppsspp_resolver(struct ud*,
 	}
 
 	// But these do.
-	if (MIPSComp::jit->IsInSpace((u8 *)(intptr_t)addr)) {
-		*offset = addr - (uint64_t)MIPSComp::jit->GetBasePtr();
-		return "jitcode";
-	}
 
+	// UGLY HACK because the API is terrible
+	static char buf[128];
+	std::string str;
+	if (MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
+		*offset = 0;
+		truncate_cpy(buf, sizeof(buf), str.c_str());
+		return buf;
+	}
 	return NULL;
 }
 
