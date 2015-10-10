@@ -34,6 +34,7 @@
 #ifdef _WIN32
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/InputDevice.h"
 #endif
 
