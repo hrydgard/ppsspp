@@ -137,7 +137,6 @@ struct Atrac {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
-		pCodec = nullptr;
 		pCodecCtx = nullptr;
 		pSwrCtx = nullptr;
 		pFrame = nullptr;
@@ -299,31 +298,19 @@ struct Atrac {
 	PSPPointer<SceAtracId> atracContext;
 
 #ifdef USE_FFMPEG
-	const AVCodec   *pCodec;
 	AVCodecContext  *pCodecCtx;
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
 	AVPacket        *packet;
 
 	void ReleaseFFMPEGContext() {
-		if (pFrame)
-			av_free(pFrame);
-		if (pSwrCtx)
-			swr_free(&pSwrCtx);
-		if (pCodecCtx && pCodecCtx->extradata) {
-			delete [] pCodecCtx->extradata;
-			pCodecCtx->extradata = nullptr;
-			pCodecCtx->extradata_size = 0;
-		}
-		if (pCodecCtx)
-			avcodec_close(pCodecCtx);
-		if (packet)
-			av_free_packet(packet);
+		// All of these allow null pointers.
+		av_freep(&pFrame);
+		swr_free(&pSwrCtx);
+		// If necessary, extradata is automatically freed.
+		avcodec_free_context(&pCodecCtx);
+		av_free_packet(packet);
 		delete packet;
-		pCodec = nullptr;
-		pCodecCtx = nullptr;
-		pSwrCtx = nullptr;
-		pFrame = nullptr;
 		packet = nullptr;
 	}
 
@@ -1395,14 +1382,13 @@ int __AtracSetContext(Atrac *atrac) {
 		return -1;
 	}
 
-	atrac->pCodec = avcodec_find_decoder(ff_codec);
-	atrac->pCodecCtx = avcodec_alloc_context3(atrac->pCodec);
+	const AVCodec *codec = avcodec_find_decoder(ff_codec);
+	atrac->pCodecCtx = avcodec_alloc_context3(codec);
 
 	if (atrac->codecType == PSP_MODE_AT_3) {
 		// For ATRAC3, we need the "extradata" in the RIFF header.
-		atrac->pCodecCtx->extradata = new u8[14];
+		atrac->pCodecCtx->extradata = (uint8_t *)av_mallocz(14);
 		atrac->pCodecCtx->extradata_size = 14;
-		memset(atrac->pCodecCtx->extradata, 0, 14);
 
 		// We don't pull this from the RIFF so that we can support OMA also.
 		// The only thing that changes are the jointStereo values.
@@ -1435,7 +1421,7 @@ int __AtracSetContext(Atrac *atrac) {
 
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
 	int ret;
-	if ((ret = avcodec_open2(atrac->pCodecCtx, atrac->pCodec, NULL)) < 0) {
+	if ((ret = avcodec_open2(atrac->pCodecCtx, codec, nullptr)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
 	}
