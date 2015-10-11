@@ -772,7 +772,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	atrac->first.size += bytesToAdd;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
-	atrac->first.fileoffset = atrac->first.size;
+	atrac->first.fileoffset += addbytes;
 	atrac->first.writableBytes = 0;
 	if (atrac->atracContext.IsValid()) {
 		// refresh atracContext
@@ -806,11 +806,11 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+			atrac->first.fileoffset += addbytes;
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
 			atrac->first.size = atrac->first.filesize;
-		atrac->first.fileoffset = atrac->first.size;
 		atrac->first.writableBytes -= bytesToAdd;
 		atrac->first.offset += bytesToAdd;
 	}
@@ -1001,17 +1001,13 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 			return ATRAC_ERROR_BAD_SAMPLE;
 		}
 
-		int Sampleoffset = atrac->getDecodePosBySample(sample);
+		int Sampleoffset = atrac->getFileOffsetBySample(sample);
 		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
 		// Reset temp buf for adding more stream data and set full filled buffer 
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
-
-		if (atrac->first.fileoffset <= 2*atrac->atracBufSize){
-			Sampleoffset = atrac->first.fileoffset;
-		}
 
 		// If we've already loaded everything, the answer is 0.
 		if (atrac->first.size >= atrac->first.filesize) {
@@ -1318,6 +1314,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+		atrac->first.fileoffset = atrac->getFileOffsetBySample(sample);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
 #ifdef USE_FFMPEG
