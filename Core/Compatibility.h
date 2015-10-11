@@ -46,6 +46,7 @@
 
 struct CompatFlags {
 	bool NoDepthRounding;
+	bool PixelDepthRounding;
 	bool GTAMusicFix;
 };
 

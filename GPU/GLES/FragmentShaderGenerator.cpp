@@ -1004,7 +1004,7 @@ void GenerateFragmentShader(char *buffer) {
 	}
 #endif
 
-	if (true) {
+	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
 		WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		WRITE(p, "  gl_FragDepth = z;\n");
