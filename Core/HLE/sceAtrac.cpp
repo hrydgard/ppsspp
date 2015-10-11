@@ -102,6 +102,7 @@ enum AtracDecodeResult {
 	ATDECODE_FAILED = -1,
 	ATDECODE_FEEDME = 0,
 	ATDECODE_GOTFRAME = 1,
+	ATDECODE_BADFRAME = 2,
 };
 
 struct InputBuffer {
@@ -387,8 +388,7 @@ struct Atrac {
 			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 			// Let's try the next packet.
 			packet->size = 0;
-			// TODO: Or actually, should we return a blank frame and pretend it worked?
-			return ATDECODE_FEEDME;
+			return ATDECODE_BADFRAME;
 		} else if (bytes_read < 0) {
 			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
 			failedDecode = true;
@@ -911,7 +911,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							}
 						}
 					}
-					if (res == ATDECODE_GOTFRAME) {
+					if (res == ATDECODE_GOTFRAME || res == ATDECODE_BADFRAME) {
 						// We only want one frame per call, let's continue the next time.
 						break;
 					}
@@ -2109,6 +2109,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
+					break;
+				} else if (res == ATDECODE_BADFRAME) {
 					break;
 				}
 			}
