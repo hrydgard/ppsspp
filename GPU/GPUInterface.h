@@ -140,6 +140,8 @@ struct DisplayList {
 	u32 offsetAddr;
 	bool bboxResult;
 	u32 stackAddr;
+
+	u32 padding;  // Android x86-32 does not round the structure size up to the closest multiple of 8 like the other platforms.
 };
 
 enum GPUInvalidationType {
