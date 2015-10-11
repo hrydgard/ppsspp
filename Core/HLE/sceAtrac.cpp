@@ -307,8 +307,16 @@ struct Atrac {
 		// All of these allow null pointers.
 		av_freep(&pFrame);
 		swr_free(&pSwrCtx);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55, 52, 0)
 		// If necessary, extradata is automatically freed.
 		avcodec_free_context(&pCodecCtx);
+#else
+		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
+		avcodec_close(pCodecCtx);
+		av_freep(&pCodecCtx->extradata);
+		av_freep(&pCodecCtx->subtitle_header);
+		av_freep(&pCodecCtx);
+#endif
 		av_free_packet(packet);
 		delete packet;
 		packet = nullptr;

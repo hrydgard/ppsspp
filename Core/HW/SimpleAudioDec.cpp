@@ -133,7 +133,15 @@ SimpleAudio::~SimpleAudio() {
 #ifdef USE_FFMPEG
 	swr_free(&swrCtx_);
 	av_frame_free(&frame_);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55, 52, 0)
 	avcodec_free_context(&codecCtx_);
+#else
+	// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
+	avcodec_close(codecCtx_);
+	av_freep(&codecCtx_->extradata);
+	av_freep(&codecCtx_->subtitle_header);
+	av_freep(&codecCtx_);
+#endif
 	codec_ = 0;
 #endif  // USE_FFMPEG
 }
