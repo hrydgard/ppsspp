@@ -26,8 +26,10 @@ GPUCommon::GPUCommon() :
 {
 	DisplayList x;
 
-	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the 
+	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the
 	// "padding" field at the end. This is important for save state compatibility.
+	// The compiler was not rounding the struct size up to an 8 byte boundary, which
+	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
 	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
 
 	Reinitialize();
@@ -1109,7 +1111,8 @@ void GPUCommon::DoState(PointerWrap &p) {
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v3_no_padding oldDL;
 			p.Do(oldDL);
-			// Copy over everything except the last, new member (stackAddr.)
+			// Copy over everything except the new padding bytes to make the struct size
+			// equal to other platforms.
 			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v3_no_padding));
 			dls[i].padding = 0;
 		}
