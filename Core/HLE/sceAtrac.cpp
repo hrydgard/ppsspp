@@ -1903,16 +1903,16 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 		// TODO: Should we just keep this in PSP ram then, or something?
 	} else if (!atrac->data_buf) {
 		// State 1, no buffer yet.
-		context->info.state = 1;
+		context->info.state = ATRAC_STATUS_NO_DATA;
 	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
-		context->info.state = 2;
+		context->info.state = ATRAC_STATUS_ALL_DATA_LOADED;
 	} else if (atrac->loopinfoNum == 0) {
 		// state 3, lack some data, no loop info
-		context->info.state = 3;
+		context->info.state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
 	} else {
 		// state 6, lack some data, has loop info
-		context->info.state = 6;
+		context->info.state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
 	}
 	context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	context->info.sampleSize = atrac->atracBytesPerFrame;

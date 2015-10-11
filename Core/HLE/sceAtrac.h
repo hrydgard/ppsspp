@@ -26,6 +26,26 @@ void __AtracInit();
 void __AtracDoState(PointerWrap &p);
 void __AtracShutdown();
 
+enum AtracStatus : u8 {
+	ATRAC_STATUS_NO_DATA = 1,
+	ATRAC_STATUS_ALL_DATA_LOADED = 2,
+	ATRAC_STATUS_HALFWAY_BUFFER = 3,
+	ATRAC_STATUS_STREAMED_WITHOUT_LOOP = 4,
+	ATRAC_STATUS_STREAMED_LOOP_FROM_END = 5,
+	// This means there's additional audio after the loop.
+	// i.e. ~~before loop~~ [ ~~this part loops~~ ] ~~after loop~~
+	// The "fork in the road" means a second buffer is needed for the second path.
+	ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER = 6,
+	ATRAC_STATUS_LOW_LEVEL = 8,
+	ATRAC_STATUS_FOR_SCESAS = 16,
+};
+
+#if COMMON_LITTLE_ENDIAN
+typedef AtracStatus AtracStatus_le;
+#else
+typedef swap_struct_t<AtracStatus, swap_32_t<AtracStatus> > AtracStatus_le;
+#endif
+
 typedef struct
 {
     u32_le decodePos; // 0
@@ -36,7 +56,7 @@ typedef struct
     char numFrame; // 20
     // 2: all the stream data on the buffer
     // 6: looping -> second buffer needed
-    char state; // 21
+    AtracStatus_le state; // 21
     char unk22;
     char numChan; // 23
     u16_le sampleSize; // 24
