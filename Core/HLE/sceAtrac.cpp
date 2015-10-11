@@ -188,7 +188,7 @@ struct Atrac {
 			dataOff = firstSampleoffset;
 		}
 
-		u32 has_data_buf = data_buf != NULL;
+		u32 has_data_buf = data_buf != nullptr;
 		p.Do(has_data_buf);
 		if (has_data_buf) {
 			if (p.mode == p.MODE_READ) {
@@ -197,9 +197,6 @@ struct Atrac {
 				data_buf = new u8[first.filesize];
 			}
 			p.DoArray(data_buf, first.filesize);
-		}
-		if (p.mode == p.MODE_READ && data_buf != NULL) {
-			__AtracSetContext(this);
 		}
 		p.Do(second);
 
@@ -222,6 +219,11 @@ struct Atrac {
 		p.Do(loopNum);
 
 		p.Do(atracContext);
+
+		// Make sure to do this late; it depends on things like atracBytesPerFrame.
+		if (p.mode == p.MODE_READ && data_buf != nullptr) {
+			__AtracSetContext(this);
+		}
 		
 		if (s >= 2)
 			p.Do(resetBuffer);
