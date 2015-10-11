@@ -22,8 +22,9 @@ What's new in 1.1.1
 -------------------
 * Fixed new crash in Persona and other games on ARM64, like Galaxy S6
 * Fixed crashes when trying to launch web browser when not present on Android, like on Android TV
+* Fix crash in games that used "depal" functionality (OpenGL)
 * Fixed rounding mode problems in the JITs
-* Fix savestate compatibility on Android-x86
+* Fix crash when loading savestates many times, and savestate compatibility on Android-x86
 * Fix minor glitch in Ridge Racer
 
 What's new in 1.1
