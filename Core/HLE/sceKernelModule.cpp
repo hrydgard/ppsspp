@@ -1626,41 +1626,42 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	return 0;
 }
 
-static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
-{
+static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	if (!name) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogError(LOADER, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(lieAboutSuccessModules); i++) {
 		if (!strcmp(name, lieAboutSuccessModules[i])) {
-			INFO_LOG(LOADER, "Tries to load module %s. We return a fake module.", lieAboutSuccessModules[i]);
-
 			Module *module = new Module;
 			kernelObjects.Create(module);
 			loadedModules.insert(module->GetUID());
 			memset(&module->nm, 0, sizeof(module->nm));
 			module->isFake = true;
-			return module->GetUID();
+			module->nm.entry_addr = -1;
+			module->nm.gp_value = -1;
+
+			// TODO: It would be more ideal to allocate memory for this module.
+
+			return hleLogSuccessInfoI(LOADER, module->GetUID(), "created fake module");
 		}
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
-	std::string error_string;
 	s64 size = (s64)info.size;
 
 	if (!info.exists) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
-		// ERRNO_FILE_NOT_FOUND
-		return hleDelayResult(0x80010002, "module loaded", 500);
+		const int ERROR_ERRNO_FILE_NOT_FOUND = 0x80010002;
+		const u32 error = hleLogError(LOADER, ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+		return hleDelayResult(error, "module loaded", 500);
 	}
 
 	if (!size) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
-		return hleDelayResult(SCE_KERNEL_ERROR_FILEERR, "module loaded", 500);
+		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
+		return hleDelayResult(error, "module loaded", 500);
 	}
 
+	// We log before hand because ELF loading logs a bunch.
 	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
 
 	if (flags != 0) {
@@ -1690,6 +1691,7 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
 	u32 error;
+	std::string error_string;
 	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
@@ -1702,16 +1704,13 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 			return hleDelayResult(error, "module loaded", 500);
 		}
 
-		if (info.name == "BOOT.BIN")
-		{
+		if (info.name == "BOOT.BIN") {
 			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
-		}
-		else
-		{
-			ERROR_LOG(LOADER, "Module %s failed to load: %08x", name, error);
+		} else {
+			hleLogError(LOADER, error, "failed to load");
 			return hleDelayResult(error, "module loaded", 500);
 		}
 	}
