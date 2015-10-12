@@ -1709,14 +1709,6 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		}
-		else if ((int)error >= 0)
-		{
-			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
-			// Let's just act as if it worked.
-			// TODO: Allocate an actual module?
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
-			return hleDelayResult(1, "module loaded", 500);
-		}
 		else
 		{
 			ERROR_LOG(LOADER, "Module %s failed to load: %08x", name, error);
