@@ -24,8 +24,6 @@ GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false)
 {
-	DisplayList x;
-
 	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the
 	// "padding" field at the end. This is important for save state compatibility.
 	// The compiler was not rounding the struct size up to an 8 byte boundary, which
