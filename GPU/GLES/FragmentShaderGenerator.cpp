@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <sstream>
 
+#include "Common/StringUtils.h"
 #include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
@@ -333,6 +334,7 @@ enum {
 
 std::string FragmentShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
+	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(BIT_CLEARMODE)) desc << "Clear ";
 	if (id.Bit(BIT_DO_TEXTURE)) desc << "Tex ";
 	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
@@ -343,16 +345,42 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "Double ";
 	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "Texclamp";
-	if (id.Bit(BIT_CLAMP_S)) desc << "Clamp S ";
-	if (id.Bit(BIT_CLAMP_T)) desc << "Clamp T ";
+	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "Texclamp ";
+	if (id.Bit(BIT_CLAMP_S)) desc << "ClampS ";
+	if (id.Bit(BIT_CLAMP_T)) desc << "ClampT ";
+	if (id.Bits(BIT_REPLACE_BLEND, 3)) {
+		desc << "ReplaceBlend_" << id.Bits(BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
+	}
 
 	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
 	case REPLACE_ALPHA_NO: break;
 	case REPLACE_ALPHA_YES: desc << "StencilToAlpha "; break;
 	case REPLACE_ALPHA_DUALSOURCE: desc << "StencilToAlphaDualSrc "; break;
 	}
-
+	if (id.Bits(BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
+		switch (id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
+		case STENCIL_VALUE_UNIFORM: desc << "StencilUniform "; break;
+		case STENCIL_VALUE_ZERO: desc << "StencilZero "; break;
+		case STENCIL_VALUE_ONE: desc << "StencilOne "; break;
+		case STENCIL_VALUE_KEEP: desc << "StencilKeep "; break;
+		case STENCIL_VALUE_INVERT: desc << "StencilInvert "; break;
+		case STENCIL_VALUE_INCR_4: desc << "StencilIncr4 "; break;
+		case STENCIL_VALUE_INCR_8: desc << "StencilIncr8 "; break;
+		case STENCIL_VALUE_DECR_4: desc << "StencilDecr4 "; break;
+		case STENCIL_VALUE_DECR_8: desc << "StencilDecr4 "; break;
+		default: desc << "StencilUnknown"; break;
+		}
+	}
+	if (id.Bit(BIT_DO_TEXTURE)) {
+		switch (id.Bits(BIT_TEXFUNC, 3)) {
+		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
+		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
+		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
+		case GE_TEXFUNC_MODULATE: desc << "TFuncModulate "; break;
+		case GE_TEXFUNC_REPLACE: desc << "TFuncReplace "; break;
+		default: desc << "TFuncUnknown "; break;
+		}
+	}
 	if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest ";
 	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 ";
 	if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest ";
@@ -371,8 +399,9 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id.SetBit(BIT_CLEARMODE);
 	} else {
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
-		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+		bool isModeThrough = gstate.isModeThrough();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
+		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
@@ -387,13 +416,11 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id0 |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
 			id.SetBit(BIT_DO_TEXTURE);
 			id.SetBits(BIT_TEXFUNC, 3, gstate.getTextureFunction());
 			id.SetBit(BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
 			id.SetBit(BIT_FLIP_TEXTURE, gstate_c.flipTexture);
-			// TODO
 			if (gstate_c.needShaderTexClamp) {
 				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 				// 4 bits total.

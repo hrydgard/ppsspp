@@ -84,6 +84,7 @@ enum {
 
 std::string VertexShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
+	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(BIT_IS_THROUGH)) desc << "THR ";
 	if (id.Bit(BIT_USE_HW_TRANSFORM)) desc << "HWX ";
 	if (id.Bit(BIT_HAS_COLOR)) desc << "C ";
