@@ -43,9 +43,8 @@
 
 #define WRITE p+=sprintf
 
-// These bits are internal to this file, although the resulting IDs will be externally visible.
-// TODO: We will cut away many of these, turning them into uniforms. This should reduce the number
-// of generated shaders drastically.
+// TODO: There will be additional bits, indicating that groups of these will be
+// sent to the shader and processed there. This will cut down the number of shaders ("ubershader approach")
 enum {
 	BIT_LMODE = 0,
 	BIT_IS_THROUGH = 1,
@@ -57,31 +56,70 @@ enum {
 	BIT_USE_HW_TRANSFORM = 8,
 	BIT_HAS_NORMAL = 9,  // conditioned on hw transform
 	BIT_NORM_REVERSE = 10,
-	BIT_HAS_TEXCOORD = 11,
+	BIT_HAS_TEXCOORD = 11,  // 5 free after
 	BIT_UVGEN_MODE = 16,
 	BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	BIT_LS0 = 18,  // 2
 	BIT_LS1 = 20,  // 2
 	BIT_BONES = 22,  // 3 should be enough, not 8
 	BIT_ENABLE_BONES = 30,
-	BIT_LIGHT0_COMP = 32,
-	BIT_LIGHT0_TYPE = 34,
-	BIT_LIGHT1_COMP = 36,
-	BIT_LIGHT1_TYPE = 38,
-	BIT_LIGHT2_COMP = 40,
-	BIT_LIGHT2_TYPE = 42,
-	BIT_LIGHT3_COMP = 44,
-	BIT_LIGHT3_TYPE = 46,
-	BIT_MATERIAL_UPDATE = 48,
+	BIT_LIGHT0_COMP = 32,  // 2 bits
+	BIT_LIGHT0_TYPE = 34,  // 2 bits
+	BIT_LIGHT1_COMP = 36,  // 2 bits
+	BIT_LIGHT1_TYPE = 38,  // 2 bits
+	BIT_LIGHT2_COMP = 40,  // 2 bits
+	BIT_LIGHT2_TYPE = 42,  // 2 bits
+	BIT_LIGHT3_COMP = 44,  // 2 bits
+	BIT_LIGHT3_TYPE = 46,  // 2 bits
+	BIT_MATERIAL_UPDATE = 48,  // 3 bits, 1 free after
 	BIT_LIGHT0_ENABLE = 52,
 	BIT_LIGHT1_ENABLE = 53,
 	BIT_LIGHT2_ENABLE = 54,
 	BIT_LIGHT3_ENABLE = 55,
 	BIT_LIGHTING_ENABLE = 56,
-	BIT_WEIGHT_FMTSCALE = 57,
+	BIT_WEIGHT_FMTSCALE = 57,  // only two bits, 1 free after
 	BIT_TEXCOORD_FMTSCALE = 60,
-	BIT_FLATSHADE = 62,
+	BIT_FLATSHADE = 62,  // 1 free after
 };
+
+std::string VertexShaderDesc(const ShaderID &id) {
+	std::stringstream desc;
+	if (id.Bit(BIT_IS_THROUGH)) desc << "THR ";
+	if (id.Bit(BIT_USE_HW_TRANSFORM)) desc << "HWX ";
+	if (id.Bit(BIT_HAS_COLOR)) desc << "C ";
+	if (id.Bit(BIT_HAS_TEXCOORD)) desc << "T ";
+	if (id.Bit(BIT_HAS_NORMAL)) desc << "N ";
+	if (id.Bit(BIT_LMODE)) desc << "LM ";
+	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
+	if (id.Bit(BIT_NORM_REVERSE)) desc << "RevN ";
+	if (id.Bit(BIT_DO_TEXTURE)) desc << "Tex ";
+	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
+	int uvgMode = id.Bits(BIT_UVGEN_MODE, 2);
+	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
+
+	if (uvgMode) desc << uvgModes[uvgMode];
+	if (id.Bit(BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(BIT_BONES, 3) + 1) << " ";
+	// Lights
+	if (id.Bit(BIT_LIGHTING_ENABLE)) {
+		desc << "Light: ";
+		for (int i = 0; i < 4; i++) {
+			if (id.Bit(BIT_LIGHT0_ENABLE + i)) {
+				desc << i << ": ";
+				desc << "c:" << id.Bits(BIT_LIGHT0_COMP + 4 * i, 2) << " t:" << id.Bits(BIT_LIGHT0_TYPE + 4 * i, 2) << " ";
+			}
+		}
+	}
+	desc << "MatUp:" << id.Bits(BIT_MATERIAL_UPDATE, 3) << " ";
+
+	desc << "WScale " << id.Bits(BIT_WEIGHT_FMTSCALE, 2) << " ";
+	desc << "TCScale " << id.Bits(BIT_TEXCOORD_FMTSCALE, 2) << " ";
+
+	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
+
+	// TODO: More...
+	return desc.str();
+}
 
 bool CanUseHardwareTransform(int prim) {
 	if (!g_Config.bHardwareTransform)
@@ -118,7 +156,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBit(BIT_USE_HW_TRANSFORM);
 		id.SetBit(BIT_HAS_NORMAL, hasNormal);
 
-		// UV generation mode.
+		// UV generation mode. doShadeMapping is implicitly stored here.
 		id.SetBits(BIT_UVGEN_MODE, 2, gstate.getUVGenMode());
 
 		// The next bits are used differently depending on UVgen mode
@@ -138,20 +176,17 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		// Okay, d[1] coming up. ==============
 		if (gstate.isLightingEnabled() || doShadeMapping) {
+			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
+			id.SetBit(BIT_LIGHTING_ENABLE);
 			// Light bits
 			for (int i = 0; i < 4; i++) {
+				id.SetBit(BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0);
 				if (gstate.isLightChanEnabled(i) || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
 					id.SetBits(BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
 				}
 			}
 			id.SetBits(BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
-			// TODO: Optimize by shifting in all the light bits together.
-			for (int i = 0; i < 4; i++) {
-				id.SetBit(BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0);
-			}
-			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
-			id.SetBit(BIT_LIGHTING_ENABLE);
 		}
 
 		// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
@@ -159,7 +194,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBits(BIT_WEIGHT_FMTSCALE, 2, vertTypeGetWeightMask(vertType));
 		id.SetBit(BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id.SetBit(BIT_TEXCOORD_FMTSCALE, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
+			id.SetBits(BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
 		} else {
 			id.SetBit(BIT_HAS_TEXCOORD, hasTexcoord);
 		}
@@ -406,7 +441,6 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "uniform lowp vec4 u_ambient;\n");
 			if ((matUpdate & 2) == 0 || !hasColor)
 				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
-			// if ((gstate.materialupdate & 4) == 0)
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}

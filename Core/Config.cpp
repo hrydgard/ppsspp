@@ -323,6 +323,7 @@ static ConfigSetting generalSettings[] = {
 #endif
 	ConfigSetting("PauseWhenMinimized", &g_Config.bPauseWhenMinimized, false, true, true),
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, true, true),
+	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),
 	ConfigSetting(false),
 };
 

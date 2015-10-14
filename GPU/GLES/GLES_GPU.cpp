@@ -2415,3 +2415,10 @@ bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	}
 	return false;
 }
+
+std::vector<std::string> GLES_GPU::DebugGetShaderIDs(DebugShaderType type) {
+	return shaderManager_->DebugGetShaderIDs(type);
+}
+std::string GLES_GPU::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	return shaderManager_->DebugGetShaderString(id, type, stringType);
+}

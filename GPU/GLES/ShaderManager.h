@@ -20,8 +20,10 @@
 #include "base/basictypes.h"
 #include "Globals.h"
 #include <map>
-#include "VertexShaderGenerator.h"
-#include "FragmentShaderGenerator.h"
+
+#include "GPU/Common/ShaderCommon.h"
+#include "GPU/GLES/VertexShaderGenerator.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 
 class Shader;
 
@@ -30,12 +32,12 @@ struct ShaderID {
 		clear();
 	}
 	void clear() {
-		for (int i = 0; i < ARRAY_SIZE(d); i++) {
+		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
 			d[i] = 0;
 		}
 	}
 	void set_invalid() {
-		for (int i = 0; i < ARRAY_SIZE(d); i++) {
+		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
 			d[i] = 0xFFFFFFFF;
 		}
 	}
@@ -76,6 +78,14 @@ struct ShaderID {
 			const int mask = (1 << count) - 1;
 			d[bit >> 5] |= (value & mask) << (bit & 31);
 		}
+	}
+
+	void ToString(std::string *dest) const {
+		dest->resize(sizeof(d));
+		memcpy(&(*dest)[0], d, sizeof(d));
+	}
+	void FromString(std::string src) {
+		memcpy(d, &(src)[0], sizeof(d));
 	}
 };
 
@@ -213,20 +223,22 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, const ShaderID &shaderID);
 	~Shader();
 	uint32_t shader;
-	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
 	const ShaderID &ID() const { return id_; }
+
+	std::string GetShaderString(DebugShaderStringType type) const;
 
 private:
 	std::string source_;
 	ShaderID id_;
 	bool failed_;
 	bool useHWTransform_;
+	bool isFragment_;
 };
 
 class ShaderManager {
@@ -250,6 +262,9 @@ public:
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }
 	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
 	void Clear();

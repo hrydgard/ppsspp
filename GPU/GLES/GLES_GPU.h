@@ -150,6 +150,10 @@ public:
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
