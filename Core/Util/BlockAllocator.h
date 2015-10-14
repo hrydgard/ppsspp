@@ -84,6 +84,6 @@ private:
 	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);
 	const Block *GetBlockFromAddress(u32 addr) const;
-	Block *InsertFreeBefore(Block *b, u32 start, u32 size);
-	Block *InsertFreeAfter(Block *b, u32 start, u32 size);
+	Block *InsertFreeBefore(Block *b, u32 size);
+	Block *InsertFreeAfter(Block *b, u32 size);
 };

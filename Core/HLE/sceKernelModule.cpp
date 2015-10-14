@@ -1626,41 +1626,42 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	return 0;
 }
 
-static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
-{
+static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	if (!name) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleLogError(LOADER, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
 	}
 
 	for (size_t i = 0; i < ARRAY_SIZE(lieAboutSuccessModules); i++) {
 		if (!strcmp(name, lieAboutSuccessModules[i])) {
-			INFO_LOG(LOADER, "Tries to load module %s. We return a fake module.", lieAboutSuccessModules[i]);
-
 			Module *module = new Module;
 			kernelObjects.Create(module);
 			loadedModules.insert(module->GetUID());
 			memset(&module->nm, 0, sizeof(module->nm));
 			module->isFake = true;
-			return module->GetUID();
+			module->nm.entry_addr = -1;
+			module->nm.gp_value = -1;
+
+			// TODO: It would be more ideal to allocate memory for this module.
+
+			return hleLogSuccessInfoI(LOADER, module->GetUID(), "created fake module");
 		}
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
-	std::string error_string;
 	s64 size = (s64)info.size;
 
 	if (!info.exists) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): File does not exist", name, flags);
-		// ERRNO_FILE_NOT_FOUND
-		return 0x80010002;
+		const int ERROR_ERRNO_FILE_NOT_FOUND = 0x80010002;
+		const u32 error = hleLogError(LOADER, ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+		return hleDelayResult(error, "module loaded", 500);
 	}
 
 	if (!size) {
-		ERROR_LOG(LOADER, "sceKernelLoadModule(%s, %08x): Module file is size 0", name, flags);
-		return SCE_KERNEL_ERROR_FILEERR;
+		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
+		return hleDelayResult(error, "module loaded", 500);
 	}
 
+	// We log before hand because ELF loading logs a bunch.
 	DEBUG_LOG(LOADER, "sceKernelLoadModule(%s, %08x)", name, flags);
 
 	if (flags != 0) {
@@ -1671,15 +1672,15 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 		lmoption = (SceKernelLMOption *)Memory::GetPointer(optionAddr);
 		if (lmoption->position < PSP_SMEM_Low || lmoption->position > PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (%i)", name, (int)lmoption->position);
-			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE, "module loaded", 500);
 		}
 		if (lmoption->position == PSP_SMEM_LowAligned || lmoption->position == PSP_SMEM_HighAligned) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (aligned)", name);
-			return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
+			return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "module loaded", 500);
 		}
 		if (lmoption->position == PSP_SMEM_Addr) {
 			ERROR_LOG_REPORT(LOADER, "sceKernelLoadModule(%s): invalid position (fixed)", name);
-			return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+			return hleDelayResult(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED, "module loaded", 500);
 		}
 		WARN_LOG_REPORT(LOADER, "sceKernelLoadModule: unsupported options size=%08x, flags=%08x, pos=%d, access=%d, data=%d, text=%d", lmoption->size, lmoption->flags, lmoption->position, lmoption->access, lmoption->mpiddata, lmoption->mpidtext);
 	}
@@ -1690,6 +1691,7 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
 	u32 magic;
 	u32 error;
+	std::string error_string;
 	module = __KernelLoadELFFromPtr(temp, 0, lmoption ? lmoption->position == 1 : false, &error_string, &magic, error);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
@@ -1697,27 +1699,19 @@ static u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	if (!module) {
 		if (magic == 0x46535000) {
 			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
-			return -1;
+			// TODO: What's actually going on here?
+			error = -1;
+			return hleDelayResult(error, "module loaded", 500);
 		}
 
-		if (info.name == "BOOT.BIN")
-		{
+		if (info.name == "BOOT.BIN") {
 			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.
 			const std::string safeName = name;
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
-		}
-		else if ((int)error >= 0)
-		{
-			// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run..
-			// Let's just act as if it worked.
-			NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
-			return 1;
-		}
-		else
-		{
-			NOTICE_LOG(LOADER, "Module %s failed to load: %08x", name, error);
-			return error;
+		} else {
+			hleLogError(LOADER, error, "failed to load");
+			return hleDelayResult(error, "module loaded", 500);
 		}
 	}
 
@@ -1924,11 +1918,11 @@ static u32 sceKernelUnloadModule(u32 moduleId)
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module)
-		return error;
+		return hleDelayResult(error, "module unloaded", 150);
 
 	module->Cleanup();
 	kernelObjects.Destroy<Module>(moduleId);
-	return moduleId;
+	return hleDelayResult(moduleId, "module unloaded", 500);
 }
 
 u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {

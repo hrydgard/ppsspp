@@ -28,6 +28,7 @@
 #include "Core/Config.h"
 
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUtility.h"
 
@@ -60,9 +61,56 @@ const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
 const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
 const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
-const u32 PSP_MODULE_NET_HTTP = 261;
-const u32 PSP_MODULE_NET_HTTPSTORAGE = 264;
+const u32 PSP_MODULE_NET_HTTP = 0x0105;
+const u32 PSP_MODULE_NET_HTTPSTORAGE = 0x0108;
 int oldStatus = 100; //random value
+
+struct ModuleLoadInfo {
+	const int mod;
+	const u32 size;
+	const int *dependencies;
+};
+
+static const int httpModuleDeps[] = {0x0102, 0x0103, 0x0104};
+static const int sslModuleDeps[] = {0x0102};
+static const int httpStorageModuleDeps[] = {0x00100, 0x0102, 0x0103, 0x0104, 0x0105};
+static const int atrac3PlusModuleDeps[] = {0x0300};
+static const int mpegBaseModuleDeps[] = {0x0300};
+static const int mp4ModuleDeps[] = {0x0300, 0x0303};
+
+static const ModuleLoadInfo moduleLoadInfo[] = {
+	{0x0100, 0x00014000},
+	{0x0101, 0x00020000},
+	{0x0102, 0x00058000},
+	{0x0103, 0x00006000},
+	{0x0104, 0x00002000},
+	{0x0105, 0x00028000, httpModuleDeps},
+	{0x0106, 0x00044000, sslModuleDeps},
+	{0x0107, 0x00010000},
+	{0x0108, 0x00008000, httpStorageModuleDeps},
+	{0x0200, 0x00000000},
+	{0x0201, 0x00000000},
+	{0x0202, 0x00000000},
+	{0x0203, 0x00000000},
+	{0x02ff, 0x00000000},
+	{0x0300, 0x00000000},
+	{0x0301, 0x00000000},
+	{0x0302, 0x00008000, atrac3PlusModuleDeps},
+	{0x0303, 0x0000c000, mpegBaseModuleDeps},
+	{0x0304, 0x00004000},
+	{0x0305, 0x0000a300},
+	{0x0306, 0x00004000},
+	{0x0307, 0x00000000},
+	{0x0308, 0x0003c000, mp4ModuleDeps},
+	{0x03ff, 0x00000000},
+	{0x0400, 0x0000c000},
+	{0x0401, 0x00018000},
+	{0x0402, 0x00048000},
+	{0x0403, 0x0000e000},
+	{0x0500, 0x00000000},
+	{0x0600, 0x00000000},
+	{0x0601, 0x00000000},
+};
 
 enum UtilityDialogType {
 	UTILITY_DIALOG_NONE,
@@ -85,21 +133,20 @@ static PSPNetconfDialog netDialog;
 static PSPScreenshotDialog screenshotDialog;
 static PSPGamedataInstallDialog gamedataInstallDialog;
 
-static std::set<int> currentlyLoadedModules;
+static std::map<int, u32> currentlyLoadedModules;
 
-void __UtilityInit()
-{
+void __UtilityInit() {
 	currentDialogType = UTILITY_DIALOG_NONE;
 	currentDialogActive = false;
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
 }
 
-void __UtilityDoState(PointerWrap &p)
-{
-	auto s = p.Section("sceUtility", 1);
-	if (!s)
+void __UtilityDoState(PointerWrap &p) {
+	auto s = p.Section("sceUtility", 1, 2);
+	if (!s) {
 		return;
+	}
 
 	p.Do(currentDialogType);
 	p.Do(currentDialogActive);
@@ -109,11 +156,19 @@ void __UtilityDoState(PointerWrap &p)
 	netDialog.DoState(p);
 	screenshotDialog.DoState(p);
 	gamedataInstallDialog.DoState(p);
-	p.Do(currentlyLoadedModules);
+
+	if (s >= 2) {
+		p.Do(currentlyLoadedModules);
+	} else {
+		std::set<int> oldModules;
+		p.Do(oldModules);
+		for (auto it = oldModules.begin(), end = oldModules.end(); it != end; ++it) {
+			currentlyLoadedModules[*it] = 0;
+		}
+	}
 }
 
-void __UtilityShutdown()
-{
+void __UtilityShutdown() {
 	saveDialog.Shutdown(true);
 	msgDialog.Shutdown(true);
 	oskDialog.Shutdown(true);
@@ -203,58 +258,68 @@ static u32 sceUtilityUnloadAvModule(u32 module)
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
-static u32 sceUtilityLoadModule(u32 module)
-{
-	// TODO: Not all modules between 0x100 and 0x601 are valid.
-	if (module < 0x100 || module > 0x601)
-	{
+const ModuleLoadInfo *__UtilityModuleInfo(int module) {
+	const ModuleLoadInfo *info = 0;
+	for (size_t i = 0; i < ARRAY_SIZE(moduleLoadInfo); ++i) {
+		if (moduleLoadInfo[i].mod == module) {
+			info = &moduleLoadInfo[i];
+			break;
+		}
+	}
+	return info;
+}
+
+static u32 sceUtilityLoadModule(u32 module) {
+	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
+	if (!info) {
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
-
-	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
-	{
+	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end()) {
 		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
-	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
-	// Fix Kamen Rider Climax Heroes OOO - ULJS00331 loading
-	// Fix Naruto Shippuden Kizuna Drive (error module load failed)
-	if (module == PSP_MODULE_NET_HTTPSTORAGE && !(currentlyLoadedModules.find(PSP_MODULE_NET_HTTP) != currentlyLoadedModules.end()))
-	{
-		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule: Library not found");
-		return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND;
+
+	// Some games, like Kamen Rider Climax Heroes OOO, require an error if dependencies aren't loaded yet.
+	for (const int *dep = info->dependencies; dep && *dep == 0; ++dep) {
+		if (currentlyLoadedModules.find(*dep) == currentlyLoadedModules.end()) {
+			ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): dependent module %i not loaded", module, *dep);
+			return hleDelayResult(SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "utility module load attempt", 25000);
+		}
 	}
+
+	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
+
+	u32 allocSize = info->size;
+	char name[64];
+	snprintf(name, sizeof(name), "UtilityModule/%x", module);
+	currentlyLoadedModules[module] = userMemory.Alloc(allocSize, false, name);
+
 	// TODO: Each module has its own timing, technically, but this is a low-end.
-	// Note: Some modules have dependencies, but they still resched.
-
-	currentlyLoadedModules.insert(module);
-
 	if (module == 0x3FF)
 		return hleDelayResult(0, "utility module loaded", 130);
 	else
 		return hleDelayResult(0, "utility module loaded", 25000);
 }
 
-static u32 sceUtilityUnloadModule(u32 module)
-{
-	// TODO: Not all modules between 0x100 and 0x601 are valid.
-	if (module < 0x100 || module > 0x601)
-	{
+static u32 sceUtilityUnloadModule(u32 module) {
+	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
+	if (!info) {
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityUnloadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
-	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end())
-	{
+	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end()) {
 		WARN_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i): not yet loaded", module);
 		return SCE_ERROR_MODULE_NOT_LOADED;
+	}
+	if (currentlyLoadedModules[module] != 0) {
+		userMemory.Free(currentlyLoadedModules[module]);
 	}
 	currentlyLoadedModules.erase(module);
 
 	INFO_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
-	// Note: If not loaded, it should not reschedule actually...
 	if (module == 0x3FF)
 		return hleDelayResult(0, "utility module unloaded", 110);
 	else

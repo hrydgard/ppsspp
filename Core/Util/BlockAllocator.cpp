@@ -85,17 +85,20 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 			{
 				if (b.size == needed)
 				{
+					if (offset >= grain_)
+						InsertFreeBefore(&b, offset);
 					b.taken = true;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 				else
 				{
-					InsertFreeAfter(&b, b.start + needed, b.size - needed);
+					InsertFreeAfter(&b, b.size - needed);
+					if (offset >= grain_)
+						InsertFreeBefore(&b, offset);
 					b.taken = true;
-					b.size = needed;
 					b.SetTag(tag);
-					return b.start + offset;
+					return b.start;
 				}
 			}
 		}
@@ -112,16 +115,18 @@ u32 BlockAllocator::AllocAligned(u32 &size, u32 sizeGrain, u32 grain, bool fromT
 			{
 				if (b.size == needed)
 				{
+					if (offset >= grain_)
+						InsertFreeAfter(&b, offset);
 					b.taken = true;
 					b.SetTag(tag);
 					return b.start;
 				}
 				else
 				{
-					InsertFreeBefore(&b, b.start, b.size - needed);
+					InsertFreeBefore(&b, b.size - needed);
+					if (offset >= grain_)
+						InsertFreeAfter(&b, offset);
 					b.taken = true;
-					b.start += b.size - needed;
-					b.size = needed;
 					b.SetTag(tag);
 					return b.start;
 				}
@@ -185,22 +190,19 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 			//good to go
 			else if (b.start == alignedPosition)
 			{
-				InsertFreeAfter(&b, b.start + alignedSize, b.size - alignedSize);
+				if (b.size != alignedSize)
+					InsertFreeAfter(&b, b.size - alignedSize);
 				b.taken = true;
-				b.size = alignedSize;
 				b.SetTag(tag);
 				CheckBlocks();
 				return position;
 			}
 			else
 			{
-				int size1 = alignedPosition - b.start;
-				InsertFreeBefore(&b, b.start, size1);
-				if (b.start + b.size > alignedPosition + alignedSize)
-					InsertFreeAfter(&b, alignedPosition + alignedSize, b.size - (alignedSize + size1));
+				InsertFreeBefore(&b, alignedPosition - b.start);
+				if (b.size > alignedSize)
+					InsertFreeAfter(&b, b.size - alignedSize);
 				b.taken = true;
-				b.start = alignedPosition;
-				b.size = alignedSize;
 				b.SetTag(tag);
 
 				return position;
@@ -291,27 +293,30 @@ bool BlockAllocator::FreeExact(u32 position)
 	}
 }
 
-BlockAllocator::Block *BlockAllocator::InsertFreeBefore(Block *b, u32 start, u32 size)
+BlockAllocator::Block *BlockAllocator::InsertFreeBefore(Block *b, u32 size)
 {
-	Block *inserted = new Block(start, size, false, b->prev, b);
+	Block *inserted = new Block(b->start, size, false, b->prev, b);
 	b->prev = inserted;
 	if (inserted->prev == NULL)
 		bottom_ = inserted;
 	else
 		inserted->prev->next = inserted;
 
+	b->start += size;
+	b->size -= size;
 	return inserted;
 }
 
-BlockAllocator::Block *BlockAllocator::InsertFreeAfter(Block *b, u32 start, u32 size)
+BlockAllocator::Block *BlockAllocator::InsertFreeAfter(Block *b, u32 size)
 {
-	Block *inserted = new Block(start, size, false, b, b->next);
+	Block *inserted = new Block(b->start + b->size - size, size, false, b, b->next);
 	b->next = inserted;
 	if (inserted->next == NULL)
 		top_ = inserted;
 	else
 		inserted->next->prev = inserted;
 
+	b->size -= size;
 	return inserted;
 }
 

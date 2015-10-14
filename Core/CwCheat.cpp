@@ -244,8 +244,6 @@ void CWCheatEngine::SkipAllCodes() {
 
 int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
 	int address = (value + 0x08800000) & 0x3FFFFFFF;
-	if (gameTitle == "ULUS10563" || gameTitle == "ULJS-00351" || gameTitle == "NPJH50352" ) //Offset to make God Eater Burst codes work
-		address -= 0x7EF00;
 	return address;
 }
 
