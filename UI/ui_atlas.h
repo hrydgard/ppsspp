@@ -42,20 +42,12 @@
 #define I_FOLDER 31
 #define I_UP_DIRECTORY 32
 #define I_GEAR 33
-#define I_ARROW1 34
-#define I_ARROW2 35
-#define I_ARROW3 36
-#define I_CROSS1 37
-#define I_SQUARE1 38
-#define I_TRIANGLE1 39
-#define I_STAR 40
-#define I_GC 41
-#define I_EYE 42
-#define I_X 43
-#define I_Y 44
-#define I_A 45
-#define I_B 46
+#define I_CROSS1 34
+#define I_SQUARE1 35
+#define I_TRIANGLE1 36
+#define I_A 37
+#define I_B 38
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[47];
+extern const AtlasImage ui_images[39];

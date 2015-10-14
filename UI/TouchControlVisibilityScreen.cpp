@@ -51,11 +51,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyImages["Select"] = I_SELECT;
 	keyImages["L"] = I_L;
 	keyImages["R"] = I_R;
-	keyImages["Combo"] = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
-	keyImages["Combo1"] = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
-	keyImages["Combo2"] = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
-	keyImages["Combo3"] = g_Config.iComboKeyStyle ? I_A : I_X;
-	keyImages["Combo4"] = g_Config.iComboKeyStyle ? I_B : I_Y;
+	keyImages["Combo"] = I_SQUARE1;
+	keyImages["Combo1"] = I_TRIANGLE1;
+	keyImages["Combo2"] = I_CROSS1;
+	keyImages["Combo3"] = I_A;
+	keyImages["Combo4"] = I_B;
 
 	keyToggles.clear();
 	keyToggles["Circle"] = &g_Config.bShowTouchCircle;

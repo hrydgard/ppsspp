@@ -367,11 +367,11 @@ void TouchControlLayoutScreen::CreateViews() {
 	int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 	int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 	int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
-	int ComboKey1 = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
-	int ComboKey2 = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
-	int ComboKey3 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
-	int ComboKey4 = g_Config.iComboKeyStyle ? I_A : I_X;
-	int ComboKey5 = g_Config.iComboKeyStyle ? I_B : I_Y;
+	int ComboKey1 = I_SQUARE1;
+	int ComboKey2 = I_TRIANGLE1;
+	int ComboKey3 = I_CROSS1;
+	int ComboKey4 = I_A;
+	int ComboKey5 = I_B;
 
 	if (g_Config.bShowTouchDpad) {
 		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));

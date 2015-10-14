@@ -42,11 +42,11 @@ void Combo_keyScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	int ComboKeyImage, ComboKeyImage1, ComboKeyImage2, ComboKeyImage3, ComboKeyImage4;
-	ComboKeyImage = g_Config.iComboKeyStyle ? I_SQUARE1 : I_STAR;
-	ComboKeyImage1 = g_Config.iComboKeyStyle ? I_TRIANGLE1 : I_EYE;
-	ComboKeyImage2 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
-	ComboKeyImage3 = g_Config.iComboKeyStyle ? I_A : I_X;
-	ComboKeyImage4 = g_Config.iComboKeyStyle ? I_B : I_Y;
+	ComboKeyImage = I_SQUARE1;
+	ComboKeyImage1 = I_TRIANGLE1;
+	ComboKeyImage2 = I_CROSS1;
+	ComboKeyImage3 = I_A;
+	ComboKeyImage4 = I_B;
 	
 	comboselect = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(10, 10,  NONE, NONE));
 	comboselect->SetSpacing(10);
@@ -96,10 +96,6 @@ void Combo_keyScreen::CreateViews() {
 	keyImages["Triangle"] = I_TRIANGLE;
 	keyImages["L"] = I_L;
 	keyImages["R"] = I_R;
-	keyImages["ULeft"] = I_ARROW;
-	keyImages["VUp"] = I_ARROW1;
-	keyImages["WRight"] = I_ARROW2;
-	keyImages["XDown"] = I_ARROW3;
 	keyImages["Start"] = I_START;
 	keyImages["Select"] = I_SELECT;
 
@@ -113,10 +109,10 @@ void Combo_keyScreen::CreateViews() {
 	keyToggles["Triangle"] = &array[12];
 	keyToggles["L"] = &array[8];
 	keyToggles["R"] = &array[9];
-	keyToggles["ULeft"] = &array[7];
-	keyToggles["VUp"] = &array[4];
-	keyToggles["WRight"] = &array[5];
-	keyToggles["XDown"] = &array[6];
+	keyToggles[co->T("Left")] = &array[7];
+	keyToggles[co->T("Up")] = &array[4];
+	keyToggles[co->T("Right")] = &array[5];
+	keyToggles[co->T("Down")] = &array[6];
 	keyToggles["Start"] = &array[3];
 	keyToggles["Select"] = &array[0];
 
