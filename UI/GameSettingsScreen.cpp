@@ -427,10 +427,6 @@ void GameSettingsScreen::CreateViews() {
 		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
-		//Combo Key style
-		static const char *ComboKeyStyles[] = { "ACG", "CV" };
-		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboKeyStyle, co->T("Combo Key style"), ComboKeyStyles, 0, ARRAY_SIZE(ComboKeyStyles), co->GetName(), screenManager()));
-		combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
 #ifdef _WIN32
