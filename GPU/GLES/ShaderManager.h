@@ -58,7 +58,7 @@ struct ShaderID {
 		return true;
 	}
 
-	int Bit(int bit) const {
+	bool Bit(int bit) const {
 		return (d[bit >> 5] >> (bit & 31)) & 1;
 	}
 	// Does not handle crossing 32-bit boundaries
