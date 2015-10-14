@@ -34,3 +34,8 @@ image I_ICONGOLD source_assets/image/icon_gold_72.png copy
 image I_FOLDER source_assets/image/folder_line.png copy
 image I_UP_DIRECTORY source_assets/image/up_line.png copy
 image I_GEAR source_assets/image/gear.png copy
+image I_CROSS1 source_assets/image/cross1.png copy
+image I_SQUARE1 source_assets/image/square1.png copy
+image I_TRIANGLE1 source_assets/image/triangle1.png copy
+image I_A source_assets/image/A.png copy
+image I_B source_assets/image/B.png copy

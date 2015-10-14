@@ -51,6 +51,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyImages["Select"] = I_SELECT;
 	keyImages["L"] = I_L;
 	keyImages["R"] = I_R;
+	keyImages["Combo"] = I_SQUARE1;
+	keyImages["Combo1"] = I_TRIANGLE1;
+	keyImages["Combo2"] = I_CROSS1;
+	keyImages["Combo3"] = I_A;
+	keyImages["Combo4"] = I_B;
 
 	keyToggles.clear();
 	keyToggles["Circle"] = &g_Config.bShowTouchCircle;
@@ -64,6 +69,11 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyToggles["Dpad"] = &g_Config.bShowTouchDpad;
 	keyToggles["Analog Stick"] = &g_Config.bShowTouchAnalogStick;
 	keyToggles["Unthrottle"] = &g_Config.bShowTouchUnthrottle;
+	keyToggles["Combo"] = &g_Config.bShowComboKey;
+	keyToggles["Combo1"] = &g_Config.bShowComboKey1;
+	keyToggles["Combo2"] = &g_Config.bShowComboKey2;
+	keyToggles["Combo3"] = &g_Config.bShowComboKey3;
+	keyToggles["Combo4"] = &g_Config.bShowComboKey4;
 
 	std::map<std::string, int>::iterator imageFinder;
 

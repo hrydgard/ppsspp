@@ -302,6 +302,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),
 	ConfigSetting("GridView2", &g_Config.bGridView2, true),
 	ConfigSetting("GridView3", &g_Config.bGridView3, false),
+	ConfigSetting("ComboMode", &g_Config.iComboMode, 0),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
@@ -514,6 +515,17 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true, true, true),
 	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true, true, true),
 	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true, true, true),
+
+	ConfigSetting("ShowComboKey", &g_Config.bShowComboKey, false, true, true),
+	ConfigSetting("ShowComboKey1", &g_Config.bShowComboKey1, false, true, true),
+	ConfigSetting("ShowComboKey2", &g_Config.bShowComboKey2, false, true, true),
+	ConfigSetting("ShowComboKey3", &g_Config.bShowComboKey3, false, true, true),
+	ConfigSetting("ShowComboKey4", &g_Config.bShowComboKey4, false, true, true),
+	ConfigSetting("ComboKeyMapping", &g_Config.iCombokey, 0, true, true),
+	ConfigSetting("ComboKey1Mapping", &g_Config.iCombokey1, 0, true, true),
+	ConfigSetting("ComboKey2Mapping", &g_Config.iCombokey2, 0, true, true),
+	ConfigSetting("ComboKey3Mapping", &g_Config.iCombokey3, 0, true, true),
+	ConfigSetting("ComboKey4Mapping", &g_Config.iCombokey4, 0, true, true),
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
@@ -575,6 +587,22 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f, true, true),
 	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f, true, true),
 	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale, true, true),
+
+	ConfigSetting("fcomboX", &g_Config.fcomboX, -1.0f, true, true),
+	ConfigSetting("fcomboY", &g_Config.fcomboY, -1.0f, true, true),
+	ConfigSetting("comboKeyScale", &g_Config.fcomboScale, defaultControlScale, true, true),
+	ConfigSetting("fcombo1X", &g_Config.fcombo1X, -1.0f, true, true),
+	ConfigSetting("fcombo1Y", &g_Config.fcombo1Y, -1.0f, true, true),
+	ConfigSetting("comboKeyScale1", &g_Config.fcomboScale1, defaultControlScale, true, true),
+	ConfigSetting("fcombo2X", &g_Config.fcombo2X, -1.0f, true, true),
+	ConfigSetting("fcombo2Y", &g_Config.fcombo2Y, -1.0f, true, true),
+	ConfigSetting("comboKeyScale2", &g_Config.fcomboScale2, defaultControlScale, true, true),
+	ConfigSetting("fcombo3X", &g_Config.fcombo3X, -1.0f, true, true),
+	ConfigSetting("fcombo3Y", &g_Config.fcombo3Y, -1.0f, true, true),
+	ConfigSetting("comboKeyScale3", &g_Config.fcomboScale3, defaultControlScale, true, true),
+	ConfigSetting("fcombo4X", &g_Config.fcombo4X, -1.0f, true, true),
+	ConfigSetting("fcombo4Y", &g_Config.fcombo4Y, -1.0f, true, true),
+	ConfigSetting("comboKeyScale4", &g_Config.fcomboScale4, defaultControlScale, true, true),
 #ifdef _WIN32
 	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
 	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
@@ -829,6 +857,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		fRKeyY /= screen_height;
 		fAnalogStickX /= screen_width;
 		fAnalogStickY /= screen_height;
+		fcomboX /= screen_width;
+		fcomboY /= screen_height;
+		fcombo1X /= screen_width;
+		fcombo1Y /= screen_height;
+		fcombo2X /= screen_width;
+		fcombo2Y /= screen_height;
+		fcombo3X /= screen_width;
+		fcombo3Y /= screen_height;
+		fcombo4X /= screen_width;
+		fcombo4Y /= screen_height;
 	}
 	
 	const char *gitVer = PPSSPP_GIT_VERSION;
@@ -1241,6 +1279,21 @@ void Config::ResetControlLayout() {
 	g_Config.fAnalogStickX = -1.0;
 	g_Config.fAnalogStickY = -1.0;
 	g_Config.fAnalogStickScale = defaultControlScale;
+	g_Config.fcomboX = -1.0;
+	g_Config.fcomboY = -1.0;
+	g_Config.fcomboScale = defaultControlScale;
+	g_Config.fcombo1X = -1.0f;
+	g_Config.fcombo1Y = -1.0f;
+	g_Config.fcomboScale1 = defaultControlScale;
+	g_Config.fcombo2X = -1.0f;
+	g_Config.fcombo2Y = -1.0f;
+	g_Config.fcomboScale2 = defaultControlScale;
+	g_Config.fcombo3X = -1.0f;
+	g_Config.fcombo3Y = -1.0f;
+	g_Config.fcomboScale3 = defaultControlScale;
+	g_Config.fcombo4X = -1.0f;
+	g_Config.fcombo4Y = -1.0f;
+	g_Config.fcomboScale4 = defaultControlScale;
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {
