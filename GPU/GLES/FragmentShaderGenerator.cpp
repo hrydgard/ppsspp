@@ -467,9 +467,10 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 		// 2 bits.
 		id.SetBits(BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
 
-		// 3 bits.
-		id.SetBits(BIT_REPLACE_BLEND, 3, replaceBlend);
+		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
 		if (replaceBlend > REPLACE_BLEND_STANDARD) {
+			// 3 bits.
+			id.SetBits(BIT_REPLACE_BLEND, 3, replaceBlend);
 			// 11 bits total.
 			id.SetBits(BIT_BLENDEQ, 3, gstate.getBlendEq());
 			id.SetBits(BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
