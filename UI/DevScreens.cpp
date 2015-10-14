@@ -799,12 +799,14 @@ void ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout 
 void ShaderListScreen::CreateViews() {
 	using namespace UI;
 
+	I18NCategory *di = GetI18NCategory("Dialog");
+
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
 	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
 	layout->Add(tabs_);
-	layout->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	ScrollView *vs_scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ScrollView *fs_scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
@@ -836,6 +838,8 @@ UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
+	I18NCategory *di = GetI18NCategory("Dialog");
+
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
 
@@ -855,5 +859,5 @@ void ShaderViewScreen::CreateViews() {
 		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII, true));
 	}
 
-	layout->Add(new Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
