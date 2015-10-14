@@ -33,6 +33,7 @@
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="PauseScreen.cpp" />
+    <ClCompile Include="ProfilerDraw.cpp" />
     <ClCompile Include="ReportScreen.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
@@ -57,6 +58,7 @@
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PauseScreen.h" />
+    <ClInclude Include="ProfilerDraw.h" />
     <ClInclude Include="ReportScreen.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />

@@ -24,6 +24,7 @@
 #endif
 
 #include <cstdio>
+#include <sstream>
 
 #include "base/logging.h"
 #include "gfx_es2/gpu_features.h"
@@ -329,6 +330,38 @@ enum {
 	BIT_BLENDFUNC_B = 42,
 	BIT_FLATSHADE = 46,
 };
+
+std::string FragmentShaderDesc(const ShaderID &id) {
+	std::stringstream desc;
+	if (id.Bit(BIT_CLEARMODE)) desc << "Clear ";
+	if (id.Bit(BIT_DO_TEXTURE)) desc << "Tex ";
+	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
+	if (id.Bit(BIT_TEXALPHA)) desc << "TexAlpha ";
+	if (id.Bit(BIT_TEXTURE_AT_OFFSET)) desc << "TexOffset ";
+	if (id.Bit(BIT_LMODE)) desc << "LM ";
+	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
+	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "Double ";
+	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
+	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "Texclamp";
+	if (id.Bit(BIT_CLAMP_S)) desc << "Clamp S ";
+	if (id.Bit(BIT_CLAMP_T)) desc << "Clamp T ";
+
+	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
+	case REPLACE_ALPHA_NO: break;
+	case REPLACE_ALPHA_YES: desc << "StencilToAlpha "; break;
+	case REPLACE_ALPHA_DUALSOURCE: desc << "StencilToAlphaDualSrc "; break;
+	}
+
+	if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest ";
+	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 ";
+	if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest ";
+	if (id.Bit(BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 ";
+
+	// TODO: A few more...
+
+	return desc.str();
+}
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.

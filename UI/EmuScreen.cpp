@@ -63,6 +63,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/InstallZipScreen.h"
+#include "UI/ProfilerDraw.h"
 
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {

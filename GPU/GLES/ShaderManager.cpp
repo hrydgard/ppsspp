@@ -41,9 +41,10 @@
 #include "Framebuffer.h"
 #include "i18n/i18n.h"
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID)
+Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, const ShaderID &shaderID)
 	  : id_(shaderID), failed_(false), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shadercomp");
+	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
 #ifdef SHADERLOG
 #ifdef _WIN32
@@ -52,7 +53,7 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const
 	printf("%s\n", code);
 #endif
 #endif
-	shader = glCreateShader(shaderType);
+	shader = glCreateShader(glShaderType);
 	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
 	GLint success = 0;
@@ -130,13 +131,17 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 			ELOG("Could not link program:\n %s", buf);
 #endif
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
-			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
-			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs->source().c_str(), vs->source().c_str());
+			ERROR_LOG(G3D, "VS desc:\n%s\n", vs->GetShaderString(SHADER_STRING_SHORT_DESC).c_str());
+			ERROR_LOG(G3D, "FS desc:\n%s\n", fs->GetShaderString(SHADER_STRING_SHORT_DESC).c_str());
+			std::string vs_source = vs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+			std::string fs_source = fs->GetShaderString(SHADER_STRING_SOURCE_CODE);
+			ERROR_LOG(G3D, "VS:\n%s\n", vs_source.c_str());
+			ERROR_LOG(G3D, "FS:\n%s\n", fs_source.c_str());
+			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs_source.c_str(), vs_source.c_str());
 #ifdef SHADERLOG
 			OutputDebugStringUTF8(buf);
-			OutputDebugStringUTF8(vs->source().c_str());
-			OutputDebugStringUTF8(fs->source().c_str());
+			OutputDebugStringUTF8(vs_source.c_str());
+			OutputDebugStringUTF8(fs_source.c_str());
 #endif
 			delete [] buf;	// we're dead!
 		}
@@ -878,4 +883,65 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 
 	lastShader_ = ls;
 	return ls;
+}
+
+std::string Shader::GetShaderString(DebugShaderStringType type) const {
+	switch (type) {
+	case SHADER_STRING_SOURCE_CODE:
+		return source_;
+	case SHADER_STRING_SHORT_DESC:
+		return isFragment_ ? FragmentShaderDesc(id_) : VertexShaderDesc(id_);
+	default:
+		return "N/A";
+	}
+}
+
+std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) {
+	std::string id;
+	std::vector<std::string> ids;
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+		{
+			for (auto iter : vsCache_) {
+				iter.first.ToString(&id);
+				ids.push_back(id);
+			}
+		}
+		break;
+	case SHADER_TYPE_FRAGMENT:
+		{
+			for (auto iter : fsCache_) {
+				iter.first.ToString(&id);
+				ids.push_back(id);
+			}
+		}
+		break;
+	}
+	return ids;
+}
+
+std::string ShaderManager::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	ShaderID shaderId;
+	shaderId.FromString(id);
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+	{
+		auto iter = vsCache_.find(shaderId);
+		if (iter == vsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType);
+	}
+
+	case SHADER_TYPE_FRAGMENT:
+	{
+		auto iter = fsCache_.find(shaderId);
+		if (iter == fsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType);
+	}
+	default:
+		return "N/A";
+	}
 }

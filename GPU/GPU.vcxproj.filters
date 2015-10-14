@@ -195,6 +195,9 @@
     <ClInclude Include="Common\GPUStateUtils.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ShaderCommon.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">

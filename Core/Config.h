@@ -90,12 +90,12 @@ public:
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
+	bool bFullscreenOnDoubleclick;
 #if defined(USING_WIN_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	std::string sFont;
 	bool bIgnoreWindowsKey;
-
 	// Used for switching the GPU backend in GameSettingsScreen.
 	// Without this, PPSSPP instantly crashes if we edit iGPUBackend directly...
 	int iTempGPUBackend;
