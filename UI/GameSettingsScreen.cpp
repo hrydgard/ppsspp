@@ -429,7 +429,7 @@ void GameSettingsScreen::CreateViews() {
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 		//Combo Key style
 		static const char *ComboKeyStyles[] = { "ACG", "CV" };
-		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboKeyStyle, co->T("Combo Key style"), ComboKeyStyles, 0, ARRAY_SIZE(ComboKeyStyles), co, screenManager()));
+		View *combo_key_style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iComboKeyStyle, co->T("Combo Key style"), ComboKeyStyles, 0, ARRAY_SIZE(ComboKeyStyles), co->GetName(), screenManager()));
 		combo_key_style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
 
