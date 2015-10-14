@@ -34,6 +34,11 @@ struct ShaderID {
 			d[i] = 0;
 		}
 	}
+	void set_invalid() {
+		for (int i = 0; i < ARRAY_SIZE(d); i++) {
+			d[i] = 0xFFFFFFFF;
+		}
+	}
 
 	u32 d[2];
 	bool operator < (const ShaderID &other) const {
