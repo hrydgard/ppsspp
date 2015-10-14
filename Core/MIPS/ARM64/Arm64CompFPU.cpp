@@ -386,6 +386,7 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			if (!wasImm) {
 				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 			}
+			// TODO: We do have the fcr31 value in a register here, could use that in UpdateRoundingMode to avoid reloading it.
 			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {

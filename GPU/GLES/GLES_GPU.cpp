@@ -2376,6 +2376,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	textureCache_.SetTexture(true);
+	textureCache_.ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);

@@ -104,6 +104,10 @@ public:
 		cancelled_ = true;
 	}
 
+	bool IsCancelled() const {
+		return cancelled_;
+	}
+
 	// NOTE: Callbacks are NOT executed until RunCallback is called. This is so that
 	// the call will end up on the thread that calls g_DownloadManager.Update().
 	void SetCallback(std::function<void(Download &)> callback) {

@@ -26,6 +26,7 @@
 #include "Core/Config.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
+#include "UI/OnScreenDisplay.h"
 
 #include "Windows/W32Util/Misc.h"
 #include "Windows/OpenGLBase.h"
@@ -39,9 +40,6 @@ static HANDLE pauseEvent;
 static HANDLE resumeEvent;
 
 static int xres, yres;
-
-// TODO: Make config?
-static bool enableGLDebug = false;
 
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
@@ -135,7 +133,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
-	ERROR_LOG(G3D, "GL: %s", finalMessage);
+	NOTICE_LOG(G3D, "GL: %s", finalMessage);
 }
 
 bool GL_Init(HWND window, std::string *error_message) {
@@ -246,7 +244,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	CheckGLExtensions();
 
-	int contextFlags = enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
@@ -307,9 +305,20 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	GL_SwapInterval(0);
 
-	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
+	// TODO: Also support GL_KHR_debug which might be more widely supported?
+	if (g_Config.bGfxDebugOutput && glewIsSupported("GL_ARB_debug_output")) {
+		glGetError();
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
+		if (glGetError()) {
+			ERROR_LOG(G3D, "Failed to register a debug log callback");
+		}
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+		if (glGetError()) {
+			ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+		}
+
+		// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
+		// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
 	}
 
 	pauseRequested = false;

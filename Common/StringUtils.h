@@ -22,6 +22,8 @@
 #include "Common.h"
 
 
+void truncate_cpy(char *dest, size_t destSize, const char *src);
+
 long parseHexLong(std::string s);
 long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);

@@ -18,6 +18,15 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.1.1
+-------------------
+* Fixed new crash in Persona and other games on ARM64, like Galaxy S6
+* Fixed crashes when trying to launch web browser when not present on Android, like on Android TV
+* Fix crash in games that used "depal" functionality (OpenGL)
+* Fixed rounding mode problems in the JITs
+* Fix crash when loading savestates many times, and savestate compatibility on Android-x86
+* Fix minor glitch in Ridge Racer
+
 What's new in 1.1
 -----------------
 * Support for ARM64 on Android, for improved performance on new devices. Has some new optimizations.

@@ -740,40 +740,69 @@ public class NativeActivity extends Activity {
 	
     public boolean processCommand(String command, String params) {
 		if (command.equals("launchBrowser")) {
-			Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
-			startActivity(i);
-			return true;
-		} else if (command.equals("launchEmail")) {
-			Intent send = new Intent(Intent.ACTION_SENDTO);
-			String uriText;
-			uriText = "mailto:email@gmail.com" + "?subject=Your app is..."
-					+ "&body=great! Or?";
-			uriText = uriText.replace(" ", "%20");
-			Uri uri = Uri.parse(uriText);
-			send.setData(uri);
-			startActivity(Intent.createChooser(send, "E-mail the app author!"));
-			return true;
-		} else if (command.equals("sharejpeg")) {
-			Intent share = new Intent(Intent.ACTION_SEND);
-			share.setType("image/jpeg");
-			share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
-			startActivity(Intent.createChooser(share, "Share Picture"));
-		} else if (command.equals("sharetext")) {
-			Intent sendIntent = new Intent();
-			sendIntent.setType("text/plain");
-			sendIntent.putExtra(Intent.EXTRA_TEXT, params);
-			sendIntent.setAction(Intent.ACTION_SEND);
-			startActivity(sendIntent);
-		} else if (command.equals("showTwitter")) {
-			String twitter_user_name = params;
 			try {
-				startActivity(new Intent(Intent.ACTION_VIEW,
-						Uri.parse("twitter://user?screen_name="
-								+ twitter_user_name)));
+				Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
+				startActivity(i);
+				return true;
 			} catch (Exception e) {
-				startActivity(new Intent(
-						Intent.ACTION_VIEW,
-						Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+				// No browser?
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("launchEmail")) {
+			try {
+				Intent send = new Intent(Intent.ACTION_SENDTO);
+				String uriText;
+				uriText = "mailto:email@gmail.com" + "?subject=Your app is..."
+						+ "&body=great! Or?";
+				uriText = uriText.replace(" ", "%20");
+				Uri uri = Uri.parse(uriText);
+				send.setData(uri);
+				startActivity(Intent.createChooser(send, "E-mail the app author!"));
+				return true;
+			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("sharejpeg")) {
+			try {
+				Intent share = new Intent(Intent.ACTION_SEND);
+				share.setType("image/jpeg");
+				share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
+				startActivity(Intent.createChooser(share, "Share Picture"));
+				return true;
+			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("sharetext")) {
+			try {
+				Intent sendIntent = new Intent();
+				sendIntent.setType("text/plain");
+				sendIntent.putExtra(Intent.EXTRA_TEXT, params);
+				sendIntent.setAction(Intent.ACTION_SEND);
+				startActivity(sendIntent);
+				return true;
+			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("showTwitter")) {
+			try {
+				String twitter_user_name = params;
+				try {
+					startActivity(new Intent(Intent.ACTION_VIEW,
+							Uri.parse("twitter://user?screen_name="
+									+ twitter_user_name)));
+				} catch (Exception e) {
+					startActivity(new Intent(
+							Intent.ACTION_VIEW,
+							Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+				}
+				return true;
+			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+				Log.e(TAG, e.toString());
+				return false;
 			}
 		} else if (command.equals("launchMarket")) {
 			// Don't need this, can just use launchBrowser with a market:

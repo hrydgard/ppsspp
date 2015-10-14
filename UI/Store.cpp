@@ -51,9 +51,11 @@ std::string ResolveUrl(std::string baseUrl, std::string url) {
 class HttpImageFileView : public UI::View {
 public:
 	HttpImageFileView(http::Downloader *downloader, const std::string &path, UI::ImageSizeMode sizeMode = UI::IS_DEFAULT, UI::LayoutParams *layoutParams = 0)
-		: UI::View(layoutParams), downloader_(downloader), path_(path), color_(0xFFFFFFFF), sizeMode_(sizeMode), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
+		: UI::View(layoutParams), path_(path), color_(0xFFFFFFFF), sizeMode_(sizeMode), downloader_(downloader), texture_(nullptr), textureFailed_(false), fixedSizeW_(0.0f), fixedSizeH_(0.0f) {}
 
 	~HttpImageFileView() {
+		if (download_)
+			download_->Cancel();
 		delete texture_;
 	}
 
@@ -119,6 +121,10 @@ void HttpImageFileView::SetFilename(std::string filename) {
 }
 
 void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
+	if (download.IsCancelled()) {
+		// We were probably destroyed. Can't touch "this" (heh).
+		return;
+	}
 	if (download.ResultCode() == 200) {
 		download.buffer().TakeAll(&textureData_);
 	} else {

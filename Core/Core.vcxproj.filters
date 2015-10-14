@@ -666,9 +666,6 @@
     <ClInclude Include="MIPS\x86\Jit.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\x86\Asm.h">
-      <Filter>MIPS\x86</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\x86\RegCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
@@ -957,9 +954,6 @@
     <ClInclude Include="..\ext\snappy\snappy-internal.h">
       <Filter>Ext\Snappy</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmAsm.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmJit.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
@@ -1133,9 +1127,6 @@
     </ClInclude>
     <ClInclude Include="MemMapHelpers.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM64\Arm64Asm.h">
-      <Filter>MIPS\ARM64</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM64\Arm64Jit.h">
       <Filter>MIPS\ARM64</Filter>

@@ -1092,8 +1092,9 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 
 		glUseProgram(depal->program);
 
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
+		// Restore will rebind all of the state below.
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glEnableVertexAttribArray(depal->a_position);
 		glEnableVertexAttribArray(depal->a_texcoord0);
 

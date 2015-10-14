@@ -354,7 +354,7 @@ void Arm64Jit::Comp_FPUBranch(MIPSOpcode op) {
 	case 2: BranchFPFlag(op, CC_NEQ, true);  break;  // bc1fl
 	case 3: BranchFPFlag(op, CC_EQ, true);  break;  // bc1tl
 	default:
-		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
 		break;
 	}
 }
@@ -585,7 +585,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 
 	// If we're in a delay slot, this is off by one.
 	const int offset = js.inDelaySlot ? -1 : 0;
-	WriteDownCount(offset);
+	WriteDownCount(offset, false);
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
 

@@ -58,6 +58,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		mr[statics[i].mr].loc = ML_ARMREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
+		mr[statics[i].mr].spillLock = true;
 	}
 }
 
@@ -83,8 +84,6 @@ const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 }
 
 const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &count) {
-	static const StaticAllocation none[] = {
-	};
 	static const StaticAllocation allocs[] = {
 		{MIPS_REG_SP, W19, true},
 		{MIPS_REG_V0, W20},
@@ -97,15 +96,14 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 		return allocs;
 	} else {
 		count = 0;
-		return none;
+		return nullptr;
 	}
 }
 
-void Arm64RegCache::EmitLoadStaticAllocs() {
+void Arm64RegCache::EmitLoadStaticRegisters() {
 	int count;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	// TODO: Use LDP when possible.
-	// This only needs to run once (by Asm) so checks don't need to be fast.
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
 		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
@@ -115,10 +113,10 @@ void Arm64RegCache::EmitLoadStaticAllocs() {
 	}
 }
 
-void Arm64RegCache::EmitSaveStaticAllocs() {
+void Arm64RegCache::EmitSaveStaticRegisters() {
 	int count;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
-	// TODO: Use LDP when possible.
+	// TODO: Use STP when possible.
 	// This only needs to run once (by Asm) so checks don't need to be fast.
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
@@ -438,7 +436,7 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 	}
 	auto &mreg = mr[ar[r].mipsReg];
 	if (mreg.loc == ML_ARMREG_IMM || ar[r].mipsReg == MIPS_REG_ZERO) {
-		// We know its immedate value, no need to STR now.
+		// We know its immediate value, no need to STR now.
 		mreg.loc = ML_IMM;
 		mreg.reg = INVALID_REG;
 	} else {
@@ -457,7 +455,7 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 
 void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].isStatic) {
-		// Simply do nothing unless it's an ArmregImm, in case we just switch it over to armreg, losing the value.
+		// Simply do nothing unless it's an IMM or ARMREG_IMM, in case we just switch it over to ARMREG, losing the value.
 		if (mr[mipsReg].loc == ML_ARMREG_IMM || mr[mipsReg].loc == ML_IMM) {
 			ARM64Reg armReg = mr[mipsReg].reg;
 			// Ignore the imm value, restore sanity
@@ -633,23 +631,27 @@ void Arm64RegCache::FlushAll() {
 		MIPSGPReg mipsReg = MIPSGPReg(i);
 		if (mr[i].isStatic) {
 			Arm64Gen::ARM64Reg armReg = mr[i].reg;
+			// Cannot leave any IMMs in registers, not even ML_ARMREG_IMM, can confuse the regalloc later if this flush is mid-block
+			// due to an interpreter fallback that changes the register.
 			if (mr[i].loc == ML_IMM) {
 				SetRegImm(mr[i].reg, mr[i].imm);
-				mr[i].loc = ML_ARMREG_IMM;
+				mr[i].loc = ML_ARMREG;
 				ar[armReg].pointerified = false;
 			} else if (mr[i].loc == ML_ARMREG_IMM) {
+				// The register already contains the immediate.
 				if (ar[armReg].pointerified) {
 					ELOG("ML_ARMREG_IMM but pointerified. Wrong.");
 					ar[armReg].pointerified = false;
 				}
+				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
 				ELOG("ARM reg of static %i is invalid", i);
 				continue;
 			}
-			continue;
+		} else {
+			FlushR(mipsReg);
 		}
-		FlushR(mipsReg);
 	}
 
 	int count = 0;
@@ -658,6 +660,7 @@ void Arm64RegCache::FlushAll() {
 		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified) {
 			// Re-pointerify
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			ar[allocs[i].ar].pointerified = true;
 		} else {
 			// If this register got pointerified on the way, mark it as not, so that after save/reload (like in an interpreter fallback), it won't be regarded as such, as it simply won't be.
 			ar[allocs[i].ar].pointerified = false;
@@ -690,8 +693,7 @@ void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
 	if (mr[r].isStatic) {
 		mr[r].loc = ML_IMM;
 		mr[r].imm = immVal;
-		Arm64Gen::ARM64Reg armReg = mr[r].reg;
-		ar[armReg].pointerified = false;
+		ar[mr[r].reg].pointerified = false;
 		// We do not change reg to INVALID_REG for obvious reasons..
 	} else {
 		// Zap existing value if cached in a reg
