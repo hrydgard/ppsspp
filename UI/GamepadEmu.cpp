@@ -108,17 +108,19 @@ void ComboKey::Touch(const TouchInput &input) {
 	MultiTouchButton::Touch(input);
 	bool down = pointerDownMask_ != 0;
 	static const int combo[16] = {CTRL_SQUARE ,CTRL_TRIANGLE ,CTRL_CIRCLE ,CTRL_CROSS ,CTRL_UP ,CTRL_DOWN ,CTRL_LEFT ,CTRL_RIGHT ,CTRL_START ,CTRL_SELECT ,CTRL_LTRIGGER ,CTRL_RTRIGGER };
-	for (int i = 0; i < 16; i++) {
-		if (pspButtonBit_ & combo[i])
-		{
-			if (down && !lastDown) {
-				if (g_Config.bHapticFeedback) {
-					Vibrate(HAPTIC_VIRTUAL_KEY);
+	if (down || lastDown) {
+		for (int i = 0; i < 16; i++) {
+			if (pspButtonBit_ & combo[i])
+			{
+				if (down && !lastDown) {
+					if (g_Config.bHapticFeedback) {
+						Vibrate(HAPTIC_VIRTUAL_KEY);
+					}
+					__CtrlButtonDown(combo[i]);
 				}
-				__CtrlButtonDown(combo[i]);
-			}
-			else if (lastDown && !down) {
-				__CtrlButtonUp(combo[i]);
+				else if (lastDown && !down) {
+					__CtrlButtonUp(combo[i]);
+				}
 			}
 		}
 	}
