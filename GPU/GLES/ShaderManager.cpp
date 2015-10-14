@@ -799,7 +799,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	Shader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
+		GenerateVertexShader(VSID, codeBuffer_);
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
@@ -813,7 +813,9 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShader(prim, vertType, codeBuffer_, false);
+			ShaderID vsidTemp;
+			ComputeVertexShaderID(&vsidTemp, vertType, false);
+			GenerateVertexShader(vsidTemp, codeBuffer_);
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, VSID);
 		}
 
