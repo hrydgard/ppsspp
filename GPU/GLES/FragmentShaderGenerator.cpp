@@ -332,6 +332,8 @@ enum {
 	BIT_FLATSHADE = 46,
 };
 
+static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+
 std::string FragmentShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
@@ -355,7 +357,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
 	case REPLACE_ALPHA_NO: break;
 	case REPLACE_ALPHA_YES: desc << "StencilToAlpha "; break;
-	case REPLACE_ALPHA_DUALSOURCE: desc << "StencilToAlphaDualSrc "; break;
+	case REPLACE_ALPHA_DUALSOURCE: desc << "StencilToAlphaDual "; break;
 	}
 	if (id.Bits(BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
 		switch (id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
@@ -363,7 +365,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		case STENCIL_VALUE_ZERO: desc << "StencilZero "; break;
 		case STENCIL_VALUE_ONE: desc << "StencilOne "; break;
 		case STENCIL_VALUE_KEEP: desc << "StencilKeep "; break;
-		case STENCIL_VALUE_INVERT: desc << "StencilInvert "; break;
+		case STENCIL_VALUE_INVERT: desc << "StencilInv "; break;
 		case STENCIL_VALUE_INCR_4: desc << "StencilIncr4 "; break;
 		case STENCIL_VALUE_INCR_8: desc << "StencilIncr8 "; break;
 		case STENCIL_VALUE_DECR_4: desc << "StencilDecr4 "; break;
@@ -376,17 +378,16 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
 		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
 		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
-		case GE_TEXFUNC_MODULATE: desc << "TFuncModulate "; break;
-		case GE_TEXFUNC_REPLACE: desc << "TFuncReplace "; break;
-		default: desc << "TFuncUnknown "; break;
+		case GE_TEXFUNC_MODULATE: desc << "TFuncMod "; break;
+		case GE_TEXFUNC_REPLACE: desc << "TFuncRepl "; break;
+		default: desc << "TFuncUnk "; break;
 		}
 	}
-	if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest ";
-	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 ";
-	if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest ";
-	if (id.Bit(BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 ";
 
-	// TODO: A few more...
+	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	else if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	if (id.Bit(BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
+	else if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 
 	return desc.str();
 }

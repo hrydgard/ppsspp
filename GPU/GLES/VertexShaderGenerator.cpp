@@ -111,14 +111,13 @@ std::string VertexShaderDesc(const ShaderID &id) {
 			}
 		}
 	}
-	desc << "MatUp:" << id.Bits(BIT_MATERIAL_UPDATE, 3) << " ";
-
-	desc << "WScale " << id.Bits(BIT_WEIGHT_FMTSCALE, 2) << " ";
-	desc << "TCScale " << id.Bits(BIT_TEXCOORD_FMTSCALE, 2) << " ";
-
+	if (id.Bits(BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(BIT_MATERIAL_UPDATE, 3) << " ";
+	if (id.Bits(BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(BIT_WEIGHT_FMTSCALE, 2) << " ";
+	if (id.Bits(BIT_TEXCOORD_FMTSCALE, 2)) desc << "TCScale " << id.Bits(BIT_TEXCOORD_FMTSCALE, 2) << " ";
 	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
 
 	// TODO: More...
+
 	return desc.str();
 }
 
