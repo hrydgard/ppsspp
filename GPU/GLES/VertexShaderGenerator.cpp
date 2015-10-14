@@ -191,7 +191,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
 		// or simply preconvert all weights to floats.
-		id.SetBits(BIT_WEIGHT_FMTSCALE, 2, vertTypeGetWeightMask(vertType));
+		id.SetBits(BIT_WEIGHT_FMTSCALE, 2, (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
 		id.SetBit(BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id.SetBits(BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
@@ -535,7 +535,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[texFmtScale];
+			const char *factor = rescale[boneWeightScale];
 
 			static const char * const boneWeightAttr[8] = {
 				"w1.x", "w1.y", "w1.z", "w1.w",

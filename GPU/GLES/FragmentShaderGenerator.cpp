@@ -342,12 +342,12 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
 	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
 	if (id.Bit(BIT_TEXALPHA)) desc << "TexAlpha ";
-	if (id.Bit(BIT_TEXTURE_AT_OFFSET)) desc << "TexOffset ";
+	if (id.Bit(BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
 	if (id.Bit(BIT_LMODE)) desc << "LM ";
 	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
-	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "Double ";
+	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "2x ";
 	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "Texclamp ";
+	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "TClamp ";
 	if (id.Bit(BIT_CLAMP_S)) desc << "ClampS ";
 	if (id.Bit(BIT_CLAMP_T)) desc << "ClampT ";
 	if (id.Bits(BIT_REPLACE_BLEND, 3)) {
@@ -356,21 +356,21 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 
 	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
 	case REPLACE_ALPHA_NO: break;
-	case REPLACE_ALPHA_YES: desc << "StencilToAlpha "; break;
-	case REPLACE_ALPHA_DUALSOURCE: desc << "StencilToAlphaDual "; break;
+	case REPLACE_ALPHA_YES: desc << "StenToAlpha "; break;
+	case REPLACE_ALPHA_DUALSOURCE: desc << "StenToAlphaDual "; break;
 	}
 	if (id.Bits(BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
 		switch (id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
-		case STENCIL_VALUE_UNIFORM: desc << "StencilUniform "; break;
-		case STENCIL_VALUE_ZERO: desc << "StencilZero "; break;
-		case STENCIL_VALUE_ONE: desc << "StencilOne "; break;
-		case STENCIL_VALUE_KEEP: desc << "StencilKeep "; break;
-		case STENCIL_VALUE_INVERT: desc << "StencilInv "; break;
-		case STENCIL_VALUE_INCR_4: desc << "StencilIncr4 "; break;
-		case STENCIL_VALUE_INCR_8: desc << "StencilIncr8 "; break;
-		case STENCIL_VALUE_DECR_4: desc << "StencilDecr4 "; break;
-		case STENCIL_VALUE_DECR_8: desc << "StencilDecr4 "; break;
-		default: desc << "StencilUnknown"; break;
+		case STENCIL_VALUE_UNIFORM: desc << "StenUniform "; break;
+		case STENCIL_VALUE_ZERO: desc << "Sten0 "; break;
+		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
+		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
+		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
+		case STENCIL_VALUE_INCR_4: desc << "StenIncr4 "; break;
+		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
+		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
+		case STENCIL_VALUE_DECR_8: desc << "StenDecr4 "; break;
+		default: desc << "StenUnknown"; break;
 		}
 	}
 	if (id.Bit(BIT_DO_TEXTURE)) {
