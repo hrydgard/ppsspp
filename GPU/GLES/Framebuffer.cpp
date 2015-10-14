@@ -267,6 +267,7 @@ FramebufferManager::FramebufferManager() :
 	shaderManager_(nullptr),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
+	postShaderIsUpscalingFilter_(false),
 	resized_(false),
 	gameUsesSequentialCopies_(false),
 	pixelBufObj_(nullptr),
@@ -276,6 +277,8 @@ FramebufferManager::FramebufferManager() :
 
 void FramebufferManager::Init() {
 	FramebufferManagerCommon::Init();
+	// Workaround for upscaling shaders where we force x1 resolution without saving it
+	resized_ = true;
 	CompileDraw2DProgram();
 	SetLineWidth();
 }
@@ -525,8 +528,14 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		program = draw2dprogram_;
 	}
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
+	// Upscaling postshaders doesn't look well with linear
+	if (postShaderIsUpscalingFilter_) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	} else {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
+	}
 
 	shaderManager_->DirtyLastShader();  // dirty lastShader_
 
@@ -1659,6 +1668,15 @@ void FramebufferManager::EndFrame() {
 		// Probably not necessary
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 
+		// Check if postprocessing shader is doing upscaling as it requires native resolution
+		const ShaderInfo *shaderInfo = 0;
+		if (g_Config.sPostShaderName != "Off") {
+			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+			postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
+		} else {
+			postShaderIsUpscalingFilter_ = false;
+		}
+
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
 		int zoom = g_Config.iInternalResolution;
@@ -1670,7 +1688,7 @@ void FramebufferManager::EndFrame() {
 				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 			}
 		}
-		if (zoom <= 1)
+		if (zoom <= 1 || postShaderIsUpscalingFilter_)
 			zoom = 1;
 
 		if (g_Config.IsPortrait()) {
