@@ -33,7 +33,11 @@
 
 void Combo_keyScreen::CreateViews() {
 	using namespace UI;
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	I18NCategory *co = GetI18NCategory("Controls");
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_->Add(new ItemHeader(co->T("Combo Key Setting")));
+	LinearLayout *root__ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	root_->Add(root__);
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(120, FILL_PARENT));
 	I18NCategory *di = GetI18NCategory("Dialog");
 
@@ -43,8 +47,6 @@ void Combo_keyScreen::CreateViews() {
 	ComboKeyImage2 = g_Config.iComboKeyStyle ? I_CROSS1 : I_GC;
 	ComboKeyImage3 = g_Config.iComboKeyStyle ? I_A : I_X;
 	ComboKeyImage4 = g_Config.iComboKeyStyle ? I_B : I_Y;
-
-	I18NCategory *co = GetI18NCategory("Controls");
 	
 	comboselect = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(10, 10,  NONE, NONE));
 	comboselect->SetSpacing(10);
@@ -56,13 +58,13 @@ void Combo_keyScreen::CreateViews() {
 	comboselect->SetSelection(*mode);
 	comboselect->OnChoice.Handle(this, &Combo_keyScreen::onCombo);
 	leftColumn->Add(comboselect);
-	root_->Add(leftColumn);
+	root__->Add(leftColumn);
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->Add(rightColumn);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	root_->Add(rightScroll_);
+	root__->Add(rightScroll_);
 	
 	const int cellSize = 400;
 
