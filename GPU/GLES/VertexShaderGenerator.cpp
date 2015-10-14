@@ -140,10 +140,10 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				// TODO: if (gstate.isLightChanEnabled(i)) {
+				if (gstate.isLightChanEnabled(i)) {
 					id.SetBits(BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
-				// }
+				}
 			}
 			id.SetBits(BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 			// TODO: Optimize by shifting in all the light bits together.
