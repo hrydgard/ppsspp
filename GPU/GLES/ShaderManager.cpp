@@ -826,7 +826,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
 	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID);
+	ComputeFragmentShaderID(&FSID, vertType);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
@@ -838,7 +838,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShader(codeBuffer_);
+		GenerateFragmentShader(FSID, codeBuffer_);
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform(), FSID);
 		fsCache_[FSID] = fs;
 	} else {
