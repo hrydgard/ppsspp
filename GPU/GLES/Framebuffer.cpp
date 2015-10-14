@@ -172,6 +172,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 
 		if (shaderInfo) {
 			postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+			postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
 			postShaderProgram_ = glsl_create(shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), &errorString);
 			if (!postShaderProgram_) {
 				// DO NOT turn this into a report, as it will pollute our logs with all kinds of
