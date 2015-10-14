@@ -1045,6 +1045,13 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "  %s = vec4(1,0,1,1);\n", fragColor0);
 	}
 #endif
+
+	if (gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
+		WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
+		WRITE(p, "  gl_FragDepth = z;\n");
+	}
+
 	WRITE(p, "}\n");
 
 	return true;
