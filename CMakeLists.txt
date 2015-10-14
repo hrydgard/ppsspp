@@ -862,6 +862,8 @@ set(NativeAppSource
 	UI/SavedataScreen.cpp
 	UI/Store.cpp
 	UI/CwCheatScreen.cpp
+	UI/DarkFrostScreen.cpp
+	UI/DFExtMenu.cpp
 	UI/InstallZipScreen.cpp
 	UI/ProfilerDraw.cpp
 	UI/ui_atlas.cpp)
@@ -1144,6 +1146,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/ThreadEventQueue.h
+	Core/DarkFrost.cpp
+	Core/DarkFrost.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h

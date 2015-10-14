@@ -400,7 +400,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 		int a = maxCount_ - (int)locations_.size();
 		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
 			float x = bounds_.centerX() + minRadius * iter->x;
-			float y = bounds_.centerY() - minRadius * iter->y;
+			float y = bounds_.centerY() + minRadius * iter->y;
 			float alpha = (float)a / maxCount_;
 			if (alpha < 0.0f) alpha = 0.0f;
 			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);

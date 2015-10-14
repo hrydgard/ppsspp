@@ -10,5 +10,6 @@
 		<file alias="assets/flash0/font">../flash0/font</file>
 		<file alias="assets/rargray.png">../assets/rargray.png</file>
 		<file alias="assets/zip.png">../assets/zip.png</file>
+		<file alias="assets/darkfrost.png">../assets/darkfrost.png</file>
 	</qresource>
 </RCC>

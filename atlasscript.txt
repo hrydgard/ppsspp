@@ -35,4 +35,5 @@ image I_ICONGOLD source_assets/image/icon_gold_72.png copy
 image I_FOLDER source_assets/image/folder_line.png copy
 image I_UP_DIRECTORY source_assets/image/up_line.png copy
 image I_GEAR source_assets/image/gear.png copy
+image I_DF source_assets/image/darkfrost.png copy
 
