@@ -311,12 +311,7 @@ public:
 	bool bShowComboKey2;
 	bool bShowComboKey3;
 	bool bShowComboKey4;
-	// Button Separation Visibility
-	bool bShowTouchDpad_LEFT;
-	bool bShowTouchDpad_UP;
-	bool bShowTouchDpad_RIGHT;
-	bool bShowTouchDpad_DOWN;
-
+	
 	//Combo_key mapping
 	int iCombokey;
 	int iCombokey1;
