@@ -15,15 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
-#define SHADERLOG
-#endif
+// #define SHADERLOG
 
-#ifdef SHADERLOG
+#if defined(_WIN32) && defined(SHADERLOG)
 #include "Common/CommonWindows.h"
 #endif
 
 #include <map>
+#include <cstdio>
 
 #include "base/logging.h"
 #include "math/math_util.h"
@@ -42,11 +41,16 @@
 #include "Framebuffer.h"
 #include "i18n/i18n.h"
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID) : failed_(false), useHWTransform_(useHWTransform), id_(shaderID) {
+Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform, const ShaderID &shaderID)
+	  : id_(shaderID), failed_(false), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 #ifdef SHADERLOG
+#ifdef _WIN32
 	OutputDebugStringUTF8(code);
+#else
+	printf("%s\n", code);
+#endif
 #endif
 	shader = glCreateShader(shaderType);
 	glShaderSource(shader, 1, &code, 0);
@@ -702,8 +706,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 }
 
-ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
+ShaderManager::ShaderManager()
+		: lastShader_(nullptr), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
 	codeBuffer_ = new char[16384];
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 }
 
 ShaderManager::~ShaderManager() {
@@ -725,8 +732,8 @@ void ShaderManager::Clear() {
 	fsCache_.clear();
 	vsCache_.clear();
 	globalDirty_ = 0xFFFFFFFF;
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	DirtyShader();
 }
 
@@ -736,8 +743,8 @@ void ShaderManager::ClearCache(bool deleteThem) {
 
 void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	DirtyLastShader();
 	globalDirty_ = 0xFFFFFFFF;
 	shaderSwitchDirty_ = 0;
@@ -746,24 +753,16 @@ void ShaderManager::DirtyShader() {
 void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
-	lastShader_ = 0;
+	lastShader_ = nullptr;
 	lastVShaderSame_ = false;
 }
 
 // This is to be used when debugging why incompatible shaders are being linked, like is
 // happening as I write this in Tactics Ogre
 bool ShaderManager::DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs) {
-	// Check clear mode flag just for starters.
-	ShaderID vsid = vs->ID();
-	ShaderID fsid = fs->ID();
-
-	// TODO: Make the flag fields more similar?
-	// Check DoTexture
-	if (((vsid.d[0] >> 4) & 1) != ((fsid.d[0] >> 1) & 1)) {
-		ERROR_LOG(G3D, "Texture enable flag mismatch!");
-		return false;
-	}
-
+	// ShaderID vsid = vs->ID();
+	// ShaderID fsid = fs->ID();
+	// TODO: Redo these checks.
 	return true;
 }
 
@@ -799,7 +798,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 	Shader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
+		GenerateVertexShader(VSID, codeBuffer_);
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
 
 		if (vs->Failed()) {
@@ -813,7 +812,9 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShader(prim, vertType, codeBuffer_, false);
+			ShaderID vsidTemp;
+			ComputeVertexShaderID(&vsidTemp, vertType, false);
+			GenerateVertexShader(vsidTemp, codeBuffer_);
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, VSID);
 		}
 
@@ -826,7 +827,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
 	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID);
+	ComputeFragmentShaderID(&FSID, vertType);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
 		lastShader_->UpdateUniforms(vertType);
 		return lastShader_;
@@ -838,7 +839,9 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShader(codeBuffer_);
+		if (!GenerateFragmentShader(FSID, codeBuffer_)) {
+			return nullptr;
+		}
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform(), FSID);
 		fsCache_[FSID] = fs;
 	} else {
@@ -846,7 +849,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	}
 
 	// Okay, we have both shaders. Let's see if there's a linked one.
-	LinkedShader *ls = NULL;
+	LinkedShader *ls = nullptr;
 
 	u32 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
@@ -859,11 +862,11 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	}
 	shaderSwitchDirty_ = 0;
 
-	if (ls == NULL) {
+	if (ls == nullptr) {
 		// Check if we can link these.
 #ifdef _DEBUG
 		if (!DebugAreShadersCompatibleForLinking(vs, fs)) {
-			return NULL;
+			return nullptr;
 		}
 #endif
 		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
