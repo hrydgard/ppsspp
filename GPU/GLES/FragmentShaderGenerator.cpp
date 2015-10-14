@@ -422,7 +422,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 }
 
 // Missing: Z depth range
-void GenerateFragmentShader(const ShaderID &id, char *buffer) {
+bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	char *p = buffer;
 
 	// In GLSL ES 3.0, you use "in" variables instead of varying.
@@ -1017,8 +1017,8 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		break;
 
 	default:
-		WRITE(p, "ERROR STA");
-		break;
+		ERROR_LOG(G3D, "Bad stencil-to-alpha type, corrupt ID?");
+		return false;
 	}
 
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(BIT_REPLACE_LOGIC_OP_TYPE, 2);
@@ -1033,8 +1033,8 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		break;
 
 	default:
-		WRITE(p, "ERROR LTA");
-		break;
+		ERROR_LOG(G3D, "Bad logic op type, corrupt ID?");
+		return false;
 	}
 
 #ifdef DEBUG_SHADER
@@ -1046,5 +1046,7 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	}
 #endif
 	WRITE(p, "}\n");
+
+	return true;
 }
 
