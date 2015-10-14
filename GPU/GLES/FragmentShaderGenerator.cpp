@@ -535,7 +535,7 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool textureAtOffset = id.Bit(BIT_TEXTURE_AT_OFFSET);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(BIT_REPLACE_BLEND, 3));
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_STENCIL_TO_ALPHA, 4));
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_STENCIL_TO_ALPHA, 2));
 
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(BIT_BLENDFUNC_A, 4);
 	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(BIT_BLENDFUNC_B, 4);
@@ -1015,6 +1015,10 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	case REPLACE_ALPHA_NO:
 		WRITE(p, "  %s = v;\n", fragColor0);
 		break;
+
+	default:
+		WRITE(p, "ERROR STA");
+		break;
 	}
 
 	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(BIT_REPLACE_LOGIC_OP_TYPE, 2);
@@ -1026,6 +1030,10 @@ void GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0) - %s.rgb;\n", fragColor0, fragColor0);
 		break;
 	case LOGICOPTYPE_NORMAL:
+		break;
+
+	default:
+		WRITE(p, "ERROR LTA");
 		break;
 	}
 
