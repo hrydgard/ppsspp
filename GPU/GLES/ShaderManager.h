@@ -18,7 +18,7 @@
 #pragma once
 
 #include "base/basictypes.h"
-#include "../../Globals.h"
+#include "Globals.h"
 #include <map>
 #include "VertexShaderGenerator.h"
 #include "FragmentShaderGenerator.h"
@@ -26,8 +26,15 @@
 class Shader;
 
 struct ShaderID {
-	ShaderID() { d[0] = 0xFFFFFFFF; }
-	void clear() { d[0] = 0xFFFFFFFF; }
+	ShaderID() {
+		clear();
+	}
+	void clear() {
+		for (int i = 0; i < ARRAY_SIZE(d); i++) {
+			d[i] = 0;
+		}
+	}
+
 	u32 d[2];
 	bool operator < (const ShaderID &other) const {
 		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
@@ -44,6 +51,26 @@ struct ShaderID {
 				return false;
 		}
 		return true;
+	}
+
+	int Bit(int bit) const {
+		return (d[bit >> 5] >> (bit & 31)) & 1;
+	}
+	// Does not handle crossing 32-bit boundaries
+	int Bits(int bit, int count) const {
+		const int mask = (1 << count) - 1;
+		return (d[bit >> 5] >> (bit & 31)) & mask;
+	}
+	void SetBit(int bit, bool value = true) {
+		if (value) {
+			d[bit >> 5] |= 1 << (bit & 31);
+		}
+	}
+	void SetBits(int bit, int count, int value) {
+		if (value != 0) {
+			const int mask = (1 << count) - 1;
+			d[bit >> 5] |= (value & mask) << (bit & 31);
+		}
 	}
 };
 
