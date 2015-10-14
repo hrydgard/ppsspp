@@ -347,9 +347,12 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "2x ";
 	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(BIT_SHADER_TEX_CLAMP)) desc << "TClamp ";
-	if (id.Bit(BIT_CLAMP_S)) desc << "ClampS ";
-	if (id.Bit(BIT_CLAMP_T)) desc << "ClampT ";
+	if (id.Bit(BIT_SHADER_TEX_CLAMP)) {
+		desc << "TClamp";
+		if (id.Bit(BIT_CLAMP_S)) desc << "S";
+		if (id.Bit(BIT_CLAMP_T)) desc << "T";
+		desc << " ";
+	}
 	if (id.Bits(BIT_REPLACE_BLEND, 3)) {
 		desc << "ReplaceBlend_" << id.Bits(BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
 	}

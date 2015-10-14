@@ -172,6 +172,9 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBit(BIT_ENABLE_BONES, enableBones);
 		if (enableBones) {
 			id.SetBits(BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);
+			// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
+			// or simply preconvert all weights to floats.
+			id.SetBits(BIT_WEIGHT_FMTSCALE, 2, (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
 		}
 
 		// Okay, d[1] coming up. ==============
@@ -189,9 +192,6 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 			id.SetBits(BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 		}
 
-		// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
-		// or simply preconvert all weights to floats.
-		id.SetBits(BIT_WEIGHT_FMTSCALE, 2, (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
 		id.SetBit(BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id.SetBits(BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
