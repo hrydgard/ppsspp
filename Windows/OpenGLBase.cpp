@@ -1,11 +1,32 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+// TODO: What a mess this is :(
+
+#include "Common/Log.h"
 #include "Common/CommonWindows.h"
-#include "native/gfx_es2/gl_state.h"
-#include "native/gfx/gl_common.h"
+#include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
+#include "UI/OnScreenDisplay.h"
 
 #include "Windows/W32Util/Misc.h"
 #include "Windows/OpenGLBase.h"
@@ -13,18 +34,56 @@
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context
 static HWND hWnd;   // Holds Our Window Handle
+static volatile bool pauseRequested;
+static volatile bool resumeRequested;
+static HANDLE pauseEvent;
+static HANDLE resumeEvent;
 
 static int xres, yres;
-
-// TODO: Make config?
-static bool enableGLDebug = false;
 
 void GL_SwapBuffers() {
 	SwapBuffers(hDC);
 
+	// Used during fullscreen switching to prevent rendering.
+	if (pauseRequested) {
+		SetEvent(pauseEvent);
+		resumeRequested = true;
+		DWORD result = WaitForSingleObject(resumeEvent, INFINITE);
+		if (result == WAIT_TIMEOUT) {
+			ERROR_LOG(G3D, "Wait for resume timed out. Resuming rendering");
+		}
+		pauseRequested = false;
+	}
+
 	// According to some sources, doing this *after* swapbuffers can reduce frame latency
-	// at a large performance cost.
+	// at a large performance cost. So let's not.
 	// glFinish();
+}
+
+void GL_Pause() {
+	if (!hRC) {
+		return;
+	}
+
+	pauseRequested = true;
+	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
+	if (result == WAIT_TIMEOUT) {
+		ERROR_LOG(G3D, "Wait for pause timed out");
+	}
+	// OK, we now know the rendering thread is paused.
+}
+
+void GL_Resume() {
+	if (!hRC) {
+		return;
+	}
+
+	if (!resumeRequested) {
+		ERROR_LOG(G3D, "Not waiting to get resumed");
+	} else {
+		SetEvent(resumeEvent);
+	}
+	resumeRequested = false;
 }
 
 void FormatDebugOutputARB(char outStr[], size_t outStrSize, GLenum source, GLenum type,
@@ -74,7 +133,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
-	ERROR_LOG(G3D, "GL: %s", finalMessage);
+	NOTICE_LOG(G3D, "GL: %s", finalMessage);
 }
 
 bool GL_Init(HWND window, std::string *error_message) {
@@ -145,6 +204,15 @@ bool GL_Init(HWND window, std::string *error_message) {
 	const std::string openGL_1 = "1.";
 
 	if (glRenderer == "GDI Generic" || glVersion.substr(0, openGL_1.size()) == openGL_1) {
+		//The error may come from 16-bit colour mode
+		//Check Colour depth 
+		HDC dc = GetDC(NULL);
+		u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
+		ReleaseDC(NULL, dc);
+		if (colour_depth != 32){
+			MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
+			ExitProcess(1);
+		}
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
 			"Your GPU reports that it does not support OpenGL 2.0. Would you like to try using DirectX 9 instead?\n\n"
 			"DirectX is currently compatible with less games, but on your GPU it may be the only choice.\n\n"
@@ -176,7 +244,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	CheckGLExtensions();
 
-	int contextFlags = enableGLDebug ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
+	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
 	// Alright, now for the modernity. First try a 4.4, then 4.3, context, if that fails try 3.3.
 	// I can't seem to find a way that lets you simply request the newest version available.
@@ -228,7 +296,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 		return false;
 	}
 
-
 	if (!m_hrc) {
 		*error_message = "No m_hrc";
 		return false;
@@ -236,17 +303,43 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	glstate.Initialize();
-	if (wglSwapIntervalEXT)
-		wglSwapIntervalEXT(0);
-	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
+	GL_SwapInterval(0);
+
+	// TODO: Also support GL_KHR_debug which might be more widely supported?
+	if (g_Config.bGfxDebugOutput && glewIsSupported("GL_ARB_debug_output")) {
+		glGetError();
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
+		if (glGetError()) {
+			ERROR_LOG(G3D, "Failed to register a debug log callback");
+		}
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+		if (glGetError()) {
+			ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+		}
+
+		// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
+		// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
 	}
+
+	pauseRequested = false;
+	resumeRequested = false;
+
+	// These are auto-reset events.
+	pauseEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+	resumeEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
 	return true;												// Success
 }
 
+void GL_SwapInterval(int interval) {
+	// glew loads wglSwapIntervalEXT if available
+	if (wglSwapIntervalEXT)
+		wglSwapIntervalEXT(interval);
+}
+
 void GL_Shutdown() { 
+	CloseHandle(pauseEvent);
+	CloseHandle(resumeEvent);
 	if (hRC) {
 		// Are we able to release the DC and RC contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {

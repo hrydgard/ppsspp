@@ -1344,7 +1344,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	if (gstate.isModeClear()) {
 		if (range >= 24 && (maxX - minX) >= 24 * 16)
 		{
-			auto bound = [=](int a, int b) -> void {DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+      VertexData v[3] = { v0, v1, v2 };
+			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
 			GlobalThreadPool::Loop(bound, 0, range);
 		}
 		else
@@ -1354,7 +1355,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	} else {
 		if (range >= 24 && (maxX - minX) >= 24 * 16)
 		{
-			auto bound = [=](int a, int b) -> void {DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
 			GlobalThreadPool::Loop(bound, 0, range);
 		}
 		else

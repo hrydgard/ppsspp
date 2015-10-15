@@ -16,11 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
 
+#include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Host.h"
@@ -31,7 +31,9 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/Common/FramebufferCommon.h"
 
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -43,6 +45,10 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
+#ifdef _WIN32
+#include "Windows/OpenGLBase.h"
+#endif
+
 enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
@@ -52,6 +58,13 @@ enum {
 	FLAG_READS_PC = 16,
 	FLAG_WRITES_PC = 32,
 	FLAG_DIRTYONCHANGE = 64,
+};
+
+static const char *FramebufferFetchBlacklist[] = {
+	// Blacklist Tegra 3, doesn't work very well.
+	"NVIDIA Tegra 3",
+	"PowerVR Rogue G6430",
+	"PowerVR SGX 540",
 };
 
 struct CommandTableEntry {
@@ -77,8 +90,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_FOG2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_FOGCOEF, &GLES_GPU::Execute_FogCoef},
 
 	// Should these maybe flush?
-	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE},
+	{GE_CMD_MINZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
+	{GE_CMD_MAXZ, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHRANGE},
 
 	// Changes that dirty texture scaling.
 	{GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_UVSCALEOFFSET, &GLES_GPU::Execute_TexMapMode},
@@ -206,8 +219,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
+	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_Region},
@@ -396,6 +409,7 @@ GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 GLES_GPU::GLES_GPU()
 : resized_(false) {
 	UpdateVsyncInterval(true);
+	CheckGPUFeatures();
 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
@@ -460,7 +474,104 @@ GLES_GPU::~GLES_GPU() {
 	fragmentTestCache_.Clear();
 	delete shaderManager_;
 	shaderManager_ = nullptr;
-	glstate.SetVSyncInterval(0);
+
+#ifdef _WIN32
+	GL_SwapInterval(0);
+#endif
+}
+
+// Take the raw GL extension and versioning data and turn into feature flags.
+void GLES_GPU::CheckGPUFeatures() {
+	u32 features = 0;
+	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/) {
+		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
+			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
+			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
+		} else {
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+		}
+	}
+
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.GLES3)
+			features |= GPU_SUPPORTS_GLSL_ES_300;
+	} else {
+		if (gl_extensions.VersionGEThan(3, 3, 0))
+			features |= GPU_SUPPORTS_GLSL_330;
+	}
+
+	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
+	// Tales of Destiny 2 has been reported to display green.
+	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
+		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
+			if (strstr(gl_extensions.model, FramebufferFetchBlacklist[i]) != 0) {
+				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
+				break;
+			}
+		}
+	}
+	
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.EXT_framebuffer_object || gl_extensions.IsGLES) {
+		features |= GPU_SUPPORTS_FBO;
+	}
+	if (gl_extensions.ARB_framebuffer_object || gl_extensions.GLES3) {
+		features |= GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT;
+	}
+	if (gl_extensions.NV_framebuffer_blit) {
+		features |= GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT;
+	}
+
+	bool useCPU = false;
+	if (!gl_extensions.IsGLES) {
+		// Urrgh, we don't even define FB_READFBOMEMORY_CPU on mobile
+#ifndef USING_GLES2
+		useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+#endif
+		// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
+		// This causes glitches in games that expect the exact values.
+		// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
+		if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
+				useCPU = true;
+			}
+		}
+	} else {
+		useCPU = true;
+	}
+
+	if (useCPU)
+		features |= GPU_PREFER_CPU_DOWNLOAD;
+
+	if ((gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD))
+		features |= GPU_PREFER_REVERSE_COLOR_ORDER;
+
+	if (gl_extensions.OES_texture_npot)
+		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+
+	if (gl_extensions.EXT_unpack_subimage || !gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
+
+	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
+		features |= GPU_SUPPORTS_BLEND_MINMAX;
+
+	if (!gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_LOGIC_OP;
+
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+
+	// In the future, also disable this when we get a proper 16-bit depth buffer.
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+		features |= GPU_ROUND_DEPTH_TO_16BIT;
+
+
+#ifdef MOBILE_DEVICE
+	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
+	features |= GPU_IS_MOBILE;
+#endif
+
+	gstate_c.featureFlags = features;
 }
 
 // Let's avoid passing nulls into snprintf().
@@ -558,7 +669,7 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
-			glstate.SetVSyncInterval(desiredVSyncInterval);
+			GL_SwapInterval(desiredVSyncInterval);
 		//}
 		lastVsync_ = desiredVSyncInterval;
 	}
@@ -587,8 +698,14 @@ void GLES_GPU::UpdateCmdInfo() {
 	}
 }
 
+void GLES_GPU::ReapplyGfxStateInternal() {
+	glstate.Restore();
+	GPUCommon::ReapplyGfxStateInternal();
+}
+
 void GLES_GPU::BeginFrameInternal() {
 	if (resized_) {
+		CheckGPUFeatures();
 		UpdateCmdInfo();
 		transformDraw_.Resized();
 	}
@@ -804,8 +921,8 @@ void GLES_GPU::Execute_Prim(u32 op, u32 diff) {
 			return;
 	}
 
-	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer();
+	// This also makes skipping drawing very effective.
+	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		transformDraw_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
@@ -881,7 +998,7 @@ void GLES_GPU::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer();
+	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -917,12 +1034,14 @@ void GLES_GPU::Execute_Bezier(u32 op, u32 diff) {
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 	int bz_ucount = op & 0xFF;
 	int bz_vcount = (op >> 8) & 0xFF;
-	transformDraw_.SubmitBezier(control_points, indices, bz_ucount, bz_vcount, patchPrim, gstate.vertType);
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	transformDraw_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType);
 }
 
 void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer();
+	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))	{
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -960,7 +1079,10 @@ void GLES_GPU::Execute_Spline(u32 op, u32 diff) {
 	int sp_utype = (op >> 16) & 0x3;
 	int sp_vtype = (op >> 18) & 0x3;
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
+	bool computeNormals = gstate.isLightingEnabled();
+	bool patchFacing = gstate.patchfacing & 1;
+	u32 vertType = gstate.vertType;
+	transformDraw_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType);
 }
 
 void GLES_GPU::Execute_BoundingBox(u32 op, u32 diff) {
@@ -1007,6 +1129,12 @@ void GLES_GPU::Execute_FramebufType(u32 op, u32 diff) {
 void GLES_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+}
+
+void GLES_GPU::Execute_ViewportZType(u32 op, u32 diff) {
+	gstate_c.framebufChanged = true;
+	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
+	shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
 }
 
 void GLES_GPU::Execute_TexScaleU(u32 op, u32 diff) {
@@ -1093,7 +1221,7 @@ void GLES_GPU::Execute_TexLevel(u32 op, u32 diff) {
 
 void GLES_GPU::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut();
+	textureCache_.LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -1391,7 +1519,7 @@ void GLES_GPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
 	// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 	// Can we skip this on SkipDraw?
-	DoBlockTransfer();
+	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Fixes Gran Turismo's funky text issue, since it overwrites the current texture.
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
@@ -1954,7 +2082,7 @@ void GLES_GPU::UpdateStats() {
 	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 }
 
-void GLES_GPU::DoBlockTransfer() {
+void GLES_GPU::DoBlockTransfer(u32 skipDrawReason) {
 	// TODO: This is used a lot to copy data around between render targets and textures,
 	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
 	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
@@ -2008,7 +2136,7 @@ void GLES_GPU::DoBlockTransfer() {
 	}
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp)) {
+	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
@@ -2031,7 +2159,7 @@ void GLES_GPU::DoBlockTransfer() {
 		}
 
 		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp);
+		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -2067,7 +2195,7 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 }
 
 void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size)) {
+	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
 		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
@@ -2078,7 +2206,7 @@ void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 }
 
 void GLES_GPU::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true)) {
+	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
 		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	}
 }
@@ -2208,15 +2336,27 @@ void GLES_GPU::DoState(PointerWrap &p) {
 }
 
 bool GLES_GPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentFramebuffer(buffer);
+	u32 fb_address = gstate.getFrameBufRawAddress();
+	int fb_stride = gstate.FrameBufStride();
+	GEBufferFormat format = gstate.FrameBufFormat();
+	return framebufferManager_.GetFramebuffer(fb_address, fb_stride, format, buffer);
 }
 
 bool GLES_GPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentDepthbuffer(buffer);
+	u32 fb_address = gstate.getFrameBufRawAddress();
+	int fb_stride = gstate.FrameBufStride();
+
+	u32 z_address = gstate.getDepthBufRawAddress();
+	int z_stride = gstate.DepthBufStride();
+
+	return framebufferManager_.GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
 }
 
 bool GLES_GPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentStencilbuffer(buffer);
+	u32 fb_address = gstate.getFrameBufRawAddress();
+	int fb_stride = gstate.FrameBufStride();
+
+	return framebufferManager_.GetStencilbuffer(fb_address, fb_stride, buffer);
 }
 
 bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
@@ -2236,6 +2376,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	textureCache_.SetTexture(true);
+	textureCache_.ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);

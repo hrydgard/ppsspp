@@ -25,6 +25,7 @@
 #include "file/ini_file.h"
 #include "file/file_util.h"
 #include "file/vfs.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
 #include "GPU/Common/PostShader.h"
@@ -84,13 +85,14 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.vertexShaderFile = path + "/" + temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 
-#ifdef USING_GLES2
-					// Let's ignore shaders we can't support. TODO: Check for GLES 3.0
-					bool requiresIntegerSupport;
-					section.Get("RequiresIntSupport", &requiresIntegerSupport, false);
-					if (requiresIntegerSupport)
-						continue;
-#endif
+					// Let's ignore shaders we can't support. TODO: Not a very good check
+					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
+						bool requiresIntegerSupport;
+						section.Get("RequiresIntSupport", &requiresIntegerSupport, false);
+						if (requiresIntegerSupport)
+							continue;
+					}
+
 					auto beginErase = std::find(shaderInfo.begin(), shaderInfo.end(), info.name);
 					if (beginErase != shaderInfo.end()) {
 						shaderInfo.erase(beginErase, shaderInfo.end());

@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 // TO USE:
 // Simply copy pspautotests to the root of the USB memory / SD card of your android device.
 // Then go to Settings / Developer Menu / Run CPU tests.
@@ -29,7 +28,7 @@
 #include "base/basictypes.h"
 #include "base/display.h"
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
 
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -37,7 +36,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/MIPS/MIPS.h"
 #include "TestRunner.h"
-
 
 static const char * const testsToRun[] = {
 	"cpu/cpu_alu/cpu_alu",
@@ -153,8 +151,7 @@ void RunTests()
 		}
 		PSP_Shutdown();
 	}
-	glstate.Restore();
-	glstate.viewport.set(0,0,pixel_xres,pixel_yres);
+	glViewport(0,0,pixel_xres,pixel_yres);
 	PSP_CoreParameter().pixelWidth = pixel_xres;
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 	PSP_CoreParameter().headLess = false;

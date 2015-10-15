@@ -51,7 +51,6 @@
 #include "base/timeutil.h"
 #include "base/colorutil.h"
 #include "gfx_es2/draw_buffer.h"
-#include "gfx_es2/gl_state.h"
 #include "util/random/rng.h"
 
 #include "UI/ui_atlas.h"
@@ -194,6 +193,12 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 	dc.Flush();
 }
 
+void UIDialogScreenWithBackground::AddStandardBack(UI::ViewGroup *parent) {
+	using namespace UI;
+	I18NCategory *di = GetI18NCategory("Dialog");
+	parent->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+}
+
 void UIDialogScreenWithBackground::sendMessage(const char *message, const char *value) {
 	HandleCommonMessages(message, value, screenManager());
 	I18NCategory *dev = GetI18NCategory("Developer");
@@ -211,10 +216,10 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 }
 
 PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
-	: message_(message), callback_(callback) {
-		I18NCategory *di = GetI18NCategory("Dialog");
-		yesButtonText_ = di->T(yesButtonText.c_str());
-		noButtonText_ = di->T(noButtonText.c_str());
+		: message_(message), callback_(callback) {
+	I18NCategory *di = GetI18NCategory("Dialog");
+	yesButtonText_ = di->T(yesButtonText.c_str());
+	noButtonText_ = di->T(noButtonText.c_str());
 }
 
 void PromptScreen::CreateViews() {
@@ -230,7 +235,7 @@ void PromptScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new TextView(message_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+	leftColumn->Add(new TextView(message_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)))->SetClip(false);
 
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumnItems);
@@ -436,7 +441,7 @@ void LogoScreen::render() {
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds.centerX(), bounds.centerY() + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText(cr->T("license", "Free Software under GPL 2.0"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(cr->T("license", "Free Software under GPL 2.0+"), bounds.centerX(), bounds.centerY() + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.DrawText("www.ppsspp.org", bounds.centerX(), yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (boot_filename.size()) {
 		dc.DrawTextShadow(boot_filename.c_str(), bounds.centerX(), bounds.centerY() + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -444,10 +449,6 @@ void LogoScreen::render() {
 
 #ifdef _WIN32
 	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-#elif defined(ARM64)
-	dc.SetFontScale(2.0f, 2.0f);
-	dc.DrawText("EXPERIMENTAL ARM64 BUILD", bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFF3030FF, alphaText), ALIGN_CENTER);
-	dc.SetFontScale(1.0f, 1.0f);
 #endif
 
 	dc.End();

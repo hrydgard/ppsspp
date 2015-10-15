@@ -77,8 +77,6 @@
 
 #include "Common/Log.h"
 
-#define THEMES
-
 //#else
 
 

@@ -24,7 +24,6 @@
 class HeadlessHost : public Host
 {
 public:
-	// void StartThread() override
 	void UpdateUI() override {}
 
 	void UpdateMemView() override {}

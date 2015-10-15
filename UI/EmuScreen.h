@@ -46,7 +46,7 @@ public:
 	virtual bool axis(const AxisInput &axis) override;
 
 protected:
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 
 private:

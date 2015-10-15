@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30723.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcxproj", "{567AF8DB-42C1-4D08-96CD-D70A2DFEFC6B}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -35,7 +35,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Core", "..\Core\Core.vcxpro
 		{3FCDBAE2-5103-4350-9A8E-848CE9C73195} = {3FCDBAE2-5103-4350-9A8E-848CE9C73195}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "native", "..\native\native.vcxproj", "{C4DF647E-80EA-4111-A0A8-218B1B711E18}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "native", "..\ext\native\native.vcxproj", "{C4DF647E-80EA-4111-A0A8-218B1B711E18}"
 	ProjectSection(ProjectDependencies) = postProject
 		{F761046E-6C38-4428-A5F1-38391A37BB34} = {F761046E-6C38-4428-A5F1-38391A37BB34}
 	EndProjectSection

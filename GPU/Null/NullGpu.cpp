@@ -714,3 +714,7 @@ bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
 bool NullGPU::PerformStencilUpload(u32 dest, int size) {
 	return false;
 }
+
+bool NullGPU::FramebufferReallyDirty() {
+	return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
+}

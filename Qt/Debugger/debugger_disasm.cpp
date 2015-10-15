@@ -13,7 +13,7 @@
 #include "Core/CoreTiming.h"
 #include "mainwindow.h"
 #include "ctrlregisterlist.h"
-#include "native/base/stringutil.h"
+#include "base/stringutil.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"

@@ -3,6 +3,7 @@
 		<file alias="assets/ui_atlas_lowmem.zim">../assets/ui_atlas_lowmem.zim</file>
 		<file alias="assets/ppge_atlas.zim">../assets/ppge_atlas.zim</file>
 		<file alias="assets/lang">../lang</file>
+		<file alias="assets/compat.ini">../assets/compat.ini</file>
 		<file alias="assets/langregion.ini">../assets/langregion.ini</file>
 		<file alias="assets/unknown.png">../assets/unknown.png</file>
 		<file alias="assets/shaders">../assets/shaders</file>

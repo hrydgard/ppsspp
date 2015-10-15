@@ -392,7 +392,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 		return -1;
 	}
 	SceNetEtherAddr * daddr = (SceNetEtherAddr *)mac;
-	uint16 dport = (uint16)port;
+	uint16_t dport = (uint16_t)port;
 	
 	//if (dport < 7) dport += 1341;
 

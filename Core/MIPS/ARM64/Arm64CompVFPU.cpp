@@ -35,9 +35,9 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
-
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)
@@ -50,8 +50,7 @@
 #define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 	using namespace Arm64Gen;
 	using namespace Arm64JitConstants;
 
@@ -304,9 +303,8 @@ namespace MIPSComp
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
-				// Removed consecutive opt for now
-				for (int i = 0; i < 4; i++)
-					fp.LDR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
+				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
+				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[2]), fpr.V(vregs[3]), SCRATCH1_64, 8);
 
 				for (auto skip : skips) {
 					SetJumpTarget(skip);
@@ -334,8 +332,8 @@ namespace MIPSComp
 					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 				}
 
-				for (int i = 0; i < 4; i++)
-					fp.STR(32, INDEX_UNSIGNED, fpr.V(vregs[i]), SCRATCH1_64, i * 4);
+				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
+				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[2]), fpr.V(vregs[3]), SCRATCH1_64, 8);
 
 				for (auto skip : skips) {
 					SetJumpTarget(skip);
@@ -656,12 +654,58 @@ namespace MIPSComp
 				switch ((op >> 23) & 7) {
 				case 2:  // vmin
 				{
+					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch unordered = B(CC_VS);
 					fp.FMIN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch skip = B();
+
+					SetJumpTarget(unordered);
+					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
+					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
+					// And together to find if both have negative set.
+					TST(SCRATCH1, SCRATCH2);
+					FixupBranch cmpPositive = B(CC_PL);
+					// If both are negative, "min" is the greater of the two, since it has the largest mantissa.
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
+					FixupBranch skipPositive = B();
+					// If either one is positive, we just want the lowest one.
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
+					SetJumpTarget(skipPositive);
+					// Now, whether negative or positive, move to the result.
+					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
+					SetJumpTarget(skip);
 					break;
 				}
 				case 3:  // vmax
 				{
+					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch unordered = B(CC_VS);
 					fp.FMAX(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FixupBranch skip = B();
+
+					SetJumpTarget(unordered);
+					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
+					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
+					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
+					// And together to find if both have negative set.
+					TST(SCRATCH1, SCRATCH2);
+					FixupBranch cmpPositive = B(CC_PL);
+					// If both are negative, "max" is the least of the two, since it has the lowest mantissa.
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
+					FixupBranch skipPositive = B();
+					// If either one is positive, we just want the highest one.
+					SetJumpTarget(cmpPositive);
+					CMP(SCRATCH1, SCRATCH2);
+					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
+					SetJumpTarget(skipPositive);
+					// Now, whether negative or positive, move to the result.
+					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
+					SetJumpTarget(skip);
 					break;
 				}
 				case 6:  // vsge
@@ -931,9 +975,14 @@ namespace MIPSComp
 			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {  //R(rt) = VI(imm);
-					fpr.MapRegV(imm, 0);
-					gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
-					fp.FMOV(gpr.R(rt), fpr.V(imm));
+					if (!fpr.IsInRAMV(imm)) {
+						fpr.MapRegV(imm, 0);
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						fp.FMOV(gpr.R(rt), fpr.V(imm));
+					} else {
+						gpr.MapReg(rt, MAP_NOINIT | MAP_DIRTY);
+						LDR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, fpr.GetMipsRegOffsetV(imm));
+					}
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 					if (imm - 128 == VFPU_CTRL_CC) {
 						if (gpr.IsImm(MIPS_REG_VFPUCC)) {
@@ -957,9 +1006,17 @@ namespace MIPSComp
 
 		case 7: // mtv
 			if (imm < 128) {
-				gpr.MapReg(rt);
-				fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
-				fp.FMOV(fpr.V(imm), gpr.R(rt));
+				if (rt == MIPS_REG_ZERO) {
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.MOVI2F(fpr.V(imm), 0.0f, SCRATCH1);
+				} else if (!gpr.IsInRAM(rt)) {
+					gpr.MapReg(rt);
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.FMOV(fpr.V(imm), gpr.R(rt));
+				} else {
+					fpr.MapRegV(imm, MAP_DIRTY | MAP_NOINIT);
+					fp.LDR(32, INDEX_UNSIGNED, fpr.V(imm), CTXREG, gpr.GetMipsRegOffset(rt));
+				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
 					if (gpr.IsImm(rt)) {
@@ -1240,11 +1297,162 @@ namespace MIPSComp
 	}
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
-		DISABLE;
+		if (!cpu_info.bNEON) {
+			DISABLE;
+		}
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+		// These instructions pack pairs or quads of integers into 32 bits.
+		// The unsigned (u) versions skip the sign bit when packing.
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Single;
+			if (sz != V_Quad) {
+				DISABLE;
+			}
+		} else {
+			switch (sz) {
+			case V_Pair:
+				outsize = V_Single;
+				break;
+			case V_Quad:
+				outsize = V_Pair;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		int n = GetNumVectorElements(sz);
+		int nOut = GetNumVectorElements(outsize);
+
+		// Take the single registers and combine them to a D or Q register.
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
+		}
+
+		if (unsignedOp) {
+			// What's the best way to zero a Q reg?
+			fp.EOR(Q1, Q1, Q1);
+			fp.SMAX(32, Q0, Q0, Q1);
+		}
+
+		// At this point, we simply need to collect the high bits of each 32-bit lane into one register.
+		if (bits == 8) {
+			// Really want to do a SHRN(..., 23/24) but that can't be encoded. So we synthesize it.
+			fp.USHR(32, Q0, Q0, 16);
+			fp.SHRN(16, D0, Q0, unsignedOp ? 7 : 8);
+			fp.XTN(8, D0, Q0);
+		} else {
+			fp.SHRN(16, D0, Q0, unsignedOp ? 15 : 16);
+		}
+
+		// Split apart again.
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		}
+
+		ApplyPrefixD(dregs, outsize);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vx2i(MIPSOpcode op) {
-		DISABLE;
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
+
+		// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+		// at the top.  vus2i shifts it an extra bit right afterward.
+		// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+		// at the top too.  vuc2i is a bit special (see below.)
+		// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+		// then use it for both.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Quad;
+		} else {
+			switch (sz) {
+			case V_Single:
+				outsize = V_Pair;
+				break;
+			case V_Pair:
+				outsize = V_Quad;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		int n = 1;
+		if (sz == V_Single) {
+			n = 1;
+		} else if (sz == V_Pair) {
+			n = 2;
+		} else if (bits == 8) {
+			n = 1;
+		}
+
+		// Take the single registers and combine them to a D or Q register.
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(sregs[i], sz);
+			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
+		}
+
+		if (bits == 16) {
+			// Simply expand, to upper bits.
+			// Hm, can't find a USHLL equivalent that works with shift == size?
+			fp.UXTL(16, Q0, D0);
+			fp.SHL(32, Q0, Q0, 16);
+		} else if (bits == 8) {
+			fp.UXTL(8, Q0, D0);
+			fp.UXTL(16, Q0, D0);
+			fp.SHL(32, Q0, D0, 24);
+			if (unsignedOp) {
+				// vuc2i is a bit special.  It spreads out the bits like this:
+				// s[0] = 0xDDCCBBAA -> d[0] = (0xAAAAAAAA >> 1), d[1] = (0xBBBBBBBB >> 1), etc.
+				fp.USHR(32, Q1, Q0, 8);
+				fp.ORR(Q0, Q0, Q1);
+				fp.USHR(32, Q1, Q0, 16);
+				fp.ORR(Q0, Q0, Q1);
+			}
+		}
+
+		// At this point we have the regs in the 4 lanes.
+		// In the "u" mode, we need to shift it out of the sign bit.
+		if (unsignedOp) {
+			Arm64Gen::ARM64Reg reg = (outsize == V_Quad) ? Q0 : D0;
+			fp.USHR(32, reg, reg, 1);
+		}
+
+		fpr.MapRegsAndSpillLockV(dregs, outsize, MAP_NOINIT);
+
+		int nOut = 2;
+		if (outsize == V_Quad)
+			nOut = 4;
+
+		// Split apart again.
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		}
+
+		ApplyPrefixD(dregs, outsize);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VCrossQuat(MIPSOpcode op) {
@@ -1656,8 +1864,6 @@ namespace MIPSComp
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void Arm64Jit::Comp_VRot(MIPSOpcode op) {
-		DISABLE;  // Need to figure out how to deal with the return values from the function.
-
 		// VRot probably doesn't accept prefixes anyway.
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
@@ -1693,11 +1899,17 @@ namespace MIPSComp
 		gpr.FlushBeforeCall();
 		fpr.FlushAll();
 
+		// Don't need to SaveStaticRegs here as long as they are all in callee-save regs - this callee won't read them.
+
 		bool negSin1 = (imm & 0x10) ? true : false;
 
 		fpr.MapRegV(sreg);
 		fp.FMOV(S0, fpr.V(sreg));
 		QuickCallFunction(SCRATCH2_64, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
+		// Here, sin and cos are stored together in Q0.d. On ARM32 we could use it directly
+		// but with ARM64's register organization, we need to split it up.
+		fp.INS(32, Q1, 0, Q0, 1);
+
 		CompVrotShuffle(dregs, imm, sz, false);
 		if (vd2 != -1) {
 			// If the negsin setting differs between the two joint invocations, we need to flip the second one.

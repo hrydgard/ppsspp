@@ -768,10 +768,10 @@ static bool InitPmp(MpegContext * ctx){
 	// GE_CMODE_16BIT_ABGR5551 <--> AV_PIX_FMT_BGR555LE;
 	// GE_CMODE_16BIT_ABGR4444 <--> AV_PIX_FMT_BGR444LE;
 	// GE_CMODE_32BIT_ABGR8888 <--> AV_PIX_FMT_RGBA;
-	pmp_want_pix_fmt = PIX_FMT_RGBA;
+	pmp_want_pix_fmt = AV_PIX_FMT_RGBA;
 
 	// Create H264 video codec
-	AVCodec * pmp_Codec = avcodec_find_decoder(CODEC_ID_H264);
+	AVCodec * pmp_Codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 	if (pmp_Codec == NULL){
 		ERROR_LOG(ME, "Can not find H264 codec, please update ffmpeg");
 		return false;
@@ -932,7 +932,7 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		// joint all blocks into H264Frames
 		SceMpegLLI lli;
 		for (int i = 0; i < pmp_nBlocks; i++){
-			Memory::ReadStruct(pmp_videoSource, &lli);
+			Memory::ReadStructUnchecked(pmp_videoSource, &lli);
 			// add source block into pmpframes
 			pmpframes->add(Memory::GetPointer(lli.pSrc), lli.iSize);
 			// get next block

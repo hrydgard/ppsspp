@@ -866,14 +866,15 @@ namespace MIPSInt
 		case 0x0: //ext
 			{
 				int size = _SIZE + 1;
-				R(rt) = (R(rs) >> pos) & ((1<<size) - 1);
+				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
+				R(rt) = (R(rs) >> pos) & sourcemask;
 			}
 			break;
 		case 0x4: //ins
 			{
 				int size = (_SIZE + 1) - pos;
-				int sourcemask = (1 << size) - 1;
-				int destmask = sourcemask << pos;
+				u32 sourcemask = 0xFFFFFFFFUL >> (32 - size);
+				u32 destmask = sourcemask << pos;
 				R(rt) = (R(rt) & ~destmask) | ((R(rs)&sourcemask) << pos);
 			}
 			break;

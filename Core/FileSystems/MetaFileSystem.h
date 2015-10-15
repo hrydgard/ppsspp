@@ -17,23 +17,24 @@
 
 #pragma once
 
-#include "native/base/mutex.h"
+#include <string>
+#include <vector>
+
+#include "base/mutex.h"
 #include "Core/FileSystems/FileSystem.h"
 
-class MetaFileSystem : public IHandleAllocator, public IFileSystem
-{
+class MetaFileSystem : public IHandleAllocator, public IFileSystem {
 private:
 	s32 current;
-	struct MountPoint
-	{
+	struct MountPoint {
 		std::string prefix;
 		IFileSystem *system;
 
-		bool operator == (const MountPoint &other) const
-		{
+		bool operator == (const MountPoint &other) const {
 			return prefix == other.prefix && system == other.system;
 		}
 	};
+
 	std::vector<MountPoint> fileSystems;
 
 	typedef std::map<int, std::string> currentDir_t;
@@ -44,8 +45,7 @@ private:
 	recursive_mutex lock;
 
 public:
-	MetaFileSystem()
-	{
+	MetaFileSystem() {
 		current = 6;  // what?
 	}
 
@@ -60,7 +60,7 @@ public:
 
 	void Shutdown();
 
-	u32 GetNewHandle() {
+	u32 GetNewHandle() override {
 		u32 res = current++;
 		if (current < 0) {
 			current = 0;
@@ -74,11 +74,9 @@ public:
 	IFileSystem *GetHandleOwner(u32 handle);
 	bool MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
 
-	inline bool MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system)
-	{
+	inline bool MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
 		MountPoint *mountPoint;
-		if (MapFilePath(_inpath, outpath, &mountPoint))
-		{
+		if (MapFilePath(_inpath, outpath, &mountPoint)) {
 			*system = mountPoint->system;
 			return true;
 		}
@@ -90,7 +88,7 @@ public:
 
 	// Only possible if a file system is a DirectoryFileSystem or similar.
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
-	
+
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
 	u32      OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename = NULL);

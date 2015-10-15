@@ -1,8 +1,11 @@
 #include <algorithm>
-#include "native/base/mutex.h"
-#include "native/base/timeutil.h"
+#include <type_traits>
+
+#include "base/mutex.h"
+#include "base/timeutil.h"
 #include "Common/ColorConv.h"
 #include "GPU/GeDisasm.h"
+#include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "ChunkFile.h"
@@ -21,9 +24,20 @@ GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false)
 {
+	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the
+	// "padding" field at the end. This is important for save state compatibility.
+	// The compiler was not rounding the struct size up to an 8 byte boundary, which
+	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
+	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
+
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
+	InitGfxState();
+}
+
+GPUCommon::~GPUCommon() {
+	ShutdownGfxState();
 }
 
 void GPUCommon::Reinitialize() {
@@ -614,7 +628,6 @@ void GPUCommon::ReapplyGfxState() {
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
-	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
@@ -639,7 +652,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
-inline void GPUCommon::UpdateState(GPUState state) {
+inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
 		downcount = 0;
@@ -1056,16 +1069,55 @@ struct DisplayList_v2 {
 	bool bboxResult;
 };
 
+struct DisplayList_v3_no_padding {
+	int id;
+	u32 startpc;
+	u32 pc;
+	u32 stall;
+	DisplayListState state;
+	SignalBehavior signal;
+	int subIntrBase;
+	u16 subIntrToken;
+	DisplayListStackEntry stack[32];
+	int stackptr;
+	bool interrupted;
+	u64 waitTicks;
+	bool interruptsEnabled;
+	bool pendingInterrupt;
+	bool started;
+	PSPPointer<u32_le> context;
+	u32 offsetAddr;
+	bool bboxResult;
+	u32 stackAddr;
+	// See the header
+};
+
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
-	auto s = p.Section("GPUCommon", 1, 3);
+	auto s = p.Section("GPUCommon", 1, 4);
 	if (!s)
 		return;
 
 	p.Do<int>(dlQueue);
-	if (s >= 3) {
+	if (s >= 4) {
 		p.DoArray(dls, ARRAY_SIZE(dls));
+	} else if (s >= 3) {
+#if defined(ANDROID) && defined(_M_IX86)
+		// If this starts failing, we'll need to put some alignment attributes on the Displaylist_v3_no_padding struct above.
+		static_assert(sizeof(DisplayList_v3_no_padding) == 452, "Not the old DisplayList size anymore, see comment");
+		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
+			DisplayList_v3_no_padding oldDL;
+			p.Do(oldDL);
+			// Copy over everything except the new padding bytes to make the struct size
+			// equal to other platforms.
+			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v3_no_padding));
+			dls[i].padding = 0;
+		}
+#else
+		// Android-x86 used to write badly padded data structures.
+		p.DoArray(dls, ARRAY_SIZE(dls));
+#endif
 	} else if (s >= 2) {
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v2 oldDL;

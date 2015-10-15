@@ -74,9 +74,11 @@ public:
 	AnalogTestScreen() {}
 
 	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
 	virtual void CreateViews() override;
 
 	UI::TextView *lastKeyEvent_;
+	UI::TextView *lastLastKeyEvent_;
 };

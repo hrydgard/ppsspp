@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Common.h"
+
 #include <string>
 #include <map>
 #include <memory>
@@ -45,6 +47,9 @@
 GameInfoCache g_gameInfoCache;
 
 GameInfo::~GameInfo() {
+	delete iconTexture;
+	delete pic0Texture;
+	delete pic1Texture;
 	delete fileLoader;
 }
 
@@ -55,7 +60,7 @@ bool GameInfo::Delete() {
 		{
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			const char *fileToRemove = filePath_.c_str();
-			deleteFile(fileToRemove);
+			File::Delete(fileToRemove);
 			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
 			if (i != g_Config.recentIsos.end()) {
 				g_Config.recentIsos.erase(i);
@@ -84,7 +89,7 @@ bool GameInfo::Delete() {
 	case FILETYPE_ARCHIVE_7Z:
 		{
 			const char *fileToRemove = filePath_.c_str();
-			deleteFile(fileToRemove);
+			File::Delete(fileToRemove);
 			return true;
 		}
 
@@ -227,10 +232,10 @@ bool GameInfo::DeleteAllSaveData() {
 
 		u64 totalSize = 0;
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			deleteFile(fileInfo[i].fullName.c_str());
+			File::Delete(fileInfo[i].fullName.c_str());
 		}
 
-		deleteDir(saveDataDir[j].c_str());
+		File::DeleteDir(saveDataDir[j].c_str());
 	}
 	return true;
 }
@@ -311,7 +316,7 @@ public:
 		info_->path = gamePath_;
 		info_->fileType = Identify_File(info_->GetFileLoader());
 		// Fallback title
-		info_->title = getFilename(info_->path);
+		info_->title = File::GetFilename(info_->path);
 
 		switch (info_->fileType) {
 		case FILETYPE_PSP_PBP:
@@ -384,7 +389,7 @@ public:
 		case FILETYPE_PSP_ELF:
 handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
-			info_->title = getFilename(filename);
+			info_->title = File::GetFilename(filename);
 			info_->id = "ELF000000";
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;
@@ -556,12 +561,14 @@ handleELF:
 				break;
 		}
 
+		info_->hasConfig = g_Config.hasGameConfig(info_->id);
+
 		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
-
+		info_->pending = false;
 		info_->DisposeFileLoader();
 	}
 

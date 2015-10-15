@@ -17,13 +17,16 @@
 
 #include <algorithm>
 
+#include "Core/CoreParameter.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
+#include "Core/Compatibility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
@@ -332,6 +335,12 @@ struct Atrac {
 	}
 
 	void SeekToSample(int sample) {
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			s64 seek_pos = (s64)sample;
+			av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
+			return;
+		}
+
 		const u32 atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
 		// Discard any pending packet data.
@@ -394,11 +403,19 @@ struct Atrac {
 			packet->size = 0;
 
 			if (FillPacket()) {
-				int to_copy = packet->size >= needed ? needed : packet->size;
-				memcpy(tempPacket.data + initialSize, packet->data, to_copy);
-				packet->size -= to_copy;
-				packet->data += to_copy;
-				tempPacket.size = initialSize + to_copy;
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					if (packet->size >= needed) {
+						memcpy(tempPacket.data + initialSize, packet->data, needed);
+						packet->size -= needed;
+						packet->data += needed;
+					}
+				} else {
+					int to_copy = packet->size >= needed ? needed : packet->size;
+					memcpy(tempPacket.data + initialSize, packet->data, to_copy);
+					packet->size -= to_copy;
+					packet->data += to_copy;
+					tempPacket.size = initialSize + to_copy;
+				}
 			} else {
 				tempPacket.size = initialSize;
 			}
@@ -876,17 +893,28 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			int skipSamples = 0;
+			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
+			}
 			u32 maxSamples = atrac->endSample - atrac->currentSample;
 			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
 			if (unalignedSamples != 0) {
 				// We're off alignment, possibly due to a loop.  Force it back on.
 				maxSamples = atracSamplesPerFrame - unalignedSamples;
-				skipSamples = unalignedSamples;
+				if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					skipSamples = unalignedSamples;
+				}
 			}
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
-				atrac->SeekToSample(atrac->currentSample);
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
+					atrac->SeekToSample(forceseekSample);
+					atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
+				} else {
+					atrac->SeekToSample(atrac->currentSample);
+				}
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket()) {
@@ -962,7 +990,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			int finishFlag = 0;
 			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				atrac->SeekToSample(atrac->loopStartSample);
+				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+					atrac->currentSample = 0;
+				} else {
+					atrac->SeekToSample(atrac->loopStartSample);
+				}
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
 			} else if (atrac->currentSample >= atrac->endSample ||
@@ -1312,7 +1344,9 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 			// Reset temp buf for adding more stream data and set full filled buffer.
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		} else {
-			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
+			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
+			}
 		}
 
 		atrac->first.offset = 0;
@@ -1354,13 +1388,18 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			atrac->currentSample = sample;
+		}
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 			atrac->SeekToSample(sample);
 		} else
 #endif // USE_FFMPEG
 		{
-			atrac->currentSample = sample;
+			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->currentSample = sample;
+			}
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
 	}
@@ -1688,11 +1727,11 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): bad atrac ID", atracID, loopNum);
 		return ATRAC_ERROR_BAD_ATRACID;
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no data", atracID, loopNum);
+		ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i): no data", atracID, loopNum);
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		if (atrac->loopinfoNum == 0) {
-			ERROR_LOG(ME, "sceAtracSetLoopNum(%i, %i):no loop information", atracID, loopNum);
+			DEBUG_LOG(ME, "sceAtracSetLoopNum(%i, %i): error: no loop information", atracID, loopNum);
 			return ATRAC_ERROR_NO_LOOP_INFORMATION;
 		}
 		// Spammed in MHU
@@ -2007,8 +2046,7 @@ static int _sceAtracGetContextAddress(int atracID) {
 struct At3HeaderMap {
 	u16 bytes;
 	u16 channels;
-	u8 headerVal1;
-	u8 headerVal2;
+	u8 jointStereo;
 
 	bool Matches(const Atrac *at) const {
 		return bytes == at->atracBytesPerFrame && channels == at->atracChannels;
@@ -2016,48 +2054,17 @@ struct At3HeaderMap {
 };
 
 static const u8 at3HeaderTemplate[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
+// These should represent all possible supported bitrates (66, 104, and 132 for stereo.)
 static const At3HeaderMap at3HeaderMap[] = {
-    { 0x00C0, 0x1, 0x8,  0x00 },
-    { 0x0098, 0x1, 0x8,  0x00 },
-    { 0x0180, 0x2, 0x10, 0x00 },
-    { 0x0130, 0x2, 0x10, 0x00 },
-    { 0x00C0, 0x2, 0x10, 0x01 }
-};
-
-struct At3plusHeaderMap {
-	u16 bytes;
-	u16 channels;
-	u16 headerVal;
-
-	bool Matches(const Atrac *at) const {
-		return bytes == at->atracBytesPerFrame && channels == at->atracChannels;
-	}
+	{ 0x00C0, 1, 0 }, // 132/2 (66) kbps mono
+	{ 0x0098, 1, 0 }, // 105/2 (52.5) kbps mono
+	{ 0x0180, 2, 0 }, // 132 kbps stereo
+	{ 0x0130, 2, 0 }, // 105 kbps stereo
+	// At this size, stereo can only use joint stereo.
+	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
 
 static const u8 at3plusHeaderTemplate[] = { 0x52, 0x49, 0x46, 0x46, 0x00, 0xb5, 0xff, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x34, 0x00, 0x00, 0x00, 0xfe, 0xff, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00, 0xa0, 0x1f, 0x00, 0x00, 0xe8, 0x02, 0x00, 0x00, 0x22, 0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0xbf, 0xaa, 0x23, 0xe9, 0x58, 0xcb, 0x71, 0x44, 0xa1, 0x19, 0xff, 0xfa, 0x01, 0xe4, 0xce, 0x62, 0x01, 0x00, 0x28, 0x5c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x61, 0x63, 0x74, 0x08, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x08, 0x00, 0x00, 0x64, 0x61, 0x74, 0x61, 0xa8, 0xb4, 0xff, 0x00 };
-static const At3plusHeaderMap at3plusHeaderMap[] = {
-	{ 0x00C0, 0x1, 0x1724 },
-	{ 0x0180, 0x1, 0x2224 },
-	{ 0x0178, 0x1, 0x2E24 },
-
-	{ 0x0230, 0x1, 0x4524 },
-	{ 0x02E8, 0x1, 0x5C24 },
-	{ 0x0118, 0x1, 0x2224 },
-
-	{ 0x0118, 0x2, 0x2228 },
-	{ 0x0178, 0x2, 0x2E28 },
-
-	{ 0x0230, 0x2, 0x4528 },
-	{ 0x02E8, 0x2, 0x5C28 },
-
-	{ 0x03A8, 0x2, 0x7428 },
-	{ 0x0460, 0x2, 0x8B28 },
-
-	{ 0x05D0, 0x2, 0xB928 },
-	{ 0x0748, 0x2, 0xE828 },
-
-	{ 0x0800, 0x2, 0xFF28 },
-};
 
 static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
 	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
@@ -2068,9 +2075,9 @@ static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8)
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
 			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
 			*(u32 *)(at3Header + 0x1c) = atrac->atracBitrate * 1000 / 8;
-			at3Header[0x29] = at3HeaderMap[i].headerVal1;
-			at3Header[0x2c] = at3HeaderMap[i].headerVal2;
-			at3Header[0x2e] = at3HeaderMap[i].headerVal2;
+			at3Header[0x29] = atrac->atracChannels << 3;
+			at3Header[0x2c] = at3HeaderMap[i].jointStereo;
+			at3Header[0x2e] = at3HeaderMap[i].jointStereo;
 			*(u32 *)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
@@ -2078,21 +2085,16 @@ static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8)
 	return false;
 }
 
-static bool initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
-	for (size_t i = 0; i < ARRAY_SIZE(at3plusHeaderMap); ++i) {
-		if (at3plusHeaderMap[i].Matches(atrac)) {
-			*(u32 *)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
-			*(u16 *)(at3plusHeader + 0x16) = atrac->atracChannels;
-			*(u16 *)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
-			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
-			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
-			*(u32 *)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
-			*(u16 *)(at3plusHeader + 0x3e) = at3plusHeaderMap[i].headerVal;
-			*(u32 *)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
-			return true;
-		}
-	}
-	return false;
+static void initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
+	*(u32 *)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
+	*(u16 *)(at3plusHeader + 0x16) = atrac->atracChannels;
+	*(u16 *)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
+	atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
+	atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
+	*(u32 *)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
+	u32 codecParams = ((atrac->atracBytesPerFrame - 7) << 5) | (atrac->atracChannels << 2);
+	*(u16 *)(at3plusHeader + 0x3e) = codecParams;
+	*(u32 *)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
 }
 
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
@@ -2147,10 +2149,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			const int headersize = sizeof(at3plusHeaderTemplate);
 			u8 at3plusHeader[headersize];
 			memcpy(at3plusHeader, at3plusHeaderTemplate, headersize);
-			if (!initAT3plusDecoder(atrac, at3plusHeader)) {
-				ERROR_LOG_REPORT(ME, "AT3plus header map lacks entry for bpf: %i  channels: %i", atrac->atracBytesPerFrame, atrac->atracChannels);
-				// TODO: What to do, if anything?
-			}
+			initAT3plusDecoder(atrac, at3plusHeader);
 
 			atrac->firstSampleoffset = headersize;
 			atrac->dataOff = headersize;
@@ -2188,7 +2187,13 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		}
 
 		int numSamples = 0;
-		atrac->ForceSeekToSample(atrac->currentSample);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			int forceseekSample = 0x200000;
+			atrac->SeekToSample(forceseekSample);
+			atrac->SeekToSample(atrac->currentSample);
+		} else {
+			atrac->ForceSeekToSample(atrac->currentSample);
+		}
 
 		if (!atrac->failedDecode) {
 			AtracDecodeResult res;
@@ -2217,11 +2222,18 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		atrac->currentSample += numSamples;
 		numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
+		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+			atrac->SeekToSample(atrac->currentSample);
+		}
 
 		if (atrac->bufferPos >= atrac->first.size) {
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
-			atrac->ForceSeekToSample(0);
+			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
+				atrac->currentSample = 0;
+			} else {
+				atrac->ForceSeekToSample(0);
+			}
 		}
 		else
 			atrac->first.writableBytes = 0;

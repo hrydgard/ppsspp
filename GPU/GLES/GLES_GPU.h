@@ -20,9 +20,8 @@
 #include <list>
 #include <deque>
 
-#include "gfx_es2/fbo.h"
-
 #include "GPU/GPUCommon.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/TextureCache.h"
@@ -36,52 +35,57 @@ class GLES_GPU : public GPUCommon {
 public:
 	GLES_GPU();
 	~GLES_GPU();
-	virtual void InitClear();
-	virtual void Reinitialize();
-	virtual void PreExecuteOp(u32 op, u32 diff);
+
+	// This gets called on startup and when we get back from settings.
+	void CheckGPUFeatures();
+
+	void InitClear() override;
+	void Reinitialize() override;
+	void PreExecuteOp(u32 op, u32 diff) override;
 	void Execute_Generic(u32 op, u32 diff);
-	virtual void ExecuteOp(u32 op, u32 diff);
+	void ExecuteOp(u32 op, u32 diff) override;
 
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
-	virtual void CopyDisplayToOutput();
-	virtual void BeginFrame();
-	virtual void UpdateStats();
-	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
-	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size);
-	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
-	virtual bool PerformMemoryDownload(u32 dest, int size);
-	virtual bool PerformMemoryUpload(u32 dest, int size);
-	virtual bool PerformStencilUpload(u32 dest, int size);
-	virtual void ClearCacheNextFrame();
-	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
+	void ReapplyGfxStateInternal() override;
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	void CopyDisplayToOutput() override;
+	void BeginFrame() override;
+	void UpdateStats() override;
+	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemorySet(u32 dest, u8 v, int size) override;
+	bool PerformMemoryDownload(u32 dest, int size) override;
+	bool PerformMemoryUpload(u32 dest, int size) override;
+	bool PerformStencilUpload(u32 dest, int size) override;
+	void ClearCacheNextFrame() override;
+	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 
-	virtual void DumpNextFrame();
-	virtual void DoState(PointerWrap &p);
+	void DumpNextFrame() override;
+	void DoState(PointerWrap &p) override;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	virtual void Resized();
-	virtual void ClearShaderCache();
-	virtual void CleanupBeforeUI();
-	virtual bool DecodeTexture(u8 *dest, const GPUgstate &state) {
+	void Resized() override;
+	void ClearShaderCache() override;
+	void CleanupBeforeUI() override;
+	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
 		return textureCache_.DecodeTexture(dest, state);
 	}
-	virtual bool FramebufferDirty();
-	virtual bool FramebufferReallyDirty();
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
 
-	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList();
+	std::vector<FramebufferInfo> GetFramebufferList() override;
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level);
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
+	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
 	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
-	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name);
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
@@ -101,6 +105,7 @@ public:
 	void Execute_Scissor(u32 op, u32 diff);
 	void Execute_FramebufType(u32 op, u32 diff);
 	void Execute_ViewportType(u32 op, u32 diff);
+	void Execute_ViewportZType(u32 op, u32 diff);
 	void Execute_TexScaleU(u32 op, u32 diff);
 	void Execute_TexScaleV(u32 op, u32 diff);
 	void Execute_TexOffsetU(u32 op, u32 diff);
@@ -155,7 +160,7 @@ private:
 	void Flush() {
 		transformDraw_.Flush();
 	}
-	void DoBlockTransfer();
+	void DoBlockTransfer(u32 skipDrawReason);
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();

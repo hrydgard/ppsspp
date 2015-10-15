@@ -150,11 +150,7 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 		return false;
 	}
 
-	framebufferManager_->BindFramebufferColor(1, nullptr, false);
-	// If we are rendering at a higher resolution, linear is probably best for the dest color.
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	fboTexBound_ = true;
+	fboTexNeedBind_ = true;
 
 	shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 	return true;
@@ -286,7 +282,7 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 	// Unfortunately, we can't really do this in Direct3D 9...
 	gstate_c.allowShaderBlend = false;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
@@ -671,7 +667,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	renderX += gstate_c.cutRTOffsetX * renderWidthFactor;
+	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
 
 	bool throughmode = gstate.isModeThrough();
 
@@ -718,10 +714,10 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			(regionY2 - regionY1) * renderHeightFactor,
 			0.f, 1.f);
 	} else {
-		float vpXScale = getFloat24(gstate.viewportx1);
-		float vpXCenter = getFloat24(gstate.viewportx2);
-		float vpYScale = getFloat24(gstate.viewporty1);
-		float vpYCenter = getFloat24(gstate.viewporty2);
+		float vpXScale = gstate.getViewportXScale();
+		float vpXCenter = gstate.getViewportXCenter();
+		float vpYScale = gstate.getViewportYScale();
+		float vpYCenter = gstate.getViewportYCenter();
 
 		// The viewport transform appears to go like this: 
 		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
@@ -742,13 +738,16 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
 
-		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		float zScale = gstate.getViewportZScale();
+		float zCenter = gstate.getViewportZCenter();
 
-		float depthRangeMin = zOff - fabsf(zScale);
-		float depthRangeMax = zOff + fabsf(zScale);
+		// Note - We lose the sign of the zscale here. But we keep it in gstate_c.vpDepth.
+		// That variable is only check for sign later so the multiplication by 2 isn't really necessary.
 
-		gstate_c.vpDepth = zScale * 2;
+		// It's unclear why we need this Z offset to match OpenGL, but this checks out in multiple games.
+		float depthRangeMin = (zCenter - fabsf(zScale)) * (1.0f / 65535.0f);
+		float depthRangeMax = (zCenter + fabsf(zScale)) * (1.0f / 65535.0f);
+		gstate_c.vpDepth = zScale * (2.0f / 65335.0f);
 
 		// D3D doesn't like viewports partially outside the target, so we
 		// apply the viewport partially in the shader.
@@ -807,4 +806,23 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	}
 }
 
-};
+void TransformDrawEngineDX9::ApplyDrawStateLate() {
+	// At this point, we know if the vertices are full alpha or not.
+	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
+	if (!gstate.isModeClear()) {
+		// TODO: Test texture?
+
+		textureCache_->ApplyTexture();
+
+		if (fboTexNeedBind_) {
+			framebufferManager_->BindFramebufferColor(1, nullptr, BINDFBCOLOR_MAY_COPY_WITH_UV);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
+			pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+			fboTexBound_ = true;
+			fboTexNeedBind_ = false;
+		}
+	}
+}
+
+}

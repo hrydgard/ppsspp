@@ -273,7 +273,7 @@ void deleteFriendByIP(uint32_t ip) {
 			peer->last_recv = 0;
 
 			// Multithreading Lock
-			/*peerlock.lock();
+			peerlock.lock();
 
 			// Unlink Left (Beginning)
 			if(prev == NULL)friends = peer->next;
@@ -286,7 +286,7 @@ void deleteFriendByIP(uint32_t ip) {
 
 			// Free Memory
 			free(peer);
-			peer = NULL;*/
+			peer = NULL;
 
 			// Stop Search
 			break;
@@ -1167,7 +1167,7 @@ int friendFinder(){
 					peerlock.lock();
 
 					// Should only add non-existing group (or replace an existing group) to prevent Ford Street Racing from showing a strange game session list
-					/*SceNetAdhocctlScanInfo * group = findGroup(&packet->mac);
+					SceNetAdhocctlScanInfo * group = findGroup(&packet->mac);
 
 					if (group != NULL) {
 					// Copy Group Name
@@ -1176,7 +1176,7 @@ int friendFinder(){
 					// Set Group Host
 					group->bssid.mac_addr = packet->mac;
 					}
-					else*/
+					else
 					{
 						// Allocate Structure Data
 						SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
@@ -1475,7 +1475,7 @@ bool isBroadcastMAC(const SceNetEtherAddr * addr) {
 bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	sockaddr_in addr;
 	getLocalIp(&addr);
-	uint32 localIp = addr.sin_addr.s_addr;
+	uint32_t localIp = addr.sin_addr.s_addr;
 
 	if (ip == localIp){
 		getLocalMac(mac);

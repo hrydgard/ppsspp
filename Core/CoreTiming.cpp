@@ -20,6 +20,7 @@
 #include <cstdio>
 
 #include "base/logging.h"
+#include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"
 #include "Common/StdMutex.h"
@@ -583,6 +584,7 @@ void ForceCheck()
 
 void Advance()
 {
+	PROFILE_THIS_SCOPE("advance");
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;

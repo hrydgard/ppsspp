@@ -24,7 +24,7 @@ extern HMENU g_hPopupMenus;
 CtrlMemView::CtrlMemView(HWND _wnd)
 {
 	wnd=_wnd;
-	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 

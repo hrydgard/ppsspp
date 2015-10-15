@@ -22,7 +22,6 @@
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
-#include "Core/MIPS/ARM64/Arm64Asm.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -177,7 +176,7 @@ public:
 	void EatPrefix() { js.EatPrefix(); }
 
 private:
-	void GenerateFixedCode();
+	void GenerateFixedCode(const JitOptions &jo);
 	void FlushAll();
 	void FlushPrefixV();
 
@@ -187,8 +186,8 @@ private:
 	void AddContinuedBlock(u32 dest);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
-	void WriteDownCount(int offset = 0);
-	void WriteDownCountR(Arm64Gen::ARM64Reg reg);
+	void WriteDownCount(int offset = 0, bool updateFlags = true);
+	void WriteDownCountR(Arm64Gen::ARM64Reg reg, bool updateFlags = true);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
@@ -197,8 +196,8 @@ private:
 
 	bool ReplaceJalTo(u32 dest);
 
-	void SaveDowncount();
-	void RestoreDowncount();
+	void SaveStaticRegisters();
+	void LoadStaticRegisters();
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(Arm64Gen::ARM64Reg Reg);
@@ -252,7 +251,7 @@ private:
 
 public:
 	// Code pointers
-	const u8 *enterCode;
+	const u8 *enterDispatcher;
 
 	const u8 *outerLoop;
 	const u8 *outerLoopPCInSCRATCH1;
@@ -262,6 +261,13 @@ public:
 	const u8 *dispatcherNoCheck;
 
 	const u8 *breakpointBailout;
+
+	const u8 *saveStaticRegisters;
+	const u8 *loadStaticRegisters;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1[8];

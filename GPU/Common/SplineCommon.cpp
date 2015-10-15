@@ -15,13 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-/*
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#undef min
-#undef max
-*/
-
 #include <string.h>
 #include <algorithm>
 
@@ -33,7 +26,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPUState.h"  // only needed for UVScale stuff
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -228,7 +221,9 @@ static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	tu_width /= (float)(tile_max_u - tile_min_u);
 	tv_height /= (float)(tile_max_v - tile_min_v);
 
-	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	GEPatchPrimType prim_type = spatch.primType;
+	bool computeNormals = spatch.computeNormals;
+	bool patchFacing = spatch.patchFacing;
 
 	int i = 0;
 	for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
@@ -257,10 +252,10 @@ static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 			// Generate normal if lighting is enabled (otherwise there's no point).
 			// This is a really poor quality algorithm, we get facet normals.
-			if (gstate.isLightingEnabled()) {
+			if (computeNormals) {
 				Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
 				norm.Normalize();
-				if (gstate.patchfacing & 1)
+				if (patchFacing)
 					norm *= -1.0f;
 				v0.nrm = norm;
 				v1.nrm = norm;
@@ -309,8 +304,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	spline_knot(spatch.count_v - 1, spatch.type_v, knot_v);
 
 	// Increase tesselation based on the size. Should be approximately right?
-	int patch_div_s = (spatch.count_u - 3) * gstate.getPatchDivisionU();
-	int patch_div_t = (spatch.count_v - 3) * gstate.getPatchDivisionV();
+	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
+	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
 	if (quality > 1) {
 		patch_div_s /= quality;
 		patch_div_t /= quality;
@@ -333,7 +328,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	// int max_idx = spatch.count_u * spatch.count_v;
 
-	bool computeNormals = gstate.isLightingEnabled();
+	bool computeNormals = spatch.computeNormals;
 
 	float one_over_patch_div_s = 1.0f / (float)(patch_div_s);
 	float one_over_patch_div_t = 1.0f / (float)(patch_div_t);
@@ -446,9 +441,9 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	delete[] knot_v;
 
 	// Hacky normal generation through central difference.
-	if (gstate.isLightingEnabled() && !origNrm) {
+	if (spatch.computeNormals && !origNrm) {
 #ifdef _M_SSE
-		const __m128 facing = (gstate.patchfacing & 1) != 0 ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
+		const __m128 facing = spatch.patchFacing ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
 #endif
 
 		for (int v = 0; v < patch_div_t + 1; v++) {
@@ -480,7 +475,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
 
 				vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
-				if (gstate.patchfacing & 1) {
+				if (spatch.patchFacing) {
 					vertices[v * (patch_div_s + 1) + u].nrm *= -1.0f;
 				}
 #endif
@@ -492,7 +487,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 		}
 	}
 
-	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	GEPatchPrimType prim_type = spatch.primType;
 	// Tesselate.
 	for (int tile_v = 0; tile_v < patch_div_t; ++tile_v) {
 		for (int tile_u = 0; tile_u < patch_div_s; ++tile_u) {
@@ -566,7 +561,7 @@ static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tes
 	float u_base = patch.u_index / 3.0f;
 	float v_base = patch.v_index / 3.0f;
 
-	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	GEPatchPrimType prim_type = patch.primType;
 
 	for (int tile_v = 0; tile_v < 3; tile_v++) {
 		for (int tile_u = 0; tile_u < 3; tile_u++) {
@@ -593,10 +588,10 @@ static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tes
 
 			// Generate normal if lighting is enabled (otherwise there's no point).
 			// This is a really poor quality algorithm, we get facet normals.
-			if (gstate.isLightingEnabled()) {
+			if (patch.computeNormals) {
 				Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
 				norm.Normalize();
-				if (gstate.patchfacing & 1)
+				if (patch.patchFacing)
 					norm *= -1.0f;
 				v0.nrm = norm;
 				v1.nrm = norm;
@@ -641,7 +636,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	Vec3Packedf *derivU3 = derivU1 + (tess_u + 1) * 2;
 	Vec3Packedf *derivU4 = derivU1 + (tess_u + 1) * 3;
 
-	bool computeNormals = gstate.isLightingEnabled();
+	bool computeNormals = patch.computeNormals;
 
 	// Precompute the horizontal curves to we only have to evaluate the vertical ones.
 	for (int i = 0; i < tess_u + 1; i++) {
@@ -685,7 +680,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 				vert.nrm = Cross(derivU, derivV).Normalized();
-				if (gstate.patchfacing & 1)
+				if (patch.patchFacing)
 					vert.nrm *= -1.0f;
 			}
 			else {
@@ -713,7 +708,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	delete[] derivU1;
 	delete[] horiz;
 
-	GEPatchPrimType prim_type = gstate.getPatchPrimitiveType();
+	GEPatchPrimType prim_type = patch.primType;
 	// Combine the vertices into triangles.
 	for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
 		for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
@@ -745,15 +740,9 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 }
 
 
-u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType) {
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
-	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
-}
-
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
 
-void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertType) {
+void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
 
@@ -799,11 +788,16 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
+	patch.tess_u = tess_u;
+	patch.tess_v = tess_v;
 	patch.type_u = type_u;
 	patch.type_v = type_v;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
 	patch.points = points;
+	patch.computeNormals = computeNormals;
+	patch.primType = prim_type;
+	patch.patchFacing = patchFacing;
 
 	int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
 	TesselateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
@@ -832,7 +826,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 }
 
-void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertType) {
+void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
 	PROFILE_THIS_SCOPE("bezier");
 
 	DispatchFlush();
@@ -881,6 +875,9 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;
 			patch.index = patch_v * num_patches_u + patch_u;
+			patch.primType = prim_type;
+			patch.computeNormals = computeNormals;
+			patch.patchFacing = patchFacing;
 		}
 	}
 
@@ -892,8 +889,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// like the splines, so we subdivide across the whole "mega-patch".
 	if (num_patches_u == 0) num_patches_u = 1;
 	if (num_patches_v == 0) num_patches_v = 1;
-	int tess_u = gstate.getPatchDivisionU();
-	int tess_v = gstate.getPatchDivisionV();
 	if (tess_u < 4) tess_u = 4;
 	if (tess_v < 4) tess_v = 4;
 

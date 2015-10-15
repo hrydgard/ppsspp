@@ -21,6 +21,7 @@
 
 #include <d3d9.h>
 
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -28,6 +29,7 @@
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;
+struct UVScale;
 
 namespace DX9 {
 
@@ -52,7 +54,7 @@ enum {
 };
 
 // Avoiding the full include of TextureDecoder.h.
-#ifdef _M_X64
+#if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
 typedef u64 ReliableHashType;
 #else
 typedef u32 ReliableHashType;
@@ -245,6 +247,7 @@ private:
 
 	UVScale *uvScale;
 
+	bool fboTexNeedBind_;
 	bool fboTexBound_;
 };
 

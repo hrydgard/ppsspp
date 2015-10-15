@@ -19,38 +19,19 @@
 
 #include <cmath>
 
-#include "../Globals.h"
-#include "ge_constants.h"
+#include "Globals.h"
+#include "GPU/GPU.h"
+#include "GPU/ge_constants.h"
 #include "Common/Common.h"
 
 class PointerWrap;
 
-// PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
-// This is used for light positions, transform matrices, you name it.
-inline float getFloat24(unsigned int data)
-{
-	data <<= 8;
-	float f;
-	memcpy(&f, &data, 4);
-	return f;
-}
-
-// in case we ever want to generate PSP display lists...
-inline unsigned int toFloat24(float f) {
-	unsigned int i;
-	memcpy(&i, &f, 4);
-	return i >> 8;
-}
-
-struct GPUgstate
-{
+struct GPUgstate {
 	// Getting rid of this ugly union in favor of the accessor functions
 	// might be a good idea....
-	union
-	{
+	union {
 		u32 cmdmem[256];
-		struct
-		{
+		struct {
 			u32 nop,
 				vaddr,
 				iaddr,
@@ -108,12 +89,12 @@ struct GPUgstate
 				texmtxnum,    // 0x40
 				texmtxdata,   // 0x41
 
-				viewportx1,           // 0x42
-				viewporty1,           // 0x43
-				viewportz1,           // 0x44
-				viewportx2,           // 0x45
-				viewporty2,           // 0x46
-				viewportz2,           // 0x47
+				viewportxscale,           // 0x42
+				viewportyscale,           // 0x43
+				viewportzscale,           // 0x44
+				viewportxcenter,           // 0x45
+				viewportycenter,           // 0x46
+				viewportzcenter,           // 0x47
 				texscaleu,            // 0x48
 				texscalev,            // 0x49
 				texoffsetu,           // 0x4A
@@ -209,11 +190,13 @@ struct GPUgstate
 		};
 	};
 
-	float worldMatrix[12];
-	float viewMatrix[12];
-	float projMatrix[16];
-	float tgenMatrix[12];
-	float boneMatrix[12 * 8];  // Eight bone matrices.
+	// These are not directly mapped, instead these are loaded one-by-one through special commands.
+	// However, these are actual state, and can be read back.
+	float worldMatrix[12];  // 4x3
+	float viewMatrix[12];   // 4x3
+	float projMatrix[16];   // 4x4
+	float tgenMatrix[12];   // 4x3
+	float boneMatrix[12 * 8];  // Eight 4x3 bone matrices.
 
 	// We ignore the high bits of the framebuffer in fbwidth - even 0x08000000 renders to vRAM.
 	u32 getFrameBufRawAddress() const { return (fbptr & 0xFFFFFF); }
@@ -228,8 +211,10 @@ struct GPUgstate
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
 	bool isFogEnabled() const { return fogEnable & 1; }
-	
-	// Cull 
+	float getFogCoef1() const { return getFloat24(fog1); }
+	float getFogCoef2() const { return getFloat24(fog2); }
+
+	// Cull
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
 
@@ -238,7 +223,7 @@ struct GPUgstate
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
 	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0 : 0xFFFFFF) | ((clearmode&0x200) ? 0 : 0xFF000000); }
-	
+
 	// Blend
 	GEBlendSrcFactor getBlendFuncA() const { return (GEBlendSrcFactor)(blend & 0xF); }
 	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
@@ -249,7 +234,7 @@ struct GPUgstate
 
 	// AntiAlias
 	bool isAntiAliasEnabled() const { return antiAliasEnable & 1; }
-	
+
 	// Dither
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 
@@ -257,14 +242,14 @@ struct GPUgstate
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
 	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
 	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
-	
+
 	// Depth Test
 	bool isDepthTestEnabled() const { return zTestEnable & 1; }
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	GEComparison getDepthTestFunction() const { return static_cast<GEComparison>(ztestfunc & 0x7); }
 	u16 getDepthRangeMin() const { return minz & 0xFFFF; }
 	u16 getDepthRangeMax() const { return maxz & 0xFFFF; }
-	
+
 	// Stencil Test
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	GEComparison getStencilTestFunction() const { return static_cast<GEComparison>(stenciltest & 0x7); }
@@ -279,7 +264,7 @@ struct GPUgstate
 	GEComparison getAlphaTestFunction() const { return static_cast<GEComparison>(alphatest & 0x7); }
 	int getAlphaTestRef() const { return (alphatest >> 8) & 0xFF; }
 	int getAlphaTestMask() const { return (alphatest >> 16) & 0xFF; }
-	
+
 	// Color Test
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() const { return static_cast<GEComparison>(colortest & 0x3); }
@@ -335,6 +320,8 @@ struct GPUgstate
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
+	unsigned int getAmbientRGBA() const { return (ambientcolor&0xFFFFFF) | ((ambientalpha&0xFF)<<24); }
+	unsigned int getMaterialUpdate() const { return materialupdate&0xFFFFFF; }
 	unsigned int getMaterialAmbientR() const { return materialambient&0xFF; }
 	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
@@ -343,21 +330,28 @@ struct GPUgstate
 	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
 	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
 	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
+	unsigned int getMaterialDiffuse() const { return materialdiffuse & 0xffffff; }
 	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
 	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
 	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
+	unsigned int getMaterialEmissive() const { return materialemissive & 0xffffff; }
 	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
 	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
 	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
+	unsigned int getMaterialSpecular() const { return materialspecular & 0xffffff; }
+	float getMaterialSpecularCoef() const { return getFloat24(materialspecularcoef); }
 	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
 	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
 	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
+	unsigned int getLightAmbientColor(int chan) const { return lcolor[chan*3]&0xFFFFFF; }
 	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
 	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
 	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
+	unsigned int getDiffuseColor(int chan) const { return lcolor[1+chan*3]&0xFFFFFF; }
 	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
 	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
+	unsigned int getSpecularColor(int chan) const { return lcolor[2+chan*3]&0xFFFFFF; }
 
 	int getPatchDivisionU() const { return patchdivision & 0x7F; }
 	int getPatchDivisionV() const { return (patchdivision >> 8) & 0x7F; }
@@ -379,11 +373,17 @@ struct GPUgstate
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
-	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); }
-	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); }
+
+	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
+	float getViewportXScale() const { return getFloat24(viewportxscale); }
+	float getViewportYScale() const { return getFloat24(viewportyscale); }
+	float getViewportZScale() const { return getFloat24(viewportzscale); }
+	float getViewportXCenter() const { return getFloat24(viewportxcenter); }
+	float getViewportYCenter() const { return getFloat24(viewportycenter); }
+	float getViewportZCenter() const { return getFloat24(viewportzcenter); }
+
 	// Fixed 16 point.
 	int getOffsetX16() const { return offsetx & 0xFFFF; }
-	// Fixed 16 point.
 	int getOffsetY16() const { return offsety & 0xFFFF; }
 	float getOffsetX() const { return (float)getOffsetX16() / 16.0f; }
 	float getOffsetY() const { return (float)getOffsetY16() / 16.0f; }
@@ -392,7 +392,7 @@ struct GPUgstate
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	bool areNormalsReversed() const { return reversenormals & 1; }
 	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
-	
+
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
 
 	// Transfers
@@ -419,22 +419,17 @@ struct GPUgstate
 	void Restore(u32_le *ptr);
 };
 
-enum SkipDrawReasonFlags {
-	SKIPDRAW_SKIPFRAME = 1,
-	SKIPDRAW_NON_DISPLAYED_FB = 2,   // Skip drawing to FBO:s that have not been displayed.
-	SKIPDRAW_BAD_FB_TEXTURE = 4,
-	SKIPDRAW_WINDOW_MINIMIZED = 8, // Don't draw when the host window is minimized.
-};
-
 bool vertTypeIsSkinningEnabled(u32 vertType);
 
 inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
 inline int vertTypeGetTexCoordMask(u32 vertType) { return vertType & GE_VTYPE_TC_MASK; }
 
-
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
+//
+// Lots of this, however, is actual emulator state which must be saved when savestating.
+// vertexAddr, indexAddr, offsetAddr for example.
 
 struct UVScale {
 	float uScale, vScale;
@@ -447,11 +442,43 @@ enum TextureChangeReason {
 	TEXCHANGE_PARAMSONLY = 0x02,
 };
 
-struct GPUStateCache
-{
+#define FLAG_BIT(x) (1 << x)
+
+// Some of these are OpenGL-specific even though this file is neutral, unfortunately.
+// Might want to move this mechanism into the backend later.
+enum {
+	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
+	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
+	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
+	GPU_SUPPORTS_UNPACK_SUBIMAGE = FLAG_BIT(3),
+	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
+	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
+	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
+	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
+	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
+	GPU_SUPPORTS_FBO = FLAG_BIT(25),
+	GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT = FLAG_BIT(26),
+	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(27),
+	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(28),
+	GPU_IS_MOBILE = FLAG_BIT(29),
+	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
+	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
+};
+
+struct KnownVertexBounds {
+	u16 minU;
+	u16 minV;
+	u16 maxU;
+	u16 maxV;
+};
+
+struct GPUStateCache {
+	bool Supports(int flag) { return (featureFlags & flag) != 0; }
+
+	u32 featureFlags;
+
 	u32 vertexAddr;
 	u32 indexAddr;
-
 	u32 offsetAddr;
 
 	u8 textureChanged;
@@ -464,6 +491,7 @@ struct GPUStateCache
 
 	UVScale uv;
 	bool flipTexture;
+
 	bool bgraTexture;
 	bool needShaderTexClamp;
 	bool allowShaderBlend;
@@ -487,75 +515,18 @@ struct GPUStateCache
 	float vpWidthScale;
 	float vpHeightScale;
 
+	KnownVertexBounds vertBounds;
+
+	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
 	u32 curRTRenderWidth;
 	u32 curRTRenderHeight;
-	u32 cutRTOffsetX;
+	u32 curRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
 	void DoState(PointerWrap &p);
 };
-
-// TODO: Implement support for these.
-struct GPUStatistics {
-	void Reset() {
-		// Never add a vtable :)
-		memset(this, 0, sizeof(*this));
-	}
-	void ResetFrame() {
-		numDrawCalls = 0;
-		numCachedDrawCalls = 0;
-		numVertsSubmitted = 0;
-		numCachedVertsDrawn = 0;
-		numUncachedVertsDrawn = 0;
-		numTrackedVertexArrays = 0;
-		numTextureInvalidations = 0;
-		numTextureSwitches = 0;
-		numShaderSwitches = 0;
-		numFlushes = 0;
-		numTexturesDecoded = 0;
-		numAlphaTestedDraws = 0;
-		numNonAlphaTestedDraws = 0;
-		msProcessingDisplayLists = 0;
-		vertexGPUCycles = 0;
-		otherGPUCycles = 0;
-		memset(gpuCommandsAtCallLevel, 0, sizeof(gpuCommandsAtCallLevel));
-	}
-
-	// Per frame statistics
-	int numDrawCalls;
-	int numCachedDrawCalls;
-	int numFlushes;
-	int numVertsSubmitted;
-	int numCachedVertsDrawn;
-	int numUncachedVertsDrawn;
-	int numTrackedVertexArrays;
-	int numTextureInvalidations;
-	int numTextureSwitches;
-	int numShaderSwitches;
-	int numTexturesDecoded;
-	double msProcessingDisplayLists;
-	int vertexGPUCycles;
-	int otherGPUCycles;
-	int gpuCommandsAtCallLevel[4];
-
-	int numAlphaTestedDraws;
-	int numNonAlphaTestedDraws;
-
-	// Total statistics, updated by the GPU core in UpdateStats
-	int numVBlanks;
-	int numFlips;
-	int numTextures;
-	int numVertexShaders;
-	int numFragmentShaders;
-	int numShaders;
-	int numFBOs;
-};
-
-bool GPU_Init();
-void GPU_Shutdown();
-void GPU_Reinitialize();
 
 void InitGfxState();
 void ShutdownGfxState();
@@ -566,9 +537,6 @@ class GPUDebugInterface;
 
 extern GPUgstate gstate;
 extern GPUStateCache gstate_c;
-extern GPUInterface *gpu;
-extern GPUDebugInterface *gpuDebug;
-extern GPUStatistics gpuStats;
 
 inline u32 GPUStateCache::getRelativeAddress(u32 data) const {
 	u32 baseExtended = ((gstate.base & 0x000F0000) << 8) | data;

@@ -20,6 +20,7 @@
 #include <set>
 
 #include "base/functional.h"
+#include "Common/ColorConv.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 #include "Windows/GEDebugger/CtrlDisplayListView.h"
@@ -28,7 +29,7 @@
 #include "Windows/GEDebugger/TabVertices.h"
 #include "Windows/InputBox.h"
 #include "Windows/WindowsHost.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/main.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
@@ -58,7 +59,8 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(NULL), texWindow(NULL), textureLevel_(0) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(nullptr), texWindow(nullptr),
+	  textureLevel_(0), primaryBuffer_(nullptr), texBuffer_(nullptr) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
@@ -137,16 +139,44 @@ CGEDebugger::~CGEDebugger() {
 }
 
 void CGEDebugger::SetupPreviews() {
-	if (frameWindow == NULL) {
+	if (frameWindow == nullptr) {
 		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
 		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		frameWindow->SetHoverCallback([&] (int x, int y) {
+			PreviewFramebufHover(x, y);
+		});
 		frameWindow->Clear();
 	}
-	if (texWindow == NULL) {
+	if (texWindow == nullptr) {
 		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
 		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		texWindow->SetHoverCallback([&] (int x, int y) {
+			PreviewTextureHover(x, y);
+		});
 		texWindow->Clear();
 	}
+}
+
+void CGEDebugger::DescribeFramebufTab(const GPUgstate &state, wchar_t desc[256]) {
+	_assert_msg_(MASTER_LOG, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
+
+	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
+	case PRIMARY_FRAMEBUF:
+		_snwprintf(desc, 256, L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), state.FrameBufFormat());
+		break;
+
+	case PRIMARY_DEPTHBUF:
+		_snwprintf(desc, 256, L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
+		break;
+
+	case PRIMARY_STENCILBUF:
+		_snwprintf(desc, 256, L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight());
+		break;
+	}
+}
+
+void CGEDebugger::DescribeTexture(const GPUgstate &state, wchar_t desc[256]) {
+	_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
 }
 
 void CGEDebugger::UpdatePreviews() {
@@ -156,7 +186,6 @@ void CGEDebugger::UpdatePreviews() {
 	}
 
 	wchar_t desc[256];
-	const GPUDebugBuffer *primaryBuffer = NULL;
 	bool bufferResult = false;
 	GPUgstate state = {0};
 
@@ -164,45 +193,41 @@ void CGEDebugger::UpdatePreviews() {
 		state = gpuDebug->GetGState();
 	}
 
+	primaryBuffer_ = nullptr;
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 	case PRIMARY_FRAMEBUF:
-		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer);
-		if (bufferResult) {
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Color: 0x%08x (%dx%d) fmt %i", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), state.FrameBufFormat());
-		}
+		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer_);
 		break;
 
 	case PRIMARY_DEPTHBUF:
-		bufferResult = GPU_GetCurrentDepthbuffer(primaryBuffer);
-		if (bufferResult) {
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Depth: 0x%08x (%dx%d)", state.getDepthBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
-		}
+		bufferResult = GPU_GetCurrentDepthbuffer(primaryBuffer_);
 		break;
 
 	case PRIMARY_STENCILBUF:
-		bufferResult = GPU_GetCurrentStencilbuffer(primaryBuffer);
-		if (bufferResult) {
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Stencil: 0x%08x (%dx%d)", state.getFrameBufRawAddress(), primaryBuffer->GetStride(), primaryBuffer->GetHeight());
-		}
+		bufferResult = GPU_GetCurrentStencilbuffer(primaryBuffer_);
 		break;
 	}
 
-	if (bufferResult && primaryBuffer != NULL) {
-		auto fmt = SimpleGLWindow::Format(primaryBuffer->GetFormat());
-		frameWindow->Draw(primaryBuffer->GetData(), primaryBuffer->GetStride(), primaryBuffer->GetHeight(), primaryBuffer->GetFlipped(), fmt);
+	if (bufferResult && primaryBuffer_ != nullptr) {
+		auto fmt = SimpleGLWindow::Format(primaryBuffer_->GetFormat());
+		frameWindow->Draw(primaryBuffer_->GetData(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), primaryBuffer_->GetFlipped(), fmt);
+
+		DescribeFramebufTab(state, desc);
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
 	} else if (frameWindow != NULL) {
 		frameWindow->Clear();
+		primaryBuffer_ = nullptr;
+
 		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
 	}
 
-	const GPUDebugBuffer *bufferTex = NULL;
+	texBuffer_ = nullptr;
 	UpdateTextureLevel(textureLevel_);
-	bufferResult = GPU_GetCurrentTexture(bufferTex, textureLevel_);
+	bufferResult = GPU_GetCurrentTexture(texBuffer_, textureLevel_);
 
 	if (bufferResult) {
-		auto fmt = SimpleGLWindow::Format(bufferTex->GetFormat());
-		texWindow->Draw(bufferTex->GetData(), bufferTex->GetStride(), bufferTex->GetHeight(), bufferTex->GetFlipped(), fmt);
+		auto fmt = SimpleGLWindow::Format(texBuffer_->GetFormat());
+		texWindow->Draw(texBuffer_->GetData(), texBuffer_->GetStride(), texBuffer_->GetHeight(), texBuffer_->GetFlipped(), fmt);
 
 		if (gpuDebug != NULL) {
 			if (state.isTextureAlphaUsed()) {
@@ -210,7 +235,7 @@ void CGEDebugger::UpdatePreviews() {
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			}
-			_snwprintf(desc, ARRAY_SIZE(desc), L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+			DescribeTexture(state, desc);
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 
 			UpdateLastTexture(state.getTextureAddress(textureLevel_));
@@ -219,6 +244,8 @@ void CGEDebugger::UpdatePreviews() {
 		}
 	} else if (texWindow != NULL) {
 		texWindow->Clear();
+		texBuffer_ = nullptr;
+
 		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
 		} else {
@@ -246,6 +273,163 @@ void CGEDebugger::UpdatePreviews() {
 	vertices->Update();
 	matrices->Update();
 	lists->Update();
+}
+
+void CGEDebugger::PreviewFramebufHover(int x, int y) {
+	if (primaryBuffer_ == nullptr) {
+		return;
+	}
+
+	wchar_t desc[256] = {0};
+
+	if (!frameWindow->HasTex()) {
+		desc[0] = 0;
+	} else if (x < 0 || y < 0) {
+		// This means they left the area.
+		GPUgstate state = {0};
+		if (gpuDebug != nullptr) {
+			state = gpuDebug->GetGState();
+		}
+		DescribeFramebufTab(state, desc);
+	} else {
+		// Coordinates are relative to actual framebuffer size.
+		u32 pix = primaryBuffer_->GetRawPixel(x, y);
+		DescribePixel(pix, primaryBuffer_->GetFormat(), x, y, desc);
+	}
+
+	SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
+}
+
+void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]) {
+	switch (fmt) {
+	case GPU_DBG_FORMAT_565:
+	case GPU_DBG_FORMAT_565_REV:
+	case GPU_DBG_FORMAT_5551:
+	case GPU_DBG_FORMAT_5551_REV:
+	case GPU_DBG_FORMAT_5551_BGRA:
+	case GPU_DBG_FORMAT_4444:
+	case GPU_DBG_FORMAT_4444_REV:
+	case GPU_DBG_FORMAT_4444_BGRA:
+	case GPU_DBG_FORMAT_8888:
+	case GPU_DBG_FORMAT_8888_BGRA:
+		DescribePixelRGBA(pix, fmt, x, y, desc);
+		break;
+
+	case GPU_DBG_FORMAT_16BIT:
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 65535.0f));
+		break;
+
+	case GPU_DBG_FORMAT_8BIT:
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, pix, pix * (1.0f / 255.0f));
+		break;
+
+	case GPU_DBG_FORMAT_24BIT_8X:
+		// These are only ever going to be depth values, so let's also show scaled to 16 bit.
+		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), (pix & 0x00FFFFFF) * (65535.0f / 16777215.0f));
+		break;
+
+	case GPU_DBG_FORMAT_24X_8BIT:
+		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
+		break;
+
+	case GPU_DBG_FORMAT_FLOAT:
+		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, *(float *)&pix, *(float *)&pix * 65535.0f);
+		break;
+
+	default:
+		_snwprintf(desc, 256, L"Unexpected format");
+	}
+}
+
+void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]) {
+	u32 r = -1, g = -1, b = -1, a = -1;
+
+	switch (fmt) {
+	case GPU_DBG_FORMAT_565:
+		r = Convert5To8((pix >> 0) & 0x1F);
+		g = Convert6To8((pix >> 5) & 0x3F);
+		b = Convert5To8((pix >> 11) & 0x1F);
+	case GPU_DBG_FORMAT_565_REV:
+		b = Convert5To8((pix >> 0) & 0x1F);
+		g = Convert6To8((pix >> 5) & 0x3F);
+		r = Convert5To8((pix >> 11) & 0x1F);
+	case GPU_DBG_FORMAT_5551:
+		r = Convert5To8((pix >> 0) & 0x1F);
+		g = Convert5To8((pix >> 5) & 0x1F);
+		b = Convert5To8((pix >> 10) & 0x1F);
+		a = (pix >> 15) & 1 ? 255 : 0;
+	case GPU_DBG_FORMAT_5551_REV:
+		a = pix & 1 ? 255 : 0;
+		b = Convert5To8((pix >> 1) & 0x1F);
+		g = Convert5To8((pix >> 6) & 0x1F);
+		r = Convert5To8((pix >> 11) & 0x1F);
+	case GPU_DBG_FORMAT_5551_BGRA:
+		b = Convert5To8((pix >> 0) & 0x1F);
+		g = Convert5To8((pix >> 5) & 0x1F);
+		r = Convert5To8((pix >> 10) & 0x1F);
+		a = (pix >> 15) & 1 ? 255 : 0;
+		break;
+	case GPU_DBG_FORMAT_4444:
+		r = Convert4To8((pix >> 0) & 0x0F);
+		g = Convert4To8((pix >> 4) & 0x0F);
+		b = Convert4To8((pix >> 8) & 0x0F);
+		a = Convert4To8((pix >> 12) & 0x0F);
+		break;
+	case GPU_DBG_FORMAT_4444_REV:
+		a = Convert4To8((pix >> 0) & 0x0F);
+		b = Convert4To8((pix >> 4) & 0x0F);
+		g = Convert4To8((pix >> 8) & 0x0F);
+		r = Convert4To8((pix >> 12) & 0x0F);
+		break;
+	case GPU_DBG_FORMAT_4444_BGRA:
+		b = Convert4To8((pix >> 0) & 0x0F);
+		g = Convert4To8((pix >> 4) & 0x0F);
+		r = Convert4To8((pix >> 8) & 0x0F);
+		a = Convert4To8((pix >> 12) & 0x0F);
+		break;
+	case GPU_DBG_FORMAT_8888:
+		r = (pix >> 0) & 0xFF;
+		g = (pix >> 8) & 0xFF;
+		b = (pix >> 16) & 0xFF;
+		a = (pix >> 24) & 0xFF;
+		break;
+	case GPU_DBG_FORMAT_8888_BGRA:
+		b = (pix >> 0) & 0xFF;
+		g = (pix >> 8) & 0xFF;
+		r = (pix >> 16) & 0xFF;
+		a = (pix >> 24) & 0xFF;
+		break;
+
+	default:
+		_snwprintf(desc, 256, L"Unexpected format");
+		return;
+	}
+
+	_snwprintf(desc, 256, L"%d,%d: r=%d, g=%d, b=%d, a=%d", x, y, r, g, b, a);
+}
+
+void CGEDebugger::PreviewTextureHover(int x, int y) {
+	if (texBuffer_ == nullptr) {
+		return;
+	}
+
+	wchar_t desc[256] = {0};
+
+	if (!texWindow->HasTex()) {
+		desc[0] = 0;
+	} else if (x < 0 || y < 0) {
+		// This means they left the area.
+		GPUgstate state = {0};
+		if (gpuDebug != nullptr) {
+			state = gpuDebug->GetGState();
+		}
+		DescribeTexture(state, desc);
+	} else {
+		u32 pix = texBuffer_->GetRawPixel(x, y);
+		DescribePixel(pix, texBuffer_->GetFormat(), x, y, desc);
+	}
+
+	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 }
 
 void CGEDebugger::UpdateTextureLevel(int level) {

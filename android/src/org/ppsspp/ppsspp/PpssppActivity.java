@@ -1,48 +1,40 @@
 package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
-import android.app.UiModeManager;
-import android.content.res.Configuration;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
 
-import com.henrikrydgard.libnative.NativeActivity;
-import com.henrikrydgard.libnative.NativeApp;
-
 public class PpssppActivity extends NativeActivity {
+	private static final String TAG = "PpssppActivity";
+	// Key used by shortcut.
+	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
 	
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
+
 	static {
-		
-		if(Build.CPU_ABI.equals("armeabi")) {
+		if (Build.CPU_ABI.equals("armeabi")) {
 			m_hasUnsupportedABI = true;
 		} else {
 			try {
 				System.loadLibrary("ppsspp_jni");
 			} catch (UnsatisfiedLinkError e) {
+				Log.e(TAG, "LoadLibrary failed, UnsatifiedLinkError: " + e.toString());
 				m_hasNoNativeBinary = true;
 			}
 		}
 	}
 
-	// Key used by shortcut.
-	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
-	
-	public static final String TAG = "PpssppActivity";
-	
 	public PpssppActivity() {
 		super();
 	}
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		
-		if(m_hasUnsupportedABI || m_hasNoNativeBinary) {
-			
+		if (m_hasUnsupportedABI || m_hasNoNativeBinary) {
 			new Thread() {
 				@Override
 				public void run() {

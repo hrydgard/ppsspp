@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "base/functional.h"
 #include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
 #include "Globals.h"
@@ -82,6 +83,10 @@ struct SimpleGLWindow {
 		return h_;
 	}
 
+	bool HasTex() {
+		return tw_ > 0 && th_ > 0;
+	}
+
 	int TexWidth() {
 		return tw_;
 	}
@@ -91,6 +96,10 @@ struct SimpleGLWindow {
 	}
 
 	void GetContentSize(float &x, float &y, float &fw, float &fh);
+
+	void SetHoverCallback(std::function<void(int, int)> hoverCallback) {
+		hoverCallback_ = hoverCallback;
+	}
 
 	static void RegisterClass();
 protected:
@@ -102,6 +111,8 @@ protected:
 	bool DragStart(int mouseX, int mouseY);
 	bool DragContinue(int mouseX, int mouseY);
 	bool DragEnd(int mouseX, int mouseY);
+	bool Hover(int mouseX, int mouseY);
+	bool Leave();
 	bool ToggleZoom();
 	const u8 *Reformat(const u8 *data, Format fmt, u32 numPixels);
 
@@ -132,4 +143,6 @@ protected:
 	int offsetY_;
 	u32 *reformatBuf_;
 	u32 reformatBufSize_;
+
+	std::function<void(int, int)> hoverCallback_;
 };

@@ -94,6 +94,18 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 }
 
 #if defined(ARM64) || defined(DISASM_ALL)
+
+static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
+	if (MIPSComp::jit) {
+		std::string name;
+		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
+			truncate_cpy(buffer, bufsize, name.c_str());
+			return true;
+		}
+	}
+	return false;
+}
+
 std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 	std::vector<std::string> lines;
 
@@ -118,7 +130,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 				continue;
 			}
 		}
-		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false);
+		Arm64Dis((intptr_t)codePtr, inst, temp, sizeof(temp), false, Arm64SymbolCallback);
 		std::string buf = temp;
 		if (buf == "BKPT 1") {
 			bkpt_count++;
@@ -154,16 +166,17 @@ const char *ppsspp_resolver(struct ud*,
 		*offset = addr - (uint64_t)(&currentMIPS->v[0]);
 		return "mips.v";
 	}
-	// But these do.
-	if (MIPSComp::jit->IsInSpace((u8 *)(intptr_t)addr)) {
-		*offset = addr - (uint64_t)MIPSComp::jit->GetBasePtr();
-		return "jitcode";
-	}
-	if (MIPSComp::jit->Asm().IsInSpace((u8 *)(intptr_t)addr)) {
-		*offset = addr - (uint64_t)MIPSComp::jit->Asm().GetBasePtr();
-		return "dispatcher";
-	}
 
+	// But these do.
+
+	// UGLY HACK because the API is terrible
+	static char buf[128];
+	std::string str;
+	if (MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
+		*offset = 0;
+		truncate_cpy(buf, sizeof(buf), str.c_str());
+		return buf;
+	}
 	return NULL;
 }
 

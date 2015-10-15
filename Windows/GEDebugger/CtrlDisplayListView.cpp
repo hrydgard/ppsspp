@@ -4,6 +4,8 @@
 #include "Windows/Main.h"
 #include "Core/Config.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/GPUState.h"
+
 #include <algorithm>
 
 static const int numCPUs = 1;
@@ -36,7 +38,7 @@ void CtrlDisplayListView::registerClass()
 CtrlDisplayListView::CtrlDisplayListView(HWND _wnd)
 	: wnd(_wnd)
 {
-	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 	

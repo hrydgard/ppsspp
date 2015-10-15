@@ -19,9 +19,10 @@
 
 #include <set>
 #include <vector>
+
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPU.h"
 #include "GPU/ge_constants.h"
 
 enum {
@@ -90,6 +91,37 @@ struct VirtualFramebuffer {
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 };
 
+struct FramebufferHeuristicParams {
+	u32 fb_addr;
+	u32 fb_address;
+	int fb_stride;
+	u32 z_address;
+	int z_stride;
+	GEBufferFormat fmt;
+	bool isClearingDepth;
+	bool isWritingDepth;
+	bool isDrawing;
+	bool isModeThrough;
+	int viewportWidth;
+	int viewportHeight;
+	int regionWidth;
+	int regionHeight;
+	int scissorWidth;
+	int scissorHeight;
+};
+
+struct GPUgstate;
+extern GPUgstate gstate;
+
+void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GPUgstate &gstate);
+
+enum BindFramebufferColorFlags {
+	BINDFBCOLOR_SKIP_COPY = 0,
+	BINDFBCOLOR_MAY_COPY = 1,
+	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
+	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
+};
+
 class FramebufferManagerCommon {
 public:
 	FramebufferManagerCommon();
@@ -99,28 +131,33 @@ public:
 	void BeginFrame();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 
-	void DoSetRenderFrameBuffer();
-	void SetRenderFrameBuffer() {
+	VirtualFramebuffer *DoSetRenderFrameBuffer(const FramebufferHeuristicParams &params, u32 skipDrawReason);
+	VirtualFramebuffer *SetRenderFrameBuffer(bool framebufChanged, int skipDrawReason) {
 		// Inlining this part since it's so frequent.
-		if (!gstate_c.framebufChanged && currentRenderVfb_) {
+		if (!framebufChanged && currentRenderVfb_) {
 			currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 			currentRenderVfb_->dirtyAfterDisplay = true;
-			if (!gstate_c.skipDrawReason)
+			if (!skipDrawReason)
 				currentRenderVfb_->reallyDirtyAfterDisplay = true;
-			return;
+			return currentRenderVfb_;
+		} else {
+			// This is so that we will be able to drive DoSetRenderFramebuffer with inputs
+			// that come from elsewhere than gstate.
+			FramebufferHeuristicParams inputs;
+			GetFramebufferHeuristicInputs(&inputs, gstate);
+			return DoSetRenderFrameBuffer(inputs, skipDrawReason);
 		}
-		DoSetRenderFrameBuffer();
 	}
 	virtual void RebindFramebuffer() = 0;
 
-	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset = false);
+	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.
 	// In that case we hardly need to actually copy the bytes in VRAM, they will be wrong anyway (unless
 	// read framebuffers is on, in which case this should always return false).
-	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
-	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp);
+	bool NotifyBlockTransferBefore(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
+	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
@@ -166,14 +203,16 @@ public:
 			currentRenderVfb_->depthUpdated = true;
 		}
 	}
-	void SetColorUpdated() {
+	void SetColorUpdated(int skipDrawReason) {
 		if (currentRenderVfb_) {
-			SetColorUpdated(currentRenderVfb_);
+			SetColorUpdated(currentRenderVfb_, skipDrawReason);
 		}
 	}
 	void SetRenderSize(VirtualFramebuffer *vfb);
 
 protected:
+	void UpdateSize();
+
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer() = 0;
 	virtual void ClearDepthBuffer() = 0;
@@ -183,28 +222,30 @@ protected:
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) = 0;
 
-	void EstimateDrawingSize(int &drawing_width, int &drawing_height);
+	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
 	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	virtual void DestroyFramebuf(VirtualFramebuffer *vfb) = 0;
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false) = 0;
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) = 0;
-	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) = 0;
+	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) = 0;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) = 0;
+
+	void ShowScreenResolution();
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
 
-	void SetColorUpdated(VirtualFramebuffer *dstBuffer) {
+	void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;
 		dstBuffer->drawnFormat = dstBuffer->format;
-		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 
@@ -229,6 +270,12 @@ protected:
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 	bool hackForce04154000Download_;
+
+	// Sampled in BeginFrame for safety.
+	float renderWidth_;
+	float renderHeight_;
+	int pixelWidth_;
+	int pixelHeight_;
 
 	// Aggressively delete unused FBOs to save gpu memory.
 	enum {

@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "native/thread/thread.h"
-#include "native/base/mutex.h"
+#include "thread/thread.h"
+#include "base/mutex.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"
 
@@ -81,7 +81,7 @@ public:
 	void ExecuteIOAction();
 
 protected:
-	virtual bool UseAutoStatus() {
+	virtual bool UseAutoStatus() override {
 		return false;
 	}
 

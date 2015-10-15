@@ -126,7 +126,7 @@ else()
 	set(CoreLinkType STATIC)
 endif()
 
-include_directories(native)
+include_directories(ext/native)
 
 if(RPI)
 	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
@@ -374,6 +374,7 @@ add_library(Common STATIC
 	Common/StringUtils.h
 	Common/ThreadPools.cpp
 	Common/ThreadPools.h
+	Common/ThreadSafeList.h
 	Common/Timer.cpp
 	Common/Timer.h)
 include_directories(Common)
@@ -385,41 +386,46 @@ endif()
 
 if(NOT USING_GLES2)
 	include_directories(${OPENGL_INCLUDE_DIR})
-
-	add_definitions(-DGLEW_STATIC)
-	add_library(glew STATIC
-		native/ext/glew/GL/glew.h
-		native/ext/glew/GL/glxew.h
-		native/ext/glew/GL/wglew.h
-		native/ext/glew/glew.c)
-	target_link_libraries(glew ${OPENGL_LIBRARIES})
-	include_directories(native/ext/glew)
-	set(GLEW_LIBRARIES glew)
+	find_package(GLEW)
+	if(NOT GLEW_FOUND)
+		add_definitions(-DGLEW_STATIC)
+		add_library(glew STATIC
+			ext/native/ext/glew/GL/glew.h
+			ext/native/ext/glew/GL/glxew.h
+			ext/native/ext/glew/GL/wglew.h
+			ext/native/ext/glew/glew.c)
+		target_link_libraries(glew ${OPENGL_LIBRARIES})
+		include_directories(ext/native/ext/glew)
+		set(GLEW_LIBRARIES glew)
+	endif()
+else()
+	find_package(X11)
 endif()
 
-add_subdirectory(ext/snappy)
+find_package(Snappy)
+if(SNAPPY_FOUND)
+	add_definitions(-DSHARED_SNAPPY)
+else()
+	add_subdirectory(ext/snappy)
+endif()
+
 add_subdirectory(ext/udis86)
 
 add_library(vjson STATIC
-	native/ext/vjson/json.cpp
-	native/ext/vjson/json.h
-	native/ext/vjson/block_allocator.cpp
-	native/ext/vjson/block_allocator.h
+	ext/native/ext/vjson/json.cpp
+	ext/native/ext/vjson/json.h
+	ext/native/ext/vjson/block_allocator.cpp
+	ext/native/ext/vjson/block_allocator.h
 )
 
 add_library(rg_etc1 STATIC
-	native/ext/rg_etc1/rg_etc1.cpp
-	native/ext/rg_etc1/rg_etc1.h)
-include_directories(native/ext/rg_etc1)
-
-add_library(stb_vorbis STATIC
-	native/ext/stb_vorbis/stb_vorbis.c
-	native/ext/stb_vorbis/stb_vorbis.h)
-include_directories(native/ext/stb_vorbis)
+	ext/native/ext/rg_etc1/rg_etc1.cpp
+	ext/native/ext/rg_etc1/rg_etc1.h)
+include_directories(ext/native/ext/rg_etc1)
 
 if(USE_FFMPEG)
 	if(USE_SYSTEM_FFMPEG)
-		include(FindFFMPEG)
+		find_package(FFMPEG)
 	else()
 		set(FFMPEG_FOUND OFF)
 	endif()
@@ -538,29 +544,29 @@ endif(USE_FFMPEG)
 if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
 	message(STATUS "FFMPEG library locations:")
 	if(FFMPEG_FOUND)
-		message(STATUS "libavcodec location: ${FFMPEG_avcodec_LIBRARY}")
-		message(STATUS "libavformat location: ${FFMPEG_avformat_LIBRARY}")
-		message(STATUS "libavutil location: ${FFMPEG_avutil_LIBRARY}")
-		message(STATUS "libswresample location: ${FFMPEG_swresample_LIBRARY}")
-		message(STATUS "libswscale location: ${FFMPEG_swscale_LIBRARY}")
+		message(STATUS "  libavcodec location: ${FFMPEG_avcodec_LIBRARY}")
+		message(STATUS "  libavformat location: ${FFMPEG_avformat_LIBRARY}")
+		message(STATUS "  libavutil location: ${FFMPEG_avutil_LIBRARY}")
+		message(STATUS "  libswresample location: ${FFMPEG_swresample_LIBRARY}")
+		message(STATUS "  libswscale location: ${FFMPEG_swscale_LIBRARY}")
 	elseif(DEFINED PLATFORM_ARCH)
 		set(TEMP ${CMAKE_SOURCE_DIR}/ffmpeg/${PLATFORM_ARCH}/lib)
-		message(STATUS "libavcodec location: ${TEMP}/libavcodec.a")
-		message(STATUS "libavformat location: ${TEMP}/libavformat.a")
-		message(STATUS "libavutil location: ${TEMP}/libavutil.a")
-		message(STATUS "libswresample location: ${TEMP}/libswresample.a")
-		message(STATUS "libswscale location: ${TEMP}/libswscale.a")
+		message(STATUS "  libavcodec location: ${TEMP}/libavcodec.a")
+		message(STATUS "  libavformat location: ${TEMP}/libavformat.a")
+		message(STATUS "  libavutil location: ${TEMP}/libavutil.a")
+		message(STATUS "  libswresample location: ${TEMP}/libswresample.a")
+		message(STATUS "  libswscale location: ${TEMP}/libswscale.a")
 	else()
 		get_target_property(TEMP libavcodec IMPORTED_LOCATION)
-		message(STATUS "libavcodec location: ${TEMP}")
+		message(STATUS "  libavcodec location: ${TEMP}")
 		get_target_property(TEMP libavformat IMPORTED_LOCATION)
-		message(STATUS "libavformat location: ${TEMP}")
+		message(STATUS "  libavformat location: ${TEMP}")
 		get_target_property(TEMP libavutil IMPORTED_LOCATION)
-		message(STATUS "libavutil location: ${TEMP}")
+		message(STATUS "  libavutil location: ${TEMP}")
 		get_target_property(TEMP libswresample IMPORTED_LOCATION)
-		message(STATUS "libswresample location: ${TEMP}")
+		message(STATUS "  libswresample location: ${TEMP}")
 		get_target_property(TEMP libswscale IMPORTED_LOCATION)
-		message(STATUS "libswscale location: ${TEMP}")
+		message(STATUS "  libswscale location: ${TEMP}")
 	endif()
 else()
 	message(STATUS "ERROR: No FFMPEG library locations")
@@ -574,6 +580,7 @@ endif()
 find_package(ZLIB)
 if(ZLIB_FOUND)
 	include_directories(${ZLIB_INCLUDE_DIR})
+	add_definitions(-DSHARED_ZLIB)
 else()
 	add_library(zlib STATIC
 		ext/zlib/adler32.c
@@ -609,15 +616,17 @@ else()
 endif()
 
 add_library(cityhash STATIC
-	native/ext/cityhash/city.cpp
-	native/ext/cityhash/city.h
-	native/ext/cityhash/citycrc.h
+	ext/native/ext/cityhash/city.cpp
+	ext/native/ext/cityhash/city.h
+	ext/native/ext/cityhash/citycrc.h
 )
 include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	if(NOT SNAPPY_FOUND)
+		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
+	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -626,65 +635,70 @@ if (NOT MSVC)
 endif()
 
 
-add_library(libzip STATIC
-	native/ext/libzip/zip.h
-	native/ext/libzip/mkstemp.c
-	native/ext/libzip/zip_add.c
-	native/ext/libzip/zip_add_dir.c
-	native/ext/libzip/zip_close.c
-	native/ext/libzip/zip_delete.c
-	native/ext/libzip/zip_dirent.c
-	native/ext/libzip/zip_entry_free.c
-	native/ext/libzip/zip_entry_new.c
-	native/ext/libzip/zip_err_str.c
-	native/ext/libzip/zip_error.c
-	native/ext/libzip/zip_error_clear.c
-	native/ext/libzip/zip_error_get.c
-	native/ext/libzip/zip_error_get_sys_type.c
-	native/ext/libzip/zip_error_strerror.c
-	native/ext/libzip/zip_error_to_str.c
-	native/ext/libzip/zip_fclose.c
-	native/ext/libzip/zip_file_error_clear.c
-	native/ext/libzip/zip_file_error_get.c
-	native/ext/libzip/zip_file_get_offset.c
-	native/ext/libzip/zip_file_strerror.c
-	native/ext/libzip/zip_filerange_crc.c
-	native/ext/libzip/zip_fopen.c
-	native/ext/libzip/zip_fopen_index.c
-	native/ext/libzip/zip_fread.c
-	native/ext/libzip/zip_free.c
-	native/ext/libzip/zip_get_archive_comment.c
-	native/ext/libzip/zip_get_archive_flag.c
-	native/ext/libzip/zip_get_file_comment.c
-	native/ext/libzip/zip_get_name.c
-	native/ext/libzip/zip_get_num_files.c
-	native/ext/libzip/zip_memdup.c
-	native/ext/libzip/zip_name_locate.c
-	native/ext/libzip/zip_new.c
-	native/ext/libzip/zip_open.c
-	native/ext/libzip/zip_rename.c
-	native/ext/libzip/zip_replace.c
-	native/ext/libzip/zip_set_archive_comment.c
-	native/ext/libzip/zip_set_archive_flag.c
-	native/ext/libzip/zip_set_file_comment.c
-	native/ext/libzip/zip_set_name.c
-	native/ext/libzip/zip_source_buffer.c
-	native/ext/libzip/zip_source_file.c
-	native/ext/libzip/zip_source_filep.c
-	native/ext/libzip/zip_source_free.c
-	native/ext/libzip/zip_source_function.c
-	native/ext/libzip/zip_source_zip.c
-	native/ext/libzip/zip_stat.c
-	native/ext/libzip/zip_stat_index.c
-	native/ext/libzip/zip_stat_init.c
-	native/ext/libzip/zip_strerror.c
-	native/ext/libzip/zip_unchange.c
-	native/ext/libzip/zip_unchange_all.c
-	native/ext/libzip/zip_unchange_archive.c
-	native/ext/libzip/zip_unchange_data.c)
-target_link_libraries(libzip ${ZLIB_LIBRARY})
-include_directories(native/ext/libzip)
-set(LIBZIP_LIBRARY libzip)
+find_package(LibZip)
+if(LIBZIP_FOUND)
+	add_definitions(-DSHARED_LIBZIP)
+else()
+	add_library(libzip STATIC
+		ext/native/ext/libzip/zip.h
+		ext/native/ext/libzip/mkstemp.c
+		ext/native/ext/libzip/zip_add.c
+		ext/native/ext/libzip/zip_add_dir.c
+		ext/native/ext/libzip/zip_close.c
+		ext/native/ext/libzip/zip_delete.c
+		ext/native/ext/libzip/zip_dirent.c
+		ext/native/ext/libzip/zip_entry_free.c
+		ext/native/ext/libzip/zip_entry_new.c
+		ext/native/ext/libzip/zip_err_str.c
+		ext/native/ext/libzip/zip_error.c
+		ext/native/ext/libzip/zip_error_clear.c
+		ext/native/ext/libzip/zip_error_get.c
+		ext/native/ext/libzip/zip_error_get_sys_type.c
+		ext/native/ext/libzip/zip_error_strerror.c
+		ext/native/ext/libzip/zip_error_to_str.c
+		ext/native/ext/libzip/zip_fclose.c
+		ext/native/ext/libzip/zip_file_error_clear.c
+		ext/native/ext/libzip/zip_file_error_get.c
+		ext/native/ext/libzip/zip_file_get_offset.c
+		ext/native/ext/libzip/zip_file_strerror.c
+		ext/native/ext/libzip/zip_filerange_crc.c
+		ext/native/ext/libzip/zip_fopen.c
+		ext/native/ext/libzip/zip_fopen_index.c
+		ext/native/ext/libzip/zip_fread.c
+		ext/native/ext/libzip/zip_free.c
+		ext/native/ext/libzip/zip_get_archive_comment.c
+		ext/native/ext/libzip/zip_get_archive_flag.c
+		ext/native/ext/libzip/zip_get_file_comment.c
+		ext/native/ext/libzip/zip_get_name.c
+		ext/native/ext/libzip/zip_get_num_files.c
+		ext/native/ext/libzip/zip_memdup.c
+		ext/native/ext/libzip/zip_name_locate.c
+		ext/native/ext/libzip/zip_new.c
+		ext/native/ext/libzip/zip_open.c
+		ext/native/ext/libzip/zip_rename.c
+		ext/native/ext/libzip/zip_replace.c
+		ext/native/ext/libzip/zip_set_archive_comment.c
+		ext/native/ext/libzip/zip_set_archive_flag.c
+		ext/native/ext/libzip/zip_set_file_comment.c
+		ext/native/ext/libzip/zip_set_name.c
+		ext/native/ext/libzip/zip_source_buffer.c
+		ext/native/ext/libzip/zip_source_file.c
+		ext/native/ext/libzip/zip_source_filep.c
+		ext/native/ext/libzip/zip_source_free.c
+		ext/native/ext/libzip/zip_source_function.c
+		ext/native/ext/libzip/zip_source_zip.c
+		ext/native/ext/libzip/zip_stat.c
+		ext/native/ext/libzip/zip_stat_index.c
+		ext/native/ext/libzip/zip_stat_init.c
+		ext/native/ext/libzip/zip_strerror.c
+		ext/native/ext/libzip/zip_unchange.c
+		ext/native/ext/libzip/zip_unchange_all.c
+		ext/native/ext/libzip/zip_unchange_archive.c
+		ext/native/ext/libzip/zip_unchange_data.c)
+	target_link_libraries(libzip)
+	include_directories(ext/native/ext/libzip)
+	set(LIBZIP_LIBRARY libzip)
+endif()
 
 # FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
 find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
@@ -695,35 +709,35 @@ if (PNG_FOUND)
 	include_directories(${PNG_PNG_INCLUDE_DIR})
 else()
 	if(ARM)
-		file(GLOB PNG_ARM_INCLUDES native/ext/libpng17/arm/*)
+		file(GLOB PNG_ARM_INCLUDES ext/native/ext/libpng17/arm/*)
 	endif()
 	add_library(png17 STATIC
-		native/ext/libpng17/pngconf.h
-		native/ext/libpng17/pngdebug.h
-		native/ext/libpng17/png.c
-		native/ext/libpng17/png.h
-		native/ext/libpng17/pngerror.c
-		native/ext/libpng17/pngget.c
-		native/ext/libpng17/pnginfo.h
-		native/ext/libpng17/pnglibconf.h
-		native/ext/libpng17/pngmem.c
-		native/ext/libpng17/pngpread.c
-		native/ext/libpng17/pngpriv.h
-		native/ext/libpng17/pngread.c
-		native/ext/libpng17/pngrio.c
-		native/ext/libpng17/pngrtran.c
-		native/ext/libpng17/pngrutil.c
-		native/ext/libpng17/pngset.c
-		native/ext/libpng17/pngstruct.h
-		native/ext/libpng17/pngtest.c
-		native/ext/libpng17/pngtrans.c
-		native/ext/libpng17/pngwio.c
-		native/ext/libpng17/pngwrite.c
-		native/ext/libpng17/pngwtran.c
-		native/ext/libpng17/pngwutil.c
+		ext/native/ext/libpng17/pngconf.h
+		ext/native/ext/libpng17/pngdebug.h
+		ext/native/ext/libpng17/png.c
+		ext/native/ext/libpng17/png.h
+		ext/native/ext/libpng17/pngerror.c
+		ext/native/ext/libpng17/pngget.c
+		ext/native/ext/libpng17/pnginfo.h
+		ext/native/ext/libpng17/pnglibconf.h
+		ext/native/ext/libpng17/pngmem.c
+		ext/native/ext/libpng17/pngpread.c
+		ext/native/ext/libpng17/pngpriv.h
+		ext/native/ext/libpng17/pngread.c
+		ext/native/ext/libpng17/pngrio.c
+		ext/native/ext/libpng17/pngrtran.c
+		ext/native/ext/libpng17/pngrutil.c
+		ext/native/ext/libpng17/pngset.c
+		ext/native/ext/libpng17/pngstruct.h
+		ext/native/ext/libpng17/pngtest.c
+		ext/native/ext/libpng17/pngtrans.c
+		ext/native/ext/libpng17/pngwio.c
+		ext/native/ext/libpng17/pngwrite.c
+		ext/native/ext/libpng17/pngwtran.c
+		ext/native/ext/libpng17/pngwutil.c
 		${PNG_ARM_INCLUDES} )
 	set(PNG_LIBRARY png17)
-	include_directories(native/ext)
+	include_directories(ext/native/ext)
 endif()
 
 set(nativeExtra)
@@ -738,24 +752,24 @@ if(ARMV7)
 		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 	endif()
 	set(nativeExtra ${nativeExtra}
-    native/math/fast/fast_matrix_neon.S)
+		ext/native/math/fast/fast_matrix_neon.S)
 endif()
 if(X86 AND NOT MIPS)
 	set(nativeExtra ${nativeExtra}
-    native/math/fast/fast_matrix_sse.c)
+		ext/native/math/fast/fast_matrix_sse.c)
 endif()
 
 
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
-		native/base/NativeApp.h
-		native/android/app-android.cpp
-		native/android/native_audio.cpp
-		native/android/native_audio.h)
+		ext/native/base/NativeApp.h
+		ext/native/android/app-android.cpp
+		ext/native/android/native_audio.cpp
+		ext/native/android/native_audio.h)
 
 	add_library(native_audio SHARED
-		native/android/native-audio-so.cpp
-		native/android/native-audio-so.h)
+		ext/native/android/native-audio-so.cpp
+		ext/native/android/native-audio-so.h)
 	target_link_libraries(native_audio OpenSLES log)
 	# No target
 elseif(IOS)
@@ -774,6 +788,10 @@ elseif(IOS)
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
+	
+	if(NOT ICONV_LIBRARY)
+		set(nativeExtraLibs ${nativeExtraLibs} iconv)
+	endif()
 
 	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
@@ -784,8 +802,8 @@ elseif(USING_QT_UI)
 	message(FATAL_ERROR "Cmake does not yet support Qt. Please use qmake instead.")
 	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
 	include(${QT_USE_FILE})
-	qt4_wrap_cpp(nativeQtHeader native/base/QtMain.h)
-	set(nativeExtra ${nativeExtra} native/base/QtMain.cpp ${nativeQtHeader})
+	qt4_wrap_cpp(nativeQtHeader ext/native/base/QtMain.h)
+	set(nativeExtra ${nativeExtra} ext/native/base/QtMain.cpp ${nativeQtHeader})
 	if(NOT MOBILE_DEVICE)
 		qt4_wrap_cpp(nativeQtHeader Qt/mainwindow.h)
 		set(nativeExtra ${nativeExtra} Qt/mainwindow.cpp)
@@ -797,7 +815,7 @@ elseif(USING_QT_UI)
 	endif()
 elseif(BLACKBERRY)
 	unset(CMAKE_DL_LIBS)
-	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
+	set(nativeExtra ${nativeExtra} ext/native/base/BlackberryMain.cpp ext/native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL2_FOUND)
@@ -808,7 +826,7 @@ elseif(SDL2_FOUND)
 	set(nativeExtra ${nativeExtra}
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
-		native/base/PCMain.cpp)
+		ext/native/base/PCMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} ${SDL2_LIBRARY})
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
@@ -855,174 +873,141 @@ endif()
 
 add_library(native STATIC
 	${nativeExtra}
-	native/base/backtrace.cpp
-	native/base/backtrace.h
-	native/audio/mixer.cpp
-	native/audio/mixer.h
-	native/audio/wav_read.cpp
-	native/audio/wav_read.h
-	native/base/basictypes.h
-	native/base/buffer.cpp
-	native/base/buffer.h
-	native/base/color.h
-	native/base/colorutil.cpp
-	native/base/colorutil.h
-	native/base/display.cpp
-	native/base/display.h
-	native/base/error_context.cpp
-	native/base/error_context.h
-	native/base/fastlist.h
-	native/base/fastlist_test.cpp
-	native/base/functional.h
-	native/base/linked_ptr.h
-	native/base/logging.h
-	native/base/mutex.h
-	native/base/scoped_ptr.h
-	native/base/stats.h
-	native/base/stringutil.cpp
-	native/base/stringutil.h
-	native/base/timeutil.cpp
-	native/base/timeutil.h
-	native/data/compression.cpp
-	native/data/compression.h
-	native/ext/vjson/json.cpp
-	native/ext/vjson/json.h
-	native/ext/vjson/block_allocator.cpp
-	native/ext/vjson/block_allocator.h
-	native/file/chunk_file.cpp
-	native/file/chunk_file.h
-	native/file/dialog.cpp
-	native/file/dialog.h
-	native/file/easy_file.cpp
-	native/file/easy_file.h
-	native/file/fd_util.cpp
-	native/file/fd_util.h
-	native/file/file_util.cpp
-	native/file/file_util.h
-	native/file/ini_file.cpp
-	native/file/ini_file.h
-	native/file/path.cpp
-	native/file/path.h
-	native/file/vfs.h
-	native/file/zip_read.cpp
-	native/file/zip_read.h
-	native/gfx/gl_common.h
-	native/gfx/gl_debug_log.cpp
-	native/gfx/gl_debug_log.h
-	native/gfx/gl_lost_manager.cpp
-	native/gfx/gl_lost_manager.h
-	native/gfx/texture.cpp
-	native/gfx/texture.h
-	native/gfx/texture_atlas.cpp
-	native/gfx/texture_atlas.h
-#	native/gfx/texture_dx11.cpp
-	native/gfx/texture_gen.cpp
-	native/gfx/texture_gen.h
-	native/gfx_es2/draw_buffer.cpp
-	native/gfx_es2/draw_buffer.h
-	native/gfx_es2/draw_text.cpp
-	native/gfx_es2/draw_text.h
-	native/gfx_es2/fbo.cpp
-	native/gfx_es2/fbo.h
-	native/gfx_es2/gl_state.cpp
-	native/gfx_es2/gl_state.h
-	native/gfx_es2/gpu_features.cpp
-	native/gfx_es2/gpu_features.h
-	native/gfx_es2/glsl_program.cpp
-	native/gfx_es2/glsl_program.h
-	native/gfx_es2/vertex_format.cpp
-	native/gfx_es2/vertex_format.h
-	native/gfx_es2/gl3stub.c
-	native/gfx_es2/gl3stub.h
-	native/i18n/i18n.cpp
-	native/i18n/i18n.h
-	native/image/png_load.cpp
-	native/image/png_load.h
-	native/image/zim_load.cpp
-	native/image/zim_load.h
-	native/image/zim_save.cpp
-	native/image/zim_save.h
-	native/input/gesture_detector.cpp
-	native/input/gesture_detector.h
-	native/input/keycodes.h
-	native/input/input_state.h
-	native/input/input_state.cpp
-	native/math/fast/fast_math.c
-	native/math/fast/fast_matrix.c
-	native/math/curves.cpp
-	native/math/curves.h
-	native/math/expression_parser.cpp
-	native/math/expression_parser.h
-	native/math/lin/aabb.cpp
-	native/math/lin/aabb.h
-	native/math/lin/matrix4x4.cpp
-	native/math/lin/matrix4x4.h
-	native/math/lin/plane.cpp
-	native/math/lin/plane.h
-	native/math/lin/quat.cpp
-	native/math/lin/quat.h
-	native/math/lin/ray.h
-	native/math/lin/vec3.cpp
-	native/math/lin/vec3.h
-	native/math/math_util.cpp
-	native/math/math_util.h
-	native/net/http_client.cpp
-	native/net/http_client.h
-	native/net/resolve.cpp
-	native/net/resolve.h
-	native/net/url.cpp
-	native/net/url.h
-	native/profiler/profiler.cpp
-	native/profiler/profiler.h
-	native/thin3d/thin3d.cpp
-	native/thin3d/thin3d.h
-	native/thin3d/thin3d_gl.cpp
-	native/thread/prioritizedworkqueue.cpp
-	native/thread/prioritizedworkqueue.h
-	native/thread/threadutil.cpp
-	native/thread/threadutil.h
-	native/thread/threadpool.cpp
-	native/thread/threadpool.h
-	native/ui/screen.cpp
-	native/ui/screen.h
-	native/ui/ui.cpp
-	native/ui/ui.h
-	native/ui/ui_context.cpp
-	native/ui/ui_context.h
-	native/ui/ui_screen.cpp
-	native/ui/ui_screen.h
-	native/ui/view.cpp
-	native/ui/view.h
-	native/ui/viewgroup.cpp
-	native/ui/viewgroup.h
-	native/ui/virtual_input.cpp
-	native/ui/virtual_input.h
-	native/util/bits/bits.cpp
-	native/util/bits/bits.h
-	native/util/bits/hamming.h
-	native/util/bits/varint.cpp
-	native/util/bits/varint.h
-	native/util/hash/hash.cpp
-	native/util/hash/hash.h
-	native/util/random/perlin.cpp
-	native/util/random/perlin.h
-	native/util/random/rng.h
-	native/util/text/utf8.h
-	native/util/text/utf8.cpp
-	native/util/text/parsers.h
-	native/util/text/parsers.cpp
-	native/util/const_map.h
-	native/ext/jpge/jpgd.cpp
-	native/ext/jpge/jpgd.h
-	native/ext/jpge/jpge.cpp
-	native/ext/jpge/jpge.h)
-include_directories(native)
+	ext/native/base/backtrace.cpp
+	ext/native/base/backtrace.h
+	ext/native/base/basictypes.h
+	ext/native/base/buffer.cpp
+	ext/native/base/buffer.h
+	ext/native/base/colorutil.cpp
+	ext/native/base/colorutil.h
+	ext/native/base/display.cpp
+	ext/native/base/display.h
+	ext/native/base/functional.h
+	ext/native/base/linked_ptr.h
+	ext/native/base/logging.h
+	ext/native/base/mutex.h
+	ext/native/base/stringutil.cpp
+	ext/native/base/stringutil.h
+	ext/native/base/timeutil.cpp
+	ext/native/base/timeutil.h
+	ext/native/data/compression.cpp
+	ext/native/data/compression.h
+	ext/native/ext/vjson/json.cpp
+	ext/native/ext/vjson/json.h
+	ext/native/ext/vjson/block_allocator.cpp
+	ext/native/ext/vjson/block_allocator.h
+	ext/native/file/chunk_file.cpp
+	ext/native/file/chunk_file.h
+	ext/native/file/fd_util.cpp
+	ext/native/file/fd_util.h
+	ext/native/file/file_util.cpp
+	ext/native/file/file_util.h
+	ext/native/file/ini_file.cpp
+	ext/native/file/ini_file.h
+	ext/native/file/path.cpp
+	ext/native/file/path.h
+	ext/native/file/vfs.h
+	ext/native/file/zip_read.cpp
+	ext/native/file/zip_read.h
+	ext/native/gfx/gl_common.h
+	ext/native/gfx/gl_debug_log.cpp
+	ext/native/gfx/gl_debug_log.h
+	ext/native/gfx/gl_lost_manager.cpp
+	ext/native/gfx/gl_lost_manager.h
+	ext/native/gfx/texture_atlas.cpp
+	ext/native/gfx/texture_atlas.h
+	ext/native/gfx_es2/draw_buffer.cpp
+	ext/native/gfx_es2/draw_buffer.h
+	ext/native/gfx_es2/draw_text.cpp
+	ext/native/gfx_es2/draw_text.h
+	ext/native/gfx_es2/gpu_features.cpp
+	ext/native/gfx_es2/gpu_features.h
+	ext/native/gfx_es2/glsl_program.cpp
+	ext/native/gfx_es2/glsl_program.h
+	ext/native/gfx_es2/gl3stub.c
+	ext/native/gfx_es2/gl3stub.h
+	ext/native/i18n/i18n.cpp
+	ext/native/i18n/i18n.h
+	ext/native/image/png_load.cpp
+	ext/native/image/png_load.h
+	ext/native/image/zim_load.cpp
+	ext/native/image/zim_load.h
+	ext/native/image/zim_save.cpp
+	ext/native/image/zim_save.h
+	ext/native/input/gesture_detector.cpp
+	ext/native/input/gesture_detector.h
+	ext/native/input/keycodes.h
+	ext/native/input/input_state.h
+	ext/native/input/input_state.cpp
+	ext/native/math/fast/fast_math.c
+	ext/native/math/fast/fast_matrix.c
+	ext/native/math/curves.cpp
+	ext/native/math/curves.h
+	ext/native/math/expression_parser.cpp
+	ext/native/math/expression_parser.h
+	ext/native/math/lin/matrix4x4.cpp
+	ext/native/math/lin/matrix4x4.h
+	ext/native/math/lin/plane.cpp
+	ext/native/math/lin/plane.h
+	ext/native/math/lin/quat.cpp
+	ext/native/math/lin/quat.h
+	ext/native/math/lin/ray.h
+	ext/native/math/lin/vec3.cpp
+	ext/native/math/lin/vec3.h
+	ext/native/math/math_util.cpp
+	ext/native/math/math_util.h
+	ext/native/net/http_server.cpp
+	ext/native/net/http_server.h
+	ext/native/net/http_client.cpp
+	ext/native/net/http_client.h
+	ext/native/net/resolve.cpp
+	ext/native/net/resolve.h
+	ext/native/net/url.cpp
+	ext/native/net/url.h
+	ext/native/profiler/profiler.cpp
+	ext/native/profiler/profiler.h
+	ext/native/thin3d/thin3d.cpp
+	ext/native/thin3d/thin3d.h
+	ext/native/thin3d/thin3d_gl.cpp
+	ext/native/thread/prioritizedworkqueue.cpp
+	ext/native/thread/prioritizedworkqueue.h
+	ext/native/thread/threadutil.cpp
+	ext/native/thread/threadutil.h
+	ext/native/thread/threadpool.cpp
+	ext/native/thread/threadpool.h
+	ext/native/ui/screen.cpp
+	ext/native/ui/screen.h
+	ext/native/ui/ui.cpp
+	ext/native/ui/ui.h
+	ext/native/ui/ui_context.cpp
+	ext/native/ui/ui_context.h
+	ext/native/ui/ui_screen.cpp
+	ext/native/ui/ui_screen.h
+	ext/native/ui/view.cpp
+	ext/native/ui/view.h
+	ext/native/ui/viewgroup.cpp
+	ext/native/ui/viewgroup.h
+	ext/native/ui/virtual_input.cpp
+	ext/native/ui/virtual_input.h
+	ext/native/util/hash/hash.cpp
+	ext/native/util/hash/hash.h
+	ext/native/util/random/rng.h
+	ext/native/util/text/utf8.h
+	ext/native/util/text/utf8.cpp
+	ext/native/util/text/parsers.h
+	ext/native/util/text/parsers.cpp
+	ext/native/util/const_map.h
+	ext/native/ext/jpge/jpgd.cpp
+	ext/native/ext/jpge/jpgd.h
+	ext/native/ext/jpge/jpge.cpp
+	ext/native/ext/jpge/jpge.h)
+include_directories(ext/native)
 
 if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson stb_vorbis snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
@@ -1070,7 +1055,6 @@ set(CoreExtraLibs)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM/ArmAsm.cpp
-		Core/MIPS/ARM/ArmAsm.h
 		Core/MIPS/ARM/ArmCompALU.cpp
 		Core/MIPS/ARM/ArmCompBranch.cpp
 		Core/MIPS/ARM/ArmCompFPU.cpp
@@ -1090,7 +1074,6 @@ if(ARM)
 elseif(ARM64)
   set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM64/Arm64Asm.cpp
-		Core/MIPS/ARM64/Arm64Asm.h
 		Core/MIPS/ARM64/Arm64CompALU.cpp
 		Core/MIPS/ARM64/Arm64CompBranch.cpp
 		Core/MIPS/ARM64/Arm64CompFPU.cpp
@@ -1108,7 +1091,6 @@ elseif(ARM64)
 elseif(X86)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/x86/Asm.cpp
-		Core/MIPS/x86/Asm.h
 		Core/MIPS/x86/CompALU.cpp
 		Core/MIPS/x86/CompBranch.cpp
 		Core/MIPS/x86/CompFPU.cpp
@@ -1151,6 +1133,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Config.h
 	Core/Core.cpp
 	Core/Core.h
+	Core/Compatibility.cpp
+	Core/Compatibility.h
 	Core/CoreParameter.h
 	Core/CoreTiming.cpp
 	Core/CoreTiming.h
@@ -1218,6 +1202,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
 	Core/HLE/KernelWaitHelpers.h
+	Core/HLE/ThreadQueueList.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAdler.cpp
@@ -1362,6 +1347,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Host.h
 	Core/Loaders.cpp
 	Core/Loaders.h
+	Core/FileLoaders/CachingFileLoader.cpp
+	Core/FileLoaders/CachingFileLoader.h
+	Core/FileLoaders/DiskCachingFileLoader.cpp
+	Core/FileLoaders/DiskCachingFileLoader.h
+	Core/FileLoaders/HTTPFileLoader.cpp
+	Core/FileLoaders/HTTPFileLoader.h
+	Core/FileLoaders/LocalFileLoader.cpp
+	Core/FileLoaders/LocalFileLoader.h
+	Core/FileLoaders/RetryingFileLoader.cpp
+	Core/FileLoaders/RetryingFileLoader.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
 	Core/MIPS/JitCommon/NativeJit.h
@@ -1444,7 +1439,9 @@ add_library(GPU OBJECT
 	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferCommon.cpp
 	GPU/Common/FramebufferCommon.h
+	GPU/Common/GPUDebugInterface.cpp
 	GPU/Common/GPUDebugInterface.h
+	GPU/Common/GPUStateUtils.h
 	GPU/Common/DrawEngineCommon.cpp
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/SplineCommon.cpp
@@ -1473,8 +1470,12 @@ add_library(GPU OBJECT
 	GPU/Debugger/Stepping.h
 	GPU/GLES/DepalettizeShader.cpp
 	GPU/GLES/DepalettizeShader.h
+	GPU/GLES/FBO.cpp
+	GPU/GLES/FBO.h
 	GPU/GLES/GLES_GPU.cpp
 	GPU/GLES/GLES_GPU.h
+	GPU/GLES/GLStateCache.cpp
+	GPU/GLES/GLStateCache.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/FragmentTestCache.cpp
@@ -1497,6 +1498,8 @@ add_library(GPU OBJECT
 	GPU/GPUInterface.h
 	GPU/GeDisasm.cpp
 	GPU/GeDisasm.h
+	GPU/GPU.cpp
+	GPU/GPU.h
 	GPU/GPUCommon.cpp
 	GPU/GPUCommon.h
 	GPU/GPUState.cpp
@@ -1596,6 +1599,7 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/shaders
 	assets/ppge_atlas.zim
+	assets/compat.ini
 	assets/langregion.ini
 	assets/unknown.png)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
@@ -1619,6 +1623,7 @@ if(UNITTEST)
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestX64Emitter.cpp
+		unittest/TestVertexJit.cpp
 		unittest/JitHarness.cpp
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
@@ -1671,7 +1676,11 @@ if(IOS)
 	add_dependencies(PPSSPP ${CoreLibName} GPU Common native)
 
 	file(GLOB IOSAssets ios/assets/*.png)
+	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
+	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
 	file(INSTALL ${IOSAssets} DESTINATION assets)
+	file(GLOB IOSAssets ios/assets/Default-568h@*.png)
+	file(INSTALL ${IOSAssets} DESTINATION .)
 	if (IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION assets)
 	endif()
@@ -1681,7 +1690,7 @@ if(IOS)
 	)
 	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets | tar -x -C '${APP_DIR_NAME}'
+		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets *.png | tar -x -C '${APP_DIR_NAME}'
 	)
 	# Force Xcode to relink the binary.
 	add_custom_command(TARGET Core PRE_BUILD
@@ -1692,6 +1701,7 @@ if(IOS)
 		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
         XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+        XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 	)
 endif()
 

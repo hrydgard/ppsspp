@@ -45,5 +45,10 @@ namespace MIPSComp {
 		continueBranches = false;
 		continueJumps = false;
 		continueMaxInstructions = 300;
+
+		useStaticAlloc = false;
+#ifdef ARM64
+		useStaticAlloc = true;
+#endif
 	}
 }

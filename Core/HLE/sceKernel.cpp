@@ -425,6 +425,8 @@ u32 sceKernelIcacheInvalidateAll()
 #ifdef LOG_CACHE
 	NOTICE_LOG(CPU, "Icache invalidated - should clear JIT someday");
 #endif
+	// Note that this doesn't actually fully invalidate all with such a large range.
+	currentMIPS->InvalidateICache(0, 0x3FFFFFFF);
 	return 0;
 }
 
@@ -435,6 +437,8 @@ u32 sceKernelIcacheClearAll()
 	NOTICE_LOG(CPU, "Icache cleared - should clear JIT someday");
 #endif
 	DEBUG_LOG(CPU, "Icache cleared - should clear JIT someday");
+	// Note that this doesn't actually fully invalidate all with such a large range.
+	currentMIPS->InvalidateICache(0, 0x3FFFFFFF);
 	return 0;
 }
 

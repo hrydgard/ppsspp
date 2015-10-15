@@ -57,6 +57,8 @@ enum {
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
 	DIRTY_TEXCLAMP = (1 << 19),
 
+	DIRTY_DEPTHRANGE = (1 << 20),
+
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
 	DIRTY_TEXMATRIX = (1 << 23),
@@ -143,6 +145,7 @@ private:
 	void VSSetFloat(int creg, float value);
 	void VSSetFloatArray(int creg, const float *value, int count);
 	void VSSetFloat24Uniform3(int creg, const u32 data[3]);
+	void VSSetFloatUniform4(int creg, float data[4]);
 
 	void Clear();
 

@@ -18,9 +18,9 @@
 #include <set>
 #include <algorithm>
 
+#include "profiler/profiler.h"
+
 #include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gl_state.h"
-#include "gfx_es2/fbo.h"
 
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
@@ -39,28 +39,14 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
+#include "GPU/GLES/GLStateCache.h"
+#include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/GLES/ShaderManager.h"
 
 #include "UI/OnScreenDisplay.h"
-
-#if defined(USING_GLES2)
-#ifndef GL_READ_FRAMEBUFFER
-#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
-#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
-#endif
-#ifndef GL_RGBA8
-#define GL_RGBA8 GL_RGBA
-#endif
-#ifndef GL_DEPTH_COMPONENT24
-#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
-#ifndef GL_DEPTH24_STENCIL8_OES
-#define GL_DEPTH24_STENCIL8_OES 0x88F0
-#endif
-#endif
 
 extern int g_iNumVideos;
 
@@ -147,7 +133,7 @@ void FramebufferManager::SetNumExtraFBOs(int num) {
 	extraFBOs_.clear();
 	for (int i = 0; i < num; i++) {
 		// No depth/stencil for post processing
-		FBO *fbo = fbo_create(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight, 1, false, FBO_8888);
+		FBO *fbo = fbo_create(renderWidth_, renderHeight_, 1, false, FBO_8888);
 		extraFBOs_.push_back(fbo);
 
 		// The new FBO is still bound after creation, but let's bind it anyway.
@@ -221,13 +207,13 @@ void FramebufferManager::CompileDraw2DProgram() {
 				glsl_bind(postShaderProgram_);
 				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
-				float u_delta = 1.0f / PSP_CoreParameter().renderWidth;
-				float v_delta = 1.0f / PSP_CoreParameter().renderHeight;
+				float u_delta = 1.0f / renderWidth_;
+				float v_delta = 1.0f / renderHeight_;
 				float u_pixel_delta = u_delta;
 				float v_pixel_delta = v_delta;
 				if (postShaderAtOutputResolution_) {
 					float x, y, w, h;
-					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, ROTATION_LOCKED_HORIZONTAL);
+					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 					u_pixel_delta = 1.0f / w;
 					v_pixel_delta = 1.0f / h;
 				}
@@ -245,7 +231,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 				usePostShader_ = true;
 			}
 		} else {
-			postShaderProgram_ = 0;
+			postShaderProgram_ = nullptr;
 			usePostShader_ = false;
 		}
 
@@ -256,38 +242,35 @@ void FramebufferManager::CompileDraw2DProgram() {
 void FramebufferManager::DestroyDraw2DProgram() {
 	if (draw2dprogram_) {
 		glsl_destroy(draw2dprogram_);
-		draw2dprogram_ = 0;
+		draw2dprogram_ = nullptr;
 	}
 	if (plainColorProgram_) {
 		glsl_destroy(plainColorProgram_);
-		plainColorProgram_ = 0;
+		plainColorProgram_ = nullptr;
 	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
-		postShaderProgram_ = 0;
+		postShaderProgram_ = nullptr;
 	}
 }
 
 FramebufferManager::FramebufferManager() :
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(0),
-	draw2dprogram_(0),
-	postShaderProgram_(0),
-	stencilUploadProgram_(0),
+	convBuf_(nullptr),
+	draw2dprogram_(nullptr),
+	postShaderProgram_(nullptr),
+	stencilUploadProgram_(nullptr),
 	plainColorLoc_(-1),
 	timeLoc_(-1),
-	textureCache_(0),
-	shaderManager_(0),
+	textureCache_(nullptr),
+	shaderManager_(nullptr),
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	resized_(false),
-	gameUsesSequentialCopies_(false)
-#ifndef USING_GLES2
-	,
-	pixelBufObj_(0),
+	gameUsesSequentialCopies_(false),
+	pixelBufObj_(nullptr),
 	currentPBO_(0)
-#endif
 {
 }
 
@@ -310,9 +293,7 @@ FramebufferManager::~FramebufferManager() {
 		fbo_destroy(it->second.fbo);
 	}
 
-#ifndef USING_GLES2
 	delete [] pixelBufObj_;
-#endif
 	delete [] convBuf_;
 }
 
@@ -408,7 +389,7 @@ void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY,
 
 void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == NEAREST ? GL_NEAREST : GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	DisableState();
 
@@ -420,30 +401,30 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f);
 		}
 
 		// Right Eye Image
 		glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f);
 		}
 	} else {
 		// Fullscreen Image
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_, uvRotation);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, NULL, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, NULL, uvRotation);
 		}
 	}
 }
@@ -518,20 +499,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	}
 
 	if (texture) {
-		// We know the texture, we can do a DrawTexture shortcut on nvidia.
-#if defined(ANDROID)
-		// Don't remember why I disabled this - no win?
-		if (false && gl_extensions.NV_draw_texture && !program) {
-			// Fast path for Tegra. TODO: Make this path work on desktop nvidia, seems GLEW doesn't have a clue.
-			// Actually, on Desktop we should just use glBlitFramebuffer - although we take a texture here
-			// so that's a little gnarly, will have to modify all callers.
-			glDrawTextureNV(texture, 0,
-				x, y, w, h, 0.0f,
-				u0, v1, u1, v0);
-			return;
-		}
-#endif
-
+		// Previously had NVDrawTexture fallback here but wasn't worth it.
 		glBindTexture(GL_TEXTURE_2D, texture);
 	}
 
@@ -701,12 +669,12 @@ void FramebufferManager::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb)
 	ClearBuffer();
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
 
-void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb) {
+void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 	}
@@ -737,19 +705,24 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 	}
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
-#ifdef USING_GLES2
-	// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-	// to it. This broke stuff before, so now it only clears on the first use of an
-	// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-	// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-	if (vfb->last_frame_render != gpuStats.numFlips) {
-		ClearBuffer();
+	if (gl_extensions.IsGLES) {
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (vfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
 	}
-#endif
 
 	// Copy depth pixel value from the read framebuffer to the draw framebuffer
 	if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-		BlitFramebufferDepth(prevVfb, vfb);
+		if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+			// If depth wasn't updated, then we're at least "two degrees" away from the data.
+			// This is an optimization: it probably doesn't need to be copied in this case.
+		} else {
+			BlitFramebufferDepth(prevVfb, vfb);
+		}
 	}
 	if (vfb->drawnFormat != vfb->format) {
 		// TODO: Might ultimately combine this with the resize step in DoSetRenderFrameBuffer().
@@ -757,7 +730,7 @@ void FramebufferManager::NotifyRenderFramebufferSwitched(VirtualFramebuffer *pre
 	}
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
@@ -771,7 +744,7 @@ void FramebufferManager::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb,
 	}
 
 	// ugly...
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJTHROUGHMATRIX);
 	}
 }
@@ -779,8 +752,8 @@ void FramebufferManager::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb,
 void FramebufferManager::SetLineWidth() {
 #ifndef USING_GLES2
 	if (g_Config.iInternalResolution == 0) {
-		glLineWidth(std::max(1, (int)(PSP_CoreParameter().renderWidth / 480)));
-		glPointSize(std::max(1.0f, (float)(PSP_CoreParameter().renderWidth / 480.f)));
+		glLineWidth(std::max(1, (int)(renderWidth_ / 480)));
+		glPointSize(std::max(1.0f, (float)(renderWidth_ / 480.f)));
 	} else {
 		glLineWidth(g_Config.iInternalResolution);
 		glPointSize((float)g_Config.iInternalResolution);
@@ -819,44 +792,29 @@ void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBuff
 }
 
 void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (!src->fbo || !dst->fbo || !useBufferedRendering_) {
-		return;
-	}
-
-	// If depth wasn't updated, then we're at least "two degrees" away from the data.
-	// This is an optimization: it probably doesn't need to be copied in this case.
-	if (!src->depthUpdated) {
-		return;
-	}
-
 	if (src->z_address == dst->z_address &&
 		src->z_stride != 0 && dst->z_stride != 0 &&
 		src->renderWidth == dst->renderWidth &&
 		src->renderHeight == dst->renderHeight) {
 
-#ifndef USING_GLES2
-		if (gl_extensions.FBO_ARB) {
-			bool useNV = false;
-#else
-		if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-			bool useNV = !gl_extensions.GLES3;
-#endif
+		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
+			// Only use NV if ARB isn't supported.
+			bool useNV = !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
-			// Let's only do this if not clearing.
-			if (!gstate.isModeClear() || !gstate.isClearModeDepthMask()) {
-				fbo_bind_for_read(src->fbo);
-				glDisable(GL_SCISSOR_TEST);
+			// Let's only do this if not clearing depth.
+			fbo_bind_for_read(src->fbo);
+			glDisable(GL_SCISSOR_TEST);
 
+			if (useNV) {
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-				if (useNV) {
-					glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				} else 
+				glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 #endif // defined(USING_GLES2) && defined(ANDROID)
-					glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-				// If we set dst->depthUpdated here, our optimization above would be pointless.
-
-				glstate.scissorTest.restore();
+			} else {
+				glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
+			// If we set dst->depthUpdated here, our optimization above would be pointless.
+
+			glstate.scissorTest.restore();
 		}
 	}
 }
@@ -880,7 +838,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	return fbo;
 }
 
-void FramebufferManager::BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, bool skipCopy) {
+void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
 	}
@@ -898,18 +856,39 @@ void FramebufferManager::BindFramebufferColor(int stage, VirtualFramebuffer *fra
 
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
+	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
 	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 		skipCopy = true;
 	}
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
-			BlitFramebuffer(&copyInfo, 0, 0, framebuffer, 0, 0, framebuffer->drawnWidth, framebuffer->drawnHeight, 0, false);
 
-			RebindFramebuffer();
+			int x = 0;
+			int y = 0;
+			int w = framebuffer->drawnWidth;
+			int h = framebuffer->drawnHeight;
+
+			// If max is not > min, we probably could not detect it.  Skip.
+			// See the vertex decoder, where this is updated.
+			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+				x = gstate_c.vertBounds.minU;
+				y = gstate_c.vertBounds.minV;
+				w = gstate_c.vertBounds.maxU - x;
+				h = gstate_c.vertBounds.maxV - y;
+
+				// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
+				if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
+					x += gstate_c.curTextureXOffset;
+					y += gstate_c.curTextureYOffset;
+				}
+			}
+
+			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);
+
 			fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
 			fbo_bind_color_as_texture(framebuffer->fbo, 0);
@@ -927,13 +906,13 @@ struct CardboardSettings * FramebufferManager::GetCardboardSettings(struct Cardb
 	if (cardboardSettings) {
 		// Calculate Cardboard Settings
 		float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-		float cardboardScreenWidth = PSP_CoreParameter().pixelWidth / 2.0f * cardboardScreenScale;
-		float cardboardScreenHeight = PSP_CoreParameter().pixelHeight / 2.0f * cardboardScreenScale;
-		float cardboardMaxXShift = (PSP_CoreParameter().pixelWidth / 2.0f - cardboardScreenWidth) / 2.0f;
+		float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
+		float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+		float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
 		float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
 		float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-		float cardboardRightEyeX = PSP_CoreParameter().pixelWidth / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-		float cardboardMaxYShift = PSP_CoreParameter().pixelHeight / 2.0f - cardboardScreenHeight / 2.0f;
+		float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+		float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
 		float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 		float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
@@ -951,7 +930,7 @@ struct CardboardSettings * FramebufferManager::GetCardboardSettings(struct Cardb
 
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
-	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 	currentRenderVfb_ = 0;
 
 	u32 offsetX = 0;
@@ -1037,12 +1016,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 	displayFramebuf_ = vfb;
 
-	if (resized_) {
-		ClearBuffer();
-		DestroyDraw2DProgram();
-		SetLineWidth();
-	}
-
 	if (vfb->fbo) {
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
@@ -1053,7 +1026,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		// Output coordinates
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 
@@ -1066,15 +1039,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1097,15 +1070,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, NULL, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1117,15 +1090,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
 			} else {
 				// Fullscreen Image
-				glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
+				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 			}
 		}
 
@@ -1133,26 +1106,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-inline bool FramebufferManager::ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const {
-#ifndef USING_GLES2
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
-	// We might get here if hackForce04154000Download_ is hit.
-	// Some cards or drivers seem to always dither when downloading a framebuffer to 16-bit.
-	// This causes glitches in games that expect the exact values.
-	// It has not been experienced on NVIDIA cards, so those are left using the GPU (which is faster.)
-	if (g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-		if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA || gl_extensions.ver[0] < 3) {
-			useCPU = true;
-		}
-	}
-	return useCPU;
-#else
-	return true;
-#endif
-}
-
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-
+	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
 	if (sync) {
 		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
@@ -1217,7 +1172,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 					nvfb->colorDepth = FBO_8888;
 					break;
 			}
-			if (ShouldDownloadUsingCPU(vfb)) {
+			if (gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
 				nvfb->colorDepth = vfb->colorDepth;
 			}
 
@@ -1286,7 +1241,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
-		if (gl_extensions.PBO_ARB && gl_extensions.OES_texture_npot) {
+		if (gl_extensions.ARB_pixel_buffer_object && gl_extensions.OES_texture_npot) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
@@ -1310,20 +1265,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	fbo_bind_as_render_target(dst->fbo);
 	glDisable(GL_SCISSOR_TEST);
 
-	bool useBlit = false;
-	bool useNV = false;
-
-#ifndef USING_GLES2
-	if (gl_extensions.FBO_ARB) {
-		useNV = false;
-		useBlit = true;
-	}
-#else
-	if (gl_extensions.GLES3 || gl_extensions.NV_framebuffer_blit) {
-		useNV = !gl_extensions.GLES3;
-		useBlit = true;
-	}
-#endif
+	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
+	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
 
 	float srcXFactor = useBlit ? (float)src->renderWidth / (float)src->bufferWidth : 1.0f;
 	float srcYFactor = useBlit ? (float)src->renderHeight / (float)src->bufferHeight : 1.0f;
@@ -1502,7 +1445,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
 	const u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
-	const bool useCPU = ShouldDownloadUsingCPU(vfb);
+	const bool useCPU = gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD);
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
@@ -1546,7 +1489,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if (vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
-		bool reverseOrder = (gl_extensions.gpuVendor == GPU_VENDOR_NVIDIA) || (gl_extensions.gpuVendor == GPU_VENDOR_AMD);
+		bool reverseOrder = gstate_c.Supports(GPU_PREFER_REVERSE_COLOR_ORDER);
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
@@ -1591,15 +1534,7 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		}
 
 		GLenum fbStatus;
-#ifndef USING_GLES2
-		if (!gl_extensions.FBO_ARB) {
-			fbStatus = glCheckFramebufferStatusEXT(GL_READ_FRAMEBUFFER);
-		} else {
-			fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-		}
-#else
-		fbStatus = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
-#endif
+		fbStatus = (GLenum)fbo_check_framebuffer_status(vfb->fbo);
 
 		if (fbStatus != GL_FRAMEBUFFER_COMPLETE) {
 			ERROR_LOG(SCEGE, "Incomplete source framebuffer, aborting read");
@@ -1712,17 +1647,49 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	fbo_unbind_read();
 }
 
+#ifdef _WIN32
+void ShowScreenResolution();
+#endif
+
 void FramebufferManager::EndFrame() {
 	if (resized_) {
+		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs();
-		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-		int zoom = g_Config.iInternalResolution;
-		if (zoom == 0) // auto mode
-			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 
-		PSP_CoreParameter().renderWidth = 480 * zoom;
-		PSP_CoreParameter().renderHeight = 272 * zoom;
+		// Probably not necessary
+		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+
+		// Actually, auto mode should be more granular...
+		// Round up to a zoom factor for the render size.
+		int zoom = g_Config.iInternalResolution;
+		if (zoom == 0) { // auto mode
+											// Use the longest dimension
+			if (!g_Config.IsPortrait()) {
+				zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+			} else {
+				zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
+			}
+		}
+		if (zoom <= 1)
+			zoom = 1;
+
+		if (g_Config.IsPortrait()) {
+			PSP_CoreParameter().renderWidth = 272 * zoom;
+			PSP_CoreParameter().renderHeight = 480 * zoom;
+		} else {
+			PSP_CoreParameter().renderWidth = 480 * zoom;
+			PSP_CoreParameter().renderHeight = 272 * zoom;
+		}
+
+		UpdateSize();
+
 		resized_ = false;
+#ifdef _WIN32
+		ShowScreenResolution();
+#endif
+		ClearBuffer();
+		DestroyDraw2DProgram();
+		SetLineWidth();
 	}
 
 #ifndef USING_GLES2
@@ -1855,7 +1822,11 @@ void FramebufferManager::DestroyAllFBOs() {
 void FramebufferManager::FlushBeforeCopy() {
 	// Flush anything not yet drawn before blitting, downloading, or uploading.
 	// This might be a stalled list, or unflushed before a block transfer, etc.
-	SetRenderFrameBuffer();
+
+	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+	// all the irrelevant state checking it'll use to decide what to do. Should
+	// do something more focused here.
+	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	transformDraw_->Flush();
 }
 
@@ -1863,10 +1834,7 @@ void FramebufferManager::Resized() {
 	resized_ = true;
 }
 
-bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
-
+bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
 		vfb = GetVFBAt(fb_address);
@@ -1874,37 +1842,34 @@ bool FramebufferManager::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
 
 	if (!vfb) {
 		// If there's no vfb and we're drawing there, must be memory?
-		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, gstate.FrameBufFormat());
+		buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, format);
 		return true;
 	}
 
 	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-#ifndef USING_GLES2
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-#endif
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
-
 	return true;
 }
 
 bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	fbo_unbind_read();
-	buffer.Allocate(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GPU_DBG_FORMAT_888_RGB, true);
+
+	int pw = PSP_CoreParameter().pixelWidth;
+	int ph = PSP_CoreParameter().pixelHeight;
+
+	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 
-bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
-
-	u32 z_address = gstate.getDepthBufRawAddress();
-	int z_stride = gstate.DepthBufStride();
-
+bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
 		vfb = GetVFBAt(fb_address);
@@ -1916,24 +1881,18 @@ bool FramebufferManager::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 		return true;
 	}
 
-#ifndef USING_GLES2
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_16BIT, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
-	glReadBuffer(GL_DEPTH_ATTACHMENT);
+	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+		glReadBuffer(GL_DEPTH_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, buffer.GetData());
+	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
 	return true;
-#else
-	return false;
-#endif
 }
 
-bool FramebufferManager::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
-	int fb_stride = gstate.FrameBufStride();
-
+bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
 		vfb = GetVFBAt(fb_address);

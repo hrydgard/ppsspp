@@ -10,7 +10,7 @@
 #include "../Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/resource.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
@@ -116,15 +116,6 @@ unsigned int WINAPI TheThread(void *)
 	host = oldHost;
 
 	host->UpdateUI();
-	
-	//Check Colour depth
-	HDC dc = GetDC(NULL);
-	u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
-	ReleaseDC(NULL, dc);
-	if (colour_depth != 32){
-		MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
-		ExitProcess(1);
-	}
 
 	std::string error_string;
 	if (!host->InitGraphics(&error_string)) {

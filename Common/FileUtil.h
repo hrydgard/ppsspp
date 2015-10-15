@@ -33,8 +33,7 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 }
 #endif
 
-namespace File
-{
+namespace File {
 
 // FileSystem tree node/ 
 struct FSTEntry
@@ -44,6 +43,15 @@ struct FSTEntry
 	std::string physicalName;		// name on disk
 	std::string virtualName;		// name in FST names table
 	std::vector<FSTEntry> children;
+};
+
+struct FileDetails {
+	bool isDirectory;
+	u64 size;
+	uint64_t atime;
+	uint64_t mtime;
+	uint64_t ctime;
+	uint32_t access;  // st_mode & 0x1ff
 };
 
 // Mostly to handle utf-8 filenames better on Windows.
@@ -56,17 +64,23 @@ bool Exists(const std::string &filename);
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename);
 
+// Returns file attributes.
+bool GetFileDetails(const std::string &filename, FileDetails *details);
+
+// Extracts the directory from a path.
+std::string GetDir(const std::string &path);
+
+// Extracts the filename from a path.
+std::string GetFilename(std::string path);
+
 // Returns struct with modification date of file
 bool GetModifTime(const std::string &filename, tm &return_time);
 
 // Returns the size of filename (64bit)
-u64 GetSize(const std::string &filename);
-
-// Overloaded GetSize, accepts file descriptor
-u64 GetSize(const int fd);
+u64 GetFileSize(const std::string &filename);
 
 // Overloaded GetSize, accepts FILE*
-u64 GetSize(FILE *f);
+u64 GetFileSize(FILE *f);
 
 // Returns true if successful, or path already exists.
 bool CreateDir(const std::string &filename);
@@ -107,8 +121,7 @@ const std::string &GetExeDirectory();
 // simple wrapper for cstdlib file functions to
 // hopefully will make error checking easier
 // and make forgetting an fclose() harder
-class IOFile : NonCopyable
-{
+class IOFile : NonCopyable {
 public:
 	IOFile();
 	IOFile(std::FILE* file);

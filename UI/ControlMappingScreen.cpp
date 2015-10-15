@@ -203,19 +203,21 @@ void ControlMappingScreen::CreateViews() {
 	mappers_.clear();
 
 	I18NCategory *km = GetI18NCategory("KeyMapping");
-	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
 	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
 	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
-	if (KeyMap::GetSeenPads().size()) {
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
+	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
 		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
 	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	AddStandardBack(leftColumn);
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->SetScrollToTop(false);
@@ -356,13 +358,13 @@ class JoystickHistoryView : public UI::InertView {
 public:
 	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-		  xAxis_(xAxis), xDevice_(xDevice),
-			yAxis_(yAxis), yDevice_(yDevice), 
+			xAxis_(xAxis), xDevice_(xDevice),
+			yAxis_(yAxis), yDevice_(yDevice),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
 	void Update(const InputState &input_state) override;
-	void Axis(const AxisInput &input) {
+	void Axis(const AxisInput &input) override{
 		if (input.axisId == xAxis_) {
 			curX_ = input.value;
 		} else if (input.axisId == yAxis_) {
@@ -379,8 +381,8 @@ private:
 	};
 
 	int xAxis_;
-	int yAxis_;
 	int xDevice_;
+	int yAxis_;
 	int yDevice_;
 
 	float curX_;
@@ -422,14 +424,36 @@ void JoystickHistoryView::Update(const InputState &input_state) {
 }
 
 bool AnalogTestScreen::key(const KeyInput &key) {
+	bool retval = true;
+	if (UI::IsEscapeKey(key)) {
+		screenManager()->finishDialog(this, DR_BACK);
+		return true;
+	}
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
 		(key.flags & KEY_UP) ? "UP" : "",
 		(key.flags & KEY_DOWN) ? "DOWN" : "",
 		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
 	lastKeyEvent_->SetText(buf);
-	return true;
+	return retval;
+}
+
+bool AnalogTestScreen::axis(const AxisInput &axis) {
+	UIScreen::axis(axis);
+	// This is mainly to catch axis events that would otherwise get translated
+	// into arrow keys, since seeing keyboard arrow key events appear when using
+	// a controller would be confusing for the user.
+	char buf[512];
+	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
+		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
+			axis.axisId, axis.value, axis.deviceId);
+		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
+		lastKeyEvent_->SetText(buf);
+		return true;
+	}
+	return false;
 }
 
 void AnalogTestScreen::CreateViews() {
@@ -456,7 +480,9 @@ void AnalogTestScreen::CreateViews() {
 
 	root_->Add(theTwo);
 
-	lastKeyEvent_ = root_->Add(new TextView("", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
+	lastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

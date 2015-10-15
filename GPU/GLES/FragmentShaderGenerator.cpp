@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #if !defined(USING_GLES2)
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
+// We do not yet enable OpenGL 3 on Apple, so we need
+// special treatment in the shader generator. However, the GL version check
+// should be enough? TODO
 #if defined(__APPLE__)
 #define FORCE_OPENGL_2_0
 #endif
@@ -29,6 +30,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -38,86 +40,6 @@
 #define WRITE p+=sprintf
 
 // #define DEBUG_SHADER
-
-// Dest factors where it's safe to eliminate the alpha test under certain conditions
-const bool safeDestFactors[16] = {
-	true, // GE_DSTBLEND_SRCCOLOR,
-	true, // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	true, // GE_DSTBLEND_INVSRCALPHA,
-	true, // GE_DSTBLEND_DSTALPHA,
-	true, // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true, //GE_DSTBLEND_FIXB,
-};
-
-bool IsAlphaTestTriviallyTrue() {
-	switch (gstate.getAlphaTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_GEQUAL:
-		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
-			return true;  // If alpha is full, it doesn't matter what the ref value is.
-		return gstate.getAlphaTestRef() == 0;
-
-	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
-	// Speeds up Lumines by a LOT on PowerVR.
-	case GE_COMP_NOTEQUAL:
-		if (gstate.getAlphaTestRef() == 255) {
-			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
-			// complicated code to discard the draw or whatnot.
-			return false;
-		}
-		// Fallthrough on purpose
-
-	case GE_COMP_GREATER:
-		{
-#if 0
-			// Easy way to check the values in the debugger without ruining && early-out
-			bool doTextureAlpha = gstate.isTextureAlphaUsed();
-			bool stencilTest = gstate.isStencilTestEnabled();
-			bool depthTest = gstate.isDepthTestEnabled();
-			GEComparison depthTestFunc = gstate.getDepthTestFunction();
-			int alphaRef = gstate.getAlphaTestRef();
-			int blendA = gstate.getBlendFuncA();
-			bool blendEnabled = gstate.isAlphaBlendEnabled();
-			int blendB = gstate.getBlendFuncA();
-#endif
-			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
-					(!gstate.isStencilTestEnabled() &&
-					!gstate.isDepthTestEnabled() &&
-					gstate.getAlphaTestRef() == 0 &&
-					gstate.isAlphaBlendEnabled() &&
-					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-					safeDestFactors[(int)gstate.getBlendFuncB()]));
-		}
-
-	case GE_COMP_LEQUAL:
-		return gstate.getAlphaTestRef() == 255;
-
-	case GE_COMP_EQUAL:
-	case GE_COMP_LESS:
-		return false;
-
-	default:
-		return false;
-	}
-}
-
-bool IsAlphaTestAgainstZero() {
-	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
-}
-
-bool IsColorTestAgainstZero() {
-	return gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF;
-}
 
 const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DSTCOLOR,
@@ -156,7 +78,7 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 			return REPLACE_ALPHA_YES;
 		} else {
-			if (gl_extensions.ARB_blend_func_extended) {
+			if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 				return REPLACE_ALPHA_DUALSOURCE;
 			} else {
 				return REPLACE_ALPHA_NO;
@@ -201,6 +123,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	case GE_FORMAT_INVALID:
 		switch (gstate.getStencilOpZPass()) {
 		case GE_STENCILOP_REPLACE:
+			// TODO: Could detect zero here and force ZERO - less uniform updates?
 			return STENCIL_VALUE_UNIFORM;
 
 		case GE_STENCILOP_ZERO:
@@ -224,47 +147,31 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
-bool IsColorTestTriviallyTrue() {
-	switch (gstate.getColorTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_EQUAL:
-	case GE_COMP_NOTEQUAL:
-		return false;
-	default:
-		return false;
-	}
-}
-
-ReplaceBlendType ReplaceBlendWithShader() {
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
 
-	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
-	GEBlendDstFactor funcB = gstate.getBlendFuncB();
 	GEBlendMode eq = gstate.getBlendEq();
-
 	// Let's get the non-factor modes out of the way first.
 	switch (eq) {
 	case GE_BLENDMODE_ABSDIFF:
-		return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 	case GE_BLENDMODE_MIN:
 	case GE_BLENDMODE_MAX:
-		if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3) {
+		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
 			return REPLACE_BLEND_STANDARD;
 		} else {
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 		}
 
 	default:
 		break;
 	}
+
+	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+	GEBlendDstFactor funcB = gstate.getBlendFuncB();
 
 	switch (funcA) {
 	case GE_SRCBLEND_DOUBLESRCALPHA:
@@ -275,18 +182,18 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gl_extensions.ANY_shader_framebuffer_fetch)
-				return !gstate_c.allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
+				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		default:
@@ -300,17 +207,17 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			// Can't double, we need the source color to be correct.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
 	case GE_SRCBLEND_FIXA:
@@ -318,11 +225,11 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Can't safely double alpha, will clamp.
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
@@ -344,21 +251,21 @@ ReplaceBlendType ReplaceBlendWithShader() {
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gl_extensions.ANY_shader_framebuffer_fetch)
-					return !gstate_c.allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
+					return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 			} else {
 				// This means dst alpha/color is used in the src factor.
 				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gl_extensions.ANY_shader_framebuffer_fetch)
-					return !gstate_c.allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
+					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !gstate_c.allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:
 			return REPLACE_BLEND_STANDARD;
@@ -373,8 +280,7 @@ enum LogicOpReplaceType {
 };
 
 static inline LogicOpReplaceType ReplaceLogicOpType() {
-#if defined(USING_GLES2)
-	if (gstate.isLogicOpEnabled()) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
 		switch (gstate.getLogicOp()) {
 		case GE_LOGIC_COPY_INVERTED:
 		case GE_LOGIC_AND_INVERTED:
@@ -391,7 +297,6 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 			return LOGICOPTYPE_NORMAL;
 		}
 	}
-#endif
 	return LOGICOPTYPE_NORMAL;
 }
 
@@ -412,7 +317,7 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
@@ -456,7 +361,7 @@ void ComputeFragmentShaderID(ShaderID *id) {
 		id0 |= (enableColorDoubling & 1) << 23;
 		// 2 bits
 		id0 |= (stencilToAlpha) << 24;
-	
+
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
 			id0 |= ReplaceAlphaWithStencilType() << 26;
@@ -501,85 +406,77 @@ void GenerateFragmentShader(char *buffer) {
 	bool bitwiseOps = false;
 	const char *lastFragData = nullptr;
 
-#if defined(USING_GLES2)
-	// Let's wait until we have a real use for this.
-	// ES doesn't support dual source alpha :(
-	if (gl_extensions.GLES3) {
-		WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
-		fragColor0 = "fragColor0";
-		texture = "texture";
-		glslES30 = true;
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-	} else {
-		WRITE(p, "#version 100\n");  // GLSL ES 1.0
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+	if (gl_extensions.IsGLES) {
+		// ES doesn't support dual source alpha :(
+		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
+			WRITE(p, "#version 300 es\n");  // GLSL ES 3.0
+			fragColor0 = "fragColor0";
+			texture = "texture";
+			glslES30 = true;
 			bitwiseOps = true;
-			texelFetch = "texelFetch2D";
+			texelFetch = "texelFetch";
+		} else {
+			WRITE(p, "#version 100\n");  // GLSL ES 1.0
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+				bitwiseOps = true;
+				texelFetch = "texelFetch2D";
+			}
 		}
-	}
 
-	// PowerVR needs highp to do the fog in MHU correctly.
-	// Others don't, and some can't handle highp in the fragment shader.
-	highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-	highpTexcoord = highpFog;
+		// PowerVR needs highp to do the fog in MHU correctly.
+		// Others don't, and some can't handle highp in the fragment shader.
+		highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
+		highpTexcoord = highpFog;
 
-	if (gl_extensions.EXT_shader_framebuffer_fetch) {
-		WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragData[0]";
-	} else if (gl_extensions.NV_shader_framebuffer_fetch) {
-		// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
-		WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragData[0]";
-	} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
-		WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
-		lastFragData = "gl_LastFragColorARM";
-	}
-
-	WRITE(p, "precision lowp float;\n");
-	
-#elif !defined(FORCE_OPENGL_2_0)
-	if (gl_extensions.VersionGEThan(3, 3, 0)) {
-		fragColor0 = "fragColor0";
-		texture = "texture";
-		glslES30 = true;
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-		WRITE(p, "#version 330\n");
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
-	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-		fragColor0 = "fragColor0";
-		bitwiseOps = true;
-		texelFetch = "texelFetch";
-		WRITE(p, "#version 130\n");
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+			if (gl_extensions.EXT_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragData[0]";
+			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
+				// GL_NV_shader_framebuffer_fetch is available on mobile platform and ES 2.0 only but not on desktop.
+				WRITE(p, "#extension GL_NV_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragData[0]";
+			} else if (gl_extensions.ARM_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_ARM_shader_framebuffer_fetch : require\n");
+				lastFragData = "gl_LastFragColorARM";
+			}
 		}
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
+
+		WRITE(p, "precision lowp float;\n");
 	} else {
-		WRITE(p, "#version 110\n");
-		if (gl_extensions.EXT_gpu_shader4) {
-			WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+		// TODO: Handle this in VersionGEThan?
+#if !defined(FORCE_OPENGL_2_0)
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			fragColor0 = "fragColor0";
+			texture = "texture";
+			glslES30 = true;
 			bitwiseOps = true;
-			texelFetch = "texelFetch2D";
+			texelFetch = "texelFetch";
+			WRITE(p, "#version 330\n");
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			fragColor0 = "fragColor0";
+			bitwiseOps = true;
+			texelFetch = "texelFetch";
+			WRITE(p, "#version 130\n");
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+			}
+		} else {
+			WRITE(p, "#version 110\n");
+			if (gl_extensions.EXT_gpu_shader4) {
+				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+				bitwiseOps = true;
+				texelFetch = "texelFetch2D";
+			}
 		}
-		// Remove lowp/mediump in non-mobile non-glsl 3 implementations
-		WRITE(p, "#define lowp\n");
-		WRITE(p, "#define mediump\n");
-		WRITE(p, "#define highp\n");
-	}
-#else
-	// Need to remove lowp/mediump for Mac
-	WRITE(p, "#define lowp\n");
-	WRITE(p, "#define mediump\n");
-	WRITE(p, "#define highp\n");
 #endif
+
+		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
+		WRITE(p, "#define lowp\n");
+		WRITE(p, "#define mediump\n");
+		WRITE(p, "#define highp\n");
+	}
 
 	if (glslES30) {
 		varying = "in";
@@ -598,7 +495,7 @@ void GenerateFragmentShader(char *buffer) {
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader();
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
 	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 	const char *shading = "";
@@ -611,7 +508,7 @@ void GenerateFragmentShader(char *buffer) {
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
 	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
-		if (!gl_extensions.ANY_shader_framebuffer_fetch && replaceBlend == REPLACE_BLEND_COPY_FBO) {
+		if (!(gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) && replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			if (!texelFetch) {
 				WRITE(p, "uniform vec2 u_fbotexSize;\n");
 			}
@@ -962,7 +859,7 @@ void GenerateFragmentShader(char *buffer) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			// If we have NV_shader_framebuffer_fetch / EXT_shader_framebuffer_fetch, we skip the blit.
 			// We can just read the prev value more directly.
-			if (gl_extensions.ANY_shader_framebuffer_fetch) {
+			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
 				WRITE(p, "  lowp vec4 destColor = %s;\n", lastFragData);
 			} else if (!texelFetch) {
 				WRITE(p, "  lowp vec4 destColor = %s(fbotex, gl_FragCoord.xy * u_fbotexSize.xy);\n", texture);

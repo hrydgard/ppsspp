@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Core/MemMap.h"
+#include "Core/MemMap.h"
 
-#include "GPUState.h"
 #include "ge_constants.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUState.h"
 
 void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	bool through = (op & GE_VTYPE_THROUGH_MASK) == GE_VTYPE_THROUGH;

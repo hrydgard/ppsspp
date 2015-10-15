@@ -49,6 +49,18 @@ macx|equals(PLATFORM_NAME, "linux") {
 	}
 }
 
+exists( /usr/include/GL/glew.h ) {
+	LIBS += -lGLEW
+}
+
+exists( /usr/include/snappy-c.h ) {
+	LIBS += -lsnappy
+}
+
+exists( /usr/include/zip.h ) {
+	LIBS += -lzip
+}
+
 unix:contains(QT_CONFIG, system-zlib) {
 	LIBS += -lz
 }
@@ -64,11 +76,11 @@ unix:contains(QT_CONFIG, system-zlib) {
 }
 
 # Main
-SOURCES += $$P/native/base/QtMain.cpp
-HEADERS += $$P/native/base/QtMain.h
+SOURCES += $$P/ext/native/base/QtMain.cpp
+HEADERS += $$P/ext/native/base/QtMain.h
 symbian {
-	SOURCES += $$P/native/base/SymbianMediaKeys.cpp
-	HEADERS += $$P/native/base/SymbianMediaKeys.h
+	SOURCES += $$P/ext/native/base/SymbianMediaKeys.cpp
+	HEADERS += $$P/ext/native/base/SymbianMediaKeys.h
 }
 
 # UI
@@ -77,7 +89,10 @@ SOURCES += $$P/UI/*.cpp \
 arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 HEADERS += $$P/UI/*.h
 
-INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext $$P/native/ext/glew
+INCLUDEPATH += $$P $$P/Common $$P/ext/native $$P/ext/native/ext
+!exists( /usr/include/GL/glew.h ) {
+	INCLUDEPATH += $$P/ext/native/ext/glew
+}
 
 mobile_platform {
 	!no_assets: RESOURCES += $$P/Qt/assets.qrc

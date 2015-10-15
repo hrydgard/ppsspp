@@ -21,6 +21,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "GPU/GPUState.h"  // Used by TextureDecoder.h when templates get instanced
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/SimpleAudioDec.h"

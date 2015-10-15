@@ -9,42 +9,39 @@ include(Settings.pri)
 # To support Sailfish which is stuck on GCC 4.6
 linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
 
-INCLUDEPATH += $$P/native
+INCLUDEPATH += $$P/ext/native
 
-!contains(DEFINES,USING_GLES2) {
-	SOURCES += $$P/native/ext/glew/glew.c
-	HEADERS += $$P/native/ext/glew/GL/*.h
-	INCLUDEPATH += $$P/native/ext/glew
+!exists( /usr/include/GL/glew.h ) {
+	!contains(DEFINES,USING_GLES2) {
+		SOURCES += $$P/ext/native/ext/glew/glew.c
+		HEADERS += $$P/ext/native/ext/glew/GL/*.h
+		INCLUDEPATH += $$P/ext/native/ext/glew
+	}
 }
 
 # RG_ETC1
 
-SOURCES += $$P/native/ext/rg_etc1/rg_etc1.cpp
-HEADERS += $$P/native/ext/rg_etc1/rg_etc1.h
-INCLUDEPATH += $$P/native/ext/rg_etc1
+SOURCES += $$P/ext/native/ext/rg_etc1/rg_etc1.cpp
+HEADERS += $$P/ext/native/ext/rg_etc1/rg_etc1.h
+INCLUDEPATH += $$P/ext/native/ext/rg_etc1
 
 # Cityhash
 
-SOURCES += ../native/ext/cityhash/city.cpp
-HEADERS += ../native/ext/cityhash/*.h
-INCLUDEPATH += ../native/ext/cityhash
+SOURCES += ../ext/native/ext/cityhash/city.cpp
+HEADERS += ../ext/native/ext/cityhash/*.h
+INCLUDEPATH += ../ext/native/ext/cityhash
 
 # JPGE
-SOURCES += $$P/native/ext/jpge/*.cpp
-HEADERS += $$P/native/ext/jpge/*.h
-INCLUDEPATH += $$P/native/ext/jpge
-
-# Stb_vorbis
-
-SOURCES += $$P/native/ext/stb_vorbis/stb_vorbis.c
-HEADERS += $$P/native/ext/stb_vorbis/stb_vorbis.h
-INCLUDEPATH += $$P/native/ext/stb_vorbis
+SOURCES += $$P/ext/native/ext/jpge/*.cpp
+HEADERS += $$P/ext/native/ext/jpge/*.h
+INCLUDEPATH += $$P/ext/native/ext/jpge
 
 # Snappy
-
-SOURCES += $$P/ext/snappy/*.cpp
-HEADERS += $$P/ext/snappy/*.h
-INCLUDEPATH += $$P/ext/snappy
+!exists( /usr/include/snappy-c.h ) {
+	SOURCES += $$P/ext/snappy/*.cpp
+	HEADERS += $$P/ext/snappy/*.h
+	INCLUDEPATH += $$P/ext/snappy
+}
 
 # udis86
 
@@ -54,11 +51,11 @@ INCLUDEPATH += $$P/ext/udis86
 
 # VJSON
 
-SOURCES += $$P/native/ext/vjson/json.cpp \
-	$$P/native/ext/vjson/block_allocator.cpp
-HEADERS += $$P/native/ext/vjson/json.h \
-	$$P/native/ext/vjson/block_allocator.h
-INCLUDEPATH += $$P/native/ext/vjson
+SOURCES += $$P/ext/native/ext/vjson/json.cpp \
+	$$P/ext/native/ext/vjson/block_allocator.cpp
+HEADERS += $$P/ext/native/ext/vjson/json.h \
+	$$P/ext/native/ext/vjson/block_allocator.h
+INCLUDEPATH += $$P/ext/native/ext/vjson
 
 # Zlib
 win32|contains(QT_CONFIG, no-zlib) {
@@ -67,85 +64,75 @@ win32|contains(QT_CONFIG, no-zlib) {
 }
 
 # Libzip
-SOURCES += $$P/native/ext/libzip/*.c
-HEADERS += $$P/native/ext/libzip/*.h
+!exists( /usr/include/zip.h ) {
+	SOURCES += $$P/ext/native/ext/libzip/*.c
+	HEADERS += $$P/ext/native/ext/libzip/*.h
+}
 
 # Native
 
-SOURCES +=  $$P/native/audio/*.cpp \
-	$$P/native/base/backtrace.cpp \
-	$$P/native/base/buffer.cpp \
-	$$P/native/base/colorutil.cpp \
-	$$P/native/base/compat.cpp \
-	$$P/native/base/display.cpp \
-	$$P/native/base/error_context.cpp \
-	$$P/native/base/fastlist_test.cpp \
-	$$P/native/base/stringutil.cpp \
-	$$P/native/base/timeutil.cpp \
-	$$P/native/data/compression.cpp \
-	$$P/native/file/*.cpp \
-	$$P/native/gfx/gl_debug_log.cpp \
-	$$P/native/gfx/gl_lost_manager.cpp \
-	$$P/native/gfx/texture.cpp \
-	$$P/native/gfx/texture_atlas.cpp \
-	$$P/native/gfx/texture_gen.cpp \
-	$$P/native/gfx_es2/*.cpp \
-	$$P/native/gfx_es2/*.c \
-	$$P/native/i18n/*.cpp \
-	$$P/native/image/*.cpp \
-	$$P/native/input/*.cpp \
-	$$P/native/math/curves.cpp \
-	$$P/native/math/expression_parser.cpp \
-	$$P/native/math/math_util.cpp \
-	$$P/native/math/lin/*.cpp \
-	$$P/native/math/fast/*.c \
-	$$P/native/net/*.cpp \
-	$$P/native/profiler/profiler.cpp \
-	$$P/native/thin3d/thin3d.cpp \
-	$$P/native/thin3d/thin3d_gl.cpp \
-	$$P/native/thread/*.cpp \
-	$$P/native/ui/*.cpp \
-	$$P/native/util/bits/*.cpp \
-	$$P/native/util/hash/hash.cpp \
-	$$P/native/util/random/perlin.cpp \
-	$$P/native/util/text/utf8.cpp \
-	$$P/native/util/text/parsers.cpp
+SOURCES += \
+	$$P/ext/native/base/backtrace.cpp \
+	$$P/ext/native/base/buffer.cpp \
+	$$P/ext/native/base/colorutil.cpp \
+	$$P/ext/native/base/compat.cpp \
+	$$P/ext/native/base/display.cpp \
+	$$P/ext/native/base/stringutil.cpp \
+	$$P/ext/native/base/timeutil.cpp \
+	$$P/ext/native/data/compression.cpp \
+	$$P/ext/native/file/*.cpp \
+	$$P/ext/native/gfx/gl_debug_log.cpp \
+	$$P/ext/native/gfx/gl_lost_manager.cpp \
+	$$P/ext/native/gfx/texture_atlas.cpp \
+	$$P/ext/native/gfx_es2/*.cpp \
+	$$P/ext/native/gfx_es2/*.c \
+	$$P/ext/native/i18n/*.cpp \
+	$$P/ext/native/image/*.cpp \
+	$$P/ext/native/input/*.cpp \
+	$$P/ext/native/math/curves.cpp \
+	$$P/ext/native/math/expression_parser.cpp \
+	$$P/ext/native/math/math_util.cpp \
+	$$P/ext/native/math/lin/*.cpp \
+	$$P/ext/native/math/fast/*.c \
+	$$P/ext/native/net/*.cpp \
+	$$P/ext/native/profiler/profiler.cpp \
+	$$P/ext/native/thin3d/thin3d.cpp \
+	$$P/ext/native/thin3d/thin3d_gl.cpp \
+	$$P/ext/native/thread/*.cpp \
+	$$P/ext/native/ui/*.cpp \
+	$$P/ext/native/util/hash/hash.cpp \
+	$$P/ext/native/util/text/utf8.cpp \
+	$$P/ext/native/util/text/parsers.cpp
 
-armv7: SOURCES += $$files($$P/native/math/fast/fast_matrix_neon.S)
+armv7: SOURCES += $$files($$P/ext/native/math/fast/fast_matrix_neon.S)
 
 
-HEADERS +=  $$P/native/audio/*.h \
-	$$P/native/base/backtrace.h \
-	$$P/native/base/basictypes.h \
-	$$P/native/base/buffer.h \
-	$$P/native/base/color.h \
-	$$P/native/base/colorutil.h \
-	$$P/native/base/display.h \
-	$$P/native/base/error_context.h \
-	$$P/native/base/fastlist.h \
-	$$P/native/base/linked_ptr.h \
-	$$P/native/base/logging.h \
-	$$P/native/base/mutex.h \
-	$$P/native/base/scoped_ptr.h \
-	$$P/native/base/stats.h \
-	$$P/native/base/stringutil.h \
-	$$P/native/base/timeutil.h \
-	$$P/native/data/compression.h \
-	$$P/native/file/*.h \
-	$$P/native/gfx/*.h \
-	$$P/native/gfx_es2/*.h \
-	$$P/native/i18n/*.h \
-	$$P/native/image/*.h \
-	$$P/native/input/*.h \
-	$$P/native/math/*.h \
-	$$P/native/math/lin/*.h \
-	$$P/native/math/fast/*.h \
-	$$P/native/net/*.h \
-	$$P/native/profiler/profiler.h \
-	$$P/native/thread/*.h \
-	$$P/native/ui/*.h \
-	$$P/native/util/bits/*.h \
-	$$P/native/util/hash/hash.h \
-	$$P/native/util/random/*.h \
-	$$P/native/util/text/utf8.h \
-	$$P/native/util/text/parsers.h
+HEADERS += \
+	$$P/ext/native/base/backtrace.h \
+	$$P/ext/native/base/basictypes.h \
+	$$P/ext/native/base/buffer.h \
+	$$P/ext/native/base/colorutil.h \
+	$$P/ext/native/base/display.h \
+	$$P/ext/native/base/linked_ptr.h \
+	$$P/ext/native/base/logging.h \
+	$$P/ext/native/base/mutex.h \
+	$$P/ext/native/base/stringutil.h \
+	$$P/ext/native/base/timeutil.h \
+	$$P/ext/native/data/compression.h \
+	$$P/ext/native/file/*.h \
+	$$P/ext/native/gfx/*.h \
+	$$P/ext/native/gfx_es2/*.h \
+	$$P/ext/native/i18n/*.h \
+	$$P/ext/native/image/*.h \
+	$$P/ext/native/input/*.h \
+	$$P/ext/native/math/*.h \
+	$$P/ext/native/math/lin/*.h \
+	$$P/ext/native/math/fast/*.h \
+	$$P/ext/native/net/*.h \
+	$$P/ext/native/profiler/profiler.h \
+	$$P/ext/native/thread/*.h \
+	$$P/ext/native/ui/*.h \
+	$$P/ext/native/util/hash/hash.h \
+	$$P/ext/native/util/random/*.h \
+	$$P/ext/native/util/text/utf8.h \
+	$$P/ext/native/util/text/parsers.h

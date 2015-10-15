@@ -20,7 +20,6 @@
 #include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
 #include "Common/x64Emitter.h"
-#include "Core/MIPS/x86/Asm.h"
 
 #if defined(ARM)
 #error DO NOT BUILD X86 JIT ON ARM
@@ -140,7 +139,6 @@ public:
 	void Comp_DoNothing(MIPSOpcode op);
 
 	int Replace_fabsf();
-	int Replace_dl_write_matrix();
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
@@ -157,12 +155,11 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
-	void RestoreRoundingMode(bool force = false, XEmitter *emitter = NULL);
-	void ApplyRoundingMode(bool force = false, XEmitter *emitter = NULL);
-	void UpdateRoundingMode(XEmitter *emitter = NULL);
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void UpdateRoundingMode();
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
-	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
 	void InvalidateCache();
@@ -172,7 +169,12 @@ public:
 		}
 	}
 
+	const u8 *GetDispatcher() const {
+		return dispatcher;
+	}
+
 private:
+	void GenerateFixedCode(JitOptions &jo);
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState& state);
 	void FlushAll();
@@ -296,11 +298,27 @@ private:
 	GPRRegCache gpr;
 	FPURegCache fpr;
 
-	AsmRoutineManager asm_;
 	ThunkManager thunks;
 	JitSafeMemFuncs safeMemFuncs;
 
 	MIPSState *mips_;
+
+
+	const u8 *enterDispatcher;
+
+	const u8 *outerLoop;
+	const u8 *dispatcher;
+	const u8 *dispatcherCheckCoreState;
+	const u8 *dispatcherNoCheck;
+	const u8 *dispatcherInEAXNoCheck;
+
+	const u8 *breakpointBailout;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
+
+	const u8 *endOfPregeneratedCode;
 
 	friend class JitSafeMem;
 	friend class JitSafeMemFuncs;

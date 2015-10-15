@@ -36,7 +36,7 @@
 
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/D3D9Base.h"
 #endif
 
@@ -48,10 +48,9 @@
 #include "file/zip_read.h"
 #include "thread/thread.h"
 #include "net/http_client.h"
-#include "gfx_es2/gl_state.h"  // TODO: Get rid of this from here
 #include "gfx_es2/draw_text.h"
+#include "gfx_es2/gpu_features.h"
 #include "gfx/gl_lost_manager.h"
-#include "gfx/texture.h"
 #include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "math/fast/fast_math.h"
@@ -71,6 +70,7 @@
 #include "Common/MemArena.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
@@ -84,9 +84,6 @@
 #include "EmuScreen.h"
 #include "GameInfoCache.h"
 #include "HostTypes.h"
-#ifdef _WIN32
-#include "GPU/Directx9/helper/dx_state.h"
-#endif
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
@@ -264,6 +261,29 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
+#ifdef _WIN32
+bool CheckFontIsUsable(const wchar_t *fontFace) {
+	wchar_t actualFontFace[1024] = { 0 };
+
+	HFONT f = CreateFont(0, 0, 0, 0, FW_LIGHT, 0, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, PROOF_QUALITY, VARIABLE_PITCH, fontFace);
+	if (f != nullptr) {
+		HDC hdc = CreateCompatibleDC(nullptr);
+		if (hdc != nullptr) {
+			SelectObject(hdc, f);
+			GetTextFace(hdc, 1024, actualFontFace);
+			DeleteDC(hdc);
+		}
+		DeleteObject(f);
+	}
+
+	// If we were able to get the font name, did it load?
+	if (actualFontFace[0] != 0) {
+		return wcsncmp(actualFontFace, fontFace, ARRAY_SIZE(actualFontFace)) == 0;
+	}
+	return false;
+}
+#endif
+
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
@@ -274,13 +294,6 @@ void NativeInit(int argc, const char *argv[],
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
-
-	// Sets both FZ and DefaultNaN on ARM, flipping some ARM implementations into "RunFast" mode for VFP.
-	// http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
-	// Do we need to do this on all threads?
-	// Also, the FZ thing may actually be a little bit dangerous, I'm not sure how compliant the MIPS
-	// CPU is with denormal handling. Needs testing. Default-NAN should be reasonably safe though.
-	FPU_SetFastMode();
 
 	bool skipLogo = false;
 	setlocale( LC_ALL, "C" );
@@ -349,9 +362,9 @@ void NativeInit(int argc, const char *argv[],
 	// On Android, create a PSP directory tree in the external_directory,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
-	mkDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
+	File::CreateDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -455,7 +468,12 @@ void NativeInit(int argc, const char *argv[],
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
-	g_Config.sFont = des->T("Font", "Roboto");
+	// The font goes by two names, let's allow either one.
+	if (CheckFontIsUsable(L"Roboto Condensed")) {
+		g_Config.sFont = des->T("Font", "Roboto Condensed");
+	} else {
+		g_Config.sFont = des->T("Font", "Roboto");
+	}
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
@@ -487,8 +505,6 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics() {
-	FPU_SetFastMode();
-
 #ifndef _WIN32
 	// Force backend to GL
 	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
@@ -578,11 +594,6 @@ void NativeInitGraphics() {
 
 	screenManager->setUIContext(uiContext);
 	screenManager->setThin3DContext(thin3d);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
@@ -692,19 +703,6 @@ void NativeRender() {
 	viewport.MaxDepth = 1.0;
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
-
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glstate.Restore();
-	} else {
-#ifdef _WIN32
-		DX9::dxstate.depthWrite.set(true);
-		DX9::dxstate.colorMask.set(true, true, true, true);
-		DX9::dxstate.Restore();
-#endif
-	}
-
 	thin3d->SetTargetSize(pixel_xres, pixel_yres);
 
 	float xres = dp_xres;
@@ -735,17 +733,6 @@ void NativeRender() {
 		TakeScreenshot();
 	}
 
-	thin3d->SetScissorEnabled(false);
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	} else {
-#ifdef _WIN32
-		DX9::dxstate.depthWrite.set(true);
-		DX9::dxstate.colorMask.set(true, true, true, true);
-#endif
-	}
-
 	if (resized) {
 		resized = false;
 		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
@@ -759,6 +746,10 @@ void NativeRender() {
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
+	}
+
+	if (msg == "cacheDir") {
+		DiskCachingFileLoaderCache::SetCacheDir(value);
 	}
 }
 
@@ -784,7 +775,6 @@ void NativeDeviceLost() {
 
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		gl_lost();
-		glstate.Restore();
 	}
 	// Should dirty EVERYTHING
 }

@@ -150,7 +150,7 @@ namespace W32Util
 				}
 				LPARAM l = ((LPPROPSHEETPAGE)lParam)->lParam;
 				tab = (Tab *)l;
-				SetWindowLongPtr(hDlg, GWLP_USERDATA, (DWORD_PTR)l);
+				SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)l);
 				tab->Init(hDlg);
 			}
 			break;

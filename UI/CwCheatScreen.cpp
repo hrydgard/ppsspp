@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "android/app-android.h"
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"

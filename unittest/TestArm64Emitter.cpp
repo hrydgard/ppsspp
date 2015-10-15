@@ -39,6 +39,36 @@ bool TestArm64Emitter() {
 	ARM64XEmitter emitter((u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
+	fp.EOR(Q0, Q1, Q2);
+	RET(CheckLast(emitter, "6e221c20 eor q0, q1, q2"));
+	fp.EOR(D0, D1, D2);
+	RET(CheckLast(emitter, "2e221c20 eor d0, d1, d2"));
+	fp.SHRN(32, D0, Q3, 8);
+	RET(CheckLast(emitter, "0f388460 shrn.32.64 d0, q3, #8"));
+	fp.SHRN(8, D0, Q3, 4);
+	RET(CheckLast(emitter, "0f0c8460 shrn.8.16 d0, q3, #4"));
+
+	fp.XTN(32, D0, Q3);
+	RET(CheckLast(emitter, "0ea12860 xtn.32.64 d0, q3"));
+	fp.XTN(8, D4, Q1);
+	RET(CheckLast(emitter, "0e212824 xtn.8.16 d4, q1"));
+
+	fp.UMIN(32, D0, D3, D4);
+	RET(CheckLast(emitter, "2ea46c60 umin.32 d0, d3, d4"));
+	fp.UMAX(16, Q0, Q3, Q4);
+	RET(CheckLast(emitter, "6e646460 umax.16 q0, q3, q4"));
+	fp.SMIN(8, D0, D3, D4);
+	RET(CheckLast(emitter, "0e246c60 smin.8 d0, d3, d4"));
+	fp.SMAX(16, D0, D3, D4);
+	RET(CheckLast(emitter, "0e646460 smax.16 d0, d3, d4"));
+
+	fp.SHL(32, D0, D3, 18);
+	RET(CheckLast(emitter, "0f325460 shl.32 d0, d3, #18"));
+	fp.USHR(16, Q0, Q3, 7);
+	RET(CheckLast(emitter, "6f190460 ushr.16 q0, q3, #7"));
+	fp.SSHR(64, Q0, Q3, 38);
+	RET(CheckLast(emitter, "4f5a0460 sshr.64 q0, q3, #38"));
+
 	emitter.LDRH(INDEX_UNSIGNED, W3, X7, 18);
 	RET(CheckLast(emitter, "794024e3 ldrh w3, [x7, #18]"));
 	emitter.LDRSH(INDEX_UNSIGNED, W3, X7, 18);
@@ -48,10 +78,20 @@ bool TestArm64Emitter() {
 	fp.UCVTF(32, D3, D7, 15);
 	RET(CheckLast(emitter, "2f31e4e3 ucvtf d3.s, d7.s, #15"));
 
-	fp.LDP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	fp.LDP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad411c63 ldp q3, q7, [x3, #32]"));
-	fp.STP(INDEX_SIGNED, Q3, Q7, X3, 32);
+	fp.STP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad011c63 stp q3, q7, [x3, #32]"));
+
+	emitter.STP(INDEX_SIGNED, W21, W1, X27, 48);
+	RET(CheckLast(emitter, "29060775 stp w21, w1, [x27, #48]"));
+	emitter.STNP(W21, W1, X27, 48);
+	RET(CheckLast(emitter, "28060775 stnp w21, w1, [x27, #48]"));
+
+	emitter.MRS(X25, FIELD_NZCV);
+	RET(CheckLast(emitter, "d53b4219 mrs x25, nzcv"));
+	emitter._MSR(FIELD_NZCV, X25);
+	RET(CheckLast(emitter, "d51b4219 msr nzcv, x25"));
 
 	fp.DUP(32, Q1, Q30, 3);
 	RET(CheckLast(emitter, "4e1c07c1 dup q1, q30.s[3]"));
@@ -168,8 +208,8 @@ bool TestArm64Emitter() {
 	RET(CheckLast(emitter, "71000c7f cmp w3, #3"));
 	emitter.MADD(W3, W7, W1, W8);
 	RET(CheckLast(emitter, "1b0120e3 madd w3, w7, w1, w8"));
-	emitter.SMADDL(X3, X6, W1, W8);
-	RET(CheckLast(emitter, "9b2120c3 smaddl x3, x6, w1, w8"));
+	emitter.SMADDL(X3, W6, W1, X8);
+	RET(CheckLast(emitter, "9b2120c3 smaddl x3, w6, w1, x8"));
 	emitter.BRK(3);
 	RET(CheckLast(emitter, "d4200060 brk #3"));
 	emitter.CSEL(X3, X5, X7, CC_GT);

@@ -20,7 +20,6 @@
 #include "base/logging.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
-#include "GPU/GPUState.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DepalettizeShaderDX9.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
@@ -64,13 +63,12 @@ DepalShaderCacheDX9::~DepalShaderCacheDX9() {
 	}
 }
 
-u32 DepalShaderCacheDX9::GenerateShaderID(GEBufferFormat pixelFormat) {
-	return (gstate.clutformat & 0xFFFFFF) | (pixelFormat << 24);
+u32 DepalShaderCacheDX9::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
+	return (clutFormat & 0xFFFFFF) | (pixelFormat << 24);
 }
 
-LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(const u32 clutID, u32 *rawClut) {
-	GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
-	const u32 realClutID = clutID ^ palFormat;
+LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
+	const u32 realClutID = clutID ^ clutFormat;
 
 	auto oldtex = texCache_.find(realClutID);
 	if (oldtex != texCache_.end()) {
@@ -78,8 +76,8 @@ LPDIRECT3DTEXTURE9 DepalShaderCacheDX9::GetClutTexture(const u32 clutID, u32 *ra
 		return oldtex->second->texture;
 	}
 
-	D3DFORMAT dstFmt = DX9::getClutDestFormat(palFormat);
-	int texturePixels = palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
+	D3DFORMAT dstFmt = DX9::getClutDestFormat(clutFormat);
+	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTextureDX9 *tex = new DepalTextureDX9();
 
@@ -144,8 +142,8 @@ void DepalShaderCacheDX9::Decimate() {
 	}
 }
 
-LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEBufferFormat pixelFormat) {
-	u32 id = GenerateShaderID(pixelFormat);
+LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
+	u32 id = GenerateShaderID(clutFormat, pixelFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {

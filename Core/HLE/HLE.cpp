@@ -22,6 +22,7 @@
 
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "profiler/profiler.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -521,6 +522,7 @@ void hleSetSteppingTime(double t)
 
 void CallSyscall(MIPSOpcode op)
 {
+	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
 	if (g_Config.bShowDebugStats)
 	{

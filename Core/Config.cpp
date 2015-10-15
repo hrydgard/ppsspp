@@ -286,7 +286,6 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true),
 	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),
 	ConfigSetting("ShowDebuggerOnLoad", &g_Config.bShowDebuggerOnLoad, false),
-	ConfigSetting("HomebrewStore", &g_Config.bHomebrewStore, false, false),
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
@@ -327,14 +326,6 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting(false),
 };
 
-static bool DefaultForceFlushToZero() {
-#ifdef ARM
-	return true;
-#else
-	return false;
-#endif
-}
-
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit, true, true),
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false, true, true),
@@ -343,8 +334,6 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
-	ReportedConfigSetting("SetRoundingMode", &g_Config.bSetRoundingMode, true, true, true),
-	ReportedConfigSetting("ForceFlushToZero", &g_Config.bForceFlushToZero, &DefaultForceFlushToZero, true, true),
 
 	ConfigSetting(false),
 };
@@ -433,7 +422,9 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
-#ifdef USING_GLES2
+
+	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4...
+#ifdef MOBILE_DEVICE
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 0, true, true),
 #else
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 8, true, true),
@@ -476,6 +467,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false, true, true),
 	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true, true, true),
 
+	ConfigSetting("GfxDebugOutput", &g_Config.bGfxDebugOutput, false, false, false),
 	ConfigSetting(false), 
 };
 
@@ -490,7 +482,6 @@ static ConfigSetting soundSettings[] = {
 };
 
 static bool DefaultShowTouchControls() {
-#if defined(MOBILE_DEVICE)
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if (deviceType == DEVICE_TYPE_MOBILE) {
 		std::string name = System_GetProperty(SYSPROP_NAME);
@@ -506,9 +497,6 @@ static bool DefaultShowTouchControls() {
 	} else {
 		return false;
 	}
-#else
-	return false;
-#endif
 }
 
 static const float defaultControlScale = 1.15f;
@@ -785,21 +773,21 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	// -1 is okay, though. We'll just ignore recent stuff if it is.
-	 if (iMaxRecent == 0)
+	if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
-	 if (iMaxRecent > 0) {
-		 recentIsos.clear();
-		 for (int i = 0; i < iMaxRecent; i++) {
-			 char keyName[64];
-			 std::string fileName;
+	if (iMaxRecent > 0) {
+		recentIsos.clear();
+		for (int i = 0; i < iMaxRecent; i++) {
+			char keyName[64];
+			std::string fileName;
 
-			 snprintf(keyName, sizeof(keyName), "FileName%d", i);
-			 if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
-				 recentIsos.push_back(fileName);
-			 }
-		 }
-	 }
+			snprintf(keyName, sizeof(keyName), "FileName%d", i);
+			if (recent->Get(keyName, &fileName, "") && !fileName.empty()) {
+				recentIsos.push_back(fileName);
+			}
+		}
+	}
 
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
@@ -1123,10 +1111,7 @@ void Config::RestoreDefaults() {
 bool Config::hasGameConfig(const std::string &pGameId)
 {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
-
-	IniFile existsCheck;
-	bool exists = existsCheck.Load(fullIniFilePath);
-	return exists;
+	return File::Exists(fullIniFilePath);
 }
 
 void Config::changeGameSpecific(const std::string &pGameId)

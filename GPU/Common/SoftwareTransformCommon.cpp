@@ -197,9 +197,7 @@ void SoftwareTransform(
 
 				vert.u *= uscale;
 				vert.v *= vscale;
-			}
-			else
-			{
+			} else {
 				vert.u = 0.0f;
 				vert.v = 0.0f;
 			}
@@ -213,6 +211,7 @@ void SoftwareTransform(
 			// The w of uv is also never used (hardcoded to 1.0.)
 		}
 	} else {
+		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < maxIndex; index++) {
 			reader.Goto(index);
 
@@ -403,6 +402,9 @@ void SoftwareTransform(
 			}
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
+
+			// The multiplication by the projection matrix is still performed in the vertex shader.
+			// So is vertex depth rounding, to simulate the 16-bit depth buffer.
 		}
 	}
 
@@ -448,8 +450,8 @@ void SoftwareTransform(
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
 			const u32 bpp = fbman->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
-			const u32 fb_size = bpp * fbman->GetTargetStride() * gstate_c.curTextureHeight;
-			const u32 prevH = gstate_c.curTextureHeight;
+			const u32 prevH = texCache->AttachedDrawingHeight();
+			const u32 fb_size = bpp * fbman->GetTargetStride() * prevH;
 			const u32 prevYOffset = gstate_c.curTextureYOffset;
 			if (texCache->SetOffsetTexture(fb_size)) {
 				const float oldWidthFactor = widthFactor;

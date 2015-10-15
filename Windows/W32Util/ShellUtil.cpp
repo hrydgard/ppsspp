@@ -1,7 +1,8 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
+
 #include "stdafx.h"
-#include "shlobj.h"
 
 #include "base/functional.h"
 #include "thread/thread.h"
@@ -53,16 +54,16 @@ namespace W32Util
 
 		ZeroMemory (&ofn,sizeof (ofn));
 
-		ofn.lStructSize		= sizeof (OPENFILENAME);
+		ofn.lStructSize = sizeof (OPENFILENAME);
 		ofn.lpstrInitialDir = _pInitialFolder;
-		ofn.lpstrFilter		= _pFilter;
-		ofn.nMaxFile		= sizeof (szFile);
-		ofn.lpstrFile		= szFile;
-		ofn.lpstrFileTitle	= szFileTitle;
-		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = _pExtension;
-		ofn.hwndOwner		= _hParent;
-		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
+		ofn.lpstrFilter = _pFilter;
+		ofn.nMaxFile = sizeof (szFile);
+		ofn.lpstrFile = szFile;
+		ofn.lpstrFileTitle = szFileTitle;
+		ofn.nMaxFileTitle = sizeof (szFileTitle);
+		ofn.lpstrDefExt = _pExtension;
+		ofn.hwndOwner = _hParent;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
 
 		if (!_strFileName.empty())
 			wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), MAX_PATH);
@@ -86,16 +87,16 @@ namespace W32Util
 
 		ZeroMemory (&ofn,sizeof (ofn));
 
-		ofn.lStructSize		= sizeof (OPENFILENAME);
+		ofn.lStructSize = sizeof (OPENFILENAME);
 		ofn.lpstrInitialDir = _pInitialFolder;
-		ofn.lpstrFilter		= _pFilter;
-		ofn.nMaxFile		= sizeof (szFile);
-		ofn.lpstrFile		= szFile;
-		ofn.lpstrFileTitle	= szFileTitle;
-		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = _pExtension;
-		ofn.hwndOwner		= _hParent;
-		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT ;
+		ofn.lpstrFilter = _pFilter;
+		ofn.nMaxFile = sizeof (szFile);
+		ofn.lpstrFile = szFile;
+		ofn.lpstrFileTitle = szFileTitle;
+		ofn.nMaxFileTitle = sizeof (szFileTitle);
+		ofn.lpstrDefExt = _pExtension;
+		ofn.hwndOwner = _hParent;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT;
 
 		std::vector<std::string> files;
 

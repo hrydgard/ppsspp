@@ -1,5 +1,5 @@
-// Copyright 2013 Dolphin Emulator Project
-// Licensed under GPLv2
+// Copyright 2015 Dolphin Emulator Project
+// Licensed under GPLv2+
 // Refer to the license.txt file included.
 
 #pragma once
@@ -139,7 +139,7 @@ enum IndexType
 	INDEX_UNSIGNED = 0,
 	INDEX_POST = 1,
 	INDEX_PRE = 2,
-	INDEX_SIGNED = INDEX_UNSIGNED // used in LDP/STP
+	INDEX_SIGNED = 3, // used in LDP/STP
 };
 
 enum ShiftAmount
@@ -309,7 +309,7 @@ public:
 	{
 		return m_type;
 	}
-	ARM64Reg GetReg()
+	ARM64Reg GetReg() const
 	{
 		return m_destReg;
 	}
@@ -367,7 +367,7 @@ private:
 	void EncodeLoadStoreRegisterOffset(u32 size, u32 opc, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
 	void EncodeAddSubImmInst(u32 op, bool flags, u32 shift, u32 imm, ARM64Reg Rn, ARM64Reg Rd);
 	void EncodeLogicalImmInst(u32 op, ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms, int n);
-	void EncodeLoadStorePair(u32 op, bool V, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
+	void EncodeLoadStorePair(u32 op, u32 load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
 	void EncodeAddressInst(u32 op, ARM64Reg Rd, s32 imm);
 	void EncodeLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
 
@@ -532,6 +532,7 @@ public:
 	void SMSUBL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
 	void SMULH(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void UMADDL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
+	void UMULL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void UMSUBL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra);
 	void UMULH(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void MUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -546,6 +547,7 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
+	void TST(ARM64Reg Rn, ARM64Reg Rm, ArithOption Shift);
 
 	// Wrap the above for saner syntax
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { AND(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
@@ -556,6 +558,7 @@ public:
 	void EON(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { EON(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
 	void ANDS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { ANDS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
 	void BICS(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) { BICS(Rd, Rn, Rm, ArithOption(Rd, ST_LSL, 0)); }
+	void TST(ARM64Reg Rn, ARM64Reg Rm) { TST(Rn, Rm, ArithOption(Is64Bit(Rn) ? ZR : WZR, ST_LSL, 0)); }
 
 	// Convenience wrappers around ORR. These match the official convenience syntax.
 	void MOV(ARM64Reg Rd, ARM64Reg Rm, ArithOption Shift);
@@ -591,10 +594,8 @@ public:
 	void BFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void SBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
 	void UBFM(ARM64Reg Rd, ARM64Reg Rn, u32 immr, u32 imms);
-
-	void BFI(ARM64Reg Rd, ARM64Reg Rn, int lsb, int width) {
-		BFM(Rd, Rn, (64 - lsb) % (Is64Bit(Rd) ? 64 : 32), width - 1);
-	}
+	void BFI(ARM64Reg Rd, ARM64Reg Rn, u32 lsb, u32 width);
+	void UBFIZ(ARM64Reg Rd, ARM64Reg Rn, u32 lsb, u32 width);
 
 	// Extract register (ROR with two inputs, if same then faster on A67)
 	void EXTR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u32 shift);
@@ -772,12 +773,25 @@ public:
 	void LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn);
 	void LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Reg Rm);
 	void LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn);
+	void LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn);
+	void LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
+	void LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn);
 	void ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Loadstore multiple structure
 	void LD1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
+	void LD1(u8 size, u8 count, IndexType type, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm = SP);
 	void ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
+	void ST1(u8 size, u8 count, IndexType type, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm = SP);
+
+	// Loadstore paired
+	void LDP(u8 size, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
+	void STP(u8 size, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
+
+	// Loadstore register offset
+	void STR(u8 size, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+	void LDR(u8 size, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
 
 	// Scalar - 1 Source
 	void FABS(ARM64Reg Rd, ARM64Reg Rn);
@@ -807,13 +821,17 @@ public:
 
 	// Vector
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void DUP(u8 size, ARM64Reg Rd, ARM64Reg Rn, u8 index);
 	void FABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLA(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMLS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
-	void FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn, bool source_upper = false);
+	void FMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void FCVTL(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	void FCVTL2(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void FCVTZU(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -827,6 +845,12 @@ public:
 	void MOV(ARM64Reg Rd, ARM64Reg Rn) {
 		ORR(Rd, Rn, Rn);
 	}
+
+	void UMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+
 	void REV16(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV32(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void REV64(u8 size, ARM64Reg Rd, ARM64Reg Rn);
@@ -834,11 +858,11 @@ public:
 	void UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void SCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
 	void UCVTF(u8 size, ARM64Reg Rd, ARM64Reg Rn, int scale);
-	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UQXTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UQXTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
+	void XTN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 	void XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn);
 
 	// Move
@@ -891,11 +915,20 @@ public:
 	void ZIP2(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
 	// Shift by immediate
-	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper = false);
-	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper = false);
+	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void SSHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void USHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
-	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper = false);
-	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper = false);
+	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void SXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+	void UXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
+
+	void SHL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void USHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	void SSHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 
 	// vector x indexed element
 	void FMUL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
@@ -904,12 +937,9 @@ public:
 	void MOVI2F(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG, bool negate = false);
 	void MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch = INVALID_REG);
 
-	void LDP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
-	void STP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
-
 	// ABI related
-	void ABI_PushRegisters(BitSet32 registers);
-	void ABI_PopRegisters(BitSet32 registers, BitSet32 ignore_mask = BitSet32(0));
+	void ABI_PushRegisters(BitSet32 registers, ARM64Reg tmp = INVALID_REG);
+	void ABI_PopRegisters(BitSet32 registers, ARM64Reg tmp = INVALID_REG);
 
 private:
 	ARM64XEmitter* m_emit;
@@ -933,11 +963,20 @@ private:
 	void EmitShiftImm(bool Q, bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitScalarShiftImm(bool U, u32 immh, u32 immb, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitLoadStoreMultipleStructure(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn);
+	void EmitLoadStoreMultipleStructurePost(u32 size, bool L, u32 opcode, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitScalar1Source(bool M, bool S, u32 type, u32 opcode, ARM64Reg Rd, ARM64Reg Rn);
 	void EmitVectorxElement(bool U, u32 size, bool L, u32 opcode, bool H, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EmitLoadStoreUnscaled(u32 size, u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm);
 	void EmitConvertScalarToInt(ARM64Reg Rd, ARM64Reg Rn, RoundingMode round, bool sign);
 	void EmitScalar3Source(bool isDouble, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, ARM64Reg Ra, int opcode);
+	void EncodeLoadStorePair(u32 size, bool load, IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm);
+	void EncodeLoadStoreRegisterOffset(u32 size, bool load, ARM64Reg Rt, ARM64Reg Rn, ArithOption Rm);
+
+	void SSHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void USHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift, bool upper);
+	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
+	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, bool upper);
 };
 
 class ARM64CodeBlock : public CodeBlock<ARM64XEmitter>
@@ -955,4 +994,3 @@ private:
 	}
 };
 }
-

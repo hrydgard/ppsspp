@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
-#include "native/thread/thread.h"
-#include "native/thread/threadutil.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
 
 #include "Common/ChunkFile.h"
 

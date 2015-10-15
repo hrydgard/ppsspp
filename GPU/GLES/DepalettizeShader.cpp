@@ -21,8 +21,8 @@
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "DepalettizeShader.h"
-#include "GPU/GPUState.h"
 #include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
 static const int DEPAL_TEXTURE_OLD_AGE = 120;
@@ -121,13 +121,12 @@ bool DepalShaderCache::CreateVertexShader() {
 	return !vertexShaderFailed_;
 }
 
-u32 DepalShaderCache::GenerateShaderID(GEBufferFormat pixelFormat) {
+u32 DepalShaderCache::GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
 	return (gstate.clutformat & 0xFFFFFF) | (pixelFormat << 24);
 }
 
-GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
-	GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
-	const u32 realClutID = clutID ^ palFormat;
+GLuint DepalShaderCache::GetClutTexture(GEPaletteFormat clutFormat, const u32 clutID, u32 *rawClut) {
+	const u32 realClutID = clutID ^ clutFormat;
 
 	auto oldtex = texCache_.find(realClutID);
 	if (oldtex != texCache_.end()) {
@@ -135,8 +134,8 @@ GLuint DepalShaderCache::GetClutTexture(const u32 clutID, u32 *rawClut) {
 		return oldtex->second->texture;
 	}
 
-	GLuint dstFmt = getClutDestFormat(palFormat);
-	int texturePixels = palFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
+	GLuint dstFmt = getClutDestFormat(clutFormat);
+	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	bool useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
 
@@ -194,8 +193,8 @@ void DepalShaderCache::Decimate() {
 	}
 }
 
-DepalShader *DepalShaderCache::GetDepalettizeShader(GEBufferFormat pixelFormat) {
-	u32 id = GenerateShaderID(pixelFormat);
+DepalShader *DepalShaderCache::GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat) {
+	u32 id = GenerateShaderID(clutFormat, pixelFormat);
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {

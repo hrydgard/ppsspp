@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <arm_neon.h>
+
+#include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoder.h"
 
 #if !defined(ARM) && !defined(ARM64)
