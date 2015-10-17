@@ -386,8 +386,8 @@ public:
 	AfterModuleEntryCall() {}
 	SceUID moduleID_;
 	u32 retValAddr;
-	virtual void run(MipsCall &call);
-	virtual void DoState(PointerWrap &p) {
+	void run(MipsCall &call) override;
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("AfterModuleEntryCall", 1);
 		if (!s)
 			return;

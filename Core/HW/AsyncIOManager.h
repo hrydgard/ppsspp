@@ -83,8 +83,8 @@ public:
 	u64 ResultFinishTicks(u32 handle);
 
 protected:
-	virtual void ProcessEvent(AsyncIOEvent ref);
-	virtual bool ShouldExitEventLoop() {
+	void ProcessEvent(AsyncIOEvent ref) override;
+	bool ShouldExitEventLoop() override {
 		return coreState == CORE_ERROR || coreState == CORE_POWERDOWN;
 	}
 
