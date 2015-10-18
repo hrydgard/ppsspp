@@ -542,7 +542,6 @@ int Atrac::Analyze() {
 	}
 
 	u32 offset = 8;
-	int loopFirstSampleOffset = 0;
 	firstSampleoffset = 0;
 
 	while (Memory::Read_U32(first.addr + offset) != RIFF_WAVE_MAGIC) {
@@ -635,12 +634,13 @@ int Atrac::Analyze() {
 		case FACT_CHUNK_MAGIC:
 			{
 				endSample = Memory::Read_U32(first.addr + offset);
-				firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				if (chunkSize >= 8) {
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+				}
 				if (chunkSize >= 12) {
-					// Seems like this indicates it's got a separate offset for loops.
-					loopFirstSampleOffset = Memory::Read_U32(first.addr + offset + 8);
-				} else if (chunkSize >= 8) {
-					loopFirstSampleOffset = firstSampleoffset;
+					// This seems to override the offset?
+					// TODO: There's more happening here...
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 8);
 				}
 			}
 			break;
@@ -664,8 +664,8 @@ int Atrac::Analyze() {
 				for (int i = 0; i < loopinfoNum && 36 + (u32)i < chunkSize; i++, loopinfoAddr += 24) {
 					loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
 					loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-					loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - loopFirstSampleOffset;
-					loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - loopFirstSampleOffset;
+					loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8);
+					loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12);
 					loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
 					loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
@@ -702,10 +702,12 @@ int Atrac::Analyze() {
 		return ATRAC_ERROR_SIZE_TOO_SMALL;
 	}
 
+	int firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+
 	// set the loopStartSample and loopEndSample by loopinfo
 	if (loopinfoNum > 0) {
-		loopStartSample = loopinfo[0].startSample;
-		loopEndSample = loopinfo[0].endSample;
+		loopStartSample = loopinfo[0].startSample + firstOffsetExtra;
+		loopEndSample = loopinfo[0].endSample + firstOffsetExtra;
 	} else {
 		loopStartSample = loopEndSample = -1;
 	}
@@ -714,10 +716,12 @@ int Atrac::Analyze() {
 	if (endSample <= 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		endSample = (dataChunkSize / atracBytesPerFrame) * atracSamplesPerFrame;
+	} else {
+		endSample += firstSampleoffset + firstOffsetExtra;
 	}
+	endSample -= 1;
 
-	int firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
-	if (loopEndSample != -1 && loopEndSample + firstOffsetExtra >= endSample) {
+	if (loopEndSample != -1 && loopEndSample > endSample) {
 		WARN_LOG_REPORT(ME, "Atrac loop after end of data");
 		return ATRAC_ERROR_BAD_CODEC_PARAMS;
 	}
@@ -782,8 +786,10 @@ int Atrac::AnalyzeAA3() {
 	firstSampleoffset = 0;
 	if (endSample < 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-		endSample = (first.filesize / atracBytesPerFrame) * atracSamplesPerFrame;
+		endSample = ((first.filesize - dataOff) / atracBytesPerFrame) * atracSamplesPerFrame;
 	}
+	endSample -= 1;
+
 	return 0;
 }
 
@@ -885,7 +891,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			int skipSamples = 0;
-			u32 maxSamples = atrac->endSample - atrac->currentSample;
+			u32 maxSamples = atrac->endSample + 1 - atrac->currentSample;
 			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
 			if (unalignedSamples != 0) {
 				// We're off alignment, possibly due to a loop.  Force it back on.
@@ -1216,7 +1222,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 			// It seems like the PSP aligns the sample position to 0x800...?
 			u32 skipSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			u32 firstSamples = (atracSamplesPerFrame - skipSamples) % atracSamplesPerFrame;
-			u32 numSamples = atrac->endSample - atrac->currentSample;
+			u32 numSamples = atrac->endSample + 1 - atrac->currentSample;
 			if (atrac->currentSample == 0 && firstSamples != 0) {
 				numSamples = firstSamples;
 			}
@@ -1286,13 +1292,13 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample - 1, outEndSampleAddr);
+			Memory::Write_U32(atrac->endSample, outEndSampleAddr);
 		if (Memory::IsValidAddress(outLoopStartSampleAddr))
-			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr);
+			Memory::Write_U32(atrac->loopStartSample - atrac->firstSampleoffset, outLoopStartSampleAddr);
 		if (Memory::IsValidAddress(outLoopEndSampleAddr))
-			Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr);
+			Memory::Write_U32(atrac->loopEndSample - atrac->firstSampleoffset, outLoopEndSampleAddr);
 		if (Memory::IsValidAddress(outEndSampleAddr) && (Memory::IsValidAddress(outLoopStartSampleAddr)) && (Memory::IsValidAddress(outLoopEndSampleAddr)))
-			DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d])", atracID, outEndSampleAddr, atrac->endSample - 1, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
+			DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d])", atracID, outEndSampleAddr, atrac->endSample, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
 		else
 			DEBUG_LOG_REPORT(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d]) invalid address", atracID, outEndSampleAddr, atrac->endSample - 1, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
 
