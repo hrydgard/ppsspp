@@ -568,10 +568,12 @@ int Atrac::Analyze() {
 
 	// RIFF size excluding chunk header.
 	first.filesize = Memory::Read_U32(first.addr + offset - 8) + 8;
+	// Even if the RIFF size is too low, it may simply be incorrect.  This works on real firmware.
+	u32 maxSize = std::max(first.filesize, first.size);
 
-	this->decodeEnd = first.filesize;
+	decodeEnd = first.filesize;
 	bool bfoundData = false;
-	while (first.filesize >= offset + 8 && !bfoundData) {
+	while (maxSize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
 		// Account for odd sized chunks.
@@ -580,7 +582,7 @@ int Atrac::Analyze() {
 		}
 		chunkSize += (chunkSize & 1);
 		offset += 8;
-		if (chunkSize > first.filesize - offset)
+		if (chunkSize > maxSize - offset)
 			break;
 		switch (chunkMagic) {
 		case FMT_CHUNK_MAGIC:
@@ -668,6 +670,11 @@ int Atrac::Analyze() {
 			{
 				bfoundData = true;
 				dataOff = offset;
+				if (first.filesize < offset + chunkSize) {
+					WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
+					first.filesize = offset + chunkSize;
+					decodeEnd = offset + chunkSize;
+				}
 			}
 			break;
 		}
