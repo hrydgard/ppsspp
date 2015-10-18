@@ -573,6 +573,11 @@ int Atrac::Analyze() {
 	while (first.filesize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
+		// Account for odd sized chunks.
+		if (chunkSize & 1) {
+			WARN_LOG_REPORT_ONCE(oddchunk, ME, "RIFF chunk had uneven size");
+		}
+		chunkSize += (chunkSize & 1);
 		offset += 8;
 		if (chunkSize > first.filesize - offset)
 			break;
