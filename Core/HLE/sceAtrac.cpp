@@ -52,6 +52,7 @@
 #define ATRAC_ERROR_BAD_ATRACID              0x80630005
 #define ATRAC_ERROR_UNKNOWN_FORMAT           0x80630006
 #define ATRAC_ERROR_WRONG_CODECTYPE          0x80630007
+#define ATRAC_ERROR_BAD_CODEC_PARAMS         0x80630008
 #define ATRAC_ERROR_ALL_DATA_LOADED          0x80630009
 #define ATRAC_ERROR_NO_DATA                  0x80630010
 #define ATRAC_ERROR_SIZE_TOO_SMALL           0x80630011
@@ -1433,7 +1434,8 @@ int __AtracSetContext(Atrac *atrac) {
 	int ret;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, codec, nullptr)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
-		return -1;
+		// This can mean that the frame size is wrong or etc.
+		return ATRAC_ERROR_BAD_CODEC_PARAMS;
 	}
 
 	if ((ret = __AtracUpdateOutputMode(atrac, atrac->atracOutputChannels)) < 0)
