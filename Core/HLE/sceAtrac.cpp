@@ -573,6 +573,7 @@ int Atrac::Analyze() {
 
 	decodeEnd = first.filesize;
 	bool bfoundData = false;
+	u32 dataChunkSize = 0;
 	while (maxSize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
@@ -679,6 +680,7 @@ int Atrac::Analyze() {
 			{
 				bfoundData = true;
 				dataOff = offset;
+				dataChunkSize = chunkSize;
 				if (first.filesize < offset + chunkSize) {
 					WARN_LOG_REPORT(ME, "Atrac data chunk extends beyond riff chunk");
 					first.filesize = offset + chunkSize;
@@ -709,9 +711,9 @@ int Atrac::Analyze() {
 	}
 
 	// if there is no correct endsample, try to guess it
-	if (endSample < 0 && atracBytesPerFrame != 0) {
+	if (endSample <= 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-		endSample = (first.filesize / atracBytesPerFrame) * atracSamplesPerFrame;
+		endSample = (dataChunkSize / atracBytesPerFrame) * atracSamplesPerFrame;
 	}
 
 	return 0;
