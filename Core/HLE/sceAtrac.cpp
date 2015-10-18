@@ -645,23 +645,32 @@ int Atrac::Analyze() {
 			break;
 		case SMPL_CHUNK_MAGIC:
 			{
-				if (chunkSize < 36)
-					break;
+				if (chunkSize < 32) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid smpl chunk size");
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
 				int checkNumLoops = Memory::Read_U32(first.addr + offset + 28);
-				if (chunkSize >= 36 + (u32)checkNumLoops * 24) {
-					loopinfoNum = checkNumLoops;
-					loopinfo.resize(loopinfoNum);
-					u32 loopinfoAddr = first.addr + offset + 36;
-					for (int i = 0; i < loopinfoNum; i++, loopinfoAddr += 24) {
-						loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
-						loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
-						loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - loopFirstSampleOffset;
-						loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - loopFirstSampleOffset;
-						loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
-						loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
+				if (checkNumLoops != 0 && chunkSize < 36 + 20) {
+					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid smpl chunk size after loop");
+					return ATRAC_ERROR_UNKNOWN_FORMAT;
+				}
 
-						if (loopinfo[i].endSample > endSample)
-							loopinfo[i].endSample = endSample;
+				loopinfoNum = checkNumLoops;
+				loopinfo.resize(loopinfoNum);
+				u32 loopinfoAddr = first.addr + offset + 36;
+				// The PSP only cares about the first loop start and end, it seems.
+				// Most likely can skip the rest of this data, but it's not hurting anyone.
+				for (int i = 0; i < loopinfoNum && 36 + (u32)i < chunkSize; i++, loopinfoAddr += 24) {
+					loopinfo[i].cuePointID = Memory::Read_U32(loopinfoAddr);
+					loopinfo[i].type = Memory::Read_U32(loopinfoAddr + 4);
+					loopinfo[i].startSample = Memory::Read_U32(loopinfoAddr + 8) - loopFirstSampleOffset;
+					loopinfo[i].endSample = Memory::Read_U32(loopinfoAddr + 12) - loopFirstSampleOffset;
+					loopinfo[i].fraction = Memory::Read_U32(loopinfoAddr + 16);
+					loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
+
+					if (loopinfo[i].startSample >= loopinfo[i].endSample) {
+						ERROR_LOG_REPORT(ME, "Atrac buffer with loop starting after it ends");
+						return ATRAC_ERROR_BAD_CODEC_PARAMS;
 					}
 				}
 			}
