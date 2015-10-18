@@ -55,7 +55,7 @@ int SimpleAudio::GetAudioCodecID(int audioType) {
 SimpleAudio::SimpleAudio(int audioType, int sample_rate, int channels)
 : ctxPtr(0xFFFFFFFF), audioType(audioType), sample_rate_(sample_rate), channels_(channels),
   outSamples(0), srcPos(0), wanted_resample_freq(44100), frame_(0), codec_(0), codecCtx_(0), swrCtx_(0),
-  extradata_(0), codecOpen_(false) {
+  codecOpen_(false) {
 	Init();
 }
 
@@ -114,62 +114,36 @@ bool SimpleAudio::OpenCodec(int block_align) {
 #endif  // USE_FFMPEG
 }
 
-bool SimpleAudio::ResetCodecCtx(int channels, int samplerate) {
-#ifdef USE_FFMPEG
-	if (codecCtx_)
-		avcodec_close(codecCtx_);
-
-	// Find decoder
-	int audioCodecId = GetAudioCodecID(audioType);
-	codec_ = avcodec_find_decoder((AVCodecID)audioCodecId);
-	if (!codec_) {
-		// Eh, we shouldn't even have managed to compile. But meh.
-		ERROR_LOG(ME, "This version of FFMPEG does not support AV_CODEC_ctx for audio (%s). Update your submodule.", GetCodecName(audioType));
-		return false;
-	}
-
-	codecCtx_->channels = channels;
-	codecCtx_->channel_layout = channels==2?AV_CH_LAYOUT_STEREO:AV_CH_LAYOUT_MONO;
-	codecCtx_->sample_rate = samplerate;
-	codecOpen_ = false;
-	return true;
-#endif
-	return false;
-}
-
 void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
-	delete [] extradata_;
-	extradata_ = 0;
-
-	if (data != 0) {
-		extradata_ = new u8[size];
-		memcpy(extradata_, data, size);
-	}
-
 #ifdef USE_FFMPEG
 	if (codecCtx_) {
-		codecCtx_->extradata = extradata_;
+		codecCtx_->extradata = (uint8_t *)av_mallocz(size);
 		codecCtx_->extradata_size = size;
 		codecCtx_->block_align = wav_bytes_per_packet;
 		codecOpen_ = false;
+
+		if (data != nullptr) {
+			memcpy(codecCtx_->extradata, data, size);
+		}
 	}
 #endif
 }
 
 SimpleAudio::~SimpleAudio() {
 #ifdef USE_FFMPEG
-	if (swrCtx_)
-		swr_free(&swrCtx_);
-	if (frame_)
-		av_frame_free(&frame_);
-	if (codecCtx_)
-		avcodec_close(codecCtx_);
-	frame_ = 0;
-	codecCtx_ = 0;
+	swr_free(&swrCtx_);
+	av_frame_free(&frame_);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55, 52, 0)
+	avcodec_free_context(&codecCtx_);
+#else
+	// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
+	avcodec_close(codecCtx_);
+	av_freep(&codecCtx_->extradata);
+	av_freep(&codecCtx_->subtitle_header);
+	av_freep(&codecCtx_);
+#endif
 	codec_ = 0;
 #endif  // USE_FFMPEG
-	delete [] extradata_;
-	extradata_ = 0;
 }
 
 bool SimpleAudio::IsOK() const {

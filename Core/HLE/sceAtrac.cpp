@@ -17,16 +17,13 @@
 
 #include <algorithm>
 
-#include "Core/CoreParameter.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Core/Compatibility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
-#include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/HW/BufferQueue.h"
@@ -105,6 +102,7 @@ enum AtracDecodeResult {
 	ATDECODE_FAILED = -1,
 	ATDECODE_FEEDME = 0,
 	ATDECODE_GOTFRAME = 1,
+	ATDECODE_BADFRAME = 2,
 };
 
 struct InputBuffer {
@@ -133,20 +131,17 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
 		atracChannels(0),atracOutputChannels(2),
-		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
+		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), jointStereo(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
 		failedDecode(false), resetBuffer(false), codecType(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
-		pFormatCtx = nullptr;
-		pAVIOCtx = nullptr;
 		pCodecCtx = nullptr;
 		pSwrCtx = nullptr;
 		pFrame = nullptr;
 		packet = nullptr;
-		audio_stream_index = 0;
 #endif // USE_FFMPEG
 		atracContext = 0;
 	}
@@ -169,12 +164,15 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 4);
+		auto s = p.Section("Atrac", 1, 5);
 		if (!s)
 			return;
 
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
+		if (s >= 5) {
+			p.Do(jointStereo);
+		}
 
 		p.Do(atracID);
 		p.Do(first);
@@ -190,7 +188,7 @@ struct Atrac {
 			dataOff = firstSampleoffset;
 		}
 
-		u32 has_data_buf = data_buf != NULL;
+		u32 has_data_buf = data_buf != nullptr;
 		p.Do(has_data_buf);
 		if (has_data_buf) {
 			if (p.mode == p.MODE_READ) {
@@ -199,9 +197,6 @@ struct Atrac {
 				data_buf = new u8[first.filesize];
 			}
 			p.DoArray(data_buf, first.filesize);
-		}
-		if (p.mode == p.MODE_READ && data_buf != NULL) {
-			__AtracSetContext(this);
 		}
 		p.Do(second);
 
@@ -224,6 +219,11 @@ struct Atrac {
 		p.Do(loopNum);
 
 		p.Do(atracContext);
+
+		// Make sure to do this late; it depends on things like atracBytesPerFrame.
+		if (p.mode == p.MODE_READ && data_buf != nullptr) {
+			__AtracSetContext(this);
+		}
 		
 		if (s >= 2)
 			p.Do(resetBuffer);
@@ -235,6 +235,12 @@ struct Atrac {
 	u32 getDecodePosBySample(int sample) const {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		return (u32)(firstSampleoffset + sample / atracSamplesPerFrame * atracBytesPerFrame );
+	}
+
+	u32 getFileOffsetBySample(int sample) const {
+		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		// This matches where ffmpeg was getting the packets, but it's not clear why the first atracBytesPerFrame is there...
+		return (u32)(dataOff + atracBytesPerFrame + (sample + atracSamplesPerFrame - 1) / atracSamplesPerFrame * atracBytesPerFrame);
 	}
 
 	int getRemainFrames() const {
@@ -259,6 +265,7 @@ struct Atrac {
 
 	u32 decodePos;
 	u32 decodeEnd;
+	// Used only by low-level decoding.
 	u32 bufferPos;
 
 	u16 atracChannels;
@@ -266,6 +273,7 @@ struct Atrac {
 	u32 atracBitrate;
 	u16 atracBytesPerFrame;
 	u32 atracBufSize;
+	int jointStereo;
 
 	int currentSample;
 	int endSample;
@@ -291,41 +299,31 @@ struct Atrac {
 	PSPPointer<SceAtracId> atracContext;
 
 #ifdef USE_FFMPEG
-	AVFormatContext *pFormatCtx;
-	AVIOContext	    *pAVIOCtx;
 	AVCodecContext  *pCodecCtx;
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
 	AVPacket        *packet;
-	int audio_stream_index;
 
 	void ReleaseFFMPEGContext() {
-		if (pFrame)
-			av_free(pFrame);
-		if (pAVIOCtx && pAVIOCtx->buffer)
-			av_free(pAVIOCtx->buffer);
-		if (pAVIOCtx)
-			av_free(pAVIOCtx);
-		if (pSwrCtx)
-			swr_free(&pSwrCtx);
-		if (pCodecCtx)
-			avcodec_close(pCodecCtx);
-		if (pFormatCtx)
-			avformat_close_input(&pFormatCtx);
-		if (packet)
-			av_free_packet(packet);
+		// All of these allow null pointers.
+		av_freep(&pFrame);
+		swr_free(&pSwrCtx);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55, 52, 0)
+		// If necessary, extradata is automatically freed.
+		avcodec_free_context(&pCodecCtx);
+#else
+		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
+		avcodec_close(pCodecCtx);
+		av_freep(&pCodecCtx->extradata);
+		av_freep(&pCodecCtx->subtitle_header);
+		av_freep(&pCodecCtx);
+#endif
+		av_free_packet(packet);
 		delete packet;
-		pFormatCtx = nullptr;
-		pAVIOCtx = nullptr;
-		pCodecCtx = nullptr;
-		pSwrCtx = nullptr;
-		pFrame = nullptr;
 		packet = nullptr;
 	}
 
 	void ForceSeekToSample(int sample) {
-		av_seek_frame(pFormatCtx, audio_stream_index, sample + 0x200000, 0);
-		av_seek_frame(pFormatCtx, audio_stream_index, sample, 0);
 		avcodec_flush_buffers(pCodecCtx);
 
 		// Discard any pending packet data.
@@ -335,12 +333,6 @@ struct Atrac {
 	}
 
 	void SeekToSample(int sample) {
-		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-			s64 seek_pos = (s64)sample;
-			av_seek_frame(pFormatCtx, audio_stream_index, seek_pos, 0);
-			return;
-		}
-
 		const u32 atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
 		// Discard any pending packet data.
@@ -354,97 +346,55 @@ struct Atrac {
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
 		if (sample != currentSample) {
-			// "Seeking" by reading frames seems to work much better.
-			av_seek_frame(pFormatCtx, audio_stream_index, 0, AVSEEK_FLAG_BACKWARD);
-			avcodec_flush_buffers(pCodecCtx);
-
-			for (int i = 0; i < seekFrame; i += atracSamplesPerFrame) {
-				while (FillPacket() && DecodePacket() == ATDECODE_FEEDME) {
-					continue;
-				}
-			}
-		} else {
-			// For some reason, if we skip seeking, we get the wrong amount of data.
-			// (even without flushing the packet...)
-			av_seek_frame(pFormatCtx, audio_stream_index, seekFrame, 0);
 			avcodec_flush_buffers(pCodecCtx);
 		}
 		currentSample = sample;
 	}
 
 	bool FillPacket() {
-		if (packet->size > 0) {
+		u32 off = getFileOffsetBySample(currentSample);
+		if (off < first.filesize) {
+			av_init_packet(packet);
+			packet->data = data_buf + off;
+			packet->size = atracBytesPerFrame;
+			packet->pos = off;
+
 			return true;
+		} else {
+			return false;
 		}
-		do {
-			// This is double-free safe, so we just call it before each read and at the end.
-			av_free_packet(packet);
-			if (av_read_frame(pFormatCtx, packet) < 0) {
-				return false;
-			}
-			// We keep reading until we get the right stream index.
-		} while (packet->stream_index != audio_stream_index);
 
 		return true;
 	}
 
+	bool FillLowLevelPacket() {
+		av_init_packet(packet);
+		if (bufferPos < (u32)dataOff) {
+			bufferPos = dataOff;
+		}
+
+		packet->data = data_buf + bufferPos;
+		packet->size = atracBytesPerFrame;
+		packet->pos = bufferPos;
+		bufferPos += atracBytesPerFrame;
+		return true;
+	}
+
 	AtracDecodeResult DecodePacket() {
-		AVPacket tempPacket;
-		AVPacket *decodePacket = packet;
-		if (packet->size < (int)atracBytesPerFrame) {
-			// Whoops, we have a packet that is smaller than a frame.  Let's meld a new one.
-			u32 initialSize = packet->size;
-			int needed = atracBytesPerFrame - initialSize;
-			av_init_packet(&tempPacket);
-			av_copy_packet(&tempPacket, packet);
-			av_grow_packet(&tempPacket, needed);
-
-			// Okay, we're "out of data", let's get more.
-			packet->size = 0;
-
-			if (FillPacket()) {
-				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-					if (packet->size >= needed) {
-						memcpy(tempPacket.data + initialSize, packet->data, needed);
-						packet->size -= needed;
-						packet->data += needed;
-					}
-				} else {
-					int to_copy = packet->size >= needed ? needed : packet->size;
-					memcpy(tempPacket.data + initialSize, packet->data, to_copy);
-					packet->size -= to_copy;
-					packet->data += to_copy;
-					tempPacket.size = initialSize + to_copy;
-				}
-			} else {
-				tempPacket.size = initialSize;
-			}
-			decodePacket = &tempPacket;
-		}
-
 		int got_frame = 0;
-		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, decodePacket);
-		if (packet != decodePacket) {
-			av_free_packet(&tempPacket);
-		}
+		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, packet);
+		av_free_packet(packet);
 		if (bytes_read == AVERROR_PATCHWELCOME) {
 			ERROR_LOG(ME, "Unsupported feature in ATRAC audio.");
 			// Let's try the next packet.
-			if (packet == decodePacket) {
-				packet->size = 0;
-			}
-			// TODO: Or actually, should we return a blank frame and pretend it worked?
-			return ATDECODE_FEEDME;
+			packet->size = 0;
+			return ATDECODE_BADFRAME;
 		} else if (bytes_read < 0) {
 			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
 			failedDecode = true;
 			return ATDECODE_FAILED;
 		}
 
-		if (packet == decodePacket) {
-			packet->size -= bytes_read;
-			packet->data += bytes_read;
-		}
 		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
 	}
 #endif // USE_FFMPEG
@@ -665,6 +615,12 @@ int Atrac::Analyze() {
 				}
 
 				// TODO: There are some format specific bytes here which seem to have fixed values?
+				// Probably don't need them.
+
+				if (at3fmt->fmtTag == AT3_MAGIC) {
+					// This is the offset to the jointStereo field.
+					jointStereo = Memory::Read_U32(first.addr + offset + 24);
+				}
 			}
 			break;
 		case FACT_CHUNK_MAGIC:
@@ -770,6 +726,7 @@ int Atrac::AnalyzeAA3() {
 		atracBytesPerFrame = (codecParams & 0x03FF) * 8;
 		atracBitrate = at3SampleRates[(codecParams >> 13) & 7] * atracBytesPerFrame * 8 / 1024;
 		atracChannels = 2;
+		jointStereo = (codecParams >> 17) & 1;
 		break;
 	case 1:
 		codecType = PSP_MODE_AT_3_PLUS;
@@ -786,7 +743,7 @@ int Atrac::AnalyzeAA3() {
 		return ATRAC_ERROR_AA3_INVALID_DATA;
 	}
 
-	dataOff = 0;
+	dataOff = 10 + tagSize + 96;
 	firstSampleoffset = 0;
 	if (endSample < 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
@@ -823,7 +780,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	atrac->first.size += bytesToAdd;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
-	atrac->first.fileoffset = atrac->first.size;
+	atrac->first.fileoffset += addbytes;
 	atrac->first.writableBytes = 0;
 	if (atrac->atracContext.IsValid()) {
 		// refresh atracContext
@@ -857,11 +814,11 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		if (bytesToAdd > 0) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+			atrac->first.fileoffset += addbytes;
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
 			atrac->first.size = atrac->first.filesize;
-		atrac->first.fileoffset = atrac->first.size;
 		atrac->first.writableBytes -= bytesToAdd;
 		atrac->first.offset += bytesToAdd;
 	}
@@ -893,28 +850,17 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// It seems like the PSP aligns the sample position to 0x800...?
 			int offsetSamples = atrac->firstSampleoffset + firstOffsetExtra;
 			int skipSamples = 0;
-			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-				skipSamples = atrac->currentSample == 0 ? offsetSamples : 0;
-			}
 			u32 maxSamples = atrac->endSample - atrac->currentSample;
 			u32 unalignedSamples = (offsetSamples + atrac->currentSample) % atracSamplesPerFrame;
 			if (unalignedSamples != 0) {
 				// We're off alignment, possibly due to a loop.  Force it back on.
 				maxSamples = atracSamplesPerFrame - unalignedSamples;
-				if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
-					skipSamples = unalignedSamples;
-				}
+				skipSamples = unalignedSamples;
 			}
 
 #ifdef USE_FFMPEG
 			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
-				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-					int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
-					atrac->SeekToSample(forceseekSample);
-					atrac->SeekToSample(atrac->currentSample == 0 ? 0 : atrac->currentSample + offsetSamples);
-				} else {
-					atrac->SeekToSample(atrac->currentSample);
-				}
+				atrac->SeekToSample(atrac->currentSample);
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
 				while (atrac->FillPacket()) {
@@ -965,7 +911,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							}
 						}
 					}
-					if (res == ATDECODE_GOTFRAME) {
+					if (res == ATDECODE_GOTFRAME || res == ATDECODE_BADFRAME) {
 						// We only want one frame per call, let's continue the next time.
 						break;
 					}
@@ -990,11 +936,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			int finishFlag = 0;
 			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-					atrac->currentSample = 0;
-				} else {
-					atrac->SeekToSample(atrac->loopStartSample);
-				}
+				atrac->SeekToSample(atrac->loopStartSample);
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
 			} else if (atrac->currentSample >= atrac->endSample ||
@@ -1067,17 +1009,13 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 			return ATRAC_ERROR_BAD_SAMPLE;
 		}
 
-		int Sampleoffset = atrac->getDecodePosBySample(sample);
+		int Sampleoffset = atrac->getFileOffsetBySample(sample);
 		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
 		// Reset temp buf for adding more stream data and set full filled buffer 
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
 		// minWritebytes should not be bigger than writeablebytes
 		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
-
-		if (atrac->first.fileoffset <= 2*atrac->atracBufSize){
-			Sampleoffset = atrac->first.fileoffset;
-		}
 
 		// If we've already loaded everything, the answer is 0.
 		if (atrac->first.size >= atrac->first.filesize) {
@@ -1344,9 +1282,7 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 			// Reset temp buf for adding more stream data and set full filled buffer.
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		} else {
-			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
-				atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
-			}
+			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 		}
 
 		atrac->first.offset = 0;
@@ -1386,63 +1322,21 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
+		atrac->first.fileoffset = atrac->getFileOffsetBySample(sample);
 		if (bytesWrittenFirstBuf > 0)
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
-		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-			atrac->currentSample = sample;
-		}
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 			atrac->SeekToSample(sample);
 		} else
 #endif // USE_FFMPEG
 		{
-			if (!PSP_CoreParameter().compat.flags().GTAMusicFix) {
-				atrac->currentSample = sample;
-			}
+			atrac->currentSample = sample;
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
 	}
 	return 0;
 }
-
-#ifdef USE_FFMPEG
-static int _AtracReadbuffer(void *opaque, uint8_t *buf, int buf_size) {
-	Atrac *atrac = (Atrac *)opaque;
-	if (atrac->bufferPos > atrac->first.filesize)
-		return -1;
-	int size = std::min((int)atrac->atracBufSize, buf_size);
-	size = std::max(std::min(((int)atrac->first.size - (int)atrac->bufferPos), size), 0);
-	if (size > 0)
-		memcpy(buf, atrac->data_buf + atrac->bufferPos, size);
-	atrac->bufferPos += size;
-	return size;
-}
-
-static int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence) {
-	Atrac *atrac = (Atrac*)opaque;
-	if (offset > atrac->first.filesize)
-		return -1;
-
-	switch (whence) {
-	case SEEK_SET:
-		atrac->bufferPos = (u32)offset;
-		break;
-	case SEEK_CUR:
-		atrac->bufferPos += (u32)offset;
-		break;
-	case SEEK_END:
-		atrac->bufferPos = atrac->first.filesize - (u32)offset;
-		break;
-#ifdef USE_FFMPEG
-	case AVSEEK_SIZE:
-		return atrac->first.filesize;
-#endif
-	}
-	return atrac->bufferPos;
-}
-
-#endif // USE_FFMPEG
 
 #ifdef USE_FFMPEG
 static int __AtracUpdateOutputMode(Atrac *atrac, int wanted_channels) {
@@ -1483,49 +1377,56 @@ int __AtracSetContext(Atrac *atrac) {
 
 	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
 
-	atrac->pFormatCtx = avformat_alloc_context();
-	atrac->pAVIOCtx = avio_alloc_context(tempbuf, atrac->atracBufSize, 0, (void*)atrac, _AtracReadbuffer, NULL, _AtracSeekbuffer);
-	atrac->pFormatCtx->pb = atrac->pAVIOCtx;
-
-	int ret;
-	// Load audio buffer
-	if((ret = avformat_open_input((AVFormatContext**)&atrac->pFormatCtx, NULL, NULL, NULL)) != 0) {
-		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
-		// TODO: This is not exactly correct, but if the header is right and there's not enough data
-		// (which is likely the case here), this is the correct error.
-		return ATRAC_ERROR_ALL_DATA_DECODED;
-	}
-
-	if((ret = avformat_find_stream_info(atrac->pFormatCtx, NULL)) < 0) {
-		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
+	AVCodecID ff_codec;
+	if (atrac->codecType == PSP_MODE_AT_3) {
+		ff_codec = AV_CODEC_ID_ATRAC3;
+	} else if (atrac->codecType == PSP_MODE_AT_3_PLUS) {
+		ff_codec = AV_CODEC_ID_ATRAC3P;
+	} else {
+		ERROR_LOG_REPORT(ME, "Unexpected codec type %d", atrac->codecType);
 		return -1;
 	}
 
-	AVCodec *pCodec;
-	// select the audio stream
-	ret = av_find_best_stream(atrac->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &pCodec, 0);
-	if (ret < 0) {
-		if (ret == AVERROR_DECODER_NOT_FOUND) {
-			ERROR_LOG(HLE, "av_find_best_stream: No appropriate decoder found");
-		} else {
-			ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
-		}
-		return -1;
+	const AVCodec *codec = avcodec_find_decoder(ff_codec);
+	atrac->pCodecCtx = avcodec_alloc_context3(codec);
+
+	if (atrac->codecType == PSP_MODE_AT_3) {
+		// For ATRAC3, we need the "extradata" in the RIFF header.
+		atrac->pCodecCtx->extradata = (uint8_t *)av_mallocz(14);
+		atrac->pCodecCtx->extradata_size = 14;
+
+		// We don't pull this from the RIFF so that we can support OMA also.
+		// The only thing that changes are the jointStereo values.
+		atrac->pCodecCtx->extradata[0] = 1;
+		atrac->pCodecCtx->extradata[3] = 0x10;
+		atrac->pCodecCtx->extradata[6] = atrac->jointStereo;
+		atrac->pCodecCtx->extradata[8] = atrac->jointStereo;
+		atrac->pCodecCtx->extradata[10] = 1;
 	}
-	atrac->audio_stream_index = ret;
-	atrac->pCodecCtx = atrac->pFormatCtx->streams[atrac->audio_stream_index]->codec;
 
 	// Appears we need to force mono in some cases. (See CPkmn's comments in issue #4248)
-	if (atrac->atracChannels == 1)
+	if (atrac->atracChannels == 1) {
+		atrac->pCodecCtx->channels = 1;
 		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_MONO;
+	} else if (atrac->atracChannels == 2) {
+		atrac->pCodecCtx->channels = 2;
+		atrac->pCodecCtx->channel_layout = AV_CH_LAYOUT_STEREO;
+	} else {
+		ERROR_LOG_REPORT(ME, "Unexpected channel count %d", atrac->atracChannels);
+		return -1;
+	}
+
 
 	// Explicitly set the block_align value (needed by newer FFmpeg versions, see #5772.)
 	if (atrac->pCodecCtx->block_align == 0) {
 		atrac->pCodecCtx->block_align = atrac->atracBytesPerFrame;
 	}
+	// Only one supported, it seems?
+	atrac->pCodecCtx->sample_rate = 44100;
 
 	atrac->pCodecCtx->request_sample_fmt = AV_SAMPLE_FMT_S16;
-	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
+	int ret;
+	if ((ret = avcodec_open2(atrac->pCodecCtx, codec, nullptr)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
 	}
@@ -1585,7 +1486,6 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
 		return __AtracSetContext(atrac);
 	}
-
 
 	return 0;
 }
@@ -1996,16 +1896,16 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 		// TODO: Should we just keep this in PSP ram then, or something?
 	} else if (!atrac->data_buf) {
 		// State 1, no buffer yet.
-		context->info.state = 1;
+		context->info.state = ATRAC_STATUS_NO_DATA;
 	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
-		context->info.state = 2;
+		context->info.state = ATRAC_STATUS_ALL_DATA_LOADED;
 	} else if (atrac->loopinfoNum == 0) {
 		// state 3, lack some data, no loop info
-		context->info.state = 3;
+		context->info.state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
 	} else {
 		// state 6, lack some data, has loop info
-		context->info.state = 6;
+		context->info.state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
 	}
 	context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 	context->info.sampleSize = atrac->atracBytesPerFrame;
@@ -2136,6 +2036,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			atrac->data_buf = new u8[atrac->first.filesize];
 			memcpy(atrac->data_buf, at3Header, headersize);
 			atrac->currentSample = 0;
+			// TODO: Check failure?
 			__AtracSetContext(atrac);
 			return 0;
 		}
@@ -2187,17 +2088,11 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		}
 
 		int numSamples = 0;
-		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-			int forceseekSample = 0x200000;
-			atrac->SeekToSample(forceseekSample);
-			atrac->SeekToSample(atrac->currentSample);
-		} else {
-			atrac->ForceSeekToSample(atrac->currentSample);
-		}
+		atrac->ForceSeekToSample(atrac->currentSample);
 
 		if (!atrac->failedDecode) {
 			AtracDecodeResult res;
-			while (atrac->FillPacket()) {
+			while (atrac->FillLowLevelPacket()) {
 				res = atrac->DecodePacket();
 				if (res == ATDECODE_FAILED) {
 					break;
@@ -2215,6 +2110,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
 					break;
+				} else if (res == ATDECODE_BADFRAME) {
+					break;
 				}
 			}
 		}
@@ -2222,18 +2119,12 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		atrac->currentSample += numSamples;
 		numSamples = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
-		if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-			atrac->SeekToSample(atrac->currentSample);
-		}
 
 		if (atrac->bufferPos >= atrac->first.size) {
 			atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			atrac->first.size = atrac->firstSampleoffset;
-			if (PSP_CoreParameter().compat.flags().GTAMusicFix) {
-				atrac->currentSample = 0;
-			} else {
-				atrac->ForceSeekToSample(0);
-			}
+			atrac->ForceSeekToSample(0);
+			atrac->bufferPos = atrac->dataOff;
 		}
 		else
 			atrac->first.writableBytes = 0;

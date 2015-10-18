@@ -51,7 +51,6 @@ public:
 
 	int GetOutSamples();
 	int GetSourcePos();
-	bool ResetCodecCtx(int channels, int samplerate);
 	int GetAudioCodecID(int audioType); // Get audioCodecId from audioType
 
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
@@ -82,8 +81,6 @@ private:
 	AVCodecContext  *codecCtx_;
 	SwrContext      *swrCtx_;
 
-	// Not savestated, only used by UI.
-	u8 *extradata_;
 	bool codecOpen_;
 };
 
