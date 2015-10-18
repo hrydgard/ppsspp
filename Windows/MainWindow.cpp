@@ -562,7 +562,7 @@ namespace MainWindow
 				static double lastMouseDown;
 				double now = real_time_now();
 				if ((now - lastMouseDown) < 0.001 * GetDoubleClickTime()) {
-					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME) {
+					if (!g_Config.bShowTouchControls && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						SendToggleFullscreen(!g_Config.bFullScreen);
 					}
 					lastMouseDown = 0.0;

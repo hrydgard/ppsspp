@@ -186,6 +186,7 @@
     <ClInclude Include="Common\GPUStateUtils.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\ShaderCommon.h" />
     <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\TextureDecoderNEON.h">

@@ -21,8 +21,9 @@
 
 struct ShaderID;
 
-void ComputeFragmentShaderID(ShaderID *id);
-void GenerateFragmentShader(char *buffer);
+void ComputeFragmentShaderID(ShaderID *id, uint32_t vertType);
+bool GenerateFragmentShader(const ShaderID &id, char *buffer);
+std::string FragmentShaderDesc(const ShaderID &id);
 
 enum StencilValueType {
 	STENCIL_VALUE_UNIFORM,

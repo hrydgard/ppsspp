@@ -1411,6 +1411,8 @@ void TextureCache::SetTexture(bool force) {
 
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		// Proceeding here can cause a crash.
+		return;
 	}
 
 	// We have to decode it, let's setup the cache entry first.

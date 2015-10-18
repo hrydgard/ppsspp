@@ -31,10 +31,10 @@ public:
 		address = 0;
 	}
 
-	virtual bool open(bool onlyCheck) { return true; };
-	virtual void close() { };
-	virtual bool isOpen() { return true; };
-	virtual bool write(void* data, size_t length)
+	bool open(bool onlyCheck) override{ return true; };
+	void close() override { };
+	bool isOpen() override { return true; };
+	bool write(void* data, size_t length) override
 	{
 		if (!Memory::IsValidAddress((u32)(address+length-1)))
 			return false;
@@ -48,16 +48,16 @@ public:
 		address += length;
 		return true;
 	}
-	virtual u64 getVirtualAddress() { return address; };
-	virtual u64 getPhysicalAddress() { return getVirtualAddress(); };
-	virtual bool seekVirtual(u64 virtualAddress)
+	u64 getVirtualAddress() override { return address; };
+	u64 getPhysicalAddress() override { return getVirtualAddress(); };
+	bool seekVirtual(u64 virtualAddress) override
 	{
 		if (!Memory::IsValidAddress(virtualAddress))
 			return false;
 		address = virtualAddress;
 		return true;
 	}
-	virtual bool seekPhysical(u64 physicalAddress) { return seekVirtual(physicalAddress); }
+	bool seekPhysical(u64 physicalAddress) override { return seekVirtual(physicalAddress); }
 private:
 	u64 address;
 };

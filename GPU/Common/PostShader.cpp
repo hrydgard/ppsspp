@@ -41,6 +41,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	off.name = "Off";
 	off.section = "Off";
 	off.outputResolution = false;
+	off.isUpscalingFilter = false;
 	shaderInfo.push_back(off);
 
 	for (size_t d = 0; d < directories.size(); d++) {
@@ -84,6 +85,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("Vertex", &temp, "");
 					info.vertexShaderFile = path + "/" + temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
+					section.Get("Upscaling", &info.isUpscalingFilter, false);
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {

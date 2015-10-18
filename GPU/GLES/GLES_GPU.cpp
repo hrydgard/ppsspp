@@ -562,9 +562,13 @@ void GLES_GPU::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
 	// In the future, also disable this when we get a proper 16-bit depth buffer.
-	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
-		features |= GPU_ROUND_DEPTH_TO_16BIT;
-
+	if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+	} else {
+		if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
+			features |= GPU_ROUND_DEPTH_TO_16BIT;
+		}
+	}
 
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
@@ -2410,4 +2414,11 @@ bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		return true;
 	}
 	return false;
+}
+
+std::vector<std::string> GLES_GPU::DebugGetShaderIDs(DebugShaderType type) {
+	return shaderManager_->DebugGetShaderIDs(type);
+}
+std::string GLES_GPU::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	return shaderManager_->DebugGetShaderString(id, type, stringType);
 }

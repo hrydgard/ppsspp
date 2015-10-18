@@ -167,6 +167,7 @@ private:
 	TransformDrawEngine *transformDraw_;
 	bool usePostShader_;
 	bool postShaderAtOutputResolution_;
+	bool postShaderIsUpscalingFilter_;
 
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;

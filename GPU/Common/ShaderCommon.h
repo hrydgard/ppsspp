@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,17 +17,13 @@
 
 #pragma once
 
-#include "Common/CommonTypes.h"
+enum DebugShaderType {
+	SHADER_TYPE_VERTEX = 0,
+	SHADER_TYPE_FRAGMENT = 1,
+};
 
-// #define USE_BONE_ARRAY
-
-struct ShaderID;
-
-bool CanUseHardwareTransform(int prim);
-
-void ComputeVertexShaderID(ShaderID *id, u32 vertexType, bool useHWTransform);
-void GenerateVertexShader(const ShaderID &id, char *buffer);
-
-// Generates a compact string that describes the shader. Useful in a list to get an overview
-// of the current flora of shaders.
-std::string VertexShaderDesc(const ShaderID &id);
+enum DebugShaderStringType {
+	SHADER_STRING_SHORT_DESC = 0,
+	SHADER_STRING_SOURCE_CODE = 1,
+	SHADER_STRING_STATS = 2,
+};

@@ -19,38 +19,38 @@ public:
 	GPUCommon();
 	virtual ~GPUCommon();
 
-	virtual void Reinitialize();
+	void Reinitialize() override;
 
-	virtual void InterruptStart(int listid);
-	virtual void InterruptEnd(int listid);
-	virtual void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads);
-	virtual void EnableInterrupts(bool enable) {
+	void InterruptStart(int listid) override;
+	void InterruptEnd(int listid) override;
+	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) override;
+	void EnableInterrupts(bool enable) override {
 		interruptsEnabled_ = enable;
 	}
 
-	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual void PreExecuteOp(u32 op, u32 diff);
-	virtual bool InterpretList(DisplayList &list);
+	void ExecuteOp(u32 op, u32 diff) override;
+	void PreExecuteOp(u32 op, u32 diff) override;
+	bool InterpretList(DisplayList &list) override;
 	virtual bool ProcessDLQueue();
-	virtual u32  UpdateStall(int listid, u32 newstall);
-	virtual u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head);
-	virtual u32  DequeueList(int listid);
-	virtual int  ListSync(int listid, int mode);
-	virtual u32  DrawSync(int mode);
-	virtual int  GetStack(int index, u32 stackPtr);
-	virtual void DoState(PointerWrap &p);
-	virtual bool FramebufferDirty() {
+	u32  UpdateStall(int listid, u32 newstall) override;
+	u32  EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head) override;
+	u32  DequeueList(int listid) override;
+	int  ListSync(int listid, int mode) override;
+	u32  DrawSync(int mode) override;
+	int  GetStack(int index, u32 stackPtr) override;
+	void DoState(PointerWrap &p) override;
+	bool FramebufferDirty() override {
 		SyncThread();
 		return true;
 	}
-	virtual bool FramebufferReallyDirty() {
+	bool FramebufferReallyDirty() override {
 		SyncThread();
 		return true;
 	}
-	virtual bool BusyDrawing();
-	virtual u32  Continue();
-	virtual u32  Break(int mode);
-	virtual void ReapplyGfxState();
+	bool BusyDrawing() override;
+	u32  Continue() override;
+	u32  Break(int mode) override;
+	void ReapplyGfxState() override;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
 	void Execute_Origin(u32 op, u32 diff);
@@ -60,7 +60,7 @@ public:
 	void Execute_Ret(u32 op, u32 diff);
 	void Execute_End(u32 op, u32 diff);
 
-	virtual u64 GetTickEstimate() {
+	u64 GetTickEstimate() override {
 #if defined(_M_X64) || defined(ANDROID)
 		return curTickEst_;
 #elif defined(_M_SSE)
@@ -81,44 +81,49 @@ public:
 		FreeAlignedMemory(p);
 	}
 
-	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) {
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
 		return false;
 	}
 
 	// From GPUDebugInterface.
-	virtual bool GetCurrentDisplayList(DisplayList &list);
-	virtual std::vector<DisplayList> ActiveDisplayLists();
-	virtual void ResetListPC(int listID, u32 pc);
-	virtual void ResetListStall(int listID, u32 stall);
-	virtual void ResetListState(int listID, DisplayListState state);
+	bool GetCurrentDisplayList(DisplayList &list) override;
+	std::vector<DisplayList> ActiveDisplayLists() override;
+	void ResetListPC(int listID, u32 pc) override;
+	void ResetListStall(int listID, u32 stall) override;
+	void ResetListState(int listID, DisplayListState state) override;
 
-	virtual GPUDebugOp DissassembleOp(u32 pc, u32 op);
-	virtual std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc);
+	GPUDebugOp DissassembleOp(u32 pc, u32 op) override;
+	std::vector<GPUDebugOp> DissassembleOpRange(u32 startpc, u32 endpc) override;
 
-	virtual void NotifySteppingEnter();
-	virtual void NotifySteppingExit();
+	void NotifySteppingEnter() override;
+	void NotifySteppingExit() override;
 
-	virtual u32 GetRelativeAddress(u32 data);
-	virtual u32 GetVertexAddress();
-	virtual u32 GetIndexAddress();
-	virtual GPUgstate GetGState();
-	virtual void SetCmdValue(u32 op);
+	u32 GetRelativeAddress(u32 data) override;
+	u32 GetVertexAddress() override;
+	u32 GetIndexAddress() override;
+	GPUgstate GetGState() override;
+	void SetCmdValue(u32 op) override;
 
-	virtual DisplayList* getList(int listid) {
+	DisplayList* getList(int listid) override {
 		return &dls[listid];
 	}
 
-	const std::list<int>& GetDisplayLists() {
+	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) {
+	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) override {
 		return false;
 	}
-	std::vector<FramebufferInfo> GetFramebufferList() {
+	std::vector<FramebufferInfo> GetFramebufferList() override {
 		return std::vector<FramebufferInfo>();
 	}
-	virtual void ClearShaderCache() {}
-	virtual void CleanupBeforeUI() {}
+	void ClearShaderCache() override {}
+	void CleanupBeforeUI() override {}
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override { return std::vector<std::string>(); };
+	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override {
+		return "N/A";
+	}
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -135,8 +140,8 @@ protected:
 	void ProcessDLQueueInternal();
 	virtual void ReapplyGfxStateInternal();
 	virtual void FastLoadBoneMatrix(u32 target);
-	virtual void ProcessEvent(GPUEvent ev);
-	virtual bool ShouldExitEventLoop() {
+	void ProcessEvent(GPUEvent ev) override;
+	bool ShouldExitEventLoop() override {
 		return coreState != CORE_RUNNING;
 	}
 	virtual void FinishDeferred() {
