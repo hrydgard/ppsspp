@@ -679,6 +679,11 @@ int Atrac::Analyze() {
 		return ATRAC_ERROR_UNKNOWN_FORMAT;
 	}
 
+	if (!bfoundData) {
+		WARN_LOG_REPORT(ME, "Atrac buffer never had data chunk");
+		return ATRAC_ERROR_SIZE_TOO_SMALL;
+	}
+
 	// set the loopStartSample and loopEndSample by loopinfo
 	if (loopinfoNum > 0) {
 		loopStartSample = loopinfo[0].startSample;
