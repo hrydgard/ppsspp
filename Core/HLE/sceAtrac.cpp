@@ -716,6 +716,12 @@ int Atrac::Analyze() {
 		endSample = (dataChunkSize / atracBytesPerFrame) * atracSamplesPerFrame;
 	}
 
+	int firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+	if (loopEndSample != -1 && loopEndSample + firstOffsetExtra >= endSample) {
+		WARN_LOG_REPORT(ME, "Atrac loop after end of data");
+		return ATRAC_ERROR_BAD_CODEC_PARAMS;
+	}
+
 	return 0;
 }
 
