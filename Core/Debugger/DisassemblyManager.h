@@ -210,7 +210,6 @@ public:
 	static DebugInterface* getCpu() { return cpu; };
 	static int getMaxParamChars() { return maxParamChars; };
 private:
-	DisassemblyEntry* getEntry(u32 address);
 	static std::map<u32,DisassemblyEntry*> entries;
 	static DebugInterface* cpu;
 	static int maxParamChars;
