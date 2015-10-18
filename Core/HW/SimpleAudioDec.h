@@ -97,7 +97,6 @@ public:
 	~AuCtx();
 
 	u32 AuDecode(u32 pcmAddr);
-	u32 AuExit();
 
 	u32 AuNotifyAddStreamData(int size);
 	int AuCheckStreamDataNeeded();
