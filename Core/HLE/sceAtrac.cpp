@@ -241,7 +241,9 @@ struct Atrac {
 	u32 getFileOffsetBySample(int sample) const {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		// This matches where ffmpeg was getting the packets, but it's not clear why the first atracBytesPerFrame is there...
-		return (u32)(dataOff + atracBytesPerFrame + (sample + atracSamplesPerFrame - 1) / atracSamplesPerFrame * atracBytesPerFrame);
+		int offsetSample = sample + firstSampleoffset;
+		int frameOffset = offsetSample / atracSamplesPerFrame;
+		return (u32)(dataOff + atracBytesPerFrame + frameOffset * atracBytesPerFrame);
 	}
 
 	int getRemainFrames() const {
@@ -350,6 +352,20 @@ struct Atrac {
 			avcodec_flush_buffers(pCodecCtx);
 		}
 		currentSample = sample;
+
+		if (sample == 0) {
+			// Prefill the decode buffer with packets before the first sample offset.
+			u32 off = getFileOffsetBySample(currentSample);
+			for (u32 pos = dataOff; pos < off; pos += atracBytesPerFrame) {
+				av_init_packet(packet);
+				packet->data = data_buf + pos;
+				packet->size = atracBytesPerFrame;
+				packet->pos = pos;
+
+				// Process the packet, we don't care about success.
+				DecodePacket();
+			}
+		}
 	}
 
 	bool FillPacket() {
