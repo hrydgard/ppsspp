@@ -135,7 +135,7 @@ struct Atrac {
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), jointStereo(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
-		failedDecode(false), resetBuffer(false), codecType(0) {
+		failedDecode(false), resetBuffer(false), codecType(0), bufferState(ATRAC_STATUS_NO_DATA) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -164,8 +164,28 @@ struct Atrac {
 			kernelMemory.Free(atracContext.ptr);
 	}
 
+	void SetBufferState() {
+		if (atracBufSize >= first.filesize) {
+			if (first.size < first.filesize) {
+				// The buffer is big enough, but we don't have all the data yet.
+				bufferState = ATRAC_STATUS_HALFWAY_BUFFER;
+			} else {
+				bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+			}
+		} else {
+			if (loopEndSample <= 0) {
+				// There's no looping, but we need to stream the data in our buffer.
+				bufferState = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
+			} else if (loopEndSample == endSample) {
+				bufferState = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
+			} else {
+				bufferState = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
+			}
+		}
+	}
+
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 5);
+		auto s = p.Section("Atrac", 1, 6);
 		if (!s)
 			return;
 
@@ -220,6 +240,11 @@ struct Atrac {
 		p.Do(loopNum);
 
 		p.Do(atracContext);
+		if (s >= 6) {
+			p.Do(bufferState);
+		} else {
+			SetBufferState();
+		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
 		if (p.mode == p.MODE_READ && data_buf != nullptr) {
@@ -295,6 +320,7 @@ struct Atrac {
 	bool resetBuffer;
 
 	u32 codecType;
+	AtracStatus bufferState;
 
 	InputBuffer first;
 	InputBuffer second;
@@ -355,6 +381,7 @@ struct Atrac {
 
 		if (sample == 0) {
 			// Prefill the decode buffer with packets before the first sample offset.
+			avcodec_flush_buffers(pCodecCtx);
 			u32 off = getFileOffsetBySample(currentSample);
 			for (u32 pos = dataOff; pos < off; pos += atracBytesPerFrame) {
 				av_init_packet(packet);
@@ -835,8 +862,11 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 	Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, bufPtr, addbytes);
 	atrac->first.size += bytesToAdd;
-	if (atrac->first.size > atrac->first.filesize)
+	if (atrac->first.size > atrac->first.filesize) {
 		atrac->first.size = atrac->first.filesize;
+		if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
+			atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+	}
 	atrac->first.fileoffset += addbytes;
 	atrac->first.writableBytes = 0;
 	if (atrac->atracContext.IsValid()) {
@@ -859,7 +889,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	} else if (!atrac->data_buf) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else {
-		if (atrac->first.size >= atrac->first.filesize) {
+		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
 			// Let's avoid spurious warnings.  Some games call this with 0 which is pretty harmless.
 			if (bytesToAdd == 0)
 				return hleLogDebug(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
@@ -874,8 +904,11 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 			atrac->first.fileoffset += addbytes;
 		}
 		atrac->first.size += bytesToAdd;
-		if (atrac->first.size > atrac->first.filesize)
+		if (atrac->first.size > atrac->first.filesize) {
 			atrac->first.size = atrac->first.filesize;
+			if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
+				atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+		}
 		atrac->first.writableBytes -= bytesToAdd;
 		atrac->first.offset += bytesToAdd;
 	}
@@ -1518,7 +1551,7 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 
 	// some games may reuse an atracID for playing sound
 	atrac->CleanStuff();
-
+	atrac->SetBufferState();
 
 	if (atrac->codecType == PSP_MODE_AT_3) {
 		if (atrac->atracChannels == 1) {
@@ -1954,19 +1987,16 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 		// In Sol Trigger, it would set info.state = 0x10 outside
 		// TODO: Should we just keep this in PSP ram then, or something?
 	} else if (!atrac->data_buf) {
-		// State 1, no buffer yet.
 		context->info.state = ATRAC_STATUS_NO_DATA;
 	} else if (atrac->first.size >= atrac->first.filesize) {
-		// state 2, all data loaded
-		context->info.state = ATRAC_STATUS_ALL_DATA_LOADED;
-	} else if (atrac->loopinfoNum == 0) {
-		// state 3, lack some data, no loop info
-		context->info.state = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-	} else {
-		// state 6, lack some data, has loop info
-		context->info.state = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
+		context->info.state = atrac->bufferState;
 	}
-	context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+	if (atrac->firstSampleoffset != 0) {
+		const u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+		context->info.samplesPerChan = atrac->firstSampleoffset + firstOffsetExtra;
+	} else {
+		context->info.samplesPerChan = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+	}
 	context->info.sampleSize = atrac->atracBytesPerFrame;
 	context->info.numChan = atrac->atracChannels;
 	context->info.dataOff = atrac->dataOff;
@@ -2092,6 +2122,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
+			atrac->bufferState = ATRAC_STATUS_LOW_LEVEL;
 			atrac->data_buf = new u8[atrac->first.filesize];
 			memcpy(atrac->data_buf, at3Header, headersize);
 			atrac->currentSample = 0;
@@ -2115,6 +2146,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			atrac->dataOff = headersize;
 			atrac->first.size = headersize;
 			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
+			atrac->bufferState = ATRAC_STATUS_LOW_LEVEL;
 			atrac->data_buf = new u8[atrac->first.filesize];
 			memcpy(atrac->data_buf, at3plusHeader, headersize);
 			atrac->currentSample = 0;
