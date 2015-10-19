@@ -173,10 +173,11 @@ struct Atrac {
 				bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
 			}
 		} else {
+			int firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
 			if (loopEndSample <= 0) {
 				// There's no looping, but we need to stream the data in our buffer.
 				bufferState = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-			} else if (loopEndSample == endSample) {
+			} else if (loopEndSample == endSample + firstSampleoffset + firstOffsetExtra) {
 				bufferState = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 			} else {
 				bufferState = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;
@@ -275,13 +276,13 @@ struct Atrac {
 		// games would like to add atrac data when it wants.
 		// Do not try to guess when it want to add data.
 		// Just return current remainFrames.
-
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		else {
 			// guess the remain frames.
-			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame;
+			int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			remainFrame = ((int)first.size - (int)getFileOffsetBySample(currentSample)) / atracBytesPerFrame - (firstSampleoffset / atracSamplesPerFrame);
 			if (remainFrame < 0)
 				remainFrame = 0;
 		}
@@ -759,12 +760,11 @@ int Atrac::Analyze() {
 	if (endSample <= 0 && atracBytesPerFrame != 0) {
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		endSample = (dataChunkSize / atracBytesPerFrame) * atracSamplesPerFrame;
-	} else {
-		endSample += firstSampleoffset + firstOffsetExtra;
+		endSample -= firstSampleoffset + firstOffsetExtra;
 	}
 	endSample -= 1;
 
-	if (loopEndSample != -1 && loopEndSample > endSample) {
+	if (loopEndSample != -1 && loopEndSample > endSample + firstSampleoffset + firstOffsetExtra) {
 		WARN_LOG_REPORT(ME, "Atrac loop after end of data");
 		return ATRAC_ERROR_BAD_CODEC_PARAMS;
 	}
@@ -1010,10 +1010,12 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				if (res != ATDECODE_GOTFRAME && atrac->currentSample < atrac->endSample) {
 					// Never got a frame.  We may have dropped a GHA frame or otherwise have a bug.
 					// For now, let's try to provide an extra "frame" if possible so games don't infinite loop.
-					numSamples = std::min(maxSamples, atracSamplesPerFrame);
-					u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
-					memset(outbuf, 0, outBytes);
-					CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+					if (atrac->getFileOffsetBySample(atrac->currentSample) < atrac->first.filesize) {
+						numSamples = std::min(maxSamples, atracSamplesPerFrame);
+						u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
+						memset(outbuf, 0, outBytes);
+						CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+					}
 				}
 			}
 #endif // USE_FFMPEG
@@ -1024,6 +1026,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 
 			int finishFlag = 0;
+			// TODO: Verify.
 			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->SeekToSample(atrac->loopStartSample);
@@ -1732,7 +1735,8 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		if (loopNum != 0 && atrac->loopinfoNum == 0) {
 			// Just loop the whole audio
 			atrac->loopStartSample = 0;
-			atrac->loopEndSample = atrac->endSample;
+			int firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			atrac->loopEndSample = atrac->endSample + atrac->firstSampleoffset + firstOffsetExtra;
 		}
 	}
 	return 0;
@@ -2000,7 +2004,8 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.sampleSize = atrac->atracBytesPerFrame;
 	context->info.numChan = atrac->atracChannels;
 	context->info.dataOff = atrac->dataOff;
-	context->info.endSample = atrac->endSample;
+	int firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+	context->info.endSample = atrac->endSample + atrac->firstSampleoffset + firstOffsetExtra;
 	context->info.dataEnd = atrac->first.filesize;
 	context->info.curOff = atrac->first.size;
 	context->info.decodePos = atrac->getDecodePosBySample(atrac->currentSample);
