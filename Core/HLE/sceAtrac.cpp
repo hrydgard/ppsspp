@@ -1378,13 +1378,18 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 		}
 
+		u32 readOffset = atrac->first.fileoffset;
+		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+			readOffset = 0;
+		}
+
 		atrac->first.offset = 0;
 		if (Memory::IsValidAddress(writeAddr))
 			Memory::Write_U32(atrac->first.addr, writeAddr);
 		if (Memory::IsValidAddress(writableBytesAddr))
 			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		if (Memory::IsValidAddress(readOffsetAddr))
-			Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
+			Memory::Write_U32(readOffset, readOffsetAddr);
 		if ((Memory::IsValidAddress(writeAddr)) && (Memory::IsValidAddress(writableBytesAddr)) && (Memory::IsValidAddress(readOffsetAddr)))
 			DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
 				  writeAddr, atrac->first.addr,
