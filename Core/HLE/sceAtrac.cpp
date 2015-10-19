@@ -1992,7 +1992,7 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 		// TODO: Should we just keep this in PSP ram then, or something?
 	} else if (!atrac->data_buf) {
 		context->info.state = ATRAC_STATUS_NO_DATA;
-	} else if (atrac->first.size >= atrac->first.filesize) {
+	} else {
 		context->info.state = atrac->bufferState;
 	}
 	if (atrac->firstSampleoffset != 0) {
@@ -2007,9 +2007,9 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	int firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
 	context->info.endSample = atrac->endSample + atrac->firstSampleoffset + firstOffsetExtra;
 	context->info.dataEnd = atrac->first.filesize;
-	context->info.curOff = atrac->first.size;
+	context->info.curOff = atrac->getFileOffsetBySample(atrac->currentSample);
 	context->info.decodePos = atrac->getDecodePosBySample(atrac->currentSample);
-	context->info.streamDataByte = atrac->first.size - atrac->firstSampleoffset;
+	context->info.streamDataByte = atrac->first.size - atrac->dataOff;
 
 	u8* buf = (u8*)context;
 	*(u32*)(buf + 0xfc) = atrac->atracID;
