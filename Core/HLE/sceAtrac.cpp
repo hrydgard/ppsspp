@@ -52,6 +52,7 @@
 #define ATRAC_ERROR_BAD_ATRACID              0x80630005
 #define ATRAC_ERROR_UNKNOWN_FORMAT           0x80630006
 #define ATRAC_ERROR_WRONG_CODECTYPE          0x80630007
+#define ATRAC_ERROR_BAD_CODEC_PARAMS         0x80630008
 #define ATRAC_ERROR_ALL_DATA_LOADED          0x80630009
 #define ATRAC_ERROR_NO_DATA                  0x80630010
 #define ATRAC_ERROR_SIZE_TOO_SMALL           0x80630011
@@ -573,6 +574,11 @@ int Atrac::Analyze() {
 	while (first.filesize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
+		// Account for odd sized chunks.
+		if (chunkSize & 1) {
+			WARN_LOG_REPORT_ONCE(oddchunk, ME, "RIFF chunk had uneven size");
+		}
+		chunkSize += (chunkSize & 1);
 		offset += 8;
 		if (chunkSize > first.filesize - offset)
 			break;
@@ -1428,7 +1434,8 @@ int __AtracSetContext(Atrac *atrac) {
 	int ret;
 	if ((ret = avcodec_open2(atrac->pCodecCtx, codec, nullptr)) < 0) {
 		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
-		return -1;
+		// This can mean that the frame size is wrong or etc.
+		return ATRAC_ERROR_BAD_CODEC_PARAMS;
 	}
 
 	if ((ret = __AtracUpdateOutputMode(atrac, atrac->atracOutputChannels)) < 0)

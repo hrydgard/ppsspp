@@ -293,7 +293,11 @@ static u32 sceUtilityLoadModule(u32 module) {
 	u32 allocSize = info->size;
 	char name[64];
 	snprintf(name, sizeof(name), "UtilityModule/%x", module);
-	currentlyLoadedModules[module] = userMemory.Alloc(allocSize, false, name);
+	if (allocSize != 0) {
+		currentlyLoadedModules[module] = userMemory.Alloc(allocSize, false, name);
+	} else {
+		currentlyLoadedModules[module] = 0;
+	}
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
