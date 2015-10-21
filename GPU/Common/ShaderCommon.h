@@ -20,6 +20,8 @@
 enum DebugShaderType {
 	SHADER_TYPE_VERTEX = 0,
 	SHADER_TYPE_FRAGMENT = 1,
+	SHADER_TYPE_GEOMETRY = 2,
+	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
 };
 
 enum DebugShaderStringType {

@@ -161,7 +161,7 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
 };
 
-JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
+JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
 	dec_ = &dec;
 	const u8 *start = AlignCode16();
 
@@ -309,6 +309,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 	INFO_LOG(HLE, "%s", temp);
 	*/
 
+	*jittedSize = GetCodePtr() - start;
 	return (JittedVertexDecoder)start;
 }
 

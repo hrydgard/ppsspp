@@ -50,6 +50,27 @@ VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
+std::vector<std::string> DrawEngineCommon::DebugGetVertexLoaderIDs() {
+	std::vector<std::string> ids;
+	for (auto iter : decoderMap_) {
+		std::string id;
+		id.resize(sizeof(iter.first));
+		memcpy(&id[0], &iter.first, sizeof(iter.first));
+		ids.push_back(id);
+	}
+	return ids;
+}
+
+std::string DrawEngineCommon::DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType) {
+	u32 mapId;
+	memcpy(&mapId, &id[0], sizeof(mapId));
+	auto iter = decoderMap_.find(mapId);
+	if (iter == decoderMap_.end())
+		return "N/A";
+	else
+		return iter->second->GetString(stringType);
+}
+
 struct Plane {
 	float x, y, z, w;
 	void Set(float _x, float _y, float _z, float _w) { x = _x; y = _y; z = _z; w = _w; }

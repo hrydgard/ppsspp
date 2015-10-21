@@ -2417,8 +2417,17 @@ bool GLES_GPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
 }
 
 std::vector<std::string> GLES_GPU::DebugGetShaderIDs(DebugShaderType type) {
-	return shaderManager_->DebugGetShaderIDs(type);
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderIDs();
+	} else {
+		return shaderManager_->DebugGetShaderIDs(type);
+	}
 }
+
 std::string GLES_GPU::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
-	return shaderManager_->DebugGetShaderString(id, type, stringType);
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderString(id, stringType);
+	} else {
+		return shaderManager_->DebugGetShaderString(id, type, stringType);
+	}
 }

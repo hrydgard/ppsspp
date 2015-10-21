@@ -796,6 +796,13 @@ void ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout 
 	}
 }
 
+struct { DebugShaderType type; const char *name; } shaderTypes[] = {
+	{ SHADER_TYPE_VERTEX, "Vertex" },
+	{ SHADER_TYPE_FRAGMENT, "Fragment" },
+	// { SHADER_TYPE_GEOMETRY, "Geometry" },
+	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
+};
+
 void ShaderListScreen::CreateViews() {
 	using namespace UI;
 
@@ -808,29 +815,19 @@ void ShaderListScreen::CreateViews() {
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	ScrollView *vs_scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	ScrollView *fs_scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-
-	LinearLayout *vshaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	LinearLayout *fshaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-
-	ListShaders(SHADER_TYPE_VERTEX, vshaderList);
-	ListShaders(SHADER_TYPE_FRAGMENT, fshaderList);
-
-	vs_scroll->Add(vshaderList);
-	fs_scroll->Add(fshaderList);
-
-	tabs_->AddTab("Vertex", vs_scroll);
-	tabs_->AddTab("Fragment", fs_scroll);
+	for (int i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+		LinearLayout *shaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		ListShaders(shaderTypes[i].type, shaderList);
+		scroll->Add(shaderList);
+		tabs_->AddTab(shaderTypes[i].name, scroll);
+	}
 }
 
 UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
 	using namespace UI;
 	std::string id = e.v->Tag();
-	DebugShaderType type = SHADER_TYPE_VERTEX;
-	if (tabs_->GetCurrentTab() == 1) {
-		type = SHADER_TYPE_FRAGMENT;
-	}
+	DebugShaderType type = shaderTypes[tabs_->GetCurrentTab()].type;
 	screenManager()->push(new ShaderViewScreen(id, type));
 	return EVENT_DONE;
 }

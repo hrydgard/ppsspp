@@ -140,7 +140,7 @@ static const JitLookup jitLookup[] = {
 };
 
 
-JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
+JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
 	dec_ = &dec;
 
 
@@ -287,6 +287,8 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec) {
 		}
 		ILOG("==========", temp);
 	}
+
+	*jittedSize = GetCodePtr() - start;
 
 	return (JittedVertexDecoder)start;
 }
