@@ -5,6 +5,8 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "ext/disarm.h"
 
+#include <string.h>
+
 #include "UnitTest.h"
 
 static bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {

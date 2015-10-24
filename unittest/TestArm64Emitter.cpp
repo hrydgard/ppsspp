@@ -4,6 +4,8 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Util/DisArm64.h"
 
+#include <string.h>
+
 #include "UnitTest.h"
 
 static bool CheckLast(Arm64Gen::ARM64XEmitter &emit, const char *comp) {
