@@ -231,6 +231,8 @@ public:
 	bool bGridView1;
 	bool bGridView2;
 	bool bGridView3;
+	//Combo key screen flag
+	int iComboMode;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
@@ -273,6 +275,18 @@ public:
 	float fAnalogStickX, fAnalogStickY;
 	float fAnalogStickScale;
 
+	//the Combo Button position
+	float fcombo0X, fcombo0Y;
+	float fcomboScale0;
+	float fcombo1X, fcombo1Y;
+	float fcomboScale1;
+	float fcombo2X, fcombo2Y;
+	float fcomboScale2;
+	float fcombo3X, fcombo3Y;
+	float fcomboScale3;
+	float fcombo4X, fcombo4Y;
+	float fcomboScale4;
+
 	// Controls Visibility
 	bool bShowTouchControls;
 
@@ -290,6 +304,20 @@ public:
 
 	bool bShowTouchAnalogStick;
 	bool bShowTouchDpad;
+
+	//Combo Button Visibility
+	bool bShowComboKey0;
+	bool bShowComboKey1;
+	bool bShowComboKey2;
+	bool bShowComboKey3;
+	bool bShowComboKey4;
+	
+	// Combo_key mapping. These are bitfields.
+	int iCombokey0;
+	int iCombokey1;
+	int iCombokey2;
+	int iCombokey3;
+	int iCombokey4;
 
 #if !defined(__SYMBIAN32__) && !defined(IOS) && !defined(MAEMO)
 	bool bShowTouchPause;

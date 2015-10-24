@@ -42,7 +42,14 @@
 #define I_FOLDER 31
 #define I_UP_DIRECTORY 32
 #define I_GEAR 33
+#define I_1 34
+#define I_2 35
+#define I_3 36
+#define I_4 37
+#define I_5 38
+#define I_6 39
+#define I_PSP_DISPLAY 40
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[34];
+extern const AtlasImage ui_images[41];

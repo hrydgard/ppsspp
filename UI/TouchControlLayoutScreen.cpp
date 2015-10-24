@@ -366,6 +366,9 @@ void TouchControlLayoutScreen::CreateViews() {
 	int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
 	int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
 	int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
+	int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
+
+	const int comboKeyImages[5] = { I_1, I_2, I_3, I_4, I_5 };
 
 	if (g_Config.bShowTouchDpad) {
 		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));
@@ -397,6 +400,21 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	if (g_Config.bShowTouchAnalogStick) {
 		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, stickBg, stickImage, g_Config.fAnalogStickScale));
+	}
+	if (g_Config.bShowComboKey0) {
+		controls_.push_back(new DragDropButton(g_Config.fcombo0X, g_Config.fcombo0Y, roundImage, comboKeyImages[0], g_Config.fcomboScale0));
+	}
+	if (g_Config.bShowComboKey1) {
+		controls_.push_back(new DragDropButton(g_Config.fcombo1X, g_Config.fcombo1Y, roundImage, comboKeyImages[1], g_Config.fcomboScale1));
+	}
+	if (g_Config.bShowComboKey2) {
+		controls_.push_back(new DragDropButton(g_Config.fcombo2X, g_Config.fcombo2Y, roundImage, comboKeyImages[2], g_Config.fcomboScale2));
+	}
+	if (g_Config.bShowComboKey3) {
+		controls_.push_back(new DragDropButton(g_Config.fcombo3X, g_Config.fcombo3Y, roundImage, comboKeyImages[3], g_Config.fcomboScale3));
+	}
+	if (g_Config.bShowComboKey4) {
+		controls_.push_back(new DragDropButton(g_Config.fcombo4X, g_Config.fcombo4Y, roundImage, comboKeyImages[4], g_Config.fcomboScale4));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {
