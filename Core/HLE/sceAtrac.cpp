@@ -1328,9 +1328,10 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		return ATRAC_ERROR_NO_DATA;
 	} else {
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		atrac->first.fileoffset = atrac->getFileOffsetBySample(sample);
-		if (bytesWrittenFirstBuf > 0)
+		if (bytesWrittenFirstBuf > 0) {
+			atrac->first.fileoffset = atrac->getFileOffsetBySample(sample);
 			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
+		}
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
 			atrac->SeekToSample(sample);
