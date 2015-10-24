@@ -469,6 +469,9 @@ static u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 static u32 sceSasRevType(u32 core, int type) {
 	DEBUG_LOG(SCESAS, "sceSasRevType(%08x, %i)", core, type);
 	sas->waveformEffect.type = type;
+	if (type != PSP_SAS_EFFECT_TYPE_OFF) {
+		DEBUG_LOG_REPORT_ONCE(sasrevtype, SCESAS, "Enabled SAS revert type: %d", type);
+	}
 	return 0;
 }
 
