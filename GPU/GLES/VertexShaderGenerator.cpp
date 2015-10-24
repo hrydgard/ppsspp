@@ -318,7 +318,8 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		boneWeightDecl = boneWeightInDecl;
 	}
 
-	bool lmode = id.Bit(VS_BIT_LMODE) && !gstate.isModeThrough();  // TODO: Different expression than in shaderIDgen
+	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
+	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
 	bool doTexture = id.Bit(VS_BIT_DO_TEXTURE);
 	bool doTextureProjection = id.Bit(VS_BIT_DO_TEXTURE_PROJ);
 
@@ -329,7 +330,6 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	bool doShadeMapping = uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 	bool doFlatShading = id.Bit(VS_BIT_FLATSHADE);
 
-	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 	bool hasColor = id.Bit(VS_BIT_HAS_COLOR) || !useHWTransform;
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
@@ -456,7 +456,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
-	if (!gstate.isModeThrough() && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		WRITE(p, "uniform highp vec4 u_depthRange;\n");
 	}
 
