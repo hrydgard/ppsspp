@@ -9,6 +9,7 @@
 #include <cinttypes>
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "base/basictypes.h"
 
