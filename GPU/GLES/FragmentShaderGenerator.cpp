@@ -303,33 +303,33 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 
 // Local
 enum {
-	BIT_CLEARMODE = 0,
-	BIT_DO_TEXTURE = 1,
-	BIT_TEXFUNC = 2,  // 3 bits
-	BIT_TEXALPHA = 5,
-	BIT_FLIP_TEXTURE = 6,
-	BIT_SHADER_TEX_CLAMP = 7,
-	BIT_CLAMP_S = 8,
-	BIT_CLAMP_T = 9,
-	BIT_TEXTURE_AT_OFFSET = 10,
-	BIT_LMODE = 11,
-	BIT_ALPHA_TEST = 12,
-	BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
-	BIT_ALPHA_AGAINST_ZERO = 16,
-	BIT_COLOR_TEST = 17,
-	BIT_COLOR_TEST_FUNC = 18,  // 2 bits
-	BIT_COLOR_AGAINST_ZERO = 20,
-	BIT_ENABLE_FOG = 21,
-	BIT_DO_TEXTURE_PROJ = 22,
-	BIT_COLOR_DOUBLE = 23,
-	BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
-	BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits
-	BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
-	BIT_REPLACE_BLEND = 32,  // 3 bits
-	BIT_BLENDEQ = 35,  // 3 bits
-	BIT_BLENDFUNC_A = 38,  // 4 bits
-	BIT_BLENDFUNC_B = 42,
-	BIT_FLATSHADE = 46,
+	FS_BIT_CLEARMODE = 0,
+	FS_BIT_DO_TEXTURE = 1,
+	FS_BIT_TEXFUNC = 2,  // 3 bits
+	FS_BIT_TEXALPHA = 5,
+	FS_BIT_FLIP_TEXTURE = 6,
+	FS_BIT_SHADER_TEX_CLAMP = 7,
+	FS_BIT_CLAMP_S = 8,
+	FS_BIT_CLAMP_T = 9,
+	FS_BIT_TEXTURE_AT_OFFSET = 10,
+	FS_BIT_LMODE = 11,
+	FS_BIT_ALPHA_TEST = 12,
+	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
+	FS_BIT_ALPHA_AGAINST_ZERO = 16,
+	FS_BIT_COLOR_TEST = 17,
+	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
+	FS_BIT_COLOR_AGAINST_ZERO = 20,
+	FS_BIT_ENABLE_FOG = 21,
+	FS_BIT_DO_TEXTURE_PROJ = 22,
+	FS_BIT_COLOR_DOUBLE = 23,
+	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
+	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits
+	FS_BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
+	FS_BIT_REPLACE_BLEND = 32,  // 3 bits
+	FS_BIT_BLENDEQ = 35,  // 3 bits
+	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
+	FS_BIT_BLENDFUNC_B = 42,
+	FS_BIT_FLATSHADE = 46,
 };
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
@@ -337,33 +337,33 @@ static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<="
 std::string FragmentShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
-	if (id.Bit(BIT_CLEARMODE)) desc << "Clear ";
-	if (id.Bit(BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
-	if (id.Bit(BIT_TEXALPHA)) desc << "TexAlpha ";
-	if (id.Bit(BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
-	if (id.Bit(BIT_LMODE)) desc << "LM ";
-	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
-	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "2x ";
-	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(BIT_SHADER_TEX_CLAMP)) {
+	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
+	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << "Tex ";
+	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(FS_BIT_FLIP_TEXTURE)) desc << "Flip ";
+	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
+	if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
+	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
+	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
+	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
+	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
+	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
-		if (id.Bit(BIT_CLAMP_S)) desc << "S";
-		if (id.Bit(BIT_CLAMP_T)) desc << "T";
+		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
+		if (id.Bit(FS_BIT_CLAMP_T)) desc << "T";
 		desc << " ";
 	}
-	if (id.Bits(BIT_REPLACE_BLEND, 3)) {
-		desc << "ReplaceBlend_" << id.Bits(BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
+	if (id.Bits(FS_BIT_REPLACE_BLEND, 3)) {
+		desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
 	}
 
-	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
+	switch (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) {
 	case REPLACE_ALPHA_NO: break;
 	case REPLACE_ALPHA_YES: desc << "StenToAlpha "; break;
 	case REPLACE_ALPHA_DUALSOURCE: desc << "StenToAlphaDual "; break;
 	}
-	if (id.Bits(BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
-		switch (id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
+	if (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
+		switch (id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
 		case STENCIL_VALUE_UNIFORM: desc << "StenUniform "; break;
 		case STENCIL_VALUE_ZERO: desc << "Sten0 "; break;
 		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
@@ -376,8 +376,8 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		default: desc << "StenUnknown"; break;
 		}
 	}
-	if (id.Bit(BIT_DO_TEXTURE)) {
-		switch (id.Bits(BIT_TEXFUNC, 3)) {
+	if (id.Bit(FS_BIT_DO_TEXTURE)) {
+		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
 		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
 		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
 		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
@@ -387,10 +387,10 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		}
 	}
 
-	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	else if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	if (id.Bit(BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
-	else if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
+	if (id.Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
+	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
 
 	return desc.str();
 }
@@ -401,7 +401,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 	ShaderID id;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
-		id.SetBit(BIT_CLEARMODE);
+		id.SetBit(FS_BIT_CLEARMODE);
 	} else {
 		bool isModeThrough = gstate.isModeThrough();
 		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
@@ -421,46 +421,46 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 			doTextureAlpha = false;
 
 		if (gstate.isTextureMapEnabled()) {
-			id.SetBit(BIT_DO_TEXTURE);
-			id.SetBits(BIT_TEXFUNC, 3, gstate.getTextureFunction());
-			id.SetBit(BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
-			id.SetBit(BIT_FLIP_TEXTURE, gstate_c.flipTexture);
+			id.SetBit(FS_BIT_DO_TEXTURE);
+			id.SetBits(FS_BIT_TEXFUNC, 3, gstate.getTextureFunction());
+			id.SetBit(FS_BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
+			id.SetBit(FS_BIT_FLIP_TEXTURE, gstate_c.flipTexture);
 			if (gstate_c.needShaderTexClamp) {
 				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 				// 4 bits total.
-				id.SetBit(BIT_SHADER_TEX_CLAMP);
-				id.SetBit(BIT_CLAMP_S, gstate.isTexCoordClampedS());
-				id.SetBit(BIT_CLAMP_T, gstate.isTexCoordClampedT());
-				id.SetBit(BIT_TEXTURE_AT_OFFSET, textureAtOffset);
+				id.SetBit(FS_BIT_SHADER_TEX_CLAMP);
+				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS());
+				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT());
+				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
 		}
 
-		id.SetBit(BIT_LMODE, lmode);
+		id.SetBit(FS_BIT_LMODE, lmode);
 #if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
 			// 5 bits total.
-			id.SetBit(BIT_ALPHA_TEST);
-			id.SetBits(BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
-			id.SetBit(BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
+			id.SetBit(FS_BIT_ALPHA_TEST);
+			id.SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
+			id.SetBit(FS_BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
 		}
 #endif
 		if (enableColorTest) {
 			// 4 bits total.
-			id.SetBit(BIT_COLOR_TEST);
-			id.SetBits(BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
-			id.SetBit(BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
+			id.SetBit(FS_BIT_COLOR_TEST);
+			id.SetBits(FS_BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
+			id.SetBit(FS_BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
 		}
 
-		id.SetBit(BIT_ENABLE_FOG, enableFog);
-		id.SetBit(BIT_DO_TEXTURE_PROJ, doTextureProjection);
-		id.SetBit(BIT_COLOR_DOUBLE, enableColorDoubling);
+		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);
+		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+		id.SetBit(FS_BIT_COLOR_DOUBLE, enableColorDoubling);
 
 		// 2 bits
-		id.SetBits(BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
+		id.SetBits(FS_BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
 
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
-			id.SetBits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
+			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
 		}
 
 		if (enableAlphaTest)
@@ -469,18 +469,18 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 			gpuStats.numNonAlphaTestedDraws++;
 
 		// 2 bits.
-		id.SetBits(BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
+		id.SetBits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
 
 		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
 		if (replaceBlend > REPLACE_BLEND_STANDARD) {
 			// 3 bits.
-			id.SetBits(BIT_REPLACE_BLEND, 3, replaceBlend);
+			id.SetBits(FS_BIT_REPLACE_BLEND, 3, replaceBlend);
 			// 11 bits total.
-			id.SetBits(BIT_BLENDEQ, 3, gstate.getBlendEq());
-			id.SetBits(BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
-			id.SetBits(BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
+			id.SetBits(FS_BIT_BLENDEQ, 3, gstate.getBlendEq());
+			id.SetBits(FS_BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
+			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
 		}
-		id.SetBit(BIT_FLATSHADE, doFlatShading);
+		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 	}
 
 	*id_out = id;
@@ -578,35 +578,35 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		varying = "in";
 	}
 
-	bool lmode = id.Bit(BIT_LMODE);
-	bool doTexture = id.Bit(BIT_DO_TEXTURE);
-	bool enableFog = id.Bit(BIT_ENABLE_FOG);
-	bool enableAlphaTest = id.Bit(BIT_ALPHA_TEST);
+	bool lmode = id.Bit(FS_BIT_LMODE);
+	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
+	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
+	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
-	bool alphaTestAgainstZero = id.Bit(BIT_ALPHA_AGAINST_ZERO);
-	bool enableColorTest = id.Bit(BIT_COLOR_TEST);
-	bool colorTestAgainstZero = id.Bit(BIT_COLOR_AGAINST_ZERO);
-	bool enableColorDoubling = id.Bit(BIT_COLOR_DOUBLE);
-	bool doTextureProjection = id.Bit(BIT_DO_TEXTURE_PROJ);
-	bool doTextureAlpha = id.Bit(BIT_TEXALPHA);
-	bool doFlatShading = id.Bit(BIT_FLATSHADE);
-	bool flipTexture = id.Bit(BIT_FLIP_TEXTURE);
+	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
+	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
+	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
+	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
+	bool flipTexture = id.Bit(FS_BIT_FLIP_TEXTURE);
 
-	GEComparison alphaTestFunc = (GEComparison)id.Bits(BIT_ALPHA_TEST_FUNC, 3);
-	GEComparison colorTestFunc = (GEComparison)id.Bits(BIT_COLOR_TEST_FUNC, 2);
-	bool needShaderTexClamp = id.Bit(BIT_SHADER_TEX_CLAMP);
+	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
+	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
+	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
-	GETexFunc texFunc = (GETexFunc)id.Bits(BIT_TEXFUNC, 3);
-	bool textureAtOffset = id.Bit(BIT_TEXTURE_AT_OFFSET);
+	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
+	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
-	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(BIT_REPLACE_BLEND, 3));
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_STENCIL_TO_ALPHA, 2));
+	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(BIT_BLENDFUNC_A, 4);
-	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(BIT_BLENDFUNC_B, 4);
-	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(BIT_BLENDEQ, 3);
+	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
+	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
+	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
 
-	bool isModeClear = id.Bit(BIT_CLEARMODE);
+	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = "";
 	if (glslES30)
@@ -632,7 +632,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 	if (needShaderTexClamp && doTexture) {
 		WRITE(p, "uniform vec4 u_texclamp;\n");
-		if (id.Bit(BIT_TEXTURE_AT_OFFSET)) {
+		if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
 			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 	}
@@ -648,7 +648,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		}
 	}
 
-	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
@@ -737,12 +737,12 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
 
-				if (id.Bit(BIT_CLAMP_S)) {
+				if (id.Bit(FS_BIT_CLAMP_S)) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
 					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
 				}
-				if (id.Bit(BIT_CLAMP_T)) {
+				if (id.Bit(FS_BIT_CLAMP_T)) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
@@ -1086,7 +1086,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		return false;
 	}
 
-	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(BIT_REPLACE_LOGIC_OP_TYPE, 2);
+	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);
