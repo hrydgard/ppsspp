@@ -6,9 +6,9 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-
 
 std::string VertexShaderDesc(const ShaderID &id) {
 	std::stringstream desc;
@@ -49,12 +49,6 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	// TODO: More...
 
 	return desc.str();
-}
-
-bool CanUseHardwareTransform(int prim) {
-	if (!g_Config.bHardwareTransform)
-		return false;
-	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
 void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
@@ -132,6 +126,161 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
+
+	*id_out = id;
+}
+
+
+static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+
+std::string FragmentShaderDesc(const ShaderID &id) {
+	std::stringstream desc;
+	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
+	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
+	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << "Tex ";
+	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
+	if (id.Bit(FS_BIT_FLIP_TEXTURE)) desc << "Flip ";
+	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
+	if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
+	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
+	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
+	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
+	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
+	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
+		desc << "TClamp";
+		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
+		if (id.Bit(FS_BIT_CLAMP_T)) desc << "T";
+		desc << " ";
+	}
+	if (id.Bits(FS_BIT_REPLACE_BLEND, 3)) {
+		desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
+	}
+
+	switch (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) {
+	case REPLACE_ALPHA_NO: break;
+	case REPLACE_ALPHA_YES: desc << "StenToAlpha "; break;
+	case REPLACE_ALPHA_DUALSOURCE: desc << "StenToAlphaDual "; break;
+	}
+	if (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
+		switch (id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
+		case STENCIL_VALUE_UNIFORM: desc << "StenUniform "; break;
+		case STENCIL_VALUE_ZERO: desc << "Sten0 "; break;
+		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
+		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
+		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
+		case STENCIL_VALUE_INCR_4: desc << "StenIncr4 "; break;
+		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
+		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
+		case STENCIL_VALUE_DECR_8: desc << "StenDecr4 "; break;
+		default: desc << "StenUnknown"; break;
+		}
+	}
+	if (id.Bit(FS_BIT_DO_TEXTURE)) {
+		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
+		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
+		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
+		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
+		case GE_TEXFUNC_MODULATE: desc << "TFuncMod "; break;
+		case GE_TEXFUNC_REPLACE: desc << "TFuncRepl "; break;
+		default: desc << "TFuncUnk "; break;
+		}
+	}
+
+	if (id.Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	else if (id.Bit(FS_BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3)] << " ";
+	if (id.Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
+	else if (id.Bit(FS_BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(FS_BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
+
+	return desc.str();
+}
+
+// Here we must take all the bits of the gstate that determine what the fragment shader will
+// look like, and concatenate them together into an ID.
+void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
+	ShaderID id;
+	if (gstate.isModeClear()) {
+		// We only need one clear shader, so let's ignore the rest of the bits.
+		id.SetBit(FS_BIT_CLEARMODE);
+	} else {
+		bool isModeThrough = gstate.isModeThrough();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
+		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
+		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
+		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
+		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
+		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
+		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
+
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
+		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
+
+		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
+			doTextureAlpha = false;
+
+		if (gstate.isTextureMapEnabled()) {
+			id.SetBit(FS_BIT_DO_TEXTURE);
+			id.SetBits(FS_BIT_TEXFUNC, 3, gstate.getTextureFunction());
+			id.SetBit(FS_BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
+			id.SetBit(FS_BIT_FLIP_TEXTURE, gstate_c.flipTexture);
+			if (gstate_c.needShaderTexClamp) {
+				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
+				// 4 bits total.
+				id.SetBit(FS_BIT_SHADER_TEX_CLAMP);
+				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS());
+				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT());
+				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
+			}
+		}
+
+		id.SetBit(FS_BIT_LMODE, lmode);
+#if !defined(DX9_USE_HW_ALPHA_TEST)
+		if (enableAlphaTest) {
+			// 5 bits total.
+			id.SetBit(FS_BIT_ALPHA_TEST);
+			id.SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
+			id.SetBit(FS_BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
+		}
+#endif
+		if (enableColorTest) {
+			// 4 bits total.
+			id.SetBit(FS_BIT_COLOR_TEST);
+			id.SetBits(FS_BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
+			id.SetBit(FS_BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
+		}
+
+		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);
+		id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+		id.SetBit(FS_BIT_COLOR_DOUBLE, enableColorDoubling);
+
+		// 2 bits
+		id.SetBits(FS_BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
+
+		if (stencilToAlpha != REPLACE_ALPHA_NO) {
+			// 4 bits
+			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
+		}
+
+		if (enableAlphaTest)
+			gpuStats.numAlphaTestedDraws++;
+		else
+			gpuStats.numNonAlphaTestedDraws++;
+
+		// 2 bits.
+		id.SetBits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
+
+		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
+		if (replaceBlend > REPLACE_BLEND_STANDARD) {
+			// 3 bits.
+			id.SetBits(FS_BIT_REPLACE_BLEND, 3, replaceBlend);
+			// 11 bits total.
+			id.SetBits(FS_BIT_BLENDEQ, 3, gstate.getBlendEq());
+			id.SetBits(FS_BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
+			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
+		}
+		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
+	}
 
 	*id_out = id;
 }
