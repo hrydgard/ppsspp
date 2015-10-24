@@ -71,7 +71,7 @@ static void gen_operand(struct ud* u, struct ud_operand* op, int syn_cast)
     if (u->pfx_seg) {
       ud_asmprintf(u, "%s:", ud_reg_tab[u->pfx_seg - UD_R_AL]);
     }
-    if (op->base) {
+    if (op->base && op->base != UD_R_RIP) {
       ud_asmprintf(u, "%s", ud_reg_tab[op->base - UD_R_AL]);
     }
     if (op->index) {

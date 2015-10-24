@@ -442,6 +442,8 @@ void Jit::AddContinuedBlock(u32 dest)
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
+	if (ptr == (const u8 *)&saved_flags)
+		name = "saved_flags";
 	if (ptr == applyRoundingMode)
 		name = "applyRoundingMode";
 	else if (ptr == updateRoundingMode)
