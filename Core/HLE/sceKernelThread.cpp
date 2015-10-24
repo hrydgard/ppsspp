@@ -1498,9 +1498,6 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	thread->waitInfo.waitValue = waitValue;
 	thread->waitInfo.timeoutPtr = timeoutPtr;
 
-	// TODO: Remove this once all callers are cleaned up.
-	RETURN(0); //pretend all went OK
-
 	// TODO: time waster
 	if (!reason)
 		reason = "started wait";
