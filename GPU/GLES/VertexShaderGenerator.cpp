@@ -132,7 +132,7 @@ bool CanUseHardwareTransform(int prim) {
 void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	bool doShadeMapping = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
+	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
 	bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
@@ -182,7 +182,8 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		// Okay, d[1] coming up. ==============
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
-			id.SetBit(BIT_LIGHTING_ENABLE);
+			if (gstate.isLightingEnabled())
+				id.SetBit(BIT_LIGHTING_ENABLE);
 			// Light bits
 			for (int i = 0; i < 4; i++) {
 				id.SetBit(BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0);
