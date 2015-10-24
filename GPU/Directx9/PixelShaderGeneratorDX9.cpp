@@ -22,8 +22,8 @@
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/GPUState.h"
 
 #define WRITE p+=sprintf
 
@@ -31,131 +31,54 @@
 
 namespace DX9 {
 
-// Here we must take all the bits of the gstate that determine what the fragment shader will
-// look like, and concatenate them together into an ID.
-void ComputeFragmentShaderIDDX9(ShaderID *id) {
-	int id0 = 0;
-	int id1 = 0;
-	if (gstate.isModeClear()) {
-		// We only need one clear shader, so let's ignore the rest of the bits.
-		id0 = 1;
-	} else {
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
-		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
-		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled();
-		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
-
-		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
-		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
-			doTextureAlpha = false;
-
-		// id0 |= (gstate.isModeClear() & 1);
-		if (gstate.isTextureMapEnabled()) {
-			id0 |= 1 << 1;
-			id0 |= gstate.getTextureFunction() << 2;
-			id0 |= (doTextureAlpha & 1) << 5; // rgb or rgba
-			id0 |= (gstate_c.flipTexture & 1) << 6;
-
-			if (gstate_c.needShaderTexClamp) {
-				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-				// 3 bits total.
-				id0 |= 1 << 7;
-				id0 |= gstate.isTexCoordClampedS() << 8;
-				id0 |= gstate.isTexCoordClampedT() << 9;
-				id0 |= (textureAtOffset & 1) << 10;
-			}
-		}
-
-		id0 |= (lmode & 1) << 11;
-#if !defined(DX9_USE_HW_ALPHA_TEST)
-		if (enableAlphaTest) {
-			// 5 bits total.
-			id0 |= 1 << 12;
-			id0 |= gstate.getAlphaTestFunction() << 13;
-			id0 |= (IsAlphaTestAgainstZero() & 1) << 16;
-		}
-#endif
-		if (enableColorTest) {
-			// 4 bits total.
-			id0 |= 1 << 17;
-			id0 |= gstate.getColorTestFunction() << 18;
-			id0 |= (IsColorTestAgainstZero() & 1) << 20;
-		}
-		id0 |= (enableFog & 1) << 21;
-		id0 |= (doTextureProjection & 1) << 22;
-		id0 |= (enableColorDoubling & 1) << 23;
-		// 2 bits
-		id0 |= (stencilToAlpha) << 24;
-
-		if (stencilToAlpha != REPLACE_ALPHA_NO) {
-			// 4 bits
-			id0 |= ReplaceAlphaWithStencilType() << 26;
-		}
-
-		if (enableAlphaTest)
-			gpuStats.numAlphaTestedDraws++;
-		else
-			gpuStats.numNonAlphaTestedDraws++;
-
-		// 2 bits.
-		id0 |= ReplaceLogicOpType() << 30;
-
-		// 3 bits.
-		id1 |= replaceBlend << 0;
-		if (replaceBlend > REPLACE_BLEND_STANDARD) {
-			// 11 bits total.
-			id1 |= gstate.getBlendEq() << 3;
-			id1 |= gstate.getBlendFuncA() << 6;
-			id1 |= gstate.getBlendFuncB() << 10;
-		}
-
-		// TODO: Flat shading?
-
-		id1 |= (gstate_c.bgraTexture & 1) << 15;
-	}
-
-	id->d[0] = id0;
-	id->d[1] = id1;
-}
-
 // Missing: Z depth range
-// Also, logic ops etc, of course. Urgh.
-void GenerateFragmentShaderDX9(char *buffer) {
+// Also, logic ops etc, of course, as they are not supported in DX9.
+bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 	char *p = buffer;
 
-	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !gstate.isModeThrough();
-	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear() && !g_Config.bDisableAlphaTest;
-	bool alphaTestAgainstZero = IsAlphaTestAgainstZero();
-	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool colorTestAgainstZero = IsColorTestAgainstZero();
-	bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	bool doTextureAlpha = gstate.isTextureAlphaUsed();
-	bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
-	ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
+	bool lmode = id.Bit(FS_BIT_LMODE);
+	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
+	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
+	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
-	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
-		doTextureAlpha = false;
+	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
+	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
+	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
+	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
+	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
+
+	bool bgraTexture = id.Bit(FS_BIT_BGRA_TEXTURE);
+
+	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
+	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
+	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
+
+	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
+
+	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
+	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
+
+	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
+	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
+	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
+
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
 	if (doTexture)
 		WRITE(p, "sampler tex : register(s0);\n");
-	if (!gstate.isModeClear() && replaceBlend > REPLACE_BLEND_STANDARD) {
+	if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
 			WRITE(p, "sampler fbotex : register(s1);\n");
 		}
-		if (gstate.getBlendFuncA() == GE_SRCBLEND_FIXA) {
+		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
 			WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
 		}
-		if (gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
+		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
 			WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
 		}
 	}
@@ -170,10 +93,10 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		WRITE(p, "float4 u_alphacolorref : register(c%i);\n", CONST_PS_ALPHACOLORREF);
 		WRITE(p, "float4 u_alphacolormask : register(c%i);\n", CONST_PS_ALPHACOLORMASK);
 	}
-	if (stencilToAlpha && ReplaceAlphaWithStencilType() == STENCIL_VALUE_UNIFORM) {
+	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "float u_stencilReplaceValue : register(c%i);\n", CONST_PS_STENCILREPLACE);
 	}
-	if (gstate.isTextureMapEnabled() && gstate.getTextureFunction() == GE_TEXFUNC_BLEND) {
+	if (doTexture && texFunc == GE_TEXFUNC_BLEND) {
 		WRITE(p, "float3 u_texenv : register(c%i);\n", CONST_PS_TEXENV);
 	}
 	if (enableFog) {
@@ -205,7 +128,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	WRITE(p, "float4 main( PS_IN In ) : COLOR\n");
 	WRITE(p, "{\n");
 
-	if (gstate.isModeClear()) {
+	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  float4 v = In.v_color0;\n");
 	} else {
@@ -218,10 +141,10 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			secondary = "";
 		}
 
-		if (gstate.isTextureMapEnabled()) {
+		if (doTexture) {
 			const char *texcoord = "In.v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
-			if (gstate_c.needShaderTexClamp) {
+			if (needShaderTexClamp) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
 				// We may also be wrapping in such a surface, or either one in a too-small surface.
 				// Obviously, clamping to a smaller surface won't work.  But better to clamp to something.
@@ -235,12 +158,12 @@ void GenerateFragmentShaderDX9(char *buffer) {
 					vcoord = "1.0 - " + vcoord;
 				}
 
-				if (gstate.isTexCoordClampedS()) {
+				if (id.Bit(FS_BIT_CLAMP_S)) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
 					ucoord = "fmod(" + ucoord + ", u_texclamp.x)";
 				}
-				if (gstate.isTexCoordClampedT()) {
+				if (id.Bit(FS_BIT_CLAMP_T)) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = "fmod(" + vcoord + ", u_texclamp.y)";
@@ -266,14 +189,14 @@ void GenerateFragmentShaderDX9(char *buffer) {
 			}
 
 			if (doTextureProjection) {
-				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", gstate_c.bgraTexture ? ".bgra" : "");
+				WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
 			} else {
-				WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, gstate_c.bgraTexture ? ".bgra" : "");
+				WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
 			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
 			if (doTextureAlpha) { // texfmt == RGBA
-				switch (gstate.getTextureFunction()) {
+				switch (texFunc) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  float4 v = p * t%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
@@ -292,7 +215,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 				}
 
 			} else {	// texfmt == RGB
-				switch (gstate.getTextureFunction()) {
+				switch (texFunc) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  float4 v = float4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
@@ -318,7 +241,6 @@ void GenerateFragmentShaderDX9(char *buffer) {
 #if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
-				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
@@ -332,7 +254,6 @@ void GenerateFragmentShaderDX9(char *buffer) {
 					WRITE(p, "  clip(-1);\n");
 				}
 			} else {
-				GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					// TODO: Rewrite this to use clip() appropriately (like, clip(v.a - u_alphacolorref.a))
@@ -346,7 +267,6 @@ void GenerateFragmentShaderDX9(char *buffer) {
 #endif
 		if (enableColorTest) {
 			if (colorTestAgainstZero) {
-				GEComparison colorTestFunc = gstate.getColorTestFunction();
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
@@ -360,9 +280,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 					WRITE(p, "  clip(-1);\n");
 				}
 			} else {
-				GEComparison colorTestFunc = gstate.getColorTestFunction();
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
-				u32 colorTestMask = gstate.getColorTestMask();
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char * test = colorTestFuncs[colorTestFunc];
 					WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
@@ -386,9 +304,8 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
-			GEBlendSrcFactor funcA = gstate.getBlendFuncA();
 			const char *srcFactor = "ERROR";
-			switch (funcA) {
+			switch (replaceBlendFuncA) {
 			case GE_SRCBLEND_DSTCOLOR:          srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_INVDSTCOLOR:       srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_SRCALPHA:          srcFactor = "float3(v.a, v.a, v.a)"; break;
@@ -417,7 +334,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 	std::string replacedAlpha = "0.0";
 	char replacedAlphaTemp[64] = "";
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
-		switch (ReplaceAlphaWithStencilType()) {
+		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
 			replacedAlpha = "u_stencilReplaceValue";
 			break;
@@ -467,7 +384,8 @@ void GenerateFragmentShaderDX9(char *buffer) {
 		break;
 	}
 
-	switch (ReplaceLogicOpType()) {
+	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
+	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  v.rgb = float3(1.0, 1.0, 1.0);\n");
 		break;
@@ -480,6 +398,7 @@ void GenerateFragmentShaderDX9(char *buffer) {
 
 	WRITE(p, "  return v;\n");
 	WRITE(p, "}\n");
+	return true;
 }
 
 };

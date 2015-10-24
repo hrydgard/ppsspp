@@ -72,6 +72,7 @@ enum {
 	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
 	FS_BIT_BLENDFUNC_B = 42,
 	FS_BIT_FLATSHADE = 46,
+	FS_BIT_BGRA_TEXTURE = 47,
 };
 
 struct ShaderID {

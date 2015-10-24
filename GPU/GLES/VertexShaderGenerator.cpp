@@ -292,7 +292,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 	}
 
-	if (!gstate.isModeThrough() && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
+	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		WRITE(p, "uniform highp vec4 u_depthRange;\n");
 	}
 
@@ -561,7 +561,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
-		if (id.Bit(VS_BIT_LIGHTING_ENABLE)) {
+		if (enableLighting) {
 			// Sum up ambient, emissive here.
 			if (lmode) {
 				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");

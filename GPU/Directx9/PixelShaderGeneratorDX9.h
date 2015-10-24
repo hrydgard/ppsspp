@@ -26,8 +26,7 @@
 
 namespace DX9 {
 
-void ComputeFragmentShaderIDDX9(ShaderID *id);
-void GenerateFragmentShaderDX9(char *buffer);
+bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1

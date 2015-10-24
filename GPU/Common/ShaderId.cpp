@@ -146,6 +146,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(FS_BIT_ENABLE_FOG)) desc << "Fog ";
 	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
+	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
 		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
@@ -232,6 +233,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT());
 				id.SetBit(FS_BIT_TEXTURE_AT_OFFSET, textureAtOffset);
 			}
+			id.SetBit(FS_BIT_BGRA_TEXTURE, gstate_c.bgraTexture);
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
