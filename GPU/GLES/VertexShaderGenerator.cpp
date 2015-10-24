@@ -98,6 +98,8 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
 	int uvgMode = id.Bits(BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
+	int ls0 = id.Bits(BIT_LS0, 2);
+	int ls1 = id.Bits(BIT_LS1, 2);
 
 	if (uvgMode) desc << uvgModes[uvgMode];
 	if (id.Bit(BIT_ENABLE_BONES)) desc << "Bones:" << (id.Bits(BIT_BONES, 3) + 1) << " ";
@@ -105,7 +107,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bit(BIT_LIGHTING_ENABLE)) {
 		desc << "Light: ";
 		for (int i = 0; i < 4; i++) {
-			if (id.Bit(BIT_LIGHT0_ENABLE + i)) {
+			if (id.Bit(BIT_LIGHT0_ENABLE + i) || (uvgMode == GE_TEXMAP_ENVIRONMENT_MAP && (ls0 == i || ls1 == i))) {
 				desc << i << ": ";
 				desc << "c:" << id.Bits(BIT_LIGHT0_COMP + 4 * i, 2) << " t:" << id.Bits(BIT_LIGHT0_TYPE + 4 * i, 2) << " ";
 			}
