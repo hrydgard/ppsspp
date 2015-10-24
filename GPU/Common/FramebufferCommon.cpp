@@ -30,7 +30,7 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"  // Gross dependency!
 
-void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
+void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation, bool invertY) {
 	float outW;
 	float outH;
 
@@ -40,15 +40,49 @@ void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH
 		outW = frameW;
 		outH = frameH;
 	} else {
-		// Add special case for 1080p displays, cutting off the bottom and top 1-pixel rows from the original 480x272.
-		// This will be what 99.9% of users want.
-		if (origW == 480 && origH == 272 && frameW == 1920 && frameH == 1080 && !rotated) {
-			*x = 0;
-			*y = -4;
-			*w = 1920;
-			*h = 1088;
-			return;
+		bool fullScreenZoom = true;
+#ifndef MOBILE_DEVICE
+		fullScreenZoom = g_Config.bFullScreen;
+#endif
+		if (fullScreenZoom) {
+			if (g_Config.iSmallDisplayZoom != 0) {
+				float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
+				float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
+				// Have to invert Y coordinates for software rendering as well as non buffered mode for GL
+#if defined(USING_WIN_UI)
+				if (g_Config.bSoftwareRendering || (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !invertY)) { offsetY = offsetY * -1.0f; }
+#else
+				if (g_Config.bSoftwareRendering || (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && !invertY)) { offsetY = offsetY * -1.0f; }
+#endif
+				float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
+				float smallDisplayW = origW * customZoom;
+				float smallDisplayH = origH * customZoom;
+				if (!rotated) {
+					*x = ((frameW - smallDisplayW) / 2.0f) + offsetX;
+					*y = ((frameH - smallDisplayH) / 2.0f) + offsetY;
+					*w = smallDisplayW;
+					*h = smallDisplayH;
+					return;
+				} else {
+					*x = ((frameW - smallDisplayH) / 2.0f) + offsetX;
+					*y = ((frameH - smallDisplayW) / 2.0f) + offsetY;
+					*w = smallDisplayH;
+					*h = smallDisplayW;
+					return;
+				}
+			} else {
+				float pixelCrop = frameH / 270.0f;
+				float resCommonWidescreen = pixelCrop - floor(pixelCrop);
+				if (!rotated && resCommonWidescreen == 0.0f) {
+					*x = 0;
+					*y = -pixelCrop;
+					*w = frameW;
+					*h = pixelCrop * 272.0f;
+					return;
+				}
+			}
 		}
+
 
 		float origRatio = !rotated ? origW / origH : origH / origW;
 		float frameRatio = frameW / frameH;
@@ -65,11 +99,6 @@ void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH
 			outW = frameH * origRatio;
 			outH = frameH;
 		}
-	}
-
-	if (g_Config.bSmallDisplay) {
-		outW /= 2.0f;
-		outH /= 2.0f;
 	}
 
 	*x = (frameW - outW) / 2.0f;

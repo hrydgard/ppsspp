@@ -62,6 +62,10 @@
     <ClCompile Include="ComboKeyMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="DisplayLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayLayoutEditor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -124,6 +128,10 @@
     <ClInclude Include="ComboKeyMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DisplayLayoutEditor.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">
