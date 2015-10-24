@@ -238,7 +238,6 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
 		}
 
-#if !defined(DX9_USE_HW_ALPHA_TEST)
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
@@ -264,7 +263,6 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				}
 			}
 		}
-#endif
 		if (enableColorTest) {
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.

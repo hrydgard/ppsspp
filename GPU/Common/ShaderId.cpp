@@ -237,14 +237,6 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
-#if !defined(DX9_USE_HW_ALPHA_TEST)
-		if (enableAlphaTest) {
-			// 5 bits total.
-			id.SetBit(FS_BIT_ALPHA_TEST);
-			id.SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
-			id.SetBit(FS_BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
-		}
-#endif
 		if (enableColorTest) {
 			// 4 bits total.
 			id.SetBit(FS_BIT_COLOR_TEST);
