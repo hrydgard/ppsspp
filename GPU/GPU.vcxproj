@@ -187,6 +187,7 @@
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
     <ClInclude Include="Common\ShaderCommon.h" />
+    <ClInclude Include="Common\ShaderId.h" />
     <ClInclude Include="Common\SoftwareTransformCommon.h" />
     <ClInclude Include="Common\SplineCommon.h" />
     <ClInclude Include="Common\TextureDecoderNEON.h">
@@ -250,6 +251,7 @@
     <ClCompile Include="Common\GPUDebugInterface.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\ShaderId.cpp" />
     <ClCompile Include="Common\SplineCommon.cpp" />
     <ClCompile Include="Common\TextureDecoderNEON.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

@@ -19,6 +19,8 @@
 
 #include "Globals.h"
 
+#include "GPU/Common/ShaderID.h"
+
 namespace DX9 {
 
 // #define USE_BONE_ARRAY
@@ -52,7 +54,7 @@ struct VertexShaderIDDX9
 
 bool CanUseHardwareTransformDX9(int prim);
 
-void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, bool useHWTransform);
+void ComputeVertexShaderIDDX9(ShaderID *id, u32 vertType, bool useHWTransform);
 void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform);
 
 // Collapse to less skinning shaders to reduce shader switching, which is expensive.

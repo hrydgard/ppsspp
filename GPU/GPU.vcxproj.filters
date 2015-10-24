@@ -198,6 +198,7 @@
     <ClInclude Include="Common\ShaderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ShaderId.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -377,5 +378,6 @@
     <ClCompile Include="GLES\GLStateCache.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="Common\ShaderId.cpp" />
   </ItemGroup>
 </Project>

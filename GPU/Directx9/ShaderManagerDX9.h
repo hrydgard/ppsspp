@@ -17,11 +17,13 @@
 
 #pragma once
 
-#include "base/basictypes.h"
-#include "../../Globals.h"
 #include <map>
+
+#include "base/basictypes.h"
+#include "Globals.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Common/ShaderId.h"
 #include "thin3d/d3dx9_loader.h"
 #include "math/lin/matrix4x4.h"
 
@@ -149,8 +151,8 @@ private:
 
 	void Clear();
 
-	FragmentShaderIDDX9 lastFSID_;
-	VertexShaderIDDX9 lastVSID_;
+	ShaderID lastFSID_;
+	ShaderID lastVSID_;
 
 	u32 globalDirty_;
 	char *codeBuffer_;
@@ -158,10 +160,10 @@ private:
 	VSShader *lastVShader_;
 	PSShader *lastPShader_;
 
-	typedef std::map<FragmentShaderIDDX9, PSShader *> FSCache;
+	typedef std::map<ShaderID, PSShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<VertexShaderIDDX9, VSShader *> VSCache;
+	typedef std::map<ShaderID, VSShader *> VSCache;
 	VSCache vsCache_;
 };
 

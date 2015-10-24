@@ -593,9 +593,9 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransformDX9(prim);
 
-	VertexShaderIDDX9 VSID;
+	ShaderID VSID;
 	ComputeVertexShaderIDDX9(&VSID, vertType, useHWTransform);
-	FragmentShaderIDDX9 FSID;
+	ShaderID FSID;
 	ComputeFragmentShaderIDDX9(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.

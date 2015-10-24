@@ -32,6 +32,7 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -300,37 +301,6 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 	}
 	return LOGICOPTYPE_NORMAL;
 }
-
-// Local
-enum {
-	FS_BIT_CLEARMODE = 0,
-	FS_BIT_DO_TEXTURE = 1,
-	FS_BIT_TEXFUNC = 2,  // 3 bits
-	FS_BIT_TEXALPHA = 5,
-	FS_BIT_FLIP_TEXTURE = 6,
-	FS_BIT_SHADER_TEX_CLAMP = 7,
-	FS_BIT_CLAMP_S = 8,
-	FS_BIT_CLAMP_T = 9,
-	FS_BIT_TEXTURE_AT_OFFSET = 10,
-	FS_BIT_LMODE = 11,
-	FS_BIT_ALPHA_TEST = 12,
-	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
-	FS_BIT_ALPHA_AGAINST_ZERO = 16,
-	FS_BIT_COLOR_TEST = 17,
-	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
-	FS_BIT_COLOR_AGAINST_ZERO = 20,
-	FS_BIT_ENABLE_FOG = 21,
-	FS_BIT_DO_TEXTURE_PROJ = 22,
-	FS_BIT_COLOR_DOUBLE = 23,
-	FS_BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
-	FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits
-	FS_BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
-	FS_BIT_REPLACE_BLEND = 32,  // 3 bits
-	FS_BIT_BLENDEQ = 35,  // 3 bits
-	FS_BIT_BLENDFUNC_A = 38,  // 4 bits
-	FS_BIT_BLENDFUNC_B = 42,
-	FS_BIT_FLATSHADE = 46,
-};
 
 static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
 

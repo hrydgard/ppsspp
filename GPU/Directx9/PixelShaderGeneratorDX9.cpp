@@ -314,7 +314,7 @@ static inline LogicOpReplaceType ReplaceLogicOpType() {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id) {
+void ComputeFragmentShaderIDDX9(ShaderID *id) {
 	int id0 = 0;
 	int id1 = 0;
 	if (gstate.isModeClear()) {
