@@ -152,11 +152,19 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 }
 
 void VagDecoder::DoState(PointerWrap &p) {
-	auto s = p.Section("VagDecoder", 1);
+	auto s = p.Section("VagDecoder", 1, 2);
 	if (!s)
 		return;
 
-	p.DoArray(samples, ARRAY_SIZE(samples));
+	if (s >= 2) {
+		p.DoArray(samples, ARRAY_SIZE(samples));
+	} else {
+		int samplesOld[ARRAY_SIZE(samples)];
+		p.DoArray(samplesOld, ARRAY_SIZE(samples));
+		for (size_t i = 0; i < ARRAY_SIZE(samples); ++i) {
+			samples[i] = samplesOld[i];
+		}
+	}
 	p.Do(curSample);
 
 	p.Do(data_);

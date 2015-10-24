@@ -104,7 +104,7 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
-	int samples[28];
+	s16 samples[28];
 	int curSample;
 
 	u32 data_;
