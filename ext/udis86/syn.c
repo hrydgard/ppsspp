@@ -174,12 +174,16 @@ ud_syn_print_imm(struct ud* u, const struct ud_operand *op)
   ud_asmprintf(u, "0x%" FMT64 "x", v);
 }
 
+uint64_t
+ud_syn_rip_target(struct ud *u, struct ud_operand *opr) {
+  return (u->pc + opr->lval.sdword);
+}
 
 void
 ud_syn_print_mem_disp(struct ud* u, const struct ud_operand *op, int sign)
 {
   UD_ASSERT(op->offset != 0);
- if (op->base == UD_NONE && op->index == UD_NONE) {
+  if (op->base == UD_NONE && op->index == UD_NONE) {
     uint64_t v;
     UD_ASSERT(op->scale == UD_NONE && op->offset != 8);
     /* unsigned mem-offset */
@@ -199,7 +203,9 @@ ud_syn_print_mem_disp(struct ud* u, const struct ud_operand *op, int sign)
     case 32: v = op->lval.sdword; break;
     default: UD_ASSERT(!"invalid offset"); v = 0; /* keep cc happy */
     }
-    if (v < 0) {
+    if (op->base == UD_R_RIP) {
+      ud_syn_print_addr(u, ud_syn_rip_target(u, op));
+    } else if (v < 0) {
       ud_asmprintf(u, "-0x%" FMT64 "x", -v);
     } else if (v > 0) {
       ud_asmprintf(u, "%s0x%" FMT64 "x", sign? "+" : "", v);

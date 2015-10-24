@@ -161,10 +161,25 @@ const char *ppsspp_resolver(struct ud*,
 	if (addr >= (uint64_t)(&currentMIPS->r[0]) && addr < (uint64_t)&currentMIPS->r[32]) {
 		*offset = addr - (uint64_t)(&currentMIPS->r[0]);
 		return "mips.r";
-	}
-	if (addr >= (uint64_t)(&currentMIPS->v[0]) && addr < (uint64_t)&currentMIPS->v[128]) {
+	} else if (addr >= (uint64_t)(&currentMIPS->v[0]) && addr < (uint64_t)&currentMIPS->v[128]) {
 		*offset = addr - (uint64_t)(&currentMIPS->v[0]);
 		return "mips.v";
+	} else if (addr == (uint64_t)(&currentMIPS->downcount)) {
+		return "mips.downcount";
+	} else if (addr == (uint64_t)(&currentMIPS->fpcond)) {
+		return "mips.fpcond";
+	} else if (addr == (uint64_t)(&currentMIPS->temp)) {
+		return "mips.temp";
+	} else if (addr == (uint64_t)(&currentMIPS->pc)) {
+		return "mips.pc";
+	} else if (addr == (uint64_t)(&currentMIPS->hi)) {
+		return "mips.hi";
+	} else if (addr == (uint64_t)(&currentMIPS->lo)) {
+		return "mips.lo";
+	} else if (addr == (uint64_t)(&currentMIPS->fcr31)) {
+		return "mips.fcr31";
+	} else if (addr >= (uint64_t)(&currentMIPS->vfpuCtrl[0]) && addr < (uint64_t)(&currentMIPS->vfpuCtrl[16])) {
+		return "mips.vfpuCtrl";
 	}
 
 	// But these do.

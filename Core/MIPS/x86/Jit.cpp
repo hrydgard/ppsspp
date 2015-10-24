@@ -50,7 +50,7 @@ using namespace Gen;
 #define SAVE_FLAGS PUSHF();
 #define LOAD_FLAGS POPF();
 
-#else
+#elif defined(_M_X64)
 
 static u64 saved_flags;
 
@@ -442,6 +442,10 @@ void Jit::AddContinuedBlock(u32 dest)
 }
 
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
+#if defined(_M_X64)
+	if (ptr == (const u8 *)&saved_flags)
+		name = "saved_flags";
+#endif
 	if (ptr == applyRoundingMode)
 		name = "applyRoundingMode";
 	else if (ptr == updateRoundingMode)
