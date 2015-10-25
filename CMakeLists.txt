@@ -40,6 +40,10 @@ endif()
 if(EXISTS "/opt/vc/include/bcm_host.h")
 	message(STATUS "RaspberryPI VC Found")
 	set(RPI ON)
+	set(USING_GLES2 ON)
+	set(USING_FBDEV ON)
+	# disable armv7 on rpi2 as building for armv6 causes a crash - https://github.com/hrydgard/ppsspp/issues/7479
+	set(ARMV7 OFF)
 endif()
 
 if(BB)
@@ -129,7 +133,7 @@ endif()
 include_directories(ext/native)
 
 if(RPI)
-	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads)
+	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads /opt/vc/include/interface/vmcs_host/linux)
 	link_directories(/opt/vc/lib)
 	set(OPENGL_LIBRARIES GLESv2 bcm_host)
 elseif(USING_GLES2 AND NOT IOS)
@@ -298,8 +302,11 @@ set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
 		Common/ArmCPUDetect.cpp
-		Common/ArmThunk.cpp
+		Common/ArmThunk.cpp)
+if(ARMV7)
+	set(CommonExtra ${CommonExtra}
 		Common/ColorConvNEON.cpp)
+endif()
 elseif(X86)
 	set(CommonExtra ${CommonExtra}
 		Common/ABI.cpp
@@ -746,6 +753,10 @@ set(nativeExtraLibs)
 if(ARMV7)
 	if(BB)
 		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a8")
+	elseif(RPI)
+		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
+		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
 	else()
 		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
 		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
@@ -753,6 +764,10 @@ if(ARMV7)
 	endif()
 	set(nativeExtra ${nativeExtra}
 		ext/native/math/fast/fast_matrix_neon.S)
+elseif(RPI)
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
+	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
+	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
 endif()
 if(X86 AND NOT MIPS)
 	set(nativeExtra ${nativeExtra}
