@@ -153,7 +153,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		desc << " ";
 	}
 	if (id.Bits(FS_BIT_REPLACE_BLEND, 3)) {
-		desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
+		desc << "ReplaceBlend_" << id.Bits(FS_BIT_REPLACE_BLEND, 3) << "A:" << id.Bits(FS_BIT_BLENDFUNC_A, 4) << "_B:" << id.Bits(FS_BIT_BLENDFUNC_B, 4) << "_Eq:" << id.Bits(FS_BIT_BLENDEQ, 3) << " ";
 	}
 
 	switch (id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) {
