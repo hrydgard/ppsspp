@@ -149,19 +149,33 @@ void *GetQuickSyscallFunc(MIPSOpcode op);
 u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...);
 u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask);
 
+// This is just a quick way to force logging to be more visible for one file.
+#ifdef HLE_LOG_FORCE
+#define HLE_LOG_LDEBUG LNOTICE
+#define HLE_LOG_LVERBOSE LDEBUG
+
+#undef DEBUG_LOG
+#define DEBUG_LOG NOTICE_LOG
+#undef VERBOSE_LOG
+#define VERBOSE_LOG DEBUG_LOG
+#else
+#define HLE_LOG_LDEBUG LDEBUG
+#define HLE_LOG_LVERBOSE LVERBOSE
+#endif
+
 // Only one side of the ?: is evaluated (per c++ standard), so this should be safe.
 #define hleLogHelper(t, level, res, retmask, ...) (LogTypes::level > MAX_LOGLEVEL ? res : hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__))
 #define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
-#define hleLogDebug(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessX(t, res, ...) hleLogHelper(t, LDEBUG, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessI(t, res, ...) hleLogHelper(t, LDEBUG, res, 'i', ##__VA_ARGS__)
+#define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessX(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessI(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'i', ##__VA_ARGS__)
 #define hleLogSuccessInfoX(t, res, ...) hleLogHelper(t, LINFO, res, 'x', ##__VA_ARGS__)
 #define hleLogSuccessInfoI(t, res, ...) hleLogHelper(t, LINFO, res, 'i', ##__VA_ARGS__)
-#define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'x', ##__VA_ARGS__)
-#define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, LVERBOSE, res, 'i', ##__VA_ARGS__)
+#define hleLogSuccessVerboseX(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'x', ##__VA_ARGS__)
+#define hleLogSuccessVerboseI(t, res, ...) hleLogHelper(t, HLE_LOG_LVERBOSE, res, 'i', ##__VA_ARGS__)
 
 #define hleReportError(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LERROR, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
 #define hleReportWarning(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LWARNING, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
-#define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportDebug(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LDEBUG, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
+#define hleReportVerbose(t, res, ...) hleDoLog(LogTypes::t, LogTypes::HLE_LOG_LVERBOSE, res, __FILE__, __LINE__, "", 'x', ##__VA_ARGS__)
