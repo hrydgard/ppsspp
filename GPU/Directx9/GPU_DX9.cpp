@@ -2186,4 +2186,20 @@ bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVerte
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
 }
 
+std::vector<std::string> DIRECTX9_GPU::DebugGetShaderIDs(DebugShaderType type) {
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderIDs();
+	} else {
+		return shaderManager_->DebugGetShaderIDs(type);
+	}
+}
+
+std::string DIRECTX9_GPU::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderString(id, stringType);
+	} else {
+		return shaderManager_->DebugGetShaderString(id, type, stringType);
+	}
+}
+
 }  // namespace DX9

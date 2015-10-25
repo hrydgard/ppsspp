@@ -19,44 +19,13 @@
 
 #include "Globals.h"
 
+#include "GPU/Common/ShaderID.h"
+
 namespace DX9 {
 
 // #define USE_BONE_ARRAY
 
-struct VertexShaderIDDX9
-{
-	VertexShaderIDDX9() {d[0] = 0xFFFFFFFF;}
-	void clear() {d[0] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const VertexShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
-	}
-	bool operator == (const VertexShaderIDDX9 &other) const
-	{
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++)
-		{
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
-	}
-};
-
-bool CanUseHardwareTransformDX9(int prim);
-
-void ComputeVertexShaderIDDX9(VertexShaderIDDX9 *id, u32 vertType, bool useHWTransform);
-void GenerateVertexShaderDX9(int prim, char *buffer, bool useHWTransform);
-
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBonesDX9(int bones);
+	void GenerateVertexShaderDX9(const ShaderID &id, char *buffer);
 
 #define CONST_VS_PROJ 0
 #define CONST_VS_PROJ_THROUGH 4

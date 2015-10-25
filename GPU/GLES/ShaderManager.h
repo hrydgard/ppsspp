@@ -22,72 +22,11 @@
 #include <map>
 
 #include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGenerator.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 
 class Shader;
-
-struct ShaderID {
-	ShaderID() {
-		clear();
-	}
-	void clear() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0;
-		}
-	}
-	void set_invalid() {
-		for (size_t i = 0; i < ARRAY_SIZE(d); i++) {
-			d[i] = 0xFFFFFFFF;
-		}
-	}
-
-	u32 d[2];
-	bool operator < (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
-	}
-	bool operator == (const ShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
-	}
-
-	bool Bit(int bit) const {
-		return (d[bit >> 5] >> (bit & 31)) & 1;
-	}
-	// Does not handle crossing 32-bit boundaries
-	int Bits(int bit, int count) const {
-		const int mask = (1 << count) - 1;
-		return (d[bit >> 5] >> (bit & 31)) & mask;
-	}
-	void SetBit(int bit, bool value = true) {
-		if (value) {
-			d[bit >> 5] |= 1 << (bit & 31);
-		}
-	}
-	void SetBits(int bit, int count, int value) {
-		if (value != 0) {
-			const int mask = (1 << count) - 1;
-			d[bit >> 5] |= (value & mask) << (bit & 31);
-		}
-	}
-
-	void ToString(std::string *dest) const {
-		dest->resize(sizeof(d));
-		memcpy(&(*dest)[0], d, sizeof(d));
-	}
-	void FromString(std::string src) {
-		memcpy(d, &(src)[0], sizeof(d));
-	}
-};
 
 // Pre-fetched attrs and uniforms
 enum {

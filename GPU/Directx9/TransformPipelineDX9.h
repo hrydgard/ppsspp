@@ -26,6 +26,7 @@
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;

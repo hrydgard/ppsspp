@@ -16,9 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
-#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/ShaderId.h"
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
