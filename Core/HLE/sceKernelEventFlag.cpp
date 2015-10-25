@@ -136,18 +136,22 @@ void __KernelEventFlagDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
 }
 
-KernelObject *__KernelEventFlagObject()
-{
+KernelObject *__KernelEventFlagObject() {
 	// Default object to load from state.
 	return new EventFlag;
 }
 
-static bool __KernelEventFlagMatches(u32_le *pattern, u32 bits, u8 wait, u32 outAddr)
-{
-	if ((wait & PSP_EVENT_WAITOR)
-		? (bits & *pattern) /* one or more bits of the mask */
-		: ((bits & *pattern) == bits)) /* all the bits of the mask */
-	{
+static bool __KernelCheckEventFlagMatches(u32 pattern, u32 bits, u8 wait) {
+	// Is this in OR (any bit can match) or AND (all bits must match) mode?
+	if (wait & PSP_EVENT_WAITOR) {
+		return (bits & pattern) != 0;
+	} else {
+		return (bits & pattern) == bits;
+	}
+}
+
+static bool __KernelApplyEventFlagMatch(u32_le *pattern, u32 bits, u8 wait, u32 outAddr) {
+	if (__KernelCheckEventFlagMatches(*pattern, bits, wait)) {
 		if (Memory::IsValidAddress(outAddr))
 			Memory::Write_U32(*pattern, outAddr);
 
@@ -168,7 +172,7 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	// If result is an error code, we're just letting it go.
 	if (result == 0)
 	{
-		if (!__KernelEventFlagMatches(&e->nef.currentPattern, th.bits, th.wait, th.outAddr))
+		if (!__KernelApplyEventFlagMatch(&e->nef.currentPattern, th.bits, th.wait, th.outAddr))
 			return false;
 	}
 	else
@@ -436,7 +440,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 	if (e)
 	{
 		EventFlagTh th;
-		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
+		if (!__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
 			// If this thread was left in waitingThreads after a timeout, remove it.
 			// Otherwise we might write the outBitsPtr in the wrong place.
@@ -504,7 +508,9 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 	if (e)
 	{
 		EventFlagTh th;
-		bool doWait = !__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr);
+		// We only check, not apply here.  This way the CLEAR/etc. options don't apply yet.
+		// If we run callbacks, we will check again after the callbacks complete.
+		bool doWait = !__KernelCheckEventFlagMatches(e->nef.currentPattern, bits, wait);
 		bool doCallbackWait = false;
 		if (__KernelCurHasReadyCallbacks())
 		{
@@ -548,6 +554,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 		else
 		{
 			DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitEventFlagCB(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
+			__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr);
 			hleCheckCurrentCallbacks();
 		}
 
@@ -584,7 +591,7 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr)
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
-		if (!__KernelEventFlagMatches(&e->nef.currentPattern, bits, wait, outBitsPtr))
+		if (!__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr))
 		{
 			if (Memory::IsValidAddress(outBitsPtr))
 				Memory::Write_U32(e->nef.currentPattern, outBitsPtr);
