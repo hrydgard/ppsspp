@@ -739,6 +739,12 @@ void NativeRender() {
 #ifdef _WIN32
 			D3D9_Resize(0);
 #endif
+		} else if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+#ifndef _WIN32
+			PSP_CoreParameter().pixelWidth = pixel_xres;
+			PSP_CoreParameter().pixelHeight = pixel_yres;
+			NativeMessageReceived("gpu resized", "");
+#endif
 		}
 	}
 }
