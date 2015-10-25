@@ -1027,13 +1027,13 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 			int finishFlag = 0;
 			// TODO: Verify.
-			if (atrac->loopNum != 0 && (atrac->currentSample > atrac->loopEndSample ||
-				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
-				atrac->SeekToSample(atrac->loopStartSample);
+			bool hitEnd = atrac->currentSample >= atrac->endSample || (numSamples == 0 && atrac->first.size >= atrac->first.filesize);
+			int loopEndAdjusted = atrac->loopEndSample - firstOffsetExtra - atrac->firstSampleoffset;
+			if ((hitEnd || atrac->currentSample > loopEndAdjusted) && atrac->loopNum != 0) {
+				atrac->SeekToSample(atrac->loopStartSample - firstOffsetExtra - atrac->firstSampleoffset);
 				if (atrac->loopNum > 0)
-					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample ||
-				(numSamples == 0 && atrac->first.size >= atrac->first.filesize)) {
+					atrac->loopNum--;
+			} else if (hitEnd) {
 				finishFlag = 1;
 			}
 
@@ -1739,8 +1739,8 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 		atrac->loopNum = loopNum;
 		if (loopNum != 0 && atrac->loopinfoNum == 0) {
 			// Just loop the whole audio
-			atrac->loopStartSample = 0;
 			int firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+			atrac->loopStartSample = atrac->firstSampleoffset + firstOffsetExtra;
 			atrac->loopEndSample = atrac->endSample + atrac->firstSampleoffset + firstOffsetExtra;
 		}
 	}
