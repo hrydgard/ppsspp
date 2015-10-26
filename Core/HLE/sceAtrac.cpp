@@ -244,7 +244,11 @@ struct Atrac {
 		if (s >= 6) {
 			p.Do(bufferState);
 		} else {
-			SetBufferState();
+			if (data_buf == nullptr) {
+				bufferState = ATRAC_STATUS_NO_DATA;
+			} else {
+				SetBufferState();
+			}
 		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
