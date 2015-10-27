@@ -546,14 +546,12 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 
 	int voicesPlayingCount = 0;
 
-	int sendVolumeSum = 0;  // Figure out if we actually need to run the effect. This can cut off echo trails though so TODO: Let's remove after debugging.
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
 		voicesPlayingCount++;
 		MixVoice(voice);
-		sendVolumeSum += voice.effectLeft + voice.effectRight;
 	}
 
 	// Then mix the send buffer in with the rest.
@@ -564,7 +562,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
-		if (sendVolumeSum && waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF) {
+		if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF) {
 			ApplyWaveformEffect();
 			// TODO: Mix send when it has proper values, probably based on dry/wet?
 			if (inp) {
