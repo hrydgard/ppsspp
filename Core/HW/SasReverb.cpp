@@ -113,15 +113,6 @@ static const SasReverbData presets[10] = {
 	},
 
 	{
-		"Half Echo",
-		0x3C00,
-		0x0017,0x0013,0x70F0,0x4FA8,(int16_t)0xBCE0,0x4510,(int16_t)0xBEF0,(int16_t)0x8500,
-		0x5F80,0x54C0,0x0371,0x02AF,0x02E5,0x01DF,0x02B0,0x01D7,
-		0x0358,0x026A,0x01D6,0x011E,0x012D,0x00B1,0x011F,0x0059,
-		0x01A0,0x00E3,0x0058,0x0040,0x0028,0x0014,(int16_t)0x8000,(int16_t)0x8000,
-	},
-
-	{
 		"Space Echo",
 		0xF6C0,
 		0x033D,0x0231,0x7E00,0x5000,(int16_t)0xB400,(int16_t)0xB000,0x4C00,(int16_t)0xB000,
@@ -131,7 +122,7 @@ static const SasReverbData presets[10] = {
 	},
 
 	{
-		"Chaos Echo (almost infinite)",
+		"Echo (almost infinite)",
 		0x18040,
 		0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,(int16_t)0x8100,
 		0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
@@ -146,6 +137,15 @@ static const SasReverbData presets[10] = {
 		0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
 		0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
 		0x0000,0x0000,0x1004,0x1002,0x0004,0x0002,(int16_t)0x8000,(int16_t)0x8000,
+	},
+
+	{
+		"Half Echo",
+		0x3C00,
+		0x0017,0x0013,0x70F0,0x4FA8,(int16_t)0xBCE0,0x4510,(int16_t)0xBEF0,(int16_t)0x8500,
+		0x5F80,0x54C0,0x0371,0x02AF,0x02E5,0x01DF,0x02B0,0x01D7,
+		0x0358,0x026A,0x01D6,0x011E,0x012D,0x00B1,0x011F,0x0059,
+		0x01A0,0x00E3,0x0058,0x0040,0x0028,0x0014,(int16_t)0x8000,(int16_t)0x8000,
 	},
 
 	{
@@ -172,8 +172,12 @@ const char *SasReverb::GetPresetName(int preset) {
 
 void SasReverb::SetPreset(int preset) {
 	preset_ = preset;
-	pos_ = BUFSIZE - presets[preset_].size;
-	memset(workspace_, 0, sizeof(int16_t) * BUFSIZE);
+	if (preset_ != -1) {
+		pos_ = BUFSIZE - presets[preset_].size;
+		memset(workspace_, 0, sizeof(int16_t) * BUFSIZE);
+	} else {
+		pos_ = 0;
+	}
 }
 
 // Wraps around the upper part of a buffer.
@@ -210,6 +214,10 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		memcpy(output, input, inputSize * 2 * sizeof(int16_t));
 		return;
 	}
+	if (preset_ == -1) {
+		// We should not be called.
+		return;
+	}
 
 	const SasReverbData &d = presets[preset_];
 
@@ -224,24 +232,24 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		int16_t Lin = (d.vLIN * LeftInput) >> 15;
 		int16_t Rin = (d.vRIN * RightInput) >> 15;
 		// ____Same Side Reflection(left - to - left and right - to - right)___________________
-		b[d.mLSAME] = clamp_s16(Lin + (b[d.dLSAME] * d.vWALL >> 15) - (b[d.mLSAME - 2]*d.vIIR >> 15) + b[d.mLSAME - 2]); // L - to - L
-		b[d.mRSAME] = clamp_s16(Rin + (b[d.dRSAME] * d.vWALL >> 15) - (b[d.mRSAME - 2]*d.vIIR >> 15) + b[d.mRSAME - 2]); //.R - to - R
+		b[d.mLSAME] = clamp_s16(Lin + (b[d.dLSAME*4] * d.vWALL >> 15) - (b[d.mLSAME*4 - 1]*d.vIIR >> 15) + b[d.mLSAME*4 - 1]); // L - to - L
+		b[d.mRSAME] = clamp_s16(Rin + (b[d.dRSAME*4] * d.vWALL >> 15) - (b[d.mRSAME*4 - 1]*d.vIIR >> 15) + b[d.mRSAME*4 - 1]); // R - to - R
 		// ___Different Side Reflection(left - to - right and right - to - left)_______________
-		b[d.mLDIFF] = clamp_s16(Lin + (b[d.dRDIFF] * d.vWALL >> 15) - (b[d.mLDIFF - 2]*d.vIIR >> 15) + b[d.mLDIFF - 2]); // R - to - L
-		b[d.mRDIFF] = clamp_s16(Rin + (b[d.dLDIFF] * d.vWALL >> 15) - (b[d.mRDIFF - 2]*d.vIIR >> 15) + b[d.mRDIFF - 2]); // L - to - R
+		b[d.mLDIFF] = clamp_s16(Lin + (b[d.dRDIFF*4] * d.vWALL >> 15) - (b[d.mLDIFF*4 - 1]*d.vIIR >> 15) + b[d.mLDIFF*4 - 1]); // R - to - L
+		b[d.mRDIFF] = clamp_s16(Rin + (b[d.dLDIFF*4] * d.vWALL >> 15) - (b[d.mRDIFF*4 - 1]*d.vIIR >> 15) + b[d.mRDIFF*4 - 1]); // L - to - R
 		// ___Early Echo(Comb Filter, with input from buffer)__________________________
-		int16_t Lout = (d.vCOMB1*b[d.mLCOMB1] >> 15) + (d.vCOMB2*b[d.mLCOMB2] >> 15) + (d.vCOMB3*b[d.mLCOMB3] >> 15) + (d.vCOMB4*b[d.mLCOMB4] >> 15);
-		int16_t Rout = (d.vCOMB1*b[d.mRCOMB1] >> 15) + (d.vCOMB2*b[d.mRCOMB2] >> 15) + (d.vCOMB3*b[d.mRCOMB3] >> 15) + (d.vCOMB4*b[d.mRCOMB4] >> 15);
+		int16_t Lout = (d.vCOMB1*b[d.mLCOMB1*4] >> 15) + (d.vCOMB2*b[d.mLCOMB2*4] >> 15) + (d.vCOMB3*b[d.mLCOMB3*4] >> 15) + (d.vCOMB4*b[d.mLCOMB4*4] >> 15);
+		int16_t Rout = (d.vCOMB1*b[d.mRCOMB1*4] >> 15) + (d.vCOMB2*b[d.mRCOMB2*4] >> 15) + (d.vCOMB3*b[d.mRCOMB3*4] >> 15) + (d.vCOMB4*b[d.mRCOMB4*4] >> 15);
 		// ___Late Reverb APF1(All Pass Filter 1, with input from COMB)________________
-		b[d.mLAPF1] = clamp_s16(Lout - (d.vAPF1*b[d.mLAPF1 - d.dAPF1] >> 15));
-		Lout = b[d.mLAPF1 - d.dAPF1] + (b[d.mLAPF1] * d.vAPF1 >> 15);
-		b[d.mRAPF1] = clamp_s16(Rout - (d.vAPF1*b[d.mRAPF1 - d.dAPF1] >> 15));
-		Rout = b[d.mRAPF1 - d.dAPF1] + (b[d.mRAPF1] * d.vAPF1 >> 15);
+		b[d.mLAPF1] = clamp_s16(Lout - (d.vAPF1*b[(d.mLAPF1 - d.dAPF1) * 4] >> 15));
+		Lout = b[(d.mLAPF1 - d.dAPF1)*4] + (b[d.mLAPF1*4] * d.vAPF1 >> 15);
+		b[d.mRAPF1] = clamp_s16(Rout - (d.vAPF1*b[(d.mRAPF1 - d.dAPF1) * 4] >> 15));
+		Rout = b[(d.mRAPF1 - d.dAPF1)*4] + (b[d.mRAPF1*4] * d.vAPF1 >> 15);
 		// ___Late Reverb APF2(All Pass Filter 2, with input from APF1)________________
-		b[d.mLAPF2] = clamp_s16(Lout - d.vAPF2*b[d.mLAPF2 - d.dAPF2]);
-		Lout = b[d.mLAPF2 - d.dAPF2] + (b[d.mLAPF2] * d.vAPF2 >> 15);
-		b[d.mRAPF2] = clamp_s16(Rout - d.vAPF2*b[d.mRAPF2 - d.dAPF2]);
-		Rout = b[d.mRAPF2 - d.dAPF2] + (b[d.mRAPF2] * d.vAPF2 >> 15);
+		b[d.mLAPF2] = clamp_s16(Lout - d.vAPF2*b[(d.mLAPF2 - d.dAPF2)*4]);
+		Lout = b[(d.mLAPF2 - d.dAPF2)*4] + (b[d.mLAPF2*4] * d.vAPF2 >> 15);
+		b[d.mRAPF2] = clamp_s16(Rout - d.vAPF2*b[(d.mRAPF2 - d.dAPF2)*4]);
+		Rout = b[(d.mRAPF2 - d.dAPF2)*4] + (b[d.mRAPF2*4] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
 		output[i*2] = clamp_s16(Lout*volLeft >> 15);
 		output[i*2+1] = clamp_s16(Rout*volRight >> 15);

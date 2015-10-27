@@ -624,6 +624,7 @@ void SasInstance::SetWaveformEffectType(int type) {
 	}
 }
 
+// http://psx.rules.org/spu.txt has some information about setting up the delay time by modifying the delay preset.
 // See http://report.ppsspp.org/logs/kind/772 for a list of games that use different types. Maybe can help us figure out
 // which is which.
 void SasInstance::ApplyWaveformEffect() {
@@ -632,9 +633,6 @@ void SasInstance::ApplyWaveformEffect() {
 		sendBufferDownsampled[i * 2] = sendBuffer[i * 4];
 		sendBufferDownsampled[i * 2 + 1] = sendBuffer[i * 4 + 1];
 	}
-
-	// Most likely, the reverb should not be called for effect types DELAY and ECHO, they are probably the ones controlled
-	// using sceSasRevParam and are probably a simple echo and a simple delay (what's the difference?)
 
 	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting right by 3 fixes that.
 	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, waveformEffect.leftVol << 3, waveformEffect.rightVol << 3);
