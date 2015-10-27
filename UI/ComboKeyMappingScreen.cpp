@@ -106,10 +106,10 @@ void Combo_keyScreen::CreateViews() {
 	keyToggles["Triangle"] = &array[12];
 	keyToggles["L"] = &array[8];
 	keyToggles["R"] = &array[9];
-	keyToggles[co->T("Left")] = &array[7];
-	keyToggles[co->T("Up")] = &array[4];
-	keyToggles[co->T("Right")] = &array[5];
-	keyToggles[co->T("Down")] = &array[6];
+	keyToggles["Left"] = &array[7];
+	keyToggles["Up"] = &array[4];
+	keyToggles["Right"] = &array[5];
+	keyToggles["Down"] = &array[6];
 	keyToggles["Start"] = &array[3];
 	keyToggles["Select"] = &array[0];
 
