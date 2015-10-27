@@ -199,6 +199,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
+  $(SRC)/Core/HW/SasReverb.cpp.arm \
   $(SRC)/Core/HW/StereoResampler.cpp.arm \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \

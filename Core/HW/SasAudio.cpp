@@ -329,6 +329,8 @@ SasInstance::SasInstance()
 		outputMode(PSP_SAS_OUTPUTMODE_MIXED),
 		mixBuffer(0),
 		sendBuffer(0),
+		sendBufferDownsampled(0),
+		sendBufferProcessed(0),
 		resampleBuffer(0),
 		grainSize(0) {
 #ifdef AUDIO_TO_FILE
@@ -344,31 +346,36 @@ SasInstance::~SasInstance() {
 }
 
 void SasInstance::ClearGrainSize() {
-	if (mixBuffer)
-		delete [] mixBuffer;
-	if (sendBuffer)
-		delete [] sendBuffer;
-	if (resampleBuffer)
-		delete [] resampleBuffer;
-	mixBuffer = NULL;
-	sendBuffer = NULL;
-	resampleBuffer = NULL;
+	delete[] mixBuffer;
+	delete[] sendBuffer;
+	delete[] sendBufferDownsampled;
+	delete[] sendBufferProcessed;
+	delete[] resampleBuffer;
+	mixBuffer = nullptr;
+	sendBuffer = nullptr;
+	resampleBuffer = nullptr;
+	sendBufferDownsampled = nullptr;
+	sendBufferProcessed = nullptr;
 }
 
 void SasInstance::SetGrainSize(int newGrainSize) {
 	grainSize = newGrainSize;
 
 	// If you change the sizes here, don't forget DoState().
-	if (mixBuffer)
-		delete [] mixBuffer;
-	if (sendBuffer)
-		delete [] sendBuffer;
+	delete[] mixBuffer;
+	delete[] sendBuffer;
+	delete[] sendBufferDownsampled;
+	delete[] sendBufferProcessed;
+	delete[] resampleBuffer;
+
 	mixBuffer = new s32[grainSize * 2];
 	sendBuffer = new s32[grainSize * 2];
+	sendBufferDownsampled = new s16[grainSize];
+	sendBufferProcessed = new s16[grainSize];
 	memset(mixBuffer, 0, sizeof(int) * grainSize * 2);
 	memset(sendBuffer, 0, sizeof(int) * grainSize * 2);
-	if (resampleBuffer)
-		delete [] resampleBuffer;
+	memset(sendBufferDownsampled, 0, sizeof(s16) * grainSize);
+	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize);
 
 	// 2 samples padding at the start, that's where we copy the two last samples from the channel
 	// so that we can do bicubic resampling if necessary.  Plus 1 for smoothness hackery.
@@ -539,18 +546,15 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 
 	int voicesPlayingCount = 0;
 
+	int sendVolumeSum = 0;  // Figure out if we actually need to run the effect. This can cut off echo trails though so TODO: Let's remove after debugging.
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
 		if (!voice.playing || voice.paused)
 			continue;
 		voicesPlayingCount++;
 		MixVoice(voice);
+		sendVolumeSum += voice.effectLeft + voice.effectRight;
 	}
-
-	// Okay, apply effects processing to the Send buffer.
-	// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
-	//if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF)
-	//	ApplyReverb();
 
 	// Then mix the send buffer in with the rest.
 
@@ -558,18 +562,38 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
 	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
-		// TODO: Mix send when it has proper values, probably based on dry/wet?
-		if (inp) {
-			for (int i = 0; i < grainSize * 2; i += 2) {
-				int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12);
-				int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12);
-				*outp++ = clamp_s16(sampleL);
-				*outp++ = clamp_s16(sampleR);
+		// Okay, apply effects processing to the Send buffer.
+		// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
+		if (sendVolumeSum && waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF) {
+			ApplyWaveformEffect();
+			// TODO: Mix send when it has proper values, probably based on dry/wet?
+			if (inp) {
+				for (int i = 0; i < grainSize * 2; i += 2) {
+					int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12) + sendBufferProcessed[(i >> 1)&~1];
+					int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12) + sendBufferProcessed[((i >> 1)&~1) + 1];
+					*outp++ = clamp_s16(sampleL);
+					*outp++ = clamp_s16(sampleR);
+				}
+			} else {
+				for (int i = 0; i < grainSize * 2; i += 2) {
+					*outp++ = clamp_s16(mixBuffer[i + 0] + sendBufferProcessed[(i >> 1)&~1]);
+					*outp++ = clamp_s16(mixBuffer[i + 1] + sendBufferProcessed[((i >> 1)&~1) + 1]);
+				}
 			}
 		} else {
-			for (int i = 0; i < grainSize * 2; i += 2) {
-				*outp++ = clamp_s16(mixBuffer[i + 0]);
-				*outp++ = clamp_s16(mixBuffer[i + 1]);
+			// TODO: Mix send when it has proper values, probably based on dry/wet?
+			if (inp) {
+				for (int i = 0; i < grainSize * 2; i += 2) {
+					int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12);
+					int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12);
+					*outp++ = clamp_s16(sampleL);
+					*outp++ = clamp_s16(sampleR);
+				}
+			} else {
+				for (int i = 0; i < grainSize * 2; i += 2) {
+					*outp++ = clamp_s16(mixBuffer[i + 0]);
+					*outp++ = clamp_s16(mixBuffer[i + 1]);
+				}
 			}
 		}
 	} else {
@@ -593,10 +617,27 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #endif
 }
 
-void SasInstance::ApplyReverb() {
-	// for (int i = 0; i < grainSize * 2; i += 2) {
-		// modify sendBuffer
-	// }
+void SasInstance::SetWaveformEffectType(int type) {
+	if (type != waveformEffect.type) {
+		waveformEffect.type = type;
+		reverb_.SetPreset(type);
+	}
+}
+
+// See http://report.ppsspp.org/logs/kind/772 for a list of games that use different types. Maybe can help us figure out
+// which is which.
+void SasInstance::ApplyWaveformEffect() {
+	// First, downsample the send buffer to 22khz. We do this naively for now.
+	for (int i = 0; i < grainSize / 2; i++) {
+		sendBufferDownsampled[i * 2] = sendBuffer[i * 4];
+		sendBufferDownsampled[i * 2 + 1] = sendBuffer[i * 4 + 1];
+	}
+
+	// Most likely, the reverb should not be called for effect types DELAY and ECHO, they are probably the ones controlled
+	// using sceSasRevParam and are probably a simple echo and a simple delay (what's the difference?)
+
+	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting right by 3 fixes that.
+	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, waveformEffect.leftVol << 3, waveformEffect.rightVol << 3);
 }
 
 void SasInstance::DoState(PointerWrap &p) {
@@ -630,8 +671,7 @@ void SasInstance::DoState(PointerWrap &p) {
 
 	int n = PSP_SAS_VOICES_MAX;
 	p.Do(n);
-	if (n != PSP_SAS_VOICES_MAX)
-	{
+	if (n != PSP_SAS_VOICES_MAX) {
 		ERROR_LOG(HLE, "Savestate failure: wrong number of SAS voices");
 		return;
 	}
