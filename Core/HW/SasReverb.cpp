@@ -221,13 +221,15 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 
 	// This runs at 22khz.
 	// Very unoptimized, straight from the description. Can probably be reformulated into something way more efficient.
-	// For example, we could just do the whole thing in floating point. Should actually be faster.
+	// Or we could actually template the whole thing with the parameters as template arguments, as the presets are fixed.
 	for (int i = 0; i < inputSize; i++) {
+		// Dividing by two here is an incorrect hack. Some multiplication factor is needed to prevent the reverb from getting too loud, though.
 		int16_t LeftInput = input[i * 2] >> 1;
 		int16_t RightInput = input[i * 2 + 1] >> 1;
 
 		int16_t Lin = LeftInput; //  (d.vLIN * LeftInput) >> 15;
 		int16_t Rin = RightInput; // (d.vRIN * RightInput) >> 15;
+
 		// ____Same Side Reflection(left - to - left and right - to - right)___________________
 		b[d.mLSAME] = clamp_s16(Lin + (b[d.dLSAME] * d.vWALL >> 15) - (b[d.mLSAME - 1]*d.vIIR >> 15) + b[d.mLSAME - 1]); // L - to - L
 		b[d.mRSAME] = clamp_s16(Rin + (b[d.dRSAME] * d.vWALL >> 15) - (b[d.mRSAME - 1]*d.vIIR >> 15) + b[d.mRSAME - 1]); // R - to - R
@@ -235,8 +237,8 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mLDIFF] = clamp_s16(Lin + (b[d.dRDIFF] * d.vWALL >> 15) - (b[d.mLDIFF - 1]*d.vIIR >> 15) + b[d.mLDIFF - 1]); // R - to - L
 		b[d.mRDIFF] = clamp_s16(Rin + (b[d.dLDIFF] * d.vWALL >> 15) - (b[d.mRDIFF - 1]*d.vIIR >> 15) + b[d.mRDIFF - 1]); // L - to - R
 		// ___Early Echo(Comb Filter, with input from buffer)__________________________
-		int32_t Lout = (d.vCOMB1*b[d.mLCOMB1] >> 15) + (d.vCOMB2*b[d.mLCOMB2] >> 15) + (d.vCOMB3*b[d.mLCOMB3] >> 15) + (d.vCOMB4*b[d.mLCOMB4] >> 15);
-		int32_t Rout = (d.vCOMB1*b[d.mRCOMB1] >> 15) + (d.vCOMB2*b[d.mRCOMB2] >> 15) + (d.vCOMB3*b[d.mRCOMB3] >> 15) + (d.vCOMB4*b[d.mRCOMB4] >> 15);
+		int32_t Lout = ((d.vCOMB1*b[d.mLCOMB1] + d.vCOMB2*b[d.mLCOMB2] + d.vCOMB3*b[d.mLCOMB3] + d.vCOMB4*b[d.mLCOMB4]) >> 15);
+		int32_t Rout = ((d.vCOMB1*b[d.mRCOMB1] + d.vCOMB2*b[d.mRCOMB2] + d.vCOMB3*b[d.mRCOMB3] + d.vCOMB4*b[d.mRCOMB4]) >> 15);
 		// ___Late Reverb APF1(All Pass Filter 1, with input from COMB)________________
 		b[d.mLAPF1] = clamp_s16(Lout - (d.vAPF1*b[(d.mLAPF1 - d.dAPF1)] >> 15));
 		Lout = b[(d.mLAPF1 - d.dAPF1)] + (b[d.mLAPF1] * d.vAPF1 >> 15);
