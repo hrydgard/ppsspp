@@ -292,6 +292,8 @@ public:
 	void ApplyWaveformEffect();
 	void SetWaveformEffectType(int type);
 
+	void GetDebugText(char *text, size_t bufsize);
+
 	void DoState(PointerWrap &p);
 
 	SasVoice voices[PSP_SAS_VOICES_MAX];

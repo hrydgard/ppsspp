@@ -577,6 +577,14 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	return 0;
 }
 
+void __SasGetDebugStats(char *stats, size_t bufsize) {
+	if (sas) {
+		sas->GetDebugText(stats, bufsize);
+	} else {
+		snprintf(stats, bufsize, "Sas not initialized");
+	}
+}
+
 const HLEFunction sceSasCore[] =
 {
 	{0X42778A9F, &WrapU_UUUUU<sceSasInit>,               "__sceSasInit",                  'x', "xxxxx"  },

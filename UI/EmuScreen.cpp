@@ -46,6 +46,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceSas.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
@@ -794,6 +795,10 @@ static void DrawDebugStats(DrawBuffer *draw2d) {
 	draw2d->SetFontScale(.7f, .7f);
 	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
 	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+
+	__SasGetDebugStats(statbuf, sizeof(statbuf));
+	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 

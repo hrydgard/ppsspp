@@ -345,6 +345,26 @@ SasInstance::~SasInstance() {
 	ClearGrainSize();
 }
 
+void SasInstance::GetDebugText(char *text, size_t bufsize) {
+	char voiceBuf[4096];
+	voiceBuf[0] = '\0';
+	char *p = voiceBuf;
+	for (int i = 0; i < maxVoices; i++) {
+		if (voices[i].playing) {
+			p += snprintf(p, sizeof(voiceBuf) - (p - voiceBuf), " %d: Pitch: %d L/R: %d,%d FX-L/R: %d,%d VAG: %08x:%d Height:%d\n", i, voices[i].pitch, voices[i].volumeLeft, voices[i].volumeRight, voices[i].effectLeft, voices[i].effectRight, voices[i].vagAddr, voices[i].vagSize, voices[i].envelope.GetHeight());
+		}
+	}
+
+	snprintf(text, bufsize,
+		"SR: %d Mode: %s Grain: %d\n"
+		"Effect: Type: %d Dry: %d Wet: %d L: %d R: %d Delay: %d Feedback: %d\n"
+		"\n%s\n",
+		sampleRate, outputMode == PSP_SAS_OUTPUTMODE_RAW ? "Raw" : "Mixed", grainSize,
+		waveformEffect.type, waveformEffect.isDryOn, waveformEffect.isWetOn, waveformEffect.leftVol, waveformEffect.rightVol, waveformEffect.delay, waveformEffect.feedback,
+		voiceBuf);
+
+}
+
 void SasInstance::ClearGrainSize() {
 	delete[] mixBuffer;
 	delete[] sendBuffer;
@@ -500,7 +520,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
 
 		u32 sampleFrac = voice.sampleFrac;
-		// We need to shift by 12 anyway, so combine that with the volume shift.
 		for (int i = 0; i < grainSize; i++) {
 			// For now: nearest neighbour, not even using the resample history at all.
 			int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
@@ -562,7 +581,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
-		if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF) {
+		if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF && waveformEffect.isWetOn) {
 			ApplyWaveformEffect();
 			// TODO: Mix send when it has proper values, probably based on dry/wet?
 			if (inp) {
