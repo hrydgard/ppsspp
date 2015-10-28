@@ -225,6 +225,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	for (int i = 0; i < inputSize; i++) {
 		int16_t LeftInput = input[i * 2] >> 1;
 		int16_t RightInput = input[i * 2 + 1] >> 1;
+
 		int16_t Lin = LeftInput; //  (d.vLIN * LeftInput) >> 15;
 		int16_t Rin = RightInput; // (d.vRIN * RightInput) >> 15;
 		// ____Same Side Reflection(left - to - left and right - to - right)___________________
@@ -234,8 +235,8 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mLDIFF] = clamp_s16(Lin + (b[d.dRDIFF] * d.vWALL >> 15) - (b[d.mLDIFF - 1]*d.vIIR >> 15) + b[d.mLDIFF - 1]); // R - to - L
 		b[d.mRDIFF] = clamp_s16(Rin + (b[d.dLDIFF] * d.vWALL >> 15) - (b[d.mRDIFF - 1]*d.vIIR >> 15) + b[d.mRDIFF - 1]); // L - to - R
 		// ___Early Echo(Comb Filter, with input from buffer)__________________________
-		int16_t Lout = (d.vCOMB1*b[d.mLCOMB1] >> 15) + (d.vCOMB2*b[d.mLCOMB2] >> 15) + (d.vCOMB3*b[d.mLCOMB3] >> 15) + (d.vCOMB4*b[d.mLCOMB4] >> 15);
-		int16_t Rout = (d.vCOMB1*b[d.mRCOMB1] >> 15) + (d.vCOMB2*b[d.mRCOMB2] >> 15) + (d.vCOMB3*b[d.mRCOMB3] >> 15) + (d.vCOMB4*b[d.mRCOMB4] >> 15);
+		int32_t Lout = (d.vCOMB1*b[d.mLCOMB1] >> 15) + (d.vCOMB2*b[d.mLCOMB2] >> 15) + (d.vCOMB3*b[d.mLCOMB3] >> 15) + (d.vCOMB4*b[d.mLCOMB4] >> 15);
+		int32_t Rout = (d.vCOMB1*b[d.mRCOMB1] >> 15) + (d.vCOMB2*b[d.mRCOMB2] >> 15) + (d.vCOMB3*b[d.mRCOMB3] >> 15) + (d.vCOMB4*b[d.mRCOMB4] >> 15);
 		// ___Late Reverb APF1(All Pass Filter 1, with input from COMB)________________
 		b[d.mLAPF1] = clamp_s16(Lout - (d.vAPF1*b[(d.mLAPF1 - d.dAPF1)] >> 15));
 		Lout = b[(d.mLAPF1 - d.dAPF1)] + (b[d.mLAPF1] * d.vAPF1 >> 15);
@@ -249,6 +250,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
 		output[i*2] = clamp_s16(Lout*volLeft >> 15);
 		output[i*2+1] = clamp_s16(Rout*volRight >> 15);
+
 		b.Next();
 	}
 

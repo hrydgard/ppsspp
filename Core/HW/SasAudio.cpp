@@ -647,8 +647,8 @@ void SasInstance::SetWaveformEffectType(int type) {
 void SasInstance::ApplyWaveformEffect() {
 	// First, downsample the send buffer to 22khz. We do this naively for now.
 	for (int i = 0; i < grainSize / 2; i++) {
-		sendBufferDownsampled[i * 2] = sendBuffer[i * 4];
-		sendBufferDownsampled[i * 2 + 1] = sendBuffer[i * 4 + 1];
+		sendBufferDownsampled[i * 2] = clamp_s16(sendBuffer[i * 4]);
+		sendBufferDownsampled[i * 2 + 1] = clamp_s16(sendBuffer[i * 4 + 1]);
 	}
 
 	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting right by 3 fixes that.
