@@ -60,13 +60,6 @@ enum {
 	FLAG_DIRTYONCHANGE = 64,
 };
 
-static const char *FramebufferFetchBlacklist[] = {
-	// Blacklist Tegra 3, doesn't work very well.
-	"NVIDIA Tegra 3",
-	"PowerVR Rogue G6430",
-	"PowerVR SGX 540",
-};
-
 struct CommandTableEntry {
 	u8 cmd;
 	u8 flags;
@@ -500,16 +493,10 @@ void GLES_GPU::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_GLSL_330;
 	}
 
-	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
-	// Tales of Destiny 2 has been reported to display green.
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
-			if (strstr(gl_extensions.model, FramebufferFetchBlacklist[i]) != 0) {
-				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-				break;
-			}
-		}
+		// This mostly seems to cause problems. Let's keep this commented out to disable it for everyone.
+		// If found beneficial for something, we can easily add a whitelist here.
+		// features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 	}
 	
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.EXT_framebuffer_object || gl_extensions.IsGLES) {
