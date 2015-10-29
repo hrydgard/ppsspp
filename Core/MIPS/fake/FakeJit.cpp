@@ -29,6 +29,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 
+#include "FakeEmitter.h"
 #include "FakeJit.h"
 #include "CPUDetect.h"
 

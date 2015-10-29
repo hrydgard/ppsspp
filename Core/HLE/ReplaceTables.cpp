@@ -1032,7 +1032,7 @@ static int Hook_youkosohitsujimura_download_frame() {
 #elif defined(_M_X64) || defined(_M_IX86)
 #define JITFUNC(f) (&MIPSComp::Jit::f)
 #elif defined(MIPS)
-#define JITFUNC(f) (&MIPSComp::Jit::f)
+#define JITFUNC(f) (&MIPSComp::MipsJit::f)
 #else
 #define JITFUNC(f) (&MIPSComp::FakeJit::f)
 #endif
