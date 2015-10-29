@@ -84,3 +84,4 @@ debian/ppsspp/
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc
+PPSSPPDebug.exe.manifest

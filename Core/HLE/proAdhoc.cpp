@@ -21,6 +21,10 @@
 // This is a direct port of Coldbird's code from http://code.google.com/p/aemu/
 // All credit goes to him!
 
+#if !defined(_MSC_VER)
+#include <netdb.h>
+#include <unistd.h>
+#endif
 #include <cstring>
 #include "util/text/parsers.h"
 #include "Core/Core.h"
@@ -31,6 +35,10 @@
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
 
+uint16_t portOffset = 0; //5000
+bool isLocalServer = false;
+uint8_t PPSSPP_ID = 0;
+sockaddr localIP;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
 int one                               = 1;
@@ -53,6 +61,7 @@ std::thread friendFinderThread;
 recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
+
 
 int isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -1289,22 +1298,38 @@ int getActivePeerCount(void) {
 int getLocalIp(sockaddr_in * SocketAddress){
 #if defined(_MSC_VER)
 	// Get local host name
-	char szHostName[128] = "";
+	char szHostName[256] = ""; //128
 
 	if(::gethostname(szHostName, sizeof(szHostName))) {
 		// Error handling 
 	}
 	// Get local IP addresses
-	struct hostent     *pHost        = 0;
+	struct hostent *pHost = 0;
 	pHost = ::gethostbyname(szHostName);
 	if(pHost) {
 		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		if (/*PPSSPP_ID > 1 && SocketAddress->sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+			//SocketAddress->sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+			SocketAddress->sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+		}
 		return 0;
 	}
 	return -1;
 #else
-	SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
-	return 0;
+	char szHostName[256] = "";
+	gethostname(szHostName, sizeof(szHostName));
+	struct hostent *pHost = 0;
+	pHost = gethostbyname(szHostName);
+	if (pHost) {
+		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+		if (/*PPSSPP_ID > 1 && SocketAddress->sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+			//SocketAddress->sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+			SocketAddress->sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+		}
+		return 0;
+	}
+	//SocketAddress->sin_addr.s_addr = inet_addr("127.0.0.1"); //192.168.12.1
+	return -1;
 #endif
 }
 
@@ -1313,12 +1338,20 @@ uint32_t getLocalIp(int sock) {
 	localAddr.sin_addr.s_addr = INADDR_ANY;
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
+	if (/*PPSSPP_ID > 1 && localAddr.sin_addr.S_un.S_un_b.s_b1 == 0x7f*/isLocalServer) {
+		//localAddr.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+		localAddr.sin_addr = ((sockaddr_in *)&localIP)->sin_addr;
+	}
 	return localAddr.sin_addr.s_addr;
 }
 
 void getLocalMac(SceNetEtherAddr * addr){
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
+	if (PPSSPP_ID > 1) {
+		memset(&mac, PPSSPP_ID, sizeof(mac));
+	}
+	else
 	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
@@ -1430,7 +1463,32 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 			break;
 		}
 	}
+	freeaddrinfo(resultAddr);
 	
+	// If Server is at localhost Try to Bind socket to specific adapter before connecting 
+	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
+	if (serverIp.S_un.S_un_b.s_b1 == 0x7f) {
+		int on = 1;
+		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
+		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
+		// Prepare Local Address Information
+		/*
+		struct sockaddr_in local;
+		memset(&local, 0, sizeof(local));
+		local.sin_family = AF_INET;
+		local.sin_addr = serverIp;
+		local.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+		//local.sin_port = 0;
+		*/
+		((struct sockaddr_in *)&localIP)->sin_port = 0;
+		// Bind Local Address to Socket
+		iResult = bind(metasocket, (struct sockaddr *)&localIP, sizeof(sockaddr));
+		if (iResult == SOCKET_ERROR) {
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in *)&localIP)->sin_addr), iResult);
+		}
+		//serverIp = local.sin_addr;
+	}
+
 	memset(&parameter, 0, sizeof(parameter));
 	strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
 	parameter.channel = 1; // Fake Channel 1
@@ -1479,7 +1537,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	getLocalIp(&addr);
 	uint32_t localIp = addr.sin_addr.s_addr;
 
-	if (ip == localIp){
+	if (ip == localIp || ip == ((sockaddr_in *)&localIP)->sin_addr.s_addr){
 		getLocalMac(mac);
 		return true;
 	}
