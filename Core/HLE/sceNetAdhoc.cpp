@@ -2535,13 +2535,16 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 			// Destroy locks
 			item->eventlock->lock(); // Make sure it's not locked when being deleted
 			item->eventlock->unlock();
-			delete item->eventlock; 
+			delete item->eventlock;
+			item->eventlock = NULL;
 			item->inputlock->lock(); // Make sure it's not locked when being deleted
 			item->inputlock->unlock();
 			delete item->inputlock; 
+			item->inputlock = NULL;
 			item->socketlock->lock(); // Make sure it's not locked when being deleted
 			item->socketlock->unlock();
 			delete item->socketlock;
+			item->socketlock = NULL;
 			// Free item context memory
 			free(item);
 			item = NULL;
