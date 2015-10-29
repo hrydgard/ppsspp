@@ -216,7 +216,7 @@ void MIPSState::Init() {
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)
-			MIPSComp::jit = new MIPSComp::Jit(this);
+			MIPSComp::jit = new MIPSComp::MipsJit(this);
 #else
 			MIPSComp::jit = new MIPSComp::FakeJit(this);
 #endif
@@ -246,7 +246,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 #elif defined(_M_IX86) || defined(_M_X64)
 			MIPSComp::jit = new MIPSComp::Jit(this);
 #elif defined(MIPS)
-			MIPSComp::jit = new MIPSComp::Jit(this);
+			MIPSComp::jit = new MIPSComp::MipsJit(this);
 #else
 			MIPSComp::jit = new MIPSComp::FakeJit(this);
 #endif

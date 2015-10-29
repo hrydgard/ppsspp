@@ -34,8 +34,10 @@ namespace MIPSComp {
 	ArmJit *jit;
 #elif defined(ARM64)
 	Arm64Jit *jit;
-#elif defined(_M_IX86) || defined(_M_X64) || defined(MIPS)
+#elif defined(_M_IX86) || defined(_M_X64)
 	Jit *jit;
+#elif defined(MIPS)
+	MipsJit *jit;
 #else
 	FakeJit *jit;
 #endif
