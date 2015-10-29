@@ -1146,7 +1146,7 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 #elif defined(ARM)
 			lines = DisassembleArm2((const u8 *)jitted_, jittedSize_);
 #elif defined(MIPS)
-			// No MIPS disassembler defined
+			lines = DisassembleMIPS((const u8*)jitted_, jittedSize_);
 #else
 			lines = DisassembleX86((const u8 *)jitted_, jittedSize_);
 #endif

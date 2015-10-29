@@ -33,9 +33,6 @@
 #include "MipsJit.h"
 #include "CPUDetect.h"
 
-void DisassembleMIPS(const u8 *data, int size) {
-}
-
 namespace MIPSComp
 {
 

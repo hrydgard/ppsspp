@@ -232,4 +232,14 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	return lines;
 }
 
+#elif defined(MIPS)
+
+std::vector<std::string> DisassembleMIPS(const u8 *data, int size) {
+	std::vector<std::string> lines;
+	// TODO: A MIPS disassembler for MIPS32r2+
+	// Utilise MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
+
+	return lines;
+}
+
 #endif

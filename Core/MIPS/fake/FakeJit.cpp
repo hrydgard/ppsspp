@@ -33,9 +33,6 @@
 #include "FakeJit.h"
 #include "CPUDetect.h"
 
-void DisassembleFake(const u8 *data, int size) {
-}
-
 namespace MIPSComp
 {
 
