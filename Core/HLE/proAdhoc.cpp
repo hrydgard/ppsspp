@@ -898,7 +898,7 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 
 bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 	bool inCB = false;
-	if (context == NULL) return inCB; 
+	if (context == NULL || context->eventlock == NULL) return inCB;
 	context->eventlock->lock(); //peerlock.lock();
 	inCB = (/*context != NULL &&*/ context->IsMatchingInCB);
 	context->eventlock->unlock(); //peerlock.unlock();
@@ -906,20 +906,22 @@ bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 }
 
 void AfterMatchingMipsCall::run(MipsCall &call) {
-	if (context == NULL) return;
+	if (context == NULL || context->eventlock == NULL) return;
+	context->eventlock->lock(); // There are times where context or the locks inside it has been freed at this point, thus accessing the lock causing an exception and crashes PPSSPP
 	DEBUG_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u]", context->id, EventID, call.cbId);
 	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", context->id, EventID);
 	//while (__IsInInterrupt()) sleep_ms(1); // Must not sleep inside callback handler
-	context->eventlock->lock();  //peerlock.lock();
+	//context->eventlock->lock();  //peerlock.lock();
 	//SceNetAdhocMatchingContext * context = findMatchingContext(ID);
 	//if (context != NULL) 
 	{
 		context->IsMatchingInCB = false;
 	}
-	context->eventlock->unlock();  //peerlock.unlock();
+	//context->eventlock->unlock();  //peerlock.unlock();
 	//call.setReturnValue(v0);
 	DEBUG_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i][Event=%d] [retV0: %08x]", context->id, EventID, currentMIPS->r[MIPS_REG_V0]);
+	context->eventlock->unlock();
 }
 
 void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId) {
