@@ -468,7 +468,7 @@ static u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 
 static u32 sceSasRevType(u32 core, int type) {
 	DEBUG_LOG(SCESAS, "sceSasRevType(%08x, %i)", core, type);
-	sas->waveformEffect.type = type;
+	sas->SetWaveformEffectType(type);
 	if (type != PSP_SAS_EFFECT_TYPE_OFF) {
 		DEBUG_LOG_REPORT_ONCE(sasrevtype, SCESAS, "Enabled SAS reverb type: %d", type);
 	}
@@ -575,6 +575,14 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasUnsetATRAC3(%08x, %i)", core, voiceNum);
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
 	return 0;
+}
+
+void __SasGetDebugStats(char *stats, size_t bufsize) {
+	if (sas) {
+		sas->GetDebugText(stats, bufsize);
+	} else {
+		snprintf(stats, bufsize, "Sas not initialized");
+	}
 }
 
 const HLEFunction sceSasCore[] =

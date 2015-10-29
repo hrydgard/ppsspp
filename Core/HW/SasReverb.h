@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,10 +17,27 @@
 
 #pragma once
 
-void __SasInit();
-void __SasDoState(PointerWrap &p);
-void __SasShutdown();
+struct SasReverbData;
 
-void __SasGetDebugStats(char *stats, size_t bufsize);
+class SasReverb {
+public:
+	SasReverb();
+	~SasReverb();
 
-void Register_sceSasCore();
+	void SetPreset(int preset);
+	int GetPreset() { return preset_; }
+
+	static const char *GetPresetName(int preset);
+
+	// Input should be a mixdown of all the channels that have reverb enabled, at 22khz.
+	void ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int16_t volLeft, int16_t volRight);
+
+private:
+	enum {
+		BUFSIZE = 0x20000,
+	};
+
+	int16_t *workspace_;
+	int preset_;
+	int pos_;
+};
