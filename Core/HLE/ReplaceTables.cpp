@@ -1270,7 +1270,7 @@ bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSiz
 		return false;
 
 	// Make sure we don't replace if there are any breakpoints inside.
-	*funcSize = symbolMap.GetFunctionSize(dest);
+	*funcSize = g_symbolMap->GetFunctionSize(dest);
 	if (*funcSize == SymbolMap::INVALID_ADDRESS) {
 		if (CBreakPoints::IsAddressBreakPoint(dest)) {
 			return false;

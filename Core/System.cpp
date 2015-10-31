@@ -35,6 +35,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 
+#include "Debugger/SymbolMap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
@@ -170,6 +171,8 @@ void CPU_Shutdown();
 void CPU_Init() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
+	
+	g_symbolMap = new SymbolMap();
 
 	// Default memory settings
 	// Seems to be the safest place currently..
@@ -266,6 +269,9 @@ void CPU_Shutdown() {
 	loadedFile = nullptr;
 
 	delete coreParameter.mountIsoLoader;
+	delete g_symbolMap;
+	g_symbolMap = nullptr;
+
 	coreParameter.mountIsoLoader = nullptr;
 }
 

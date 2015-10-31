@@ -509,7 +509,7 @@ void CtrlBreakpointList::GetColumnText(wchar_t* dest, int row, int col)
 				else
 					wsprintf(dest,L"0x%08X",mc.end-mc.start);
 			} else {
-				const std::string sym = symbolMap.GetLabelString(displayedBreakPoints_[index].addr);
+				const std::string sym = g_symbolMap->GetLabelString(displayedBreakPoints_[index].addr);
 				if (!sym.empty())
 				{
 					std::wstring s = ConvertUTF8ToWString(sym);
@@ -682,7 +682,7 @@ void CtrlStackTraceView::GetColumnText(wchar_t* dest, int row, int col)
 		break;
 	case SF_ENTRYNAME:
 		{
-			const std::string sym = symbolMap.GetLabelString(frames[row].entry);
+			const std::string sym = g_symbolMap->GetLabelString(frames[row].entry);
 			if (!sym.empty()) {
 				wcscpy(dest, ConvertUTF8ToWString(sym).c_str());
 			} else {
@@ -804,6 +804,10 @@ void CtrlModuleList::OnDoubleClick(int itemIndex, int column)
 
 void CtrlModuleList::loadModules()
 {
-	modules = symbolMap.getAllModules();
+	if (g_symbolMap) {
+		modules = g_symbolMap->getAllModules();
+	} else {
+		modules.clear();
+	}
 	Update();
 }

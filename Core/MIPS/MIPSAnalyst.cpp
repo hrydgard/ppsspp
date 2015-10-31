@@ -940,9 +940,9 @@ skip:
 			// Use pre-existing symbol map info if available. May be more reliable.
 			SymbolInfo syminfo;
 			if (addrNextSym <= addr) {
-				addrNextSym = symbolMap.FindPossibleFunctionAtAfter(addr);
+				addrNextSym = g_symbolMap->FindPossibleFunctionAtAfter(addr);
 			}
-			if (addrNextSym <= addr && symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
+			if (addrNextSym <= addr && g_symbolMap->GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
 				addr = syminfo.address + syminfo.size - 4;
 
 				// We still need to insert the func for hashing purposes.
@@ -1073,7 +1073,7 @@ skip:
 			iter->size = iter->end - iter->start + 4;
 			if (insertSymbols && !iter->foundInSymbolMap) {
 				char temp[256];
-				symbolMap.AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
+				g_symbolMap->AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 			}
 		}
 
@@ -1183,7 +1183,7 @@ skip:
 				continue;
 			}
 			// Functions with default names aren't very interesting either.
-			const std::string name = symbolMap.GetLabelString(f.start);
+			const std::string name = g_symbolMap->GetLabelString(f.start);
 			if (IsDefaultFunction(name)) {
 				continue;
 			}
@@ -1252,11 +1252,11 @@ skip:
 				if (f.hash == mf->hash && f.size == mf->size) {
 					strncpy(f.name, mf->name, sizeof(mf->name) - 1);
 
-					std::string existingLabel = symbolMap.GetLabelString(f.start);
+					std::string existingLabel = g_symbolMap->GetLabelString(f.start);
 					char defaultLabel[256];
 					// If it was renamed, keep it.  Only change the name if it's still the default.
 					if (existingLabel.empty() || existingLabel == DefaultFunctionName(defaultLabel, f.start)) {
-						symbolMap.SetLabelName(mf->name, f.start);
+						g_symbolMap->SetLabelName(mf->name, f.start);
 					}
 				}
 			}
