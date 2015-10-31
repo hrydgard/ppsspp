@@ -6,6 +6,8 @@
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
 
+static const bool ClickDebug = false;
+
 UIScreen::UIScreen()
 	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
 }
@@ -50,6 +52,15 @@ void UIScreen::render() {
 
 bool UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
+		if (ClickDebug && (touch.flags & TOUCH_DOWN)) {
+			ILOG("Touch down!");
+			std::vector<UI::View *> views;
+			root_->Query(touch.x, touch.y, views);
+			for (auto view : views) {
+				ILOG("%s", view->Describe().c_str());
+			}
+		}
+
 		UI::TouchEvent(touch, root_);
 		return true;
 	}

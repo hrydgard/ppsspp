@@ -314,6 +314,10 @@ public:
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update(const InputState &input_state) {}
 
+	// If this view covers these coordinates, it should add itself and its children to the list.
+	virtual void Query(float x, float y, std::vector<View *> &list);
+	virtual std::string Describe() const;
+
 	virtual void FocusChanged(int focusFlags) {}
 
 	void Move(Bounds bounds) {

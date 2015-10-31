@@ -151,6 +151,17 @@ void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	h = 10.0f;
 }
 
+void View::Query(float x, float y, std::vector<View *> &list) {
+	if (bounds_.Contains(x, y)) {
+		list.push_back(this);
+	}
+}
+
+std::string View::Describe() const {
+	return StringFromFormat("%0.1f,%0.1f %0.1fx%0.1f", bounds_.x, bounds_.y, bounds_.w, bounds_.h);
+}
+
+
 Point View::GetFocusPosition(FocusDirection dir) {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
