@@ -55,6 +55,9 @@ enum {
 	ERROR_SAS_INVALID_VOLUME          = 0x80420018,
 	ERROR_SAS_INVALID_ADSR_RATE       = 0x80420019,
 	ERROR_SAS_INVALID_PCM_SIZE        = 0x8042001A,
+	ERROR_SAS_REV_INVALID_TYPE        = 0x80420020,
+	ERROR_SAS_REV_INVALID_FEEDBACK    = 0x80420021,
+	ERROR_SAS_REV_INVALID_DELAY       = 0x80420022,
 	ERROR_SAS_REV_INVALID_VOLUME      = 0x80420023,
 	ERROR_SAS_BUSY                    = 0x80420030,
 	ERROR_SAS_NOT_INIT                = 0x80420100,
@@ -467,37 +470,41 @@ static u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 }
 
 static u32 sceSasRevType(u32 core, int type) {
-	DEBUG_LOG(SCESAS, "sceSasRevType(%08x, %i)", core, type);
-	sas->SetWaveformEffectType(type);
-	if (type != PSP_SAS_EFFECT_TYPE_OFF) {
-		DEBUG_LOG_REPORT_ONCE(sasrevtype, SCESAS, "Enabled SAS reverb type: %d", type);
+	if (type < PSP_SAS_EFFECT_TYPE_OFF || type > PSP_SAS_EFFECT_TYPE_MAX) {
+		return hleLogError(SCESAS, ERROR_SAS_REV_INVALID_TYPE, "invalid type");
 	}
-	return 0;
+
+	sas->SetWaveformEffectType(type);
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 sceSasRevParam(u32 core, int delay, int feedback) {
-	DEBUG_LOG(SCESAS, "sceSasRevParam(%08x, %i, %i)", core, delay, feedback);
+	if (delay < 0 || delay >= 128) {
+		return hleLogError(SCESAS, ERROR_SAS_REV_INVALID_DELAY, "invalid delay value");
+	}
+	if (feedback < 0 || feedback >= 128) {
+		return hleLogError(SCESAS, ERROR_SAS_REV_INVALID_FEEDBACK, "invalid feedback value");
+	}
+
 	sas->waveformEffect.delay = delay;
 	sas->waveformEffect.feedback = feedback;
-	return 0;
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 	if (lv > 0x1000 || rv > 0x1000) {
-		DEBUG_LOG_REPORT(SCESAS, "sceSasRevEVOL(%08x, %i, %i): invalid volume", core, lv, rv);
-		return ERROR_SAS_REV_INVALID_VOLUME;
+		return hleReportDebug(SCESAS, ERROR_SAS_REV_INVALID_VOLUME, "invalid volume");
 	}
-	DEBUG_LOG(SCESAS, "sceSasRevEVOL(%08x, %i, %i)", core, lv, rv);
+
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
-	return 0;
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 sceSasRevVON(u32 core, int dry, int wet) {
-	DEBUG_LOG(SCESAS, "sceSasRevVON(%08x, %i, %i)", core, dry, wet);
 	sas->waveformEffect.isDryOn = dry != 0;
 	sas->waveformEffect.isWetOn = wet != 0;
-	return 0;
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 sceSasGetGrain(u32 core) {
