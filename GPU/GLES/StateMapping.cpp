@@ -793,9 +793,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		// If the buffer is too large, offset the viewport to the top.
-		renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
-
 		// No viewport transform here. Let's experiment with using region.
 		if (useBufferedRendering) {
 			// No flip needed
@@ -805,6 +802,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				(regionX2 - regionX1) * renderWidthFactor,
 				(regionY2 - regionY1) * renderHeightFactor);
 		} else {
+			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
 			glstate.viewport.set(
 				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
 				renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,

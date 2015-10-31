@@ -419,7 +419,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
 			flippedMatrix[12] = -flippedMatrix[12];
-		}
+		}\
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
