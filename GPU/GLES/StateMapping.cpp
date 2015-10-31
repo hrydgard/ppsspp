@@ -766,7 +766,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (useBufferedRendering) {
 			glstate.scissorRect.set(
 				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-				renderY + displayOffsetY + scissorY2 * renderHeightFactor,
+				renderY + displayOffsetY + scissorY1 * renderHeightFactor,
 				(scissorX2 - scissorX1) * renderWidthFactor,
 				(scissorY2 - scissorY1) * renderHeightFactor);
 		} else {

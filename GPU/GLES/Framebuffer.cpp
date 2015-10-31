@@ -1298,8 +1298,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 	int srcX1 = srcX * srcXFactor;
 	int srcX2 = (srcX + w) * srcXFactor;
-	int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
-	int srcY1 = srcY2 + h * srcYFactor;
+	int srcY2 = srcY * srcYFactor;
+	int srcY1 = (srcY + h) * srcYFactor;
 
 	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
 	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
@@ -1309,14 +1309,15 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 	int dstX1 = dstX * dstXFactor;
 	int dstX2 = (dstX + w) * dstXFactor;
-	int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
-	int dstY1 = dstY2 + h * dstYFactor;
+	int dstY1 = dstY * dstYFactor;
+	int dstY2 = (dstY + h) * dstYFactor;
 
 	if (useBlit) {
+		/*
 		if (flip) {
 			dstY1 = dst->renderHeight - dstY1;
 			dstY2 = dst->renderHeight - dstY2;
-		}
+		}*/
 
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
@@ -1341,7 +1342,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		// Should maybe revamp that interface.
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
-		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH, draw2dprogram_);
+		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 		glstate.viewport.restore();
