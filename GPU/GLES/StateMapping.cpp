@@ -653,7 +653,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		if (cullEnabled) {
 			glstate.cullFace.enable();
-			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+			bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
 		} else {
 			glstate.cullFace.disable();
 		}
