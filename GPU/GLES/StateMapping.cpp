@@ -592,6 +592,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	// Dither
 	if (gstate.isDitherEnabled()) {
@@ -653,7 +654,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		if (cullEnabled) {
 			glstate.cullFace.enable();
-			bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
 		} else {
 			glstate.cullFace.disable();
@@ -730,7 +730,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float renderWidth, renderHeight;
 	float renderX = 0.0f, renderY = 0.0f;
 	float displayOffsetX, displayOffsetY;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		displayOffsetX = 0.0f;
 		displayOffsetY = 0.0f;
@@ -892,7 +891,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 
-		glstate.viewport.set(left + displayOffsetX, bottom + displayOffsetY, right - left, top - bottom);
+		if (useBufferedRendering) {
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - top), right - left, top - bottom);
+		} else {
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + bottom, right - left, top - bottom);
+		}
 
 		float zScale = gstate.getViewportZScale();
 		float zCenter = gstate.getViewportZCenter();

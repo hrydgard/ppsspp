@@ -1313,12 +1313,6 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	int dstY2 = (dstY + h) * dstYFactor;
 
 	if (useBlit) {
-		/*
-		if (flip) {
-			dstY1 = dst->renderHeight - dstY1;
-			dstY2 = dst->renderHeight - dstY2;
-		}*/
-
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
 			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
