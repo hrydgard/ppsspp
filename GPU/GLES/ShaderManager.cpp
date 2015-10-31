@@ -408,7 +408,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = gstate_c.vpHeight < 0;
+		const bool invertedY = gstate_c.vpHeight > 0;
 		if (invertedY) {
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[13] = -flippedMatrix[13];
@@ -458,7 +458,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0.0f, 1.0f);
+		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {

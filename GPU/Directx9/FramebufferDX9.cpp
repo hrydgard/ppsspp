@@ -208,7 +208,7 @@ namespace DX9 {
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation, false);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, uvRotation);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, int uvRotation) {
@@ -1377,7 +1377,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);
@@ -1418,7 +1418,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24X_8BIT;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);

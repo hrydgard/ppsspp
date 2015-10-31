@@ -205,7 +205,6 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		framebufChanged = old.framebufChanged;
 		skipDrawReason = old.skipDrawReason;
 		uv = old.uv;
-		flipTexture = old.flipTexture;
 	} else {
 		p.Do(vertexAddr);
 		p.Do(indexAddr);
@@ -219,7 +218,10 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		p.Do(skipDrawReason);
 
 		p.Do(uv);
-		p.Do(flipTexture);
+
+		// No longer relevant. Remove when creating the next version.
+		bool oldFlipTexture;
+		p.Do(oldFlipTexture);
 	}
 
 	// needShaderTexClamp and bgraTexture don't need to be saved.
