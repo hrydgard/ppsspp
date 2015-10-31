@@ -463,11 +463,15 @@ void SoftwareTransform(
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		if (useBufferedRendering)
+			ySign = -ySign;
+
 		float flippedMatrix[16];
 		if (!throughmode) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-			const bool invertedY = gstate_c.vpHeight < 0;
+			const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight > 0) : (gstate_c.vpHeight < 0);
 			if (invertedY) {
 				flippedMatrix[5] = -flippedMatrix[5];
 				flippedMatrix[13] = -flippedMatrix[13];
