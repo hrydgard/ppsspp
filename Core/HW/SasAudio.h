@@ -104,6 +104,8 @@ public:
 
 	void DoState(PointerWrap &p);
 
+	u32 GetReadPtr() const { return read_; }
+
 private:
 	s16 samples[28];
 	int curSample;

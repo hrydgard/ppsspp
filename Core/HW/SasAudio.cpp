@@ -351,7 +351,7 @@ void SasInstance::GetDebugText(char *text, size_t bufsize) {
 	char *p = voiceBuf;
 	for (int i = 0; i < maxVoices; i++) {
 		if (voices[i].playing) {
-			p += snprintf(p, sizeof(voiceBuf) - (p - voiceBuf), " %d: Pitch: %d L/R: %d,%d FX-L/R: %d,%d VAG: %08x:%d Height:%d\n", i, voices[i].pitch, voices[i].volumeLeft, voices[i].volumeRight, voices[i].effectLeft, voices[i].effectRight, voices[i].vagAddr, voices[i].vagSize, voices[i].envelope.GetHeight());
+			p += snprintf(p, sizeof(voiceBuf) - (p - voiceBuf), " %d: Pitch %d L/R,FX: %d,%d|%d,%d VAG: %08x:%d:%08x Height:%d%%\n", i, voices[i].pitch, voices[i].volumeLeft, voices[i].volumeRight, voices[i].effectLeft, voices[i].effectRight, voices[i].vagAddr, voices[i].vagSize, voices[i].vag.GetReadPtr(), (int)((int64_t)voices[i].envelope.GetHeight() * 100 / PSP_SAS_ENVELOPE_HEIGHT_MAX));
 		}
 	}
 
