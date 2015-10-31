@@ -204,7 +204,7 @@ static int InitLocalIP() {
 		}
 	}
 	freeaddrinfo(resultAddr);
-	isLocalServer = (serverIp.S_un.S_un_b.s_b1 = 0x7f);
+	isLocalServer = (serverIp.S_un.S_un_b.s_b1 == 0x7f);
 
 	return 0;
 }
