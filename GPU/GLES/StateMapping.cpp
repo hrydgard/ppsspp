@@ -727,11 +727,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
-	float renderX, renderY;
+	float renderX = 0.0f, renderY = 0.0f;
+	float displayOffsetX, displayOffsetY;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		renderX = 0.0f;
-		renderY = 0.0f;
+		displayOffsetX = 0.0f;
+		displayOffsetY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
@@ -739,7 +740,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		CenterRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
@@ -753,15 +754,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	int scissorY2 = gstate.getScissorY2() + 1;
 
 	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 
+	// We always scissor on non-buffered so that clears don't spill outside the frame.
+	if (useBufferedRendering && scissorX1 == 0 && scissorY1 == 0
 		&& scissorX2 >= (int) gstate_c.curRTWidth
 		&& scissorY2 >= (int) gstate_c.curRTHeight) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
 		glstate.scissorRect.set(
-			renderX + scissorX1 * renderWidthFactor,
-			renderY + renderHeight - (scissorY2 * renderHeightFactor),
+			renderX + displayOffsetX + scissorX1 * renderWidthFactor,
+			renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
 			(scissorX2 - scissorX1) * renderWidthFactor,
 			(scissorY2 - scissorY1) * renderHeightFactor);
 	}
@@ -786,8 +788,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// No viewport transform here. Let's experiment with using region.
 		glstate.viewport.set(
-			renderX + (0 + regionX1) * renderWidthFactor, 
-			renderY + (0 - regionY1) * renderHeightFactor,
+			renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
+			renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
 			(regionX2 - regionX1) * renderWidthFactor,
 			(regionY2 - regionY1) * renderHeightFactor);
 		glstate.depthRange.set(0.0f, 1.0f);
@@ -870,7 +872,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 
-		glstate.viewport.set(left, bottom, right - left, top - bottom);
+		glstate.viewport.set(left + displayOffsetX, bottom + displayOffsetY, right - left, top - bottom);
 
 		float zScale = gstate.getViewportZScale();
 		float zCenter = gstate.getViewportZCenter();
