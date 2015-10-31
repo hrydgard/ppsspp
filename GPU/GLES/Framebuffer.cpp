@@ -207,27 +207,11 @@ void FramebufferManager::CompileDraw2DProgram() {
 				glsl_bind(postShaderProgram_);
 				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
-				float u_delta = 1.0f / renderWidth_;
-				float v_delta = 1.0f / renderHeight_;
-				float u_pixel_delta = u_delta;
-				float v_pixel_delta = v_delta;
-				if (postShaderAtOutputResolution_) {
-					float x, y, w, h;
-					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-					u_pixel_delta = 1.0f / w;
-					v_pixel_delta = 1.0f / h;
-				}
-
-				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-				if (deltaLoc != -1)
-					glUniform2f(deltaLoc, u_delta, v_delta);
-				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-				if (pixelDeltaLoc != -1)
-					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
+				pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-				if (timeLoc_ != -1)
-					glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
 
+				UpdatePostShaderUniforms(renderWidth_, renderHeight_);
 				usePostShader_ = true;
 			}
 		} else {
@@ -236,6 +220,30 @@ void FramebufferManager::CompileDraw2DProgram() {
 		}
 
 		glsl_unbind();
+	}
+}
+
+void FramebufferManager::UpdatePostShaderUniforms(int renderWidth, int renderHeight) {
+	float u_delta = 1.0f / renderWidth;
+	float v_delta = 1.0f / renderHeight;
+	float u_pixel_delta = u_delta;
+	float v_pixel_delta = v_delta;
+	if (postShaderAtOutputResolution_) {
+		float x, y, w, h;
+		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		u_pixel_delta = 1.0f / w;
+		v_pixel_delta = 1.0f / h;
+	}
+
+	if (deltaLoc_ != -1)
+		glUniform2f(deltaLoc_, u_delta, v_delta);
+	if (pixelDeltaLoc_ != -1)
+		glUniform2f(pixelDeltaLoc_, u_pixel_delta, v_pixel_delta);
+	if (timeLoc_ != -1) {
+		int flipCount = __DisplayGetFlipCount();
+		int vCount = __DisplayGetVCount();
+		float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+		glUniform4fv(timeLoc_, 1, time);
 	}
 }
 
@@ -263,6 +271,8 @@ FramebufferManager::FramebufferManager() :
 	stencilUploadProgram_(nullptr),
 	plainColorLoc_(-1),
 	timeLoc_(-1),
+	deltaLoc_(-1),
+	pixelDeltaLoc_(-1),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
 	usePostShader_(false),
@@ -405,6 +415,10 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	if (applyPostShader) {
+		glsl_bind(postShaderProgram_);
+		UpdatePostShaderUniforms(renderWidth_, renderHeight_);
+	}
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
@@ -537,15 +551,11 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 	}
 
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
-
-	glsl_bind(program);
-	if (program == postShaderProgram_ && timeLoc_ != -1) {
-		int flipCount = __DisplayGetFlipCount();
-		int vCount = __DisplayGetVCount();
-		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
-		glUniform4fv(timeLoc_, 1, time);
+	if (program != postShaderProgram_) {
+		shaderManager_->DirtyLastShader();  // dirty lastShader_
+		glsl_bind(program);
 	}
+
 	glstate.arrayBuffer.unbind();
 	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
@@ -1064,6 +1074,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
+			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			glsl_bind(postShaderProgram_);
+			UpdatePostShaderUniforms(renderWidth_, renderHeight_);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
@@ -1096,6 +1109,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}
 		} else {
+			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			glsl_bind(postShaderProgram_);
+			UpdatePostShaderUniforms(vfb->renderWidth, vfb->renderHeight);
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);

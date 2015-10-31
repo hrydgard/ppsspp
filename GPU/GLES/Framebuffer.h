@@ -137,6 +137,7 @@ protected:
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 
 private:
+	void UpdatePostShaderUniforms(int renderWidth, int renderHeight);
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 
@@ -161,6 +162,8 @@ private:
 	GLSLProgram *stencilUploadProgram_;
 	int plainColorLoc_;
 	int timeLoc_;
+	int pixelDeltaLoc_;
+	int deltaLoc_;
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
