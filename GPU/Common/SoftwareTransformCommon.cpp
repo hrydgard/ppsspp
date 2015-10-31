@@ -176,8 +176,6 @@ void SoftwareTransform(
 	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
-	// We flip in the fragment shader for GE_TEXMAP_TEXTURE_MATRIX.
-	const bool flipV = gstate_c.flipTexture && gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_MATRIX;
 	if (throughmode) {
 		for (int index = 0; index < maxIndex; index++) {
 			// Do not touch the coordinates or the colors. No lighting.
@@ -200,11 +198,6 @@ void SoftwareTransform(
 			} else {
 				vert.u = 0.0f;
 				vert.v = 0.0f;
-			}
-			// Scale UV?
-
-			if (flipV) {
-				vert.v = 1.0f - vert.v;
 			}
 
 			// Ignore color1 and fog, never used in throughmode anyway.
@@ -397,9 +390,6 @@ void SoftwareTransform(
 			memcpy(&transformed[index].x, v, 3 * sizeof(float));
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-			if (flipV) {
-				transformed[index].v = 1.0f - transformed[index].v;
-			}
 			transformed[index].color0_32 = c0.ToRGBA();
 			transformed[index].color1_32 = c1.ToRGBA();
 
@@ -431,21 +421,14 @@ void SoftwareTransform(
 		bool tlOutside;
 		bool tlAlmostOutside;
 		bool brOutside;
-		if (gstate_c.flipTexture) {
-			// This is flipped for OpenGL, but the same logic as unflipped, so look there.
-			tlOutside = transformed[0].v < -invTexH && transformed[0].v >= 1.0f - heightFactor;
-			brOutside = transformed[1].v < -invTexH && transformed[1].v >= 1.0f - heightFactor;
-			tlAlmostOutside = transformed[0].v <= 0.5f && transformed[0].v >= 1.0f - heightFactor;
-		} else {
-			// If we're outside heightFactor, then v must be wrapping or clamping.  Avoid this workaround.
-			// If we're <= 1.0f, we're inside the framebuffer (workaround not needed.)
-			// We buffer that 1.0f a little more with a texel to avoid some false positives.
-			tlOutside = transformed[0].v <= heightFactor && transformed[0].v > 1.0f + invTexH;
-			brOutside = transformed[1].v <= heightFactor && transformed[1].v > 1.0f + invTexH;
-			// Careful: if br is outside, but tl is well inside, this workaround still doesn't make sense.
-			// We go with halfway, since we overestimate framebuffer heights sometimes but not by much.
-			tlAlmostOutside = transformed[0].v <= heightFactor && transformed[0].v >= 0.5f;
-		}
+		// If we're outside heightFactor, then v must be wrapping or clamping.  Avoid this workaround.
+		// If we're <= 1.0f, we're inside the framebuffer (workaround not needed.)
+		// We buffer that 1.0f a little more with a texel to avoid some false positives.
+		tlOutside = transformed[0].v <= heightFactor && transformed[0].v > 1.0f + invTexH;
+		brOutside = transformed[1].v <= heightFactor && transformed[1].v > 1.0f + invTexH;
+		// Careful: if br is outside, but tl is well inside, this workaround still doesn't make sense.
+		// We go with halfway, since we overestimate framebuffer heights sometimes but not by much.
+		tlAlmostOutside = transformed[0].v <= heightFactor && transformed[0].v >= 0.5f;
 		if (tlOutside || (brOutside && tlAlmostOutside)) {
 			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
 			// Breath of Fire 3 does this to access a render surface at an offset.
@@ -464,13 +447,7 @@ void SoftwareTransform(
 				for (int index = 0; index < maxIndex; ++index) {
 					transformed[index].u *= widthFactor / oldWidthFactor;
 					// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
-					if (gstate_c.flipTexture) {
-						transformed[index].v = (1.0f - transformed[index].v) / oldHeightFactor;
-						transformed[index].v -= yDiff;
-						transformed[index].v = 1.0f - (transformed[index].v * heightFactor);
-					} else {
-						transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
-					}
+					transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
 				}
 			}
 		}

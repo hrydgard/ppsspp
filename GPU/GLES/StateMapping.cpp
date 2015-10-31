@@ -89,8 +89,8 @@ static const GLushort eqLookup[] = {
 };
 
 static const GLushort cullingMode[] = {
-	GL_BACK,
 	GL_FRONT,
+	GL_BACK,
 };
 
 static const GLushort ztests[] = {
@@ -761,11 +761,21 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
-		glstate.scissorRect.set(
-			renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-			renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
-			(scissorX2 - scissorX1) * renderWidthFactor,
-			(scissorY2 - scissorY1) * renderHeightFactor);
+
+		// Buffers are now in the GL coordinate system, so no flipping needed.
+		if (useBufferedRendering) {
+			glstate.scissorRect.set(
+				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
+				renderY + displayOffsetY + scissorY2 * renderHeightFactor,
+				(scissorX2 - scissorX1) * renderWidthFactor,
+				(scissorY2 - scissorY1) * renderHeightFactor);
+		} else {
+			glstate.scissorRect.set(
+				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
+				renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
+				(scissorX2 - scissorX1) * renderWidthFactor,
+				(scissorY2 - scissorY1) * renderHeightFactor);
+		}
 	}
 
 	/*
@@ -787,11 +797,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
 
 		// No viewport transform here. Let's experiment with using region.
-		glstate.viewport.set(
-			renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-			renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
-			(regionX2 - regionX1) * renderWidthFactor,
-			(regionY2 - regionY1) * renderHeightFactor);
+		if (useBufferedRendering) {
+			// No flip needed
+			glstate.viewport.set(
+				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
+				renderY + displayOffsetY + (0 + regionY1) * renderHeightFactor,
+				(regionX2 - regionX1) * renderWidthFactor,
+				(regionY2 - regionY1) * renderHeightFactor);
+		} else {
+			glstate.viewport.set(
+				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
+				renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
+				(regionX2 - regionX1) * renderWidthFactor,
+				(regionY2 - regionY1) * renderHeightFactor);
+		}
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.

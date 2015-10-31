@@ -147,7 +147,6 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
 	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
-	bool flipTexture = id.Bit(FS_BIT_FLIP_TEXTURE);
 
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
@@ -287,9 +286,6 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				if (doTextureProjection) {
 					ucoord += " / v_texcoord.z";
 					vcoord = "(v_texcoord.y / v_texcoord.z)";
-					// Vertex texcoords are NOT flipped when projecting despite flipTexture.
-				} else if (flipTexture) {
-					vcoord = "1.0 - " + vcoord;
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
@@ -309,18 +305,9 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
-				if (flipTexture) {
-					vcoord = "1.0 - " + vcoord;
-				}
-
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
 				// We already projected it.
-				doTextureProjection = false;
-			} else if (doTextureProjection && flipTexture) {
-				// Since we need to flip v, we project manually.
-				WRITE(p, "  vec2 fixedcoord = vec2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
-				texcoord = "fixedcoord";
 				doTextureProjection = false;
 			}
 

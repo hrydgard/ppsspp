@@ -1373,7 +1373,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);
@@ -1414,7 +1414,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24X_8BIT;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);
