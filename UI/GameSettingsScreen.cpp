@@ -780,7 +780,7 @@ UI::EventReturn GameSettingsScreen::OnFullscreenChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnDisplayLayoutEditor(UI::EventParams &e) {
-	screenManager()->push(new DisplayLayoutScreen()); //TouchControlLayoutScreen());//
+	screenManager()->push(new DisplayLayoutScreen());
 	return UI::EVENT_DONE;
 };
 

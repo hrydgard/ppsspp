@@ -199,7 +199,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 	if (g_Config.iSmallDisplayZoom == 0) {
-		mode_->AddChoice(gr->T("Activated(Auto)"));
+		mode_->AddChoice(gr->T("Active (Auto)"));
 		float autoBound = bounds.w / 480.0f * 8.0f;
 		g_Config.fSmallDisplayCustomZoom = autoBound;
 		g_Config.fSmallDisplayOffsetX = 0.5f;
