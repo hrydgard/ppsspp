@@ -904,7 +904,7 @@ void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, Virtu
 				}
 			}
 
-			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);
+			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
 			fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
@@ -1255,7 +1255,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				gameUsesSequentialCopies_ = true;
 			}
 		}
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, true);
+		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
@@ -1277,7 +1277,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 }
 
 // TODO: If dimensions are the same, we can use glCopyImageSubData.
-void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
+void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		fbo_unbind();
