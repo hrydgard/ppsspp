@@ -731,7 +731,7 @@ namespace MainWindow {
 
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				symbolMap.LoadSymbolMap(fn.c_str());
+				g_symbolMap->LoadSymbolMap(fn.c_str());
 
 				if (disasmWindow[0])
 					disasmWindow[0]->NotifyMapLoaded();
@@ -743,12 +743,12 @@ namespace MainWindow {
 
 		case ID_DEBUG_SAVEMAPFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", 0, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn))
-				symbolMap.SaveSymbolMap(fn.c_str());
+				g_symbolMap->SaveSymbolMap(fn.c_str());
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				symbolMap.LoadNocashSym(fn.c_str());
+				g_symbolMap->LoadNocashSym(fn.c_str());
 
 				if (disasmWindow[0])
 					disasmWindow[0]->NotifyMapLoaded();
@@ -760,11 +760,11 @@ namespace MainWindow {
 
 		case ID_DEBUG_SAVESYMFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", 0, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn))
-				symbolMap.SaveNocashSym(fn.c_str());
+				g_symbolMap->SaveNocashSym(fn.c_str());
 			break;
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
-			symbolMap.Clear();
+			g_symbolMap->Clear();
 
 			for (int i = 0; i < numCPUs; i++)
 				if (disasmWindow[i])

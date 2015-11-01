@@ -227,7 +227,7 @@ public:
 			} else {
 				userMemory.Free(memoryBlockAddr);
 			}
-			symbolMap.UnloadModule(memoryBlockAddr, memoryBlockSize);
+			g_symbolMap->UnloadModule(memoryBlockAddr, memoryBlockSize);
 		}
 	}
 	const char *GetName() override { return nm.name; }
@@ -286,7 +286,7 @@ public:
 			char moduleName[29] = {0};
 			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
 			if (memoryBlockAddr != 0) {
-				symbolMap.AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
+				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 			}
 		}
 	}
@@ -305,7 +305,7 @@ public:
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
 		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
-		symbolMap.AddFunction(temp,func.stubAddr,8);
+		g_symbolMap->AddFunction(temp,func.stubAddr,8);
 
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
@@ -999,7 +999,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 	}
 
 	if (!module->isFake && module->memoryBlockAddr != 0) {
-		symbolMap.AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
+		g_symbolMap->AddModule(moduleName, module->memoryBlockAddr, module->memoryBlockSize);
 	}
 
 	SectionID textSection = reader.GetSectionByName(".text");

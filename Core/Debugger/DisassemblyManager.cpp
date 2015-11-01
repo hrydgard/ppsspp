@@ -75,7 +75,7 @@ void parseDisasm(const char* disasm, char* opcode, char* arguments, bool insertS
 			u32 branchTarget;
 			sscanf(disasm+3,"%08x",&branchTarget);
 
-			const std::string addressSymbol = symbolMap.GetLabelString(branchTarget);
+			const std::string addressSymbol = g_symbolMap->GetLabelString(branchTarget);
 			if (!addressSymbol.empty() && insertSymbols)
 			{
 				arguments += sprintf(arguments,"%s",addressSymbol.c_str());
@@ -159,18 +159,18 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		}
 
 		SymbolInfo info;
-		if (!symbolMap.GetSymbolInfo(&info,address,ST_ALL))
+		if (!g_symbolMap->GetSymbolInfo(&info,address,ST_ALL))
 		{
 			if (address % 4)
 			{
-				u32 next = std::min<u32>((address+3) & ~3,symbolMap.GetNextSymbolAddress(address,ST_ALL));
+				u32 next = std::min<u32>((address+3) & ~3,g_symbolMap->GetNextSymbolAddress(address,ST_ALL));
 				DisassemblyData* data = new DisassemblyData(address,next-address,DATATYPE_BYTE);
 				entries[address] = data;
 				address = next;
 				continue;
 			}
 
-			u32 next = symbolMap.GetNextSymbolAddress(address,ST_ALL);
+			u32 next = g_symbolMap->GetNextSymbolAddress(address,ST_ALL);
 
 			if ((next % 4) && next != (u32)-1)
 			{
@@ -204,7 +204,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 			break;
 		case ST_DATA:
 			{
-				DisassemblyData* data = new DisassemblyData(info.address,info.size,symbolMap.GetDataType(info.address));
+				DisassemblyData* data = new DisassemblyData(info.address,info.size,g_symbolMap->GetDataType(info.address));
 				entries[info.address] = data;
 				address = info.address+info.size;
 			}
@@ -286,7 +286,8 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 	while (Memory::IsValidAddress(address))
 	{
 		auto it = findDisassemblyEntry(entries,address,false);
-	
+		if (it == entries.end())
+			break;
 		while (it != entries.end())
 		{
 			DisassemblyEntry* entry = it->second;
@@ -313,7 +314,10 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 	while (Memory::IsValidAddress(address))
 	{
 		auto it = findDisassemblyEntry(entries,address,false);
-	
+		if (it == entries.end()) {
+			break;
+		}
+
 		while (it != entries.end())
 		{
 			DisassemblyEntry* entry = it->second;
@@ -544,7 +548,7 @@ void DisassemblyFunction::load()
 	u32 funcPos = address;
 	u32 funcEnd = address+size;
 
-	u32 nextData = symbolMap.GetNextSymbolAddress(funcPos-1,ST_DATA);
+	u32 nextData = g_symbolMap->GetNextSymbolAddress(funcPos-1,ST_DATA);
 	u32 opcodeSequenceStart = funcPos;
 	while (funcPos < funcEnd)
 	{
@@ -553,12 +557,12 @@ void DisassemblyFunction::load()
 			if (opcodeSequenceStart != funcPos)
 				addOpcodeSequence(opcodeSequenceStart,funcPos);
 
-			DisassemblyData* data = new DisassemblyData(funcPos,symbolMap.GetDataSize(funcPos),symbolMap.GetDataType(funcPos));
+			DisassemblyData* data = new DisassemblyData(funcPos,g_symbolMap->GetDataSize(funcPos),g_symbolMap->GetDataType(funcPos));
 			entries[funcPos] = data;
 			lineAddresses.push_back(funcPos);
 			funcPos += data->getTotalSize();
 
-			nextData = symbolMap.GetNextSymbolAddress(funcPos-1,ST_DATA);
+			nextData = g_symbolMap->GetNextSymbolAddress(funcPos-1,ST_DATA);
 			opcodeSequenceStart = funcPos;
 			continue;
 		}
@@ -766,7 +770,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_LI:
 		dest.name = name;
 		
-		addressSymbol = symbolMap.GetLabelString(immediate);
+		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
@@ -782,7 +786,7 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 	case MACRO_MEMORYIMM:
 		dest.name = name;
 
-		addressSymbol = symbolMap.GetLabelString(immediate);
+		addressSymbol = g_symbolMap->GetLabelString(immediate);
 		if (!addressSymbol.empty() && insertSymbols)
 		{
 			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
@@ -984,7 +988,7 @@ void DisassemblyData::createLines()
 			case DATATYPE_WORD:
 				{
 					value = Memory::Read_U32(pos);
-					const std::string label = symbolMap.GetLabelString(value);
+					const std::string label = g_symbolMap->GetLabelString(value);
 					if (!label.empty())
 						snprintf(buffer, sizeof(buffer), "%s", label.c_str());
 					else

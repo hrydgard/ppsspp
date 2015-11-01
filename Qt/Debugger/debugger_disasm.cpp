@@ -286,7 +286,7 @@ void Debugger_Disasm::FillFunctions()
 	item->setData(Qt::UserRole, 0x02000000);
 	ui->FuncList->addItem(item);
 
-    std::vector<SymbolEntry> symbols = symbolMap.GetAllSymbols(ST_FUNCTION);
+    std::vector<SymbolEntry> symbols = g_symbolMap->GetAllSymbols(ST_FUNCTION);
     for(int i = 0; i < (int)symbols.size(); i++)
     {
         QListWidgetItem* item = new QListWidgetItem();

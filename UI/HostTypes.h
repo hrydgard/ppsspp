@@ -102,7 +102,7 @@ public:
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {
-		symbolMap.SortSymbols();
+		g_symbolMap->SortSymbols();
 		mainWindow->Boot();
 	}
 
@@ -114,10 +114,10 @@ public:
 #endif
 	}
 	virtual bool AttemptLoadSymbolMap() {
-		return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		return g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 	}
 	virtual void PrepareShutdown() {
-		symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 	}
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}

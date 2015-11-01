@@ -79,7 +79,7 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	args.memoryFile = &file;
 	args.errorsResult = &errors;
 	
-	symbolMap.GetLabels(args.labels);
+	g_symbolMap->GetLabels(args.labels);
 
 	errorText = L"";
 	if (!runArmips(args))

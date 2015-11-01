@@ -49,7 +49,7 @@ macx|equals(PLATFORM_NAME, "linux") {
 	}
 }
 
-exists( /usr/include/GL/glew.h ) {
+!symbian:exists( /usr/include/GL/glew.h ) {
 	LIBS += -lGLEW
 }
 

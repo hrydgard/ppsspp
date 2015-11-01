@@ -470,7 +470,7 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 			name = "UnknownOrDeletedBlock";
 		} else if (jitAddr != (u32)-1) {
 			char temp[1024];
-			const std::string label = symbolMap.GetDescription(jitAddr);
+			const std::string label = g_symbolMap->GetDescription(jitAddr);
 			if (!label.empty())
 				snprintf(temp, sizeof(temp), "%08x_%s", jitAddr, label.c_str());
 			else
@@ -552,7 +552,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		return;
 	}
 
-	u32 funcSize = symbolMap.GetFunctionSize(GetCompilerPC());
+	u32 funcSize = g_symbolMap->GetFunctionSize(GetCompilerPC());
 	bool disabled = (entry->flags & REPFLAG_DISABLED) != 0;
 	if (!disabled && funcSize != SymbolMap::INVALID_ADDRESS && funcSize > sizeof(u32)) {
 		// We don't need to disable hooks, the code will still run.

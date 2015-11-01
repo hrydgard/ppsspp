@@ -111,7 +111,7 @@ public:
 
 	bool parseSymbol(char* str, uint32_t& symbolValue) override
 	{
-		return symbolMap.GetLabelValue(str,symbolValue); 
+		return g_symbolMap->GetLabelValue(str,symbolValue); 
 	}
 
 	uint32_t getReferenceValue(uint32_t referenceIndex) override
@@ -220,13 +220,13 @@ void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=symbolMap.GetFunctionNum(address);
+	int n=g_symbolMap->GetFunctionNum(address);
 	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
 std::string MIPSDebugInterface::getDescription(unsigned int address) 
 {
-	return symbolMap.GetDescription(address);
+	return g_symbolMap->GetDescription(address);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)

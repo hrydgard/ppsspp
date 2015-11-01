@@ -173,5 +173,5 @@ private:
 	bool sawUnknownModule;
 };
 
-extern SymbolMap symbolMap;
+extern SymbolMap *g_symbolMap;
 

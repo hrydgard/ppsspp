@@ -663,10 +663,10 @@ bool ElfReader::LoadSymbols()
 			switch (type)
 			{
 			case STT_OBJECT:
-				symbolMap.AddData(value,size,DATATYPE_BYTE);
+				g_symbolMap->AddData(value,size,DATATYPE_BYTE);
 				break;
 			case STT_FUNC:
-				symbolMap.AddFunction(name,value,size);
+				g_symbolMap->AddFunction(name,value,size);
 				break;
 			default:
 				continue;
