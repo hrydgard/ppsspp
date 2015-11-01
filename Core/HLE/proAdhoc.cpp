@@ -22,7 +22,7 @@
 // All credit goes to him!
 
 #if !defined(_MSC_VER)
-#include <netdb.h>
+//#include <netdb.h>
 #include <unistd.h>
 #endif
 #include <cstring>
@@ -1467,7 +1467,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	
 	// If Server is at localhost Try to Bind socket to specific adapter before connecting 
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (serverIp.S_un.S_un_b.s_b1 == 0x7f) {
+	if ((serverIp.s_addr & 0xff) == 0x7f) { //serverIp.S_un.S_un_b.s_b1 == 0x7f
 		int on = 1;
 		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
