@@ -1011,8 +1011,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
-			const float uvtop = 1.0f - v1 * invHeight;  // TODO: Seems we should ditch the "1.0f - "
-			const float uvbottom = 1.0f - v2 * invHeight;
+			const float uvtop = v1 * invHeight;  // TODO: Seems we should ditch the "1.0f - "
+			const float uvbottom = v2 * invHeight;
 			verts[0].uv = UV(uvleft, uvbottom);
 			verts[1].uv = UV(uvright, uvbottom);
 			verts[2].uv = UV(uvright, uvtop);

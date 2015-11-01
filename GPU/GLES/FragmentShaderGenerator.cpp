@@ -284,7 +284,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				std::string ucoord = "v_texcoord.x";
 				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord += " / v_texcoord.z";
+					ucoord = "(v_texcoord.x / v_texcoord.z)";
 					vcoord = "(v_texcoord.y / v_texcoord.z)";
 				}
 

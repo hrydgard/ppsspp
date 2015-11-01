@@ -89,7 +89,8 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	frameLastFramebufUsed_(0),
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
-	hackForce04154000Download_(false) {
+	hackForce04154000Download_(false),
+	updateVRAM_(false) {
 	UpdateSize();
 }
 
