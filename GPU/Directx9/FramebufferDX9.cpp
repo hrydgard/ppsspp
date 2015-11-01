@@ -193,7 +193,7 @@ namespace DX9 {
 		textureCache_->ForgetLastTexture();
 	}
 
-	void FramebufferManagerDX9::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
 		DisableState();
@@ -724,7 +724,7 @@ namespace DX9 {
 
 				if (!vfb) {
 					// Just a pointer to plain memory to draw. Draw it.
-					DrawFramebuffer(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+					DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 					return;
 				}
 			} else {
