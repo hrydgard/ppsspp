@@ -506,7 +506,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		u0,v0,
 		u1,v0,
 		u1,v1,
-		u0,v1
+		u0,v1,
 	};
 
 	static const GLushort indices[4] = {0,1,3,2};
@@ -1324,8 +1324,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 	int srcX1 = srcX * srcXFactor;
 	int srcX2 = (srcX + w) * srcXFactor;
-	int srcY2 = srcY * srcYFactor;
-	int srcY1 = (srcY + h) * srcYFactor;
+	int srcY1 = srcY * srcYFactor;
+	int srcY2 = (srcY + h) * srcYFactor;
 
 	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
 	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
@@ -1362,7 +1362,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		// Should maybe revamp that interface.
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
-		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_);
+		DrawActiveTexture(0, dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 		glstate.viewport.restore();
