@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if __linux__ || __APPLE__
+#if (defined(__linux__) && !defined(ANDROID)) || defined(__APPLE__)
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -52,7 +52,7 @@ static std::map<int, ApctlHandler> apctlHandlers;
 
 #ifdef _WIN32
 static HANDLE hIDMapFile = NULL;
-#elif __linux__ || __APPLE__
+#elif (__linux__ && !defined(ANDROID)) || __APPLE__
 static int hIDMapFile = 0;
 #endif
 static int32_t* pIDBuf = NULL;
@@ -106,7 +106,7 @@ static uint8_t getInstanceNumber() {
 	//hIDMapFile = NULL;
 
 	return id;
-#elif __linux__ || __APPLE__
+#elif (__linux__ && !defined(ANDROID)) || __APPLE__
 	long BUF_SIZE = 4096;
 	//caddr_t pIDBuf;
 	int status;
@@ -114,14 +114,14 @@ static uint8_t getInstanceNumber() {
 	// Create shared memory object 
 
 	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, 0);
-	BUF_SIZE = BUF_SIZE < sysconf(_SC_PAGE_SIZE) : sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
+	BUF_SIZE = BUF_SIZE < sysconf(_SC_PAGE_SIZE) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
 
 	if ((ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size 
 		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
 		return 1;
 	}
 
-	pIDBuf = mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
+	pIDBuf = (int32_t*)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
 	if (pIDBuf == MAP_FAILED) {    // Set the size 
 		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
 		pIDBuf = NULL;
@@ -151,7 +151,7 @@ static void PPSSPPIDCleanup() {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
 		hIDMapFile = NULL;
 	}
-#elif __linux__ || __APPLE__
+#elif (__linux__ && !defined(ANDROID)) || __APPLE__
 	// TODO : This unlink should be called when program exits instead of everytime the game reset.
 	if (hIDMapFile != 0) {
 		close(hIDMapFile);
@@ -204,8 +204,11 @@ static int InitLocalIP() {
 		}
 	}
 	freeaddrinfo(resultAddr);
-	isLocalServer = (serverIp.S_un.S_un_b.s_b1 == 0x7f);
-
+#if defined(_WIN32) || (defined(__linux__) && !defined(ANDROID)) || defined(__APPLE__)
+	isLocalServer = ((serverIp.s_addr & 0xff) == 0x7f);
+#else
+	isLocalServer = false;
+#endif
 	return 0;
 }
 
