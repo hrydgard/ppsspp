@@ -665,7 +665,7 @@ void FramebufferManager::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h
 
 	vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
 	if (old.fbo) {
-		WARN_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
+		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
 			ClearBuffer();
@@ -1156,12 +1156,15 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		// Doesn't actually pack when sent a null argument.
+		PackFramebufferAsync_(nullptr);
 	}
 #endif
 
 	if (vfb) {
-		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
+		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+
 		// For now we'll keep these on the same struct as the ones that can get displayed
 		// (and blatantly copy work already done above while at it).
 		VirtualFramebuffer *nvfb = 0;

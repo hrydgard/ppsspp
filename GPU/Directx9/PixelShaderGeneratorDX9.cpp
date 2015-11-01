@@ -151,9 +151,8 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				std::string ucoord = "In.v_texcoord.x";
 				std::string vcoord = "In.v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord += " / In.v_texcoord.z";
+					ucoord = "(In.v_texcoord.x / In.v_texcoord.z)";
 					vcoord = "(In.v_texcoord.y / In.v_texcoord.z)";
-					// Vertex texcoords are NOT flipped when projecting despite gstate_c.flipTexture.
 				}
 
 				if (id.Bit(FS_BIT_CLAMP_S)) {
