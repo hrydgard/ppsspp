@@ -473,12 +473,16 @@ void SoftwareTransform(
 
 			const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight > 0) : (gstate_c.vpHeight < 0);
 			if (invertedY) {
+				flippedMatrix[1] = -flippedMatrix[1];
 				flippedMatrix[5] = -flippedMatrix[5];
+				flippedMatrix[9] = -flippedMatrix[9];
 				flippedMatrix[13] = -flippedMatrix[13];
 			}
 			const bool invertedX = gstate_c.vpWidth < 0;
 			if (invertedX) {
 				flippedMatrix[0] = -flippedMatrix[0];
+				flippedMatrix[4] = -flippedMatrix[4];
+				flippedMatrix[8] = -flippedMatrix[8];
 				flippedMatrix[12] = -flippedMatrix[12];
 			}
 		}
