@@ -843,9 +843,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// This may mean some games won't work, or at least won't work at higher render resolutions.
 		// So we apply it in the shader instead.
 		float left = renderX + vpX0;
-		float bottom = renderY + vpY0;
+		float top = renderY + vpY0;
 		float right = left + vpWidth;
-		float top = bottom + vpHeight;
+		float bottom = top + vpHeight;
 
 		float wScale = 1.0f;
 		float xOffset = 0.0f;
@@ -866,17 +866,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			xOffset = drift / (right - left);
 		}
 
-		if (bottom < 0.0f || top > renderHeight) {
-			float overageBottom = std::max(-bottom, 0.0f);
-			float overageTop = std::max(top - renderHeight, 0.0f);
+		if (top < 0.0f || bottom > renderHeight) {
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - renderHeight, 0.0f);
 			// Our center drifted by the difference in overages.
 			float drift = overageTop - overageBottom;
 
-			bottom += overageBottom;
-			top -= overageTop;
+			top += overageTop;
+			bottom -= overageBottom;
 
-			hScale = vpHeight / (top - bottom);
-			yOffset = drift / (top - bottom);
+			hScale = vpHeight / (bottom - top);
+			yOffset = drift / (bottom - top);
 		}
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
