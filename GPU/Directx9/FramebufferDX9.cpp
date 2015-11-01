@@ -183,12 +183,12 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-		if (useBufferedRendering_ && vfb->fbo) {
+		if (useBufferedRendering_ && vfb && vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
 			dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		} else {
 			float x, y, w, h;
-			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, false, false);
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL, false);
 			dxstate.viewport.set(x, y, w, h);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
