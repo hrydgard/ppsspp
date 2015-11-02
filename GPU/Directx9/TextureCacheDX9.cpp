@@ -893,7 +893,6 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
-		gstate_c.flipTexture = false;
 		gstate_c.bgraTexture = false;
 		gstate_c.curTextureXOffset = fbTexInfo_[entry->addr].xOffset;
 		gstate_c.curTextureYOffset = fbTexInfo_[entry->addr].yOffset;
@@ -1012,8 +1011,8 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
-			const float uvtop = 1.0f - v1 * invHeight;
-			const float uvbottom = 1.0f - v2 * invHeight;
+			const float uvtop = v1 * invHeight;  // TODO: Seems we should ditch the "1.0f - "
+			const float uvbottom = v2 * invHeight;
 			verts[0].uv = UV(uvleft, uvbottom);
 			verts[1].uv = UV(uvright, uvbottom);
 			verts[2].uv = UV(uvright, uvtop);
@@ -1161,7 +1160,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
-	gstate_c.flipTexture = false;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.bgraTexture = true;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;

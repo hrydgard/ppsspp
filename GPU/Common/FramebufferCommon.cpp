@@ -119,7 +119,8 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	frameLastFramebufUsed_(0),
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
-	hackForce04154000Download_(false) {
+	hackForce04154000Download_(false),
+	updateVRAM_(false) {
 	UpdateSize();
 }
 
@@ -795,7 +796,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272 && !useBufferedRendering_) {
 		FlushBeforeCopy();
-		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
+		DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {

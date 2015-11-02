@@ -23,7 +23,6 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	if (id.Bit(VS_BIT_NORM_REVERSE)) desc << "RevN ";
 	if (id.Bit(VS_BIT_DO_TEXTURE)) desc << "Tex ";
 	if (id.Bit(VS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(VS_BIT_FLIP_TEXTURE)) desc << "Flip ";
 	int uvgMode = id.Bits(VS_BIT_UVGEN_MODE, 2);
 	const char *uvgModes[4] = { "UV ", "UVMtx ", "UVEnv ", "UVUnk " };
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
@@ -72,7 +71,6 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);
-		id.SetBit(VS_BIT_FLIP_TEXTURE, gstate_c.flipTexture);
 		id.SetBit(VS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
 	}
 
@@ -138,7 +136,6 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
 	if (id.Bit(FS_BIT_DO_TEXTURE)) desc << "Tex ";
 	if (id.Bit(FS_BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(FS_BIT_FLIP_TEXTURE)) desc << "Flip ";
 	if (id.Bit(FS_BIT_TEXALPHA)) desc << "TexAlpha ";
 	if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
 	if (id.Bit(FS_BIT_LMODE)) desc << "LM ";
@@ -223,7 +220,6 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 			id.SetBit(FS_BIT_DO_TEXTURE);
 			id.SetBits(FS_BIT_TEXFUNC, 3, gstate.getTextureFunction());
 			id.SetBit(FS_BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
-			id.SetBit(FS_BIT_FLIP_TEXTURE, gstate_c.flipTexture);
 			if (gstate_c.needShaderTexClamp) {
 				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
 				// 4 bits total.
