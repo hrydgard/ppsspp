@@ -391,11 +391,11 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	mixBuffer = new s32[grainSize * 2];
 	sendBuffer = new s32[grainSize * 2];
 	sendBufferDownsampled = new s16[grainSize];
-	sendBufferProcessed = new s16[grainSize];
+	sendBufferProcessed = new s16[grainSize * 2];
 	memset(mixBuffer, 0, sizeof(int) * grainSize * 2);
 	memset(sendBuffer, 0, sizeof(int) * grainSize * 2);
 	memset(sendBufferDownsampled, 0, sizeof(s16) * grainSize);
-	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize);
+	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize * 2);
 
 	// 2 samples padding at the start, that's where we copy the two last samples from the channel
 	// so that we can do bicubic resampling if necessary.  Plus 1 for smoothness hackery.
@@ -618,8 +618,8 @@ void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int r
 				sampleR += mixBuffer[i + 1];
 			}
 			if (wet) {
-				sampleL += sendBufferProcessed[((i >> 1) & ~1) + 0];
-				sampleR += sendBufferProcessed[((i >> 1) & ~1) + 1];
+				sampleL += sendBufferProcessed[i + 0];
+				sampleR += sendBufferProcessed[i + 1];
 			}
 			*outp++ = clamp_s16(sampleL);
 			*outp++ = clamp_s16(sampleR);
@@ -628,8 +628,8 @@ void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int r
 		// These are the optimal cases.
 		if (dry && wet) {
 			for (int i = 0; i < grainSize * 2; i += 2) {
-				*outp++ = clamp_s16(mixBuffer[i + 0] + sendBufferProcessed[((i >> 1) & ~1) + 0]);
-				*outp++ = clamp_s16(mixBuffer[i + 1] + sendBufferProcessed[((i >> 1) & ~1) + 1]);
+				*outp++ = clamp_s16(mixBuffer[i + 0] + sendBufferProcessed[i + 0]);
+				*outp++ = clamp_s16(mixBuffer[i + 1] + sendBufferProcessed[i + 1]);
 			}
 		} else if (dry) {
 			for (int i = 0; i < grainSize * 2; i += 2) {
@@ -637,13 +637,17 @@ void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int r
 				*outp++ = clamp_s16(mixBuffer[i + 1]);
 			}
 		} else {
-			// This is another uncommon case, dry must be off.
+			// This is another uncommon case, dry must be off but let's keep it for clarity.
 			for (int i = 0; i < grainSize * 2; i += 2) {
 				int sampleL = 0;
 				int sampleR = 0;
+				if (dry) {
+					sampleL += mixBuffer[i + 0];
+					sampleR += mixBuffer[i + 1];
+				}
 				if (wet) {
-					sampleL += sendBufferProcessed[((i >> 1) & ~1) + 0];
-					sampleR += sendBufferProcessed[((i >> 1) & ~1) + 1];
+					sampleL += sendBufferProcessed[i + 0];
+					sampleR += sendBufferProcessed[i + 1];
 				}
 				*outp++ = clamp_s16(sampleL);
 				*outp++ = clamp_s16(sampleR);

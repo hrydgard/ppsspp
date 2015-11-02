@@ -210,7 +210,13 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// This means replicate the input signal in the processed buffer.
 	// Can also be used to verify that the error is in here...
 	if (preset_ == -1) {
-		memcpy(output, input, inputSize * 2 * sizeof(int16_t));
+		// Strangely, OFF is not filled with zeroes every other.  Seems special cased.
+		for (size_t i = 0; i < inputSize; ++i) {
+			output[i * 4 + 0] = clamp_s16(input[i * 2 + 0] * volLeft >> 15);
+			output[i * 4 + 1] = clamp_s16(input[i * 2 + 1] * volRight >> 15);
+			output[i * 4 + 2] = clamp_s16(input[i * 2 + 0] * volLeft >> 15);
+			output[i * 4 + 3] = clamp_s16(input[i * 2 + 1] * volRight >> 15);
+		}
 		return;
 	}
 
@@ -250,8 +256,10 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		output[i*2] = clamp_s16(Lout*volLeft >> 15);
-		output[i*2+1] = clamp_s16(Rout*volRight >> 15);
+		output[i * 4 + 0] = clamp_s16(Lout * volLeft >> 15);
+		output[i * 4 + 1] = clamp_s16(Rout * volRight >> 15);
+		output[i * 4 + 2] = 0;
+		output[i * 4 + 3] = 0;
 
 		b.Next();
 	}
