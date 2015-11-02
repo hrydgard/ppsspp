@@ -42,7 +42,8 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 	} else {
 		bool fullScreenZoom = true;
 #ifndef MOBILE_DEVICE
-		fullScreenZoom = g_Config.bFullScreen;
+		// This would turn off small display in window mode. I think it's better to allow it.
+		// fullScreenZoom = g_Config.bFullScreen;
 #endif
 		if (fullScreenZoom) {
 			if (g_Config.iSmallDisplayZoom != 0) {
