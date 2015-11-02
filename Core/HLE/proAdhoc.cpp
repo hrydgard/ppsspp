@@ -35,7 +35,8 @@
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
 
-uint16_t portOffset = 0; //5000
+
+uint16_t portOffset = g_Config.iPortOffset;
 bool isLocalServer = false;
 uint8_t PPSSPP_ID = 0;
 sockaddr localIP;
