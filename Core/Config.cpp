@@ -654,6 +654,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "coldbird.net", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC, true, true),
+	ConfigSetting("PortOffset", &g_Config.iPortOffset, 5000, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, true, true),
