@@ -206,16 +206,16 @@ private:
 	int size_;
 };
 
-void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int16_t volLeft, int16_t volRight) {
+void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, uint16_t volLeft, uint16_t volRight) {
 	// This means replicate the input signal in the processed buffer.
 	// Can also be used to verify that the error is in here...
 	if (preset_ == -1) {
 		// Strangely, OFF is not filled with zeroes every other.  Seems special cased.
 		for (size_t i = 0; i < inputSize; ++i) {
-			output[i * 4 + 0] = clamp_s16(input[i * 2 + 0] * volLeft >> 15);
-			output[i * 4 + 1] = clamp_s16(input[i * 2 + 1] * volRight >> 15);
-			output[i * 4 + 2] = clamp_s16(input[i * 2 + 0] * volLeft >> 15);
-			output[i * 4 + 3] = clamp_s16(input[i * 2 + 1] * volRight >> 15);
+			output[i * 4 + 0] = clamp_s16((int)input[i * 2 + 0] * volLeft >> 15);
+			output[i * 4 + 1] = clamp_s16((int)input[i * 2 + 1] * volRight >> 15);
+			output[i * 4 + 2] = clamp_s16((int)input[i * 2 + 0] * volLeft >> 15);
+			output[i * 4 + 3] = clamp_s16((int)input[i * 2 + 1] * volRight >> 15);
 		}
 		return;
 	}
