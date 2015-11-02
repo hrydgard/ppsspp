@@ -334,6 +334,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/native-audio-so.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
+  $(SRC)/UI/DisplayLayoutEditor.cpp \
+  $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \

@@ -185,8 +185,12 @@ namespace DX9 {
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
+			dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+		} else {
+			float x, y, w, h;
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, false, false);
+			dxstate.viewport.set(x, y, w, h);
 		}
-		dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -203,7 +207,7 @@ namespace DX9 {
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation, false);
 		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, uvRotation);
 	}
 
@@ -764,7 +768,7 @@ namespace DX9 {
 			// Output coordinates
 			float x, y, w, h;
 			int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation, false);
 
 			const float u0 = offsetX / (float)vfb->bufferWidth;
 			const float v0 = offsetY / (float)vfb->bufferHeight;

@@ -230,7 +230,7 @@ void FramebufferManager::UpdatePostShaderUniforms(int renderWidth, int renderHei
 	float v_pixel_delta = v_delta;
 	if (postShaderAtOutputResolution_) {
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL, false);
 		u_pixel_delta = 1.0f / w;
 		v_pixel_delta = 1.0f / h;
 	}
@@ -395,7 +395,7 @@ void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY,
 		glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, false);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, false, false);
 		glViewport(x, y, w, h);
 	}
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
@@ -418,7 +418,7 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation, true);
 	if (applyPostShader) {
 		glsl_bind(postShaderProgram_);
 		UpdatePostShaderUniforms(renderWidth_, renderHeight_);
@@ -1049,7 +1049,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		// Output coordinates
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation, false);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 

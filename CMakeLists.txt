@@ -861,6 +861,8 @@ set(NativeAppSource
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
 	UI/DevScreens.cpp
+	UI/DisplayLayoutEditor.cpp
+	UI/DisplayLayoutScreen.cpp
 	UI/EmuScreen.cpp
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
