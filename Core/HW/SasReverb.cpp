@@ -152,7 +152,7 @@ static const SasReverbData presets[10] = {
 	},
 };
 
-SasReverb::SasReverb() : preset_(0), pos_(0) {
+SasReverb::SasReverb() : preset_(-1), pos_(0) {
 	workspace_ = new int16_t[BUFSIZE];
 }
 
@@ -161,6 +161,9 @@ SasReverb::~SasReverb() {
 }
 
 const char *SasReverb::GetPresetName(int preset) {
+	if (preset == -1) {
+		return "Off";
+	}
 	return presets[preset].name;
 }
 
