@@ -391,11 +391,11 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	mixBuffer = new s32[grainSize * 2];
 	sendBuffer = new s32[grainSize * 2];
 	sendBufferDownsampled = new s16[grainSize];
-	sendBufferProcessed = new s16[grainSize];
+	sendBufferProcessed = new s16[grainSize * 2];
 	memset(mixBuffer, 0, sizeof(int) * grainSize * 2);
 	memset(sendBuffer, 0, sizeof(int) * grainSize * 2);
 	memset(sendBufferDownsampled, 0, sizeof(s16) * grainSize);
-	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize);
+	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize * 2);
 
 	// 2 samples padding at the start, that's where we copy the two last samples from the channel
 	// so that we can do bicubic resampling if necessary.  Plus 1 for smoothness hackery.
@@ -580,39 +580,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
-		// TODO: Is this only done in PSP_SAS_OUTPUTMODE_MIXED?
-		if (waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF && waveformEffect.isWetOn) {
-			ApplyWaveformEffect();
-			// TODO: Mix send when it has proper values, probably based on dry/wet?
-			if (inp) {
-				for (int i = 0; i < grainSize * 2; i += 2) {
-					int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12) + sendBufferProcessed[(i >> 1)&~1];
-					int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12) + sendBufferProcessed[((i >> 1)&~1) + 1];
-					*outp++ = clamp_s16(sampleL);
-					*outp++ = clamp_s16(sampleR);
-				}
-			} else {
-				for (int i = 0; i < grainSize * 2; i += 2) {
-					*outp++ = clamp_s16(mixBuffer[i + 0] + sendBufferProcessed[(i >> 1)&~1]);
-					*outp++ = clamp_s16(mixBuffer[i + 1] + sendBufferProcessed[((i >> 1)&~1) + 1]);
-				}
-			}
-		} else {
-			// TODO: Mix send when it has proper values, probably based on dry/wet?
-			if (inp) {
-				for (int i = 0; i < grainSize * 2; i += 2) {
-					int sampleL = mixBuffer[i + 0] + ((*inp++) * leftVol >> 12);
-					int sampleR = mixBuffer[i + 1] + ((*inp++) * rightVol >> 12);
-					*outp++ = clamp_s16(sampleL);
-					*outp++ = clamp_s16(sampleR);
-				}
-			} else {
-				for (int i = 0; i < grainSize * 2; i += 2) {
-					*outp++ = clamp_s16(mixBuffer[i + 0]);
-					*outp++ = clamp_s16(mixBuffer[i + 1]);
-				}
-			}
-		}
+		WriteMixedOutput(outp, inp, leftVol, rightVol);
 	} else {
 		s16 *outpL = outp + grainSize * 0;
 		s16 *outpR = outp + grainSize * 1;
@@ -632,6 +600,60 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #ifdef AUDIO_TO_FILE
 	fwrite(Memory::GetPointer(outAddr), 1, grainSize * 2 * 2, audioDump);
 #endif
+}
+
+void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {
+	const bool dry = waveformEffect.isDryOn != 0;
+	const bool wet = waveformEffect.isWetOn != 0;
+	if (wet) {
+		ApplyWaveformEffect();
+	}
+
+	if (inp) {
+		for (int i = 0; i < grainSize * 2; i += 2) {
+			int sampleL = ((*inp++) * leftVol >> 12);
+			int sampleR = ((*inp++) * rightVol >> 12);
+			if (dry) {
+				sampleL += mixBuffer[i + 0];
+				sampleR += mixBuffer[i + 1];
+			}
+			if (wet) {
+				sampleL += sendBufferProcessed[i + 0];
+				sampleR += sendBufferProcessed[i + 1];
+			}
+			*outp++ = clamp_s16(sampleL);
+			*outp++ = clamp_s16(sampleR);
+		}
+	} else {
+		// These are the optimal cases.
+		if (dry && wet) {
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				*outp++ = clamp_s16(mixBuffer[i + 0] + sendBufferProcessed[i + 0]);
+				*outp++ = clamp_s16(mixBuffer[i + 1] + sendBufferProcessed[i + 1]);
+			}
+		} else if (dry) {
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				*outp++ = clamp_s16(mixBuffer[i + 0]);
+				*outp++ = clamp_s16(mixBuffer[i + 1]);
+			}
+		} else {
+			// This is another uncommon case, dry must be off but let's keep it for clarity.
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				int sampleL = 0;
+				int sampleR = 0;
+				if (dry) {
+					sampleL += mixBuffer[i + 0];
+					sampleR += mixBuffer[i + 1];
+				}
+				if (wet) {
+					sampleL += sendBufferProcessed[i + 0];
+					sampleR += sendBufferProcessed[i + 1];
+				}
+				*outp++ = clamp_s16(sampleL);
+				*outp++ = clamp_s16(sampleR);
+			}
+		}
+	}
 }
 
 void SasInstance::SetWaveformEffectType(int type) {

@@ -1063,6 +1063,7 @@ static int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 i
 }
 
 static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(charInfoPtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1082,6 +1083,7 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 }
 
 static int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(charInfoPtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetShadowInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1100,6 +1102,7 @@ static int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 }
 
 static int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
+	charCode &= 0xffff;
 	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
@@ -1120,6 +1123,7 @@ static int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr
 }
 
 static int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
+	charCode &= 0xffff;
 	auto charRect = PSPPointer<FontImageRect>::Create(charRectPtr);
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
 	if (!font) {
@@ -1140,6 +1144,7 @@ static int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectP
 }
 
 static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetCharGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1157,6 +1162,7 @@ static int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImage
 }
 
 static int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1174,6 +1180,7 @@ static int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyph
 }
 
 static int sceFontSetAltCharacterCode(u32 fontLibHandle, u32 charCode) {
+	charCode &= 0xffff;
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (!fl) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontSetAltCharacterCode(%08x, %08x): invalid font lib", fontLibHandle, charCode);
@@ -1321,6 +1328,7 @@ static int sceFontCalcMemorySize() {
 }
 
 static int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage(%x, %x, %x): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1338,6 +1346,7 @@ static int sceFontGetShadowGlyphImage(u32 fontHandle, u32 charCode, u32 glyphIma
 }
 
 static int sceFontGetShadowGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
+	charCode &= 0xffff;
 	if (!Memory::IsValidAddress(glyphImagePtr)) {
 		ERROR_LOG(SCEFONT, "sceFontGetShadowGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i): bad glyphImage pointer", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 		return ERROR_FONT_INVALID_PARAMETER;

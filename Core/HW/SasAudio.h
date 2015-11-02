@@ -294,6 +294,7 @@ public:
 	// Applies reverb to send buffer, according to waveformEffect.
 	void ApplyWaveformEffect();
 	void SetWaveformEffectType(int type);
+	void WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol);
 
 	void GetDebugText(char *text, size_t bufsize);
 
