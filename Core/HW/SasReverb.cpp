@@ -207,13 +207,10 @@ private:
 };
 
 void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int16_t volLeft, int16_t volRight) {
-	// Can be used to verify that the error is in here...
-	if (false) {
-		memcpy(output, input, inputSize * 2 * sizeof(int16_t));
-		return;
-	}
+	// This means replicate the input signal in the processed buffer.
+	// Can also be used to verify that the error is in here...
 	if (preset_ == -1) {
-		// We should not be called.
+		memcpy(output, input, inputSize * 2 * sizeof(int16_t));
 		return;
 	}
 

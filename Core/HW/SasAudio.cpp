@@ -603,8 +603,8 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 }
 
 void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {
-	const bool dry = waveformEffect.isDryOn;
-	const bool wet = waveformEffect.isWetOn && waveformEffect.type != PSP_SAS_EFFECT_TYPE_OFF;
+	const bool dry = waveformEffect.isDryOn != 0;
+	const bool wet = waveformEffect.isWetOn != 0;
 	if (wet) {
 		ApplyWaveformEffect();
 	}
