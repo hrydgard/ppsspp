@@ -890,9 +890,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		if (useBufferedRendering) {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - top), right - left, top - bottom);
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + top, right - left, bottom - top);
 		} else {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + bottom, right - left, top - bottom);
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - bottom), right - left, bottom - top);
 		}
 
 		float zScale = gstate.getViewportZScale();
