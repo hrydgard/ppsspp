@@ -30,7 +30,7 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"  // Gross dependency!
 
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation, bool invertY) {
+void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
 	float outH;
 
@@ -49,11 +49,11 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 			if (g_Config.iSmallDisplayZoom != 0) {
 				float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
 				float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
-				// Have to invert Y coordinates for software rendering as well as non buffered mode for GL
+				// Have to invert Y for GL
 #if defined(USING_WIN_UI)
-				if (g_Config.bSoftwareRendering || (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_Config.iGPUBackend == GPU_BACKEND_OPENGL && !invertY)) { offsetY = offsetY * -1.0f; }
+				if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) { offsetY = offsetY * -1.0f; }
 #else
-				if (g_Config.bSoftwareRendering || (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && !invertY)) { offsetY = offsetY * -1.0f; }
+				offsetY = offsetY * -1.0f;
 #endif
 				float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
 				float smallDisplayW = origW * customZoom;
