@@ -168,6 +168,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	using namespace UI;
 
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *gr = GetI18NCategory("Graphics");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -190,7 +191,7 @@ void DisplayLayoutScreen::CreateViews() {
 	horizontalBoundaryL->AddTab("", topBoundary);
 	horizontalBoundaryR->AddTab("", bottomBoundary);
 
-	Choice *back = new Choice(gr->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	static const char *zoomLevels[] = { "Auto", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x" };
 	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoom, gr->T("Zoom settings"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(300, WRAP_CONTENT, verticalBoundaryPositionL * 2 - 150, NONE, NONE, 10));
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomChange);
@@ -205,11 +206,11 @@ void DisplayLayoutScreen::CreateViews() {
 		g_Config.fSmallDisplayOffsetX = 0.5f;
 		g_Config.fSmallDisplayOffsetY = 0.5f;
 	} else {
-		Choice *center = new Choice(gr->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
+		Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
 		center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 		root_->Add(center);
-		mode_->AddChoice(gr->T("Move"));
-		mode_->AddChoice(gr->T("Resize"));
+		mode_->AddChoice(di->T("Move"));
+		mode_->AddChoice(di->T("Resize"));
 		mode_->SetSelection(0);
 	}
 
