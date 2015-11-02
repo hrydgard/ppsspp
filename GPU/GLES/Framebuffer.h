@@ -137,7 +137,7 @@ protected:
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 
 private:
-	void UpdatePostShaderUniforms(int renderWidth, int renderHeight);
+	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 	void CompileDraw2DProgram();
 	void DestroyDraw2DProgram();
 

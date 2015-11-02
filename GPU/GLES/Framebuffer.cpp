@@ -210,8 +210,6 @@ void FramebufferManager::CompileDraw2DProgram() {
 				deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
 				pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-
-				UpdatePostShaderUniforms(renderWidth_, renderHeight_);
 				usePostShader_ = true;
 			}
 		} else {
@@ -223,7 +221,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 	}
 }
 
-void FramebufferManager::UpdatePostShaderUniforms(int renderWidth, int renderHeight) {
+void FramebufferManager::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
 	float u_delta = 1.0f / renderWidth;
 	float v_delta = 1.0f / renderHeight;
 	float u_pixel_delta = u_delta;
@@ -231,8 +229,8 @@ void FramebufferManager::UpdatePostShaderUniforms(int renderWidth, int renderHei
 	if (postShaderAtOutputResolution_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL, false);
-		u_pixel_delta = 1.0f / w;
-		v_pixel_delta = 1.0f / h;
+		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
+		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
 	}
 
 	if (deltaLoc_ != -1)
@@ -427,7 +425,7 @@ void FramebufferManager::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFo
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation, true);
 	if (applyPostShader) {
 		glsl_bind(postShaderProgram_);
-		UpdatePostShaderUniforms(renderWidth_, renderHeight_);
+		UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
 	}
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
@@ -1089,7 +1087,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(renderWidth_, renderHeight_);
+			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 
 			fbo_unbind();
@@ -1132,7 +1130,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
 			glsl_bind(postShaderProgram_);
-			UpdatePostShaderUniforms(vfb->renderWidth, vfb->renderHeight);
+			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight);
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);

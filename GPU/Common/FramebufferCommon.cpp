@@ -59,16 +59,16 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				float smallDisplayW = origW * customZoom;
 				float smallDisplayH = origH * customZoom;
 				if (!rotated) {
-					*x = ((frameW - smallDisplayW) / 2.0f) + offsetX;
-					*y = ((frameH - smallDisplayH) / 2.0f) + offsetY;
-					*w = smallDisplayW;
-					*h = smallDisplayH;
+					*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
+					*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
+					*w = floorf(smallDisplayW);
+					*h = floorf(smallDisplayH);
 					return;
 				} else {
-					*x = ((frameW - smallDisplayH) / 2.0f) + offsetX;
-					*y = ((frameH - smallDisplayW) / 2.0f) + offsetY;
-					*w = smallDisplayH;
-					*h = smallDisplayW;
+					*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
+					*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
+					*w = floorf(smallDisplayH);
+					*h = floorf(smallDisplayW);
 					return;
 				}
 			} else {
@@ -76,9 +76,9 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				float resCommonWidescreen = pixelCrop - floor(pixelCrop);
 				if (!rotated && resCommonWidescreen == 0.0f) {
 					*x = 0;
-					*y = -pixelCrop;
-					*w = frameW;
-					*h = pixelCrop * 272.0f;
+					*y = floorf(-pixelCrop);
+					*w = floorf(frameW);
+					*h = floorf(pixelCrop * 272.0f);
 					return;
 				}
 			}
@@ -102,10 +102,10 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 		}
 	}
 
-	*x = (frameW - outW) / 2.0f;
-	*y = (frameH - outH) / 2.0f;
-	*w = outW;
-	*h = outH;
+	*x = floorf((frameW - outW) / 2.0f);
+	*y = floorf((frameH - outH) / 2.0f);
+	*w = floorf(outW);
+	*h = floorf(outH);
 }
 
 
