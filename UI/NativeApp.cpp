@@ -126,6 +126,7 @@ std::string config_filename;
 
 #ifdef IOS
 bool iosCanUseJit;
+bool targetIsJailbroken;
 #endif
 
 // Really need to clean this mess of globals up... but instead I add more :P
