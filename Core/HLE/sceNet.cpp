@@ -221,6 +221,7 @@ static void __ResetInitNetLib() {
 }
 
 void __NetInit() {
+	portOffset = g_Config.iPortOffset;
 	//if (PPSSPP_ID == 0) // Each instance should use the same ID (and IP) once it's automatically assigned for consistency reason, But doesn't work well if PPSSPP_ID reseted everytime emulation restarted
 	{
 		PPSSPP_ID = getInstanceNumber(); // This should be called when program started instead of when the game started/reseted
