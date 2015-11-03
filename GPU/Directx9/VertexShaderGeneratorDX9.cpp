@@ -76,7 +76,6 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
 	bool throughmode = id.Bit(VS_BIT_IS_THROUGH);
-	bool flipV = id.Bit(VS_BIT_FLIP_TEXTURE);  // This also means that we are texturing from a render target
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -135,7 +134,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			}
 #endif
 		}
-		if (doTexture && (flipV || !prescale || uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP || uvGenMode == GE_TEXMAP_TEXTURE_MATRIX)) {
+		if (doTexture && (!prescale || uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP || uvGenMode == GE_TEXMAP_TEXTURE_MATRIX)) {
 			WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 		}
 		for (int i = 0; i < 4; i++) {
@@ -505,7 +504,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			switch (uvGenMode) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
-				if (prescale && !flipV) {
+				if (prescale) {
 					if (hasTexcoord) {
 						WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
 					} else {
@@ -562,10 +561,6 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 				// ILLEGAL
 				break;
 			}
-
-			// Will flip in the fragment for GE_TEXMAP_TEXTURE_MATRIX.
-			if (flipV && uvGenMode != GE_TEXMAP_TEXTURE_MATRIX)
-				WRITE(p, "  Out.v_texcoord.y = 1.0 - Out.v_texcoord.y;\n");	
 		}
 
 		// Compute fogdepth

@@ -649,7 +649,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		CenterDisplayOutputRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
@@ -766,13 +766,13 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			float overageTop = std::max(-top, 0.0f);
 			float overageBottom = std::max(bottom - renderHeight, 0.0f);
 			// Our center drifted by the difference in overages.
-			float drift = overageBottom - overageTop;
+			float drift = overageTop - overageBottom;
 
 			top += overageTop;
 			bottom -= overageBottom;
 
 			hScale = vpHeight / (bottom - top);
-			yOffset = -drift / (bottom - top);
+			yOffset = drift / (bottom - top);
 		}
 
 		depthRangeMin = std::max(0.0f, depthRangeMin);

@@ -183,17 +183,21 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-		if (useBufferedRendering_ && vfb->fbo) {
+		if (useBufferedRendering_ && vfb && vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
+			dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+		} else {
+			float x, y, w, h;
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+			dxstate.viewport.set(x, y, w, h);
 		}
-		dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
-		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
+		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
 		textureCache_->ForgetLastTexture();
 	}
 
-	void FramebufferManagerDX9::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 
 		DisableState();
@@ -203,15 +207,11 @@ namespace DX9 {
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, 0.0f, 0.0f, 480.0f / 512.0f, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
 	}
 
-	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, int uvRotation) {
-		if (flip) {
-			std::swap(v0, v1);
-		}
-
+	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
 		// TODO: StretchRect instead?
 		float coord[20] = {
 			x,y,0, u0,v0,
@@ -654,7 +654,7 @@ namespace DX9 {
 					}
 				}
 
-				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);
+				BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
 				RebindFramebuffer();
 				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
@@ -728,7 +728,7 @@ namespace DX9 {
 
 				if (!vfb) {
 					// Just a pointer to plain memory to draw. Draw it.
-					DrawFramebuffer(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+					DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 					return;
 				}
 			} else {
@@ -764,7 +764,7 @@ namespace DX9 {
 			// Output coordinates
 			float x, y, w, h;
 			int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-			CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
 
 			const float u0 = offsetX / (float)vfb->bufferWidth;
 			const float v0 = offsetY / (float)vfb->bufferHeight;
@@ -790,7 +790,7 @@ namespace DX9 {
 					}
 					dxstate.texMipFilter.set(D3DTEXF_NONE);
 					dxstate.texMipLodBias.set(0);
-					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, false, u0, v0, u1, v1, uvRotation);
+					DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, u0, v0, u1, v1, uvRotation);
 				}
 			}
 			/* 
@@ -833,7 +833,7 @@ namespace DX9 {
 #endif
 
 		if (vfb) {
-			// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
+			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 			// For now we'll keep these on the same struct as the ones that can get displayed
 			// (and blatantly copy work already done above while at it).
 			VirtualFramebuffer *nvfb = 0;
@@ -931,22 +931,22 @@ namespace DX9 {
 					gameUsesSequentialCopies_ = true;
 				}
 			}
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, false);
+			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 			PackFramebufferDirectx9_(nvfb, x, y, w, h);
 			RebindFramebuffer();
 		}
 	}
 
-	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
+	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 		if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 			// This can happen if they recently switched from non-buffered.
 			fbo_unbind();
 			return;
 		}
 
-		float srcXFactor = flip ? 1.0f : (float)src->renderWidth / (float)src->bufferWidth;
-		float srcYFactor = flip ? 1.0f : (float)src->renderHeight / (float)src->bufferHeight;
+		float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
+		float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
 		const int srcBpp = src->format == GE_FORMAT_8888 ? 4 : 2;
 		if (srcBpp != bpp && bpp != 0) {
 			srcXFactor = (srcXFactor * bpp) / srcBpp;
@@ -956,8 +956,8 @@ namespace DX9 {
 		int srcY1 = srcY * srcYFactor;
 		int srcY2 = (srcY + h) * srcYFactor;
 
-		float dstXFactor = flip ? 1.0f : (float)dst->renderWidth / (float)dst->bufferWidth;
-		float dstYFactor = flip ? 1.0f : (float)dst->renderHeight / (float)dst->bufferHeight;
+		float dstXFactor = (float)dst->renderWidth / (float)dst->bufferWidth;
+		float dstYFactor = (float)dst->renderHeight / (float)dst->bufferHeight;
 		const int dstBpp = dst->format == GE_FORMAT_8888 ? 4 : 2;
 		if (dstBpp != bpp && bpp != 0) {
 			dstXFactor = (dstXFactor * bpp) / dstBpp;
@@ -967,50 +967,33 @@ namespace DX9 {
 		int dstY1 = dstY * dstYFactor;
 		int dstY2 = (dstY + h) * dstYFactor;
 
-		if (flip) {
-			fbo_bind_as_render_target(dst->fbo);
-			dxstate.viewport.set(0, 0, dst->renderWidth, dst->renderHeight);
-			DisableState();
+		LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo);
+		LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo);
+		RECT srcRect = {srcX1, srcY1, srcX2, srcY2};
+		RECT dstRect = {dstX1, dstY1, dstX2, dstY2};
 
-			fbo_bind_color_as_texture(src->fbo, 0);
+		D3DSURFACE_DESC desc;
+		srcSurf->GetDesc(&desc);
+		srcRect.right = std::min(srcRect.right, (LONG)desc.Width);
+		srcRect.bottom = std::min(srcRect.bottom, (LONG)desc.Height);
 
-			float srcW = src->bufferWidth;
-			float srcH = src->bufferHeight;
-			DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH);
-			pD3Ddevice->SetTexture(0, NULL);
-			textureCache_->ForgetLastTexture();
-			dxstate.viewport.restore();
+		dstSurf->GetDesc(&desc);
+		dstRect.right = std::min(dstRect.right, (LONG)desc.Width);
+		dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
 
-			RebindFramebuffer();
-		} else {
-			LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo);
-			LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo);
-			RECT srcRect = {srcX1, srcY1, srcX2, srcY2};
-			RECT dstRect = {dstX1, dstY1, dstX2, dstY2};
-
-			D3DSURFACE_DESC desc;
-			srcSurf->GetDesc(&desc);
-			srcRect.right = std::min(srcRect.right, (LONG)desc.Width);
-			srcRect.bottom = std::min(srcRect.bottom, (LONG)desc.Height);
-
-			dstSurf->GetDesc(&desc);
-			dstRect.right = std::min(dstRect.right, (LONG)desc.Width);
-			dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
-
-			// Direct3D 9 doesn't support rect -> self.
-			FBO *srcFBO = src->fbo;
-			if (src == dst) {
-				FBO *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (FBOColorDepth)src->colorDepth);
-				HRESULT hr = fbo_blit_color(src->fbo, &srcRect, tempFBO, &srcRect, D3DTEXF_POINT);
-				if (SUCCEEDED(hr)) {
-					srcFBO = tempFBO;
-				}
+		// Direct3D 9 doesn't support rect -> self.
+		FBO *srcFBO = src->fbo;
+		if (src == dst) {
+			FBO *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (FBOColorDepth)src->colorDepth);
+			HRESULT hr = fbo_blit_color(src->fbo, &srcRect, tempFBO, &srcRect, D3DTEXF_POINT);
+			if (SUCCEEDED(hr)) {
+				srcFBO = tempFBO;
 			}
+		}
 
-			HRESULT hr = fbo_blit_color(srcFBO, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
-			if (FAILED(hr)) {
-				ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
-			}
+		HRESULT hr = fbo_blit_color(srcFBO, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
 		}
 	}
 
@@ -1373,7 +1356,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);
@@ -1414,7 +1397,7 @@ namespace DX9 {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24X_8BIT;
 				int pixelSize = 4;
 
-				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 				memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 				success = true;
 				tex->UnlockRect(0);

@@ -151,11 +151,8 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 				std::string ucoord = "In.v_texcoord.x";
 				std::string vcoord = "In.v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord += " / In.v_texcoord.z";
+					ucoord = "(In.v_texcoord.x / In.v_texcoord.z)";
 					vcoord = "(In.v_texcoord.y / In.v_texcoord.z)";
-					// Vertex texcoords are NOT flipped when projecting despite gstate_c.flipTexture.
-				} else if (gstate_c.flipTexture) {
-					vcoord = "1.0 - " + vcoord;
 				}
 
 				if (id.Bit(FS_BIT_CLAMP_S)) {
@@ -173,18 +170,9 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
-				if (gstate_c.flipTexture) {
-					vcoord = "1.0 - " + vcoord;
-				}
-
 				WRITE(p, "  float2 fixedcoord = float2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
 				// We already projected it.
-				doTextureProjection = false;
-			} else if (doTextureProjection && gstate_c.flipTexture) {
-				// Since we need to flip v, we project manually.
-				WRITE(p, "  float2 fixedcoord = float2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
-				texcoord = "fixedcoord";
 				doTextureProjection = false;
 			}
 

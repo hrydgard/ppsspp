@@ -30,7 +30,7 @@
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"  // Gross dependency!
 
-void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
+void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
 	float outH;
 
@@ -40,15 +40,50 @@ void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH
 		outW = frameW;
 		outH = frameH;
 	} else {
-		// Add special case for 1080p displays, cutting off the bottom and top 1-pixel rows from the original 480x272.
-		// This will be what 99.9% of users want.
-		if (origW == 480 && origH == 272 && frameW == 1920 && frameH == 1080 && !rotated) {
-			*x = 0;
-			*y = -4;
-			*w = 1920;
-			*h = 1088;
-			return;
+		bool fullScreenZoom = true;
+#ifndef MOBILE_DEVICE
+		// This would turn off small display in window mode. I think it's better to allow it.
+		// fullScreenZoom = g_Config.bFullScreen;
+#endif
+		if (fullScreenZoom) {
+			if (g_Config.iSmallDisplayZoom != 0) {
+				float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
+				float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
+				// Have to invert Y for GL
+#if defined(USING_WIN_UI)
+				if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) { offsetY = offsetY * -1.0f; }
+#else
+				offsetY = offsetY * -1.0f;
+#endif
+				float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
+				float smallDisplayW = origW * customZoom;
+				float smallDisplayH = origH * customZoom;
+				if (!rotated) {
+					*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
+					*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
+					*w = floorf(smallDisplayW);
+					*h = floorf(smallDisplayH);
+					return;
+				} else {
+					*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
+					*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
+					*w = floorf(smallDisplayH);
+					*h = floorf(smallDisplayW);
+					return;
+				}
+			} else {
+				float pixelCrop = frameH / 270.0f;
+				float resCommonWidescreen = pixelCrop - floor(pixelCrop);
+				if (!rotated && resCommonWidescreen == 0.0f) {
+					*x = 0;
+					*y = floorf(-pixelCrop);
+					*w = floorf(frameW);
+					*h = floorf(pixelCrop * 272.0f);
+					return;
+				}
+			}
 		}
+
 
 		float origRatio = !rotated ? origW / origH : origH / origW;
 		float frameRatio = frameW / frameH;
@@ -67,15 +102,10 @@ void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH
 		}
 	}
 
-	if (g_Config.bSmallDisplay) {
-		outW /= 2.0f;
-		outH /= 2.0f;
-	}
-
-	*x = (frameW - outW) / 2.0f;
-	*y = (frameH - outH) / 2.0f;
-	*w = outW;
-	*h = outH;
+	*x = floorf((frameW - outW) / 2.0f);
+	*y = floorf((frameH - outH) / 2.0f);
+	*w = floorf(outW);
+	*h = floorf(outH);
 }
 
 
@@ -89,7 +119,8 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	frameLastFramebufUsed_(0),
 	currentRenderVfb_(0),
 	framebufRangeEnd_(0),
-	hackForce04154000Download_(false) {
+	hackForce04154000Download_(false),
+	updateVRAM_(false) {
 	UpdateSize();
 }
 
@@ -765,7 +796,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 		dstStride == 512 && height == 272 && !useBufferedRendering_) {
 		FlushBeforeCopy();
-		DrawFramebuffer(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
+		DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {

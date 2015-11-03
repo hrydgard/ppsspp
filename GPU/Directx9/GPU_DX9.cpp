@@ -2157,7 +2157,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 				}
 
 				if (fmt != GPU_DBG_FORMAT_INVALID) {
-					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 					memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 					success = true;
 				} else {

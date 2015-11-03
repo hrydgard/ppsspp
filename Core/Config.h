@@ -144,7 +144,10 @@ public:
 	int iBufFilter; // 1 = linear, 2 = nearest
 	bool bPartialStretch;
 	bool bStretchToDisplay;
-	bool bSmallDisplay;  // Useful on large tablets with touch controls to not overlap the image. Temporary setting - will be replaced by more comprehensive display size settings.
+	int iSmallDisplayZoom;  // Used to fit display into screen 0 = auto, anything higher is used to set's integer zoom of psp resolution and allows manual editing
+	float fSmallDisplayOffsetX; // Along with Y it goes from 0.0 to 1.0, XY (0.5, 0.5) = center of the screen
+	float fSmallDisplayOffsetY;
+	float fSmallDisplayCustomZoom; //This is actually used for zoom, both in and out.
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bVSync;
 	int iFrameSkip;

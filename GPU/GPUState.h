@@ -491,7 +491,6 @@ struct GPUStateCache {
 	int skipDrawReason;
 
 	UVScale uv;
-	bool flipTexture;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;

@@ -216,7 +216,7 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 			glstate.stencilMask.set(i);
 			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_);
+		DrawActiveTexture(0, 0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, stencilUploadProgram_, ROTATION_LOCKED_HORIZONTAL);
 	}
 	glstate.stencilMask.set(0xFF);
 

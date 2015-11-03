@@ -89,8 +89,8 @@ static const GLushort eqLookup[] = {
 };
 
 static const GLushort cullingMode[] = {
-	GL_BACK,
 	GL_FRONT,
+	GL_BACK,
 };
 
 static const GLushort ztests[] = {
@@ -592,6 +592,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	// Dither
 	if (gstate.isDitherEnabled()) {
@@ -653,7 +654,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		if (cullEnabled) {
 			glstate.cullFace.enable();
-			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
 		} else {
 			glstate.cullFace.disable();
 		}
@@ -729,7 +730,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float renderWidth, renderHeight;
 	float renderX = 0.0f, renderY = 0.0f;
 	float displayOffsetX, displayOffsetY;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		displayOffsetX = 0.0f;
 		displayOffsetY = 0.0f;
@@ -740,7 +740,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		CenterDisplayOutputRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}
@@ -761,11 +761,21 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.scissorTest.disable();
 	} else {
 		glstate.scissorTest.enable();
-		glstate.scissorRect.set(
-			renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-			renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
-			(scissorX2 - scissorX1) * renderWidthFactor,
-			(scissorY2 - scissorY1) * renderHeightFactor);
+
+		// Buffers are now in the GL coordinate system, so no flipping needed.
+		if (useBufferedRendering) {
+			glstate.scissorRect.set(
+				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
+				renderY + displayOffsetY + scissorY1 * renderHeightFactor,
+				(scissorX2 - scissorX1) * renderWidthFactor,
+				(scissorY2 - scissorY1) * renderHeightFactor);
+		} else {
+			glstate.scissorRect.set(
+				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
+				renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
+				(scissorX2 - scissorX1) * renderWidthFactor,
+				(scissorY2 - scissorY1) * renderHeightFactor);
+		}
 	}
 
 	/*
@@ -783,15 +793,22 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		// If the buffer is too large, offset the viewport to the top.
-		renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
-
 		// No viewport transform here. Let's experiment with using region.
-		glstate.viewport.set(
-			renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-			renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
-			(regionX2 - regionX1) * renderWidthFactor,
-			(regionY2 - regionY1) * renderHeightFactor);
+		if (useBufferedRendering) {
+			// No flip needed
+			glstate.viewport.set(
+				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
+				renderY + displayOffsetY + (0 + regionY1) * renderHeightFactor,
+				(regionX2 - regionX1) * renderWidthFactor,
+				(regionY2 - regionY1) * renderHeightFactor);
+		} else {
+			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
+			glstate.viewport.set(
+				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
+				renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
+				(regionX2 - regionX1) * renderWidthFactor,
+				(regionY2 - regionY1) * renderHeightFactor);
+		}
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
@@ -826,9 +843,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// This may mean some games won't work, or at least won't work at higher render resolutions.
 		// So we apply it in the shader instead.
 		float left = renderX + vpX0;
-		float bottom = renderY + vpY0;
+		float top = renderY + vpY0;
 		float right = left + vpWidth;
-		float top = bottom + vpHeight;
+		float bottom = top + vpHeight;
 
 		float wScale = 1.0f;
 		float xOffset = 0.0f;
@@ -849,17 +866,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			xOffset = drift / (right - left);
 		}
 
-		if (bottom < 0.0f || top > renderHeight) {
-			float overageBottom = std::max(-bottom, 0.0f);
-			float overageTop = std::max(top - renderHeight, 0.0f);
+		if (top < 0.0f || bottom > renderHeight) {
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - renderHeight, 0.0f);
 			// Our center drifted by the difference in overages.
 			float drift = overageTop - overageBottom;
 
-			bottom += overageBottom;
-			top -= overageTop;
+			top += overageTop;
+			bottom -= overageBottom;
 
-			hScale = vpHeight / (top - bottom);
-			yOffset = drift / (top - bottom);
+			hScale = vpHeight / (bottom - top);
+			yOffset = drift / (bottom - top);
 		}
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
@@ -872,7 +889,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 		}
 
-		glstate.viewport.set(left + displayOffsetX, bottom + displayOffsetY, right - left, top - bottom);
+		if (useBufferedRendering) {
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + top, right - left, bottom - top);
+		} else {
+			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - bottom), right - left, bottom - top);
+		}
 
 		float zScale = gstate.getViewportZScale();
 		float zCenter = gstate.getViewportZCenter();
