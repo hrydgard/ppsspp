@@ -1913,7 +1913,8 @@ bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	int pw = PSP_CoreParameter().pixelWidth;
 	int ph = PSP_CoreParameter().pixelHeight;
 
-	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, false);
+	// The backbuffer is flipped.
+	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
