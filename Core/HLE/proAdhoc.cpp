@@ -926,6 +926,10 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	//SceNetAdhocMatchingContext * context = findMatchingContext(ID);
 	//if (context != NULL) 
 	{
+		if (!context->IsMatchingInCB) {
+			WARN_LOG(SCENET, "AfterMatchingMipsCall::run was Forced to End! [ID=%i][Event=%d] [retV0: %08x]", context->id, EventID, currentMIPS->r[MIPS_REG_V0]);
+			if (Memory::IsValidAddress(call.args[2])) userMemory.Free(call.args[2]); // This might failed if it's freed from a different thread than the one allocating it.
+		}
 		context->IsMatchingInCB = false;
 	}
 	//context->eventlock->unlock();  //peerlock.unlock();
@@ -953,6 +957,7 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 // Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
 	//u32_le args[5] = { 0, 0, 0, 0, 0 };
+	/*
 	if ((s32)bufLen < (msg->optlen + 8)) {
 		bufLen = msg->optlen + 8;
 		if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
@@ -960,16 +965,24 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 		INFO_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, bufLen, bufAddr);
 	}
 	u8 * optPtr = Memory::GetPointer(bufAddr);
+	*/
+	u32_le dataLen = msg->optlen + 8;
+	u32_le dataAddr = userMemory.Alloc(dataLen);
+	VERBOSE_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, dataLen, dataAddr);
+	u8 * optPtr = Memory::GetPointer(dataAddr);
+
 	memcpy(optPtr, &msg->mac, sizeof(msg->mac));
 	if (msg->optlen > 0) memcpy(optPtr + 8, opt, msg->optlen);
 	args[0] = context->id;
 	args[1] = msg->opcode;
-	args[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
+	args[2] = dataAddr; //bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
 	args[3] = msg->optlen;
 	args[4] = args[2] + 8;
 	args[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
 	
+	context->eventlock->lock();
 	context->IsMatchingInCB = true;
+	context->eventlock->unlock();
 	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
 	__UpdateMatchingHandler((u64) args);
 
@@ -979,7 +992,15 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 		sleep_ms(1);
 		count++;
 	}
-	if (count >= 250) ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms!", count);
+	if (count >= 250) {
+		ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms!", count);
+		context->eventlock->lock();
+		context->IsMatchingInCB = false;
+		context->eventlock->unlock();
+	}
+	else {
+		if (Memory::IsValidAddress(dataAddr)) userMemory.Free(dataAddr);
+	}
 	//sleep_ms(20); // Wait a little more (for context switching may be?) to prevent DBZ Tag Team from getting connection lost, but this will cause lags on Lord of Arcana
 }
 
