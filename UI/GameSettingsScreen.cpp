@@ -64,6 +64,7 @@ using namespace std;
 
 #ifdef IOS
 extern bool iosCanUseJit;
+extern bool targetIsJailbroken;
 #endif
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
@@ -1024,7 +1025,11 @@ void DeveloperToolsScreen::CreateViews() {
 #ifdef IOS
 	if (!iosCanUseJit) {
 		canUseJit = false;
-		list->Add(new TextView(sy->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
+		if (targetIsJailbroken) {
+			list->Add(new TextView(sy->T("iOS9NoDynarec", "Dynarec (JIT) - (JIT temporarily unavailable on iOS 9)")));
+		} else {
+			list->Add(new TextView(sy->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
+		}
 	}
 #endif
 	if (canUseJit) {

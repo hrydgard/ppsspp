@@ -47,6 +47,8 @@ http::Downloader g_DownloadManager;
 
 Config g_Config;
 
+bool jitForcedOff;
+
 #ifdef IOS
 extern bool iosCanUseJit;
 #endif
@@ -931,9 +933,19 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	}
+
+	// Override ppsspp.ini JIT value to prevent crashing
+	if (!DefaultJit() && g_Config.bJit) {
+		jitForcedOff = true;
+		g_Config.bJit = false;
+	}
 }
 
 void Config::Save() {
+	if (jitForcedOff) {
+		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
+		g_Config.bJit = true;
+	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
 		saveGameConfig(gameId_);
@@ -1001,6 +1013,10 @@ void Config::Save() {
 		}
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
+	}
+	if (jitForcedOff) {
+		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
+		g_Config.bJit = false;
 	}
 }
 
