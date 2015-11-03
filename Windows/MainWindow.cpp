@@ -43,7 +43,7 @@
 #include "Core/Config.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/InputBox.h"
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/GEDebugger/GEDebugger.h"

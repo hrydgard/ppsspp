@@ -37,7 +37,7 @@
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
 #include "Windows/MainWindow.h"
-#include "Windows/D3D9Base.h"
+#include "Windows/GPU/D3D9Context.h"
 #endif
 
 #include "base/display.h"

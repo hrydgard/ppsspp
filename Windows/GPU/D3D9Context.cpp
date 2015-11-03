@@ -11,7 +11,7 @@
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "Windows/D3D9Base.h"
+#include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
