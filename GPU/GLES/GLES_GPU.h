@@ -165,7 +165,6 @@ private:
 		transformDraw_.Flush();
 	}
 	void DoBlockTransfer(u32 skipDrawReason);
-	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal();

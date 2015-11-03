@@ -1,5 +1,5 @@
 512
-font UBUNTU24 assets/RobotoCondensed-Regular.ttf U 34 -2
+font UBUNTU24 assets/Roboto-Condensed.ttf U 34 -2
 image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
@@ -34,3 +34,10 @@ image I_ICONGOLD source_assets/image/icon_gold_72.png copy
 image I_FOLDER source_assets/image/folder_line.png copy
 image I_UP_DIRECTORY source_assets/image/up_line.png copy
 image I_GEAR source_assets/image/gear.png copy
+image I_1 source_assets/image/1.png copy
+image I_2 source_assets/image/2.png copy
+image I_3 source_assets/image/3.png copy
+image I_4 source_assets/image/4.png copy
+image I_5 source_assets/image/5.png copy
+image I_6 source_assets/image/6.png copy
+image I_PSP_DISPLAY source_assets/image/psp_display.png copy

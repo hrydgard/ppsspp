@@ -38,6 +38,7 @@
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/TiltEventProcessor.h"
+#include "UI/ComboKeyMappingScreen.h"
 
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
@@ -402,6 +403,11 @@ void GameSettingsScreen::CreateViews() {
 		// Re-centers itself to the touch location on touch-down.
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+
+		// Combo key setup
+		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
+		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnCombo_key);
+		comboKey->SetEnabledPtr(&g_Config.bShowTouchControls);
 
 		// On systems that aren't Symbian, iOS, and Maemo, offer to let the user see this button.
 		// Some Windows touch devices don't have a back button or other button to call up the menu.
@@ -912,6 +918,11 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 	g_Config.sMACAddress = std::string(CreateRandMAC());
 
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnCombo_key(UI::EventParams &e) {
+	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
 

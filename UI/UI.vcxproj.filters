@@ -59,6 +59,9 @@
     <ClCompile Include="ProfilerDraw.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="ComboKeyMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -116,6 +119,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ProfilerDraw.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ComboKeyMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

@@ -236,8 +236,15 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 
 		// Awesome, a clobbered reg.  Let's use it.
 		if (MIPSAnalyst::IsRegisterClobbered(ar[reg].mipsReg, compilerPC_, UNUSED_LOOKAHEAD_OPS)) {
-			*clobbered = true;
-			return reg;
+			bool canClobber = true;
+			// HI is stored inside the LO reg.  They both have to clobber at the same time.
+			if (ar[reg].mipsReg == MIPS_REG_LO) {
+				canClobber = MIPSAnalyst::IsRegisterClobbered(MIPS_REG_HI, compilerPC_, UNUSED_LOOKAHEAD_OPS);
+			}
+			if (canClobber) {
+				*clobbered = true;
+				return reg;
+			}
 		}
 
 		// Not awesome.  A used reg.  Let's try to avoid spilling.

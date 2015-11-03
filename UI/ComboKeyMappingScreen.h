@@ -1,4 +1,4 @@
-// Copyright (c) 2015- PPSSPP Project.
+// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,15 +17,33 @@
 
 #pragma once
 
-enum DebugShaderType {
-	SHADER_TYPE_VERTEX = 0,
-	SHADER_TYPE_FRAGMENT = 1,
-	SHADER_TYPE_GEOMETRY = 2,
-	SHADER_TYPE_VERTEXLOADER = 3,  // Not really a shader, but might as well re-use this mechanism
+#include "MiscScreens.h"
+
+#include <map>
+
+namespace UI {
+	class CheckBox;
+}
+
+class Combo_keyScreen : public UIDialogScreenWithBackground {
+public:
+	Combo_keyScreen(int *key): mode(key) {}
+
+	virtual void CreateViews();
+	virtual void onFinish(DialogResult result);
+	UI::EventReturn onCombo(UI::EventParams &e);
+private:
+	std::map<std::string, bool*> keyToggles;
+	bool array[16];
+	int *mode;
+	UI::ChoiceStrip *comboselect;
+	UI::ScrollView *rightScroll_;
+	class ChoiceEventHandler{
+	public:
+		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
+		UI::EventReturn onChoiceClick(UI::EventParams &e);
+	private:
+		UI::CheckBox *checkbox_;
+	};
 };
 
-enum DebugShaderStringType {
-	SHADER_STRING_SHORT_DESC = 0,
-	SHADER_STRING_SOURCE_CODE = 1,
-	SHADER_STRING_STATS = 2,
-};
