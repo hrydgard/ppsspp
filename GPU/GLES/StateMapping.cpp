@@ -864,10 +864,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
 
-		if (vpWidth < 200 && vpWidth != vpHeight) {
-			vpWidth++;
-		}
-
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		if (left < 0.0f || right > renderWidth) {
 			float overageLeft = std::max(-left, 0.0f);
