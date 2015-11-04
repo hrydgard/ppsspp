@@ -26,7 +26,7 @@
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 
 #include "base/logging.h"
 #include "gfx/gl_common.h"

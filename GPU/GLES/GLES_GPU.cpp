@@ -46,7 +46,7 @@
 #include "Core/HLE/sceGe.h"
 
 #ifdef _WIN32
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 #endif
 
 enum {

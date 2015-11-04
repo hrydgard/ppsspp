@@ -23,6 +23,10 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
+#ifndef kCFCoreFoundationVersionNumber_IOS_9_0
+#define kCFCoreFoundationVersionNumber_IOS_9_0 1240.10
+#endif
+
 float dp_xscale = 1.0f;
 float dp_yscale = 1.0f;
 
@@ -35,6 +39,7 @@ InputState input_state;
 
 extern std::string ram_temp_file;
 extern bool iosCanUseJit;
+extern bool targetIsJailbroken;
 
 ViewController* sharedViewController;
 
@@ -73,17 +78,22 @@ ViewController* sharedViewController;
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
 		
 		iosCanUseJit = false;
+		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
-							@"/private/var/lib/apt" ,
-							@"/private/var/stash" ,
-							@"/usr/sbin/sshd" ,
-							@"/usr/bin/sshd" , nil];
+							@"/private/var/lib/apt",
+							@"/private/var/stash",
+							@"/usr/sbin/sshd",
+							@"/usr/bin/sshd", nil];
 
-		for(NSString *string in jailPath)
-		{
-			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
-				iosCanUseJit = true;
+		for (NSString *string in jailPath) {
+			if ([[NSFileManager defaultManager] fileExistsAtPath:string]) {
+				// checking device jailbreak status in order to determine which message to show in GameSettingsScreen
+				targetIsJailbroken = true;
+				if (kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_IOS_9_0) {
+					iosCanUseJit = true;
+				}
+			}
 		}
         
 		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);

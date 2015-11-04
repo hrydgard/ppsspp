@@ -25,7 +25,7 @@
 #include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 #include "WindowsHeadlessHost.h"
 #include "WindowsHeadlessHostDx9.h"
 #endif

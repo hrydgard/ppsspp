@@ -64,12 +64,6 @@
     <ClCompile Include="DSoundStream.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
-    <ClCompile Include="D3D9Base.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
-    <ClCompile Include="OpenGLBase.cpp">
-      <Filter>Windows\System</Filter>
-    </ClCompile>
     <ClCompile Include="WindowsHost.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
@@ -152,6 +146,12 @@
     <ClCompile Include="MainWindow.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\D3D9Context.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
+    <ClCompile Include="GPU\WindowsGLContext.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -185,12 +185,6 @@
       <Filter>Windows\UI</Filter>
     </ClInclude>
     <ClInclude Include="DSoundStream.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="D3D9Base.h">
-      <Filter>Windows\System</Filter>
-    </ClInclude>
-    <ClInclude Include="OpenGLBase.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="WindowsHost.h">
@@ -274,6 +268,12 @@
     </ClInclude>
     <ClInclude Include="MainWindow.h">
       <Filter>Windows\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\D3D9Context.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="GPU\WindowsGLContext.h">
+      <Filter>Windows\System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

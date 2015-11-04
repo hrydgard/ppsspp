@@ -29,7 +29,7 @@
 #include "UI/OnScreenDisplay.h"
 
 #include "Windows/W32Util/Misc.h"
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context

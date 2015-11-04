@@ -42,8 +42,8 @@
 #include "Windows/DSoundStream.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
-#include "Windows/OpenGLBase.h"
-#include "Windows/D3D9Base.h"
+#include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/D3D9Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
