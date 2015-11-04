@@ -845,7 +845,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 
 			// Let's only do this if not clearing depth.
 			fbo_bind_for_read(src->fbo);
-			glDisable(GL_SCISSOR_TEST);
+			glstate.scissorTest.force(false);
 
 			if (useNV) {
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
@@ -1324,7 +1324,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-	glDisable(GL_SCISSOR_TEST);
+	glstate.scissorTest.force(false);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);

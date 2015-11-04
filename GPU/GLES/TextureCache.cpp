@@ -1105,14 +1105,13 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-		glDisable(GL_BLEND);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glDisable(GL_SCISSOR_TEST);
-		glDisable(GL_CULL_FACE);
-		glDisable(GL_DEPTH_TEST);
-		glDisable(GL_STENCIL_TEST);
+		glstate.blend.force(false);
+		glstate.colorMask.force(true, true, true, true);
+		glstate.scissorTest.force(false);
+		glstate.cullFace.force(false);
+		glstate.depthTest.force(false);
 #if !defined(USING_GLES2)
-		glDisable(GL_LOGIC_OP);
+		glstate.colorLogicOp.force(false);
 #endif
 		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 
