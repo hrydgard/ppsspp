@@ -835,21 +835,18 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);   // Need to account for sign of Y
+		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXScale * 2.0f;
 		gstate_c.vpHeight = -vpYScale * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
+		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
 		vpX0 *= renderWidthFactor;
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
-
-		// Flip vpY0 to match the OpenGL coordinate system.
-		// TODO: This makes no sense anymore, in "flipped space".
-		vpY0 = renderHeight - vpY0;
 
 		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
 		// This may mean some games won't work, or at least won't work at higher render resolutions.
