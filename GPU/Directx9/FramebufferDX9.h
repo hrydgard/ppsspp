@@ -94,7 +94,7 @@ public:
 
 protected:
 	virtual void DisableState() override;
-	virtual void ClearBuffer() override;
+	virtual void ClearBuffer(bool keepState = false) override;
 	virtual void ClearDepthBuffer() override;
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
