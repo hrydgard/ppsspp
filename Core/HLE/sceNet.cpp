@@ -99,7 +99,7 @@ static uint8_t getInstanceNumber() {
 		return 1;
 	}
 
-	(*pIDBuf)++;
+	(*pIDBuf) = std::max(1, ((*pIDBuf) + 1) % 256);
 	int id = *pIDBuf;
 	UnmapViewOfFile(pIDBuf);
 	//CloseHandle(hIDMapFile); //Should be called when program exits
@@ -130,7 +130,7 @@ static uint8_t getInstanceNumber() {
 
 	int id = 1;
 	if (mlock(pIDBuf, BUF_SIZE) == 0) {
-		(*pIDBuf)++;
+		(*pIDBuf) = std::max(1, ((*pIDBuf) + 1) % 256);
 		id = *pIDBuf;
 		munlock(pIDBuf, BUF_SIZE);
 	}
@@ -155,7 +155,7 @@ static void PPSSPPIDCleanup() {
 	// TODO : This unlink should be called when program exits instead of everytime the game reset.
 	if (hIDMapFile != 0) {
 		close(hIDMapFile);
-		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
+		//shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
 		hIDMapFile = 0;
 	}
 #endif

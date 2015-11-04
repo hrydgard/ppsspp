@@ -36,7 +36,7 @@
 #include "i18n/i18n.h"
 
 
-uint16_t portOffset = g_Config.iPortOffset;
+uint16_t portOffset = 0;
 bool isLocalServer = false;
 uint8_t PPSSPP_ID = 0;
 sockaddr localIP;
