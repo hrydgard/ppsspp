@@ -879,7 +879,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			float overageTop = std::max(-top, 0.0f);
 			float overageBottom = std::max(bottom - renderHeight, 0.0f);
 			// Our center drifted by the difference in overages.
-			float drift = overageTop - overageBottom;
+			float drift = overageBottom - overageTop;
 
 			top += overageTop;
 			bottom -= overageBottom;
