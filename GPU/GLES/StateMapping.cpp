@@ -829,6 +829,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
 		// Zscreen = vpZCenter + vpZScale * Zview
 
+		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
+		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
+		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
+
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
 		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);   // Need to account for sign of Y
@@ -859,6 +863,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float xOffset = 0.0f;
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
+
+		if (vpWidth < 200 && vpWidth != vpHeight) {
+			vpWidth++;
+		}
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		if (left < 0.0f || right > renderWidth) {

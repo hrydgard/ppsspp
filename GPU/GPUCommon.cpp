@@ -645,7 +645,7 @@ void GPUCommon::ReapplyGfxStateInternal() {
 
 	// There are a few here in the middle that we shouldn't execute...
 
-	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++) {
+	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
