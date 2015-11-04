@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GPU/ge_constants.h"
+
 enum StencilValueType {
 	STENCIL_VALUE_UNIFORM,
 	STENCIL_VALUE_ZERO,
@@ -41,7 +43,7 @@ bool IsAlphaTestAgainstZero();
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat);
 
 bool CanUseHardwareTransform(int prim);
 LogicOpReplaceType ReplaceLogicOpType();
