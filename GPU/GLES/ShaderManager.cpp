@@ -927,6 +927,8 @@ std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) 
 			}
 		}
 		break;
+	default:
+		break;
 	}
 	return ids;
 }

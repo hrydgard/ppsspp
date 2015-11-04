@@ -368,7 +368,7 @@ public:
 	ListView(ListAdaptor *a, LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
-	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
 	std::string Describe() const override { return "ListView: " + View::Describe(); }
