@@ -693,27 +693,18 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			renderY + scissorY2 * renderHeightFactor);
 	}
 
-	/*
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-	*/
-	int regionX1 = 0;
-	int regionY1 = 0;
-	int regionX2 = gstate_c.curRTWidth;
-	int regionY2 = gstate_c.curRTHeight;
+	int curRTWidth = gstate_c.curRTWidth;
+	int curRTHeight = gstate_c.curRTHeight;
 
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
 		dxstate.viewport.set(
-			renderX + (0 + regionX1) * renderWidthFactor, 
-			renderY + (0 + regionY1) * renderHeightFactor,
-			(regionX2 - regionX1) * renderWidthFactor,
-			(regionY2 - regionY1) * renderHeightFactor,
+			renderX,
+			renderY,
+			curRTWidth * renderWidthFactor,
+			curRTHeight * renderHeightFactor,
 			0.f, 1.f);
 	} else {
 		float vpXScale = gstate.getViewportXScale();

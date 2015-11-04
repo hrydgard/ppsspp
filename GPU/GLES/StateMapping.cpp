@@ -793,16 +793,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	/*
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-	*/
-	int regionX1 = 0;
-	int regionY1 = 0;
-	int regionX2 = gstate_c.curRTWidth;
-	int regionY2 = gstate_c.curRTHeight;
+	int curRTWidth = gstate_c.curRTWidth;
+	int curRTHeight = gstate_c.curRTHeight;
 
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
@@ -812,17 +804,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (useBufferedRendering) {
 			// No flip needed
 			glstate.viewport.set(
-				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-				renderY + displayOffsetY + (0 + regionY1) * renderHeightFactor,
-				(regionX2 - regionX1) * renderWidthFactor,
-				(regionY2 - regionY1) * renderHeightFactor);
+				renderX + displayOffsetX,
+				renderY + displayOffsetY,
+				curRTWidth * renderWidthFactor,
+				curRTHeight * renderHeightFactor);
 		} else {
 			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
 			glstate.viewport.set(
-				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-				renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
-				(regionX2 - regionX1) * renderWidthFactor,
-				(regionY2 - regionY1) * renderHeightFactor);
+				renderX + displayOffsetX,
+				renderY + displayOffsetY,
+				curRTWidth * renderWidthFactor,
+				curRTHeight * renderHeightFactor);
 		}
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
@@ -852,6 +844,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		vpHeight *= renderHeightFactor;
 
 		// Flip vpY0 to match the OpenGL coordinate system.
+		// TODO: This makes no sense anymore, in "flipped space".
 		vpY0 = renderHeight - vpY0;
 
 		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
