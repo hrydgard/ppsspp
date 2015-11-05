@@ -884,7 +884,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_VIEWPORTYSCALE:
 	case GE_CMD_VIEWPORTXCENTER:
 	case GE_CMD_VIEWPORTYCENTER:
-		return QString("Viewport param %1: %2").arg(cmd-GE_CMD_VIEWPORTX1).arg(getFloat24(data));
+		return QString("Viewport param %1: %2").arg(cmd-GE_CMD_VIEWPORTXSCALE).arg(getFloat24(data));
 		break;
 	case GE_CMD_VIEWPORTZSCALE:
 		{
