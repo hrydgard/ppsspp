@@ -28,7 +28,7 @@ private:
 		}
 		inline void force(bool value) {
 			bool old = v;
-			set(v);
+			set(value);
 			v = old;
 		}
 		inline void enable() {
@@ -209,7 +209,7 @@ private:
 		inline void force(GLuint val) { \
 			GLuint old = val_; \
 			bind(val); \
-			val_ = val; \
+			val_ = old; \
 		} \
 		inline void unbind() { \
 			bind(0); \

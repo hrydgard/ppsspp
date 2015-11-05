@@ -1110,6 +1110,7 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		glstate.scissorTest.force(false);
 		glstate.cullFace.force(false);
 		glstate.depthTest.force(false);
+		glstate.stencilTest.force(false);
 #if !defined(USING_GLES2)
 		glstate.colorLogicOp.force(false);
 #endif
