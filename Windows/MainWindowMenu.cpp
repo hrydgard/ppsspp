@@ -273,7 +273,7 @@ namespace MainWindow {
 		TranslateSubMenu(menu, "Backend", MENU_OPTIONS, SUBMENU_RENDERING_BACKEND);
 		TranslateMenuItem(menu, ID_OPTIONS_DIRECTX);
 		TranslateMenuItem(menu, ID_OPTIONS_OPENGL);
-		TranslateSubMenu(menu, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
+		TranslateSubMenu(menu, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
 		TranslateMenuItem(menu, ID_OPTIONS_NONBUFFEREDRENDERING);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFFEREDRENDERING);
 		TranslateMenuItem(menu, ID_OPTIONS_READFBOTOMEMORYCPU);
@@ -298,7 +298,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
-		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM, L"\tF6");
+		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
 		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
@@ -409,7 +409,7 @@ namespace MainWindow {
 		NativeMessageReceived("gpu clear cache", "");
 	}
 
-	static void setRenderingMode(int mode = -1) {
+	static void setRenderingMode(int mode) {
 		if (mode >= FB_NON_BUFFERED_MODE)
 			g_Config.iRenderingMode = mode;
 		else {
@@ -682,11 +682,6 @@ namespace MainWindow {
 		case ID_OPTIONS_BUFFEREDRENDERING:      setRenderingMode(FB_BUFFERED_MODE); break;
 		case ID_OPTIONS_READFBOTOMEMORYCPU:     setRenderingMode(FB_READFBOMEMORY_CPU); break;
 		case ID_OPTIONS_READFBOTOMEMORYGPU:     setRenderingMode(FB_READFBOMEMORY_GPU); break;
-
-			// Dummy option to let the buffered rendering hotkey cycle through all the options.
-		case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
-			setRenderingMode();
-			break;
 
 		case ID_DEBUG_SHOWDEBUGSTATISTICS:
 			g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
