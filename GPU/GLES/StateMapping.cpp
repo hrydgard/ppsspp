@@ -324,7 +324,7 @@ void TransformDrawEngine::ApplyBlendState() {
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
@@ -405,6 +405,21 @@ void TransformDrawEngine::ApplyBlendState() {
 	GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(fixA, approxFuncA) : aLookup[blendFuncA];
 	bool approxFuncB = false;
 	GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(fixB, approxFuncB) : bLookup[blendFuncB];
+
+	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+		if (blendFuncA == GE_SRCBLEND_DSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEDSTALPHA) {
+			glBlendFuncA = GL_ZERO;
+		}
+		if (blendFuncA == GE_SRCBLEND_INVDSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEINVDSTALPHA) {
+			glBlendFuncA = GL_ONE;
+		}
+		if (blendFuncB == GE_DSTBLEND_DSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEDSTALPHA) {
+			glBlendFuncB = GL_ZERO;
+		}
+		if (blendFuncB == GE_DSTBLEND_INVDSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEINVDSTALPHA) {
+			glBlendFuncB = GL_ONE;
+		}
+	}
 
 	if (usePreSrc) {
 		glBlendFuncA = GL_ONE;
@@ -778,16 +793,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	/*
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-	*/
-	int regionX1 = 0;
-	int regionY1 = 0;
-	int regionX2 = gstate_c.curRTWidth;
-	int regionY2 = gstate_c.curRTHeight;
+	int curRTWidth = gstate_c.curRTWidth;
+	int curRTHeight = gstate_c.curRTHeight;
 
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
@@ -797,17 +804,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (useBufferedRendering) {
 			// No flip needed
 			glstate.viewport.set(
-				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-				renderY + displayOffsetY + (0 + regionY1) * renderHeightFactor,
-				(regionX2 - regionX1) * renderWidthFactor,
-				(regionY2 - regionY1) * renderHeightFactor);
+				renderX + displayOffsetX,
+				renderY + displayOffsetY,
+				curRTWidth * renderWidthFactor,
+				curRTHeight * renderHeightFactor);
 		} else {
 			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
 			glstate.viewport.set(
-				renderX + displayOffsetX + (0 + regionX1) * renderWidthFactor,
-				renderY + displayOffsetY + (0 - regionY1) * renderHeightFactor,
-				(regionX2 - regionX1) * renderWidthFactor,
-				(regionY2 - regionY1) * renderHeightFactor);
+				renderX + displayOffsetX,
+				renderY + displayOffsetY,
+				curRTWidth * renderWidthFactor,
+				curRTHeight * renderHeightFactor);
 		}
 		glstate.depthRange.set(0.0f, 1.0f);
 	} else {
@@ -822,22 +829,24 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
 		// Zscreen = vpZCenter + vpZScale * Zview
 
+		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
+		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
+		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
+
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY + fabsf(vpYScale);   // Need to account for sign of Y
+		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);   // Need to account for sign of Y
 		gstate_c.vpWidth = vpXScale * 2.0f;
-		gstate_c.vpHeight = -vpYScale * 2.0f;
+		gstate_c.vpHeight = vpYScale * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
 
+		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
 		vpX0 *= renderWidthFactor;
 		vpY0 *= renderHeightFactor;
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
-
-		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight - vpY0;
 
 		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
 		// This may mean some games won't work, or at least won't work at higher render resolutions.
@@ -870,7 +879,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			float overageTop = std::max(-top, 0.0f);
 			float overageBottom = std::max(bottom - renderHeight, 0.0f);
 			// Our center drifted by the difference in overages.
-			float drift = overageTop - overageBottom;
+			float drift = overageBottom - overageTop;
 
 			top += overageTop;
 			bottom -= overageBottom;

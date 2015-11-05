@@ -86,12 +86,20 @@ static const char color_vs[] =
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManager::ClearBuffer() {
-	glstate.scissorTest.disable();
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
-	glstate.stencilMask.set(0xFF);
+void FramebufferManager::ClearBuffer(bool keepState) {
+	if (keepState) {
+		glstate.scissorTest.force(false);
+		glstate.depthWrite.force(GL_TRUE);
+		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.force(0xFF);
+	} else {
+		glstate.scissorTest.disable();
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.set(0xFF);
+	}
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClearStencil(0);
 #ifdef USING_GLES2
@@ -100,6 +108,13 @@ void FramebufferManager::ClearBuffer() {
 	glClearDepth(0.0);
 #endif
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	if (keepState) {
+		glstate.scissorTest.restore();
+		glstate.depthWrite.restore();
+		glstate.colorMask.restore();
+		glstate.stencilFunc.restore();
+		glstate.stencilMask.restore();
+	}
 }
 
 void FramebufferManager::ClearDepthBuffer() {
@@ -830,7 +845,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 
 			// Let's only do this if not clearing depth.
 			fbo_bind_for_read(src->fbo);
-			glDisable(GL_SCISSOR_TEST);
+			glstate.scissorTest.force(false);
 
 			if (useNV) {
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
@@ -859,7 +874,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	if (!fbo)
 		return fbo;
 	fbo_bind_as_render_target(fbo);
-	ClearBuffer();
+	ClearBuffer(true);
 	const TempFBO info = {fbo, gpuStats.numFlips};
 	tempFBOs_[key] = info;
 	return fbo;
@@ -1309,7 +1324,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-	glDisable(GL_SCISSOR_TEST);
+	glstate.scissorTest.force(false);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);

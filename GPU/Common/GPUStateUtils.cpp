@@ -217,7 +217,7 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
@@ -256,6 +256,9 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_2X_ALPHA;
+			}
 			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
@@ -276,16 +279,30 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 		switch (funcB) {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
 			// Can't double, we need the source color to be correct.
 			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
+			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_2X_ALPHA;
+			}
 			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 
 		default:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
 			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
 			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
@@ -299,6 +316,9 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
 			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
@@ -335,6 +355,9 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
 			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		default:

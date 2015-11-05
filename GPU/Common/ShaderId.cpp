@@ -209,7 +209,7 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
 
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
+		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.

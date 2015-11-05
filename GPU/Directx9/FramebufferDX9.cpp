@@ -44,13 +44,28 @@ void ShowScreenResolution();
 namespace DX9 {
 	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-	void FramebufferManagerDX9::ClearBuffer() {
-		dxstate.scissorTest.disable();
-		dxstate.depthWrite.set(TRUE);
-		dxstate.colorMask.set(true, true, true, true);
-		dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
-		dxstate.stencilMask.set(0xFF);
+	void FramebufferManagerDX9::ClearBuffer(bool keepState) {
+		if (keepState) {
+			dxstate.scissorTest.force(false);
+			dxstate.depthWrite.force(TRUE);
+			dxstate.colorMask.force(true, true, true, true);
+			dxstate.stencilFunc.force(D3DCMP_ALWAYS, 0, 0);
+			dxstate.stencilMask.force(0xFF);
+		} else {
+			dxstate.scissorTest.disable();
+			dxstate.depthWrite.set(TRUE);
+			dxstate.colorMask.set(true, true, true, true);
+			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
+			dxstate.stencilMask.set(0xFF);
+		}
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
+		if (keepState) {
+			dxstate.scissorTest.restore();
+			dxstate.depthWrite.restore();
+			dxstate.colorMask.restore();
+			dxstate.stencilFunc.restore();
+			dxstate.stencilMask.restore();
+		}
 	}
 
 	void FramebufferManagerDX9::ClearDepthBuffer() {
@@ -577,7 +592,7 @@ namespace DX9 {
 		if (!fbo)
 			return fbo;
 		fbo_bind_as_render_target(fbo);
-		ClearBuffer();
+		ClearBuffer(true);
 		const TempFBO info = {fbo, gpuStats.numFlips};
 		tempFBOs_[key] = info;
 		return fbo;

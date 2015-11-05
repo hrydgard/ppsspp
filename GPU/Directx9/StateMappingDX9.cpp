@@ -282,7 +282,7 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 	// Unfortunately, we can't really do this in Direct3D 9...
 	gstate_c.allowShaderBlend = false;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
@@ -365,6 +365,21 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 	D3DBLEND glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA(), approxFuncA) : aLookup[blendFuncA];
 	bool approxFuncB = false;
 	D3DBLEND glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB(), approxFuncB) : bLookup[blendFuncB];
+
+	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+		if (blendFuncA == GE_SRCBLEND_DSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEDSTALPHA) {
+			glBlendFuncA = D3DBLEND_ZERO;
+		}
+		if (blendFuncA == GE_SRCBLEND_INVDSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEINVDSTALPHA) {
+			glBlendFuncA = D3DBLEND_ONE;
+		}
+		if (blendFuncB == GE_DSTBLEND_DSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEDSTALPHA) {
+			glBlendFuncB = D3DBLEND_ZERO;
+		}
+		if (blendFuncB == GE_DSTBLEND_INVDSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEINVDSTALPHA) {
+			glBlendFuncB = D3DBLEND_ONE;
+		}
+	}
 
 	if (usePreSrc) {
 		glBlendFuncA = D3DBLEND_ONE;
@@ -678,27 +693,18 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			renderY + scissorY2 * renderHeightFactor);
 	}
 
-	/*
-	int regionX1 = gstate.region1 & 0x3FF;
-	int regionY1 = (gstate.region1 >> 10) & 0x3FF;
-	int regionX2 = (gstate.region2 & 0x3FF) + 1;
-	int regionY2 = ((gstate.region2 >> 10) & 0x3FF) + 1;
-	*/
-	int regionX1 = 0;
-	int regionY1 = 0;
-	int regionX2 = gstate_c.curRTWidth;
-	int regionY2 = gstate_c.curRTHeight;
+	int curRTWidth = gstate_c.curRTWidth;
+	int curRTHeight = gstate_c.curRTHeight;
 
 	float offsetX = gstate.getOffsetX();
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
 		dxstate.viewport.set(
-			renderX + (0 + regionX1) * renderWidthFactor, 
-			renderY + (0 + regionY1) * renderHeightFactor,
-			(regionX2 - regionX1) * renderWidthFactor,
-			(regionY2 - regionY1) * renderHeightFactor,
+			renderX,
+			renderY,
+			curRTWidth * renderWidthFactor,
+			curRTHeight * renderHeightFactor,
 			0.f, 1.f);
 	} else {
 		float vpXScale = gstate.getViewportXScale();

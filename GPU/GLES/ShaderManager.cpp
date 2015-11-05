@@ -410,7 +410,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight > 0) : (gstate_c.vpHeight < 0);
+		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 		if (invertedY) {
 			flippedMatrix[1] = -flippedMatrix[1];
 			flippedMatrix[5] = -flippedMatrix[5];
@@ -926,6 +926,8 @@ std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) 
 				ids.push_back(id);
 			}
 		}
+		break;
+	default:
 		break;
 	}
 	return ids;
