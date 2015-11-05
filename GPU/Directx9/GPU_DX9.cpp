@@ -467,13 +467,23 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
 	}
 
+	CheckGPUFeatures();
+}
+
+void DIRECTX9_GPU::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
+	}
 
 	gstate_c.featureFlags = features;
 }
