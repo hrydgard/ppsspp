@@ -1091,21 +1091,14 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): no data", atracID, sample, bufferInfoAddr);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_ATRACID, "invalid id");
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else if (!bufferInfo.IsValid()) {
-		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
+	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
-		u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-		if ((u32)sample + atracSamplesPerFrame > (u32)atrac->endSample) {
-			WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid sample position", atracID, sample, bufferInfoAddr);
-			return ATRAC_ERROR_BAD_SAMPLE;
-		}
-
 		int Sampleoffset = atrac->getFileOffsetBySample(sample);
 		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
 		// Reset temp buf for adding more stream data and set full filled buffer 
