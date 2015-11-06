@@ -1430,8 +1430,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->currentSample = sample;
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
+
+		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 	}
-	return 0;
 }
 
 #ifdef USE_FFMPEG
