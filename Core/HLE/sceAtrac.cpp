@@ -1410,11 +1410,11 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): bad atrac ID", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		return ATRAC_ERROR_BAD_ATRACID;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): no data", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
 		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
 		if (bytesWrittenFirstBuf > 0) {
