@@ -59,6 +59,8 @@
 #define ATRAC_ERROR_SECOND_BUFFER_NEEDED     0x80630012
 #define ATRAC_ERROR_INCORRECT_READ_SIZE      0x80630013
 #define ATRAC_ERROR_BAD_SAMPLE               0x80630015
+#define ATRAC_ERROR_BAD_FIRST_RESET_SIZE     0x80630016
+#define ATRAC_ERROR_BAD_SECOND_RESET_SIZE    0x80630017
 #define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
 #define ATRAC_ERROR_NOT_MONO                 0x80630019
 #define ATRAC_ERROR_NO_LOOP_INFORMATION      0x80630021
@@ -1086,52 +1088,73 @@ static u32 sceAtracEndEntry() {
 	return 0;
 }
 
+static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferInfo, int sample) {
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+		bufferInfo->first.writePosPtr = atrac->first.addr;
+		// Everything is loaded, so nothing needs to be read.
+		bufferInfo->first.writableBytes = 0;
+		bufferInfo->first.minWriteBytes = 0;
+		bufferInfo->first.filePos = 0;
+	} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// Here the message is: you need to read at least this many bytes to get to that position.
+		// This is because we're filling the buffer start to finish, not streaming.
+		bufferInfo->first.writePosPtr = atrac->first.addr + atrac->first.size;
+		bufferInfo->first.writableBytes = atrac->first.filesize - atrac->first.size;
+		int minWriteBytes = atrac->getFileOffsetBySample(sample) - atrac->first.size;
+		if (minWriteBytes > 0) {
+			bufferInfo->first.minWriteBytes = minWriteBytes;
+		} else {
+			bufferInfo->first.minWriteBytes = 0;
+		}
+		bufferInfo->first.filePos = atrac->first.size;
+
+		atrac->first.writableBytes = bufferInfo->first.writableBytes;
+	} else {
+		// This is without the sample offset.  The file offset also includes the previous batch of samples?
+		const int atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atracSamplesPerFrame);
+
+		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
+		const u32 bufSizeAligned = (atrac->atracBufSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
+		const int needsMoreFrames = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+
+		bufferInfo->first.writePosPtr = atrac->first.addr;
+		bufferInfo->first.writableBytes = std::min(atrac->first.filesize - sampleFileOffset, bufSizeAligned);
+		if (((sample + atrac->firstSampleoffset) % atracSamplesPerFrame) > needsMoreFrames) {
+			// Not clear why, but it seems it wants a bit extra in case the sample is late?
+			bufferInfo->first.minWriteBytes = atrac->atracBytesPerFrame * 3;
+			if ((u32)sample < (u32)atrac->firstSampleoffset) {
+				sampleFileOffset -= atrac->atracBytesPerFrame;
+			}
+		} else {
+			bufferInfo->first.minWriteBytes = atrac->atracBytesPerFrame * 2;
+		}
+		bufferInfo->first.filePos = sampleFileOffset;
+	}
+
+	// It seems like this is always the same as the first buffer's pos, weirdly.
+	bufferInfo->second.writePosPtr = atrac->first.addr;
+	bufferInfo->second.writableBytes = atrac->second.writableBytes;
+	bufferInfo->second.minWriteBytes = atrac->second.neededBytes;
+	bufferInfo->second.filePos = atrac->second.fileoffset;
+}
+
 static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
 	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid id", atracID, sample, bufferInfoAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): no data", atracID, sample, bufferInfoAddr);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_ATRACID, "invalid id");
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
 	} else if (!bufferInfo.IsValid()) {
-		ERROR_LOG_REPORT(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid buffer, should crash", atracID, sample, bufferInfoAddr);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
+	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
-		u32 atracSamplesPerFrame = (atrac->codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-		if ((u32)sample + atracSamplesPerFrame > (u32)atrac->endSample) {
-			WARN_LOG(ME, "sceAtracGetBufferInfoForResetting(%i, %i, %08x): invalid sample position", atracID, sample, bufferInfoAddr);
-			return ATRAC_ERROR_BAD_SAMPLE;
-		}
+		AtracGetResetBufferInfo(atrac, bufferInfo, sample);
 
-		int Sampleoffset = atrac->getFileOffsetBySample(sample);
-		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
-		// Reset temp buf for adding more stream data and set full filled buffer 
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
-		atrac->first.offset = 0;
-		// minWritebytes should not be bigger than writeablebytes
-		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
-
-		// If we've already loaded everything, the answer is 0.
-		if (atrac->first.size >= atrac->first.filesize) {
-			Sampleoffset = 0;
-		}
-
-		bufferInfo->first.writePosPtr = atrac->first.addr;
-		bufferInfo->first.writableBytes = atrac->first.writableBytes;
-		bufferInfo->first.minWriteBytes = minWritebytes;
-		bufferInfo->first.filePos = Sampleoffset;
-
-		// TODO: It seems like this is always the same as the first buffer's pos?
-		bufferInfo->second.writePosPtr = atrac->first.addr;
-		bufferInfo->second.writableBytes = atrac->second.writableBytes;
-		bufferInfo->second.minWriteBytes = atrac->second.neededBytes;
-		bufferInfo->second.filePos = atrac->second.fileoffset;
-
-		INFO_LOG(ME, "0=sceAtracGetBufferInfoForResetting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
-		return 0;
+		return hleLogSuccessInfoI(ME, 0);
 	}
 }
 
@@ -1417,16 +1440,58 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): bad atrac ID", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		return ATRAC_ERROR_BAD_ATRACID;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i): no data", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
+		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
-		INFO_LOG(ME, "sceAtracResetPlayPosition(%i, %i, %i, %i)", atracID, sample, bytesWrittenFirstBuf, bytesWrittenSecondBuf);
-		if (bytesWrittenFirstBuf > 0) {
-			atrac->first.fileoffset = atrac->getFileOffsetBySample(sample);
-			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
+		// Reuse the same calculation as before.
+		AtracResetBufferInfo bufferInfo;
+		AtracGetResetBufferInfo(atrac, &bufferInfo, sample);
+
+		if ((u32)bytesWrittenFirstBuf < bufferInfo.first.minWriteBytes || (u32)bytesWrittenFirstBuf > bufferInfo.first.writableBytes) {
+			return hleLogError(ME, ATRAC_ERROR_BAD_FIRST_RESET_SIZE, "first byte count not in valid range");
+		}
+		if ((u32)bytesWrittenSecondBuf < bufferInfo.second.minWriteBytes || (u32)bytesWrittenSecondBuf > bufferInfo.second.writableBytes) {
+			return hleLogError(ME, ATRAC_ERROR_BAD_SECOND_RESET_SIZE, "second byte count not in valid range");
+		}
+
+		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+			// Always adds zero bytes.
+		} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+			// Okay, it's a valid number of bytes.  Let's set them up.
+			if (bytesWrittenFirstBuf != 0) {
+				// TODO: We should just use the buffer in PSP RAM.
+				Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
+				atrac->first.fileoffset += bytesWrittenFirstBuf;
+				atrac->first.size += bytesWrittenFirstBuf;
+				atrac->first.writableBytes -= bytesWrittenFirstBuf;
+				atrac->first.offset += bytesWrittenFirstBuf;
+			}
+
+			// Did we transition to a full buffer?
+			if (atrac->first.size >= atrac->first.filesize) {
+				atrac->first.size = atrac->first.filesize;
+				if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
+					atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+			}
+		} else {
+			if (bufferInfo.first.filePos > atrac->first.filesize) {
+				return hleDelayResult(hleLogError(ME, ATRAC_ERROR_API_FAIL, "invalid file position"), "reset play pos", 200);
+			}
+
+			// Move the offset to the specified position.
+			atrac->first.fileoffset = bufferInfo.first.filePos;
+
+			if (bytesWrittenFirstBuf != 0) {
+				// TODO: We should just use the buffer in PSP RAM.
+				Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, bytesWrittenFirstBuf);
+				atrac->first.fileoffset += bytesWrittenFirstBuf;
+			}
+			atrac->first.size = atrac->first.fileoffset;
+			atrac->first.writableBytes = bufferInfo.first.writableBytes - bytesWrittenFirstBuf;
+			atrac->first.offset = bytesWrittenFirstBuf;
 		}
 #ifdef USE_FFMPEG
 		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
@@ -1437,8 +1502,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->currentSample = sample;
 			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
+
+		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 	}
-	return 0;
 }
 
 #ifdef USE_FFMPEG
