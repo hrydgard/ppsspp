@@ -131,8 +131,8 @@ namespace UI {
 
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1) 
-	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1, const std::string &units = "")
+	: PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units) {}
 	virtual void CreatePopupContents(ViewGroup *parent) override;
 
 	Event OnChange;
@@ -140,13 +140,18 @@ public:
 private:
 	EventReturn OnDecrease(EventParams &params);
 	EventReturn OnIncrease(EventParams &params);
+	EventReturn OnTextChange(EventParams &params);
+	EventReturn OnSliderChange(EventParams &params);
 	virtual void OnCompleted(DialogResult result) override;
 	Slider *slider_;
+	UI::TextEdit *edit_;
+	std::string units_;
 	int *value_;
 	int sliderValue_;
 	int minValue_;
 	int maxValue_;
 	int step_;
+	bool changing_;
 };
 
 class SliderFloatPopupScreen : public PopupScreen {
@@ -229,8 +234,8 @@ private:
 
 class PopupSliderChoice : public Choice {
 public:
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
-	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
+	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units = "", LayoutParams *layoutParams = 0);
 
 	virtual void Draw(UIContext &dc) override;
 
@@ -244,6 +249,7 @@ private:
 	int minValue_;
 	int maxValue_;
 	int step_;
+	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
 };
