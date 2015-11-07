@@ -169,6 +169,7 @@ struct Atrac {
 		if (data_buf)
 			delete [] data_buf;
 		data_buf = 0;
+		bufferState = ATRAC_STATUS_NO_DATA;
 
 		if (atracContext.IsValid())
 			kernelMemory.Free(atracContext.ptr);
@@ -1695,6 +1696,9 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
 		return __AtracSetContext(atrac);
+	} else {
+		// Should not get here, but just in case, force it.
+		atrac->bufferState = ATRAC_STATUS_NO_DATA;
 	}
 
 	return 0;
