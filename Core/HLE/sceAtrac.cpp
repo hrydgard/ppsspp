@@ -120,7 +120,7 @@ struct InputBuffer {
 
 struct Atrac;
 int __AtracSetContext(Atrac *atrac);
-void _AtracGenarateContext(Atrac *atrac, SceAtracId *context);
+void _AtracGenerateContext(Atrac *atrac, SceAtracId *context);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -904,7 +904,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	atrac->first.writableBytes = 0;
 	if (atrac->atracContext.IsValid()) {
 		// refresh atracContext
-		_AtracGenarateContext(atrac, atrac->atracContext);
+		_AtracGenerateContext(atrac, atrac->atracContext);
 	}
 	return 0;
 }
@@ -1075,7 +1075,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		}
 		if (atrac->atracContext.IsValid()) {
 			// refresh atracContext
-			_AtracGenarateContext(atrac, atrac->atracContext);
+			_AtracGenerateContext(atrac, atrac->atracContext);
 		}
 	}
 
@@ -2077,7 +2077,7 @@ int _AtracGetIDByContext(u32 contextAddr) {
 	return atracID;
 }
 
-void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
+void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.buffer = atrac->first.addr;
 	context->info.bufferByte = atrac->atracBufSize;
 	context->info.secondBuffer = atrac->second.addr;
@@ -2133,7 +2133,7 @@ static int _sceAtracGetContextAddress(int atracID) {
 	else
 		WARN_LOG(ME, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
 	if (atrac->atracContext.IsValid())
-		_AtracGenarateContext(atrac, atrac->atracContext);
+		_AtracGenerateContext(atrac, atrac->atracContext);
 	return atrac->atracContext.ptr;
 }
 
