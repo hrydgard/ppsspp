@@ -67,6 +67,8 @@
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 #define ATRAC_ERROR_BUFFER_IS_EMPTY          0x80630023
 #define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
+#define ATRAC_ERROR_IS_LOW_LEVEL             0x80630031
+#define ATRAC_ERROR_IS_FOR_SCESAS            0x80630040
 #define ATRAC_ERROR_AA3_INVALID_DATA         0x80631003
 #define ATRAC_ERROR_AA3_SIZE_TOO_SMALL       0x80631004
 
@@ -1369,9 +1371,14 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (!atrac->data_buf) {
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
+		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
+	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
 	} else if (!remainingFrames.IsValid()) {
+		// Would crash.
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	} else {
 		*remainingFrames = atrac->getRemainFrames();
