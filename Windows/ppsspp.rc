@@ -411,6 +411,13 @@ BEGIN
         MENUITEM "Stop",                                    ID_EMULATION_STOP
         MENUITEM "Reset",                                   ID_EMULATION_RESET
         MENUITEM "Switch UMD",                              ID_EMULATION_SWITCH_UMD
+		POPUP "Display Rotation"
+		BEGIN
+			MENUITEM "Landscape",                           ID_EMULATION_ROTATION_H
+			MENUITEM "Portrait",                            ID_EMULATION_ROTATION_V
+			MENUITEM "Landscape reversed",                  ID_EMULATION_ROTATION_H_R
+			MENUITEM "Portrait reversed",                   ID_EMULATION_ROTATION_V_R
+		END
     END
 
     POPUP "Debug"

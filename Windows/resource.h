@@ -319,6 +319,10 @@
 #define ID_OPTIONS_BUFNEARESTFILTER      40153
 #define ID_OPTIONS_DIRECT3D9             40154
 #define ID_OPTIONS_OPENGL                40155
+#define ID_EMULATION_ROTATION_H          40156
+#define ID_EMULATION_ROTATION_V          40157
+#define ID_EMULATION_ROTATION_H_R        40158
+#define ID_EMULATION_ROTATION_V_R        40159
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

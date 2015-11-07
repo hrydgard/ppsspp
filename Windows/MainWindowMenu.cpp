@@ -80,6 +80,9 @@ namespace MainWindow {
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
+		// Emulation submenus
+		SUBMENU_DISPLAY_ROTATION = 8,
+
 		// Game Settings submenus
 		SUBMENU_CUSTOM_SHADERS = 10,
 		SUBMENU_RENDERING_RESOLUTION = 11,
@@ -235,6 +238,11 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_EMULATION_STOP, L"\tCtrl+W");
 		TranslateMenuItem(menu, ID_EMULATION_RESET, L"\tCtrl+B");
 		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, L"\tCtrl+U", "Switch UMD");
+		TranslateSubMenu(menu, "Display Rotation", MENU_EMULATION, SUBMENU_DISPLAY_ROTATION);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H_R);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V_R);
 
 		// Debug menu
 		TranslateMenuItem(menu, ID_DEBUG_LOADMAPFILE);
@@ -385,6 +393,10 @@ namespace MainWindow {
 		}
 	}
 
+	static void setScreenRotation(int rotation) {
+		g_Config.iInternalScreenRotation = rotation;
+	}
+
 	static void SaveStateActionFinished(bool result, void *userdata) {
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
@@ -533,6 +545,11 @@ namespace MainWindow {
 		case ID_EMULATION_SWITCH_UMD:
 			UmdSwitchAction();
 			break;
+
+		case ID_EMULATION_ROTATION_H:                 setScreenRotation(ROTATION_LOCKED_HORIZONTAL); break;
+		case ID_EMULATION_ROTATION_V:                 setScreenRotation(ROTATION_LOCKED_VERTICAL); break;
+		case ID_EMULATION_ROTATION_H_R:               setScreenRotation(ROTATION_LOCKED_HORIZONTAL180); break;
+		case ID_EMULATION_ROTATION_V_R:               setScreenRotation(ROTATION_LOCKED_VERTICAL180); break;
 
 		case ID_EMULATION_CHEATS:
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
@@ -932,6 +949,22 @@ namespace MainWindow {
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
+
+		static const int displayrotationitems[] = {
+			ID_EMULATION_ROTATION_H,
+			ID_EMULATION_ROTATION_V,
+			ID_EMULATION_ROTATION_H_R,
+			ID_EMULATION_ROTATION_V_R
+		};
+		if (g_Config.iInternalScreenRotation < ROTATION_LOCKED_HORIZONTAL)
+			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+
+		else if (g_Config.iInternalScreenRotation > ROTATION_LOCKED_VERTICAL180)
+			g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+
+		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
+			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
+		}
 
 		// Disable Vertex Cache when HW T&L is disabled.
 		if (!g_Config.bHardwareTransform) {
