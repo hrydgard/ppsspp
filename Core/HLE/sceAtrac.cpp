@@ -1139,6 +1139,8 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 	bufferInfo->second.filePos = atrac->second.fileoffset;
 }
 
+// Obtains information about what needs to be in the buffer to seek (or "reset")
+// Generally called by games right before calling sceAtracResetPlayPosition().
 static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 bufferInfoAddr) {
 	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
@@ -1320,24 +1322,24 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 	return 0;
 }
 
+// Obtains the number of frames remaining in the buffer which can be decoded.
+// When no more data would be needed, this returns a negative number.
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
+	auto remainingFrames = PSPPointer<u32>::Create(remainAddr);
+
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): bad atrac ID", atracID, remainAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetRemainFrame(%i, %08x): no data", atracID, remainAddr);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if (!remainingFrames.IsValid()) {
+		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	} else {
-		if (Memory::IsValidAddress(remainAddr)) {
-			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
-			DEBUG_LOG(ME, "sceAtracGetRemainFrame(%i, %08x[%d])", atracID, remainAddr, atrac->getRemainFrames());
-		}
-		else
-			DEBUG_LOG_REPORT(ME, "sceAtracGetRemainFrame(%i, %08x[%d]) invalid address", atracID, remainAddr, atrac->getRemainFrames());
-		// Let sceAtracGetStreamDataInfo() know to set the full filled buffer .
-		atrac->resetBuffer = true;
+		*remainingFrames = atrac->getRemainFrames();
 
+		// Let sceAtracGetStreamDataInfo() know to set the full filled buffer.
+		atrac->resetBuffer = true;
+		return hleLogSuccessI(ME, 0);
 	}
 	return 0;
 }
@@ -1437,6 +1439,9 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 	return deleteAtrac(atracID);
 }
 
+// This is called when a game wants to seek (or "reset") to a specific position in the audio data.
+// Normally, sceAtracGetBufferInfoForResetting() is called to determine how to buffer.
+// The game must add sufficient packets to the buffer in order to complete the seek.
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
@@ -2346,7 +2351,7 @@ const HLEFunction sceAtrac3plus[] = {
 	{0XD6A5F2F7, &WrapU_IU<sceAtracGetMaxSample>,                  "sceAtracGetMaxSample",                 'x', "ix"   },
 	{0XE23E3A35, &WrapU_IU<sceAtracGetNextDecodePosition>,         "sceAtracGetNextDecodePosition",        'x', "ix"   },
 	{0X36FAABFB, &WrapU_IU<sceAtracGetNextSample>,                 "sceAtracGetNextSample",                'x', "ix"   },
-	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ix"   },
+	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
 	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ixx"  },
 	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ixxx" },
 	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ixxx" },
