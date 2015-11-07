@@ -546,7 +546,15 @@ static Atrac *getAtrac(int atracID) {
 	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
 		return NULL;
 	}
-	return atracIDs[atracID];
+	Atrac *atrac = atracIDs[atracID];
+
+	if (atrac && atrac->atracContext.IsValid()) {
+		// Read in any changes from the game to the context.
+		// TODO: Might be better to just always track in RAM.
+		atrac->bufferState = atrac->atracContext->info.state;
+	}
+
+	return atrac;
 }
 
 static int createAtrac(Atrac *atrac) {
@@ -941,6 +949,9 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 			atrac->first.size = atrac->first.filesize;
 			if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
 				atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+			if (atrac->atracContext.IsValid()) {
+				_AtracGenerateContext(atrac, atrac->atracContext);
+			}
 		}
 		atrac->first.writableBytes -= bytesToAdd;
 		atrac->first.offset += bytesToAdd;
@@ -1530,6 +1541,10 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->SeekToSample(sample);
 		}
 
+		if (atrac->atracContext.IsValid()) {
+			_AtracGenerateContext(atrac, atrac->atracContext);
+		}
+
 		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
 	}
 }
@@ -2086,15 +2101,11 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.loopNum = atrac->loopNum;
 	context->info.loopStart = atrac->loopStartSample > 0 ? atrac->loopStartSample : 0;
 	context->info.loopEnd = atrac->loopEndSample > 0 ? atrac->loopEndSample : 0;
-	if (context->info.endSample > 0) {
-		// do not change info.state if this was not called at first time
-		// In Sol Trigger, it would set info.state = 0x10 outside
-		// TODO: Should we just keep this in PSP ram then, or something?
-	} else if (!atrac->data_buf) {
-		context->info.state = ATRAC_STATUS_NO_DATA;
-	} else {
-		context->info.state = atrac->bufferState;
-	}
+
+	// Note that we read in the state when loading the atrac object, so it's safe
+	// to update it back here all the time.  Some games, like Sol Trigger, change it.
+	// TODO: Should we just keep this in PSP ram then, or something?
+	context->info.state = atrac->bufferState;
 	if (atrac->firstSampleoffset != 0) {
 		const u32 firstOffsetExtra = atrac->codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
 		context->info.samplesPerChan = atrac->firstSampleoffset + firstOffsetExtra;
@@ -2233,6 +2244,10 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			atrac->currentSample = 0;
 			// TODO: Check failure?
 			__AtracSetContext(atrac);
+
+			if (atrac->atracContext.IsValid()) {
+				_AtracGenerateContext(atrac, atrac->atracContext);
+			}
 			return 0;
 		}
 
@@ -2256,6 +2271,10 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			memcpy(atrac->data_buf, at3plusHeader, headersize);
 			atrac->currentSample = 0;
 			__AtracSetContext(atrac);
+
+			if (atrac->atracContext.IsValid()) {
+				_AtracGenerateContext(atrac, atrac->atracContext);
+			}
 			return 0;
 		}
 	}
