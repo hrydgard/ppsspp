@@ -42,6 +42,8 @@ private:
 	DragDropDisplay *displayRepresentation_;
 	UI::ChoiceStrip *mode_;
 	UI::PopupMultiChoice *zoom_;
+	UI::PopupMultiChoice *rotation_;
+	bool displayRotEnable_;
 	// Touch down state for drag to resize etc
 	float startX_;
 	float startY_;

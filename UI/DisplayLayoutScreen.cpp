@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "DisplayLayoutEditor.h"
+#include "GPU/GLES/Framebuffer.h"
 
 static const int leftColumnWidth = 200;
 
@@ -151,7 +152,6 @@ UI::EventReturn DisplayLayoutScreen::OnZoomChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 };
 
-
 void DisplayLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
@@ -193,10 +193,13 @@ void DisplayLayoutScreen::CreateViews() {
 
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	static const char *zoomLevels[] = { "Auto", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x", "9x", "10x" };
-	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoom, gr->T("Zoom settings"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(300, WRAP_CONTENT, verticalBoundaryPositionL * 2 - 150, NONE, NONE, 10));
+	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoom, gr->T("Zoom settings"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(300, WRAP_CONTENT, local_dp_xres / 2 - 150, NONE, NONE, 10));
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomChange);
 
-	
+	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
+	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, local_dp_xres / 2 - 200, NONE, NONE, local_dp_yres - 64));
+	rotation_->SetEnabledPtr(&displayRotEnable_);
+	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 	if (g_Config.iSmallDisplayZoom == 0) {
@@ -205,6 +208,10 @@ void DisplayLayoutScreen::CreateViews() {
 		g_Config.fSmallDisplayCustomZoom = autoBound;
 		g_Config.fSmallDisplayOffsetX = 0.5f;
 		g_Config.fSmallDisplayOffsetY = 0.5f;
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
+			float autoBound = bounds.h / 480.0f * 8.0f;
+			g_Config.fSmallDisplayCustomZoom = autoBound;
+		}
 	} else {
 		Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
 		center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
@@ -218,10 +225,11 @@ void DisplayLayoutScreen::CreateViews() {
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	root_->Add(mode_);
 	root_->Add(zoom_);
+	root_->Add(rotation_);
 	root_->Add(back);
 
 	displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, g_Config.fSmallDisplayCustomZoom);
-	if (g_Config.iInternalScreenRotation == 2 || g_Config.iInternalScreenRotation == 4) {
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		displayRepresentation_->SetAngle(90.0f);
 	}
 	root_->Add(displayRepresentation_);
