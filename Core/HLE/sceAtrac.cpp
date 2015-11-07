@@ -131,6 +131,14 @@ struct AtracLoopInfo {
 	int playCount;
 };
 
+#ifndef USE_FFMPEG
+struct AVPacket {
+	uint8_t *data;
+	int size;
+	int64_t pos;
+};
+#endif
+
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
 		atracChannels(0),atracOutputChannels(2),
@@ -338,8 +346,10 @@ struct Atrac {
 	AVCodecContext  *pCodecCtx;
 	SwrContext      *pSwrCtx;
 	AVFrame         *pFrame;
+#endif // USE_FFMPEG
 	AVPacket        *packet;
 
+#ifdef USE_FFMPEG
 	void ReleaseFFMPEGContext() {
 		// All of these allow null pointers.
 		av_freep(&pFrame);
@@ -358,9 +368,12 @@ struct Atrac {
 		delete packet;
 		packet = nullptr;
 	}
+#endif // USE_FFMPEG
 
 	void ForceSeekToSample(int sample) {
+#ifdef USE_FFMPEG
 		avcodec_flush_buffers(pCodecCtx);
+#endif
 
 		// Discard any pending packet data.
 		packet->size = 0;
@@ -381,15 +394,15 @@ struct Atrac {
 		const u32 unalignedSamples = (offsetSamples + sample) % atracSamplesPerFrame;
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
-		if (sample != currentSample) {
+#ifdef USE_FFMPEG
+		if (sample != currentSample && pCodecCtx != nullptr) {
 			avcodec_flush_buffers(pCodecCtx);
 		}
-		currentSample = sample;
 
-		if (sample == 0) {
+		if (sample == 0 && pCodecCtx != nullptr) {
 			// Prefill the decode buffer with packets before the first sample offset.
 			avcodec_flush_buffers(pCodecCtx);
-			u32 off = getFileOffsetBySample(currentSample);
+			u32 off = getFileOffsetBySample(sample);
 			for (u32 pos = dataOff; pos < off; pos += atracBytesPerFrame) {
 				av_init_packet(packet);
 				packet->data = data_buf + pos;
@@ -400,12 +413,17 @@ struct Atrac {
 				DecodePacket();
 			}
 		}
+#endif // USE_FFMPEG
+
+		currentSample = sample;
 	}
 
 	bool FillPacket() {
 		u32 off = getFileOffsetBySample(currentSample);
 		if (off < first.filesize) {
+#ifdef USE_FFMPEG
 			av_init_packet(packet);
+#endif // USE_FFMPEG
 			packet->data = data_buf + off;
 			packet->size = atracBytesPerFrame;
 			packet->pos = off;
@@ -419,7 +437,9 @@ struct Atrac {
 	}
 
 	bool FillLowLevelPacket() {
+#ifdef USE_FFMPEG
 		av_init_packet(packet);
+#endif // USE_FFMPEG
 		if (bufferPos < (u32)dataOff) {
 			bufferPos = dataOff;
 		}
@@ -432,6 +452,11 @@ struct Atrac {
 	}
 
 	AtracDecodeResult DecodePacket() {
+#ifdef USE_FFMPEG
+		if (pCodecCtx == nullptr) {
+			return ATDECODE_FAILED;
+		}
+
 		int got_frame = 0;
 		int bytes_read = avcodec_decode_audio4(pCodecCtx, pFrame, &got_frame, packet);
 		av_free_packet(packet);
@@ -447,8 +472,10 @@ struct Atrac {
 		}
 
 		return got_frame ? ATDECODE_GOTFRAME : ATDECODE_FEEDME;
-	}
+#else
+		return ATDECODE_BADFRAME;
 #endif // USE_FFMPEG
+	}
 
 private:
 	void AnalyzeReset();
@@ -954,8 +981,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				skipSamples = unalignedSamples;
 			}
 
-#ifdef USE_FFMPEG
-			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
+			if (!atrac->failedDecode && (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS)) {
 				atrac->SeekToSample(atrac->currentSample);
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
@@ -969,6 +995,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					}
 
 					if (res == ATDECODE_GOTFRAME) {
+#ifdef USE_FFMPEG
 						// got a frame
 						// Use a small buffer and keep overwriting it with file data constantly
 						atrac->first.writableBytes += atrac->atracBytesPerFrame;
@@ -1006,6 +1033,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
 						}
+#endif // USE_FFMPEG
 					}
 					if (res == ATDECODE_GOTFRAME || res == ATDECODE_BADFRAME) {
 						// We only want one frame per call, let's continue the next time.
@@ -1024,7 +1052,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					}
 				}
 			}
-#endif // USE_FFMPEG
 
 			*SamplesNum = numSamples;
 			// update current sample and decodePos
@@ -1498,14 +1525,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->first.writableBytes = bufferInfo.first.writableBytes - bytesWrittenFirstBuf;
 			atrac->first.offset = bytesWrittenFirstBuf;
 		}
-#ifdef USE_FFMPEG
-		if ((atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) && atrac->pCodecCtx) {
+
+		if (atrac->codecType == PSP_MODE_AT_3 || atrac->codecType == PSP_MODE_AT_3_PLUS) {
 			atrac->SeekToSample(sample);
-		} else
-#endif // USE_FFMPEG
-		{
-			atrac->currentSample = sample;
-			atrac->decodePos = atrac->getDecodePosBySample(sample);
 		}
 
 		return hleDelayResult(hleLogSuccessInfoI(ME, 0), "reset play pos", 3000);
@@ -1643,12 +1665,10 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 			WARN_LOG(ME, "This is an atrac3 stereo audio");
 		}
 
-#ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
 		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
 		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
 		return __AtracSetContext(atrac);
-#endif // USE_FFMPEG
 
 	} else if (atrac->codecType == PSP_MODE_AT_3_PLUS) {
 		if (atrac->atracChannels == 1) {
@@ -2188,7 +2208,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 		atrac->CleanStuff();
 		INFO_LOG(ME, "Channels: %i outputChannels: %i bytesperFrame: %x", 
 			atrac->atracChannels, atrac->atracOutputChannels, atrac->atracBytesPerFrame);
-#ifdef USE_FFMPEG
+
 		if (atrac->codecType == PSP_MODE_AT_3) {
 			if (atrac->atracChannels == 1) {
 				WARN_LOG(ME, "This is an atrac3 mono audio (low level)");
@@ -2238,7 +2258,6 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			__AtracSetContext(atrac);
 			return 0;
 		}
-#endif // USE_FFMPEG
 	}
 	return 0;
 }
@@ -2251,8 +2270,8 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 	}
 
 	DEBUG_LOG(ME, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
-#ifdef USE_FFMPEG
-	if (atrac && atrac->pCodecCtx && Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
+
+	if (atrac && Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
   		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
 		u32 sourcebytes = atrac->first.writableBytes;
 		if (sourcebytes > 0) {
@@ -2275,6 +2294,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 				}
 
 				if (res == ATDECODE_GOTFRAME) {
+#ifdef USE_FFMPEG
 					// got a frame
 					u8 *out = Memory::GetPointer(samplesAddr);
 					numSamples = atrac->pFrame->nb_samples;
@@ -2285,6 +2305,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 					if (avret < 0) {
 						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 					}
+#endif // USE_FFMPEG
 					break;
 				} else if (res == ATDECODE_BADFRAME) {
 					break;
@@ -2307,7 +2328,6 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 		Memory::Write_U32(atrac->first.writableBytes, sourceBytesConsumedAddr);
 		return hleDelayResult(0, "low level atrac decode data", atracDecodeDelay);
 	}
-#endif // USE_FFMPEG
 
 	return 0;
 }
