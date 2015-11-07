@@ -1120,14 +1120,14 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 
 		bufferInfo->first.writePosPtr = atrac->first.addr;
 		bufferInfo->first.writableBytes = std::min(atrac->first.filesize - sampleFileOffset, bufSizeAligned);
-		if (((sample + atrac->firstSampleoffset) % atracSamplesPerFrame) > needsMoreFrames) {
+		if (((sample + atrac->firstSampleoffset) % atracSamplesPerFrame) >= atracSamplesPerFrame - needsMoreFrames) {
 			// Not clear why, but it seems it wants a bit extra in case the sample is late?
 			bufferInfo->first.minWriteBytes = atrac->atracBytesPerFrame * 3;
-			if ((u32)sample < (u32)atrac->firstSampleoffset) {
-				sampleFileOffset -= atrac->atracBytesPerFrame;
-			}
 		} else {
 			bufferInfo->first.minWriteBytes = atrac->atracBytesPerFrame * 2;
+		}
+		if ((u32)sample < (u32)atrac->firstSampleoffset && sampleFileOffset != atrac->dataOff) {
+			sampleFileOffset -= atrac->atracBytesPerFrame;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
 	}
