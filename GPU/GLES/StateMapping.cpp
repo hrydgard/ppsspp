@@ -585,8 +585,24 @@ void TransformDrawEngine::ApplyBlendState() {
 	}
 }
 
-void TransformDrawEngine::ApplyDrawState(int prim) {
+// Common representation, should be able to set this directly with any modern API.
+struct ViewportAndScissor {
+	bool scissorEnable;
+	int scissorX;
+	int scissorY;
+	int scissorW;
+	int scissorH;
+	float viewportX;
+	float viewportY;
+	float viewportW;
+	float viewportH;
+	float depthRangeMin;
+	float depthRangeMax;
+	bool dirtyProj;
+};
+void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 
+void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -746,19 +762,45 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
+
+	if (vpAndScissor.scissorEnable) {
+		glstate.scissorTest.enable();
+		if (!useBufferedRendering) {
+			vpAndScissor.scissorY = PSP_CoreParameter().pixelHeight - vpAndScissor.scissorH - vpAndScissor.scissorY;
+		}
+		glstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
+	} else {
+		glstate.scissorTest.disable();
+	}
+
+	if (!useBufferedRendering) {
+		vpAndScissor.viewportY = PSP_CoreParameter().pixelHeight - vpAndScissor.viewportH - vpAndScissor.viewportY;
+	}
+	glstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH);
+	glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
+
+	if (vpAndScissor.dirtyProj) {
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+}
+
+void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
+	out.dirtyProj = false;
 
 	float renderWidthFactor, renderHeightFactor;
-	float renderWidth, renderHeight;
 	float renderX = 0.0f, renderY = 0.0f;
 	float displayOffsetX, displayOffsetY;
 	if (useBufferedRendering) {
 		displayOffsetX = 0.0f;
 		displayOffsetY = 0.0f;
-		renderWidth = framebufferManager_->GetRenderWidth();
-		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
+		renderWidthFactor = (float)renderWidth / (float)bufferWidth;
+		renderHeightFactor = (float)renderHeight / (float)bufferHeight;
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
@@ -778,26 +820,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// This is a bit of a hack as the render buffer isn't always that size
 	// We always scissor on non-buffered so that clears don't spill outside the frame.
 	if (useBufferedRendering && scissorX1 == 0 && scissorY1 == 0
-		&& scissorX2 >= (int) gstate_c.curRTWidth
-		&& scissorY2 >= (int) gstate_c.curRTHeight) {
-		glstate.scissorTest.disable();
+		&& scissorX2 >= (int)gstate_c.curRTWidth
+		&& scissorY2 >= (int)gstate_c.curRTHeight) {
+		out.scissorEnable = false;
 	} else {
-		glstate.scissorTest.enable();
-
-		// Buffers are now in the GL coordinate system, so no flipping needed.
-		if (useBufferedRendering) {
-			glstate.scissorRect.set(
-				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-				renderY + displayOffsetY + scissorY1 * renderHeightFactor,
-				(scissorX2 - scissorX1) * renderWidthFactor,
-				(scissorY2 - scissorY1) * renderHeightFactor);
-		} else {
-			glstate.scissorRect.set(
-				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-				renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
-				(scissorX2 - scissorX1) * renderWidthFactor,
-				(scissorY2 - scissorY1) * renderHeightFactor);
-		}
+		out.scissorEnable = true;
+		out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
+		out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
+		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 	}
 
 	int curRTWidth = gstate_c.curRTWidth;
@@ -808,22 +839,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	if (throughmode) {
 		// No viewport transform here. Let's experiment with using region.
-		if (useBufferedRendering) {
-			// No flip needed
-			glstate.viewport.set(
-				renderX + displayOffsetX,
-				renderY + displayOffsetY,
-				curRTWidth * renderWidthFactor,
-				curRTHeight * renderHeightFactor);
-		} else {
-			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
-			glstate.viewport.set(
-				renderX + displayOffsetX,
-				renderY + displayOffsetY,
-				curRTWidth * renderWidthFactor,
-				curRTHeight * renderHeightFactor);
-		}
-		glstate.depthRange.set(0.0f, 1.0f);
+		out.viewportX = renderX + displayOffsetX;
+		out.viewportY = renderY + displayOffsetY;
+		out.viewportW = curRTWidth * renderWidthFactor;
+		out.viewportH = curRTHeight * renderHeightFactor;
+		out.depthRangeMin = 0.0f;
+		out.depthRangeMax = 1.0f;
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -902,20 +923,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			gstate_c.vpHeightScale = hScale;
 			gstate_c.vpXOffset = xOffset;
 			gstate_c.vpYOffset = yOffset;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+			out.dirtyProj = true;
 		}
 
-		if (useBufferedRendering) {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + top, right - left, bottom - top);
-		} else {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - bottom), right - left, bottom - top);
-		}
+		out.viewportX = left + displayOffsetX;
+		out.viewportY = top + displayOffsetY;
+		out.viewportW = right - left;
+		out.viewportH = bottom - top;
 
 		float zScale = gstate.getViewportZScale();
 		float zCenter = gstate.getViewportZCenter();
 		float depthRangeMin = zCenter - zScale;
 		float depthRangeMax = zCenter + zScale;
-		glstate.depthRange.set(depthRangeMin * (1.0f / 65535.0f), depthRangeMax * (1.0f / 65535.0f));
+		out.depthRangeMin = depthRangeMin * (1.0f / 65535.0f);
+		out.depthRangeMax = depthRangeMax * (1.0f / 65535.0f);
 
 #ifndef MOBILE_DEVICE
 		float minz = gstate.getDepthRangeMin();
