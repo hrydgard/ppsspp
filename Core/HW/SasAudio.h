@@ -128,17 +128,21 @@ private:
 
 class SasAtrac3 {
 public:
-	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0) {}
-	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
+	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
+	~SasAtrac3() { if (sampleQueue_) delete sampleQueue_; }
 	int setContext(u32 context);
-	int getNextSamples(s16* outbuf, int wantedSamples);
+	void getNextSamples(s16 *outbuf, int wantedSamples);
 	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
+	bool End() const {
+		return end_;
+	}
 
 private:
-	u32 contextAddr;
-	int atracID;
-	BufferQueue *sampleQueue;
+	u32 contextAddr_;
+	int atracID_;
+	BufferQueue *sampleQueue_;
+	bool end_;
 };
 
 class ADSREnvelope {
