@@ -906,7 +906,7 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 	Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, bufPtr, addbytes);
 	atrac->first.size += bytesToAdd;
-	if (atrac->first.size > atrac->first.filesize) {
+	if (atrac->first.size >= atrac->first.filesize) {
 		atrac->first.size = atrac->first.filesize;
 		if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
 			atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
@@ -948,7 +948,7 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 			atrac->first.fileoffset += addbytes;
 		}
 		atrac->first.size += bytesToAdd;
-		if (atrac->first.size > atrac->first.filesize) {
+		if (atrac->first.size >= atrac->first.filesize) {
 			atrac->first.size = atrac->first.filesize;
 			if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
 				atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
