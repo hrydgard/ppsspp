@@ -187,9 +187,16 @@ static BlendFactor blendColor2Func(u32 fix, bool &approx) {
 	return BlendFactor::INVALID;
 }
 
-static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margin = 0.1f) {
-	const Vec3f diff = a - b;
-	if (fabsf(diff.x) <= margin && fabsf(diff.y) <= margin && fabsf(diff.z) <= margin)
+// abs is a quagmire of compiler incompatibilities, so...
+inline int iabs(int x) {
+	return x >= 0 ? x : -x;
+}
+
+static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) {   // 25 ~= 0.1 * 255
+	int diffx = iabs((a & 0xff) - (b & 0xff));
+	int diffy = iabs(((a >> 8) & 0xff) - ((b >> 8) & 0xff));
+	int diffz = iabs(((a >> 16) & 0xff) - ((b >> 16) & 0xff));
+	if (diffx <= margin && diffy <= margin && diffz <= margin)
 		return true;
 	return false;
 }
@@ -351,6 +358,7 @@ static void ConvertBlendState(GenericBlendState &blendState) {
 
 	blendState.applyShaderBlending = false;
 	blendState.dirtyShaderBlend = false;
+	blendState.useBlendColor = false;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
@@ -458,67 +466,58 @@ static void ConvertBlendState(GenericBlendState &blendState) {
 		glBlendFuncB = toDualSource(glBlendFuncB);
 	}
 
-	auto setBlendColorv = [&](const Vec3f &c) {
-		const float blendColor[4] = {c.x, c.y, c.z, constantAlpha};
-		glstate.blendColor.set(blendColor);
-	};
-	auto defaultBlendColor = [&]() {
-		if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
-			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
-			glstate.blendColor.set(blendColor);
-		}
-	};
-
 	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
-		const Vec3f fixAVec = Vec3f::FromRGB(fixA);
-		const Vec3f fixBVec = Vec3f::FromRGB(fixB);
 		if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB != BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
-			setBlendColorv(fixAVec);
+			blendState.setBlendColor(fixA, constantAlpha);
 			glBlendFuncA = BlendFactor::CONSTANT_COLOR;
 		} else if (glBlendFuncA != BlendFactor::INVALID && glBlendFuncB == BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
-			setBlendColorv(fixBVec);
+			blendState.setBlendColor(fixB, constantAlpha);
 			glBlendFuncB = BlendFactor::CONSTANT_COLOR;
 		} else if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB == BlendFactor::INVALID) {
-			if (blendColorSimilar(fixAVec, Vec3f::AssignToAll(1.0f) - fixBVec)) {
+			if (blendColorSimilar(fixA, 0xFFFFFF ^ fixB)) {
 				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
 				glBlendFuncB = BlendFactor::ONE_MINUS_CONSTANT_COLOR;
-				setBlendColorv(fixAVec);
-			} else if (blendColorSimilar(fixAVec, fixBVec)) {
+				blendState.setBlendColor(fixA, constantAlpha);
+			} else if (blendColorSimilar(fixA, fixB)) {
 				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
 				glBlendFuncB = BlendFactor::CONSTANT_COLOR;
-				setBlendColorv(fixAVec);
+				blendState.setBlendColor(fixA, constantAlpha);
 			} else {
 				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", fixA, fixB, blendFuncA, blendFuncB);
 				// Let's approximate, at least.  Close is better than totally off.
-				const bool nearZeroA = blendColorSimilar(fixAVec, Vec3f::AssignToAll(0.0f), 0.25f);
-				const bool nearZeroB = blendColorSimilar(fixBVec, Vec3f::AssignToAll(0.0f), 0.25f);
-				if (nearZeroA || blendColorSimilar(fixAVec, Vec3f::AssignToAll(1.0f), 0.25f)) {
+				const bool nearZeroA = blendColorSimilar(fixA, 0, 64);
+				const bool nearZeroB = blendColorSimilar(fixB, 0, 64);
+				if (nearZeroA || blendColorSimilar(fixA, 0xFFFFFF, 64)) {
 					glBlendFuncA = nearZeroA ? BlendFactor::ZERO : BlendFactor::ONE;
 					glBlendFuncB = BlendFactor::CONSTANT_COLOR;
-					setBlendColorv(fixBVec);
+					blendState.setBlendColor(fixB, constantAlpha);
 				} else {
 					// We need to pick something.  Let's go with A as the fixed color.
 					glBlendFuncA = BlendFactor::CONSTANT_COLOR;
 					glBlendFuncB = nearZeroB ? BlendFactor::ZERO : BlendFactor::ONE;
-					setBlendColorv(fixAVec);
+					blendState.setBlendColor(fixA, constantAlpha);
 				}
 			}
 		} else {
 			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
 			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc && approxFuncA) {
 				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
-				setBlendColorv(fixAVec);
+				blendState.setBlendColor(fixA, constantAlpha);
 			} else if (approxFuncB) {
 				glBlendFuncB = BlendFactor::CONSTANT_COLOR;
-				setBlendColorv(fixBVec);
+				blendState.setBlendColor(fixB, constantAlpha);
 			} else {
-				defaultBlendColor();
+				if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
+					blendState.defaultBlendColor(constantAlpha);
+				}
 			}
 		}
 	} else {
-		defaultBlendColor();
+		if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
+			blendState.defaultBlendColor(constantAlpha);
+		}
 	}
 
 	// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
@@ -657,6 +656,16 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
 		if (blendState.dirtyShaderBlend) {
 			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		}
+		if (blendState.useBlendColor) {
+			uint32_t color = blendState.blendColor;
+			const float col[4] = {
+				(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
+				(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+				(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+				(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
+			};
+			glstate.blendColor.set(col);
 		}
 	} else {
 		glstate.blend.disable();

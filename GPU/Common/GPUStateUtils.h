@@ -112,6 +112,9 @@ struct GenericBlendState {
 	BlendEq eqColor;
 	BlendEq eqAlpha;
 
+	bool useBlendColor;
+	u32 blendColor;
+
 	void setFactors(BlendFactor srcC, BlendFactor dstC, BlendFactor srcA, BlendFactor dstA) {
 		srcColor = srcC;
 		dstColor = dstC;
@@ -121,5 +124,13 @@ struct GenericBlendState {
 	void setEquation(BlendEq eqC, BlendEq eqA) {
 		eqColor = eqC;
 		eqAlpha = eqA;
+	}
+	void setBlendColor(uint32_t color, uint8_t alpha) {
+		blendColor = color | (alpha << 24);
+		useBlendColor = true;
+	}
+	void defaultBlendColor(uint8_t alpha) {
+		blendColor = 0xFFFFFF | (alpha << 24);
+		useBlendColor = true;
 	}
 };
