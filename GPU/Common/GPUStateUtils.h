@@ -99,6 +99,10 @@ enum class BlendEq : uint8_t {
 
 struct GenericBlendState {
 	bool enabled;
+	bool resetShaderBlending;
+	bool applyShaderBlending;
+	bool dirtyShaderBlend;
+	ReplaceAlphaType replaceAlphaWithStencil;
 
 	BlendFactor srcColor;
 	BlendFactor dstColor;

@@ -224,7 +224,6 @@ bool TransformDrawEngine::ApplyShaderBlending() {
 }
 
 inline void TransformDrawEngine::ResetShaderBlending() {
-	// Wait - what does this have to do with FBOs?
 	if (fboTexBound_) {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -234,7 +233,7 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 }
 
 // Try to simulate some common logic ops.
-void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+static void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
 		stencilType = ReplaceAlphaWithStencilType();
@@ -338,7 +337,7 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
 
-void TransformDrawEngine::ConvertBlendState(GenericBlendState &blendState) {
+static void ConvertBlendState(GenericBlendState &blendState) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -350,26 +349,25 @@ void TransformDrawEngine::ConvertBlendState(GenericBlendState &blendState) {
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
 	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
+	blendState.applyShaderBlending = false;
+	blendState.dirtyShaderBlend = false;
+
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 
 	switch (replaceBlend) {
 	case REPLACE_BLEND_NO:
-		ResetShaderBlending();
+		blendState.resetShaderBlending = true;
 		// We may still want to do something about stencil -> alpha.
 		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
-		if (ApplyShaderBlending()) {
-			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
-			return;
-		}
-		// Until next time, force it off.
-		gstate_c.allowShaderBlend = false;
-		break;
+		blendState.applyShaderBlending = true;
+		blendState.resetShaderBlending = false;
+		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
+		break;  // Surely this should be return??
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
@@ -383,7 +381,7 @@ void TransformDrawEngine::ConvertBlendState(GenericBlendState &blendState) {
 	}
 
 	blendState.enabled = true;
-	ResetShaderBlending();
+	blendState.resetShaderBlending = true;
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
@@ -449,9 +447,9 @@ void TransformDrawEngine::ConvertBlendState(GenericBlendState &blendState) {
 
 	if (usePreSrc) {
 		glBlendFuncA = BlendFactor::ONE;
-		// Need to pull in the fixed color.
+		// Need to pull in the fixed color. TODO: If it hasn't changed, no need to dirty.
 		if (blendFuncA == GE_SRCBLEND_FIXA) {
-			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+			blendState.dirtyShaderBlend = true;
 		}
 	}
 
@@ -627,9 +625,29 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Start profiling here to skip SetTexture which is already accounted for
 	PROFILE_THIS_SCOPE("applydrawstate");
 
-	// Set blend - unless we need to do it in the shader.
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+	// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
+	// to avoid recomputing heavy stuff unnecessarily every draw call.
 	GenericBlendState blendState;
 	ConvertBlendState(blendState);
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
+
+	if (blendState.applyShaderBlending) {
+		if (ApplyShaderBlending()) {
+			// We may still want to do something about stencil -> alpha.
+			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+		} else {
+			// Until next time, force it off.
+			gstate_c.allowShaderBlend = false;
+		}
+	} else if (blendState.resetShaderBlending) {
+		ResetShaderBlending();
+	}
 
 	if (blendState.enabled) {
 		glstate.blend.enable();
@@ -637,13 +655,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.blendFuncSeparate.set(
 			glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
 			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
+		if (blendState.dirtyShaderBlend) {
+			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+		}
 	} else {
 		glstate.blend.disable();
 	}
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	// Dither
 	if (gstate.isDitherEnabled()) {
@@ -781,12 +801,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.disable();
 		}
 	}
-
-	ViewportAndScissor vpAndScissor;
-	ConvertViewportAndScissor(useBufferedRendering,
-		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
-		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
-		vpAndScissor);
 
 	if (vpAndScissor.scissorEnable) {
 		glstate.scissorTest.enable();
