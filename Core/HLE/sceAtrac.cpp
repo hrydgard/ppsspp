@@ -983,7 +983,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			*SamplesNum = 0;
 			*finish = 1;
-			*remains = 0;
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
@@ -1012,7 +1011,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
 						*finish = 1;
-						*remains = 0;
 						return ATRAC_ERROR_ALL_DATA_DECODED;
 					}
 
@@ -1118,7 +1116,8 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 			Memory::Write_U32(numSamples, numSamplesAddr);
 		if (Memory::IsValidAddress(finishFlagAddr))
 			Memory::Write_U32(finish, finishFlagAddr);
-		if (Memory::IsValidAddress(remainAddr))
+		// On error, no remaining frame value is written.
+		if (ret == 0 && Memory::IsValidAddress(remainAddr))
 			Memory::Write_U32(remains, remainAddr);
 	}
 	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
