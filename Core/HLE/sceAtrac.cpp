@@ -111,12 +111,16 @@ enum AtracDecodeResult {
 };
 
 struct InputBuffer {
+	// Address of the buffer.
 	u32 addr;
+	// Size of data valid in the buffer from the start.
 	u32 size;
 	u32 offset;
 	u32 writableBytes;
 	u32 neededBytes;
+	// Total size of the entire file data.
 	u32 filesize;
+	// Offset into the file at which the stream data ends.
 	u32 fileoffset;
 };
 
@@ -290,20 +294,16 @@ struct Atrac {
 	}
 
 	int getRemainFrames() const {
-		// games would like to add atrac data when it wants.
-		// Do not try to guess when it want to add data.
-		// Just return current remainFrames.
-		int remainFrame;
-		if (first.fileoffset >= first.filesize || currentSample >= endSample)
-			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else {
-			// guess the remain frames.
-			int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-			remainFrame = ((int)first.size - (int)getFileOffsetBySample(currentSample)) / atracBytesPerFrame - (firstSampleoffset / atracSamplesPerFrame);
-			if (remainFrame < 0)
-				remainFrame = 0;
+		if (bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+			// Meaning, infinite I guess?  We've got it all.
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		}
-		return remainFrame;
+
+		// Since the first frame is shorter by this offset, add to round up at this offset.
+		const u32 firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
+		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		const int remainingBytes = first.fileoffset - getFileOffsetBySample(currentSample - atracSamplesPerFrame + firstOffsetExtra);
+		return remainingBytes / atracBytesPerFrame;
 	}
 
 	int atracID;
