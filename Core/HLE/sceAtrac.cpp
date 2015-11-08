@@ -562,6 +562,7 @@ static Atrac *getAtrac(int atracID) {
 		// Read in any changes from the game to the context.
 		// TODO: Might be better to just always track in RAM.
 		atrac->bufferState = atrac->atracContext->info.state;
+		atrac->loopNum = atrac->atracContext->info.loopNum;
 	}
 
 	return atrac;
@@ -1857,6 +1858,9 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 			// Just loop the whole audio
 			atrac->loopStartSample = atrac->firstSampleoffset + atrac->firstOffsetExtra();
 			atrac->loopEndSample = atrac->endSample + atrac->firstSampleoffset + atrac->firstOffsetExtra();
+		}
+		if (atrac->atracContext.IsValid()) {
+			_AtracGenerateContext(atrac, atrac->atracContext);
 		}
 	}
 	return 0;
