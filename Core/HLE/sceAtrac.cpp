@@ -299,6 +299,14 @@ struct Atrac {
 			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		}
 
+		if (currentSample >= endSample && loopNum == 0) {
+			if (bufferState == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+			} else if (bufferState == ATRAC_STATUS_STREAMED_LOOP_FROM_END || bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+		}
+
 		// Since the first frame is shorter by this offset, add to round up at this offset.
 		const u32 firstOffsetExtra = codecType == PSP_CODEC_AT3PLUS ? 368 : 69;
 		int atracSamplesPerFrame = (codecType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
