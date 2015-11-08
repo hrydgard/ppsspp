@@ -126,11 +126,11 @@ struct GenericBlendState {
 		eqAlpha = eqA;
 	}
 	void setBlendColor(uint32_t color, uint8_t alpha) {
-		blendColor = color | (alpha << 24);
+		blendColor = color | ((uint32_t)alpha << 24);
 		useBlendColor = true;
 	}
 	void defaultBlendColor(uint8_t alpha) {
-		blendColor = 0xFFFFFF | (alpha << 24);
+		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
 		useBlendColor = true;
 	}
 };

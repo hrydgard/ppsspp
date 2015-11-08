@@ -459,7 +459,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	float offsetY = gstate.getOffsetY();
 
 	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
 		out.viewportX = renderX + displayOffsetX;
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
@@ -800,7 +799,7 @@ void ConvertBlendState(GenericBlendState &blendState) {
 		blendState.applyShaderBlending = true;
 		blendState.resetShaderBlending = false;
 		blendState.replaceAlphaWithStencil = replaceAlphaWithStencil;
-		break;  // Surely this should be return??
+		break;
 
 	case REPLACE_BLEND_PRE_SRC:
 	case REPLACE_BLEND_PRE_SRC_2X_ALPHA:
@@ -827,22 +826,22 @@ void ConvertBlendState(GenericBlendState &blendState) {
 	if (blendFuncB > GE_DSTBLEND_FIXB)
 		blendFuncB = GE_DSTBLEND_FIXB;
 
-	float constantAlpha = 1.0f;
+	int constantAlpha = 255;
 	BlendFactor constantAlphaGL = BlendFactor::ONE;
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
-			constantAlpha = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
+			constantAlpha = gstate.getStencilTestRef();
 			break;
 
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_DECR_4:
-			constantAlpha = 1.0f / 15.0f;
+			constantAlpha = 16;
 			break;
 
 		case STENCIL_VALUE_INCR_8:
 		case STENCIL_VALUE_DECR_8:
-			constantAlpha = 1.0f / 255.0f;
+			constantAlpha = 1;
 			break;
 
 		default:
@@ -850,9 +849,9 @@ void ConvertBlendState(GenericBlendState &blendState) {
 		}
 
 		// Otherwise it will stay GL_ONE.
-		if (constantAlpha <= 0.0f) {
+		if (constantAlpha <= 0) {
 			constantAlphaGL = BlendFactor::ZERO;
-		} else if (constantAlpha < 1.0f) {
+		} else if (constantAlpha < 255) {
 			constantAlphaGL = BlendFactor::CONSTANT_ALPHA;
 		}
 	}
@@ -945,7 +944,7 @@ void ConvertBlendState(GenericBlendState &blendState) {
 		}
 	}
 
-	// Some Android devices (especially Mali, it seems) composite badly if there's alpha in the backbuffer.
+	// Some Android devices (especially old Mali, it seems) composite badly if there's alpha in the backbuffer.
 	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
 #ifdef ANDROID
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {

@@ -166,30 +166,21 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 		}
 		if (blendState.useBlendColor) {
-			uint32_t color = blendState.blendColor;
-			const float col[4] = {
-				(float)((color & 0xFF) >> 0) * (1.0f / 255.0f),
-				(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-				(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-				(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
-			};
-			dxstate.blendColor.set(col);
+			dxstate.blendColor.setDWORD(blendState.blendColor);
 		}
 	} else {
 		dxstate.blend.disable();
-		dxstate.blendSeparate.disable();
 	}
 
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
 		dxstate.dither.enable();
-		dxstate.dither.set(true);
-	} else
+	} else {
 		dxstate.dither.disable();
+	}
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
-
 		// Set Cull 
 		dxstate.cullMode.set(false, false);
 		
