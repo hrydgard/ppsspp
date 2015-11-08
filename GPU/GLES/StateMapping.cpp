@@ -683,9 +683,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				framebufferManager_->SetDepthUpdated();
 			}
 
-			GEComparison ztest = gstate.getDepthTestFunction();
-			if (ztest == GE_COMP_EQUAL || ztest == GE_COMP_NOTEQUAL || ztest == GE_COMP_LEQUAL || ztest == GE_COMP_GEQUAL) {
-				DEBUG_LOG_REPORT_ONCE(ztestequal, G3D, "Depth test requiring depth equality: %d", ztest);
+			if (gstate.isModeThrough()) {
+				GEComparison ztest = gstate.getDepthTestFunction();
+				if (ztest == GE_COMP_EQUAL || ztest == GE_COMP_NOTEQUAL || ztest == GE_COMP_LEQUAL || ztest == GE_COMP_GEQUAL) {
+					DEBUG_LOG_REPORT_ONCE(ztestequal, G3D, "Depth test requiring depth equality in throughmode: %d", ztest);
+				}
 			}
 		} else {
 			glstate.depthTest.disable();
