@@ -669,6 +669,7 @@ int Atrac::Analyze() {
 	decodeEnd = first.filesize;
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
+	int sampleOffsetAdjust = 0;
 	while (maxSize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
@@ -734,9 +735,9 @@ int Atrac::Analyze() {
 					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 				}
 				if (chunkSize >= 12) {
-					// This seems to override the offset?
-					// TODO: There's more happening here...
-					firstSampleoffset = Memory::Read_U32(first.addr + offset + 8);
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+					u32 largerOffset = Memory::Read_U32(first.addr + offset + 8);
+					sampleOffsetAdjust = firstSampleoffset - largerOffset;
 				}
 			}
 			break;
@@ -802,8 +803,8 @@ int Atrac::Analyze() {
 
 	// set the loopStartSample and loopEndSample by loopinfo
 	if (loopinfoNum > 0) {
-		loopStartSample = loopinfo[0].startSample + firstOffsetExtra;
-		loopEndSample = loopinfo[0].endSample + firstOffsetExtra;
+		loopStartSample = loopinfo[0].startSample + firstOffsetExtra + sampleOffsetAdjust;
+		loopEndSample = loopinfo[0].endSample + firstOffsetExtra + sampleOffsetAdjust;
 	} else {
 		loopStartSample = loopEndSample = -1;
 	}
