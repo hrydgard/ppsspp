@@ -669,6 +669,7 @@ int Atrac::Analyze() {
 	decodeEnd = first.filesize;
 	bool bfoundData = false;
 	u32 dataChunkSize = 0;
+	int sampleOffsetAdjust = 0;
 	while (maxSize >= offset + 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
 		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
@@ -734,9 +735,9 @@ int Atrac::Analyze() {
 					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 				}
 				if (chunkSize >= 12) {
-					// This seems to override the offset?
-					// TODO: There's more happening here...
-					firstSampleoffset = Memory::Read_U32(first.addr + offset + 8);
+					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
+					u32 largerOffset = Memory::Read_U32(first.addr + offset + 8);
+					sampleOffsetAdjust = firstSampleoffset - largerOffset;
 				}
 			}
 			break;
@@ -802,8 +803,8 @@ int Atrac::Analyze() {
 
 	// set the loopStartSample and loopEndSample by loopinfo
 	if (loopinfoNum > 0) {
-		loopStartSample = loopinfo[0].startSample + firstOffsetExtra;
-		loopEndSample = loopinfo[0].endSample + firstOffsetExtra;
+		loopStartSample = loopinfo[0].startSample + firstOffsetExtra + sampleOffsetAdjust;
+		loopEndSample = loopinfo[0].endSample + firstOffsetExtra + sampleOffsetAdjust;
 	} else {
 		loopStartSample = loopEndSample = -1;
 	}
@@ -983,7 +984,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			*SamplesNum = 0;
 			*finish = 1;
-			*remains = 0;
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
@@ -1012,7 +1012,6 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
 						*finish = 1;
-						*remains = 0;
 						return ATRAC_ERROR_ALL_DATA_DECODED;
 					}
 
@@ -1118,7 +1117,8 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 			Memory::Write_U32(numSamples, numSamplesAddr);
 		if (Memory::IsValidAddress(finishFlagAddr))
 			Memory::Write_U32(finish, finishFlagAddr);
-		if (Memory::IsValidAddress(remainAddr))
+		// On error, no remaining frame value is written.
+		if (ret == 0 && Memory::IsValidAddress(remainAddr))
 			Memory::Write_U32(remains, remainAddr);
 	}
 	DEBUG_LOG(ME, "%08x=sceAtracDecodeData(%i, %08x, %08x[%08x], %08x[%08x], %08x[%d])", ret, atracID, outAddr, 
