@@ -194,8 +194,8 @@ private:
 	void DoFlush();
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	void ApplyBlendState();
-	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
+	void ConvertBlendState(GenericBlendState &blendState);
+	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
 	bool ApplyShaderBlending();
 	inline void ResetShaderBlending();
 	GLuint AllocateBuffer();

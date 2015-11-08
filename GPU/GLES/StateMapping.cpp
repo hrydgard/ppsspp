@@ -36,56 +36,83 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 
-static const GLushort aLookup[11] = {
+static const BlendFactor genericALookup[11] = {
+	BlendFactor::DST_COLOR,
+	BlendFactor::ONE_MINUS_DST_COLOR,
+	BlendFactor::SRC_ALPHA,
+	BlendFactor::ONE_MINUS_SRC_ALPHA,
+	BlendFactor::DST_ALPHA,
+	BlendFactor::ONE_MINUS_DST_ALPHA,
+	BlendFactor::SRC_ALPHA,			// GE_SRCBLEND_DOUBLESRCALPHA
+	BlendFactor::ONE_MINUS_SRC_ALPHA,		// GE_SRCBLEND_DOUBLEINVSRCALPHA
+	BlendFactor::DST_ALPHA,			// GE_SRCBLEND_DOUBLEDSTALPHA
+	BlendFactor::ONE_MINUS_DST_ALPHA,		// GE_SRCBLEND_DOUBLEINVDSTALPHA
+	BlendFactor::CONSTANT_COLOR,		// FIXA
+};
+
+static const BlendFactor genericBLookup[11] = {
+	BlendFactor::SRC_COLOR,
+	BlendFactor::ONE_MINUS_SRC_COLOR,
+	BlendFactor::SRC_ALPHA,
+	BlendFactor::ONE_MINUS_SRC_ALPHA,
+	BlendFactor::DST_ALPHA,
+	BlendFactor::ONE_MINUS_DST_ALPHA,
+	BlendFactor::SRC_ALPHA,			// GE_SRCBLEND_DOUBLESRCALPHA
+	BlendFactor::ONE_MINUS_SRC_ALPHA,		// GE_SRCBLEND_DOUBLEINVSRCALPHA
+	BlendFactor::DST_ALPHA,			// GE_SRCBLEND_DOUBLEDSTALPHA
+	BlendFactor::ONE_MINUS_DST_ALPHA,		// GE_SRCBLEND_DOUBLEINVDSTALPHA
+	BlendFactor::CONSTANT_COLOR,		// FIXB
+};
+
+static const BlendEq eqLookupNoMinMax[] = {
+	BlendEq::ADD,
+	BlendEq::SUBTRACT,
+	BlendEq::REVERSE_SUBTRACT,
+	BlendEq::ADD,			// GE_BLENDMODE_MIN
+	BlendEq::ADD,			// GE_BLENDMODE_MAX
+	BlendEq::ADD,			// GE_BLENDMODE_ABSDIFF
+};
+
+static const BlendEq eqLookup[] = {
+	BlendEq::ADD,
+	BlendEq::SUBTRACT,
+	BlendEq::REVERSE_SUBTRACT,
+	BlendEq::MIN,			// GE_BLENDMODE_MIN
+	BlendEq::MAX,			// GE_BLENDMODE_MAX
+	BlendEq::ADD,			// GE_BLENDMODE_ABSDIFF
+};
+
+static const GLushort glBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
+	GL_ZERO,
+	GL_ONE,
+	GL_SRC_COLOR,
+	GL_ONE_MINUS_SRC_COLOR,
 	GL_DST_COLOR,
 	GL_ONE_MINUS_DST_COLOR,
 	GL_SRC_ALPHA,
 	GL_ONE_MINUS_SRC_ALPHA,
 	GL_DST_ALPHA,
 	GL_ONE_MINUS_DST_ALPHA,
-	GL_SRC_ALPHA,			// GE_SRCBLEND_DOUBLESRCALPHA
-	GL_ONE_MINUS_SRC_ALPHA,		// GE_SRCBLEND_DOUBLEINVSRCALPHA
-	GL_DST_ALPHA,			// GE_SRCBLEND_DOUBLEDSTALPHA
-	GL_ONE_MINUS_DST_ALPHA,		// GE_SRCBLEND_DOUBLEINVDSTALPHA
-	GL_CONSTANT_COLOR,		// FIXA
-};
-
-static const GLushort bLookup[11] = {
-	GL_SRC_COLOR,
-	GL_ONE_MINUS_SRC_COLOR,
-	GL_SRC_ALPHA,
-	GL_ONE_MINUS_SRC_ALPHA,
-	GL_DST_ALPHA,
-	GL_ONE_MINUS_DST_ALPHA,
-	GL_SRC_ALPHA,			// GE_DSTBLEND_DOUBLESRCALPHA
-	GL_ONE_MINUS_SRC_ALPHA,		// GE_DSTBLEND_DOUBLEINVSRCALPHA
-	GL_DST_ALPHA,			// GE_DSTBLEND_DOUBLEDSTALPHA
-	GL_ONE_MINUS_DST_ALPHA,		// GE_DSTBLEND_DOUBLEINVDSTALPHA
-	GL_CONSTANT_COLOR,		// FIXB
-};
-
-static const GLushort eqLookupNoMinMax[] = {
-	GL_FUNC_ADD,
-	GL_FUNC_SUBTRACT,
-	GL_FUNC_REVERSE_SUBTRACT,
-	GL_FUNC_ADD,			// GE_BLENDMODE_MIN
-	GL_FUNC_ADD,			// GE_BLENDMODE_MAX
-	GL_FUNC_ADD,			// GE_BLENDMODE_ABSDIFF
-};
-
-static const GLushort eqLookup[] = {
-	GL_FUNC_ADD,
-	GL_FUNC_SUBTRACT,
-	GL_FUNC_REVERSE_SUBTRACT,
-#ifdef USING_GLES2
-	GL_MIN_EXT,			// GE_BLENDMODE_MIN
-	GL_MAX_EXT,			// GE_BLENDMODE_MAX
-	GL_MAX_EXT,			// GE_BLENDMODE_ABSDIFF
+	GL_CONSTANT_COLOR,
+	GL_ONE_MINUS_CONSTANT_COLOR,
+	GL_CONSTANT_ALPHA,
+	GL_ONE_MINUS_CONSTANT_ALPHA,
+#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
+	GL_SRC1_ALPHA,
+	GL_ONE_MINUS_SRC1_ALPHA,
 #else
-	GL_MIN,				// GE_BLENDMODE_MIN
-	GL_MAX,				// GE_BLENDMODE_MAX
-	GL_MAX,				// GE_BLENDMODE_ABSDIFF
+	GL_INVALID_ENUM,
+	GL_INVALID_ENUM,
 #endif
+	GL_INVALID_ENUM,
+};
+
+static const GLushort glBlendEqLookup[(size_t)BlendEq::COUNT] = {
+	GL_FUNC_ADD,
+	GL_FUNC_SUBTRACT,
+	GL_FUNC_REVERSE_SUBTRACT,
+	GL_MIN,
+	GL_MAX,
 };
 
 static const GLushort cullingMode[] = {
@@ -130,34 +157,34 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-static GLenum toDualSource(GLenum blendfunc) {
+static BlendFactor toDualSource(BlendFactor blendfunc) {
 	switch (blendfunc) {
 #if !defined(USING_GLES2)   // TODO: Remove when we have better headers
-	case GL_SRC_ALPHA:
-		return GL_SRC1_ALPHA;
-	case GL_ONE_MINUS_SRC_ALPHA:
-		return GL_ONE_MINUS_SRC1_ALPHA;
+	case BlendFactor::SRC_ALPHA:
+		return BlendFactor::SRC1_ALPHA;
+	case BlendFactor::ONE_MINUS_SRC_ALPHA:
+		return BlendFactor::ONE_MINUS_SRC1_ALPHA;
 #endif
 	default:
 		return blendfunc;
 	}
 }
 
-static GLenum blendColor2Func(u32 fix, bool &approx) {
+static BlendFactor blendColor2Func(u32 fix, bool &approx) {
 	if (fix == 0xFFFFFF)
-		return GL_ONE;
+		return BlendFactor::ONE;
 	if (fix == 0)
-		return GL_ZERO;
+		return BlendFactor::ZERO;
 
 	// Otherwise, it's approximate if we pick ONE/ZERO.
 	approx = true;
 
 	const Vec3f fix3 = Vec3f::FromRGB(fix);
 	if (fix3.x >= 0.99 && fix3.y >= 0.99 && fix3.z >= 0.99)
-		return GL_ONE;
+		return BlendFactor::ONE;
 	else if (fix3.x <= 0.01 && fix3.y <= 0.01 && fix3.z <= 0.01)
-		return GL_ZERO;
-	return GL_INVALID_ENUM;
+		return BlendFactor::ZERO;
+	return BlendFactor::INVALID;
 }
 
 static inline bool blendColorSimilar(const Vec3f &a, const Vec3f &b, float margin = 0.1f) {
@@ -207,23 +234,22 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 }
 
 // Try to simulate some common logic ops.
-void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil) {
+void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
 	StencilValueType stencilType = STENCIL_VALUE_KEEP;
 	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
 		stencilType = ReplaceAlphaWithStencilType();
 	}
 
 	// Normally, we would add src + 0, but the logic op may have us do differently.
-	GLenum srcBlend = GL_ONE;
-	GLenum dstBlend = GL_ZERO;
-	GLenum blendOp = GL_FUNC_ADD;
+	BlendFactor srcBlend = BlendFactor::ONE;
+	BlendFactor dstBlend = BlendFactor::ZERO;
+	BlendEq blendEq = BlendEq::ADD;
 
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 		if (gstate.isLogicOpEnabled()) {
-			switch (gstate.getLogicOp())
-			{
+			switch (gstate.getLogicOp()) {
 			case GE_LOGIC_CLEAR:
-				srcBlend = GL_ZERO;
+				srcBlend = BlendFactor::ZERO;
 				break;
 			case GE_LOGIC_AND:
 			case GE_LOGIC_AND_REVERSE:
@@ -243,14 +269,14 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 				WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_INVERTED:
-				srcBlend = GL_ONE;
-				dstBlend = GL_ONE;
-				blendOp = GL_FUNC_SUBTRACT;
+				srcBlend = BlendFactor::ONE;
+				dstBlend = BlendFactor::ONE;
+				blendEq = BlendEq::SUBTRACT;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_NOOP:
-				srcBlend = GL_ZERO;
-				dstBlend = GL_ONE;
+				srcBlend = BlendFactor::ZERO;
+				dstBlend = BlendFactor::ONE;
 				break;
 			case GE_LOGIC_XOR:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
@@ -258,14 +284,14 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 			case GE_LOGIC_OR:
 			case GE_LOGIC_OR_INVERTED:
 				// Inverted in shader.
-				dstBlend = GL_ONE;
+				dstBlend = BlendFactor::ONE;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOr, G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_OR_REVERSE:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_SET:
-				dstBlend = GL_ONE;
+				dstBlend = BlendFactor::ONE;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 				break;
 			}
@@ -278,33 +304,33 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 	case STENCIL_VALUE_INCR_4:
 	case STENCIL_VALUE_INCR_8:
 		// We'll add the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
-		glstate.blend.enable();
+		blendState.enabled = true;
+		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
+		blendState.setEquation(blendEq, BlendEq::ADD);
 		break;
 
 	case STENCIL_VALUE_DECR_4:
 	case STENCIL_VALUE_DECR_8:
 		// We'll subtract the incremented value output by the shader.
-		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_SUBTRACT);
-		glstate.blend.enable();
+		blendState.enabled = true;
+		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
+		blendState.setEquation(blendEq, BlendEq::SUBTRACT);
 		break;
 
 	case STENCIL_VALUE_INVERT:
 		// The shader will output one, and reverse subtracting will essentially invert.
-		glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ONE);
-		glstate.blendEquationSeparate.set(blendOp, GL_FUNC_REVERSE_SUBTRACT);
-		glstate.blend.enable();
+		blendState.enabled = true;
+		blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ONE);
+		blendState.setEquation(blendEq, BlendEq::REVERSE_SUBTRACT);
 		break;
 
 	default:
-		if (srcBlend == GL_ONE && dstBlend == GL_ZERO && blendOp == GL_FUNC_ADD) {
-			glstate.blend.disable();
+		if (srcBlend == BlendFactor::ONE && dstBlend == BlendFactor::ZERO && blendEq == BlendEq::ADD) {
+			blendState.enabled = false;
 		} else {
-			glstate.blendFuncSeparate.set(srcBlend, dstBlend, GL_ONE, GL_ZERO);
-			glstate.blendEquationSeparate.set(blendOp, GL_FUNC_ADD);
-			glstate.blend.enable();
+			blendState.enabled = true;
+			blendState.setFactors(srcBlend, dstBlend, BlendFactor::ONE, BlendFactor::ZERO);
+			blendState.setEquation(blendEq, BlendEq::ADD);
 		}
 		break;
 	}
@@ -312,7 +338,7 @@ void TransformDrawEngine::ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replace
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
 
-void TransformDrawEngine::ApplyBlendState() {
+void TransformDrawEngine::ConvertBlendState(GenericBlendState &blendState) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -332,13 +358,13 @@ void TransformDrawEngine::ApplyBlendState() {
 	case REPLACE_BLEND_NO:
 		ResetShaderBlending();
 		// We may still want to do something about stencil -> alpha.
-		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
+		ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
 		return;
 
 	case REPLACE_BLEND_COPY_FBO:
 		if (ApplyShaderBlending()) {
 			// We may still want to do something about stencil -> alpha.
-			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil);
+			ApplyStencilReplaceAndLogicOp(replaceAlphaWithStencil, blendState);
 			return;
 		}
 		// Until next time, force it off.
@@ -356,12 +382,12 @@ void TransformDrawEngine::ApplyBlendState() {
 		break;
 	}
 
-	glstate.blend.enable();
+	blendState.enabled = true;
 	ResetShaderBlending();
 
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
-	int blendFuncA = gstate.getBlendFuncA();
-	int blendFuncB = gstate.getBlendFuncB();
+	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
+	GEBlendDstFactor blendFuncB = gstate.getBlendFuncB();
 	const u32 fixA = gstate.getFixA();
 	const u32 fixB = gstate.getFixB();
 
@@ -371,7 +397,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		blendFuncB = GE_DSTBLEND_FIXB;
 
 	float constantAlpha = 1.0f;
-	GLenum constantAlphaGL = GL_ONE;
+	BlendFactor constantAlphaGL = BlendFactor::ONE;
 	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
@@ -394,35 +420,35 @@ void TransformDrawEngine::ApplyBlendState() {
 
 		// Otherwise it will stay GL_ONE.
 		if (constantAlpha <= 0.0f) {
-			constantAlphaGL = GL_ZERO;
+			constantAlphaGL = BlendFactor::ZERO;
 		} else if (constantAlpha < 1.0f) {
-			constantAlphaGL = GL_CONSTANT_ALPHA;
+			constantAlphaGL = BlendFactor::CONSTANT_ALPHA;
 		}
 	}
 
 	// Shortcut by using GL_ONE where possible, no need to set blendcolor
 	bool approxFuncA = false;
-	GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(fixA, approxFuncA) : aLookup[blendFuncA];
+	BlendFactor glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(fixA, approxFuncA) : genericALookup[blendFuncA];
 	bool approxFuncB = false;
-	GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(fixB, approxFuncB) : bLookup[blendFuncB];
+	BlendFactor glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(fixB, approxFuncB) : genericBLookup[blendFuncB];
 
 	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
 		if (blendFuncA == GE_SRCBLEND_DSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEDSTALPHA) {
-			glBlendFuncA = GL_ZERO;
+			glBlendFuncA = BlendFactor::ZERO;
 		}
 		if (blendFuncA == GE_SRCBLEND_INVDSTALPHA || blendFuncA == GE_SRCBLEND_DOUBLEINVDSTALPHA) {
-			glBlendFuncA = GL_ONE;
+			glBlendFuncA = BlendFactor::ONE;
 		}
 		if (blendFuncB == GE_DSTBLEND_DSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEDSTALPHA) {
-			glBlendFuncB = GL_ZERO;
+			glBlendFuncB = BlendFactor::ZERO;
 		}
 		if (blendFuncB == GE_DSTBLEND_INVDSTALPHA || blendFuncB == GE_DSTBLEND_DOUBLEINVDSTALPHA) {
-			glBlendFuncB = GL_ONE;
+			glBlendFuncB = BlendFactor::ONE;
 		}
 	}
 
 	if (usePreSrc) {
-		glBlendFuncA = GL_ONE;
+		glBlendFuncA = BlendFactor::ONE;
 		// Need to pull in the fixed color.
 		if (blendFuncA == GE_SRCBLEND_FIXA) {
 			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
@@ -439,7 +465,7 @@ void TransformDrawEngine::ApplyBlendState() {
 		glstate.blendColor.set(blendColor);
 	};
 	auto defaultBlendColor = [&]() {
-		if (constantAlphaGL == GL_CONSTANT_ALPHA) {
+		if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
 			const float blendColor[4] = {1.0f, 1.0f, 1.0f, constantAlpha};
 			glstate.blendColor.set(blendColor);
 		}
@@ -448,22 +474,22 @@ void TransformDrawEngine::ApplyBlendState() {
 	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
 		const Vec3f fixAVec = Vec3f::FromRGB(fixA);
 		const Vec3f fixBVec = Vec3f::FromRGB(fixB);
-		if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
+		if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB != BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
 			setBlendColorv(fixAVec);
-			glBlendFuncA = GL_CONSTANT_COLOR;
-		} else if (glBlendFuncA != GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
+			glBlendFuncA = BlendFactor::CONSTANT_COLOR;
+		} else if (glBlendFuncA != BlendFactor::INVALID && glBlendFuncB == BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
 			setBlendColorv(fixBVec);
-			glBlendFuncB = GL_CONSTANT_COLOR;
-		} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
+			glBlendFuncB = BlendFactor::CONSTANT_COLOR;
+		} else if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB == BlendFactor::INVALID) {
 			if (blendColorSimilar(fixAVec, Vec3f::AssignToAll(1.0f) - fixBVec)) {
-				glBlendFuncA = GL_CONSTANT_COLOR;
-				glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
+				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
+				glBlendFuncB = BlendFactor::ONE_MINUS_CONSTANT_COLOR;
 				setBlendColorv(fixAVec);
 			} else if (blendColorSimilar(fixAVec, fixBVec)) {
-				glBlendFuncA = GL_CONSTANT_COLOR;
-				glBlendFuncB = GL_CONSTANT_COLOR;
+				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
+				glBlendFuncB = BlendFactor::CONSTANT_COLOR;
 				setBlendColorv(fixAVec);
 			} else {
 				DEBUG_LOG(G3D, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", fixA, fixB, blendFuncA, blendFuncB);
@@ -471,23 +497,23 @@ void TransformDrawEngine::ApplyBlendState() {
 				const bool nearZeroA = blendColorSimilar(fixAVec, Vec3f::AssignToAll(0.0f), 0.25f);
 				const bool nearZeroB = blendColorSimilar(fixBVec, Vec3f::AssignToAll(0.0f), 0.25f);
 				if (nearZeroA || blendColorSimilar(fixAVec, Vec3f::AssignToAll(1.0f), 0.25f)) {
-					glBlendFuncA = nearZeroA ? GL_ZERO : GL_ONE;
-					glBlendFuncB = GL_CONSTANT_COLOR;
+					glBlendFuncA = nearZeroA ? BlendFactor::ZERO : BlendFactor::ONE;
+					glBlendFuncB = BlendFactor::CONSTANT_COLOR;
 					setBlendColorv(fixBVec);
 				} else {
 					// We need to pick something.  Let's go with A as the fixed color.
-					glBlendFuncA = GL_CONSTANT_COLOR;
-					glBlendFuncB = nearZeroB ? GL_ZERO : GL_ONE;
+					glBlendFuncA = BlendFactor::CONSTANT_COLOR;
+					glBlendFuncB = nearZeroB ? BlendFactor::ZERO : BlendFactor::ONE;
 					setBlendColorv(fixAVec);
 				}
 			}
 		} else {
 			// We optimized both, but that's probably not necessary, so let's pick one to be constant.
 			if (blendFuncA == GE_SRCBLEND_FIXA && !usePreSrc && approxFuncA) {
-				glBlendFuncA = GL_CONSTANT_COLOR;
+				glBlendFuncA = BlendFactor::CONSTANT_COLOR;
 				setBlendColorv(fixAVec);
 			} else if (approxFuncB) {
-				glBlendFuncB = GL_CONSTANT_COLOR;
+				glBlendFuncB = BlendFactor::CONSTANT_COLOR;
 				setBlendColorv(fixBVec);
 			} else {
 				defaultBlendColor();
@@ -501,10 +527,10 @@ void TransformDrawEngine::ApplyBlendState() {
 	// So in non-buffered rendering, we will simply consider the dest alpha to be zero in blending equations.
 #ifdef ANDROID
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		if (glBlendFuncA == GL_DST_ALPHA) glBlendFuncA = GL_ZERO;
-		if (glBlendFuncB == GL_DST_ALPHA) glBlendFuncB = GL_ZERO;
-		if (glBlendFuncA == GL_ONE_MINUS_DST_ALPHA) glBlendFuncA = GL_ONE;
-		if (glBlendFuncB == GL_ONE_MINUS_DST_ALPHA) glBlendFuncB = GL_ONE;
+		if (glBlendFuncA == BlendFactor::DST_ALPHA) glBlendFuncA = BlendFactor::ZERO;
+		if (glBlendFuncB == BlendFactor::DST_ALPHA) glBlendFuncB = BlendFactor::ZERO;
+		if (glBlendFuncA == BlendFactor::ONE_MINUS_DST_ALPHA) glBlendFuncA = BlendFactor::ONE;
+		if (glBlendFuncB == BlendFactor::ONE_MINUS_DST_ALPHA) glBlendFuncB = BlendFactor::ONE;
 	}
 #endif
 
@@ -513,75 +539,75 @@ void TransformDrawEngine::ApplyBlendState() {
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
 	// apply the stencil to the alpha, since that's what should be stored.
-	GLenum alphaEq = GL_FUNC_ADD;
+	BlendEq alphaEq = BlendEq::ADD;
 	if (replaceAlphaWithStencil != REPLACE_ALPHA_NO) {
 		// Let the fragment shader take care of it.
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_INCR_8:
 			// We'll add the increment value.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
 			break;
 
 		case STENCIL_VALUE_DECR_4:
 		case STENCIL_VALUE_DECR_8:
 			// Like add with a small value, but subtracting.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
-			alphaEq = GL_FUNC_SUBTRACT;
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
+			alphaEq = BlendEq::SUBTRACT;
 			break;
 
 		case STENCIL_VALUE_INVERT:
 			// This will subtract by one, effectively inverting the bits.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
-			alphaEq = GL_FUNC_REVERSE_SUBTRACT;
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
+			alphaEq = BlendEq::REVERSE_SUBTRACT;
 			break;
 
 		default:
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ZERO);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ZERO);
 			break;
 		}
 	} else if (gstate.isStencilTestEnabled()) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_KEEP:
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ONE);
 			break;
 		case STENCIL_VALUE_ONE:
 			// This won't give one but it's our best shot...
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
 			break;
 		case STENCIL_VALUE_ZERO:
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ZERO);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ZERO);
 			break;
 		case STENCIL_VALUE_UNIFORM:
 			// This won't give a correct value (it multiplies) but it may be better than random values.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ZERO);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ZERO);
 			break;
 		case STENCIL_VALUE_INCR_4:
 		case STENCIL_VALUE_INCR_8:
 			// This won't give a correct value always, but it will try to increase at least.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ONE);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ONE);
 			break;
 		case STENCIL_VALUE_DECR_4:
 		case STENCIL_VALUE_DECR_8:
 			// This won't give a correct value always, but it will try to decrease at least.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, constantAlphaGL, GL_ONE);
-			alphaEq = GL_FUNC_SUBTRACT;
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, constantAlphaGL, BlendFactor::ONE);
+			alphaEq = BlendEq::SUBTRACT;
 			break;
 		case STENCIL_VALUE_INVERT:
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ONE, GL_ONE);
+			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ONE);
 			// If the output alpha is near 1, this will basically invert.  It's our best shot.
-			alphaEq = GL_FUNC_REVERSE_SUBTRACT;
+			alphaEq = BlendEq::REVERSE_SUBTRACT;
 			break;
 		}
 	} else {
 		// Retain the existing value when stencil testing is off.
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+		blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ONE);
 	}
 
 	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
-		glstate.blendEquationSeparate.set(eqLookup[blendFuncEq], alphaEq);
+		blendState.setEquation(eqLookup[blendFuncEq], alphaEq);
 	} else {
-		glstate.blendEquationSeparate.set(eqLookupNoMinMax[blendFuncEq], alphaEq);
+		blendState.setEquation(eqLookupNoMinMax[blendFuncEq], alphaEq);
 	}
 }
 
@@ -602,7 +628,18 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	PROFILE_THIS_SCOPE("applydrawstate");
 
 	// Set blend - unless we need to do it in the shader.
-	ApplyBlendState();
+	GenericBlendState blendState;
+	ConvertBlendState(blendState);
+
+	if (blendState.enabled) {
+		glstate.blend.enable();
+		glstate.blendEquationSeparate.set(glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
+		glstate.blendFuncSeparate.set(
+			glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
+			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
+	} else {
+		glstate.blend.disable();
+	}
 
 	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
 	bool enableStencilTest = !g_Config.bDisableStencilTest;
