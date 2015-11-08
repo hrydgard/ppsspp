@@ -134,3 +134,6 @@ struct GenericBlendState {
 		useBlendColor = true;
 	}
 };
+
+void ConvertBlendState(GenericBlendState &blendState);
+void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
