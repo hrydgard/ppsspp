@@ -2125,7 +2125,7 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.dataOff = atrac->dataOff;
 	context->info.endSample = atrac->endSample + atrac->firstSampleoffset + atrac->firstOffsetExtra();
 	context->info.dataEnd = atrac->first.filesize;
-	context->info.curOff = atrac->getFileOffsetBySample(atrac->currentSample);
+	context->info.curOff = atrac->first.fileoffset;
 	context->info.decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 	context->info.streamDataByte = atrac->first.size - atrac->dataOff;
 
