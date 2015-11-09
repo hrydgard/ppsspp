@@ -562,6 +562,7 @@ static Atrac *getAtrac(int atracID) {
 		// Read in any changes from the game to the context.
 		// TODO: Might be better to just always track in RAM.
 		atrac->bufferState = atrac->atracContext->info.state;
+		// This value is actually abused by games to store the SAS voice number.
 		atrac->loopNum = atrac->atracContext->info.loopNum;
 	}
 
@@ -976,8 +977,14 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 	} else if (!atrac->data_buf) {
 		ret = ATRAC_ERROR_NO_DATA;
 	} else {
+		int loopNum = atrac->loopNum;
+		if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+			// TODO: Might need more testing.
+			loopNum = 0;
+		}
+
 		// We already passed the end - return an error (many games check for this.)
-		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
+		if (atrac->currentSample >= atrac->endSample && loopNum == 0) {
 			*SamplesNum = 0;
 			*finish = 1;
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
@@ -1076,10 +1083,12 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			// TODO: Verify.
 			bool hitEnd = atrac->currentSample >= atrac->endSample || (numSamples == 0 && atrac->first.size >= atrac->first.filesize);
 			int loopEndAdjusted = atrac->loopEndSample - atrac->firstOffsetExtra() - atrac->firstSampleoffset;
-			if ((hitEnd || atrac->currentSample > loopEndAdjusted) && atrac->loopNum != 0) {
+			if ((hitEnd || atrac->currentSample > loopEndAdjusted) && loopNum != 0) {
 				atrac->SeekToSample(atrac->loopStartSample - atrac->firstOffsetExtra() - atrac->firstSampleoffset);
-				if (atrac->loopNum > 0)
-					atrac->loopNum--;
+				if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+					if (atrac->loopNum > 0)
+						atrac->loopNum--;
+				}
 			} else if (hitEnd) {
 				finishFlag = 1;
 			}

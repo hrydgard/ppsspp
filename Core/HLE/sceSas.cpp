@@ -60,6 +60,8 @@ enum {
 	ERROR_SAS_REV_INVALID_DELAY       = 0x80420022,
 	ERROR_SAS_REV_INVALID_VOLUME      = 0x80420023,
 	ERROR_SAS_BUSY                    = 0x80420030,
+	ERROR_SAS_ATRAC3_ALREADY_SET      = 0x80420040,
+	ERROR_SAS_ATRAC3_NOT_SET          = 0x80420041,
 	ERROR_SAS_NOT_INIT                = 0x80420100,
 };
 
@@ -165,10 +167,8 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
-		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
-		return ERROR_SAS_INVALID_VOICE;
+		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
-
 
 	if (size == 0 || ((u32)size & 0xF) != 0) {
 		if (size == 0) {
@@ -188,6 +188,11 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 		return 0;
 	}
 
+	SasVoice &v = sas->voices[voiceNum];
+	if (v.type == VOICETYPE_ATRAC3) {
+		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
+	}
+
 	if (size < 0) {
 		// POSSIBLE HACK
 		// SetVoice with negative sizes returns OK (0) unlike SetVoicePCM, but should not
@@ -200,7 +205,6 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 		DEBUG_LOG(SCESAS, "sceSasSetVoice(%08x, %i, %08x, %i, %i)", core, voiceNum, vagAddr, size, loop);
 	}
 
-	SasVoice &v = sas->voices[voiceNum];
 	u32 prevVagAddr = v.vagAddr;
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;  // Real VAG header is 0x30 bytes behind the vagAddr
@@ -210,11 +214,9 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 	return 0;
 }
 
-static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos)
-{
-	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0)	{
-		WARN_LOG(SCESAS, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
-		return ERROR_SAS_INVALID_VOICE;
+static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loopPos) {
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
 	if (size <= 0 || size > 0x10000) {
 		WARN_LOG(SCESAS, "%s: invalid size %d", __FUNCTION__, size);
@@ -229,9 +231,13 @@ static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int 
 		return 0;
 	}
 
+	SasVoice &v = sas->voices[voiceNum];
+	if (v.type == VOICETYPE_ATRAC3) {
+		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
+	}
+
 	DEBUG_LOG(SCESAS, "sceSasSetVoicePCM(%08x, %i, %08x, %i, %i)", core, voiceNum, pcmAddr, size, loopPos);
 
-	SasVoice &v = sas->voices[voiceNum];
 	u32 prevPcmAddr = v.pcmAddr;
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
@@ -560,17 +566,28 @@ static u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown) {
 }
 
 static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
-	DEBUG_LOG_REPORT(SCESAS, "__sceSasSetVoiceATRAC3(%08x, %i, %08x)", core, voiceNum, atrac3Context);
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
+	}
+
 	SasVoice &v = sas->voices[voiceNum];
+	if (v.type == VOICETYPE_ATRAC3) {
+		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
+	}
 	v.type = VOICETYPE_ATRAC3;
 	v.loop = false;
 	v.playing = true;
 	v.atrac3.setContext(atrac3Context);
 	Memory::Write_U32(atrac3Context, core + 56 * voiceNum + 20);
-	return 0;
+
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr, int atrac3DataLength) {
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
+	}
+
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
@@ -579,9 +596,22 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 }
 
 static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
-	DEBUG_LOG_REPORT(SCESAS, "__sceSasUnsetATRAC3(%08x, %i)", core, voiceNum);
+	if (voiceNum >= PSP_SAS_VOICES_MAX || voiceNum < 0) {
+		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
+	}
+
+	SasVoice &v = sas->voices[voiceNum];
+	if (v.type != VOICETYPE_ATRAC3) {
+		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_NOT_SET, "voice is not ATRAC3");
+	}
+	v.type = VOICETYPE_OFF;
+	v.playing = false;
+	v.on = false;
+	// This unpauses.  Some games, like Sol Trigger, depend on this.
+	v.paused = false;
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
-	return 0;
+
+	return hleLogSuccessI(SCESAS, 0);
 }
 
 void __SasGetDebugStats(char *stats, size_t bufsize) {
