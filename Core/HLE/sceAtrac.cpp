@@ -1408,23 +1408,28 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytes
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): bad atrac ID", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetSoundSample(%i, %08x, %08x, %08x): no data", atracID, outEndSampleAddr, outLoopStartSampleAddr, outLoopEndSampleAddr);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
+		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
+	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
 	} else {
-		if (Memory::IsValidAddress(outEndSampleAddr))
-			Memory::Write_U32(atrac->endSample, outEndSampleAddr);
-		if (Memory::IsValidAddress(outLoopStartSampleAddr))
-			Memory::Write_U32(atrac->loopStartSample - atrac->firstSampleoffset, outLoopStartSampleAddr);
-		if (Memory::IsValidAddress(outLoopEndSampleAddr))
-			Memory::Write_U32(atrac->loopEndSample - atrac->firstSampleoffset, outLoopEndSampleAddr);
-		if (Memory::IsValidAddress(outEndSampleAddr) && (Memory::IsValidAddress(outLoopStartSampleAddr)) && (Memory::IsValidAddress(outLoopEndSampleAddr)))
-			DEBUG_LOG(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d])", atracID, outEndSampleAddr, atrac->endSample, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
-		else
-			DEBUG_LOG_REPORT(ME, "sceAtracGetSoundSample(%i, %08x[%08x], %08x[%d], %08x[%d]) invalid address", atracID, outEndSampleAddr, atrac->endSample - 1, outLoopStartSampleAddr, atrac->loopStartSample, outLoopEndSampleAddr, atrac->loopEndSample);
+		auto outEndSample = PSPPointer<u32>::Create(outEndSampleAddr);
+		if (outEndSample.IsValid())
+			*outEndSample = atrac->endSample;
+		auto outLoopStart = PSPPointer<u32>::Create(outLoopStartSampleAddr);
+		if (outLoopStart.IsValid())
+			*outLoopStart = atrac->loopStartSample == -1 ? -1 : atrac->loopStartSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
+		auto outLoopEnd = PSPPointer<u32>::Create(outLoopEndSampleAddr);
+		if (outLoopEnd.IsValid())
+			*outLoopEnd = atrac->loopEndSample == -1 ? -1 : atrac->loopEndSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
 
+		if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
+			return hleReportError(ME, 0, "invalid address");
+		}
+		return hleLogSuccessI(ME, 0);
 	}
 	return 0;
 }
@@ -2399,7 +2404,7 @@ const HLEFunction sceAtrac3plus[] = {
 	{0X36FAABFB, &WrapU_IU<sceAtracGetNextSample>,                 "sceAtracGetNextSample",                'x', "ix"   },
 	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
 	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ixx"  },
-	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ixxx" },
+	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ippp" },
 	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ixxx" },
 	{0X61EB33F5, &WrapU_I<sceAtracReleaseAtracID>,                 "sceAtracReleaseAtracID",               'x', "i"    },
 	{0X644E5607, &WrapU_IIII<sceAtracResetPlayPosition>,           "sceAtracResetPlayPosition",            'x', "iiii" },
