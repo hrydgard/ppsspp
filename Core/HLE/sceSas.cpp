@@ -607,6 +607,8 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 	v.type = VOICETYPE_OFF;
 	v.playing = false;
 	v.on = false;
+	// This unpauses.  Some games, like Sol Trigger, depend on this.
+	v.paused = false;
 	Memory::Write_U32(0, core + 56 * voiceNum + 20);
 
 	return hleLogSuccessI(SCESAS, 0);
