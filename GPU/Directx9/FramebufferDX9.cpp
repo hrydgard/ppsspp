@@ -656,7 +656,7 @@ namespace DX9 {
 
 				// If max is not > min, we probably could not detect it.  Skip.
 				// See the vertex decoder, where this is updated.
-				if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+				if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 					x = gstate_c.vertBounds.minU;
 					y = gstate_c.vertBounds.minV;
 					w = gstate_c.vertBounds.maxU - x;

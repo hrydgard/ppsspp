@@ -943,7 +943,8 @@ void TransformDrawEngine::ApplyDrawStateLate() {
 		textureCache_->ApplyTexture();
 
 		if (fboTexNeedBind_) {
-			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY_WITH_UV);
+			// Note that this is positions, not UVs, that we need the copy from.
+			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
 
 			glActiveTexture(GL_TEXTURE1);
