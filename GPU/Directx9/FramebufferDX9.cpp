@@ -1161,7 +1161,9 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {
-		fbo_unbind();
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+			fbo_unbind();
+		}
 		currentRenderVfb_ = 0;
 		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 

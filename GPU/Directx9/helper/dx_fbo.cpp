@@ -115,6 +115,8 @@ void fbo_destroy(FBO *fbo) {
 void fbo_unbind() {
 	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
+	dxstate.scissorRect.restore();
+	dxstate.viewport.restore();
 }
 
 void fbo_resolve(FBO *fbo) {
