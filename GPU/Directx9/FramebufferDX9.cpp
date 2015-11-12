@@ -200,16 +200,17 @@ namespace DX9 {
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 		if (useBufferedRendering_ && vfb && vfb->fbo) {
 			fbo_bind_as_render_target(vfb->fbo);
-			dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 		} else {
 			float x, y, w, h;
 			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			dxstate.viewport.set(x, y, w, h);
+			DXSetViewport(x, y, w, h);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
 		textureCache_->ForgetLastTexture();
+		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -515,20 +516,14 @@ namespace DX9 {
 			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
-			D3DVIEWPORT9 vp;
-			vp.MinZ = 0;
-			vp.MaxZ = 1;
-			vp.X = 0;
-			vp.Y = 0;
-			vp.Width = vfb->renderWidth;
-			vp.Height = vfb->renderHeight;
-			pD3Ddevice->SetViewport(&vp);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 
 			// This should clear stencil and alpha without changing the other colors.
 			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 			if (FAILED(hr)) {
 				ERROR_LOG_REPORT(G3D, "ReformatFramebufferFrom() failed: %08x", hr);
 			}
+			dxstate.viewport.restore();
 		}
 
 		RebindFramebuffer();
@@ -682,9 +677,10 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
-
 		fbo_unbind();
-		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		if (useBufferedRendering_) {
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		}
 		currentRenderVfb_ = 0;
 
 		u32 offsetX = 0;
@@ -794,7 +790,7 @@ namespace DX9 {
 				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
-					dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {
 						dxstate.texMagFilter.set(D3DTEXF_LINEAR);
@@ -814,7 +810,7 @@ namespace DX9 {
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			dxstate.viewport.set(0, 0, fbo_w, fbo_h);
+			DXSetViewport(0, 0, fbo_w, fbo_h);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
@@ -826,18 +822,19 @@ namespace DX9 {
 			return;
 			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			} else {
 			// Use post-shader, but run shader at output resolution.
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}
 			*/
 			pD3Ddevice->SetTexture(0, NULL);
 		}
+		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
@@ -1107,7 +1104,6 @@ namespace DX9 {
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// Actually, auto mode should be more granular...
 			// Round up to a zoom factor for the render size.
 			int zoom = g_Config.iInternalResolution;
@@ -1165,7 +1161,9 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {
-		fbo_unbind();
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+			fbo_unbind();
+		}
 		currentRenderVfb_ = 0;
 		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 

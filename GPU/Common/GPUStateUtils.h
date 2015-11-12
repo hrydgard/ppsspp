@@ -47,3 +47,21 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 
 bool CanUseHardwareTransform(int prim);
 LogicOpReplaceType ReplaceLogicOpType();
+
+
+// Common representation, should be able to set this directly with any modern API.
+struct ViewportAndScissor {
+	bool scissorEnable;
+	int scissorX;
+	int scissorY;
+	int scissorW;
+	int scissorH;
+	float viewportX;
+	float viewportY;
+	float viewportW;
+	float viewportH;
+	float depthRangeMin;
+	float depthRangeMax;
+	bool dirtyProj;
+};
+void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);

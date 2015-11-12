@@ -284,6 +284,7 @@ void TransformDrawEngineDX9::ApplyBlendState() {
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
+
 	bool usePreSrc = false;
 
 	switch (replaceBlend) {
@@ -650,152 +651,40 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	float renderWidthFactor, renderHeightFactor;
-	float renderWidth, renderHeight;
-	float renderX, renderY;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering) {
-		renderX = 0.0f;
-		renderY = 0.0f;
-		renderWidth = framebufferManager_->GetRenderWidth();
-		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
-	} else {
-		float pixelW = PSP_CoreParameter().pixelWidth;
-		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterDisplayOutputRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
-		renderWidthFactor = renderWidth / 480.0f;
-		renderHeightFactor = renderHeight / 272.0f;
-	}
 
-	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
 
-	bool throughmode = gstate.isModeThrough();
-
-	// Scissor
-	int scissorX1 = gstate.getScissorX1();
-	int scissorY1 = gstate.getScissorY1();
-	int scissorX2 = gstate.getScissorX2() + 1;
-	int scissorY2 = gstate.getScissorY2() + 1;
-
-	// This is a bit of a hack as the render buffer isn't always that size
-	if (scissorX1 == 0 && scissorY1 == 0 
-		&& scissorX2 >= (int) gstate_c.curRTWidth
-		&& scissorY2 >= (int) gstate_c.curRTHeight) {
-		dxstate.scissorTest.disable();
-	} else {
+	if (vpAndScissor.scissorEnable) {
 		dxstate.scissorTest.enable();
-		dxstate.scissorRect.set(
-			renderX + scissorX1 * renderWidthFactor,
-			renderY + scissorY1 * renderHeightFactor,
-			renderX + scissorX2 * renderWidthFactor,
-			renderY + scissorY2 * renderHeightFactor);
+		dxstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorX + vpAndScissor.scissorW, vpAndScissor.scissorY + vpAndScissor.scissorH);
+	} else {
+		dxstate.scissorTest.disable();
 	}
 
-	int curRTWidth = gstate_c.curRTWidth;
-	int curRTHeight = gstate_c.curRTHeight;
+	float depthMin = vpAndScissor.depthRangeMin;
+	float depthMax = vpAndScissor.depthRangeMax;
 
-	float offsetX = gstate.getOffsetX();
-	float offsetY = gstate.getOffsetY();
-
-	if (throughmode) {
-		dxstate.viewport.set(
-			renderX,
-			renderY,
-			curRTWidth * renderWidthFactor,
-			curRTHeight * renderHeightFactor,
-			0.f, 1.f);
-	} else {
-		float vpXScale = gstate.getViewportXScale();
-		float vpXCenter = gstate.getViewportXCenter();
-		float vpYScale = gstate.getViewportYScale();
-		float vpYCenter = gstate.getViewportYCenter();
-
-		// The viewport transform appears to go like this: 
-		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
-		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
-		// Zscreen = vpZCenter + vpZScale * Zview
-
-		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);
-		gstate_c.vpWidth = vpXScale * 2.0f;
-		gstate_c.vpHeight = vpYScale * 2.0f;
-
-		float vpWidth = fabsf(gstate_c.vpWidth);
-		float vpHeight = fabsf(gstate_c.vpHeight);
-
-		vpX0 *= renderWidthFactor;
-		vpY0 *= renderHeightFactor;
-		vpWidth *= renderWidthFactor;
-		vpHeight *= renderHeightFactor;
-
-		float zScale = gstate.getViewportZScale();
-		float zCenter = gstate.getViewportZCenter();
-
-		// Note - We lose the sign of the zscale here. But we keep it in gstate_c.vpDepth.
-		// That variable is only check for sign later so the multiplication by 2 isn't really necessary.
-
-		// It's unclear why we need this Z offset to match OpenGL, but this checks out in multiple games.
-		float depthRangeMin = (zCenter - fabsf(zScale)) * (1.0f / 65535.0f);
-		float depthRangeMax = (zCenter + fabsf(zScale)) * (1.0f / 65535.0f);
-		gstate_c.vpDepth = zScale * (2.0f / 65335.0f);
-
-		// D3D doesn't like viewports partially outside the target, so we
-		// apply the viewport partially in the shader.
-		float left = renderX + vpX0;
-		float top = renderY + vpY0;
-		float right = left + vpWidth;
-		float bottom = top + vpHeight;
-
-		float wScale = 1.0f;
-		float xOffset = 0.0f;
-		float hScale = 1.0f;
-		float yOffset = 0.0f;
-
-		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-		if (left < 0.0f || right > renderWidth) {
-			float overageLeft = std::max(-left, 0.0f);
-			float overageRight = std::max(right - renderWidth, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageRight - overageLeft;
-
-			left += overageLeft;
-			right -= overageRight;
-
-			wScale = vpWidth / (right - left);
-			xOffset = drift / (right - left);
+	if (!gstate.isModeThrough()) {
+		// Direct3D can't handle negative depth ranges, so we fix it in the projection matrix.
+		if (gstate_c.vpDepth != depthMax - depthMin) {
+			gstate_c.vpDepth = depthMax - depthMin;
+			vpAndScissor.dirtyProj = true;
 		}
-
-		if (top < 0.0f || bottom > renderHeight) {
-			float overageTop = std::max(-top, 0.0f);
-			float overageBottom = std::max(bottom - renderHeight, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageTop - overageBottom;
-
-			top += overageTop;
-			bottom -= overageBottom;
-
-			hScale = vpHeight / (bottom - top);
-			yOffset = drift / (bottom - top);
+		if (depthMin > depthMax) {
+			std::swap(depthMin, depthMax);
 		}
+		if (depthMin < 0.0f) depthMin = 0.0f;
+		if (depthMax > 1.0f) depthMax = 1.0f;
+	}
 
-		depthRangeMin = std::max(0.0f, depthRangeMin);
-		depthRangeMax = std::min(1.0f, depthRangeMax);
-
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		if (scaleChanged || offsetChanged)
-		{
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-		}
-
-		dxstate.viewport.set(left, top, right - left, bottom - top, depthRangeMin, depthRangeMax);
+	dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
+	if (vpAndScissor.dirtyProj) {
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}
 }
 

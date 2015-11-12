@@ -586,7 +586,6 @@ void TransformDrawEngine::ApplyBlendState() {
 }
 
 void TransformDrawEngine::ApplyDrawState(int prim) {
-
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -746,189 +745,30 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 	}
 
-	bool throughmode = gstate.isModeThrough();
+	ViewportAndScissor vpAndScissor;
+	ConvertViewportAndScissor(useBufferedRendering,
+		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
+		framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
+		vpAndScissor);
 
-	float renderWidthFactor, renderHeightFactor;
-	float renderWidth, renderHeight;
-	float renderX = 0.0f, renderY = 0.0f;
-	float displayOffsetX, displayOffsetY;
-	if (useBufferedRendering) {
-		displayOffsetX = 0.0f;
-		displayOffsetY = 0.0f;
-		renderWidth = framebufferManager_->GetRenderWidth();
-		renderHeight = framebufferManager_->GetRenderHeight();
-		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetBufferWidth();
-		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetBufferHeight();
-	} else {
-		float pixelW = PSP_CoreParameter().pixelWidth;
-		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterDisplayOutputRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
-		renderWidthFactor = renderWidth / 480.0f;
-		renderHeightFactor = renderHeight / 272.0f;
-	}
-
-	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
-
-	// Scissor
-	int scissorX1 = gstate.getScissorX1();
-	int scissorY1 = gstate.getScissorY1();
-	int scissorX2 = gstate.getScissorX2() + 1;
-	int scissorY2 = gstate.getScissorY2() + 1;
-
-	// This is a bit of a hack as the render buffer isn't always that size
-	// We always scissor on non-buffered so that clears don't spill outside the frame.
-	if (useBufferedRendering && scissorX1 == 0 && scissorY1 == 0
-		&& scissorX2 >= (int) gstate_c.curRTWidth
-		&& scissorY2 >= (int) gstate_c.curRTHeight) {
-		glstate.scissorTest.disable();
-	} else {
+	if (vpAndScissor.scissorEnable) {
 		glstate.scissorTest.enable();
-
-		// Buffers are now in the GL coordinate system, so no flipping needed.
-		if (useBufferedRendering) {
-			glstate.scissorRect.set(
-				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-				renderY + displayOffsetY + scissorY1 * renderHeightFactor,
-				(scissorX2 - scissorX1) * renderWidthFactor,
-				(scissorY2 - scissorY1) * renderHeightFactor);
-		} else {
-			glstate.scissorRect.set(
-				renderX + displayOffsetX + scissorX1 * renderWidthFactor,
-				renderY + displayOffsetY + renderHeight - (scissorY2 * renderHeightFactor),
-				(scissorX2 - scissorX1) * renderWidthFactor,
-				(scissorY2 - scissorY1) * renderHeightFactor);
+		if (!useBufferedRendering) {
+			vpAndScissor.scissorY = PSP_CoreParameter().pixelHeight - vpAndScissor.scissorH - vpAndScissor.scissorY;
 		}
+		glstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
+	} else {
+		glstate.scissorTest.disable();
 	}
 
-	int curRTWidth = gstate_c.curRTWidth;
-	int curRTHeight = gstate_c.curRTHeight;
+	if (!useBufferedRendering) {
+		vpAndScissor.viewportY = PSP_CoreParameter().pixelHeight - vpAndScissor.viewportH - vpAndScissor.viewportY;
+	}
+	glstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH);
+	glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
 
-	float offsetX = gstate.getOffsetX();
-	float offsetY = gstate.getOffsetY();
-
-	if (throughmode) {
-		// No viewport transform here. Let's experiment with using region.
-		if (useBufferedRendering) {
-			// No flip needed
-			glstate.viewport.set(
-				renderX + displayOffsetX,
-				renderY + displayOffsetY,
-				curRTWidth * renderWidthFactor,
-				curRTHeight * renderHeightFactor);
-		} else {
-			renderY += renderHeight - framebufferManager_->GetTargetHeight() * renderHeightFactor;
-			glstate.viewport.set(
-				renderX + displayOffsetX,
-				renderY + displayOffsetY,
-				curRTWidth * renderWidthFactor,
-				curRTHeight * renderHeightFactor);
-		}
-		glstate.depthRange.set(0.0f, 1.0f);
-	} else {
-		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
-		float vpXScale = gstate.getViewportXScale();
-		float vpXCenter = gstate.getViewportXCenter();
-		float vpYScale = gstate.getViewportYScale();
-		float vpYCenter = gstate.getViewportYCenter();
-
-		// The viewport transform appears to go like this:
-		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
-		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
-		// Zscreen = vpZCenter + vpZScale * Zview
-
-		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
-		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
-		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
-
-		// This means that to get the analogue glViewport we must:
-		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
-		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXScale * 2.0f;
-		gstate_c.vpHeight = vpYScale * 2.0f;
-
-		float vpWidth = fabsf(gstate_c.vpWidth);
-		float vpHeight = fabsf(gstate_c.vpHeight);
-
-		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
-		vpX0 *= renderWidthFactor;
-		vpY0 *= renderHeightFactor;
-		vpWidth *= renderWidthFactor;
-		vpHeight *= renderHeightFactor;
-
-		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
-		// This may mean some games won't work, or at least won't work at higher render resolutions.
-		// So we apply it in the shader instead.
-		float left = renderX + vpX0;
-		float top = renderY + vpY0;
-		float right = left + vpWidth;
-		float bottom = top + vpHeight;
-
-		float wScale = 1.0f;
-		float xOffset = 0.0f;
-		float hScale = 1.0f;
-		float yOffset = 0.0f;
-
-		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-		if (left < 0.0f || right > renderWidth) {
-			float overageLeft = std::max(-left, 0.0f);
-			float overageRight = std::max(right - renderWidth, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageRight - overageLeft;
-
-			left += overageLeft;
-			right -= overageRight;
-
-			wScale = vpWidth / (right - left);
-			xOffset = drift / (right - left);
-		}
-
-		if (top < 0.0f || bottom > renderHeight) {
-			float overageTop = std::max(-top, 0.0f);
-			float overageBottom = std::max(bottom - renderHeight, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageBottom - overageTop;
-
-			top += overageTop;
-			bottom -= overageBottom;
-
-			hScale = vpHeight / (bottom - top);
-			yOffset = drift / (bottom - top);
-		}
-
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		if (scaleChanged || offsetChanged) {
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-		}
-
-		if (useBufferedRendering) {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + top, right - left, bottom - top);
-		} else {
-			glstate.viewport.set(left + displayOffsetX, displayOffsetY + (renderHeight - bottom), right - left, bottom - top);
-		}
-
-		float zScale = gstate.getViewportZScale();
-		float zCenter = gstate.getViewportZCenter();
-		float depthRangeMin = zCenter - zScale;
-		float depthRangeMax = zCenter + zScale;
-		glstate.depthRange.set(depthRangeMin * (1.0f / 65535.0f), depthRangeMax * (1.0f / 65535.0f));
-
-#ifndef MOBILE_DEVICE
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
-		if ((minz > depthRangeMin && minz > depthRangeMax) || (maxz < depthRangeMin && maxz < depthRangeMax)) {
-			WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range in test - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
-		} else if ((gstate.clipEnable & 1) == 0) {
-			// TODO: Need to test whether clipEnable should even affect depth or not.
-			if ((minz < depthRangeMin && minz < depthRangeMax) || (maxz > depthRangeMin && maxz > depthRangeMax)) {
-				WARN_LOG_REPORT_ONCE(znoclip, G3D, "Unsupported depth range in test without clipping - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
-			}
-		}
-#endif
+	if (vpAndScissor.dirtyProj) {
+		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}
 }
 

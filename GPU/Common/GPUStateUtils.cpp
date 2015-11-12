@@ -1,10 +1,31 @@
+// Copyright (c) 2015- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <algorithm>
+
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/Common/GPUStateUtils.h"
 
@@ -385,4 +406,169 @@ LogicOpReplaceType ReplaceLogicOpType() {
 		}
 	}
 	return LOGICOPTYPE_NORMAL;
+}
+
+
+void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
+	bool throughmode = gstate.isModeThrough();
+	out.dirtyProj = false;
+
+	float renderWidthFactor, renderHeightFactor;
+	float renderX = 0.0f, renderY = 0.0f;
+	float displayOffsetX, displayOffsetY;
+	if (useBufferedRendering) {
+		displayOffsetX = 0.0f;
+		displayOffsetY = 0.0f;
+		renderWidthFactor = (float)renderWidth / (float)bufferWidth;
+		renderHeightFactor = (float)renderHeight / (float)bufferHeight;
+	} else {
+		float pixelW = PSP_CoreParameter().pixelWidth;
+		float pixelH = PSP_CoreParameter().pixelHeight;
+		CenterDisplayOutputRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		renderWidthFactor = renderWidth / 480.0f;
+		renderHeightFactor = renderHeight / 272.0f;
+	}
+
+	renderX += gstate_c.curRTOffsetX * renderWidthFactor;
+
+	// Scissor
+	int scissorX1 = gstate.getScissorX1();
+	int scissorY1 = gstate.getScissorY1();
+	int scissorX2 = gstate.getScissorX2() + 1;
+	int scissorY2 = gstate.getScissorY2() + 1;
+
+	// This is a bit of a hack as the render buffer isn't always that size
+	// We always scissor on non-buffered so that clears don't spill outside the frame.
+	if (useBufferedRendering && scissorX1 == 0 && scissorY1 == 0
+		&& scissorX2 >= (int)gstate_c.curRTWidth
+		&& scissorY2 >= (int)gstate_c.curRTHeight) {
+		out.scissorEnable = false;
+	} else {
+		out.scissorEnable = true;
+		out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
+		out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
+		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
+		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
+	}
+
+	int curRTWidth = gstate_c.curRTWidth;
+	int curRTHeight = gstate_c.curRTHeight;
+
+	float offsetX = gstate.getOffsetX();
+	float offsetY = gstate.getOffsetY();
+
+	if (throughmode) {
+		// No viewport transform here. Let's experiment with using region.
+		out.viewportX = renderX + displayOffsetX;
+		out.viewportY = renderY + displayOffsetY;
+		out.viewportW = curRTWidth * renderWidthFactor;
+		out.viewportH = curRTHeight * renderHeightFactor;
+		out.depthRangeMin = 0.0f;
+		out.depthRangeMax = 1.0f;
+	} else {
+		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
+		float vpXScale = gstate.getViewportXScale();
+		float vpXCenter = gstate.getViewportXCenter();
+		float vpYScale = gstate.getViewportYScale();
+		float vpYCenter = gstate.getViewportYCenter();
+
+		// The viewport transform appears to go like this:
+		// Xscreen = -offsetX + vpXCenter + vpXScale * Xview
+		// Yscreen = -offsetY + vpYCenter + vpYScale * Yview
+		// Zscreen = vpZCenter + vpZScale * Zview
+
+		// The viewport is normally centered at 2048,2048 but can also be centered at other locations.
+		// Offset is subtracted from the viewport center and is also set to values in those ranges, and is set so that the viewport will cover
+		// the desired screen area ([0-480)x[0-272)), so 1808,1912.
+
+		// This means that to get the analogue glViewport we must:
+		float vpX0 = vpXCenter - offsetX - fabsf(vpXScale);
+		float vpY0 = vpYCenter - offsetY - fabsf(vpYScale);
+		gstate_c.vpWidth = vpXScale * 2.0f;
+		gstate_c.vpHeight = vpYScale * 2.0f;
+
+		float vpWidth = fabsf(gstate_c.vpWidth);
+		float vpHeight = fabsf(gstate_c.vpHeight);
+
+		// This multiplication should probably be done after viewport clipping. Would let us very slightly simplify the clipping logic?
+		vpX0 *= renderWidthFactor;
+		vpY0 *= renderHeightFactor;
+		vpWidth *= renderWidthFactor;
+		vpHeight *= renderHeightFactor;
+
+		// We used to apply the viewport here via glstate, but there are limits which vary by driver.
+		// This may mean some games won't work, or at least won't work at higher render resolutions.
+		// So we apply it in the shader instead.
+		float left = renderX + vpX0;
+		float top = renderY + vpY0;
+		float right = left + vpWidth;
+		float bottom = top + vpHeight;
+
+		float wScale = 1.0f;
+		float xOffset = 0.0f;
+		float hScale = 1.0f;
+		float yOffset = 0.0f;
+
+		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+		if (left < 0.0f || right > renderWidth) {
+			float overageLeft = std::max(-left, 0.0f);
+			float overageRight = std::max(right - renderWidth, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageRight - overageLeft;
+
+			left += overageLeft;
+			right -= overageRight;
+
+			wScale = vpWidth / (right - left);
+			xOffset = drift / (right - left);
+		}
+
+		if (top < 0.0f || bottom > renderHeight) {
+			float overageTop = std::max(-top, 0.0f);
+			float overageBottom = std::max(bottom - renderHeight, 0.0f);
+			// Our center drifted by the difference in overages.
+			float drift = overageBottom - overageTop;
+
+			top += overageTop;
+			bottom -= overageBottom;
+
+			hScale = vpHeight / (bottom - top);
+			yOffset = drift / (bottom - top);
+		}
+
+		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
+		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
+		if (scaleChanged || offsetChanged) {
+			gstate_c.vpWidthScale = wScale;
+			gstate_c.vpHeightScale = hScale;
+			gstate_c.vpXOffset = xOffset;
+			gstate_c.vpYOffset = yOffset;
+			out.dirtyProj = true;
+		}
+
+		out.viewportX = left + displayOffsetX;
+		out.viewportY = top + displayOffsetY;
+		out.viewportW = right - left;
+		out.viewportH = bottom - top;
+
+		float zScale = gstate.getViewportZScale();
+		float zCenter = gstate.getViewportZCenter();
+		float depthRangeMin = zCenter - zScale;
+		float depthRangeMax = zCenter + zScale;
+		out.depthRangeMin = depthRangeMin * (1.0f / 65535.0f);
+		out.depthRangeMax = depthRangeMax * (1.0f / 65535.0f);
+
+#ifndef MOBILE_DEVICE
+		float minz = gstate.getDepthRangeMin();
+		float maxz = gstate.getDepthRangeMax();
+		if ((minz > depthRangeMin && minz > depthRangeMax) || (maxz < depthRangeMin && maxz < depthRangeMax)) {
+			WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range in test - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+		} else if ((gstate.clipEnable & 1) == 0) {
+			// TODO: Need to test whether clipEnable should even affect depth or not.
+			if ((minz < depthRangeMin && minz < depthRangeMax) || (maxz > depthRangeMin && maxz > depthRangeMax)) {
+				WARN_LOG_REPORT_ONCE(znoclip, G3D, "Unsupported depth range in test without clipping - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+			}
+		}
+#endif
+	}
 }

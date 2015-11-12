@@ -342,6 +342,7 @@ private:
 	class StateVp {
 		D3DVIEWPORT9 viewport;
 	public:
+		StateVp() { memset(&viewport, 0, sizeof(viewport)); }
 		inline void set(int x, int y, int w, int h, float n = 0.f, float f = 1.f) {
 			D3DVIEWPORT9 newviewport;
 			newviewport.X = x;
@@ -350,8 +351,7 @@ private:
 			newviewport.Height = h;
 			newviewport.MinZ = n;
 			newviewport.MaxZ = f;
-
-			if (memcmp(&viewport, &newviewport, sizeof(viewport))) {
+			if (memcmp(&viewport, &newviewport, sizeof(viewport)) != 0) {
 				viewport = newviewport;
 				restore();
 			}

@@ -221,7 +221,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	if (dstBuffer->fbo) {
 		fbo_bind_as_render_target(dstBuffer->fbo);
 	}
-	dxstate.viewport.set(0, 0, w, h);
+	DXSetViewport(0, 0, w, h);
 
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight);
 
@@ -279,7 +279,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 		}
 	}
 	dxstate.stencilMask.set(0xFF);
-
+	dxstate.viewport.restore();
 	RebindFramebuffer();
 	return true;
 }

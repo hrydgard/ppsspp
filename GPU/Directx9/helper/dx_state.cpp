@@ -37,8 +37,7 @@ void DirectXState::Restore() {
 
 	colorMask.restore(); count++;
 
-	// why not?
-	// viewport.restore(); count++;
+	viewport.restore(); count++;
 
 	alphaTest.restore(); count++;
 	alphaTestFunc.restore(); count++;
