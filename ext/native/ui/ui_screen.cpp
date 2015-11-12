@@ -454,7 +454,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
-	slider_->OnClick.Handle(this, &SliderPopupScreen::OnSliderChange);
+	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
 	vert->Add(slider_);
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
@@ -469,7 +469,8 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (&units_)
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
-	UI::SetFocusedView(slider_);
+	if (IsFocusMovementEnabled())
+		UI::SetFocusedView(slider_);
 }
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -477,7 +478,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	sliderValue_ = *value_;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
-	slider_->OnClick.Handle(this, &SliderFloatPopupScreen::OnSliderChange);
+	slider_->OnChange.Handle(this, &SliderFloatPopupScreen::OnSliderChange);
 	vert->Add(slider_);
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
@@ -493,7 +494,8 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
-	UI::SetFocusedView(slider_);
+	if (IsFocusMovementEnabled())
+		UI::SetFocusedView(slider_);
 }
 
 EventReturn SliderFloatPopupScreen::OnDecrease(EventParams &params) {
@@ -605,7 +607,8 @@ void TextEditPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->SetMaxLen(maxLen_);
 	lin->Add(edit_);
 
-	UI::SetFocusedView(edit_);
+	if (IsFocusMovementEnabled())
+		UI::SetFocusedView(edit_);
 }
 
 void TextEditPopupScreen::OnCompleted(DialogResult result) {
