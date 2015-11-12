@@ -469,7 +469,6 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 
 	u32 features = 0;
 
-	// Set some flags that may be convenient in the future if we merge the backends more.
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 

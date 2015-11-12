@@ -219,8 +219,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (gstate.isDitherEnabled()) {
 		glstate.dither.enable();
 		glstate.dither.set(GL_TRUE);
-	} else
+	} else {
 		glstate.dither.disable();
+	}
 
 	if (gstate.isModeClear()) {
 #ifndef USING_GLES2

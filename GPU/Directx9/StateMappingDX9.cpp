@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
+#include "profiler/profiler.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -132,11 +132,14 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
+	// Start profiling here to skip SetTexture which is already accounted for
+	PROFILE_THIS_SCOPE("applydrawstate");
+
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
 	// Set blend - unless we need to do it in the shader.
 	GenericBlendState blendState;
 	ConvertBlendState(blendState);
-
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
 		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
@@ -172,6 +175,9 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.blend.disable();
 	}
 
+	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
+	bool enableStencilTest = !g_Config.bDisableStencilTest;
+
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
 		dxstate.dither.enable();
@@ -188,7 +194,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
 		dxstate.depthWrite.set(gstate.isClearModeDepthMask());
-		if (gstate.isClearModeDepthMask()) {
+		if (gstate.isClearModeDepthMask() || alwaysDepthWrite) {
 			framebufferManager_->SetDepthUpdated();
 		}
 
@@ -198,10 +204,10 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		dxstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
-		if (alphaMask) {
+		if (alphaMask && enableStencilTest) {
 			dxstate.stencilTest.enable();
 			dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
-			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0xFF);
+			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
 			dxstate.stencilMask.set(0xFF);
 		} else {
 			dxstate.stencilTest.disable();
@@ -266,7 +272,11 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
 				stencilOps[gstate.getStencilOpZFail()],  // depth fail
 				stencilOps[gstate.getStencilOpZPass()]); // depth pass
-			dxstate.stencilMask.set(~abits);
+			if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
+				dxstate.stencilMask.set(abits <= 0x7f ? 0xff : 0x00);
+			} else {
+				dxstate.stencilMask.set(~abits);
+			}
 		} else {
 			dxstate.stencilTest.disable();
 		}
