@@ -616,7 +616,7 @@ static const BlendEq eqLookup[] = {
 	BlendEq::REVERSE_SUBTRACT,
 	BlendEq::MIN,			// GE_BLENDMODE_MIN
 	BlendEq::MAX,			// GE_BLENDMODE_MAX
-	BlendEq::ADD,			// GE_BLENDMODE_ABSDIFF
+	BlendEq::MAX,			// GE_BLENDMODE_ABSDIFF
 };
 
 static BlendFactor toDualSource(BlendFactor blendfunc) {

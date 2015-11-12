@@ -144,6 +144,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	// Set blend - unless we need to do it in the shader.
 	GenericBlendState blendState;
 	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
+
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
 		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
