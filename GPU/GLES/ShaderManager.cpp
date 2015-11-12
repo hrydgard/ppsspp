@@ -366,7 +366,12 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 }
 
 static inline void ScaleProjMatrix(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, 0.0f);
+	float yOffset = gstate_c.vpYOffset;
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// GL upside down is a pain as usual.
+		yOffset = -yOffset;
+	}
+	const Vec3 trans(gstate_c.vpXOffset, yOffset, 0.0f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, 1.0);
 	in.translateAndScale(trans, scale);
 }
