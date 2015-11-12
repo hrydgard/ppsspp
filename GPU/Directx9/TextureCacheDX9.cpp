@@ -1042,15 +1042,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-		D3DVIEWPORT9 vp;
-		vp.MinZ = 0;
-		vp.MaxZ = 1;
-		vp.X = 0;
-		vp.Y = 0;
-		vp.Width = framebuffer->renderWidth;
-		vp.Height = framebuffer->renderHeight;
-		pD3Ddevice->SetViewport(&vp);
-
+		DXSetViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);

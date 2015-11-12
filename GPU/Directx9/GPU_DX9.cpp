@@ -509,7 +509,6 @@ void DIRECTX9_GPU::InitClearInternal() {
 		dxstate.colorMask.set(true, true, true, true);
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
-	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void DIRECTX9_GPU::DumpNextFrame() {
@@ -521,7 +520,7 @@ void DIRECTX9_GPU::BeginFrame() {
 }
 
 void DIRECTX9_GPU::ReapplyGfxStateInternal() {
-	DX9::dxstate.Restore();
+	dxstate.Restore();
 	GPUCommon::ReapplyGfxStateInternal();
 }
 
