@@ -30,6 +30,7 @@
 #include "GPU/GLES/Framebuffer.h"
 
 static const int leftColumnWidth = 200;
+static const float orgRatio = 1.764706;
 
 // Ugly hackery, need to rework some stuff to get around this
 static float local_dp_xres;
@@ -179,9 +180,9 @@ void DisplayLayoutScreen::CreateViews() {
 	float horizontalBoundaryPositionL = local_dp_yres / 4.0f;
 	float horizontalBoundaryPositionR = local_dp_yres - horizontalBoundaryPositionL;
 	TabHolder *verticalBoundaryL = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionL, new AnchorLayoutParams(0, 0, 0, 0, false));
-	TabHolder *verticalBoundaryR = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionR, new AnchorLayoutParams(0, 0, 0, 0, false));
-	TabHolder *horizontalBoundaryL = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionL * 2.0f, new AnchorLayoutParams(verticalBoundaryPositionL * 2.0f, horizontalBoundaryPositionL - 31.0f, 0, 0, true));
-	TabHolder *horizontalBoundaryR = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionL * 2.0f, new AnchorLayoutParams(verticalBoundaryPositionL * 2.0f, horizontalBoundaryPositionR + 31.0f, 0, 0, true));
+	TabHolder *verticalBoundaryR = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionR + 4.0f, new AnchorLayoutParams(0, 0, 0, 0, false));
+	TabHolder *horizontalBoundaryL = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionL * 2.0f, new AnchorLayoutParams(verticalBoundaryPositionL * 2.0f, horizontalBoundaryPositionL - 32.0f, 0, 0, true));
+	TabHolder *horizontalBoundaryR = new TabHolder(ORIENT_VERTICAL, verticalBoundaryPositionL * 2.0f, new AnchorLayoutParams(verticalBoundaryPositionL * 2.0f, horizontalBoundaryPositionR + 32.0f, 0, 0, true));
 	AnchorLayout *topBoundary = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	AnchorLayout *bottomBoundary = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	root_->Add(verticalBoundaryL);
@@ -204,14 +205,24 @@ void DisplayLayoutScreen::CreateViews() {
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 	if (g_Config.iSmallDisplayZoom == 0) {
 		mode_->AddChoice(gr->T("Active (Auto)"));
-		float autoBound = bounds.w / 480.0f * 8.0f;
+		float autoBound = local_dp_yres / 270.0f * 8.0f;
+		// Case of screen rotated ~ only works with buffered rendering
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
+			autoBound = local_dp_yres / 480.0f * 8.0f;
+		} else { // Without rotation in common cases like 1080p we cut off 2 pixels of height, this reflects other cases
+			float resCommonWidescreen = autoBound - floor(autoBound);
+			if (resCommonWidescreen != 0.0f) {
+				float ratio = local_dp_xres / local_dp_yres;
+				if (ratio < orgRatio) {
+					autoBound = local_dp_xres / 480.0f * 8.0f;
+				} else {
+					autoBound = local_dp_yres / 272.0f * 8.0f;
+				}
+			}
+		}
 		g_Config.fSmallDisplayCustomZoom = autoBound;
 		g_Config.fSmallDisplayOffsetX = 0.5f;
 		g_Config.fSmallDisplayOffsetY = 0.5f;
-		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
-			float autoBound = bounds.h / 480.0f * 8.0f;
-			g_Config.fSmallDisplayCustomZoom = autoBound;
-		}
 	} else {
 		Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
 		center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
