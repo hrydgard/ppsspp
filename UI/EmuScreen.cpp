@@ -90,8 +90,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, filename, 0);
-	if (info && !info->id.empty())
-	{
+	if (info && !info->id.empty()) {
 		g_Config.loadGameConfig(info->id);
 	}
 
@@ -970,4 +969,10 @@ void EmuScreen::releaseButtons() {
 	input.timestamp = time_now_d();
 	input.id = 0;
 	touch(input);
+}
+
+int EmuScreen::expects() const {
+	// We only want the framework to clear for us when we are running non-buffered. Otherwise, it's a complete waste of time
+	// to clear the backbuffer only to then go off rendering to another buffer. Better to clear when we are actually copying the final image instead.
+	return (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) ? (SCREEN_EXPECTS_CLEAR | SCREEN_EXPECTS_VIEWPORT) : 0;
 }

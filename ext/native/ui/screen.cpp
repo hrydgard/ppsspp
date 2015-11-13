@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "base/logging.h"
 #include "input/input_state.h"
 #include "ui/screen.h"
@@ -98,6 +99,24 @@ void ScreenManager::resized() {
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {
+		int expects = stack_.back().screen->expects();
+
+		if (expects & SCREEN_EXPECTS_CLEAR) {
+			thin3DContext_->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+		}
+
+		if (expects & SCREEN_EXPECTS_VIEWPORT) {
+			T3DViewport viewport;
+			viewport.TopLeftX = 0;
+			viewport.TopLeftY = 0;
+			viewport.Width = pixel_xres;
+			viewport.Height = pixel_yres;
+			viewport.MaxDepth = 1.0;
+			viewport.MinDepth = 0.0;
+			thin3DContext_->SetViewports(1, &viewport);
+			thin3DContext_->SetTargetSize(pixel_xres, pixel_yres);
+		}
+
 		switch (stack_.back().flags) {
 		case LAYER_SIDEMENU:
 		case LAYER_TRANSPARENT:

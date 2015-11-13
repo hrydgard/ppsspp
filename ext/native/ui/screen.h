@@ -33,6 +33,12 @@ enum DialogResult {
 	DR_BACK,
 };
 
+
+enum {
+	SCREEN_EXPECTS_VIEWPORT = 1 << 0,
+	SCREEN_EXPECTS_CLEAR = 1 << 1,
+};
+
 class ScreenManager;
 class UIContext;
 class Thin3DContext;
@@ -68,6 +74,8 @@ public:
 
 	virtual bool isTransparent() const { return false; }
 	virtual bool isTopLevel() const { return false; }
+
+	virtual int expects() const { return SCREEN_EXPECTS_VIEWPORT | SCREEN_EXPECTS_CLEAR; }
 
 private:
 	ScreenManager *screenManager_;
