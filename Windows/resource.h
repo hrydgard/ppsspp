@@ -208,7 +208,6 @@
 #define ID_DEBUG_DUMPNEXTFRAME           40040
 #define ID_OPTIONS_VERTEXCACHE           40041
 #define ID_OPTIONS_SHOWFPS               40042
-#define ID_OPTIONS_STRETCHDISPLAY        40043
 #define ID_OPTIONS_FRAMESKIP             40044
 #define IDC_MEMCHECK                     40045
 #define ID_FILE_MEMSTICK                 40046
@@ -323,6 +322,19 @@
 #define ID_EMULATION_ROTATION_V          40157
 #define ID_EMULATION_ROTATION_H_R        40158
 #define ID_EMULATION_ROTATION_V_R        40159
+#define ID_OPTIONS_STRETCH               40160
+#define ID_OPTIONS_PARTIAL_STRETCH       40161
+#define ID_OPTIONS_DISPLAY_AUTO          40162
+#define ID_OPTIONS_DISPLAY_1             40163
+#define ID_OPTIONS_DISPLAY_2             40164
+#define ID_OPTIONS_DISPLAY_3             40165
+#define ID_OPTIONS_DISPLAY_4             40166
+#define ID_OPTIONS_DISPLAY_5             40167
+#define ID_OPTIONS_DISPLAY_6             40168
+#define ID_OPTIONS_DISPLAY_7             40169
+#define ID_OPTIONS_DISPLAY_8             40170
+#define ID_OPTIONS_DISPLAY_9             40171
+#define ID_OPTIONS_DISPLAY_10            40172
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

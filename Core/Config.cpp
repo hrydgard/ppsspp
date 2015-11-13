@@ -384,14 +384,6 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static bool DefaultPartialStretch() {
-#ifdef BLACKBERRY
-	return pixel_xres < 1.3 * pixel_yres;
-#else
-	return false;
-#endif
-}
-
 static bool DefaultTimerHack() {
 // Has been in use on Symbian since v0.7. Preferred option.
 #ifdef __SYMBIAN32__
@@ -465,9 +457,7 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 
 	// TODO: Replace these settings with a list of options
-	ConfigSetting("PartialStretch", &g_Config.bPartialStretch, &DefaultPartialStretch, true, true),
-	ConfigSetting("StretchToDisplay", &g_Config.bStretchToDisplay, false, true, true),
-	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 0, true, true),
+	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 2, true, true),
 	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
 	ConfigSetting("SmallDisplayCustomZoom", &g_Config.fSmallDisplayCustomZoom, 8.0f, true, true),

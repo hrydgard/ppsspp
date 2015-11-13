@@ -166,15 +166,9 @@ void GameSettingsScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 #endif
-	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gr->T("Stretch to Display")));
-
 	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
 	displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
 	displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
-	displayEditor_->SetDisabledPtr(&g_Config.bStretchToDisplay);
-
-	if (pixel_xres < pixel_yres * 1.3) // Smaller than 4:3
-		graphicsSettings->Add(new CheckBox(&g_Config.bPartialStretch, gr->T("Partial Vertical Stretch")));
 
 #ifdef ANDROID
 	// Hide Immersive Mode on pre-kitkat Android

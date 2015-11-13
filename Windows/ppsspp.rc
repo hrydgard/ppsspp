@@ -451,7 +451,22 @@ BEGIN
         MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM "Language...",                             ID_OPTIONS_LANGUAGE
         MENUITEM SEPARATOR
-        MENUITEM "Stretch to Display",                      ID_OPTIONS_STRETCHDISPLAY
+		POPUP "Display Layout Options"
+		BEGIN
+			MENUITEM "Full stretch", ID_OPTIONS_STRETCH
+			MENUITEM "Partial stretch", ID_OPTIONS_PARTIAL_STRETCH
+			MENUITEM "Auto scaling", ID_OPTIONS_DISPLAY_AUTO
+			MENUITEM "1x", ID_OPTIONS_DISPLAY_1
+			MENUITEM "2x", ID_OPTIONS_DISPLAY_2
+			MENUITEM "3x", ID_OPTIONS_DISPLAY_3
+			MENUITEM "4x", ID_OPTIONS_DISPLAY_4
+			MENUITEM "5x", ID_OPTIONS_DISPLAY_5
+			MENUITEM "6x", ID_OPTIONS_DISPLAY_6
+			MENUITEM "7x", ID_OPTIONS_DISPLAY_7
+			MENUITEM "8x", ID_OPTIONS_DISPLAY_8
+			MENUITEM "9x", ID_OPTIONS_DISPLAY_9
+			MENUITEM "10x", ID_OPTIONS_DISPLAY_10
+		END
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
         MENUITEM "Postprocessing Shader",                   ID_OPTIONS_FXAA

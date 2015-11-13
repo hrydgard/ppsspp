@@ -36,11 +36,11 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	if (g_Config.bStretchToDisplay) {
+	if (g_Config.iSmallDisplayZoom == 0) {
 		outW = frameW;
 		outH = frameH;
 	} else {
-		if (g_Config.iSmallDisplayZoom != 0) {
+		if (g_Config.iSmallDisplayZoom > 2) {
 			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
 			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
 			// Have to invert Y for GL
@@ -83,12 +83,14 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 			outW = frameW;
 			outH = frameW / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.bPartialStretch)
+			if (!rotated && g_Config.iSmallDisplayZoom == 1)
 				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frameH * origRatio;
 			outH = frameH;
+			if (rotated && g_Config.iSmallDisplayZoom == 1)
+				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}
 

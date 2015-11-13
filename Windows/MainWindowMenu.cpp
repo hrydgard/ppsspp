@@ -81,9 +81,10 @@ namespace MainWindow {
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Emulation submenus
-		SUBMENU_DISPLAY_ROTATION = 8,
+		SUBMENU_DISPLAY_ROTATION = 5,
 
 		// Game Settings submenus
+		SUBMENU_DISPLAY_LAYOUT = 7,
 		SUBMENU_CUSTOM_SHADERS = 10,
 		SUBMENU_RENDERING_RESOLUTION = 11,
 		SUBMENU_WINDOW_SIZE = 12,
@@ -268,7 +269,11 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(menu, ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(menu, ID_OPTIONS_CONTROLS);
-		TranslateMenuItem(menu, ID_OPTIONS_STRETCHDISPLAY);
+		TranslateSubMenu(menu, "Display Layout Options", MENU_OPTIONS, SUBMENU_DISPLAY_LAYOUT);
+		TranslateMenuItem(menu, ID_OPTIONS_STRETCH);
+		TranslateMenuItem(menu, ID_OPTIONS_PARTIAL_STRETCH);
+		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_AUTO);
+		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(menu, ID_OPTIONS_VSYNC);
 		TranslateSubMenu(menu, "Postprocessing Shader", MENU_OPTIONS, SUBMENU_CUSTOM_SHADERS);
@@ -481,6 +486,13 @@ namespace MainWindow {
 		g_Config.bEnableCheats = cheats;
 	}
 
+	static void setDisplayOptions(int options) {
+		g_Config.iSmallDisplayZoom = options;
+		if (g_Config.iSmallDisplayZoom > 2) {
+			g_Config.fSmallDisplayCustomZoom = (float)((g_Config.iSmallDisplayZoom - 2) * 8);
+		}
+		NativeMessageReceived("gpu resized", "");
+	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
 		std::string fn;
@@ -711,10 +723,20 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
-		case ID_OPTIONS_STRETCHDISPLAY:
-			g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-			NativeMessageReceived("gpu resized", "");
-			break;
+		case ID_OPTIONS_STRETCH:                 setDisplayOptions(0); break;
+		case ID_OPTIONS_PARTIAL_STRETCH:         setDisplayOptions(1); break;
+		case ID_OPTIONS_DISPLAY_AUTO:            setDisplayOptions(2); break;
+		case ID_OPTIONS_DISPLAY_1:               setDisplayOptions(3); break;
+		case ID_OPTIONS_DISPLAY_2:               setDisplayOptions(4); break;
+		case ID_OPTIONS_DISPLAY_3:               setDisplayOptions(5); break;
+		case ID_OPTIONS_DISPLAY_4:               setDisplayOptions(6); break;
+		case ID_OPTIONS_DISPLAY_5:               setDisplayOptions(7); break;
+		case ID_OPTIONS_DISPLAY_6:               setDisplayOptions(8); break;
+		case ID_OPTIONS_DISPLAY_7:               setDisplayOptions(9); break;
+		case ID_OPTIONS_DISPLAY_8:               setDisplayOptions(10); break;
+		case ID_OPTIONS_DISPLAY_9:               setDisplayOptions(11); break;
+		case ID_OPTIONS_DISPLAY_10:              setDisplayOptions(12); break;
+
 
 		case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
 		case ID_OPTIONS_FRAMESKIP_1:    setFrameSkipping(FRAMESKIP_1); break;
@@ -936,7 +958,6 @@ namespace MainWindow {
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
-		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
@@ -964,6 +985,31 @@ namespace MainWindow {
 
 		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
 			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		static const int displaylayoutitems[] = {
+			ID_OPTIONS_STRETCH,
+			ID_OPTIONS_PARTIAL_STRETCH,
+			ID_OPTIONS_DISPLAY_AUTO,
+			ID_OPTIONS_DISPLAY_1,
+			ID_OPTIONS_DISPLAY_2,
+			ID_OPTIONS_DISPLAY_3,
+			ID_OPTIONS_DISPLAY_4,
+			ID_OPTIONS_DISPLAY_5,
+			ID_OPTIONS_DISPLAY_6,
+			ID_OPTIONS_DISPLAY_7,
+			ID_OPTIONS_DISPLAY_8,
+			ID_OPTIONS_DISPLAY_9,
+			ID_OPTIONS_DISPLAY_10
+		};
+		if (g_Config.iSmallDisplayZoom < 0)
+			g_Config.iSmallDisplayZoom = 0;
+
+		else if (g_Config.iSmallDisplayZoom > 12)
+			g_Config.iSmallDisplayZoom = 12;
+
+		for (int i = 0; i < ARRAY_SIZE(displaylayoutitems); i++) {
+			CheckMenuItem(menu, displaylayoutitems[i], MF_BYCOMMAND | (i == g_Config.iSmallDisplayZoom ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		// Disable Vertex Cache when HW T&L is disabled.
