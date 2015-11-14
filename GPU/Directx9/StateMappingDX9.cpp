@@ -104,7 +104,6 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 	++blitsThisFrame;
 	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
 		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		ResetShaderBlending();
 		return false;
 	}
 
@@ -157,6 +156,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 		} else {
 			// Until next time, force it off.
+			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
 	} else if (blendState.resetShaderBlending) {
