@@ -903,9 +903,9 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 
 		nextTexture_ = entry;
 	} else {
-		if (framebuffer->fbo) {
-			fbo_destroy(framebuffer->fbo);
-			framebuffer->fbo = 0;
+		if (framebuffer->fbo_dx9) {
+			fbo_destroy(framebuffer->fbo_dx9);
+			framebuffer->fbo_dx9 = 0;
 		}
 		pD3Ddevice->SetTexture(0, NULL);
 		gstate_c.needShaderTexClamp = false;
@@ -953,7 +953,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	if (pshader) {
 		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
 
 		float xoff = -0.5f / framebuffer->renderWidth;

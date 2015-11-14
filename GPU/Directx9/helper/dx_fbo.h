@@ -21,9 +21,9 @@
 // Very C-ish API because that's what I felt like, and it's cool to completely
 // hide the data from callers...
 
-struct FBO;
-
 namespace DX9 {
+
+struct FBO_DX9;
 
 enum FBOColorDepth {
 	FBO_8888,
@@ -39,23 +39,23 @@ enum FBOColorDepth {
 // you lose bound texture state.
 
 // On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
+FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth = FBO_8888);
 
 // These functions should be self explanatory.
-void fbo_bind_as_render_target(FBO *fbo);
+void fbo_bind_as_render_target(FBO_DX9 *fbo);
 // color must be 0, for now.
-void fbo_bind_color_as_texture(FBO *fbo, int color);
-void fbo_bind_depth_as_texture(FBO *fbo);
-LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO *fbo);
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO *fbo);
+void fbo_bind_color_as_texture(FBO_DX9 *fbo, int color);
+void fbo_bind_depth_as_texture(FBO_DX9 *fbo);
+LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo);
+LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo);
 void fbo_unbind();
-void fbo_destroy(FBO *fbo);
-void fbo_get_dimensions(FBO *fbo, int *w, int *h);
-void fbo_resolve(FBO *fbo);
-HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
+void fbo_destroy(FBO_DX9 *fbo);
+void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h);
+void fbo_resolve(FBO_DX9 *fbo);
+HRESULT fbo_blit_color(FBO_DX9 *src, const RECT *srcRect, FBO_DX9 *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter);
 
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo);
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO *fbo);
+LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo);
+LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo);
 
 // To get default depth and rt surface
 void fbo_init(LPDIRECT3D9 d3d);
