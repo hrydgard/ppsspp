@@ -167,10 +167,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
+	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
+
 	// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 	// to avoid recomputing heavy stuff unnecessarily every draw call.
 	GenericBlendState blendState;
-	ConvertBlendState(blendState);
+	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
 		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
