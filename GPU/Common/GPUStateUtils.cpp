@@ -273,35 +273,46 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		switch (funcB) {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
+			// When inversing, alpha clamping isn't an issue.
+			if (funcA == GE_SRCBLEND_DOUBLEINVSRCALPHA)
+				return REPLACE_BLEND_2X_ALPHA;
 			// Can't double, we need the source color to be correct.
+			// Doubling only alpha would clamp the src alpha incorrectly.
 			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			if (bufferFormat == GE_FORMAT_565) {
+			if (bufferFormat == GE_FORMAT_565)
 				return REPLACE_BLEND_2X_ALPHA;
-			}
 			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
 				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
-		default:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			// For the inverse, doubling alpha is safe, because it will clamp correctly.
+			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
+
+		case GE_DSTBLEND_SRCALPHA:
+		case GE_DSTBLEND_INVSRCALPHA:
+		case GE_DSTBLEND_DSTALPHA:
+		case GE_DSTBLEND_INVDSTALPHA:
+		case GE_DSTBLEND_FIXB:
 			// TODO: Could use vertexFullAlpha, but it's not calculated yet.
+			// This outputs the original alpha for the dest factor.
 			return REPLACE_BLEND_PRE_SRC;
 		}
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
 		switch (funcB) {
 		case GE_DSTBLEND_SRCCOLOR:
 		case GE_DSTBLEND_INVSRCCOLOR:
 			if (bufferFormat == GE_FORMAT_565) {
+				// Dest alpha should be zero.
 				return REPLACE_BLEND_STANDARD;
 			}
 			// Can't double, we need the source color to be correct.
@@ -310,6 +321,8 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
 			if (bufferFormat == GE_FORMAT_565) {
+				// Both blend factors are 0 or 1, no need to read it, since it's known.
+				// Doubling will have no effect here.
 				return REPLACE_BLEND_STANDARD;
 			}
 			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
@@ -319,9 +332,15 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_2X_ALPHA;
 			}
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
+			// Double both src (for dst alpha) and alpha (for dst factor.)
+			// But to be accurate (clamping), we need to read the dst color.
+			return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 
-		default:
+		case GE_DSTBLEND_SRCALPHA:
+		case GE_DSTBLEND_INVSRCALPHA:
+		case GE_DSTBLEND_DSTALPHA:
+		case GE_DSTBLEND_INVDSTALPHA:
+		case GE_DSTBLEND_FIXB:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
@@ -329,12 +348,46 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
 		}
 
+	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		// Inverse double dst alpha is tricky.  Doubling the src color is probably the wrong direction,
+		// halving might be more correct.  We really need to read the dst color.
+		switch (funcB) {
+		case GE_DSTBLEND_SRCCOLOR:
+		case GE_DSTBLEND_INVSRCCOLOR:
+		case GE_DSTBLEND_DOUBLEDSTALPHA:
+		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLESRCALPHA:
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_2X_ALPHA;
+			}
+			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_SRCALPHA:
+		case GE_DSTBLEND_INVSRCALPHA:
+		case GE_DSTBLEND_DSTALPHA:
+		case GE_DSTBLEND_INVDSTALPHA:
+		case GE_DSTBLEND_FIXB:
+			if (bufferFormat == GE_FORMAT_565) {
+				return REPLACE_BLEND_STANDARD;
+			}
+			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
+		}
+
 	case GE_SRCBLEND_FIXA:
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			// Can't safely double alpha, will clamp.
 			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
+
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			// Doubling alpha is safe for the inverse, will clamp to zero either way.
+			return REPLACE_BLEND_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
@@ -350,17 +403,27 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
 				return REPLACE_BLEND_STANDARD;
 			} else {
+				// Multiply the src color in the shader, that way it's always accurate.
 				return REPLACE_BLEND_PRE_SRC;
 			}
 
-		default:
+		case GE_DSTBLEND_SRCCOLOR:
+		case GE_DSTBLEND_INVSRCCOLOR:
+		case GE_DSTBLEND_SRCALPHA:
+		case GE_DSTBLEND_INVSRCALPHA:
+		case GE_DSTBLEND_DSTALPHA:
+		case GE_DSTBLEND_INVDSTALPHA:
 			return REPLACE_BLEND_STANDARD;
 		}
 
-	default:
+	case GE_SRCBLEND_DSTCOLOR:
+	case GE_SRCBLEND_INVDSTCOLOR:
+	case GE_SRCBLEND_SRCALPHA:
+	case GE_SRCBLEND_INVSRCALPHA:
+	case GE_SRCBLEND_DSTALPHA:
+	case GE_SRCBLEND_INVDSTALPHA:
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
 			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
 				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
 				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
@@ -374,6 +437,14 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
 				return REPLACE_BLEND_2X_ALPHA;
 			}
+
+		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+			// For inverse, things are simpler.  Clamping isn't an issue, as long as we avoid
+			// messing with the other factor's components.
+			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
+				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
+			}
+			return REPLACE_BLEND_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEDSTALPHA:
 		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
