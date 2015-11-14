@@ -269,6 +269,13 @@ private:
 				restore();
 			}
 		}
+		void setDWORD(DWORD newc) {
+			newc = ((newc >> 8) & 0xff) | (newc & 0xff00ff00) | ((newc << 16) & 0xff0000);  // ARGB -> ABGR fix
+			if (c != newc) {
+				c = newc;
+				restore();
+			}
+		}
 		void force(const float v[4]) {
 			DWORD old = c;
 			set(v);

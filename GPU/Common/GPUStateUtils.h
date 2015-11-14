@@ -65,3 +65,75 @@ struct ViewportAndScissor {
 	bool dirtyProj;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
+
+// These are common to all modern APIs and can be easily converted with a lookup table.
+enum class BlendFactor : uint8_t {
+	ZERO,
+	ONE,
+	SRC_COLOR,
+	ONE_MINUS_SRC_COLOR,
+	DST_COLOR,
+	ONE_MINUS_DST_COLOR,
+	SRC_ALPHA,
+	ONE_MINUS_SRC_ALPHA,
+	DST_ALPHA,
+	ONE_MINUS_DST_ALPHA,
+	CONSTANT_COLOR,
+	ONE_MINUS_CONSTANT_COLOR,
+	CONSTANT_ALPHA,
+	ONE_MINUS_CONSTANT_ALPHA,
+	SRC1_ALPHA,
+	ONE_MINUS_SRC1_ALPHA,
+	INVALID,
+	COUNT,
+};
+
+enum class BlendEq : uint8_t {
+	ADD,
+	SUBTRACT,
+	REVERSE_SUBTRACT,
+	MIN,
+	MAX,
+	COUNT
+};
+
+struct GenericBlendState {
+	bool enabled;
+	bool resetShaderBlending;
+	bool applyShaderBlending;
+	bool dirtyShaderBlend;
+	ReplaceAlphaType replaceAlphaWithStencil;
+
+	BlendFactor srcColor;
+	BlendFactor dstColor;
+	BlendFactor srcAlpha;
+	BlendFactor dstAlpha;
+
+	BlendEq eqColor;
+	BlendEq eqAlpha;
+
+	bool useBlendColor;
+	u32 blendColor;
+
+	void setFactors(BlendFactor srcC, BlendFactor dstC, BlendFactor srcA, BlendFactor dstA) {
+		srcColor = srcC;
+		dstColor = dstC;
+		srcAlpha = srcA;
+		dstAlpha = dstA;
+	}
+	void setEquation(BlendEq eqC, BlendEq eqA) {
+		eqColor = eqC;
+		eqAlpha = eqA;
+	}
+	void setBlendColor(uint32_t color, uint8_t alpha) {
+		blendColor = color | ((uint32_t)alpha << 24);
+		useBlendColor = true;
+	}
+	void defaultBlendColor(uint8_t alpha) {
+		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
+		useBlendColor = true;
+	}
+};
+
+void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
+void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
