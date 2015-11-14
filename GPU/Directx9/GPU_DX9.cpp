@@ -2094,6 +2094,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	textureCache_.SetTexture(true);
+	textureCache_.ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
