@@ -768,7 +768,7 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 
 // Called even if AlphaBlendEnable == false - it also deals with stencil-related blend state.
 
-void ConvertBlendState(GenericBlendState &blendState) {
+void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	// Blending is a bit complex to emulate.  This is due to several reasons:
 	//
 	//  * Doubled blend modes (src, dst, inversed) aren't supported in OpenGL.
@@ -778,13 +778,12 @@ void ConvertBlendState(GenericBlendState &blendState) {
 	//  * The written output alpha should actually be the stencil value.  Alpha is not written.
 	//
 	// If we can't apply blending, we make a copy of the framebuffer and do it manually.
-	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
 
 	blendState.applyShaderBlending = false;
 	blendState.dirtyShaderBlend = false;
 	blendState.useBlendColor = false;
 
-	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
+	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);
 	bool usePreSrc = false;
 

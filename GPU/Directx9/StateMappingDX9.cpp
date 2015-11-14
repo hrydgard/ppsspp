@@ -86,7 +86,9 @@ static const D3DSTENCILOP stencilOps[] = {
 };
 
 bool TransformDrawEngineDX9::ApplyShaderBlending() {
-	bool skipBlit = false;
+	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
+		return true;
+	}
 
 	static const int MAX_REASONABLE_BLITS_PER_FRAME = 24;
 
@@ -102,7 +104,6 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 	++blitsThisFrame;
 	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
 		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		ResetShaderBlending();
 		return false;
 	}
 
@@ -137,9 +138,12 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
+	// Unfortunately, this isn't implemented yet.
+	gstate_c.allowShaderBlend = false;
+
 	// Set blend - unless we need to do it in the shader.
 	GenericBlendState blendState;
-	ConvertBlendState(blendState);
+	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
 		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
@@ -152,6 +156,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 		} else {
 			// Until next time, force it off.
+			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
 	} else if (blendState.resetShaderBlending) {

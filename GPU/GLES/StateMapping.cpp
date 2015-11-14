@@ -130,7 +130,6 @@ bool TransformDrawEngine::ApplyShaderBlending() {
 	++blitsThisFrame;
 	if (blitsThisFrame > MAX_REASONABLE_BLITS_PER_FRAME * 2) {
 		WARN_LOG_ONCE(blendingBlit2, G3D, "Skipping additional blits needed for obscure blending: %d per frame, blend %d/%d/%d", blitsThisFrame, gstate.getBlendFuncA(), gstate.getBlendFuncB(), gstate.getBlendEq());
-		ResetShaderBlending();
 		return false;
 	}
 
@@ -167,10 +166,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
+	gstate_c.allowShaderBlend = !g_Config.bDisableSlowFramebufEffects;
+
 	// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 	// to avoid recomputing heavy stuff unnecessarily every draw call.
 	GenericBlendState blendState;
-	ConvertBlendState(blendState);
+	ConvertBlendState(blendState, gstate_c.allowShaderBlend);
 	ViewportAndScissor vpAndScissor;
 	ConvertViewportAndScissor(useBufferedRendering,
 		framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
@@ -183,6 +184,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
 		} else {
 			// Until next time, force it off.
+			ResetShaderBlending();
 			gstate_c.allowShaderBlend = false;
 		}
 	} else if (blendState.resetShaderBlending) {
