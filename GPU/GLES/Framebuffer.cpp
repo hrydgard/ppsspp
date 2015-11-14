@@ -977,7 +977,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	if (useBufferedRendering_) {
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClearDepth(0.0f);
+#ifdef USING_GLES2
+		glClearDepthf(0.0f);
+#else
+		glClearDepth(0.0);
+#endif
 		glClearStencil(0);
 		// Hardly necessary to clear depth and stencil I guess...
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
