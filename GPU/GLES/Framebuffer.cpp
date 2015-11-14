@@ -1719,10 +1719,9 @@ void FramebufferManager::EndFrame() {
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
 			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-			postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
-		} else {
-			postShaderIsUpscalingFilter_ = false;
 		}
+
+		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
 
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
