@@ -1302,7 +1302,8 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
-		if (gl_extensions.ARB_pixel_buffer_object && gl_extensions.OES_texture_npot) {
+		// TODO: Can we fall back to sync without these?
+		if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
