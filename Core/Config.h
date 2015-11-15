@@ -119,8 +119,9 @@ public:
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
-	int iIOTimingMethod;
+	bool bSeparateSASThread;
 	bool bSeparateIOThread;
+	int iIOTimingMethod;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	bool bCacheFullIsoInRam;

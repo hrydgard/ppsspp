@@ -34,6 +34,7 @@
 #include "thread/thread.h"
 #include "thread/threadutil.h"
 #include "Common/Log.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -144,8 +145,12 @@ static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int ri
 void __SasInit() {
 	sas = new SasInstance();
 
-	sasThreadState = SasThreadState::READY;
-	sasThread = new std::thread(__SasThread);
+	if (g_Config.bSeparateSASThread) {
+		sasThreadState = SasThreadState::READY;
+		sasThread = new std::thread(__SasThread);
+	} else {
+		sasThreadState = SasThreadState::DISABLED;
+	}
 }
 
 void __SasDoState(PointerWrap &p) {
