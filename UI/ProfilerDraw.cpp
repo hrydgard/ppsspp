@@ -15,9 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <inttypes.h>
 
+#include "gfx_es2/draw_buffer.h"
 #include "ui/ui_context.h"
+#include "ui/view.h"
 #include "profiler/profiler.h"
 
 static const uint32_t nice_colors[] = {
