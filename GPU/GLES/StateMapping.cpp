@@ -384,8 +384,6 @@ void TransformDrawEngine::ApplyDrawStateLate() {
 			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
 		}
 
-		textureCache_->ApplyTexture();
-
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY);
@@ -399,5 +397,9 @@ void TransformDrawEngine::ApplyDrawStateLate() {
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
+
+		// Apply the texture after the FBO tex, since it might unbind the texture.
+		// TODO: Could use a separate texture unit to be safer?
+		textureCache_->ApplyTexture();
 	}
 }
