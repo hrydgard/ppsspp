@@ -68,7 +68,7 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
 	if (typeNames[weight] && w < end)
 		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
-	else if (weightCount > 0 && w < end)
+	else if (weightCount > 1 && w < end)
 		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
 	if (morphCount > 0 && w < end)
 		w += snprintf(w, end - w, "%d morphs, ", morphCount);
