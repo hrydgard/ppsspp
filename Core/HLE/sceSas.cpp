@@ -113,6 +113,13 @@ int __SasThread() {
 	return 0;
 }
 
+static void __SasDrain() {
+	sasDoneMutex.lock();
+	while (sasThreadState == SasThreadState::QUEUED)
+		sasDone.wait(sasDoneMutex);
+	sasDoneMutex.unlock();
+}
+
 static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0) {
 	if (sasThreadState == SasThreadState::DISABLED) {
 		// No thread, call it immediately.
@@ -122,10 +129,7 @@ static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int ri
 
 	if (sasThreadState == SasThreadState::QUEUED) {
 		// Wait for the queue to drain.
-		sasDoneMutex.lock();
-		while (sasThreadState == SasThreadState::QUEUED)
-			sasDone.wait(sasDoneMutex);
-		sasDoneMutex.unlock();
+		__SasDrain();
 	}
 
 	// We're safe to write, since it can't be processing now anymore.
@@ -160,10 +164,7 @@ void __SasDoState(PointerWrap &p) {
 
 	if (sasThreadState == SasThreadState::QUEUED) {
 		// Wait for the queue to drain.  Don't want to save the wrong stuff.
-		sasDoneMutex.lock();
-		while (sasThreadState == SasThreadState::QUEUED)
-			sasDone.wait(sasDoneMutex);
-		sasDoneMutex.unlock();
+		__SasDrain();
 	}
 
 	p.DoClass(sas);
@@ -222,6 +223,7 @@ static u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u3
 
 static u32 sceSasGetEndFlag(u32 core) {
 	u32 endFlag = 0;
+	__SasDrain();
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (!sas->voices[i].playing)
 			endFlag |= (1 << i);
@@ -285,6 +287,7 @@ static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loo
 		return 0;
 	}
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type == VOICETYPE_ATRAC3) {
 		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
@@ -328,6 +331,7 @@ static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int 
 		return 0;
 	}
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type == VOICETYPE_ATRAC3) {
 		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
@@ -349,6 +353,7 @@ static u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int 
 
 static u32 sceSasGetPauseFlag(u32 core) {
 	u32 pauseFlag = 0;
+	__SasDrain();
 	for (int i = 0; i < sas->maxVoices; i++) {
 		if (sas->voices[i].paused)
 			pauseFlag |= (1 << i);
@@ -361,6 +366,7 @@ static u32 sceSasGetPauseFlag(u32 core) {
 static u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
 	DEBUG_LOG(SCESAS, "sceSasSetPause(%08x, %08x, %i)", core, voicebit, pause);
 
+	__SasDrain();
 	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
 		if (i < PSP_SAS_VOICES_MAX && i >= 0) {
 			if ((voicebit & 1) != 0)
@@ -383,6 +389,7 @@ static u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, in
 	if (overVolume)
 		return ERROR_SAS_INVALID_VOLUME;
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.volumeLeft = leftVol;
 	v.volumeRight = rightVol;
@@ -402,6 +409,7 @@ static u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
 	}
 
 	DEBUG_LOG(SCESAS, "sceSasSetPitch(%08x, %i, %i)", core, voiceNum, pitch);
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.pitch = pitch;
 	v.ChangedParams(false);
@@ -416,6 +424,7 @@ static u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	__SasDrain();
 	if (sas->voices[voiceNum].paused || sas->voices[voiceNum].on) {
 		return ERROR_SAS_VOICE_PAUSED;
 	}
@@ -433,6 +442,7 @@ static u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	} else {
 		DEBUG_LOG(SCESAS, "sceSasSetKeyOff(%08x, %i)", core, voiceNum);
 
+		__SasDrain();
 		if (sas->voices[voiceNum].paused || !sas->voices[voiceNum].on) {
 			return ERROR_SAS_VOICE_PAUSED;
 		}
@@ -455,6 +465,7 @@ static u32 sceSasSetNoise(u32 core, int voiceNum, int freq) {
 
 	DEBUG_LOG(SCESAS, "sceSasSetNoise(%08x, %i, %i)", core, voiceNum, freq);
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.type = VOICETYPE_NOISE;
 	v.noiseFreq = freq;
@@ -469,6 +480,7 @@ static u32 sceSasSetSL(u32 core, int voiceNum, int level) {
 	}
 
 	DEBUG_LOG(SCESAS, "sceSasSetSL(%08x, %i, %08x)", core, voiceNum, level);
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.sustainLevel = level;
 	return 0;
@@ -488,6 +500,7 @@ static u32 sceSasSetADSR(u32 core, int voiceNum, int flag, int a, int d, int s, 
 
 	DEBUG_LOG(SCESAS, "0=sceSasSetADSR(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackRate  = a;
 	if ((flag & 0x2) != 0) v.envelope.decayRate   = d;
@@ -533,6 +546,7 @@ static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int
 	}
 
 	DEBUG_LOG(SCESAS, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x)", core, voiceNum, flag, a, d, s, r);
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if ((flag & 0x1) != 0) v.envelope.attackType  = a;
 	if ((flag & 0x2) != 0) v.envelope.decayType   = d;
@@ -555,6 +569,7 @@ static u32 sceSasSetSimpleADSR(u32 core, int voiceNum, u32 ADSREnv1, u32 ADSREnv
 
 	DEBUG_LOG(SCESAS, "sasSetSimpleADSR(%08x, %i, %08x, %08x)", core, voiceNum, ADSREnv1, ADSREnv2);
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	v.envelope.SetSimpleEnvelope(ADSREnv1 & 0xFFFF, ADSREnv2 & 0xFFFF);
 	return 0;
@@ -566,6 +581,7 @@ static u32 sceSasGetEnvelopeHeight(u32 core, int voiceNum) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	int height = v.envelope.GetHeight();
 	DEBUG_LOG(SCESAS, "%i = sceSasGetEnvelopeHeight(%08x, %i)", height, core, voiceNum);
@@ -577,6 +593,7 @@ static u32 sceSasRevType(u32 core, int type) {
 		return hleLogError(SCESAS, ERROR_SAS_REV_INVALID_TYPE, "invalid type");
 	}
 
+	__SasDrain();
 	sas->SetWaveformEffectType(type);
 	return hleLogSuccessI(SCESAS, 0);
 }
@@ -589,6 +606,7 @@ static u32 sceSasRevParam(u32 core, int delay, int feedback) {
 		return hleLogError(SCESAS, ERROR_SAS_REV_INVALID_FEEDBACK, "invalid feedback value");
 	}
 
+	__SasDrain();
 	sas->waveformEffect.delay = delay;
 	sas->waveformEffect.feedback = feedback;
 	return hleLogSuccessI(SCESAS, 0);
@@ -599,12 +617,14 @@ static u32 sceSasRevEVOL(u32 core, u32 lv, u32 rv) {
 		return hleReportDebug(SCESAS, ERROR_SAS_REV_INVALID_VOLUME, "invalid volume");
 	}
 
+	__SasDrain();
 	sas->waveformEffect.leftVol = lv;
 	sas->waveformEffect.rightVol = rv;
 	return hleLogSuccessI(SCESAS, 0);
 }
 
 static u32 sceSasRevVON(u32 core, int dry, int wet) {
+	__SasDrain();
 	sas->waveformEffect.isDryOn = dry != 0;
 	sas->waveformEffect.isWetOn = wet != 0;
 	return hleLogSuccessI(SCESAS, 0);
@@ -617,6 +637,7 @@ static u32 sceSasGetGrain(u32 core) {
 
 static u32 sceSasSetGrain(u32 core, int grain) {
 	INFO_LOG(SCESAS, "sceSasSetGrain(%08x, %i)", core, grain);
+	__SasDrain();
 	sas->SetGrainSize(grain);
 	return 0;
 }
@@ -632,6 +653,7 @@ static u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
 		return ERROR_SAS_INVALID_OUTPUT_MODE;
 	}
 	DEBUG_LOG(SCESAS, "sceSasSetOutputMode(%08x, %i)", core, outputMode);
+	__SasDrain();
 	sas->outputMode = outputMode;
 
 	return 0;
@@ -644,6 +666,7 @@ static u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
+	__SasDrain();
 	for (int i = 0; i < PSP_SAS_VOICES_MAX; i++) {
 		int voiceHeight = sas->voices[i].envelope.GetHeight();
 		Memory::Write_U32(voiceHeight, heightsAddr + i * 4);
@@ -667,6 +690,7 @@ static u32 __sceSasSetVoiceATRAC3(u32 core, int voiceNum, u32 atrac3Context) {
 		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type == VOICETYPE_ATRAC3) {
 		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_ALREADY_SET, "voice is already ATRAC3");
@@ -686,6 +710,7 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 	}
 
 	DEBUG_LOG_REPORT(SCESAS, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (Memory::IsValidAddress(atrac3DataAddr))
 		v.atrac3.addStreamData(atrac3DataAddr, atrac3DataLength);
@@ -697,6 +722,7 @@ static u32 __sceSasUnsetATRAC3(u32 core, int voiceNum) {
 		return hleLogWarning(SCESAS, ERROR_SAS_INVALID_VOICE, "invalid voicenum");
 	}
 
+	__SasDrain();
 	SasVoice &v = sas->voices[voiceNum];
 	if (v.type != VOICETYPE_ATRAC3) {
 		return hleLogError(SCESAS, ERROR_SAS_ATRAC3_NOT_SET, "voice is not ATRAC3");
