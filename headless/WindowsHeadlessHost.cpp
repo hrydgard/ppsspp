@@ -30,6 +30,7 @@
 
 #include "base/logging.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -171,6 +172,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	GL_SwapInterval(0);
 
 	glewInit();
+	CheckGLExtensions();
 
 	LoadNativeAssets();
 
