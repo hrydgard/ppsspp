@@ -557,6 +557,11 @@ void GLES_GPU::CheckGPUFeatures() {
 		}
 	}
 
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
+	}
+
 #ifdef MOBILE_DEVICE
 	// Arguably, we should turn off GPU_IS_MOBILE on like modern Tegras, etc.
 	features |= GPU_IS_MOBILE;

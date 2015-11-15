@@ -37,6 +37,7 @@ class DIRECTX9_GPU : public GPUCommon {
 public:
 	DIRECTX9_GPU();
 	~DIRECTX9_GPU();
+	void CheckGPUFeatures();
 	void InitClear() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;

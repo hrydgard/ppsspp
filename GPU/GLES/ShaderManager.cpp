@@ -432,7 +432,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
 			float zScale = gstate.getViewportZScale() / 65535.0f;
 			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 

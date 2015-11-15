@@ -312,9 +312,6 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *prescale = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gr->T("Texture Coord Speedhack")));
 	prescale->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *depthRange = graphicsSettings->Add(new CheckBox(&g_Config.bDepthRangeHack, gr->T("Depth Range Hack (Phantasy Star Portable 2)")));
-	depthRange->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
 	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
