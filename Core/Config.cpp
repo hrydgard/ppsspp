@@ -330,10 +330,14 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting(false),
 };
 
+static bool DefaultSasThread() {
+	return cpu_info.num_cores > 1;
+}
+
 static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit, true, true),
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false, true, true),
-	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, true, true, true),
+	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_FAST, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
