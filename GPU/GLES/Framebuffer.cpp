@@ -1368,8 +1368,16 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glViewport(0, 0, dst->renderWidth, dst->renderHeight);
-		DisableState();
+		glstate.viewport.force(0, 0, dst->renderWidth, dst->renderHeight);
+		glstate.blend.force(false);
+		glstate.cullFace.force(false);
+		glstate.depthTest.force(false);
+		glstate.stencilTest.force(false);
+#if !defined(USING_GLES2)
+		glstate.colorLogicOp.force(false);
+#endif
+		glstate.colorMask.force(true, true, true, true);
+		glstate.stencilMask.force(0xFF);
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
 		// Should maybe revamp that interface.
@@ -1379,6 +1387,15 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 		glstate.viewport.restore();
+		glstate.blend.restore();
+		glstate.cullFace.restore();
+		glstate.depthTest.restore();
+		glstate.stencilTest.restore();
+#if !defined(USING_GLES2)
+		glstate.colorLogicOp.restore();
+#endif
+		glstate.colorMask.restore();
+		glstate.stencilMask.restore();
 	}
 
 	glstate.scissorTest.restore();
