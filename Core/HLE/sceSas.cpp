@@ -153,6 +153,14 @@ void __SasDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	if (sasThreadState == SasThreadState::QUEUED) {
+		// Wait for the queue to drain.  Don't want to save the wrong stuff.
+		sasDoneMutex.lock();
+		while (sasThreadState == SasThreadState::QUEUED)
+			sasDone.wait(sasDoneMutex);
+		sasDoneMutex.unlock();
+	}
+
 	p.DoClass(sas);
 }
 
