@@ -165,6 +165,10 @@ void DiskCachingFileLoaderCache::ShutdownCache() {
 size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	lock_guard guard(lock_);
 
+	if (!f_) {
+		return 0;
+	}
+
 	s64 cacheStartPos = pos / blockSize_;
 	s64 cacheEndPos = (pos + bytes - 1) / blockSize_;
 	size_t readSize = 0;
@@ -182,7 +186,9 @@ size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *da
 		}
 
 		size_t toRead = std::min(bytes - readSize, (size_t)blockSize_ - offset);
-		ReadBlockData(p + readSize, info, offset, toRead);
+		if (!ReadBlockData(p + readSize, info, offset, toRead)) {
+			return readSize;
+		}
 		readSize += toRead;
 
 		// Don't need an offset after the first read.
@@ -193,6 +199,11 @@ size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *da
 
 size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, size_t bytes, void *data) {
 	lock_guard guard(lock_);
+
+	if (!f_) {
+		// Just to keep things working.
+		return backend->ReadAt(pos, bytes, data);
+	}
 
 	s64 cacheStartPos = pos / blockSize_;
 	s64 cacheEndPos = (pos + bytes - 1) / blockSize_;
@@ -374,49 +385,84 @@ s64 DiskCachingFileLoaderCache::GetBlockOffset(u32 block) {
 	return blockOffset + (s64)block * (s64)blockSize_;
 }
 
-void DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size) {
+bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size) {
+	if (!f_) {
+		return false;
+	}
 	s64 blockOffset = GetBlockOffset(info.block);
 
+	bool failed = false;
 #ifdef ANDROID
 	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
-		ERROR_LOG(LOADER, "Unable to read disk cache data entry.");
+		failed = true;
 	} else if (read(fd_, dest + offset, size) != (ssize_t)size) {
-		ERROR_LOG(LOADER, "Unable to read disk cache data entry.");
+		failed = true;
 	}
 #else
 	if (fseeko(f_, blockOffset, SEEK_SET) != 0) {
-		ERROR_LOG(LOADER, "Unable to read disk cache data entry.");
+		failed = true;
 	} else if (fread(dest + offset, size, 1, f_) != 1) {
-		ERROR_LOG(LOADER, "Unable to read disk cache data entry.");
+		failed = true;
 	}
 #endif
+
+	if (failed) {
+		ERROR_LOG(LOADER, "Unable to read disk cache data entry.");
+		fclose(f_);
+		f_ = nullptr;
+		fd_ = 0;
+	}
+	return !failed;
 }
 
 void DiskCachingFileLoaderCache::WriteBlockData(BlockInfo &info, u8 *src) {
+	if (!f_) {
+		return;
+	}
 	s64 blockOffset = GetBlockOffset(info.block);
 
+	bool failed = false;
 #ifdef ANDROID
 	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
-		ERROR_LOG(LOADER, "Unable to write disk cache data entry.");
+		failed = true;
 	} else if (write(fd_, src, blockSize_) != (ssize_t)blockSize_) {
-		ERROR_LOG(LOADER, "Unable to write disk cache data entry.");
+		failed = true;
 	}
 #else
 	if (fseeko(f_, blockOffset, SEEK_SET) != 0) {
-		ERROR_LOG(LOADER, "Unable to write disk cache data entry.");
+		failed = true;
 	} else if (fwrite(src, blockSize_, 1, f_) != 1) {
-		ERROR_LOG(LOADER, "Unable to write disk cache data entry.");
+		failed = true;
 	}
 #endif
+
+	if (failed) {
+		ERROR_LOG(LOADER, "Unable to write disk cache data entry.");
+		fclose(f_);
+		f_ = nullptr;
+		fd_ = 0;
+	}
 }
 
 void DiskCachingFileLoaderCache::WriteIndexData(u32 indexPos, BlockInfo &info) {
+	if (!f_) {
+		return;
+	}
+
 	u32 offset = (u32)sizeof(FileHeader) + indexPos * (u32)sizeof(BlockInfo);
 
+	bool failed = false;
 	if (fseek(f_, offset, SEEK_SET) != 0) {
-		ERROR_LOG(LOADER, "Unable to write disk cache index entry.");
+		failed = true;
 	} else if (fwrite(&info, sizeof(BlockInfo), 1, f_) != 1) {
+		failed = true;
+	}
+
+	if (failed) {
 		ERROR_LOG(LOADER, "Unable to write disk cache index entry.");
+		fclose(f_);
+		f_ = nullptr;
+		fd_ = 0;
 	}
 }
 

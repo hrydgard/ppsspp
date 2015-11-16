@@ -96,7 +96,7 @@ private:
 	u32 AllocateBlock(u32 indexPos);
 
 	struct BlockInfo;
-	void ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size);
+	bool ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size);
 	void WriteBlockData(BlockInfo &info, u8 *src);
 	void WriteIndexData(u32 indexPos, BlockInfo &info);
 	s64 GetBlockOffset(u32 block);
