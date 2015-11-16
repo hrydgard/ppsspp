@@ -27,6 +27,8 @@
 
 static const char *CACHEFILE_MAGIC = "ppssppDC";
 static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
+// Aim to allow this many files cached at once.
+static const u32 CACHE_SPACE_FLEX = 4;
 
 std::string DiskCachingFileLoaderCache::cacheDir_;
 
@@ -578,11 +580,33 @@ u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
 	const u64 availBytes = std::max(0LL, freeBytes - SAFETY_FREE_DISK_SPACE);
 	const u64 freeBlocks = availBytes / (u64)DEFAULT_BLOCK_SIZE;
 
-	if (freeBlocks > MAX_BLOCKS_UPPER_BOUND) {
-		return MAX_BLOCKS_UPPER_BOUND;
+	const u32 alreadyCachedCount = CountCachedFiles();
+	// This is how many more files of free space we will aim for.
+	const u32 flex = CACHE_SPACE_FLEX > alreadyCachedCount ? CACHE_SPACE_FLEX - alreadyCachedCount : 1;
+
+	const u64 freeBlocksWithFlex = freeBlocks / flex;
+	if (freeBlocksWithFlex > MAX_BLOCKS_LOWER_BOUND) {
+		if (freeBlocksWithFlex > MAX_BLOCKS_UPPER_BOUND) {
+			return MAX_BLOCKS_UPPER_BOUND;
+		}
+		// This might be smaller than what's free, but if they try to launch a second game,
+		// they'll be happier when it can be cached too.
+		return freeBlocksWithFlex;
 	}
-	// Might be lower than LOWER_BOUND, but that's okay.  It means not enough space.
+
+	// Might be lower than LOWER_BOUND, but that's okay.  That means not enough space.
+	// We abandon the idea of flex since there's not enough space free anyway.
 	return freeBlocks;
+}
+
+u32 DiskCachingFileLoaderCache::CountCachedFiles() {
+	std::string dir = cacheDir_;
+	if (dir.empty()) {
+		dir = GetSysDirectory(DIRECTORY_CACHE);
+	}
+
+	std::vector<FileInfo> files;
+	return (u32)getFilesInDir(dir.c_str(), &files, "ppdc:");
 }
 
 void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {

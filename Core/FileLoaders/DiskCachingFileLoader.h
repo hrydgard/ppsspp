@@ -109,6 +109,7 @@ private:
 
 	u64 FreeDiskSpace();
 	u32 DetermineMaxBlocks();
+	u32 CountCachedFiles();
 	void GarbageCollectCacheFiles(u64 goalBytes);
 
 	// File format:
