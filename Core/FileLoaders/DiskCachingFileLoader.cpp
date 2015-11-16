@@ -117,6 +117,7 @@ void DiskCachingFileLoaderCache::InitCache(const std::string &path) {
 	cacheSize_ = 0;
 	indexCount_ = 0;
 	oldestGeneration_ = 0;
+	maxBlocks_ = MAX_BLOCKS_LOWER_BOUND;
 	generation_ = 0;
 
 	const std::string cacheFilePath = MakeCacheFilePath(path);
@@ -248,7 +249,7 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 }
 
 bool DiskCachingFileLoaderCache::MakeCacheSpaceFor(size_t blocks) {
-	size_t goal = MAX_BLOCKS_CACHED - blocks;
+	size_t goal = (size_t)maxBlocks_ - blocks;
 
 	while (cacheSize_ > goal) {
 		u16 minGeneration = generation_;
@@ -414,6 +415,9 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const std::string &path) {
 		valid = false;
 	} else if (header.filesize != filesize_) {
 		valid = false;
+	} else if (header.maxBlocks < MAX_BLOCKS_LOWER_BOUND || header.maxBlocks > MAX_BLOCKS_UPPER_BOUND) {
+		// This means it's not in our safety bounds, reject.
+		valid = false;
 	}
 
 	// If it's valid, retain the file pointer.
@@ -427,6 +431,7 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const std::string &path) {
 
 		// Now let's load the index.
 		blockSize_ = header.blockSize;
+		maxBlocks_ = header.maxBlocks;
 		LoadCacheIndex();
 	} else {
 		ERROR_LOG(LOADER, "Disk cache file header did not match, recreating cache file");
@@ -446,8 +451,8 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 
 	indexCount_ = (filesize_ + blockSize_ - 1) / blockSize_;
 	index_.resize(indexCount_);
-	blockIndexLookup_.resize(MAX_BLOCKS_CACHED);
-	memset(&blockIndexLookup_[0], INVALID_INDEX, MAX_BLOCKS_CACHED * sizeof(blockIndexLookup_[0]));
+	blockIndexLookup_.resize(maxBlocks_);
+	memset(&blockIndexLookup_[0], INVALID_INDEX, maxBlocks_ * sizeof(blockIndexLookup_[0]));
 
 	if (fread(&index_[0], sizeof(BlockInfo), indexCount_, f_) != indexCount_) {
 		fclose(f_);
@@ -462,7 +467,7 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 	cacheSize_ = 0;
 
 	for (size_t i = 0; i < index_.size(); ++i) {
-		if (index_[i].block > MAX_BLOCKS_CACHED) {
+		if (index_[i].block > maxBlocks_) {
 			index_[i].block = INVALID_BLOCK;
 		}
 		if (index_[i].block == INVALID_BLOCK) {
@@ -482,6 +487,14 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 }
 
 void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
+	maxBlocks_ = DetermineMaxBlocks();
+	if (maxBlocks_ < MAX_BLOCKS_LOWER_BOUND) {
+		// There's not enough free space to cache, disable.
+		f_ = nullptr;
+		ERROR_LOG(LOADER, "Not enough free space; disabling disk cache");
+		return;
+	}
+
 	f_ = File::OpenCFile(path, "wb+");
 	if (!f_) {
 		ERROR_LOG(LOADER, "Could not create disk cache file");
@@ -499,6 +512,7 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 	header.version = CACHE_VERSION;
 	header.blockSize = blockSize_;
 	header.filesize = filesize_;
+	header.maxBlocks = maxBlocks_;
 
 	if (fwrite(&header, sizeof(header), 1, f_) != 1) {
 		fclose(f_);
@@ -509,8 +523,8 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 
 	indexCount_ = (filesize_ + blockSize_ - 1) / blockSize_;
 	index_.resize(indexCount_);
-	blockIndexLookup_.resize(MAX_BLOCKS_CACHED);
-	memset(&blockIndexLookup_[0], INVALID_INDEX, MAX_BLOCKS_CACHED * sizeof(blockIndexLookup_[0]));
+	blockIndexLookup_.resize(maxBlocks_);
+	memset(&blockIndexLookup_[0], INVALID_INDEX, maxBlocks_ * sizeof(blockIndexLookup_[0]));
 
 	if (fwrite(&index_[0], sizeof(BlockInfo), indexCount_, f_) != indexCount_) {
 		fclose(f_);
@@ -518,4 +532,9 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 		fd_ = 0;
 		return;
 	}
+}
+
+u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
+	// TODO (don't forget to clamp UPPER)
+	return 4096;
 }

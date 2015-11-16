@@ -104,24 +104,27 @@ private:
 	void LoadCacheIndex();
 	void CreateCacheFile(const std::string &path);
 
+	u32 DetermineMaxBlocks();
+
 	// File format:
 	// 64 magic
 	// 32 version
 	// 32 blockSize
 	// 64 filesize
+	// 32 maxBlocks
 	// index[filesize / blockSize] <-- ~500 KB for 4GB
 	//   32 (fileoffset - headersize) / blockSize -> -1=not present
 	//   16 generation?
 	//   16 hits?
-	// blocks[MAX_BLOCKS]
+	// blocks[up to maxBlocks]
 	//   8 * blockSize
 
 	enum {
-		CACHE_VERSION = 1,
+		CACHE_VERSION = 2,
 		DEFAULT_BLOCK_SIZE = 65536,
 		MAX_BLOCKS_PER_READ = 16,
-		// TODO: Dynamic.
-		MAX_BLOCKS_CACHED = 4096, // 256 MB
+		MAX_BLOCKS_LOWER_BOUND = 256, // 16 MB
+		MAX_BLOCKS_UPPER_BOUND = 8192, // 512 MB
 		INVALID_BLOCK = 0xFFFFFFFF,
 		INVALID_INDEX = 0xFFFFFFFF,
 	};
@@ -131,6 +134,7 @@ private:
 	u32 blockSize_;
 	u16 generation_;
 	u16 oldestGeneration_;
+	u32 maxBlocks_;
 	size_t cacheSize_;
 	size_t indexCount_;
 	recursive_mutex lock_;
@@ -140,6 +144,7 @@ private:
 		u32_le version;
 		u32_le blockSize;
 		s64_le filesize;
+		s32_le maxBlocks;
 	};
 
 	struct BlockInfo {
