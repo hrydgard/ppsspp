@@ -18,11 +18,13 @@
 #include <algorithm>
 #include <string.h>
 #include "file/file_util.h"
+#include "file/free.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"
 
 static const char *CACHEFILE_MAGIC = "ppssppDC";
+static const s64 SAFETY_FREE_DISK_SPACE = 768 * 1024 * 1024; // 768 MB
 
 std::string DiskCachingFileLoaderCache::cacheDir_;
 
@@ -534,7 +536,30 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 	}
 }
 
+u64 DiskCachingFileLoaderCache::FreeDiskSpace() {
+	std::string dir = cacheDir_;
+	if (dir.empty()) {
+		dir = GetSysDirectory(DIRECTORY_CACHE);
+	}
+
+	uint64_t result = 0;
+	if (free_disk_space(dir, result)) {
+		return result;
+	}
+
+	// We can't know for sure how much is free, so we have to assume none.
+	return 0;
+}
+
 u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
-	// TODO (don't forget to clamp UPPER)
-	return 4096;
+	const s64 freeBytes = FreeDiskSpace();
+	// We want to leave them some room for other stuff.
+	const u64 availBytes = std::max(0LL, freeBytes - SAFETY_FREE_DISK_SPACE);
+	const u64 freeBlocks = availBytes / (u64)DEFAULT_BLOCK_SIZE;
+
+	if (freeBlocks > MAX_BLOCKS_UPPER_BOUND) {
+		return MAX_BLOCKS_UPPER_BOUND;
+	}
+	// Might be lower than LOWER_BOUND, but that's okay.  It means not enough space.
+	return freeBlocks;
 }

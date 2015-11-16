@@ -1,7 +1,8 @@
 set(SRCS
   chunk_file.cpp
   zip_read.cpp
-  file_util.cpp)
+  file_util.cpp
+  free.cpp)
 
 set(SRCS ${SRCS})
 

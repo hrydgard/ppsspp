@@ -104,6 +104,7 @@ private:
 	void LoadCacheIndex();
 	void CreateCacheFile(const std::string &path);
 
+	u64 FreeDiskSpace();
 	u32 DetermineMaxBlocks();
 
 	// File format:

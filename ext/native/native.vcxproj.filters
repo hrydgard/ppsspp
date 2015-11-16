@@ -302,6 +302,9 @@
     <ClInclude Include="input\keycodes.h">
       <Filter>input</Filter>
     </ClInclude>
+    <ClInclude Include="file\free.h">
+      <Filter>file</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -735,6 +738,9 @@
     </ClCompile>
     <ClCompile Include="base\QtMain.cpp">
       <Filter>base</Filter>
+    </ClCompile>
+    <ClCompile Include="file\free.cpp">
+      <Filter>file</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
