@@ -47,6 +47,8 @@ public:
 	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
+	static std::vector<std::string> GetCachedPathsInUse();
+
 private:
 	void InitCache();
 	void ShutdownCache();
@@ -100,12 +102,14 @@ private:
 	s64 GetBlockOffset(u32 block);
 
 	std::string MakeCacheFilePath(const std::string &path);
+	std::string MakeCacheFilename(const std::string &path);
 	bool LoadCacheFile(const std::string &path);
 	void LoadCacheIndex();
 	void CreateCacheFile(const std::string &path);
 
 	u64 FreeDiskSpace();
 	u32 DetermineMaxBlocks();
+	void GarbageCollectCacheFiles(u64 goalBytes);
 
 	// File format:
 	// 64 magic
@@ -145,7 +149,7 @@ private:
 		u32_le version;
 		u32_le blockSize;
 		s64_le filesize;
-		s32_le maxBlocks;
+		u32_le maxBlocks;
 	};
 
 	struct BlockInfo {

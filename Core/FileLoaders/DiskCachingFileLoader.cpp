@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <set>
 #include <string.h>
 #include "file/file_util.h"
 #include "file/free.h"
+#include "util/text/utf8.h"
 #include "Common/FileUtil.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/System.h"
@@ -84,6 +86,17 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) 
 
 	filepos_ = absolutePos + readSize;
 	return readSize;
+}
+
+std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
+	// This is on the file loader so that it can manage the caches_.
+	std::vector<std::string> files;
+
+	for (auto it : caches_) {
+		files.push_back(it.first);
+	}
+
+	return files;
 }
 
 void DiskCachingFileLoader::InitCache() {
@@ -326,12 +339,7 @@ u32 DiskCachingFileLoaderCache::AllocateBlock(u32 indexPos) {
 	return INVALID_BLOCK;
 }
 
-std::string DiskCachingFileLoaderCache::MakeCacheFilePath(const std::string &path) {
-	std::string dir = cacheDir_;
-	if (dir.empty()) {
-		dir = GetSysDirectory(DIRECTORY_CACHE);
-	}
-
+std::string DiskCachingFileLoaderCache::MakeCacheFilename(const std::string &path) {
 	static const char *const invalidChars = "?*:/\\^|<>\"'";
 	std::string filename = path;
 	for (size_t i = 0; i < filename.size(); ++i) {
@@ -341,11 +349,20 @@ std::string DiskCachingFileLoaderCache::MakeCacheFilePath(const std::string &pat
 		}
 	}
 
+	return filename + ".ppdc";
+}
+
+std::string DiskCachingFileLoaderCache::MakeCacheFilePath(const std::string &path) {
+	std::string dir = cacheDir_;
+	if (dir.empty()) {
+		dir = GetSysDirectory(DIRECTORY_CACHE);
+	}
+
 	if (!File::Exists(dir)) {
 		File::CreateFullPath(dir);
 	}
 
-	return dir + "/" + filename;
+	return dir + "/" + MakeCacheFilename(path);
 }
 
 s64 DiskCachingFileLoaderCache::GetBlockOffset(u32 block) {
@@ -491,6 +508,10 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 	maxBlocks_ = DetermineMaxBlocks();
 	if (maxBlocks_ < MAX_BLOCKS_LOWER_BOUND) {
+		GarbageCollectCacheFiles(MAX_BLOCKS_LOWER_BOUND * DEFAULT_BLOCK_SIZE);
+		maxBlocks_ = DetermineMaxBlocks();
+	}
+	if (maxBlocks_ < MAX_BLOCKS_LOWER_BOUND) {
 		// There's not enough free space to cache, disable.
 		f_ = nullptr;
 		ERROR_LOG(LOADER, "Not enough free space; disabling disk cache");
@@ -562,4 +583,52 @@ u32 DiskCachingFileLoaderCache::DetermineMaxBlocks() {
 	}
 	// Might be lower than LOWER_BOUND, but that's okay.  It means not enough space.
 	return freeBlocks;
+}
+
+void DiskCachingFileLoaderCache::GarbageCollectCacheFiles(u64 goalBytes) {
+	// We attempt to free up at least enough files from the cache to get goalBytes more space.
+	const std::vector<std::string> usedPaths = DiskCachingFileLoader::GetCachedPathsInUse();
+	std::set<std::string> used;
+	for (std::string path : usedPaths) {
+		used.insert(MakeCacheFilename(path));
+	}
+
+	std::string dir = cacheDir_;
+	if (dir.empty()) {
+		dir = GetSysDirectory(DIRECTORY_CACHE);
+	}
+
+	std::vector<FileInfo> files;
+	getFilesInDir(dir.c_str(), &files, "ppdc:");
+
+	u64 remaining = goalBytes;
+	// TODO: Could order by LRU or etc.
+	for (FileInfo file : files) {
+		if (file.isDirectory) {
+			continue;
+		}
+		if (used.find(file.name) != used.end()) {
+			// In use, must leave alone.
+			continue;
+		}
+
+#ifdef _WIN32
+		const std::wstring w32path = ConvertUTF8ToWString(file.fullName);
+		bool success = DeleteFileW(w32path.c_str()) != 0;
+#else
+		bool success = unlink(file.fullName.c_str()) == 0;
+#endif
+
+		if (success) {
+			if (file.size > remaining) {
+				// We're done, huzzah.
+				break;
+			}
+
+			// A little bit more.
+			remaining -= file.size;
+		}
+	}
+
+	// At this point, we've done all we can.
 }
