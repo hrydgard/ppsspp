@@ -36,7 +36,7 @@
 
 FileLoader *ConstructFileLoader(const std::string &filename) {
 	if (filename.find("http://") == 0 || filename.find("https://") == 0)
-		return new CachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename)));
+		return new CachingFileLoader(new DiskCachingFileLoader(new RetryingFileLoader(new HTTPFileLoader(filename))));
 	return new LocalFileLoader(filename);
 }
 
