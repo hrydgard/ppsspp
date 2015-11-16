@@ -1498,8 +1498,9 @@ void TextureCache::SetTexture(bool force) {
 
 		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
 		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 5 : 4, scaleFactor);
-			if (!gl_extensions.OES_texture_npot && scaleFactor == 3) {
+			bool supportNpot = gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT);
+			scaleFactor = std::min(supportNpot ? 5 : 4, scaleFactor);
+			if (!supportNpot && scaleFactor == 3) {
 				scaleFactor = 2;
 			}
 		} else {
