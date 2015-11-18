@@ -90,8 +90,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, filename, 0);
-	if (info && !info->id.empty())
-	{
+	if (info && !info->id.empty()) {
 		g_Config.loadGameConfig(info->id);
 	}
 
@@ -862,6 +861,24 @@ void EmuScreen::render() {
 		}
 	}
 
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+	if (!useBufferedRendering) {
+		Thin3DContext *thin3d = screenManager()->getThin3DContext();
+		thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+
+		T3DViewport viewport;
+		viewport.TopLeftX = 0;
+		viewport.TopLeftY = 0;
+		viewport.Width = pixel_xres;
+		viewport.Height = pixel_yres;
+		viewport.MaxDepth = 1.0;
+		viewport.MinDepth = 0.0;
+		thin3d->SetViewports(1, &viewport);
+		thin3d->SetTargetSize(pixel_xres, pixel_yres);
+	}
+
+
 	// Reapply the graphics state of the PSP
 	ReapplyGfxState();
 
@@ -883,7 +900,6 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
 		fbo_unbind();
 

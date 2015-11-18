@@ -46,7 +46,9 @@ public:
 
 	virtual void onFinish(DialogResult reason) {}
 	virtual void update(InputState &input) {}
+	virtual void preRender() {}
 	virtual void render() {}
+	virtual void postRender() {}
 	virtual void deviceLost() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
