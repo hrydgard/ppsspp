@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "ui/ui_screen.h"
@@ -34,6 +35,24 @@ void UIScreen::update(InputState &input) {
 	if (root_) {
 		UpdateViewHierarchy(input, root_);
 	}
+}
+
+void UIScreen::preRender() {
+	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+
+	T3DViewport viewport;
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = pixel_xres;
+	viewport.Height = pixel_yres;
+	viewport.MaxDepth = 1.0;
+	viewport.MinDepth = 0.0;
+	thin3d->SetViewports(1, &viewport);
+	thin3d->SetTargetSize(pixel_xres, pixel_yres);
+}
+
+void UIScreen::postRender() {
 }
 
 void UIScreen::render() {

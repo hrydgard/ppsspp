@@ -45,8 +45,6 @@ public:
 	bool key(const KeyInput &key) override;
 	bool axis(const AxisInput &axis) override;
 
-	int expects() const override;
-
 protected:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);

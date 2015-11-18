@@ -12,7 +12,9 @@ public:
 	~UIScreen();
 
 	virtual void update(InputState &input) override;
+	virtual void preRender() override;
 	virtual void render() override;
+	virtual void postRender() override;
 
 	virtual bool touch(const TouchInput &touch) override;
 	virtual bool key(const KeyInput &touch) override;
