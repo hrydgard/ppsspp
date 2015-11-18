@@ -223,8 +223,8 @@ namespace DX9 {
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
@@ -679,6 +679,8 @@ namespace DX9 {
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
 		fbo_unbind();
 		if (useBufferedRendering_) {
+			// In buffered, we no longer clear the backbuffer before we start rendering.
+			ClearBuffer();
 			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		}
 		currentRenderVfb_ = 0;
@@ -744,8 +746,9 @@ namespace DX9 {
 				}
 			} else {
 				DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
-				// No framebuffer to display! Clear to black.
-				ClearBuffer();
+				// No framebuffer to display! Clear to black. If buffered, we already did that.
+				if (!useBufferedRendering_)
+					ClearBuffer();
 				return;
 			}
 		}
@@ -762,10 +765,6 @@ namespace DX9 {
 			prevDisplayFramebuf_ = displayFramebuf_;
 		}
 		displayFramebuf_ = vfb;
-
-		if (resized_) {
-			ClearBuffer();
-		}
 
 		if (vfb->fbo) {
 			DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
