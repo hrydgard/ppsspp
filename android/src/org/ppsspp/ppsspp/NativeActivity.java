@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -157,6 +158,30 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
+	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1337;
+
+	@TargetApi(23)
+	public void askForStoragePermission() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+				NativeApp.sendMessage("permission_pending", "storage");
+				this.requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
+			} else {
+				NativeApp.sendMessage("permission_granted", "storage");
+			}
+		}
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode,
+	        String permissions[], int[] grantResults) {
+		if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+			NativeApp.sendMessage("permission_granted", "storage");
+		} else {
+			NativeApp.sendMessage("permission_denied", "storage");
+		}
+	}
+
 	public void setShortcutParam(String shortcutParam) {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
 	}
@@ -172,6 +197,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         	detectOptimalAudioSettings();
         }
 
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			askForStoragePermission();
+		}
     	// Get system information
 		ApplicationInfo appInfo = null;
 		PackageManager packMgmr = getPackageManager();
@@ -907,6 +935,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		} else if (command.equals("recreate")) {
 			exitEGLRenderLoop();
 			recreate();
+		} else if (command.equals("ask_permission")) {
+
 		}
     	return false;
     }
