@@ -39,7 +39,7 @@ uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size) {
 
 // The return is non-const because - why not?
 uint8_t *ReadLocalFile(const char *filename, size_t *size) {
-	FILE *file = fopen(filename, "rb");
+	FILE *file = openCFile(filename, "rb");
 	if (!file) {
 		*size = 0;
 		return nullptr;
