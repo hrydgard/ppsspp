@@ -145,6 +145,11 @@ const bool nonAlphaSrcFactors[16] = {
 	true,  // GE_SRCBLEND_DOUBLEDSTALPHA,
 	true,  // GE_SRCBLEND_DOUBLEINVDSTALPHA,
 	true,  // GE_SRCBLEND_FIXA,
+	true,
+	true,
+	true,
+	true,
+	true,
 };
 
 const bool nonAlphaDestFactors[16] = {
@@ -159,6 +164,11 @@ const bool nonAlphaDestFactors[16] = {
 	true,  // GE_DSTBLEND_DOUBLEDSTALPHA,
 	true,  // GE_DSTBLEND_DOUBLEINVDSTALPHA,
 	true,  // GE_DSTBLEND_FIXB,
+	true,
+	true,
+	true,
+	true,
+	true,
 };
 
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
@@ -302,6 +312,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		case GE_DSTBLEND_DSTALPHA:
 		case GE_DSTBLEND_INVDSTALPHA:
 		case GE_DSTBLEND_FIXB:
+		default:
 			// TODO: Could use vertexFullAlpha, but it's not calculated yet.
 			// This outputs the original alpha for the dest factor.
 			return REPLACE_BLEND_PRE_SRC;
@@ -341,6 +352,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		case GE_DSTBLEND_DSTALPHA:
 		case GE_DSTBLEND_INVDSTALPHA:
 		case GE_DSTBLEND_FIXB:
+		default:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
@@ -373,6 +385,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		case GE_DSTBLEND_DSTALPHA:
 		case GE_DSTBLEND_INVDSTALPHA:
 		case GE_DSTBLEND_FIXB:
+		default:
 			if (bufferFormat == GE_FORMAT_565) {
 				return REPLACE_BLEND_STANDARD;
 			}
@@ -380,6 +393,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 		}
 
 	case GE_SRCBLEND_FIXA:
+	default:
 		switch (funcB) {
 		case GE_DSTBLEND_DOUBLESRCALPHA:
 			// Can't safely double alpha, will clamp.
@@ -397,6 +411,7 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
 
 		case GE_DSTBLEND_FIXB:
+		default:
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
 				// Some games specify this.  Some cards may prefer blending off entirely.
 				return REPLACE_BLEND_NO;

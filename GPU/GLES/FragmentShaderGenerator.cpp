@@ -178,10 +178,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
 		}
-		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
+		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 			WRITE(p, "uniform vec3 u_blendFixA;\n");
 		}
-		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
+		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
@@ -502,6 +502,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
@@ -533,6 +534,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -546,6 +548,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			default:                            srcFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
