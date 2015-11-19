@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits>
+#include "file/free.h"
 #include "file/zip_read.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
@@ -798,35 +799,18 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 }
 
 u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
-#ifdef _WIN32
-	const std::wstring w32path = ConvertUTF8ToWString(GetLocalPath(path));
-	ULARGE_INTEGER free;
-	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
-		return free.QuadPart;
-#elif defined(__SYMBIAN32__)
-	QSystemStorageInfo storageInfo;
-	return (u64)storageInfo.availableDiskSpace("E");
-#else
-	std::string localPath = GetLocalPath(path);
-	struct statvfs diskstat;
-	int res = statvfs(localPath.c_str(), &diskstat);
+	uint64_t result = 0;
+	if (free_disk_space(GetLocalPath(path), result)) {
+		return result;
+	}
 
 #if HOST_IS_CASE_SENSITIVE
 	std::string fixedCase = path;
-	if (res != 0 && FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
+	if (FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again.
-		localPath = GetLocalPath(fixedCase);
-		res = statvfs(localPath.c_str(), &diskstat);
-	}
-#endif
-
-	if (res == 0) {
-#ifndef ANDROID
-		if (diskstat.f_flag & ST_RDONLY) {
-			return 0;
+		if (free_disk_space(GetLocalPath(fixedCase), result)) {
+			return result;
 		}
-#endif
-		return (u64)diskstat.f_bavail * (u64)diskstat.f_frsize;
 	}
 #endif
 

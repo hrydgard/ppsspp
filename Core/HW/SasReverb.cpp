@@ -228,7 +228,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// This runs at 22khz.
 	// Very unoptimized, straight from the description. Can probably be reformulated into something way more efficient.
 	// Or we could actually template the whole thing with the parameters as template arguments, as the presets are fixed.
-	for (int i = 0; i < inputSize; i++) {
+	for (size_t i = 0; i < inputSize; i++) {
 		// Dividing by two here is an incorrect hack. Some multiplication factor is needed to prevent the reverb from getting too loud, though.
 		int16_t LeftInput = input[i * 2] >> 1;
 		int16_t RightInput = input[i * 2 + 1] >> 1;

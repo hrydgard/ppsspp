@@ -41,6 +41,7 @@ LOCAL_SRC_FILES :=\
     file/fd_util.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
+    file/free.cpp \
     file/path.cpp \
     file/ini_file.cpp \
     file/zip_read.cpp \

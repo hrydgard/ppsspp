@@ -923,6 +923,8 @@ add_library(native STATIC
 	ext/native/file/fd_util.h
 	ext/native/file/file_util.cpp
 	ext/native/file/file_util.h
+	ext/native/file/free.cpp
+	ext/native/file/free.h
 	ext/native/file/ini_file.cpp
 	ext/native/file/ini_file.h
 	ext/native/file/path.cpp

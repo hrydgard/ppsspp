@@ -457,6 +457,9 @@ ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bu
 			return REPLACE_BLEND_STANDARD;
 		}
 	}
+
+	// Should never get here.
+	return REPLACE_BLEND_STANDARD;
 }
 
 LogicOpReplaceType ReplaceLogicOpType() {

@@ -226,6 +226,7 @@
     <ClInclude Include="file\ini_file.h" />
     <ClInclude Include="file\vfs.h" />
     <ClInclude Include="file\zip_read.h" />
+    <ClInclude Include="file\free.h" />
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\gl_lost_manager.h" />
@@ -680,6 +681,7 @@
     <ClCompile Include="file\path.cpp" />
     <ClCompile Include="file\ini_file.cpp" />
     <ClCompile Include="file\zip_read.cpp" />
+    <ClCompile Include="file\free.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\gl_lost_manager.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
