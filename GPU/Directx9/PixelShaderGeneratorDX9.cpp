@@ -75,10 +75,10 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 			WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
 			WRITE(p, "sampler fbotex : register(s1);\n");
 		}
-		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
+		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 			WRITE(p, "float3 u_blendFixA : register(c%i);\n", CONST_PS_BLENDFIXA);
 		}
-		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
+		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
 			WRITE(p, "float3 u_blendFixB : register(c%i);\n", CONST_PS_BLENDFIXB);
 		}
 	}
@@ -305,6 +305,7 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "float3(2.0, 2.0, 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
