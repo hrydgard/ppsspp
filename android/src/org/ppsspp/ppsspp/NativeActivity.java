@@ -814,7 +814,7 @@ public class NativeActivity extends Activity {
 			toast.show();
 			Log.i(TAG, params);
 			return true;
-		} else if (command.equals("showKeyboard")) {
+		} else if (command.equals("showKeyboard") && mGLSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
@@ -822,7 +822,7 @@ public class NativeActivity extends Activity {
 					mGLSurfaceView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
-		} else if (command.equals("hideKeyboard")) {
+		} else if (command.equals("hideKeyboard") && mGLSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			inputMethodManager.toggleSoftInputFromWindow(
 					mGLSurfaceView.getApplicationWindowToken(),
@@ -839,7 +839,7 @@ public class NativeActivity extends Activity {
 			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
 			inputBox(title, defString, "OK");
 			return true;
-		} else if (command.equals("vibrate")) {
+		} else if (command.equals("vibrate") && mGLSurfaceView != null) {
 			int milliseconds = -1;
 			if (params != "") {
 				try {
