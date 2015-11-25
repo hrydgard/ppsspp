@@ -144,7 +144,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		}
 		
 		if (chosen == null) {
-			// Third, accept one with alpha but with stencil.
+			// Third, accept one with alpha but with stencil, 24-bit depth.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
 				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 8 && c.stencil >= 8 && c.depth >= 24) {
@@ -155,7 +155,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		}
 
 		if (chosen == null) {
-			// Third, accept one with alpha but with stencil.
+			// Third, accept one with alpha but with stencil, 16-bit depth.
 			for (int i = 0; i < configs.length; i++) {
 				ConfigAttribs c = configs[i];
 				if (c.red == 8 && c.green == 8 && c.blue == 8 && c.alpha == 8 && c.stencil >= 8 && c.depth >= 16) {

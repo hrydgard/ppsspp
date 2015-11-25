@@ -360,6 +360,12 @@ public class NativeActivity extends Activity {
         if (Build.MANUFACTURER == "OUYA") {
         	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
         	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+        } else {
+        	// Many devices require that we set a config chooser, despite the documentation
+        	// explicitly stating: "If no setEGLConfigChooser method is called, then by default the view will choose an RGB_888 surface with a depth buffer depth of at least 16 bits."
+        	// On these devices, I get these crashes: http://stackoverflow.com/questions/14167319/android-opengl-demo-no-config-chosen
+        	// So let's try it...
+        	mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
         }
         
         mGLSurfaceView.setRenderer(nativeRenderer);
