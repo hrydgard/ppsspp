@@ -201,13 +201,18 @@ std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints
 	std::string modifier2 = "0";
 	while (true)  {
 		// Shouldn't splitCode be cleared here? Otherwise var1 and var2 will always be set to the first two codes.. I don't get it
-		if (currentCode >= parts.size() - 1) {
+		if (currentCode >= parts.size()) {
 			code1.clear();
 			code2.clear();
 			break;
 		}
 		code1 = parts[currentCode++];
 		trim2(code1);
+		if (currentCode >= parts.size()) {
+			code1.clear();
+			code2.clear();
+			break;
+		}
 		code2 = parts[currentCode++];
 		trim2(code2);
 		splitCode.push_back(code1);
