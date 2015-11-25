@@ -423,6 +423,7 @@ public:
 	}
 };
 
+// TODO: Delete the "occupied" array, rely on non-zero pool entries?
 class KernelObjectPool {
 public:
 	KernelObjectPool();
@@ -440,6 +441,8 @@ public:
 		if (Get<T>(handle, error)) {
 			occupied[handle-handleOffset] = false;
 			delete pool[handle-handleOffset];
+			// Why weren't we zeroing before?
+			pool[handle-handleOffset] = nullptr;
 		}
 		return error;
 	};
