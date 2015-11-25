@@ -19,67 +19,11 @@
 
 #include "Globals.h"
 
-// TODO: Bench both ways. Result may be different on old vs new hardware though..
-// #define DX9_USE_HW_ALPHA_TEST 1
+#include "GPU/Common/ShaderId.h"
 
 namespace DX9 {
 
-struct FragmentShaderIDDX9 {
-	FragmentShaderIDDX9() {clear();}
-	void clear() {d[0] = 0xFFFFFFFF; d[1] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const FragmentShaderIDDX9 &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
-	}
-	bool operator == (const FragmentShaderIDDX9 &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
-	}
-};
-
-void ComputeFragmentShaderIDDX9(FragmentShaderIDDX9 *id);
-void GenerateFragmentShaderDX9(char *buffer);
-
-enum StencilValueType {
-	STENCIL_VALUE_UNIFORM,
-	STENCIL_VALUE_ZERO,
-	STENCIL_VALUE_ONE,
-	STENCIL_VALUE_KEEP,
-	STENCIL_VALUE_INVERT,
-	STENCIL_VALUE_INCR_4,
-	STENCIL_VALUE_INCR_8,
-	STENCIL_VALUE_DECR_4,
-	STENCIL_VALUE_DECR_8,
-};
-
-enum ReplaceAlphaType {
-	REPLACE_ALPHA_NO = 0,
-	REPLACE_ALPHA_YES = 1,
-	REPLACE_ALPHA_DUALSOURCE = 2,
-};
-
-enum ReplaceBlendType {
-	REPLACE_BLEND_NO,
-	REPLACE_BLEND_STANDARD,
-	REPLACE_BLEND_PRE_SRC,
-	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
-	REPLACE_BLEND_2X_ALPHA,
-	REPLACE_BLEND_2X_SRC,
-	REPLACE_BLEND_COPY_FBO,
-};
-
-StencilValueType ReplaceAlphaWithStencilType();
-ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend);
+bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1

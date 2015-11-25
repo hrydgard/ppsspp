@@ -37,7 +37,7 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
-SymbolMap symbolMap;
+SymbolMap *g_symbolMap;
 
 void SymbolMap::SortSymbols() {
 	lock_guard guard(lock_);

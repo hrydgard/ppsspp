@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "Common/MipsEmitter.h"
+using namespace MIPSGen;
+
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"
@@ -122,6 +125,8 @@ public:
 	void Comp_Vocp(MIPSOpcode op) {}
 	void Comp_ColorConv(MIPSOpcode op) {}
 	int Replace_fabsf() { return 0; }
+
+	void Comp_Vbfy(MIPSOpcode op) {}
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 

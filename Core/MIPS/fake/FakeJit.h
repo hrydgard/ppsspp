@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/FakeEmitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"

@@ -11,6 +11,17 @@ LPDIRECT3DDEVICE9 pD3Ddevice = NULL;
 LPDIRECT3DDEVICE9EX pD3DdeviceEx = NULL;
 LPDIRECT3D9 pD3D = NULL;
 
+void DXSetViewport(float x, float y, float w, float h, float minZ, float maxZ) {
+	D3DVIEWPORT9 vp;
+	vp.X = (DWORD)x;
+	vp.Y = (DWORD)y;
+	vp.Width = (DWORD)w;
+	vp.Height = (DWORD)h;
+	vp.MinZ = minZ;
+	vp.MaxZ = maxZ;
+	pD3Ddevice->SetViewport(&vp);
+}
+
 static const char * vscode =
   "struct VS_IN {\n"
   "  float4 ObjPos   : POSITION;\n"

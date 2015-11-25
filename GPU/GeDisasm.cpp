@@ -68,7 +68,7 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
 	if (typeNames[weight] && w < end)
 		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
-	else if (weightCount > 0 && w < end)
+	else if (weightCount > 1 && w < end)
 		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
 	if (morphCount > 0 && w < end)
 		w += snprintf(w, end - w, "%d morphs, ", morphCount);
@@ -653,19 +653,19 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 		}
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-		snprintf(buffer, bufsize, "Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+		snprintf(buffer, bufsize, "Viewport param %i: %f", cmd-GE_CMD_VIEWPORTXSCALE, getFloat24(data));
 		break;
-	case GE_CMD_VIEWPORTZ1:
+	case GE_CMD_VIEWPORTZSCALE:
 		{
 			float zScale = getFloat24(data) / 65535.f;
 			snprintf(buffer, bufsize, "Viewport Z scale: %f", zScale);
 		}
 		break;
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTZCENTER:
 		{
 			float zOff = getFloat24(data) / 65535.f;
 			snprintf(buffer, bufsize, "Viewport Z pos: %f", zOff);

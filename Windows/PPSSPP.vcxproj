@@ -294,7 +294,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="D3D9Base.cpp" />
+    <ClCompile Include="GPU\D3D9Context.cpp" />
     <ClCompile Include="Debugger\BreakpointWindow.cpp" />
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp" />
     <ClCompile Include="Debugger\CtrlMemView.cpp" />
@@ -332,7 +332,7 @@
     <ClCompile Include="W32Util\TabControl.cpp" />
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
-    <ClCompile Include="OpenGLBase.cpp" />
+    <ClCompile Include="GPU\WindowsGLContext.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="main.cpp" />
@@ -349,7 +349,7 @@
     <ClInclude Include="..\android\jni\Arm64EmitterTest.h" />
     <ClInclude Include="..\android\jni\TestRunner.h" />
     <ClInclude Include="..\ios\ViewController.h" />
-    <ClInclude Include="D3D9Base.h" />
+    <ClInclude Include="GPU\D3D9Context.h" />
     <ClInclude Include="Debugger\BreakpointWindow.h" />
     <ClInclude Include="Debugger\CtrlDisAsmView.h" />
     <ClInclude Include="Debugger\CtrlMemView.h" />
@@ -381,7 +381,7 @@
     <ClInclude Include="InputBox.h" />
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />
-    <ClInclude Include="OpenGLBase.h" />
+    <ClInclude Include="GPU\WindowsGLContext.h" />
     <ClInclude Include="WindowsHost.h" />
     <ClInclude Include="..\Globals.h" />
     <ClInclude Include="main.h" />

@@ -18,6 +18,10 @@ else:i86 {
 	SOURCES += $$P/Core/MIPS/x86/*.cpp
 	HEADERS += $$P/Core/MIPS/x86/*.h
 }
+else:mips {
+	SOURCES += $$P/Core/MIPS/MIPS/*.cpp
+	HEADERS += $$P/Core/MIPS/MIPS/*.h
+}
 else {
 	SOURCES += $$P/Core/MIPS/fake/*.cpp
 	HEADERS += $$P/Core/MIPS/fake/*.h

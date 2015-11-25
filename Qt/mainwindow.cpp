@@ -273,7 +273,7 @@ void MainWindow::lmapAct()
 	if (fileNames.count() > 0)
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
-		symbolMap.LoadSymbolMap(fileName.toStdString().c_str());
+		g_symbolMap->LoadSymbolMap(fileName.toStdString().c_str());
 		notifyMapsLoaded();
 	}
 }
@@ -290,13 +290,13 @@ void MainWindow::smapAct()
 	if (dialog.exec())
 	{
 		fileNames = dialog.selectedFiles();
-		symbolMap.SaveSymbolMap(fileNames[0].toStdString().c_str());
+		g_symbolMap->SaveSymbolMap(fileNames[0].toStdString().c_str());
 	}
 }
 
 void MainWindow::resetTableAct()
 {
-	symbolMap.Clear();
+	g_symbolMap->Clear();
 	notifyMapsLoaded();
 }
 

@@ -17,11 +17,14 @@
 
 #pragma once
 
-#include "base/basictypes.h"
-#include "../../Globals.h"
 #include <map>
+
+#include "base/basictypes.h"
+#include "Globals.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/ShaderId.h"
 #include "thin3d/d3dx9_loader.h"
 #include "math/lin/matrix4x4.h"
 
@@ -78,38 +81,44 @@ enum {
 
 class PSShader {
 public:
-	PSShader(const char *code, bool useHWTransform);
+	PSShader(ShaderID id, const char *code, bool useHWTransform);
 	~PSShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	
+
+	std::string GetShaderString(DebugShaderStringType type) const;
+
 	LPDIRECT3DPIXELSHADER9 shader;
 
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+	ShaderID id_;
 };
 
 class VSShader {
 public:
-	VSShader(const char *code, int vertType, bool useHWTransform);
+	VSShader(ShaderID id, const char *code, int vertType, bool useHWTransform);
 	~VSShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	
+
+	std::string GetShaderString(DebugShaderStringType type) const;
+
 	LPDIRECT3DVERTEXSHADER9 shader;
 
 protected:	
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+	ShaderID id_;
 };
 
 class ShaderManagerDX9 {
@@ -127,6 +136,9 @@ public:
 
 	int NumVertexShaders() const { return (int)vsCache_.size(); }
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }
+
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
 private:
 	void PSUpdateUniforms(int dirtyUniforms);
@@ -149,8 +161,8 @@ private:
 
 	void Clear();
 
-	FragmentShaderIDDX9 lastFSID_;
-	VertexShaderIDDX9 lastVSID_;
+	ShaderID lastFSID_;
+	ShaderID lastVSID_;
 
 	u32 globalDirty_;
 	char *codeBuffer_;
@@ -158,10 +170,10 @@ private:
 	VSShader *lastVShader_;
 	PSShader *lastPShader_;
 
-	typedef std::map<FragmentShaderIDDX9, PSShader *> FSCache;
+	typedef std::map<ShaderID, PSShader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<VertexShaderIDDX9, VSShader *> VSCache;
+	typedef std::map<ShaderID, VSShader *> VSCache;
 	VSCache vsCache_;
 };
 

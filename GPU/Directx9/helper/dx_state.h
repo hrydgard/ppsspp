@@ -19,8 +19,13 @@ private:
 		inline void set(bool value) {
 			if (_value != value) {
 				_value = value;
-				pD3Ddevice->SetRenderState(cap, value);
+				restore();
 			}
+		}
+		void force(bool value) {
+			bool old = _value;
+			set(value);
+			_value = old;
 		}
 		inline void enable() {
 			set(true);
@@ -51,8 +56,13 @@ private:
 		inline void set(DWORD newp1) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetRenderState(_state1, p1);
+				restore();
 			}
+		}
+		void force(DWORD newp1) {
+			DWORD old = p1;
+			set(newp1);
+			p1 = old;
 		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
@@ -71,8 +81,13 @@ private:
 		inline void set(DWORD newp1) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetSamplerState(0, _state1, p1);
+				restore();
 			}
+		}
+		void force(DWORD newp1) {
+			DWORD old = p1;
+			set(newp1);
+			p1 = old;
 		}
 		void restore() {
 			pD3Ddevice->SetSamplerState(0, _state1, p1);
@@ -95,8 +110,13 @@ private:
 		inline void set(FLOAT newp1) {
 			if (p1 != newp1) {
 				p1 = newp1;
-				pD3Ddevice->SetSamplerState(0, _state1, p1d);
+				restore();
 			}
+		}
+		void force(FLOAT newp1) {
+			FLOAT old = p1;
+			set(newp1);
+			p1 = old;
 		}
 		void restore() {
 			pD3Ddevice->SetSamplerState(0, _state1, p1d);
@@ -123,6 +143,13 @@ private:
 				p2 = newp2;
 				pD3Ddevice->SetRenderState(_state2, p2);
 			}
+		}
+		void force(DWORD newp1, DWORD newp2) {
+			DWORD old1 = p1;
+			DWORD old2 = p2;
+			set(newp1, newp2);
+			p1 = old1;
+			p2 = old2;
 		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
@@ -158,10 +185,19 @@ private:
 				pD3Ddevice->SetRenderState(_state3, p3);
 			}
 		}
+		void force(DWORD newp1, DWORD newp2, DWORD newp3) {
+			DWORD old1 = p1;
+			DWORD old2 = p2;
+			DWORD old3 = p3;
+			set(newp1, newp2, newp3);
+			p1 = old1;
+			p2 = old2;
+			p3 = old3;
+		}
 		void restore() {
-		  pD3Ddevice->SetRenderState(_state1, p1);
-		  pD3Ddevice->SetRenderState(_state2, p2);
-		  pD3Ddevice->SetRenderState(_state3, p3);
+			pD3Ddevice->SetRenderState(_state1, p1);
+			pD3Ddevice->SetRenderState(_state2, p2);
+			pD3Ddevice->SetRenderState(_state3, p3);
 		}
 	};
 
@@ -199,6 +235,17 @@ private:
 				pD3Ddevice->SetRenderState(_state4, p4);
 			}
 		}
+		void force(DWORD newp1, DWORD newp2, DWORD newp3, DWORD newp4) {
+			DWORD old1 = p1;
+			DWORD old2 = p2;
+			DWORD old3 = p3;
+			DWORD old4 = p4;
+			set(newp1, newp2, newp3, newp4);
+			p1 = old1;
+			p2 = old2;
+			p3 = old3;
+			p4 = old4;
+		}
 		void restore() {
 			pD3Ddevice->SetRenderState(_state1, p1);
 			pD3Ddevice->SetRenderState(_state2, p2);
@@ -219,8 +266,20 @@ private:
 			DWORD newc = D3DCOLOR_COLORVALUE(v[0], v[1], v[2], v[3]);
 			if (c != newc) {
 				c = newc;
-				pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
+				restore();
 			}
+		}
+		void setDWORD(DWORD newc) {
+			newc = ((newc >> 8) & 0xff) | (newc & 0xff00ff00) | ((newc << 16) & 0xff0000);  // ARGB -> ABGR fix
+			if (c != newc) {
+				c = newc;
+				restore();
+			}
+		}
+		void force(const float v[4]) {
+			DWORD old = c;
+			set(v);
+			c = old;
 		}
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_BLENDFACTOR, c);
@@ -251,9 +310,13 @@ private:
 			}
 			if (mask != newmask) {
 				mask = newmask;
-				pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
+				restore();
 			}
-			
+		}
+		void force(bool r, bool g, bool b, bool a) {
+			DWORD old = mask;
+			set(r, g, b, a);
+			mask = old;
 		}
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, mask);
@@ -267,12 +330,14 @@ private:
 			DirectXState::state_count++;
 		}
 		inline void set(bool) {
-			
+			// Nothing.
+		}
+		void force(bool) {
+			// Nothing.
 		}
 		inline void restore() {
-			
+			// Nothing.
 		}
-
 		inline void enable() {
 			set(true);
 		}
@@ -282,9 +347,10 @@ private:
 	};
 
 	class StateVp {
-	D3DVIEWPORT9 viewport;
+		D3DVIEWPORT9 viewport;
 	public:
-		inline void set(int x, int y, int w, int h,  float n = 0.f, float f = 1.f) {
+		StateVp() { memset(&viewport, 0, sizeof(viewport)); }
+		inline void set(int x, int y, int w, int h, float n = 0.f, float f = 1.f) {
 			D3DVIEWPORT9 newviewport;
 			newviewport.X = x;
 			newviewport.Y = y;
@@ -292,11 +358,16 @@ private:
 			newviewport.Height = h;
 			newviewport.MinZ = n;
 			newviewport.MaxZ = f;
-
-			if (memcmp(&viewport, &newviewport, sizeof(viewport))) {
+			if (memcmp(&viewport, &newviewport, sizeof(viewport)) != 0) {
 				viewport = newviewport;
-				pD3Ddevice->SetViewport(&viewport);
+				restore();
 			}
+		}
+
+		void force(int x, int y, int w, int h, float n = 0.f, float f = 1.f) {
+			D3DVIEWPORT9 old = viewport;
+			set(x, y, w, h, n, f);
+			viewport = old;
 		}
 
 		inline void restore() {
@@ -307,12 +378,18 @@ private:
 	class StateScissor {
 		RECT rect;
 	public:
-		inline void set(int x1, int y1, int x2, int y2)  {
+		inline void set(int x1, int y1, int x2, int y2) {
 			RECT newrect = {x1, y1, x2, y2};
 			if (memcmp(&rect, &newrect, sizeof(rect))) {
 				rect = newrect;
-				pD3Ddevice->SetScissorRect(&rect);
+				restore();
 			}
+		}
+
+		void force(int x1, int y1, int x2, int y2) {
+			RECT old = rect;
+			set(x1, y1, x2, y2);
+			rect = old;
 		}
 
 		inline void restore() {
@@ -337,8 +414,13 @@ private:
 			}
 			if (cull != newcull) {
 				cull = newcull;
-				pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);
+				restore();
 			}
+		}
+		void force(int wantcull, int cullmode) {
+			DWORD old = cull;
+			set(wantcull, cullmode);
+			cull = old;
 		}
 		inline void restore() {
 			pD3Ddevice->SetRenderState(D3DRS_CULLMODE, cull);

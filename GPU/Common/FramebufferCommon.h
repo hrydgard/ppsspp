@@ -46,6 +46,9 @@ enum {
 };
 
 struct FBO;
+namespace DX9 {
+	struct FBO_DX9;
+}
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -81,7 +84,10 @@ struct VirtualFramebuffer {
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	// TODO: Handle fbo and colorDepth better.
 	u8 colorDepth;
-	FBO *fbo;
+	union {
+		FBO *fbo;
+		DX9::FBO_DX9 *fbo_dx9;
+	};
 
 	u16 drawnWidth;
 	u16 drawnHeight;
@@ -162,7 +168,7 @@ public:
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) = 0;
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
 	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) = 0;
-	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
+	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) = 0;
 
 	size_t NumVFBs() const { return vfbs_.size(); }
 
@@ -214,13 +220,13 @@ protected:
 	void UpdateSize();
 
 	virtual void DisableState() = 0;
-	virtual void ClearBuffer() = 0;
+	virtual void ClearBuffer(bool keepState = false) = 0;
 	virtual void ClearDepthBuffer() = 0;
 	virtual void FlushBeforeCopy() = 0;
 	virtual void DecimateFBOs() = 0;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) = 0;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) = 0;
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
@@ -284,4 +290,4 @@ protected:
 	};
 };
 
-void CenterRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);
+void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);

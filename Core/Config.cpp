@@ -47,6 +47,8 @@ http::Downloader g_DownloadManager;
 
 Config g_Config;
 
+bool jitForcedOff;
+
 #ifdef IOS
 extern bool iosCanUseJit;
 #endif
@@ -436,14 +438,17 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultJit, false),
 
-#ifdef _WIN32
+#ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", &g_Config.bFullScreen, false),
 #endif
 
 	// TODO: Replace these settings with a list of options
 	ConfigSetting("PartialStretch", &g_Config.bPartialStretch, &DefaultPartialStretch, true, true),
 	ConfigSetting("StretchToDisplay", &g_Config.bStretchToDisplay, false, true, true),
-	ConfigSetting("SmallDisplay", &g_Config.bSmallDisplay, false, true, true),
+	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 0, true, true),
+	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
+	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
+	ConfigSetting("SmallDisplayCustomZoom", &g_Config.fSmallDisplayCustomZoom, 8.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),
@@ -456,7 +461,6 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, true, true),
 	ReportedConfigSetting("DisableStencilTest", &g_Config.bDisableStencilTest, false, true, true),
 	ReportedConfigSetting("AlwaysDepthWrite", &g_Config.bAlwaysDepthWrite, false, true, true),
-	ReportedConfigSetting("DepthRangeHack", &g_Config.bDepthRangeHack, false, true, true),
 	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, true, true),
 
 	// Not really a graphics setting...
@@ -928,9 +932,19 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	}
+
+	// Override ppsspp.ini JIT value to prevent crashing
+	if (!DefaultJit() && g_Config.bJit) {
+		jitForcedOff = true;
+		g_Config.bJit = false;
+	}
 }
 
 void Config::Save() {
+	if (jitForcedOff) {
+		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
+		g_Config.bJit = true;
+	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
 		saveGameConfig(gameId_);
@@ -998,6 +1012,10 @@ void Config::Save() {
 		}
 	} else {
 		INFO_LOG(LOADER, "Not saving config");
+	}
+	if (jitForcedOff) {
+		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
+		g_Config.bJit = false;
 	}
 }
 

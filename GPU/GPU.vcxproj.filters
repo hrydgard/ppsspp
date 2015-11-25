@@ -192,12 +192,11 @@
     <ClInclude Include="GLES\GLStateCache.h">
       <Filter>GLES</Filter>
     </ClInclude>
-    <ClInclude Include="Common\GPUStateUtils.h">
-      <Filter>Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\ShaderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\ShaderId.h" />
+    <ClInclude Include="Common\GPUStateUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -377,5 +376,7 @@
     <ClCompile Include="GLES\GLStateCache.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="Common\ShaderId.cpp" />
+    <ClCompile Include="Common\GPUStateUtils.cpp" />
   </ItemGroup>
 </Project>

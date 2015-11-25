@@ -24,6 +24,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
+#include "Core/HW/SasReverb.h"
 
 class PointerWrap;
 
@@ -54,14 +55,15 @@ enum {
 
 	PSP_SAS_EFFECT_TYPE_OFF = -1,
 	PSP_SAS_EFFECT_TYPE_ROOM = 0,
-	PSP_SAS_EFFECT_TYPE_UNK1 = 1,
-	PSP_SAS_EFFECT_TYPE_UNK2 = 2,
-	PSP_SAS_EFFECT_TYPE_UNK3 = 3,
+	PSP_SAS_EFFECT_TYPE_STUDIO_SMALL= 1,
+	PSP_SAS_EFFECT_TYPE_STUDIO_MEDIUM = 2,
+	PSP_SAS_EFFECT_TYPE_STUDIO_LARGE = 3,
 	PSP_SAS_EFFECT_TYPE_HALL = 4,
 	PSP_SAS_EFFECT_TYPE_SPACE = 5,
 	PSP_SAS_EFFECT_TYPE_ECHO = 6,
 	PSP_SAS_EFFECT_TYPE_DELAY = 7,
 	PSP_SAS_EFFECT_TYPE_PIPE = 8,
+	PSP_SAS_EFFECT_TYPE_MAX = 8,
 
 	PSP_SAS_OUTPUTMODE_MIXED = 0,
 	PSP_SAS_OUTPUTMODE_RAW = 1,
@@ -103,8 +105,10 @@ public:
 
 	void DoState(PointerWrap &p);
 
+	u32 GetReadPtr() const { return read_; }
+
 private:
-	int samples[28];
+	s16 samples[28];
 	int curSample;
 
 	u32 data_;
@@ -124,17 +128,21 @@ private:
 
 class SasAtrac3 {
 public:
-	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0) {}
-	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
+	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
+	~SasAtrac3() { if (sampleQueue_) delete sampleQueue_; }
 	int setContext(u32 context);
-	int getNextSamples(s16* outbuf, int wantedSamples);
+	void getNextSamples(s16 *outbuf, int wantedSamples);
 	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
+	bool End() const {
+		return end_;
+	}
 
 private:
-	u32 contextAddr;
-	int atracID;
-	BufferQueue *sampleQueue;
+	u32 contextAddr_;
+	int atracID_;
+	BufferQueue *sampleQueue_;
+	bool end_;
 };
 
 class ADSREnvelope {
@@ -277,6 +285,9 @@ public:
 
 	int *mixBuffer;
 	int *sendBuffer;
+	s16 *sendBufferDownsampled;
+	s16 *sendBufferProcessed;
+
 	s16 *resampleBuffer;
 
 	FILE *audioDump;
@@ -285,7 +296,11 @@ public:
 	void MixVoice(SasVoice &voice);
 
 	// Applies reverb to send buffer, according to waveformEffect.
-	void ApplyReverb();
+	void ApplyWaveformEffect();
+	void SetWaveformEffectType(int type);
+	void WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol);
+
+	void GetDebugText(char *text, size_t bufsize);
 
 	void DoState(PointerWrap &p);
 
@@ -293,5 +308,6 @@ public:
 	WaveformEffect waveformEffect;
 
 private:
+	SasReverb reverb_;
 	int grainSize;
 };

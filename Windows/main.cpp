@@ -359,25 +359,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	EnableCrashingOnCrashes();
 
-	wchar_t modulePath[MAX_PATH];
-	GetModuleFileName(NULL, modulePath, MAX_PATH);
-	for (size_t i = wcslen(modulePath) - 1; i > 0; i--) {
-		if (modulePath[i] == '\\') {
-			modulePath[i] = 0;
-			break;
-		}
-	}
-	SetCurrentDirectory(modulePath);
-	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
-
 #ifndef _DEBUG
 	bool showLog = false;
 #else
 	bool showLog = false;
 #endif
 
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-	VFSRegister("", new DirectoryAssetReader(""));
+	const std::string &exePath = File::GetExeDirectory();
+	VFSRegister("", new DirectoryAssetReader((exePath + "/assets/").c_str()));
+	VFSRegister("", new DirectoryAssetReader(exePath.c_str()));
 
 	wchar_t lcCountry[256];
 

@@ -625,6 +625,9 @@
     <ClCompile Include="Compatibility.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SasReverb.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1163,6 +1166,9 @@
     </ClInclude>
     <ClInclude Include="Compatibility.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SasReverb.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

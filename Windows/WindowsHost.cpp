@@ -42,8 +42,8 @@
 #include "Windows/DSoundStream.h"
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
-#include "Windows/OpenGLBase.h"
-#include "Windows/D3D9Base.h"
+#include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/D3D9Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -205,7 +205,7 @@ void WindowsHost::PollControllers(InputState &input_state) {
 }
 
 void WindowsHost::BootDone() {
-	symbolMap.SortSymbols();
+	g_symbolMap->SortSymbols();
 	SendMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
@@ -240,16 +240,16 @@ static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
 }
 
 bool WindowsHost::AttemptLoadSymbolMap() {
-	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 	// Load the old-style map file.
 	if (!result1)
-		result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
-	bool result2 = symbolMap.LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
 	return result1 || result2;
 }
 
 void WindowsHost::SaveSymbolMap() {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
 bool WindowsHost::IsDebuggingEnabled() {

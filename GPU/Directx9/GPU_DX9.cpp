@@ -199,12 +199,12 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_PATCHCULLENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Viewport.
-	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTXSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTYSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTXCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
@@ -467,14 +467,23 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
 	}
 
+	CheckGPUFeatures();
+}
+
+void DIRECTX9_GPU::CheckGPUFeatures() {
 	u32 features = 0;
 
-	// Set some flags that may be convenient in the future if we merge the backends more.
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
+	}
 
 	gstate_c.featureFlags = features;
 }
@@ -509,7 +518,6 @@ void DIRECTX9_GPU::InitClearInternal() {
 		dxstate.colorMask.set(true, true, true, true);
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
-	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void DIRECTX9_GPU::DumpNextFrame() {
@@ -521,7 +529,7 @@ void DIRECTX9_GPU::BeginFrame() {
 }
 
 void DIRECTX9_GPU::ReapplyGfxStateInternal() {
-	DX9::dxstate.Restore();
+	dxstate.Restore();
 	GPUCommon::ReapplyGfxStateInternal();
 }
 
@@ -903,8 +911,8 @@ void DIRECTX9_GPU::Execute_ViewportType(u32 op, u32 diff) {
 	gstate_c.framebufChanged = true;
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	switch (op >> 24) {
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTZCENTER:
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_DEPTHRANGE);
 		break;
 	}
@@ -1598,12 +1606,12 @@ void DIRECTX9_GPU::Execute_Generic(u32 op, u32 diff) {
 		shaderManager_->DirtyUniform(DIRTY_LIGHT3);
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTZCENTER:
 		Execute_ViewportType(op, diff);
 		break;
 
@@ -2096,6 +2104,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	textureCache_.SetTexture(true);
+	textureCache_.ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -2157,7 +2166,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 				}
 
 				if (fmt != GPU_DBG_FORMAT_INVALID) {
-					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, gstate_c.flipTexture);
+					buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);
 					memcpy(buffer.GetData(), locked.pBits, locked.Pitch * desc.Height);
 					success = true;
 				} else {
@@ -2184,6 +2193,22 @@ bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 
 bool DIRECTX9_GPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
 	return transformDraw_.GetCurrentSimpleVertices(count, vertices, indices);
+}
+
+std::vector<std::string> DIRECTX9_GPU::DebugGetShaderIDs(DebugShaderType type) {
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderIDs();
+	} else {
+		return shaderManager_->DebugGetShaderIDs(type);
+	}
+}
+
+std::string DIRECTX9_GPU::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	if (type == SHADER_TYPE_VERTEXLOADER) {
+		return transformDraw_.DebugGetVertexLoaderString(id, stringType);
+	} else {
+		return shaderManager_->DebugGetShaderString(id, type, stringType);
+	}
 }
 
 }  // namespace DX9

@@ -156,6 +156,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/FramebufferCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
+  $(SRC)/GPU/Common/ShaderId.cpp.arm \
+  $(SRC)/GPU/Common/GPUStateUtils.cpp.arm \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
@@ -197,6 +199,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
+  $(SRC)/Core/HW/SasReverb.cpp.arm \
   $(SRC)/Core/HW/StereoResampler.cpp.arm \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Compatibility.cpp \
@@ -331,6 +334,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/native-audio-so.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DevScreens.cpp \
+  $(SRC)/UI/DisplayLayoutEditor.cpp \
+  $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \

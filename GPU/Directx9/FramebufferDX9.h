@@ -57,9 +57,9 @@ public:
 
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
-	virtual void DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
+	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 	
-	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, bool flip = false, float u0 = 0.0f, float v0 = 0.0f, float u1 = 1.0f, float v1 = 1.0f, int uvRotation = ROTATION_LOCKED_HORIZONTAL);
+	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation);
 
 	void DestroyAllFBOs();
 
@@ -89,18 +89,18 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+	FBO_DX9 *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 
 protected:
 	virtual void DisableState() override;
-	virtual void ClearBuffer() override;
+	virtual void ClearBuffer(bool keepState = false) override;
 	virtual void ClearDepthBuffer() override;
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip = false) override;
+	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
@@ -140,7 +140,7 @@ private:
 	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
-		FBO *fbo;
+		FBO_DX9 *fbo;
 		int last_frame_used;
 	};
 	struct OffscreenSurface {

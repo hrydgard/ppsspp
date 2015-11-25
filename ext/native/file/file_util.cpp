@@ -269,7 +269,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 			(virtualName[2] == '\0')))
 			continue;
 
-		// Remove dotfiles (should be made optional?)
+		// Remove dotfiles (optional with flag.)
 		if (!(flags & GETFILES_GETHIDDEN) && virtualName[0] == '.')
 			continue;
 

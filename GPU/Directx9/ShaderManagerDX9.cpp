@@ -39,7 +39,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(const char *code, bool useHWTransform) : shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+PSShader::PSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -79,7 +79,18 @@ PSShader::~PSShader() {
 		shader->Release();
 }
 
-VSShader::VSShader(const char *code, int vertType, bool useHWTransform) : shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+std::string PSShader::GetShaderString(DebugShaderStringType type) const {
+	switch (type) {
+	case SHADER_STRING_SOURCE_CODE:
+		return source_;
+	case SHADER_STRING_SHORT_DESC:
+		return FragmentShaderDesc(id_);
+	default:
+		return "N/A";
+	}
+}
+
+VSShader::VSShader(ShaderID id, const char *code, int vertType, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -118,6 +129,16 @@ VSShader::~VSShader() {
 		shader->Release();
 }
 
+std::string VSShader::GetShaderString(DebugShaderStringType type) const {
+	switch (type) {
+	case SHADER_STRING_SOURCE_CODE:
+		return source_;
+	case SHADER_STRING_SHORT_DESC:
+		return VertexShaderDesc(id_);
+	default:
+		return "N/A";
+	}
+}
 
 void ShaderManagerDX9::PSSetColorUniform3(int creg, u32 color) {
 	const float col[4] = {
@@ -228,10 +249,17 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
+	// Half pixel offset hack
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
 	float yoff = -0.5f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
+
+	if (invertedX)
+		xoff = -xoff;
+	if (invertedY)
+		yoff = -yoff;
+
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 }
 
@@ -301,18 +329,22 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 		const bool invertedY = gstate_c.vpHeight < 0;
 		if (!invertedY) {
+			flippedMatrix[1] = -flippedMatrix[1];
 			flippedMatrix[5] = -flippedMatrix[5];
+			flippedMatrix[9] = -flippedMatrix[9];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
 		const bool invertedX = gstate_c.vpWidth < 0;
 		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
+			flippedMatrix[4] = -flippedMatrix[4];
+			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
 			float zScale = gstate.getViewportZScale() / 65535.0f;
 			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
@@ -591,12 +623,12 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 
 
 VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
-	bool useHWTransform = CanUseHardwareTransformDX9(prim);
+	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	VertexShaderIDDX9 VSID;
-	ComputeVertexShaderIDDX9(&VSID, vertType, useHWTransform);
-	FragmentShaderIDDX9 FSID;
-	ComputeFragmentShaderIDDX9(&FSID);
+	ShaderID VSID;
+	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+	ShaderID FSID;
+	ComputeFragmentShaderID(&FSID, vertType);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
@@ -612,21 +644,23 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	VSShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShaderDX9(prim, codeBuffer_, useHWTransform);
-		vs = new VSShader(codeBuffer_, vertType, useHWTransform);
+		GenerateVertexShaderDX9(VSID, codeBuffer_);
+		vs = new VSShader(VSID, codeBuffer_, vertType, useHWTransform);
 
 		if (vs->Failed()) {
 			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
 			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
 			delete vs;
 
+			ComputeVertexShaderID(&VSID, vertType, false);
+
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShaderDX9(prim, codeBuffer_, false);
-			vs = new VSShader(codeBuffer_, vertType, false);
+			GenerateVertexShaderDX9(VSID, codeBuffer_);
+			vs = new VSShader(VSID, codeBuffer_, vertType, false);
 		}
 
 		vsCache_[VSID] = vs;
@@ -639,8 +673,8 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	PSShader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShaderDX9(codeBuffer_);
-		fs = new PSShader(codeBuffer_, useHWTransform);
+		GenerateFragmentShaderDX9(FSID, codeBuffer_);
+		fs = new PSShader(FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
@@ -660,6 +694,56 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	lastPShader_ = fs;
 	lastVShader_ = vs;
 	return vs;
+}
+
+std::vector<std::string> ShaderManagerDX9::DebugGetShaderIDs(DebugShaderType type) {
+	std::string id;
+	std::vector<std::string> ids;
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+	{
+		for (auto iter : vsCache_) {
+			iter.first.ToString(&id);
+			ids.push_back(id);
+		}
+	}
+	break;
+	case SHADER_TYPE_FRAGMENT:
+	{
+		for (auto iter : fsCache_) {
+			iter.first.ToString(&id);
+			ids.push_back(id);
+		}
+	}
+	break;
+	}
+	return ids;
+}
+
+std::string ShaderManagerDX9::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	ShaderID shaderId;
+	shaderId.FromString(id);
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+	{
+		auto iter = vsCache_.find(shaderId);
+		if (iter == vsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType);
+	}
+
+	case SHADER_TYPE_FRAGMENT:
+	{
+		auto iter = fsCache_.find(shaderId);
+		if (iter == fsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType);
+	}
+	default:
+		return "N/A";
+	}
 }
 
 }  // namespace

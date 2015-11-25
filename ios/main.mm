@@ -11,6 +11,41 @@
 
 #include "base/NativeApp.h"
 
+@interface UIApplication (Private)
+-(void) suspend;
+-(void) terminateWithSuccess;
+@end
+
+@interface UIApplication (SpringBoardAnimatedExit)
+-(void) animatedExit;
+@end
+
+@implementation UIApplication (SpringBoardAnimatedExit)
+-(void) animatedExit {
+	BOOL multitaskingSupported = NO;
+	if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)]) {
+		multitaskingSupported = [UIDevice currentDevice].multitaskingSupported;
+	}
+	if ([self respondsToSelector:@selector(suspend)]) {
+		if (multitaskingSupported) {
+			[self beginBackgroundTaskWithExpirationHandler:^{}];
+			[self performSelector:@selector(exit) withObject:nil afterDelay:0.4];
+		}
+		[self suspend];
+	} else {
+		[self exit];
+	}
+}
+
+-(void) exit {
+	if ([self respondsToSelector:@selector(terminateWithSuccess)]) {
+		[self terminateWithSuccess];
+	} else {
+		exit(0);
+	}
+}
+@end
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
@@ -35,7 +70,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		exit(0);
+		[[UIApplication sharedApplication] animatedExit];
 	}
 }
 

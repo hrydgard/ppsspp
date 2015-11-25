@@ -17,8 +17,9 @@
 
 #include "Core/Config.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/ShaderId.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
 
 // Ugly.

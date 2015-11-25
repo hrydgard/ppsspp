@@ -47,6 +47,8 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Debugger/*.cpp \
 	$$P/GPU/Common/DepalettizeShaderCommon.cpp \
 	$$P/GPU/Common/GPUDebugInterface.cpp \
+	$$P/GPU/Common/GPUStateUtils.cpp \
+	$$P/GPU/Common/ShaderId.cpp \
 	$$P/GPU/Common/IndexGenerator.cpp \
 	$$P/GPU/Common/TextureDecoder.cpp \
 	$$P/GPU/Common/TextureScalerCommon.cpp \

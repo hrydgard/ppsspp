@@ -366,7 +366,12 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 }
 
 static inline void ScaleProjMatrix(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, 0.0f);
+	float yOffset = gstate_c.vpYOffset;
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// GL upside down is a pain as usual.
+		yOffset = -yOffset;
+	}
+	const Vec3 trans(gstate_c.vpXOffset, yOffset, 0.0f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, 1.0);
 	in.translateAndScale(trans, scale);
 }
@@ -408,20 +413,26 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = gstate_c.vpHeight < 0;
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 		if (invertedY) {
+			flippedMatrix[1] = -flippedMatrix[1];
 			flippedMatrix[5] = -flippedMatrix[5];
+			flippedMatrix[9] = -flippedMatrix[9];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
 		const bool invertedX = gstate_c.vpWidth < 0;
 		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
+			flippedMatrix[4] = -flippedMatrix[4];
+			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
 			float zScale = gstate.getViewportZScale() / 65535.0f;
 			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
@@ -458,7 +469,12 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0.0f, 1.0f);
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		if (useBufferedRendering) {
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
+		} else {
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0.0f, 0.0f, 1.0f);
+		}
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {
@@ -915,6 +931,8 @@ std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) 
 				ids.push_back(id);
 			}
 		}
+		break;
+	default:
 		break;
 	}
 	return ids;

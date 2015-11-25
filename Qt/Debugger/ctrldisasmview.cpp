@@ -200,17 +200,17 @@ void CtrlDisAsmView::RunToHere()
 
 void CtrlDisAsmView::RenameFunction()
 {
-    u32 funcBegin = symbolMap.GetFunctionStart(curAddress);
+    u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress);
     if (funcBegin != (u32)-1)
     {
-        QString name = QString::fromStdString(symbolMap.GetLabelString(funcBegin));
+        QString name = QString::fromStdString(g_symbolMap->GetLabelString(funcBegin));
         bool ok;
         QString newname = QInputDialog::getText(this, tr("New function name"),
                                     tr("New function name:"), QLineEdit::Normal,
                                     name, &ok);
         if (ok && !newname.isEmpty())
         {
-            symbolMap.SetLabelName(newname.toStdString().c_str(),funcBegin);
+            g_symbolMap->SetLabelName(newname.toStdString().c_str(),funcBegin);
             redraw();
             parentWindow->NotifyMapLoaded();
         }

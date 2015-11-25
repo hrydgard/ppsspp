@@ -23,6 +23,6 @@
 Host *host;
 
 bool Host::AttemptLoadSymbolMap() {
-	symbolMap.Clear();
+	g_symbolMap->Clear();
 	return false;
 }

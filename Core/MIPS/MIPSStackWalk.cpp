@@ -38,7 +38,7 @@ namespace MIPSStackWalk {
 
 	static u32 GuessEntry(u32 pc) {
 		SymbolInfo info;
-		if (symbolMap.GetSymbolInfo(&info, pc)) {
+		if (g_symbolMap->GetSymbolInfo(&info, pc)) {
 			return info.address;
 		}
 		return INVALIDTARGET;

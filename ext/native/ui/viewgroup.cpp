@@ -84,6 +84,15 @@ void ViewGroup::Touch(const TouchInput &input) {
 	}
 }
 
+void ViewGroup::Query(float x, float y, std::vector<View *> &list) {
+	if (bounds_.Contains(x, y)) {
+		list.push_back(this);
+		for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+			(*iter)->Query(x, y, list);
+		}
+	}
+}
+
 bool ViewGroup::Key(const KeyInput &input) {
 	lock_guard guard(modifyLock_);
 	bool ret = false;

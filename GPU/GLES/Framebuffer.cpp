@@ -86,12 +86,20 @@ static const char color_vs[] =
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManager::ClearBuffer() {
-	glstate.scissorTest.disable();
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
-	glstate.stencilMask.set(0xFF);
+void FramebufferManager::ClearBuffer(bool keepState) {
+	if (keepState) {
+		glstate.scissorTest.force(false);
+		glstate.depthWrite.force(GL_TRUE);
+		glstate.colorMask.force(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.force(0xFF);
+	} else {
+		glstate.scissorTest.disable();
+		glstate.depthWrite.set(GL_TRUE);
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0);
+		glstate.stencilMask.set(0xFF);
+	}
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClearStencil(0);
 #ifdef USING_GLES2
@@ -100,6 +108,13 @@ void FramebufferManager::ClearBuffer() {
 	glClearDepth(0.0);
 #endif
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	if (keepState) {
+		glstate.scissorTest.restore();
+		glstate.depthWrite.restore();
+		glstate.colorMask.restore();
+		glstate.stencilFunc.restore();
+		glstate.stencilMask.restore();
+	}
 }
 
 void FramebufferManager::ClearDepthBuffer() {
@@ -207,27 +222,9 @@ void FramebufferManager::CompileDraw2DProgram() {
 				glsl_bind(postShaderProgram_);
 				glUniform1i(postShaderProgram_->sampler0, 0);
 				SetNumExtraFBOs(1);
-				float u_delta = 1.0f / renderWidth_;
-				float v_delta = 1.0f / renderHeight_;
-				float u_pixel_delta = u_delta;
-				float v_pixel_delta = v_delta;
-				if (postShaderAtOutputResolution_) {
-					float x, y, w, h;
-					CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-					u_pixel_delta = 1.0f / w;
-					v_pixel_delta = 1.0f / h;
-				}
-
-				int deltaLoc = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
-				if (deltaLoc != -1)
-					glUniform2f(deltaLoc, u_delta, v_delta);
-				int pixelDeltaLoc = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
-				if (pixelDeltaLoc != -1)
-					glUniform2f(pixelDeltaLoc, u_pixel_delta, v_pixel_delta);
+				deltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_texelDelta");
+				pixelDeltaLoc_ = glsl_uniform_loc(postShaderProgram_, "u_pixelDelta");
 				timeLoc_ = glsl_uniform_loc(postShaderProgram_, "u_time");
-				if (timeLoc_ != -1)
-					glUniform4f(timeLoc_, 0.0f, 0.0f, 0.0f, 0.0f);
-
 				usePostShader_ = true;
 			}
 		} else {
@@ -236,6 +233,30 @@ void FramebufferManager::CompileDraw2DProgram() {
 		}
 
 		glsl_unbind();
+	}
+}
+
+void FramebufferManager::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
+	float u_delta = 1.0f / renderWidth;
+	float v_delta = 1.0f / renderHeight;
+	float u_pixel_delta = u_delta;
+	float v_pixel_delta = v_delta;
+	if (postShaderAtOutputResolution_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
+		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
+	}
+
+	if (deltaLoc_ != -1)
+		glUniform2f(deltaLoc_, u_delta, v_delta);
+	if (pixelDeltaLoc_ != -1)
+		glUniform2f(pixelDeltaLoc_, u_pixel_delta, v_pixel_delta);
+	if (timeLoc_ != -1) {
+		int flipCount = __DisplayGetFlipCount();
+		int vCount = __DisplayGetVCount();
+		float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+		glUniform4fv(timeLoc_, 1, time);
 	}
 }
 
@@ -263,6 +284,8 @@ FramebufferManager::FramebufferManager() :
 	stencilUploadProgram_(nullptr),
 	plainColorLoc_(-1),
 	timeLoc_(-1),
+	deltaLoc_(-1),
+	pixelDeltaLoc_(-1),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
 	usePostShader_(false),
@@ -380,17 +403,28 @@ void FramebufferManager::MakePixelTexture(const u8 *srcPixels, GEBufferFormat sr
 }
 
 void FramebufferManager::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	if (useBufferedRendering_ && vfb->fbo) {
+	float v0 = 0.0f, v1 = 1.0f;
+	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		fbo_bind_as_render_target(vfb->fbo);
+		glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+	} else {
+		// We are drawing to the back buffer so need to flip.
+		v0 = 1.0f;
+		v1 = 0.0f;
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		glViewport(x, y, w, h);
 	}
-	glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 	DisableState();
-	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, false, 0.0f, 0.0f, 1.0f, 1.0f);
+
+	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
 }
 
-void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+void FramebufferManager::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
 
@@ -404,30 +438,40 @@ void FramebufferManager::DrawFramebuffer(const u8 *srcPixels, GEBufferFormat src
 	// (it always runs at output resolution so FXAA may look odd).
 	float x, y, w, h;
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	if (applyPostShader) {
+		glsl_bind(postShaderProgram_);
+		UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
+	}
+	float u0 = 0.0f, u1 = 480.0f / 512.0f;
+	float v0 = 0.0f, v1 = 1.0f;
+
+	// We are drawing directly to the back buffer.
+	std::swap(v0, v1);
+
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 		}
 
 		// Right Eye Image
 		glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 		}
 	} else {
 		// Fullscreen Image
 		glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, postShaderProgram_, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, false, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, NULL, uvRotation);
+			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
 		}
 	}
 }
@@ -471,18 +515,12 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
-void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, bool flip, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation) {
-	if (flip) {
-		// We're flipping, so 0 is downward.  Reverse everything from 1.0f.
-		v0 = 1.0f - v0;
-		v1 = 1.0f - v1;
-	}
-
+void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation) {
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
 		u1,v1,
-		u0,v1
+		u0,v1,
 	};
 
 	static const GLushort indices[4] = {0,1,3,2};
@@ -517,7 +555,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	float invDestH = 1.0f / (destH * 0.5f);
 	for (int i = 0; i < 4; i++) {
 		pos[i * 3] = pos[i * 3] * invDestW - 1.0f;
-		pos[i * 3 + 1] = -(pos[i * 3 + 1] * invDestH - 1.0f);
+		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
 	}
 
 	if (!program) {
@@ -537,15 +575,11 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 	}
 
-	shaderManager_->DirtyLastShader();  // dirty lastShader_
-
-	glsl_bind(program);
-	if (program == postShaderProgram_ && timeLoc_ != -1) {
-		int flipCount = __DisplayGetFlipCount();
-		int vCount = __DisplayGetVCount();
-		float time[4] = {time_now(), (vCount % 60) * 1.0f/60.0f, (float)vCount, (float)(flipCount % 60)};
-		glUniform4fv(timeLoc_, 1, time);
+	if (program != postShaderProgram_) {
+		shaderManager_->DirtyLastShader();  // dirty lastShader_
+		glsl_bind(program);
 	}
+
 	glstate.arrayBuffer.unbind();
 	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
@@ -812,7 +846,7 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 
 			// Let's only do this if not clearing depth.
 			fbo_bind_for_read(src->fbo);
-			glDisable(GL_SCISSOR_TEST);
+			glstate.scissorTest.force(false);
 
 			if (useNV) {
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
@@ -841,7 +875,7 @@ FBO *FramebufferManager::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 	if (!fbo)
 		return fbo;
 	fbo_bind_as_render_target(fbo);
-	ClearBuffer();
+	ClearBuffer(true);
 	const TempFBO info = {fbo, gpuStats.numFlips};
 	tempFBOs_[key] = info;
 	return fbo;
@@ -883,7 +917,7 @@ void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, Virtu
 
 			// If max is not > min, we probably could not detect it.  Skip.
 			// See the vertex decoder, where this is updated.
-			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+			if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 				x = gstate_c.vertBounds.minU;
 				y = gstate_c.vertBounds.minV;
 				w = gstate_c.vertBounds.maxU - x;
@@ -896,7 +930,7 @@ void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, Virtu
 				}
 			}
 
-			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0, false);
+			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
 			fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
@@ -940,6 +974,19 @@ struct CardboardSettings * FramebufferManager::GetCardboardSettings(struct Cardb
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
 	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+
+	if (useBufferedRendering_) {
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+#ifdef USING_GLES2
+		glClearDepthf(0.0f);
+#else
+		glClearDepth(0.0);
+#endif
+		glClearStencil(0);
+		// Hardly necessary to clear depth and stencil I guess...
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+
 	currentRenderVfb_ = 0;
 
 	u32 offsetX = 0;
@@ -1001,7 +1048,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 			if (!vfb) {
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
-				DrawFramebuffer(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
 				return;
 			}
 		} else {
@@ -1035,28 +1082,31 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		// Output coordinates
 		float x, y, w, h;
-		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 
-		const float u0 = offsetX / (float)vfb->bufferWidth;
-		const float v0 = offsetY / (float)vfb->bufferHeight;
-		const float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
-		const float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
+		float u0 = offsetX / (float)vfb->bufferWidth;
+		float v0 = offsetY / (float)vfb->bufferHeight;
+		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
+		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
 		if (!usePostShader_) {
+			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
+			// flip V.
+			std::swap(v0, v1);
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1064,7 +1114,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
 			glstate.viewport.set(0, 0, fbo_w, fbo_h);
-			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_);
+			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			glsl_bind(postShaderProgram_);
+			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_);
+			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 
 			fbo_unbind();
 
@@ -1076,18 +1129,22 @@ void FramebufferManager::CopyDisplayToOutput() {
 			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
 
+			// We are doing the DrawActiveTexture call directly to the backbuffer after here. Hence, we must
+			// flip V.
+			std::swap(v0, v1);
+
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, NULL, uvRotation);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
 			}
 
 			if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1096,18 +1153,25 @@ void FramebufferManager::CopyDisplayToOutput() {
 				glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
 			}
 		} else {
+			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
+			// flip V.
+			std::swap(v0, v1);
+
+			shaderManager_->DirtyLastShader();  // dirty lastShader_
+			glsl_bind(postShaderProgram_);
+			UpdatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight);
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 
 				// Right Eye Image
 				glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, true, u0, v0, u1, v1, postShaderProgram_, uvRotation);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 			}
 		}
 
@@ -1119,13 +1183,15 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	PROFILE_THIS_SCOPE("gpu-readback");
 #ifndef USING_GLES2
 	if (sync) {
-		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+		// flush async just in case when we go for synchronous update
+		// Doesn't actually pack when sent a null argument.
+		PackFramebufferAsync_(nullptr);
 	}
 #endif
 
 	if (vfb) {
+		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 
-		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 		// For now we'll keep these on the same struct as the ones that can get displayed
 		// (and blatantly copy work already done above while at it).
 		VirtualFramebuffer *nvfb = 0;
@@ -1242,7 +1308,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				gameUsesSequentialCopies_ = true;
 			}
 		}
-		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0, true);
+		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
@@ -1250,7 +1316,8 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 #ifdef USING_GLES2
 		PackFramebufferSync_(nvfb, x, y, w, h);
 #else
-		if (gl_extensions.ARB_pixel_buffer_object && gl_extensions.OES_texture_npot) {
+		// TODO: Can we fall back to sync without these?
+		if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
 			if (!sync) {
 				PackFramebufferAsync_(nvfb);
 			} else {
@@ -1264,7 +1331,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 }
 
 // TODO: If dimensions are the same, we can use glCopyImageSubData.
-void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp, bool flip) {
+void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		fbo_unbind();
@@ -1272,7 +1339,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-	glDisable(GL_SCISSOR_TEST);
+	glstate.scissorTest.force(false);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
@@ -1285,8 +1352,8 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 	int srcX1 = srcX * srcXFactor;
 	int srcX2 = (srcX + w) * srcXFactor;
-	int srcY2 = src->renderHeight - (h + srcY) * srcYFactor;
-	int srcY1 = srcY2 + h * srcYFactor;
+	int srcY1 = srcY * srcYFactor;
+	int srcY2 = (srcY + h) * srcYFactor;
 
 	float dstXFactor = useBlit ? (float)dst->renderWidth / (float)dst->bufferWidth : 1.0f;
 	float dstYFactor = useBlit ? (float)dst->renderHeight / (float)dst->bufferHeight : 1.0f;
@@ -1296,15 +1363,10 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	}
 	int dstX1 = dstX * dstXFactor;
 	int dstX2 = (dstX + w) * dstXFactor;
-	int dstY2 = dst->renderHeight - (h + dstY) * dstYFactor;
-	int dstY1 = dstY2 + h * dstYFactor;
+	int dstY1 = dstY * dstYFactor;
+	int dstY2 = (dstY + h) * dstYFactor;
 
 	if (useBlit) {
-		if (flip) {
-			dstY1 = dst->renderHeight - dstY1;
-			dstY2 = dst->renderHeight - dstY2;
-		}
-
 		fbo_bind_for_read(src->fbo);
 		if (!useNV) {
 			glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -1321,17 +1383,34 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		// Make sure our 2D drawing program is ready. Compiles only if not already compiled.
 		CompileDraw2DProgram();
 
-		glViewport(0, 0, dst->renderWidth, dst->renderHeight);
-		DisableState();
+		glstate.viewport.force(0, 0, dst->renderWidth, dst->renderHeight);
+		glstate.blend.force(false);
+		glstate.cullFace.force(false);
+		glstate.depthTest.force(false);
+		glstate.stencilTest.force(false);
+#if !defined(USING_GLES2)
+		glstate.colorLogicOp.force(false);
+#endif
+		glstate.colorMask.force(true, true, true, true);
+		glstate.stencilMask.force(0xFF);
 
 		// The first four coordinates are relative to the 6th and 7th arguments of DrawActiveTexture.
 		// Should maybe revamp that interface.
 		float srcW = src->bufferWidth;
 		float srcH = src->bufferHeight;
-		DrawActiveTexture(0, dstX1, dstY, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, !flip, srcX1 / srcW, srcY / srcH, srcX2 / srcW, (srcY + h) / srcH, draw2dprogram_);
+		DrawActiveTexture(0, dstX1, dstY1, w * dstXFactor, h, dst->bufferWidth, dst->bufferHeight, srcX1 / srcW, srcY1 / srcH, srcX2 / srcW, srcY2 / srcH, draw2dprogram_, ROTATION_LOCKED_HORIZONTAL);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		textureCache_->ForgetLastTexture();
 		glstate.viewport.restore();
+		glstate.blend.restore();
+		glstate.cullFace.restore();
+		glstate.depthTest.restore();
+		glstate.stencilTest.restore();
+#if !defined(USING_GLES2)
+		glstate.colorLogicOp.restore();
+#endif
+		glstate.colorMask.restore();
+		glstate.stencilMask.restore();
 	}
 
 	glstate.scissorTest.restore();
@@ -1672,10 +1751,9 @@ void FramebufferManager::EndFrame() {
 		const ShaderInfo *shaderInfo = 0;
 		if (g_Config.sPostShaderName != "Off") {
 			shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-			postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
-		} else {
-			postShaderIsUpscalingFilter_ = false;
 		}
+
+		postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
 
 		// Actually, auto mode should be more granular...
 		// Round up to a zoom factor for the render size.
@@ -1864,7 +1942,7 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, true, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, false, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
@@ -1881,6 +1959,7 @@ bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	int pw = PSP_CoreParameter().pixelWidth;
 	int ph = PSP_CoreParameter().pixelHeight;
 
+	// The backbuffer is flipped.
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
@@ -1899,7 +1978,7 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, false);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
@@ -1924,7 +2003,7 @@ bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebu
 	}
 
 #ifndef USING_GLES2
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_8BIT, false);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 	glReadBuffer(GL_STENCIL_ATTACHMENT);

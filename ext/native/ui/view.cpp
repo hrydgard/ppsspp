@@ -151,6 +151,17 @@ void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	h = 10.0f;
 }
 
+void View::Query(float x, float y, std::vector<View *> &list) {
+	if (bounds_.Contains(x, y)) {
+		list.push_back(this);
+	}
+}
+
+std::string View::Describe() const {
+	return StringFromFormat("%0.1f,%0.1f %0.1fx%0.1f", bounds_.x, bounds_.y, bounds_.w, bounds_.h);
+}
+
+
 Point View::GetFocusPosition(FocusDirection dir) {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
@@ -935,11 +946,17 @@ bool Slider::Key(const KeyInput &input) {
 }
 
 void Slider::Touch(const TouchInput &input) {
+	// Calling it afterwards, so dragging_ hasn't been set false yet when checking it above.
 	Clickable::Touch(input);
-	if (dragging_ || bounds_.Contains(input.x, input.y)) {
+	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
 		Clamp();
+		EventParams params;
+		params.v = this;
+		params.a = (uint32_t)(*value_);
+		params.f = (float)(*value_);
+		OnChange.Trigger(params);
 	}
 }
 
@@ -1010,10 +1027,16 @@ bool SliderFloat::Key(const KeyInput &input) {
 }
 
 void SliderFloat::Touch(const TouchInput &input) {
-	if (dragging_ || bounds_.Contains(input.x, input.y)) {
+	Clickable::Touch(input);
+	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
 		Clamp();
+		EventParams params;
+		params.v = this;
+		params.a = (uint32_t)(*value_);
+		params.f = (float)(*value_);
+		OnChange.Trigger(params);
 	}
 }
 

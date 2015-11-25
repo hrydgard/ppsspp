@@ -693,8 +693,7 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size
 	for (size_t i = 0; i < size; i++)
 		if (list[i].key == key)
 			return list[i].name;
-
-	return unknown_key_name;
+	return StringFromFormat("%02x?", key);
 }
 
 std::string GetKeyName(int keyCode) {

@@ -259,7 +259,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 			png.format = PNG_FORMAT_RGB;
 			png.width = buf.GetStride();
 			png.height = buf.GetHeight();
-			success = WriteScreenshotToPNG(&png, filename, 0, flipbuffer, buf.GetStride() * 3, nullptr);
+			success = WriteScreenshotToPNG(&png, filename, 0, buffer, buf.GetStride() * 3, nullptr);
 			png_image_free(&png);
 
 			if (png.warning_or_error >= 2) {
@@ -269,7 +269,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		} else if (success && fmt == SCREENSHOT_JPG) {
 			jpge::params params;
 			params.m_quality = 90;
-			success = WriteScreenshotToJPEG(filename, buf.GetStride(), buf.GetHeight(), 3, flipbuffer, params);
+			success = WriteScreenshotToJPEG(filename, buf.GetStride(), buf.GetHeight(), 3, buffer, params);
 		} else {
 			success = false;
 		}

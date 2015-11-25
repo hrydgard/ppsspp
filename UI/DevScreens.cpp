@@ -815,7 +815,7 @@ void ShaderListScreen::CreateViews() {
 	layout->Add(tabs_);
 	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	for (int i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 		LinearLayout *shaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 		ListShaders(shaderTypes[i].type, shaderList);

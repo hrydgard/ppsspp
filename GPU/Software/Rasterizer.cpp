@@ -830,21 +830,18 @@ static inline Vec3<int> GetSourceFactor(const Vec4<int>& source, const Vec4<int>
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		// TODO: Clamping?
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_SRCBLEND_FIXA:
-		return Vec3<int>::FromRGB(gstate.getFixA());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXA.
+		return Vec3<int>::FromRGB(gstate.getFixA());
 	}
 }
 
@@ -881,25 +878,24 @@ static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& 
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_DSTBLEND_FIXB:
-		return Vec3<int>::FromRGB(gstate.getFixB());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXB.
+		return Vec3<int>::FromRGB(gstate.getFixB());
 	}
 }
 
 static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
+	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
 	Vec3<int> srcfactor = GetSourceFactor(source, dst);
 	Vec3<int> dstfactor = GetDestFactor(source, dst);
 

@@ -453,6 +453,7 @@ enum {
 	GPU_SUPPORTS_UNPACK_SUBIMAGE = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
+	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
@@ -491,7 +492,6 @@ struct GPUStateCache {
 	int skipDrawReason;
 
 	UVScale uv;
-	bool flipTexture;
 
 	bool bgraTexture;
 	bool needShaderTexClamp;
@@ -510,7 +510,7 @@ struct GPUStateCache {
 	float vpWidth;
 	float vpHeight;
 	float vpDepth;
-	// Only used by Direct3D, not saved.
+
 	float vpXOffset;
 	float vpYOffset;
 	float vpWidthScale;

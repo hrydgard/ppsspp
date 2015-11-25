@@ -14,21 +14,22 @@ private:
 	template<GLenum cap, bool init>
 	class BoolState {
 	private:
-		bool _value;
+		bool v;
 	public:
-		BoolState() : _value(init) {
+		BoolState() : v(init) {
 			OpenGLState::state_count++;
 		}
 
 		inline void set(bool value) {
-			if (value && value != _value) {
-				_value = value;
-				glEnable(cap);
+			if (value != v) {
+				v = value;
+				restore();
 			}
-			if (!value && value != _value) {
-				_value = value;
-				glDisable(cap);
-			}
+		}
+		inline void force(bool value) {
+			bool old = v;
+			set(value);
+			v = old;
 		}
 		inline void enable() {
 			set(true);
@@ -40,10 +41,10 @@ private:
 			return isset();
 		}
 		inline bool isset() {
-			return _value;
+			return v;
 		}
 		void restore() {
-			if (_value)
+			if (v)
 				glEnable(cap);
 			else
 				glDisable(cap);
@@ -60,10 +61,15 @@ private:
 		void set(p1type newp1) { \
 			if (newp1 != p1) { \
 				p1 = newp1; \
-				func(p1); \
+				restore(); \
 			} \
 		} \
-		void restore() { \
+		void force(p1type newp1) { \
+			p1type old = p1; \
+			set(newp1); \
+			p1 = old; \
+		} \
+		inline void restore() { \
 			func(p1); \
 		} \
 	}
@@ -80,8 +86,15 @@ private:
 			if (newp1 != p1 || newp2 != p2) { \
 				p1 = newp1; \
 				p2 = newp2; \
-				func(p1, p2); \
+				restore(); \
 			} \
+		} \
+		void force(p1type newp1, p2type newp2) { \
+			p1type old1 = p1; \
+			p2type old2 = p2; \
+			set(newp1, newp2); \
+			p1 = old1; \
+			p2 = old2; \
 		} \
 		inline void restore() { \
 			func(p1, p2); \
@@ -102,8 +115,17 @@ private:
 				p1 = newp1; \
 				p2 = newp2; \
 				p3 = newp3; \
-				func(p1, p2, p3); \
+				restore(); \
 			} \
+		} \
+		void force(p1type newp1, p2type newp2, p3type newp3) { \
+			p1type old1 = p1; \
+			p2type old2 = p2; \
+			p3type old3 = p3; \
+			set(newp1, newp2, newp3); \
+			p1 = old1; \
+			p2 = old2; \
+			p3 = old3; \
 		} \
 		inline void restore() { \
 			func(p1, p2, p3); \
@@ -126,8 +148,19 @@ private:
 				p2 = newp2; \
 				p3 = newp3; \
 				p4 = newp4; \
-				func(p1, p2, p3, p4); \
+				restore(); \
 			} \
+		} \
+		void force(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
+			p1type old1 = p1; \
+			p2type old2 = p2; \
+			p3type old3 = p3; \
+			p4type old4 = p4; \
+			set(newp1, newp2, newp3, newp4); \
+			p1 = old1; \
+			p2 = old2; \
+			p3 = old3; \
+			p4 = old4; \
 		} \
 		inline void restore() { \
 			func(p1, p2, p3, p4); \
@@ -143,10 +176,16 @@ private:
 			OpenGLState::state_count++; \
 		} \
 		inline void set(const float v[4]) { \
-			if (memcmp(p,v,sizeof(float)*4)) { \
-				memcpy(p,v,sizeof(float)*4); \
-				func(p[0], p[1], p[2], p[3]); \
+			if (memcmp(p, v, sizeof(float) * 4)) { \
+				memcpy(p, v, sizeof(float) * 4); \
+				restore(); \
 			} \
+		} \
+		void force(const float v[4]) { \
+			float old[4]; \
+			memcpy(old, p, sizeof(float) * 4); \
+			set(v); \
+			memcpy(p, old, sizeof(float) * 4); \
 		} \
 		inline void restore() { \
 			func(p[0], p[1], p[2], p[3]); \
@@ -163,9 +202,14 @@ private:
 		} \
 		inline void bind(GLuint val) { \
 			if (val_ != val) { \
-				func(target, val); \
 				val_ = val; \
+				restore(); \
 			} \
+		} \
+		inline void force(GLuint val) { \
+			GLuint old = val_; \
+			bind(val); \
+			val_ = old; \
 		} \
 		inline void unbind() { \
 			bind(0); \

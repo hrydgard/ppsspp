@@ -32,6 +32,7 @@ public:
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override = 0;
 	virtual void Layout() override = 0;
 	virtual void Update(const InputState &input_state) override;
+	virtual void Query(float x, float y, std::vector<View *> &list) override;
 
 	virtual void Draw(UIContext &dc) override;
 
@@ -71,6 +72,7 @@ public:
 	void Unlock() { modifyLock_.unlock(); }
 
 	void SetClip(bool clip) { clip_ = clip; }
+	std::string Describe() const override { return "ViewGroup: " + View::Describe(); }
 
 protected:
 	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
@@ -114,8 +116,9 @@ public:
 class AnchorLayout : public ViewGroup {
 public:
 	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	void Layout();
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
+	std::string Describe() const override { return "AnchorLayout: " + View::Describe(); }
 };
 
 class LinearLayoutParams : public LayoutParams {
@@ -152,11 +155,13 @@ public:
 	LinearLayout(Orientation orientation, LayoutParams *layoutParams = 0)
 		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0), spacing_(10) {}
 
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	void Layout();
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
+	std::string Describe() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::Describe(); }
+
 protected:
 	Orientation orientation_;
 private:
@@ -187,8 +192,9 @@ public:
 			ELOG("GridLayout: Vertical layouts not yet supported");
 	}
 
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	void Layout();
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
+	std::string Describe() const override { return "GridLayout: " + View::Describe(); }
 
 private:
 	GridLayoutSettings settings_;
@@ -209,21 +215,22 @@ public:
 		lastViewSize_(0.0f),
 		scrollToTopOnSizeChange_(true) {}
 
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
-	void Layout();
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
 
-	bool Key(const KeyInput &input);
-	void Touch(const TouchInput &input);
-	void Draw(UIContext &dc);
+	bool Key(const KeyInput &input) override;
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	std::string Describe() const override { return "ScrollView: " + View::Describe(); }
 
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
 	void ScrollRelative(float distance);
 	bool CanScroll() const;
-	void Update(const InputState &input_state);
+	void Update(const InputState &input_state) override;
 
 	// Override so that we can scroll to the active one after moving the focus.
-	virtual bool SubviewFocused(View *view);
+	virtual bool SubviewFocused(View *view) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
@@ -264,6 +271,8 @@ public:
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
 	void Draw(UIContext &dc) override;
 
+	std::string Describe() const override { return "ChoiceStrip: " + View::Describe(); }
+
 	Event OnChoice;
 
 private:
@@ -297,6 +306,7 @@ public:
 	}
 
 	int GetCurrentTab() const { return currentTab_; }
+	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
 
 private:
 	EventReturn OnTabClick(EventParams &e);
@@ -358,9 +368,10 @@ public:
 	ListView(ListAdaptor *a, LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
-	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
+	std::string Describe() const override { return "ListView: " + View::Describe(); }
 
 private:
 	void CreateAllItems();

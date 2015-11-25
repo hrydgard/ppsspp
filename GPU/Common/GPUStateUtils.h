@@ -1,115 +1,139 @@
-// Copyright (c) 2012- PPSSPP Project.
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License 2.0 for more details.
-
-// A copy of the GPL 2.0 should have been included with the program.
-// If not, see http://www.gnu.org/licenses/
-
-// Official git repository and contact information can be found at
-// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+#pragma once
 
 #include "GPU/ge_constants.h"
-#include "GPU/GPUState.h"
 
-// Dest factors where it's safe to eliminate the alpha test under certain conditions
-static const bool safeDestFactors[16] = {
-	true, // GE_DSTBLEND_SRCCOLOR,
-	true, // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	true, // GE_DSTBLEND_INVSRCALPHA,
-	true, // GE_DSTBLEND_DSTALPHA,
-	true, // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true, //GE_DSTBLEND_FIXB,
+enum StencilValueType {
+	STENCIL_VALUE_UNIFORM,
+	STENCIL_VALUE_ZERO,
+	STENCIL_VALUE_ONE,
+	STENCIL_VALUE_KEEP,
+	STENCIL_VALUE_INVERT,
+	STENCIL_VALUE_INCR_4,
+	STENCIL_VALUE_INCR_8,
+	STENCIL_VALUE_DECR_4,
+	STENCIL_VALUE_DECR_8,
 };
 
-static inline bool IsAlphaTestTriviallyTrue() {
-	switch (gstate.getAlphaTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
+enum ReplaceAlphaType {
+	REPLACE_ALPHA_NO = 0,
+	REPLACE_ALPHA_YES = 1,
+	REPLACE_ALPHA_DUALSOURCE = 2,
+};
 
-	case GE_COMP_ALWAYS:
-		return true;
+enum ReplaceBlendType {
+	REPLACE_BLEND_NO,
+	REPLACE_BLEND_STANDARD,
+	REPLACE_BLEND_PRE_SRC,
+	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
+	REPLACE_BLEND_2X_ALPHA,
+	REPLACE_BLEND_2X_SRC,
+	REPLACE_BLEND_COPY_FBO,
+};
 
-	case GE_COMP_GEQUAL:
-		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
-			return true;  // If alpha is full, it doesn't matter what the ref value is.
-		return gstate.getAlphaTestRef() == 0;
+enum LogicOpReplaceType {
+	LOGICOPTYPE_NORMAL,
+	LOGICOPTYPE_ONE,
+	LOGICOPTYPE_INVERT,
+};
 
-	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
-	// Speeds up Lumines by a LOT on PowerVR.
-	case GE_COMP_NOTEQUAL:
-		if (gstate.getAlphaTestRef() == 255) {
-			// Likely to be rare. Let's just skip the vertexFullAlpha optimization here instead of adding
-			// complicated code to discard the draw or whatnot.
-			return false;
-		}
-		// Fallthrough on purpose
+bool IsAlphaTestTriviallyTrue();
+bool IsColorTestAgainstZero();
+bool IsColorTestTriviallyTrue();
+bool IsAlphaTestAgainstZero();
 
-	case GE_COMP_GREATER:
-		{
-#if 0
-			// Easy way to check the values in the debugger without ruining && early-out
-			bool doTextureAlpha = gstate.isTextureAlphaUsed();
-			bool stencilTest = gstate.isStencilTestEnabled();
-			bool depthTest = gstate.isDepthTestEnabled();
-			GEComparison depthTestFunc = gstate.getDepthTestFunction();
-			int alphaRef = gstate.getAlphaTestRef();
-			int blendA = gstate.getBlendFuncA();
-			bool blendEnabled = gstate.isAlphaBlendEnabled();
-			int blendB = gstate.getBlendFuncA();
-#endif
-			return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
-					(!gstate.isStencilTestEnabled() &&
-					!gstate.isDepthTestEnabled() &&
-					gstate.getAlphaTestRef() == 0 &&
-					gstate.isAlphaBlendEnabled() &&
-					gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-					safeDestFactors[(int)gstate.getBlendFuncB()]));
-		}
+StencilValueType ReplaceAlphaWithStencilType();
+ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
+ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend, GEBufferFormat bufferFormat);
 
-	case GE_COMP_LEQUAL:
-		return gstate.getAlphaTestRef() == 255;
+bool CanUseHardwareTransform(int prim);
+LogicOpReplaceType ReplaceLogicOpType();
 
-	case GE_COMP_EQUAL:
-	case GE_COMP_LESS:
-		return false;
 
-	default:
-		return false;
+// Common representation, should be able to set this directly with any modern API.
+struct ViewportAndScissor {
+	bool scissorEnable;
+	int scissorX;
+	int scissorY;
+	int scissorW;
+	int scissorH;
+	float viewportX;
+	float viewportY;
+	float viewportW;
+	float viewportH;
+	float depthRangeMin;
+	float depthRangeMax;
+	bool dirtyProj;
+};
+void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
+
+// These are common to all modern APIs and can be easily converted with a lookup table.
+enum class BlendFactor : uint8_t {
+	ZERO,
+	ONE,
+	SRC_COLOR,
+	ONE_MINUS_SRC_COLOR,
+	DST_COLOR,
+	ONE_MINUS_DST_COLOR,
+	SRC_ALPHA,
+	ONE_MINUS_SRC_ALPHA,
+	DST_ALPHA,
+	ONE_MINUS_DST_ALPHA,
+	CONSTANT_COLOR,
+	ONE_MINUS_CONSTANT_COLOR,
+	CONSTANT_ALPHA,
+	ONE_MINUS_CONSTANT_ALPHA,
+	SRC1_ALPHA,
+	ONE_MINUS_SRC1_ALPHA,
+	INVALID,
+	COUNT,
+};
+
+enum class BlendEq : uint8_t {
+	ADD,
+	SUBTRACT,
+	REVERSE_SUBTRACT,
+	MIN,
+	MAX,
+	COUNT
+};
+
+struct GenericBlendState {
+	bool enabled;
+	bool resetShaderBlending;
+	bool applyShaderBlending;
+	bool dirtyShaderBlend;
+	ReplaceAlphaType replaceAlphaWithStencil;
+
+	BlendFactor srcColor;
+	BlendFactor dstColor;
+	BlendFactor srcAlpha;
+	BlendFactor dstAlpha;
+
+	BlendEq eqColor;
+	BlendEq eqAlpha;
+
+	bool useBlendColor;
+	u32 blendColor;
+
+	void setFactors(BlendFactor srcC, BlendFactor dstC, BlendFactor srcA, BlendFactor dstA) {
+		srcColor = srcC;
+		dstColor = dstC;
+		srcAlpha = srcA;
+		dstAlpha = dstA;
 	}
-}
-
-static inline bool IsAlphaTestAgainstZero() {
-	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
-}
-
-static inline bool IsColorTestAgainstZero() {
-	return gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF;
-}
-
-static inline bool IsColorTestTriviallyTrue() {
-	switch (gstate.getColorTestFunction()) {
-	case GE_COMP_NEVER:
-		return false;
-
-	case GE_COMP_ALWAYS:
-		return true;
-
-	case GE_COMP_EQUAL:
-	case GE_COMP_NOTEQUAL:
-		return false;
-	default:
-		return false;
+	void setEquation(BlendEq eqC, BlendEq eqA) {
+		eqColor = eqC;
+		eqAlpha = eqA;
 	}
-}
+	void setBlendColor(uint32_t color, uint8_t alpha) {
+		blendColor = color | ((uint32_t)alpha << 24);
+		useBlendColor = true;
+	}
+	void defaultBlendColor(uint8_t alpha) {
+		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
+		useBlendColor = true;
+	}
+};
+
+void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
+void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);

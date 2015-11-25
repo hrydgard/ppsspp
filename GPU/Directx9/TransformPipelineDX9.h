@@ -26,6 +26,7 @@
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 
 struct DecVtxFormat;
@@ -191,10 +192,8 @@ private:
 
 	void ApplyDrawState(int prim);
 	void ApplyDrawStateLate();
-	void ApplyBlendState();
-	void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil);
 	bool ApplyShaderBlending();
-	inline void ResetShaderBlending();
+	void ResetShaderBlending();
 
 	IDirect3DVertexDeclaration9 *SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt);
 

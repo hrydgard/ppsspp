@@ -32,10 +32,8 @@
 #include "Core/MIPS/MIPS.h"
 
 #ifdef _WIN32
-#ifndef _XBOX
-#include "Windows/OpenGLBase.h"
-#include "Windows/D3D9Base.h"
-#endif
+#include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/D3D9Context.h"
 #include "Windows/InputDevice.h"
 #endif
 

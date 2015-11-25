@@ -23,8 +23,7 @@
 #include "CommonWindows.h"
 #endif
 
-class ConsoleListener : public LogListener
-{
+class ConsoleListener : public LogListener {
 public:
 	ConsoleListener();
 	~ConsoleListener();

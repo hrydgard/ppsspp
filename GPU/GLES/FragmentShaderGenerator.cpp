@@ -32,6 +32,7 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "GPU/GLES/ShaderManager.h"
@@ -41,450 +42,6 @@
 #define WRITE p+=sprintf
 
 // #define DEBUG_SHADER
-
-const bool nonAlphaSrcFactors[16] = {
-	true,  // GE_SRCBLEND_DSTCOLOR,
-	true,  // GE_SRCBLEND_INVDSTCOLOR,
-	false, // GE_SRCBLEND_SRCALPHA,
-	false, // GE_SRCBLEND_INVSRCALPHA,
-	true,  // GE_SRCBLEND_DSTALPHA,
-	true,  // GE_SRCBLEND_INVDSTALPHA,
-	false, // GE_SRCBLEND_DOUBLESRCALPHA,
-	false, // GE_SRCBLEND_DOUBLEINVSRCALPHA,
-	true,  // GE_SRCBLEND_DOUBLEDSTALPHA,
-	true,  // GE_SRCBLEND_DOUBLEINVDSTALPHA,
-	true,  // GE_SRCBLEND_FIXA,
-};
-
-const bool nonAlphaDestFactors[16] = {
-	true,  // GE_DSTBLEND_SRCCOLOR,
-	true,  // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	false, // GE_DSTBLEND_INVSRCALPHA,
-	true,  // GE_DSTBLEND_DSTALPHA,
-	true,  // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true,  // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true,  // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true,  // GE_DSTBLEND_FIXB,
-};
-
-ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
-	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
-		return REPLACE_ALPHA_NO;
-	}
-
-	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_COPY_FBO) {
-		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
-			return REPLACE_ALPHA_YES;
-		} else {
-			if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
-				return REPLACE_ALPHA_DUALSOURCE;
-			} else {
-				return REPLACE_ALPHA_NO;
-			}
-		}
-	}
-
-	return REPLACE_ALPHA_YES;
-}
-
-StencilValueType ReplaceAlphaWithStencilType() {
-	switch (gstate.FrameBufFormat()) {
-	case GE_FORMAT_565:
-		// There's never a stencil value.  Maybe the right alpha is 1?
-		return STENCIL_VALUE_ONE;
-
-	case GE_FORMAT_5551:
-		switch (gstate.getStencilOpZPass()) {
-		// Technically, this should only ever use zero/one.
-		case GE_STENCILOP_REPLACE:
-			return (gstate.getStencilTestRef() & 0x80) != 0 ? STENCIL_VALUE_ONE : STENCIL_VALUE_ZERO;
-
-		// Decrementing always zeros, since there's only one bit.
-		case GE_STENCILOP_DECR:
-		case GE_STENCILOP_ZERO:
-			return STENCIL_VALUE_ZERO;
-
-		// Incrementing always fills, since there's only one bit.
-		case GE_STENCILOP_INCR:
-			return STENCIL_VALUE_ONE;
-
-		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_INVERT;
-
-		case GE_STENCILOP_KEEP:
-			return STENCIL_VALUE_KEEP;
-		}
-		break;
-
-	case GE_FORMAT_4444:
-	case GE_FORMAT_8888:
-	case GE_FORMAT_INVALID:
-		switch (gstate.getStencilOpZPass()) {
-		case GE_STENCILOP_REPLACE:
-			// TODO: Could detect zero here and force ZERO - less uniform updates?
-			return STENCIL_VALUE_UNIFORM;
-
-		case GE_STENCILOP_ZERO:
-			return STENCIL_VALUE_ZERO;
-
-		case GE_STENCILOP_DECR:
-			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_DECR_4 : STENCIL_VALUE_DECR_8;
-
-		case GE_STENCILOP_INCR:
-			return gstate.FrameBufFormat() == GE_FORMAT_4444 ? STENCIL_VALUE_INCR_4 : STENCIL_VALUE_INCR_8;
-
-		case GE_STENCILOP_INVERT:
-			return STENCIL_VALUE_INVERT;
-
-		case GE_STENCILOP_KEEP:
-			return STENCIL_VALUE_KEEP;
-		}
-		break;
-	}
-
-	return STENCIL_VALUE_KEEP;
-}
-
-ReplaceBlendType ReplaceBlendWithShader(bool allowShaderBlend) {
-	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
-		return REPLACE_BLEND_NO;
-	}
-
-	GEBlendMode eq = gstate.getBlendEq();
-	// Let's get the non-factor modes out of the way first.
-	switch (eq) {
-	case GE_BLENDMODE_ABSDIFF:
-		return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
-
-	case GE_BLENDMODE_MIN:
-	case GE_BLENDMODE_MAX:
-		if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
-			return REPLACE_BLEND_STANDARD;
-		} else {
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
-		}
-
-	default:
-		break;
-	}
-
-	GEBlendSrcFactor funcA = gstate.getBlendFuncA();
-	GEBlendDstFactor funcB = gstate.getBlendFuncB();
-
-	switch (funcA) {
-	case GE_SRCBLEND_DOUBLESRCALPHA:
-	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		// 2x alpha in the source function and not in the dest = source color doubling.
-		// Even dest alpha is safe, since we're moving the * 2.0 into the src color.
-		switch (funcB) {
-		case GE_DSTBLEND_SRCCOLOR:
-		case GE_DSTBLEND_INVSRCCOLOR:
-			// Can't double, we need the source color to be correct.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-
-		case GE_DSTBLEND_DOUBLEDSTALPHA:
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-
-		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			// We can't technically do this correctly (due to clamping) without reading the dst color.
-			// Using a copy isn't accurate either, though, when there's overlap.
-			if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
-				return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
-
-		default:
-			// TODO: Could use vertexFullAlpha, but it's not calculated yet.
-			return REPLACE_BLEND_PRE_SRC;
-		}
-
-	case GE_SRCBLEND_DOUBLEDSTALPHA:
-	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		switch (funcB) {
-		case GE_DSTBLEND_SRCCOLOR:
-		case GE_DSTBLEND_INVSRCCOLOR:
-			// Can't double, we need the source color to be correct.
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
-
-		case GE_DSTBLEND_DOUBLEDSTALPHA:
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
-
-		default:
-			// We can't technically do this correctly (due to clamping) without reading the dst alpha.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_SRC : REPLACE_BLEND_COPY_FBO;
-		}
-
-	case GE_SRCBLEND_FIXA:
-		switch (funcB) {
-		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			// Can't safely double alpha, will clamp.
-			return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-
-		case GE_DSTBLEND_DOUBLEDSTALPHA:
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
-
-		case GE_DSTBLEND_FIXB:
-			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
-				// Some games specify this.  Some cards may prefer blending off entirely.
-				return REPLACE_BLEND_NO;
-			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
-				return REPLACE_BLEND_STANDARD;
-			} else {
-				return REPLACE_BLEND_PRE_SRC;
-			}
-
-		default:
-			return REPLACE_BLEND_STANDARD;
-		}
-
-	default:
-		switch (funcB) {
-		case GE_DSTBLEND_DOUBLESRCALPHA:
-		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-			if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_INVSRCALPHA) {
-				// Can't safely double alpha, will clamp.  However, a copy may easily be worse due to overlap.
-				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
-					return !allowShaderBlend ? REPLACE_BLEND_PRE_SRC_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-				return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
-			} else {
-				// This means dst alpha/color is used in the src factor.
-				// Unfortunately, copying here causes overlap problems in Silent Hill games (it seems?)
-				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
-				if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH)
-					return !allowShaderBlend ? REPLACE_BLEND_2X_ALPHA : REPLACE_BLEND_COPY_FBO;
-				return REPLACE_BLEND_2X_ALPHA;
-			}
-
-		case GE_DSTBLEND_DOUBLEDSTALPHA:
-		case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-			return !allowShaderBlend ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_COPY_FBO;
-
-		default:
-			return REPLACE_BLEND_STANDARD;
-		}
-	}
-}
-
-enum LogicOpReplaceType {
-	LOGICOPTYPE_NORMAL,
-	LOGICOPTYPE_ONE,
-	LOGICOPTYPE_INVERT,
-};
-
-static inline LogicOpReplaceType ReplaceLogicOpType() {
-	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP) && gstate.isLogicOpEnabled()) {
-		switch (gstate.getLogicOp()) {
-		case GE_LOGIC_COPY_INVERTED:
-		case GE_LOGIC_AND_INVERTED:
-		case GE_LOGIC_OR_INVERTED:
-		case GE_LOGIC_NOR:
-		case GE_LOGIC_NAND:
-		case GE_LOGIC_EQUIV:
-			return LOGICOPTYPE_INVERT;
-		case GE_LOGIC_INVERTED:
-			return LOGICOPTYPE_ONE;
-		case GE_LOGIC_SET:
-			return LOGICOPTYPE_ONE;
-		default:
-			return LOGICOPTYPE_NORMAL;
-		}
-	}
-	return LOGICOPTYPE_NORMAL;
-}
-
-// Local
-enum {
-	BIT_CLEARMODE = 0,
-	BIT_DO_TEXTURE = 1,
-	BIT_TEXFUNC = 2,  // 3 bits
-	BIT_TEXALPHA = 5,
-	BIT_FLIP_TEXTURE = 6,
-	BIT_SHADER_TEX_CLAMP = 7,
-	BIT_CLAMP_S = 8,
-	BIT_CLAMP_T = 9,
-	BIT_TEXTURE_AT_OFFSET = 10,
-	BIT_LMODE = 11,
-	BIT_ALPHA_TEST = 12,
-	BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
-	BIT_ALPHA_AGAINST_ZERO = 16,
-	BIT_COLOR_TEST = 17,
-	BIT_COLOR_TEST_FUNC = 18,  // 2 bits
-	BIT_COLOR_AGAINST_ZERO = 20,
-	BIT_ENABLE_FOG = 21,
-	BIT_DO_TEXTURE_PROJ = 22,
-	BIT_COLOR_DOUBLE = 23,
-	BIT_STENCIL_TO_ALPHA = 24,  // 2 bits
-	BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE = 26,  // 4 bits
-	BIT_REPLACE_LOGIC_OP_TYPE = 30,  // 2 bits
-	BIT_REPLACE_BLEND = 32,  // 3 bits
-	BIT_BLENDEQ = 35,  // 3 bits
-	BIT_BLENDFUNC_A = 38,  // 4 bits
-	BIT_BLENDFUNC_B = 42,
-	BIT_FLATSHADE = 46,
-};
-
-static const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
-
-std::string FragmentShaderDesc(const ShaderID &id) {
-	std::stringstream desc;
-	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
-	if (id.Bit(BIT_CLEARMODE)) desc << "Clear ";
-	if (id.Bit(BIT_DO_TEXTURE)) desc << "Tex ";
-	if (id.Bit(BIT_DO_TEXTURE_PROJ)) desc << "TexProj ";
-	if (id.Bit(BIT_FLIP_TEXTURE)) desc << "Flip ";
-	if (id.Bit(BIT_TEXALPHA)) desc << "TexAlpha ";
-	if (id.Bit(BIT_TEXTURE_AT_OFFSET)) desc << "TexOffs ";
-	if (id.Bit(BIT_LMODE)) desc << "LM ";
-	if (id.Bit(BIT_ENABLE_FOG)) desc << "Fog ";
-	if (id.Bit(BIT_COLOR_DOUBLE)) desc << "2x ";
-	if (id.Bit(BIT_FLATSHADE)) desc << "Flat ";
-	if (id.Bit(BIT_SHADER_TEX_CLAMP)) {
-		desc << "TClamp";
-		if (id.Bit(BIT_CLAMP_S)) desc << "S";
-		if (id.Bit(BIT_CLAMP_T)) desc << "T";
-		desc << " ";
-	}
-	if (id.Bits(BIT_REPLACE_BLEND, 3)) {
-		desc << "ReplaceBlend_" << id.Bits(BIT_REPLACE_BLEND, 3) << ":" << id.Bits(38, 4) << "_B:" << id.Bits(42, 4) << "_Eq:" << id.Bits(35, 3) << " ";
-	}
-
-	switch (id.Bits(BIT_STENCIL_TO_ALPHA, 2)) {
-	case REPLACE_ALPHA_NO: break;
-	case REPLACE_ALPHA_YES: desc << "StenToAlpha "; break;
-	case REPLACE_ALPHA_DUALSOURCE: desc << "StenToAlphaDual "; break;
-	}
-	if (id.Bits(BIT_STENCIL_TO_ALPHA, 2) != REPLACE_ALPHA_NO) {
-		switch (id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4)) {
-		case STENCIL_VALUE_UNIFORM: desc << "StenUniform "; break;
-		case STENCIL_VALUE_ZERO: desc << "Sten0 "; break;
-		case STENCIL_VALUE_ONE: desc << "Sten1 "; break;
-		case STENCIL_VALUE_KEEP: desc << "StenKeep "; break;
-		case STENCIL_VALUE_INVERT: desc << "StenInv "; break;
-		case STENCIL_VALUE_INCR_4: desc << "StenIncr4 "; break;
-		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
-		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
-		case STENCIL_VALUE_DECR_8: desc << "StenDecr4 "; break;
-		default: desc << "StenUnknown"; break;
-		}
-	}
-	if (id.Bit(BIT_DO_TEXTURE)) {
-		switch (id.Bits(BIT_TEXFUNC, 3)) {
-		case GE_TEXFUNC_ADD: desc << "TFuncAdd "; break;
-		case GE_TEXFUNC_BLEND: desc << "TFuncBlend "; break;
-		case GE_TEXFUNC_DECAL: desc << "TFuncDecal "; break;
-		case GE_TEXFUNC_MODULATE: desc << "TFuncMod "; break;
-		case GE_TEXFUNC_REPLACE: desc << "TFuncRepl "; break;
-		default: desc << "TFuncUnk "; break;
-		}
-	}
-
-	if (id.Bit(BIT_ALPHA_AGAINST_ZERO)) desc << "AlphaTest0 " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	else if (id.Bit(BIT_ALPHA_TEST)) desc << "AlphaTest " << alphaTestFuncs[id.Bits(BIT_ALPHA_TEST_FUNC, 3)] << " ";
-	if (id.Bit(BIT_COLOR_AGAINST_ZERO)) desc << "ColorTest0 " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match;
-	else if (id.Bit(BIT_COLOR_TEST)) desc << "ColorTest " << alphaTestFuncs[id.Bits(BIT_COLOR_TEST_FUNC, 2)] << " ";  // first 4 match
-
-	return desc.str();
-}
-
-// Here we must take all the bits of the gstate that determine what the fragment shader will
-// look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
-	ShaderID id;
-	if (gstate.isModeClear()) {
-		// We only need one clear shader, so let's ignore the rest of the bits.
-		id.SetBit(BIT_CLEARMODE);
-	} else {
-		bool isModeThrough = gstate.isModeThrough();
-		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
-		bool enableFog = gstate.isFogEnabled() && !isModeThrough;
-		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !g_Config.bDisableAlphaTest;
-		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = gstate.isColorDoublingEnabled() && gstate.isTextureMapEnabled();
-		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
-
-		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend);
-		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
-
-		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
-		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
-			doTextureAlpha = false;
-
-		if (gstate.isTextureMapEnabled()) {
-			id.SetBit(BIT_DO_TEXTURE);
-			id.SetBits(BIT_TEXFUNC, 3, gstate.getTextureFunction());
-			id.SetBit(BIT_TEXALPHA, doTextureAlpha & 1); // rgb or rgba
-			id.SetBit(BIT_FLIP_TEXTURE, gstate_c.flipTexture);
-			if (gstate_c.needShaderTexClamp) {
-				bool textureAtOffset = gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0;
-				// 4 bits total.
-				id.SetBit(BIT_SHADER_TEX_CLAMP);
-				id.SetBit(BIT_CLAMP_S, gstate.isTexCoordClampedS());
-				id.SetBit(BIT_CLAMP_T, gstate.isTexCoordClampedT());
-				id.SetBit(BIT_TEXTURE_AT_OFFSET, textureAtOffset);
-			}
-		}
-
-		id.SetBit(BIT_LMODE, lmode);
-#if !defined(DX9_USE_HW_ALPHA_TEST)
-		if (enableAlphaTest) {
-			// 5 bits total.
-			id.SetBit(BIT_ALPHA_TEST);
-			id.SetBits(BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
-			id.SetBit(BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
-		}
-#endif
-		if (enableColorTest) {
-			// 4 bits total.
-			id.SetBit(BIT_COLOR_TEST);
-			id.SetBits(BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
-			id.SetBit(BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
-		}
-
-		id.SetBit(BIT_ENABLE_FOG, enableFog);
-		id.SetBit(BIT_DO_TEXTURE_PROJ, doTextureProjection);
-		id.SetBit(BIT_COLOR_DOUBLE, enableColorDoubling);
-
-		// 2 bits
-		id.SetBits(BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
-
-		if (stencilToAlpha != REPLACE_ALPHA_NO) {
-			// 4 bits
-			id.SetBits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
-		}
-
-		if (enableAlphaTest)
-			gpuStats.numAlphaTestedDraws++;
-		else
-			gpuStats.numNonAlphaTestedDraws++;
-
-		// 2 bits.
-		id.SetBits(BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
-
-		// If replaceBlend == REPLACE_BLEND_STANDARD (or REPLACE_BLEND_NO) nothing is done, so we kill these bits.
-		if (replaceBlend > REPLACE_BLEND_STANDARD) {
-			// 3 bits.
-			id.SetBits(BIT_REPLACE_BLEND, 3, replaceBlend);
-			// 11 bits total.
-			id.SetBits(BIT_BLENDEQ, 3, gstate.getBlendEq());
-			id.SetBits(BIT_BLENDFUNC_A, 4, gstate.getBlendFuncA());
-			id.SetBits(BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
-		}
-		id.SetBit(BIT_FLATSHADE, doFlatShading);
-	}
-
-	*id_out = id;
-}
 
 // Missing: Z depth range
 bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
@@ -578,35 +135,34 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		varying = "in";
 	}
 
-	bool lmode = id.Bit(BIT_LMODE);
-	bool doTexture = id.Bit(BIT_DO_TEXTURE);
-	bool enableFog = id.Bit(BIT_ENABLE_FOG);
-	bool enableAlphaTest = id.Bit(BIT_ALPHA_TEST);
+	bool lmode = id.Bit(FS_BIT_LMODE);
+	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
+	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
+	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
-	bool alphaTestAgainstZero = id.Bit(BIT_ALPHA_AGAINST_ZERO);
-	bool enableColorTest = id.Bit(BIT_COLOR_TEST);
-	bool colorTestAgainstZero = id.Bit(BIT_COLOR_AGAINST_ZERO);
-	bool enableColorDoubling = id.Bit(BIT_COLOR_DOUBLE);
-	bool doTextureProjection = id.Bit(BIT_DO_TEXTURE_PROJ);
-	bool doTextureAlpha = id.Bit(BIT_TEXALPHA);
-	bool doFlatShading = id.Bit(BIT_FLATSHADE);
-	bool flipTexture = id.Bit(BIT_FLIP_TEXTURE);
+	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
+	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
+	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
+	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
+	bool doTextureAlpha = id.Bit(FS_BIT_TEXALPHA);
+	bool doFlatShading = id.Bit(FS_BIT_FLATSHADE);
 
-	GEComparison alphaTestFunc = (GEComparison)id.Bits(BIT_ALPHA_TEST_FUNC, 3);
-	GEComparison colorTestFunc = (GEComparison)id.Bits(BIT_COLOR_TEST_FUNC, 2);
-	bool needShaderTexClamp = id.Bit(BIT_SHADER_TEX_CLAMP);
+	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
+	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
+	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
-	GETexFunc texFunc = (GETexFunc)id.Bits(BIT_TEXFUNC, 3);
-	bool textureAtOffset = id.Bit(BIT_TEXTURE_AT_OFFSET);
+	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
+	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
-	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(BIT_REPLACE_BLEND, 3));
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(BIT_STENCIL_TO_ALPHA, 2));
+	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
-	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(BIT_BLENDFUNC_A, 4);
-	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(BIT_BLENDFUNC_B, 4);
-	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(BIT_BLENDEQ, 3);
+	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
+	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
+	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
 
-	bool isModeClear = id.Bit(BIT_CLEARMODE);
+	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = "";
 	if (glslES30)
@@ -622,17 +178,17 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
 		}
-		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
+		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 			WRITE(p, "uniform vec3 u_blendFixA;\n");
 		}
-		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
+		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
 
 	if (needShaderTexClamp && doTexture) {
 		WRITE(p, "uniform vec4 u_texclamp;\n");
-		if (id.Bit(BIT_TEXTURE_AT_OFFSET)) {
+		if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
 			WRITE(p, "uniform vec2 u_texclampoff;\n");
 		}
 	}
@@ -648,7 +204,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		}
 	}
 
-	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
 		WRITE(p, "uniform float u_stencilReplaceValue;\n");
 	}
@@ -728,21 +284,18 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				std::string ucoord = "v_texcoord.x";
 				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord += " / v_texcoord.z";
+					ucoord = "(v_texcoord.x / v_texcoord.z)";
 					vcoord = "(v_texcoord.y / v_texcoord.z)";
-					// Vertex texcoords are NOT flipped when projecting despite flipTexture.
-				} else if (flipTexture) {
-					vcoord = "1.0 - " + vcoord;
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
 
-				if (id.Bit(BIT_CLAMP_S)) {
+				if (id.Bit(FS_BIT_CLAMP_S)) {
 					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
 				} else {
 					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
 				}
-				if (id.Bit(BIT_CLAMP_T)) {
+				if (id.Bit(FS_BIT_CLAMP_T)) {
 					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
 				} else {
 					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
@@ -752,18 +305,9 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 					vcoord = "(" + vcoord + " + u_texclampoff.y)";
 				}
 
-				if (flipTexture) {
-					vcoord = "1.0 - " + vcoord;
-				}
-
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
 				// We already projected it.
-				doTextureProjection = false;
-			} else if (doTextureProjection && flipTexture) {
-				// Since we need to flip v, we project manually.
-				WRITE(p, "  vec2 fixedcoord = vec2(v_texcoord.x / v_texcoord.z, 1.0 - (v_texcoord.y / v_texcoord.z));\n");
-				texcoord = "fixedcoord";
 				doTextureProjection = false;
 			}
 
@@ -953,9 +497,12 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
+			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
+			// It's close to the same, but clamping can still be an issue.
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
@@ -987,6 +534,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -1000,6 +548,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			default:                            srcFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -1086,7 +635,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		return false;
 	}
 
-	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(BIT_REPLACE_LOGIC_OP_TYPE, 2);
+	LogicOpReplaceType replaceLogicOpType = (LogicOpReplaceType)id.Bits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2);
 	switch (replaceLogicOpType) {
 	case LOGICOPTYPE_ONE:
 		WRITE(p, "  %s.rgb = vec3(1.0, 1.0, 1.0);\n", fragColor0);

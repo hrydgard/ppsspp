@@ -59,7 +59,7 @@ void Debugger_Memory::NotifyMapLoaded()
 	item->setData(Qt::UserRole, 0x80000000);
 	ui->symbols->addItem(item);
 
-    std::vector<SymbolEntry> symbols = symbolMap.GetAllSymbols(ST_DATA);
+    std::vector<SymbolEntry> symbols = g_symbolMap->GetAllSymbols(ST_DATA);
     for(int i = 0; i < (int)symbols.size(); i++)
     {
         QListWidgetItem* item = new QListWidgetItem();

@@ -34,6 +34,7 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Common/FramebufferCommon.h"
 
 static GLuint temp_texture = 0;
 
@@ -48,9 +49,6 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-// TODO: This one lives in GPU/GLES/Framebuffer.cpp, move it to somewhere common.
-void CenterRect(float *x, float *y, float *w, float *h,
-								float origW, float origH, float frameW, float frameH, int rotation);
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -247,7 +245,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	glUseProgram(program);
 
 	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
 
 	x /= 0.5f * dstwidth;
 	y /= 0.5f * dstheight;
@@ -680,12 +678,12 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZCENTER:
 		break;
 
 	case GE_CMD_LIGHTENABLE0:

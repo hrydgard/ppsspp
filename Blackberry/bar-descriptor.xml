@@ -31,7 +31,7 @@
         <image>icon-114.png</image>
     </icon>
 
-    <invoke-target id="com.Qtness.PPSSPP.openrom1">
+    <invoke-target id="com.Qtness.PPSSPP.openrom2">
         <invoke-target-name>Open PSP ROM</invoke-target-name>
         <invoke-target-type>application</invoke-target-type>
         <icon><image>icon-114.png</image></icon>

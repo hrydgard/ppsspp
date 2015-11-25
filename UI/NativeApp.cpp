@@ -37,7 +37,7 @@
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
 #include "Windows/MainWindow.h"
-#include "Windows/D3D9Base.h"
+#include "Windows/GPU/D3D9Context.h"
 #endif
 
 #include "base/display.h"
@@ -126,6 +126,7 @@ std::string config_filename;
 
 #ifdef IOS
 bool iosCanUseJit;
+bool targetIsJailbroken;
 #endif
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -693,18 +694,6 @@ void DrawDownloadsOverlay(UIContext &dc) {
 void NativeRender() {
 	g_GameManager.Update();
 
-	thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
-
-	T3DViewport viewport;
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = pixel_xres;
-	viewport.Height = pixel_yres;
-	viewport.MaxDepth = 1.0;
-	viewport.MinDepth = 0.0;
-	thin3d->SetViewports(1, &viewport);
-	thin3d->SetTargetSize(pixel_xres, pixel_yres);
-
 	float xres = dp_xres;
 	float yres = dp_yres;
 
@@ -738,6 +727,12 @@ void NativeRender() {
 		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 #ifdef _WIN32
 			D3D9_Resize(0);
+#endif
+		} else if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+#ifndef _WIN32
+			PSP_CoreParameter().pixelWidth = pixel_xres;
+			PSP_CoreParameter().pixelHeight = pixel_yres;
+			NativeMessageReceived("gpu resized", "");
 #endif
 		}
 	}

@@ -46,7 +46,7 @@
 #include "Core/HLE/sceGe.h"
 
 #ifdef _WIN32
-#include "Windows/OpenGLBase.h"
+#include "Windows/GPU/WindowsGLContext.h"
 #endif
 
 enum {
@@ -58,13 +58,6 @@ enum {
 	FLAG_READS_PC = 16,
 	FLAG_WRITES_PC = 32,
 	FLAG_DIRTYONCHANGE = 64,
-};
-
-static const char *FramebufferFetchBlacklist[] = {
-	// Blacklist Tegra 3, doesn't work very well.
-	"NVIDIA Tegra 3",
-	"PowerVR Rogue G6430",
-	"PowerVR SGX 540",
 };
 
 struct CommandTableEntry {
@@ -187,13 +180,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE},
-#ifndef USING_GLES2
 	{GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE},
-#else
-	{GE_CMD_LOGICOP, 0},
-	{GE_CMD_LOGICOPENABLE, 0},
-#endif
 
 	// Can probably ignore this one as we don't support AA lines.
 	{GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE},
@@ -215,12 +203,12 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_PATCHCULLENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Viewport.
-	{GE_CMD_VIEWPORTX1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTY1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTX2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTY2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
-	{GE_CMD_VIEWPORTZ1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
-	{GE_CMD_VIEWPORTZ2, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
+	{GE_CMD_VIEWPORTXSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTYSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTXCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
+	{GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
+	{GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_Region},
@@ -500,16 +488,10 @@ void GLES_GPU::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_GLSL_330;
 	}
 
-	// Framebuffer fetch appears to be buggy at least on Tegra 3 devices.  So we blacklist it.
-	// Tales of Destiny 2 has been reported to display green.
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
-		features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-		for (size_t i = 0; i < ARRAY_SIZE(FramebufferFetchBlacklist); i++) {
-			if (strstr(gl_extensions.model, FramebufferFetchBlacklist[i]) != 0) {
-				features &= ~GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
-				break;
-			}
-		}
+		// This mostly seems to cause problems. Let's keep this commented out to disable it for everyone.
+		// If found beneficial for something, we can easily add a whitelist here.
+		// features |= GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH;
 	}
 	
 	if (gl_extensions.ARB_framebuffer_object || gl_extensions.EXT_framebuffer_object || gl_extensions.IsGLES) {
@@ -568,6 +550,11 @@ void GLES_GPU::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
 #ifdef MOBILE_DEVICE
@@ -1791,12 +1778,12 @@ void GLES_GPU::Execute_Generic(u32 op, u32 diff) {
 		Execute_Light3Param(op, diff);
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTZCENTER:
 		Execute_ViewportType(op, diff);
 		break;
 
@@ -2127,8 +2114,8 @@ void GLES_GPU::DoBlockTransfer(u32 skipDrawReason) {
 	
 	// Check that the last address of both source and dest are valid addresses
 
-	u32 srcLastAddr = srcBasePtr + ((height - 1 + srcY) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((height - 1 + dstY) * dstStride + (dstX + width - 1)) * bpp;
+	u32 srcLastAddr = srcBasePtr + ((srcY + height - 1) * srcStride + (srcX + width - 1)) * bpp;
+	u32 dstLastAddr = dstBasePtr + ((dstY + height - 1) * dstStride + (dstX + width - 1)) * bpp;
 
 	if (!Memory::IsValidAddress(srcLastAddr)) {
 		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
@@ -2390,7 +2377,7 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 		gstate = saved;
 	}
 
-	buffer.Allocate(w, h, GE_FORMAT_8888, gstate_c.flipTexture);
+	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
