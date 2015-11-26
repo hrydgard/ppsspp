@@ -441,7 +441,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	delete[] knot_v;
 
 	// Hacky normal generation through central difference.
-	if (spatch.computeNormals && !origNrm) {
+	if (computeNormals && !origNrm) {
 #ifdef _M_SSE
 		const __m128 facing = spatch.patchFacing ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
 #endif
@@ -451,7 +451,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			Vec3f vc_pos = vertices[v * (patch_div_s + 1)].pos;
 
 			for (int u = 0; u < patch_div_s + 1; u++) {
-				const int l = std::max(0, u - 1);
 				const int t = std::max(0, v - 1);
 				const int r = std::min(patch_div_s, u + 1);
 				const int b = std::min(patch_div_t, v + 1);
@@ -659,7 +658,6 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 			float u = ((float)tile_u / (float)tess_u);
 			float v = ((float)tile_v / (float)tess_v);
-			float bu = u;
 			float bv = v;
 
 			// TODO: Should be able to precompute the four curves per U, then just Bernstein per V. Will benefit large tesselation factors.
