@@ -1781,7 +1781,10 @@ void FramebufferManager::EndFrame() {
 
 		resized_ = false;
 #ifdef _WIN32
-		ShowScreenResolution();
+		// Seems related - if you're ok with numbers all the time, show some more :)
+		if (g_Config.iShowFPSCounter != 0) {
+			ShowScreenResolution();
+		}
 #endif
 		ClearBuffer();
 		DestroyDraw2DProgram();

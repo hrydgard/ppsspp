@@ -1126,7 +1126,10 @@ namespace DX9 {
 			}
 
 			UpdateSize();
-			ShowScreenResolution();
+			// Seems related - if you're ok with numbers all the time, show some more :)
+			if (g_Config.iShowFPSCounter != 0) {
+				ShowScreenResolution();
+			}
 			resized_ = false;
 		}
 #if 0
