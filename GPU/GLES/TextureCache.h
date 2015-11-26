@@ -152,6 +152,7 @@ private:
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
+	u32 clutRenderAddress_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
