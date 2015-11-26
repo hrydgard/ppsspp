@@ -811,6 +811,7 @@ void TextureCache::LoadClut(u32 clutAddr, u32 loadBytes) {
 			framebuffer->last_frame_clut = gpuStats.numFlips;
 			framebuffer->usageFlags |= FB_USAGE_CLUT;
 			foundFramebuffer = true;
+			WARN_LOG_REPORT_ONCE(clutrender, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
 		}
 	}
 
@@ -818,7 +819,7 @@ void TextureCache::LoadClut(u32 clutAddr, u32 loadBytes) {
 	if (Memory::IsValidAddress(clutAddr)) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (foundFramebuffer) {
+		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryDownload(clutAddr, bytes);
 		}
 
