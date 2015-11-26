@@ -278,6 +278,7 @@ public:
 	void ClearGrainSize();
 	void SetGrainSize(int newGrainSize);
 	int GetGrainSize() const { return grainSize; }
+	int EstimateMixUs();
 
 	int maxVoices;
 	int sampleRate;

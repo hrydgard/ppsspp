@@ -408,6 +408,20 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	resampleBuffer = new s16[grainSize * 4 + 3];
 }
 
+int SasInstance::EstimateMixUs() {
+	int voicesPlayingCount = 0;
+
+	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
+		SasVoice &voice = voices[v];
+		if (!voice.playing || voice.paused)
+			continue;
+		voicesPlayingCount++;
+	}
+
+	// Each voice costs extra time, and each byte of grain costs extra time.
+	return 20 + voicesPlayingCount * 68 + (grainSize * 60) / 100;
+}
+
 void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	// Read N samples into the resample buffer. Could do either PCM or VAG here.
 	switch (type) {

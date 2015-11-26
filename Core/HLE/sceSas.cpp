@@ -243,8 +243,7 @@ static u32 _sceSasCore(u32 core, u32 outAddr) {
 
 	__SasEnqueueMix(outAddr);
 
-	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", 240));
+	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", sas->EstimateMixUs()));
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -260,8 +259,7 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 
 	__SasEnqueueMix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 
-	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", 240));
+	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", sas->EstimateMixUs()));
 }
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
