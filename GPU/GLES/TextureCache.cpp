@@ -68,7 +68,7 @@
 // Hack!
 extern int g_iNumVideos;
 
-TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
+TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), clutRenderAddress_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -805,6 +805,7 @@ void TextureCache::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutAddr = clutAddr & 0x3FFFFFFF;
 	bool foundFramebuffer = false;
 
+	clutRenderAddress_ = 0;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
@@ -812,6 +813,7 @@ void TextureCache::LoadClut(u32 clutAddr, u32 loadBytes) {
 			framebuffer->usageFlags |= FB_USAGE_CLUT;
 			foundFramebuffer = true;
 			WARN_LOG_REPORT_ONCE(clutrender, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
+			clutRenderAddress_ = framebuffer->fb_address;
 		}
 	}
 
@@ -1255,6 +1257,10 @@ void TextureCache::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
+				if (hasClut && clutRenderAddress_ != 0) {
+					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+				}
+
 				SetTextureFramebuffer(entry, entry->framebuffer);
 				entry->lastFrame = gpuStats.numFlips;
 				return;
@@ -1416,6 +1422,10 @@ void TextureCache::SetTexture(bool force) {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
+
+		if (hasClut && clutRenderAddress_ != 0) {
+			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+		}
 
 		entry = &cache[cachekey];
 		if (g_Config.bTextureBackoffCache) {
