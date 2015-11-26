@@ -44,6 +44,7 @@
 
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
 
 enum {
 	ERROR_SAS_INVALID_GRAIN           = 0x80420001,
@@ -233,6 +234,11 @@ static u32 sceSasGetEndFlag(u32 core) {
 	return endFlag;
 }
 
+static int delaySasResult(int result) {
+	const int usec = sas->EstimateMixUs();
+	return hleDelayResult(result, "sas core", usec);
+}
+
 // Runs the mixer
 static u32 _sceSasCore(u32 core, u32 outAddr) {
 	PROFILE_THIS_SCOPE("mixer");
@@ -240,10 +246,13 @@ static u32 _sceSasCore(u32 core, u32 outAddr) {
 	if (!Memory::IsValidAddress(outAddr)) {
 		return hleReportError(SCESAS, ERROR_SAS_INVALID_PARAMETER, "invalid address");
 	}
+	if (!__KernelIsDispatchEnabled()) {
+		return hleLogError(SCESAS, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+	}
 
 	__SasEnqueueMix(outAddr);
 
-	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", sas->EstimateMixUs()));
+	return hleLogSuccessI(SCESAS, delaySasResult(0));
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -256,10 +265,13 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
 		return hleReportError(SCESAS, 0x80000004, "unsupported outputMode");
 	}
+	if (!__KernelIsDispatchEnabled()) {
+		return hleLogError(SCESAS, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+	}
 
 	__SasEnqueueMix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 
-	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", sas->EstimateMixUs()));
+	return hleLogSuccessI(SCESAS, delaySasResult(0));
 }
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
