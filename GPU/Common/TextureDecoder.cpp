@@ -677,8 +677,6 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 #endif
 	}
 
-	u32 hitZeroAlpha = 0;
-
 	const u32 *p = pixelData;
 	const int w2 = (w + 1) / 2;
 	const int stride2 = (stride + 1) / 2;
@@ -755,7 +753,7 @@ CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w
 			return CHECKALPHA_ZERO;
 		}
 
-		p += stride;
+		p += stride2;
 	}
 
 	return CHECKALPHA_FULL;

@@ -1338,24 +1338,21 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int range = (maxY - minY) / 16 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-		{
-      VertexData v[3] = { v0, v1, v2 };
-			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
 			GlobalThreadPool::Loop(bound, 0, range);
-		}
-		else
-		{
+		} else {
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	} else {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-		{
-			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
 			GlobalThreadPool::Loop(bound, 0, range);
-		}
-		else
-		{
+		} else {
 			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	}
@@ -1431,12 +1428,15 @@ void DrawPoint(const VertexData &v0)
 	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 	u16 z = pos.z;
 
-	u8 fog = ClampFogDepth(v0.fogdepth);
+	u8 fog = 255;
+	if (gstate.isFogEnabled() && !clearMode) {
+		fog = ClampFogDepth(v0.fogdepth);
+	}
 
 	if (clearMode) {
-		DrawSinglePixel<true>(p, z, v0.fogdepth, prim_color);
+		DrawSinglePixel<true>(p, z, fog, prim_color);
 	} else {
-		DrawSinglePixel<false>(p, z, v0.fogdepth, prim_color);
+		DrawSinglePixel<false>(p, z, fog, prim_color);
 	}
 }
 
@@ -1512,7 +1512,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 		Vec4<int> prim_color = c0;
 
-		// TODO: Interpolate fog as well
+		u8 fog = 255;
+		if (gstate.isFogEnabled() && !clearMode) {
+			fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+		}
 
 		float s = tc.s();
 		float t = tc.t();
@@ -1535,9 +1538,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 		if (clearMode) {
-			DrawSinglePixel<true>(p, z, v0.fogdepth, prim_color);
+			DrawSinglePixel<true>(p, z, fog, prim_color);
 		} else {
-			DrawSinglePixel<false>(p, z, v0.fogdepth, prim_color);
+			DrawSinglePixel<false>(p, z, fog, prim_color);
 		}
 
 		x = x + xinc;

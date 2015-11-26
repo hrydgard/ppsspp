@@ -101,7 +101,6 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	int bufW = gstate_c.curRTWidth;
 	int bufH = gstate_c.curRTHeight;
 
-	float prevX = 0.0f;
 	for (int i = 1; i < numVerts; i++) {
 		if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
 			return false;
