@@ -35,6 +35,7 @@
 #include "thread/threadutil.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
@@ -95,6 +96,7 @@ static condition_variable sasWake;
 static condition_variable sasDone;
 static volatile int sasThreadState = SasThreadState::DISABLED;
 static SasThreadParams sasThreadParams;
+static int sasMixEvent = -1;
 
 int __SasThread() {
 	setCurrentThreadName("SAS");
@@ -147,8 +149,41 @@ static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int ri
 	sasWakeMutex.unlock();
 }
 
+static void __SasDisableThread() {
+	if (sasThreadState != SasThreadState::DISABLED) {
+		sasWakeMutex.lock();
+		sasThreadState = SasThreadState::DISABLED;
+		sasWake.notify_one();
+		sasWakeMutex.unlock();
+		sasThread->join();
+		delete sasThread;
+		sasThread = nullptr;
+	}
+}
+
+static void sasMixFinish(u64 userdata, int cycleslate) {
+	PROFILE_THIS_SCOPE("mixer");
+
+	u32 error;
+	SceUID threadID = (SceUID)userdata;
+	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_HLEDELAY, error);
+	u64 result = __KernelGetWaitValue(threadID, error);
+
+	if (error == 0 && verify == 1) {
+		// Wait until it's actually complete before waking the thread.
+		__SasDrain();
+
+		__KernelResumeThreadFromWait(threadID, result);
+		__KernelReSchedule("woke from sas mix");
+	} else {
+		WARN_LOG(HLE, "Someone else woke up SAS-blocked thread?");
+	}
+}
+
 void __SasInit() {
 	sas = new SasInstance();
+
+	sasMixEvent = CoreTiming::RegisterEvent("SasMix", sasMixFinish);
 
 	if (g_Config.bSeparateSASThread) {
 		sasThreadState = SasThreadState::READY;
@@ -159,7 +194,7 @@ void __SasInit() {
 }
 
 void __SasDoState(PointerWrap &p) {
-	auto s = p.Section("sceSas", 1);
+	auto s = p.Section("sceSas", 1, 2);
 	if (!s)
 		return;
 
@@ -169,18 +204,18 @@ void __SasDoState(PointerWrap &p) {
 	}
 
 	p.DoClass(sas);
+
+	if (s >= 2) {
+		p.Do(sasMixEvent);
+		CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
+	} else {
+		sasMixEvent = -1;
+		__SasDisableThread();
+	}
 }
 
 void __SasShutdown() {
-	if (sasThreadState != SasThreadState::DISABLED) {
-		sasWakeMutex.lock();
-		sasThreadState = SasThreadState::DISABLED;
-		sasWake.notify_one();
-		sasWakeMutex.unlock();
-		sasThread->join();
-		delete sasThread;
-		sasThread = nullptr;
-	}
+	__SasDisableThread();
 
 	delete sas;
 	sas = 0;
@@ -236,7 +271,15 @@ static u32 sceSasGetEndFlag(u32 core) {
 
 static int delaySasResult(int result) {
 	const int usec = sas->EstimateMixUs();
-	return hleDelayResult(result, "sas core", usec);
+
+	// No event, fall back.
+	if (sasMixEvent == -1) {
+		return hleDelayResult(result, "sas core", usec);
+	}
+
+	CoreTiming::ScheduleEvent(usToCycles(usec), sasMixEvent, __KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, result, 0, false, "sas core");
+	return result;
 }
 
 // Runs the mixer
