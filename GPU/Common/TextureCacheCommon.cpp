@@ -134,8 +134,11 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		}
 		// Let's assume anything in mirrors is fair game to check.
 		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			// TODO: Wait, account for address?
-			AttachFramebuffer(&it->second, addr, framebuffer);
+			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
+			// Let's still make sure it's in the cache range.
+			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
+				AttachFramebuffer(&it->second, addr, framebuffer);
+			}
 		}
 		break;
 
@@ -145,7 +148,11 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 			DetachFramebuffer(&it->second, addr, framebuffer);
 		}
 		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, addr, framebuffer);
+			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
+			// Let's still make sure it's in the cache range.
+			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
+				DetachFramebuffer(&it->second, addr, framebuffer);
+			}
 		}
 		break;
 	}
