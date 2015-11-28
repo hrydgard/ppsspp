@@ -52,6 +52,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
+	const char *fragColor1 = "fragColor1";
 	const char *texture = "texture2D";
 	const char *texelFetch = NULL;
 	bool highpFog = false;
@@ -74,6 +75,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 				bitwiseOps = true;
 				texelFetch = "texelFetch2D";
+			}
+			if (gl_extensions.EXT_blend_func_extended) {
+				// Oldy moldy GLES, so use the fixed output name.
+				fragColor1 = "gl_SecondaryFragColorEXT";
 			}
 		}
 
@@ -246,11 +251,14 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		}
 	}
 
-	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "out vec4 fragColor0;\n");
-		WRITE(p, "out vec4 fragColor1;\n");
-	} else if (!strcmp(fragColor0, "fragColor0")) {
-		WRITE(p, "out vec4 fragColor0;\n");
+	if (!strcmp(fragColor0, "fragColor0")) {
+		// Output the output color definitions.
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "out vec4 fragColor0;\n");
+			WRITE(p, "out vec4 fragColor1;\n");
+		} else {
+			WRITE(p, "out vec4 fragColor0;\n");
+		}
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
@@ -618,8 +626,8 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  fragColor0 = vec4(v.rgb, %s);\n", replacedAlpha.c_str());
-		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:

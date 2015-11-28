@@ -471,7 +471,7 @@ GLES_GPU::~GLES_GPU() {
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GLES_GPU::CheckGPUFeatures() {
 	u32 features = 0;
-	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/) {
+	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
 			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
 			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
