@@ -532,6 +532,9 @@ void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase
 }
 
 inline u32 TextureCacheDX9::GetCurrentClutHash() {
+	// If we're using a rendered clut, always use the same cache entry.
+	if (clutRenderAddress_ != 0xFFFFFFFF)
+		return 0x1337C0DE;
 	return clutHash_;
 }
 
@@ -911,6 +914,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		if (entry->framebuffer) {
 			if (match) {
 				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
+					// TODO
 					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 				}
 
@@ -934,6 +938,16 @@ void TextureCacheDX9::SetTexture(bool force) {
 		} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
 			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
+		}
+
+		// Check the clut status.
+		if (match) {
+			bool nowUsingClutRender = clutRenderAddress_ != 0xFFFFFFFF && hasClut;
+			bool wasUsingClutRender = (entry->status & TexCacheEntry::STATUS_INDEXED) != 0;
+			if (nowUsingClutRender != wasUsingClutRender) {
+				match = false;
+				reason = "CLUT render status changed";
+			}
 		}
 
 		if (match) {
@@ -1005,10 +1019,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
-
-		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-		}
 
 		entry = &cache[cachekey];
 		if (g_Config.bTextureBackoffCache) {
@@ -1243,6 +1253,16 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		scaleFactor = 1;
 	}
 
+	if (clutRenderAddress_ != 0xFFFFFFFF && hasClut) {
+		entry->status |= TexCacheEntry::STATUS_INDEXED;
+		dstFmt = D3DFMT_L8;
+		// Can't scale an indexed texture (this means it uses a CLUT that was rendered.)
+		scaleFactor = 1;
+	} else {
+		// Clear in case it stopped being an indexed texture.
+		entry->status &= ~TexCacheEntry::STATUS_INDEXED;
+	}
+
 	if (scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
@@ -1355,6 +1375,8 @@ u32 ToD3D9Format(ReplacedTextureFormat fmt) {
 }
 
 void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
+	bool useIndexed = (entry.status & TexCacheEntry::STATUS_INDEXED) != 0;
+
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -1411,6 +1433,13 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 
 		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
+		if (!useIndexed) {
+			decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
+		} else {
+			// TODO: Decode texture to an indexed finalBuf.
+			ERROR_LOG(G3D, "Not finished yet: failing to create indexed texture");
+			finalBuf = nullptr;
+		}
 		if (!decSuccess) {
 			memset(pixelData, 0, decPitch * h);
 		}

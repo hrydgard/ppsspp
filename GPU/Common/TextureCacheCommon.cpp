@@ -321,7 +321,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutRenderAddress_ = 0xFFFFFFFF;
 
 	if (Memory::IsValidAddress(clutAddr)) {
-		if (Memory::IsVRAMAddress(clutAddr)) {
+		if (Memory::IsVRAMAddress(clutAddr) && !g_Config.bDisableSlowFramebufEffects) {
 			// Clear the uncached bit, etc. to match framebuffers.
 			const u32 clutFramebufAddr = clutAddr & 0x3FFFFFFF;
 			const u32 clutFramebufEnd = clutFramebufAddr + loadBytes;
@@ -352,11 +352,19 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bDisableSlowFramebufEffects) {
-			DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
-			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-			if (bytes < loadBytes) {
-				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+		if (clutRenderAddress_ != 0xFFFFFFFF) {
+			bool useIndexed = standardScaleFactor_ == 1;
+
+			// TODO: Once implemented.
+			ERROR_LOG(G3D, "Not finished yet: skipping indexed texture and downloading CLUT");
+			useIndexed = false;
+
+			if (!useIndexed) {
+				DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
+				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+				if (bytes < loadBytes) {
+					memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+				}
 			}
 		} else {
 #ifdef _M_SSE
@@ -386,7 +394,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	} else {
 		memset(clutBufRaw_, 0x00, loadBytes);
 	}
-	// Reload the clut next time.
+	// Update the clut (translating colors if necessary) next time.
 	clutLastFormat_ = 0xFFFFFFFF;
 	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }

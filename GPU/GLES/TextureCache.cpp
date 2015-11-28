@@ -558,6 +558,9 @@ void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, b
 }
 
 inline u32 TextureCache::GetCurrentClutHash() {
+	// If we're using a rendered clut, always use the same cache entry.
+	if (clutRenderAddress_ != 0xFFFFFFFF)
+		return 0x1337C0DE;
 	return clutHash_;
 }
 
@@ -1011,6 +1014,7 @@ void TextureCache::SetTexture(bool force) {
 		if (entry->framebuffer) {
 			if (match) {
 				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
+					// TODO
 					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 				}
 
@@ -1034,6 +1038,16 @@ void TextureCache::SetTexture(bool force) {
 		} else if ((gstate_c.textureChanged & TEXCHANGE_UPDATED) == 0) {
 			// Okay, just some parameter change - the data didn't change, no need to rehash.
 			rehash = false;
+		}
+
+		// Check the clut status.
+		if (match) {
+			bool nowUsingClutRender = clutRenderAddress_ != 0xFFFFFFFF && hasClut;
+			bool wasUsingClutRender = (entry->status & TexCacheEntry::STATUS_INDEXED) != 0;
+			if (nowUsingClutRender != wasUsingClutRender) {
+				match = false;
+				reason = "CLUT render status changed";
+			}
 		}
 
 		if (match) {
@@ -1105,10 +1119,6 @@ void TextureCache::SetTexture(bool force) {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
-
-		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-		}
 
 		entry = &cache[cachekey];
 		if (g_Config.bTextureBackoffCache) {
@@ -1347,6 +1357,16 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		scaleFactor = 1;
 	}
 
+	if (clutRenderAddress_ != 0xFFFFFFFF && hasClut) {
+		entry->status |= TexCacheEntry::STATUS_INDEXED;
+		dstFmt = GL_UNSIGNED_BYTE;
+		// Can't scale an indexed texture (this means it uses a CLUT that was rendered.)
+		scaleFactor = 1;
+	} else {
+		// Clear in case it stopped being an indexed texture.
+		entry->status &= ~TexCacheEntry::STATUS_INDEXED;
+	}
+
 	if (scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
@@ -1376,6 +1396,9 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		default:
 			ERROR_LOG(G3D, "Unknown dstfmt %i", (int)actualFmt);
 			break;
+		}
+		if ((entry->status & TexCacheEntry::STATUS_INDEXED) != 0) {
+			storageFmt = GL_R8;
 		}
 		// TODO: This may cause bugs, since it hard-sets the texture w/h, and we might try to reuse it later with a different size.
 		glTexStorage2D(GL_TEXTURE_2D, maxLevel + 1, storageFmt, w * scaleFactor, h * scaleFactor);
@@ -1526,6 +1549,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
 	bool useBGRA;
+	bool useIndexed = (entry.status & TexCacheEntry::STATUS_INDEXED) != 0;
 	u32 *pixelData;
 
 	// TODO: only do this once
@@ -1550,8 +1574,15 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		int bufw;
-		void *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
-		if (finalBuf == NULL) {
+		void *finalBuf;
+		if (!useIndexed) {
+			finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
+		} else {
+			// TODO: Decode texture to an indexed finalBuf.
+			ERROR_LOG(G3D, "Not finished yet: failing to create indexed texture");
+			finalBuf = nullptr;
+		}
+		if (finalBuf == nullptr) {
 			return;
 		}
 
@@ -1562,14 +1593,14 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 		}
 
 		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
-		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-		useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+		texByteAlign = useIndexed ? 1 : (dstFmt == GL_UNSIGNED_BYTE ? 4 : 2);
+		useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE && !useIndexed;
 
 		pixelData = (u32 *)finalBuf;
-		if (scaleFactor > 1)
+		if (scaleFactor > 1 && !useIndexed)
 			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
-		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0 && !useIndexed) {
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
@@ -1594,6 +1625,13 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
+	if (useIndexed) {
+		components = GL_LUMINANCE;
+		if (gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 0, 0)) {
+			// In the shader, we always access r.  GL 3+ allows using GL_RED only.
+			components = GL_RED;
+		}
+	}
 
 	GLuint components2 = components;
 	if (useBGRA) {

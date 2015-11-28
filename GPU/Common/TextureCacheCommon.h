@@ -82,6 +82,7 @@ public:
 			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
 			STATUS_IS_SCALED = 0x100,      // Has been scaled (can't be replaceImages'd.)
 			STATUS_FREE_CHANGE = 0x200,    // Allow one change before marking "frequent".
+			STATUS_INDEXED = 04200,        // Texture is R only for on-GPU CLUT processing.
 		};
 
 		// Status, but int so we can zero initialize.
