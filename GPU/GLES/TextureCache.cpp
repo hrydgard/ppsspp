@@ -69,12 +69,14 @@
 #define GL_UNPACK_ROW_LENGTH 0x0CF2
 #endif
 
+#define INVALID_TEX -1
+
 // Hack!
 extern int g_iNumVideos;
 
 TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
-	lastBoundTexture = -1;
+	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
@@ -125,7 +127,7 @@ static u32 EstimateTexMemoryUsage(const TextureCache::TexCacheEntry *entry) {
 
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
-	lastBoundTexture = -1;
+	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.textureName);
@@ -173,7 +175,7 @@ void TextureCache::Decimate() {
 		const u32 had = cacheSizeEstimate_;
 
 		glBindTexture(GL_TEXTURE_2D, 0);
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 			if (iter->second.lastFrame + killAge < gpuStats.numFlips) {
@@ -727,7 +729,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 }
 
 void TextureCache::StartFrame() {
-	lastBoundTexture = -1;
+	lastBoundTexture = INVALID_TEX;
 	timesInvalidatedAllThisFrame_ = 0;
 
 	if (texelsScaledThisFrame_) {
@@ -1070,7 +1072,7 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 	framebufferManager_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
-	lastBoundTexture = -1;
+	lastBoundTexture = INVALID_TEX;
 }
 
 bool TextureCache::SetOffsetTexture(u32 offset) {
@@ -1112,20 +1114,20 @@ void TextureCache::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		return;
 	}
 #endif
 
 	if (force) {
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 	}
 
 	u32 texaddr = gstate.getTextureAddress(0);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
-		lastBoundTexture = -1;
+		lastBoundTexture = INVALID_TEX;
 		return;
 	}
 
@@ -1324,7 +1326,7 @@ void TextureCache::SetTexture(bool force) {
 					replaceImages = true;
 				} else {
 					if (entry->textureName == lastBoundTexture) {
-						lastBoundTexture = -1;
+						lastBoundTexture = INVALID_TEX;
 					}
 					glDeleteTextures(1, &entry->textureName);
 				}
