@@ -88,7 +88,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		highpTexcoord = highpFog;
 
 		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-			if (gl_extensions.EXT_shader_framebuffer_fetch) {
+			if (gl_extensions.GLES3 && gl_extensions.EXT_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+				lastFragData = "fragColor0";
+			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
 				lastFragData = "gl_LastFragData[0]";
 			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
@@ -252,12 +255,16 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	}
 
 	if (!strcmp(fragColor0, "fragColor0")) {
+		const char *qualifierColor0 = "out";
+		if (lastFragData && !strcmp(lastFragData, fragColor0)) {
+			qualifierColor0 = "inout";
+		}
 		// Output the output color definitions.
 		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-			WRITE(p, "out vec4 fragColor0;\n");
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
 			WRITE(p, "out vec4 fragColor1;\n");
 		} else {
-			WRITE(p, "out vec4 fragColor0;\n");
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
 		}
 	}
 
