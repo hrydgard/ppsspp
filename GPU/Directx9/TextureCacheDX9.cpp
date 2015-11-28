@@ -622,12 +622,21 @@ void TextureCacheDX9::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		LPDIRECT3DTEXTURE9 texture = DxTex(entry);
-		if (texture != lastBoundTexture) {
+		if ((entry->status & TexCacheEntry::STATUS_INDEXED) != 0) {
+			ERROR_LOG(G3D, "Unfinished: not binding indexed texture cache entry.");
+			// TODO
+			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
 			pD3Ddevice->SetTexture(0, texture);
-			lastBoundTexture = texture;
+			lastBoundTexture = INVALID_TEX;
+			UpdateSamplingParams(*entry, true);
+		} else {
+			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
+			if (texture != lastBoundTexture) {
+				pD3Ddevice->SetTexture(0, texture);
+				lastBoundTexture = texture;
+			}
+			UpdateSamplingParams(*entry, false);
 		}
-		UpdateSamplingParams(*entry, false);
 
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
@@ -1253,7 +1262,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		scaleFactor = 1;
 	}
 
-	if (clutRenderAddress_ != 0xFFFFFFFF && hasClut) {
+	if (clutRenderAddress_ != 0xFFFFFFFF && entry->cluthash != 0) {
 		entry->status |= TexCacheEntry::STATUS_INDEXED;
 		dstFmt = D3DFMT_L8;
 		// Can't scale an indexed texture (this means it uses a CLUT that was rendered.)

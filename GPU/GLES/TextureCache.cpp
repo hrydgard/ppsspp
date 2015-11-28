@@ -19,6 +19,7 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+#include "gfx/gl_common.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
@@ -30,6 +31,7 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
@@ -689,11 +691,19 @@ void TextureCache::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		if (entry->textureName != lastBoundTexture) {
+		if ((entry->status & TexCacheEntry::STATUS_INDEXED) != 0) {
+			ERROR_LOG(G3D, "Unfinished: not binding indexed texture cache entry.");
+			// TODO
 			glBindTexture(GL_TEXTURE_2D, entry->textureName);
-			lastBoundTexture = entry->textureName;
+			lastBoundTexture = INVALID_TEX;
+			UpdateSamplingParams(*entry, true);
+		} else {
+			if (entry->textureName != lastBoundTexture) {
+				glBindTexture(GL_TEXTURE_2D, entry->textureName);
+				lastBoundTexture = entry->textureName;
+			}
+			UpdateSamplingParams(*entry, false);
 		}
-		UpdateSamplingParams(*entry, false);
 
 		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
@@ -1357,7 +1367,7 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		scaleFactor = 1;
 	}
 
-	if (clutRenderAddress_ != 0xFFFFFFFF && hasClut) {
+	if (clutRenderAddress_ != 0xFFFFFFFF && entry->cluthash != 0) {
 		entry->status |= TexCacheEntry::STATUS_INDEXED;
 		dstFmt = GL_UNSIGNED_BYTE;
 		// Can't scale an indexed texture (this means it uses a CLUT that was rendered.)
