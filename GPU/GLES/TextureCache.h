@@ -34,12 +34,6 @@ class DepalShaderCache;
 class ShaderManager;
 class TransformDrawEngine;
 
-enum FramebufferNotification {
-	NOTIFY_FB_CREATED,
-	NOTIFY_FB_UPDATED,
-	NOTIFY_FB_DESTROYED,
-};
-
 inline bool UseBGRA8888() {
 	// TODO: Other platforms?  May depend on vendor which is faster?
 #ifdef _WIN32
@@ -61,11 +55,6 @@ public:
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
-	void LoadClut(u32 clutAddr, u32 loadBytes);
-
-	// FramebufferManager keeps TextureCache updated about what regions of memory
-	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 
 	void SetFramebufferManager(FramebufferManager *fbManager) {
 		framebufferManager_ = fbManager;
@@ -99,9 +88,6 @@ public:
 	void ApplyTexture();
 
 private:
-	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
-	typedef std::map<u64, TexCacheEntry> TexCache;
-
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
 	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
@@ -115,14 +101,12 @@ private:
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) override;
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
-	TexCache cache;
 	TexCache secondCache;
-	std::vector<VirtualFramebuffer *> fbCache_;
 	std::vector<u32> nameCache_;
 	u32 cacheSizeEstimate_;
 	u32 secondCacheSizeEstimate_;
@@ -146,17 +130,11 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
-	u32 clutLastFormat_;
-	u32 *clutBufRaw_;
-	u32 *clutBufConverted_;
 	u32 *clutBuf_;
 	u32 clutHash_;
-	u32 clutTotalBytes_;
-	u32 clutMaxBytes_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
-	u32 clutRenderAddress_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;

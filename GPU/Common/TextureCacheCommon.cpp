@@ -15,17 +15,36 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include "Common/MemoryUtil.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
 
 // Ugly.
 extern int g_iNumVideos;
 
-TextureCacheCommon::~TextureCacheCommon() {}
+TextureCacheCommon::TextureCacheCommon()
+	: nextTexture_(nullptr),
+	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF) {
+	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
+	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+
+	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
+	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
+	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+}
+
+TextureCacheCommon::~TextureCacheCommon() {
+	FreeAlignedMemory(clutBufConverted_);
+	FreeAlignedMemory(clutBufRaw_);
+}
 
 bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 	return false;
@@ -87,4 +106,103 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 	if (!g_Config.bMipMap || noMip) {
 		minFilt &= 1;
 	}
+}
+
+void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
+	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
+	// These checks are mainly to reduce scanning all textures.
+	const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
+	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
+	const u64 cacheKey = (u64)addr << 32;
+	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
+
+	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
+	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
+	const u64 mirrorCacheKeyEnd = (u64)0x04800000 << 32;
+
+	switch (msg) {
+	case NOTIFY_FB_CREATED:
+	case NOTIFY_FB_UPDATED:
+		// Ensure it's in the framebuffer cache.
+		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
+			fbCache_.push_back(framebuffer);
+		}
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			AttachFramebuffer(&it->second, addr, framebuffer);
+		}
+		// Let's assume anything in mirrors is fair game to check.
+		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
+			// TODO: Wait, account for address?
+			AttachFramebuffer(&it->second, addr, framebuffer);
+		}
+		break;
+
+	case NOTIFY_FB_DESTROYED:
+		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			DetachFramebuffer(&it->second, addr, framebuffer);
+		}
+		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
+			DetachFramebuffer(&it->second, addr, framebuffer);
+		}
+		break;
+	}
+}
+
+void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
+	// Clear the uncached bit, etc. to match framebuffers.
+	clutAddr = clutAddr & 0x3FFFFFFF;
+	bool foundFramebuffer = false;
+
+	clutRenderAddress_ = 0xFFFFFFFF;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
+			framebuffer->last_frame_clut = gpuStats.numFlips;
+			framebuffer->usageFlags |= FB_USAGE_CLUT;
+			foundFramebuffer = true;
+			WARN_LOG_REPORT_ONCE(clutrenderdx9, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
+			clutRenderAddress_ = framebuffer->fb_address;
+		}
+	}
+
+	clutTotalBytes_ = loadBytes;
+	if (Memory::IsValidAddress(clutAddr)) {
+		// It's possible for a game to (successfully) access outside valid memory.
+		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
+			gpu->PerformMemoryDownload(clutAddr, bytes);
+		}
+
+#ifdef _M_SSE
+		int numBlocks = bytes / 16;
+		if (bytes == loadBytes) {
+			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
+			__m128i *dest = (__m128i *)clutBufRaw_;
+			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
+				__m128i data1 = _mm_loadu_si128(source);
+				__m128i data2 = _mm_loadu_si128(source + 1);
+				_mm_store_si128(dest, data1);
+				_mm_store_si128(dest + 1, data2);
+			}
+		} else {
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+			if (bytes < loadBytes) {
+				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
+			}
+		}
+#else
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
+		if (bytes < clutTotalBytes_) {
+			memset((u8 *)clutBufRaw_ + bytes, 0x00, clutTotalBytes_ - bytes);
+		}
+#endif
+	} else {
+		memset(clutBufRaw_, 0x00, loadBytes);
+	}
+	// Reload the clut next time.
+	clutLastFormat_ = 0xFFFFFFFF;
+	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }
