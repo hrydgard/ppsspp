@@ -159,27 +159,27 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
-	// Clear the uncached bit, etc. to match framebuffers.
-	clutAddr = clutAddr & 0x3FFFFFFF;
-	bool foundFramebuffer = false;
-
-	clutRenderAddress_ = 0xFFFFFFFF;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
-			framebuffer->last_frame_clut = gpuStats.numFlips;
-			framebuffer->usageFlags |= FB_USAGE_CLUT;
-			foundFramebuffer = true;
-			WARN_LOG_REPORT_ONCE(clutrenderdx9, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
-			clutRenderAddress_ = framebuffer->fb_address;
-		}
-	}
-
 	clutTotalBytes_ = loadBytes;
+	clutRenderAddress_ = 0xFFFFFFFF;
+
 	if (Memory::IsValidAddress(clutAddr)) {
+		if (Memory::IsVRAMAddress(clutAddr)) {
+			// Clear the uncached bit, etc. to match framebuffers.
+			const u32 clutFramebufAddr = clutAddr & 0x3FFFFFFF;
+
+			for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+				auto framebuffer = fbCache_[i];
+				if ((framebuffer->fb_address | 0x04000000) == clutFramebufAddr) {
+					framebuffer->last_frame_clut = gpuStats.numFlips;
+					framebuffer->usageFlags |= FB_USAGE_CLUT;
+					clutRenderAddress_ = framebuffer->fb_address;
+				}
+			}
+		}
+
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
+		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bDisableSlowFramebufEffects) {
 			gpu->PerformMemoryDownload(clutAddr, bytes);
 		}
 
