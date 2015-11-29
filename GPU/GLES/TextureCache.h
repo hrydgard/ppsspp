@@ -90,7 +90,6 @@ public:
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
-	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
@@ -124,11 +123,6 @@ private:
 	bool lowMemoryMode_;
 
 	TextureScalerGL scaler;
-
-	SimpleBuf<u32> tmpTexBuf32;
-	SimpleBuf<u16> tmpTexBuf16;
-
-	SimpleBuf<u32> tmpTexBufRearrange;
 
 	u32 *clutBuf_;
 	u32 clutHash_;

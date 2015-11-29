@@ -21,6 +21,7 @@
 #include "Core/Reporting.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
@@ -39,6 +40,11 @@ TextureCacheCommon::TextureCacheCommon()
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+
+	// This is 5MB of temporary storage. Might be possible to shrink it.
+	tmpTexBuf32.resize(1024 * 512);  // 2MB
+	tmpTexBuf16.resize(1024 * 512);  // 1MB
+	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -212,4 +218,77 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	// Reload the clut next time.
 	clutLastFormat_ = 0xFFFFFFFF;
 	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
+}
+
+void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
+	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
+	const u32 pitch = rowWidth / 4;
+	const int bxc = rowWidth / 16;
+	int byc = (height + 7) / 8;
+	if (byc == 0)
+		byc = 1;
+
+	u32 ydest = 0;
+	if (rowWidth >= 16) {
+		u32 *ydestp = tmpTexBuf32.data();
+		// The most common one, so it gets an optimized implementation.
+		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
+	} else if (rowWidth == 8) {
+		const u32 *src = (const u32 *) texptr;
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 8; n++, ydest += 2) {
+				tmpTexBuf32[ydest + 0] = *src++;
+				tmpTexBuf32[ydest + 1] = *src++;
+				src += 2; // skip two u32
+			}
+		}
+	} else if (rowWidth == 4) {
+		const u32 *src = (const u32 *) texptr;
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 8; n++, ydest++) {
+				tmpTexBuf32[ydest] = *src++;
+				src += 3;
+			}
+		}
+	} else if (rowWidth == 2) {
+		const u16 *src = (const u16 *) texptr;
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 4; n++, ydest++) {
+				u16 n1 = src[0];
+				u16 n2 = src[8];
+				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
+				src += 16;
+			}
+		}
+	} else if (rowWidth == 1) {
+		const u8 *src = (const u8 *) texptr;
+		for (int by = 0; by < byc; by++) {
+			for (int n = 0; n < 2; n++, ydest++) {
+				u8 n1 = src[ 0];
+				u8 n2 = src[16];
+				u8 n3 = src[32];
+				u8 n4 = src[48];
+				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
+				src += 64;
+			}
+		}
+	}
+	return tmpTexBuf32.data();
+}
+
+void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {
+	const u8 *read = (const u8 *)inBuf;
+	void *outBuf = inBuf;
+	u8 *write = (u8 *)inBuf;
+	if (outRowBytes > inRowBytes || !allowInPlace) {
+		write = (u8 *)tmpTexBufRearrange.data();
+		outBuf = tmpTexBufRearrange.data();
+	}
+	for (int y = 0; y < h; y++) {
+		memmove(write, read, outRowBytes);
+		read += inRowBytes;
+		write += outRowBytes;
+	}
+
+	return outBuf;
 }
