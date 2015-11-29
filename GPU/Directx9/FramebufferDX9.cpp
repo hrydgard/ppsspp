@@ -587,7 +587,9 @@ namespace DX9 {
 		if (!fbo)
 			return fbo;
 		fbo_bind_as_render_target(fbo);
+		dxstate.viewport.force(0, 0, w, h);
 		ClearBuffer(true);
+		dxstate.viewport.restore();
 		const TempFBO info = {fbo, gpuStats.numFlips};
 		tempFBOs_[key] = info;
 		return fbo;
