@@ -916,7 +916,19 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
 	}
 	if (depal) {
-		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		GLuint clutTexture = 0;
+
+		VirtualFramebuffer *clutVfb = nullptr;
+		for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+			auto clutFramebuffer = fbCache_[i];
+			if (clutFramebuffer->fb_address == clutRenderAddress_) {
+				clutVfb = clutFramebuffer;
+			}
+		}
+
+		if (!clutVfb) {
+			clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		}
 		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
 		shaderManager_->DirtyLastShader();
@@ -925,8 +937,25 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
 		shaderApply.Use(transformDraw_);
 
+		if (depal->u_offset != -1) {
+			if (clutVfb) {
+				// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
+				// If the width is 256, 255 is right (with offset.)  We aim for the texel centers.
+				float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
+				glUniform2f(depal->u_offset, texel_mult, 0.0f);
+			} else {
+				glUniform2f(depal->u_offset, 1.0f, 0.0f);
+			}
+		}
+
 		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, clutTexture);
+		if (clutVfb) {
+			fbo_bind_color_as_texture(clutVfb->fbo, 0);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, clutTexture);
+		}
 		glActiveTexture(GL_TEXTURE0);
 
 		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
@@ -1086,11 +1115,6 @@ void TextureCache::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
-				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-					// TODO
-					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-				}
-
 				SetTextureFramebuffer(entry, entry->framebuffer);
 				return;
 			} else {

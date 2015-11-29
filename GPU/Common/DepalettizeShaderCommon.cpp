@@ -48,6 +48,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, "out vec4 fragColor0;\n");
 		WRITE(p, "uniform sampler2D tex;\n");
 		WRITE(p, "uniform sampler2D pal;\n");
+		WRITE(p, "uniform vec2 u_offset;\n");
 	}
 
 	// TODO: Add support for integer textures. Though it hardly matters.
@@ -110,7 +111,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		WRITE(p, ";\n");
 	}
 
-	WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f), 0.0));\n", texturePixels);
+	WRITE(p, "  fragColor0 = texture(pal, vec2((float(index) + 0.5) * (1.0 / %f) * u_offset.x + u_offset.y, 0.0));\n", texturePixels);
 	WRITE(p, "}\n");
 }
 
@@ -239,17 +240,19 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 		WRITE(p, "varying vec2 v_texcoord0;\n");
 		WRITE(p, "uniform sampler2D tex;\n");
 		WRITE(p, "uniform sampler2D pal;\n");
+		WRITE(p, "uniform vec2 u_offset;\n");
 		WRITE(p, "void main() {\n");
 		WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
-		WRITE(p, "  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
+		WRITE(p, "  float coord = (%s * %f * u_offset.x)%s + u_offset.y;\n", lookupMethod, index_multiplier, offset);
 		WRITE(p, "  gl_FragColor = texture2D(pal, vec2(coord, 0.0));\n");
 		WRITE(p, "}\n");
 	} else if (lang == HLSL_DX9) {
 		WRITE(p, "sampler tex: register(s0);\n");
 		WRITE(p, "sampler pal: register(s1);\n");
+		WRITE(p, "float2 u_offset : register(c%i);\n", CONST_PS_DEPAL_OFFSET);
 		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) : COLOR0 {\n");
 		WRITE(p, "  float4 index = tex2D(tex, v_texcoord0);\n");
-		WRITE(p, "  float coord = (%s * %f)%s;\n", lookupMethod, index_multiplier, offset);
+		WRITE(p, "  float coord = (%s * %f * u_offset.x)%s + u_offset.y;\n", lookupMethod, index_multiplier, offset);
 		WRITE(p, "  return tex2D(pal, float2(coord, 0.0)).bgra;\n");
 		WRITE(p, "}\n");
 	}

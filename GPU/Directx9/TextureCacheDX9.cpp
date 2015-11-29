@@ -841,7 +841,19 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	}
 
 	if (pshader) {
-		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		LPDIRECT3DTEXTURE9 clutTexture = nullptr;
+
+		VirtualFramebuffer *clutVfb = nullptr;
+		for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+			auto clutFramebuffer = fbCache_[i];
+			if (clutFramebuffer->fb_address == clutRenderAddress_) {
+				clutVfb = clutFramebuffer;
+			}
+		}
+
+		if (!clutVfb) {
+			clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		}
 
 		FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
@@ -854,7 +866,22 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
 
-		pD3Ddevice->SetTexture(1, clutTexture);
+		if (clutVfb) {
+			// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
+			// If the width is 256, 255 is right (with offset.)  We aim for the texel centers.
+			float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
+			const float f[4] = { texel_mult, 0.0f, 0.0f, 0.0f };
+			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_DEPAL_OFFSET, f, 1);
+		} else {
+			const float f[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_DEPAL_OFFSET, f, 1);
+		}
+
+		if (clutVfb) {
+			pD3Ddevice->SetTexture(1, fbo_get_color_texture(clutVfb->fbo_dx9));
+		} else {
+			pD3Ddevice->SetTexture(1, clutTexture);
+		}
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
@@ -989,11 +1016,6 @@ void TextureCacheDX9::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
-				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
-					// TODO
-					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
-				}
-
 				SetTextureFramebuffer(entry, entry->framebuffer);
 				return;
 			} else {
