@@ -856,12 +856,12 @@ void TextureCache::ApplyIndexedTexture(TexCacheEntry *entry) {
 		return;
 	}
 
-	IndexedShader *shader = depalShaderCache_->GetIndexedShader();
+	DepalShader *shader = depalShaderCache_->GetIndexedShader();
 	if (!shader) {
 		return;
 	}
 
-	// TODO: Mipmaps.
+	// TODO: Mipmaps are theoretically possible, but not implemented.
 	int w = 1 << ((entry->dim >> 0) & 0xf);
 	int h = 1 << ((entry->dim >> 8) & 0xf);
 
@@ -873,19 +873,21 @@ void TextureCache::ApplyIndexedTexture(TexCacheEntry *entry) {
 	shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
 	shaderApply.Use(transformDraw_);
 
-	float texel_offset = 0.5f / (float)clutVfb->bufferWidth;
-	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
-		// In this case, we truncated the index entries.  Apply the offset here.
-		if (clutVfb->renderWidth > 256) {
-			texel_offset += 256.0f / (float)clutVfb->renderWidth;
+	if (shader->u_offset != -1) {
+		float texel_offset = 0.5f / (float)clutVfb->bufferWidth;
+		if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
+			// In this case, we truncated the index entries.  Apply the offset here.
+			if (clutVfb->renderWidth > 256) {
+				texel_offset += 256.0f / (float)clutVfb->renderWidth;
+			}
 		}
+
+		// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
+		// If the width is 256, 255 is right (see offset above.)  We aim for the texel centers.
+		float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
+
+		glUniform2f(shader->u_offset, texel_mult, texel_offset);
 	}
-
-	// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
-	// If the width is 256, 255 is right (see offset above.)  We aim for the texel centers.
-	float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
-
-	glUniform2f(shader->u_offset, texel_mult, texel_offset);
 
 	glActiveTexture(GL_TEXTURE3);
 	fbo_bind_color_as_texture(clutVfb->fbo, 0);

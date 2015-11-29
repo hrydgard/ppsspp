@@ -23,21 +23,7 @@
 
 class DepalShader {
 public:
-	GLuint program;
-	GLuint fragShader;
-	GLint a_position;
-	GLint a_texcoord0;
-};
-
-class DepalTexture {
-public:
-	GLuint texture;
-	int lastFrame;
-};
-
-class IndexedShader {
-public:
-	IndexedShader() : program(0), fragShader(0) {
+	DepalShader() : program(0), fragShader(0) {
 	}
 
 	GLuint program;
@@ -45,6 +31,12 @@ public:
 	GLint a_position;
 	GLint a_texcoord0;
 	GLint u_offset;
+};
+
+class DepalTexture {
+public:
+	GLuint texture;
+	int lastFrame;
 };
 
 // Caches both shaders and palette textures.
@@ -56,19 +48,20 @@ public:
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	GLuint GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
-	IndexedShader *GetIndexedShader();
+	DepalShader *GetIndexedShader();
 	void Clear();
 	void Decimate();
 
 private:
 	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	bool CreateVertexShader();
+	void CreateFragShader(DepalShader *depal, char *buffer);
 
 	bool useGL3_;
 	bool vertexShaderFailed_;
 	GLuint vertexShader_;
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;
-	IndexedShader indexedShader_;
+	DepalShader indexedShader_;
 };
 
