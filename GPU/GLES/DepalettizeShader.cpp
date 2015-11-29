@@ -271,3 +271,82 @@ DepalShader *DepalShaderCache::GetDepalettizeShader(GEPaletteFormat clutFormat, 
 	delete[] buffer;
 	return depal->program ? depal : nullptr;
 }
+
+IndexedShader *DepalShaderCache::GetIndexedShader() {
+	if (indexedShader_.program != 0) {
+		if (indexedShader_.program == -1) {
+			// Previously failed.
+			return nullptr;
+		}
+		return &indexedShader_;
+	}
+
+	if (vertexShader_ == 0) {
+		if (!CreateVertexShader()) {
+			// The vertex shader failed, no need to bother trying the fragment.
+			return nullptr;
+		}
+	}
+
+	char *buffer = new char[2048];
+	GenerateIndexedShader(buffer, useGL3_ ? GLSL_300 : GLSL_140);
+
+	GLuint fragShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+	const char *buf = buffer;
+	glShaderSource(fragShader, 1, &buf, 0);
+	glCompileShader(fragShader);
+
+	CheckShaderCompileSuccess(fragShader, buffer);
+
+	GLuint program = glCreateProgram();
+	glAttachShader(program, vertexShader_);
+	glAttachShader(program, fragShader);
+
+	glBindAttribLocation(program, 0, "a_position");
+	glBindAttribLocation(program, 1, "a_texcoord0");
+
+	glLinkProgram(program);
+	glUseProgram(program);
+
+	GLint u_tex = glGetUniformLocation(program, "tex");
+	GLint u_pal = glGetUniformLocation(program, "pal");
+	GLint u_offset = glGetUniformLocation(program, "u_offset");
+
+	glUniform1i(u_tex, 0);
+	glUniform1i(u_pal, 3);
+
+	indexedShader_.program = program;
+	indexedShader_.fragShader = fragShader;
+	indexedShader_.u_offset = u_offset;
+
+	GLint linkStatus = GL_FALSE;
+	glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+	if (linkStatus != GL_TRUE) {
+		GLint bufLength = 0;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
+		if (bufLength) {
+			char* errorbuf = new char[bufLength];
+			glGetProgramInfoLog(program, bufLength, NULL, errorbuf);
+#ifdef SHADERLOG
+			OutputDebugStringUTF8(buffer);
+			OutputDebugStringUTF8(errorbuf);
+#endif
+			ERROR_LOG(G3D, "Could not link program:\n %s  \n\n %s", errorbuf, buf);
+			delete[] errorbuf;	// we're dead!
+		}
+
+		// Since it failed, let's mark it in the cache so we don't keep retrying.
+		// That will only make it slower.
+		indexedShader_.program = -1;
+
+		// We will delete the shader later in Clear().
+		glDeleteProgram(program);
+	} else {
+		indexedShader_.a_position = glGetAttribLocation(program, "a_position");
+		indexedShader_.a_texcoord0 = glGetAttribLocation(program, "a_texcoord0");
+	}
+
+	delete[] buffer;
+	return indexedShader_.program ? &indexedShader_ : nullptr;
+}

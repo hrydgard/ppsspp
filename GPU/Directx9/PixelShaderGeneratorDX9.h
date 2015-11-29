@@ -39,4 +39,7 @@ bool GenerateFragmentShaderDX9(const ShaderID &id, char *buffer);
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
 
+// For depal
+#define CONST_PS_DEPAL_OFFSET 11
+
 };

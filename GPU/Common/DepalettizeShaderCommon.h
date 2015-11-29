@@ -27,3 +27,4 @@ enum ShaderLanguage {
 };
 
 void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language);
+void GenerateIndexedShader(char *buffer, ShaderLanguage lang);

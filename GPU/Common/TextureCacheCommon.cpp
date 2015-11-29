@@ -355,10 +355,6 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		if (clutRenderAddress_ != 0xFFFFFFFF) {
 			bool useIndexed = standardScaleFactor_ == 1;
 
-			// TODO: Once implemented.
-			ERROR_LOG(G3D, "Not finished yet: skipping indexed texture and downloading CLUT");
-			useIndexed = false;
-
 			if (!useIndexed) {
 				DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
 				Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
@@ -452,7 +448,7 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 
 		const u8 *indexed = texptr;
 		if (swizzled) {
-			UnswizzleFromMem(indexed, bufw, h, 0);
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
 			indexed = (const u8 *)tmpTexBuf32.data();
 		}
 
@@ -468,7 +464,7 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 		{
 			const u8 *indexed = texptr;
 			if (swizzled) {
-				UnswizzleFromMem(texptr, bufw, h, 1);
+				UnswizzleFromMem(tmpTexBuf32.data(), bufw, texptr, bufw, h, 1);
 				indexed = (const u8 *)tmpTexBuf32.data();
 			}
 
@@ -482,7 +478,7 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 		{
 			const u16_le *indexed = (const u16_le *)texptr;
 			if (swizzled) {
-				UnswizzleFromMem(texptr, bufw, h, 2);
+				UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
 				indexed = (const u16_le *)tmpTexBuf32.data();
 			}
 
@@ -496,7 +492,7 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 		{
 			const u32_le *indexed = (const u32_le *)texptr;
 			if (swizzled) {
-				UnswizzleFromMem(texptr, bufw, h, 4);
+				UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
 				indexed = (const u32_le *)tmpTexBuf32.data();
 			}
 
@@ -520,7 +516,6 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 
 	// Technically, the index can actually be up to 512.  This is pretty rare (getClutIndexStartPos.)
 	// Unfortunately, not all platforms support uploading > 8 bit values.
-	// TODO: Just apply the extra bit when finalizing the texture?
 	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
 		ERROR_LOG_REPORT(G3D, "Unsupported indexed texture with CLUT indexes outside 0-255");
 	}

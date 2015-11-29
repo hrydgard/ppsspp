@@ -20,9 +20,9 @@
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/GLStateCache.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
-
+#include "GPU/Directx9/PixelShaderGeneratorDX9.h"
+#include "GPU/GLES/GLStateCache.h"
 
 #define WRITE p+=sprintf
 
@@ -267,6 +267,54 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 	case HLSL_DX9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
+	}
+}
+
+void GenerateIndexedShader(char *buffer, ShaderLanguage lang) {
+	char *p = buffer;
+
+	if (lang == GLSL_140) {
+		if (gl_extensions.IsGLES) {
+			WRITE(p, "#version 100\n");
+			WRITE(p, "precision mediump float;\n");
+		} else {
+			WRITE(p, "#version 110\n");
+		}
+		WRITE(p, "varying vec2 v_texcoord0;\n");
+		WRITE(p, "uniform sampler2D tex;\n");
+		WRITE(p, "uniform sampler2D pal;\n");
+		WRITE(p, "uniform vec2 u_offset;\n");
+		WRITE(p, "void main() {\n");
+		WRITE(p, "  vec4 index = texture2D(tex, v_texcoord0);\n");
+		WRITE(p, "  float coord = index.r * u_offset.x + u_offset.y;\n");
+		WRITE(p, "  gl_FragColor = texture2D(pal, vec2(coord, 0.0));\n");
+		WRITE(p, "}\n");
+	} else if (lang == GLSL_300) {
+		if (gl_extensions.IsGLES) {
+			WRITE(p, "#version 300 es\n");
+			WRITE(p, "precision mediump float;\n");
+		} else {
+			WRITE(p, "#version 330\n");
+		}
+		WRITE(p, "in vec2 v_texcoord0;\n");
+		WRITE(p, "out vec4 fragColor0;\n");
+		WRITE(p, "uniform sampler2D tex;\n");
+		WRITE(p, "uniform sampler2D pal;\n");
+		WRITE(p, "uniform vec2 u_offset;\n");
+		WRITE(p, "void main() {\n");
+		WRITE(p, "  vec4 index = texture(tex, v_texcoord0);\n");
+		WRITE(p, "  float coord = index.r * u_offset.x + u_offset.y;\n");
+		WRITE(p, "  fragColor0 = texture(pal, vec2(coord, 0.0));\n");
+		WRITE(p, "}\n");
+	} else if (lang == HLSL_DX9) {
+		WRITE(p, "sampler tex: register(s0);\n");
+		WRITE(p, "sampler pal: register(s1);\n");
+		WRITE(p, "float2 u_offset : register(c%i);\n", CONST_PS_DEPAL_OFFSET);
+		WRITE(p, "float4 main(float2 v_texcoord0 : TEXCOORD0) : COLOR0 {\n");
+		WRITE(p, "  float4 index = tex2D(tex, v_texcoord0);\n");
+		WRITE(p, "  float coord = index.r * u_offset.x + u_offset.y;\n");
+		WRITE(p, "  return tex2D(pal, float2(coord, 0.0)).bgra;\n");
+		WRITE(p, "}\n");
 	}
 }
 

@@ -692,11 +692,7 @@ void TextureCache::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		if ((entry->status & TexCacheEntry::STATUS_INDEXED) != 0) {
-			ERROR_LOG(G3D, "Unfinished: not binding indexed texture cache entry.");
-			// TODO
-			glBindTexture(GL_TEXTURE_2D, entry->textureName);
-			lastBoundTexture = INVALID_TEX;
-			UpdateSamplingParams(*entry, true);
+			ApplyIndexedTexture(nextTexture_);
 		} else {
 			if (entry->textureName != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry->textureName);
@@ -845,6 +841,71 @@ protected:
 	int renderW_;
 	int renderH_;
 };
+
+void TextureCache::ApplyIndexedTexture(TexCacheEntry *entry) {
+	VirtualFramebuffer *clutVfb = nullptr;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if (framebuffer->fb_address == clutRenderAddress_) {
+			clutVfb = framebuffer;
+		}
+	}
+
+	if (!clutVfb) {
+		ERROR_LOG_REPORT(G3D, "Unable to apply indexed texture: vfb gone");
+		return;
+	}
+
+	IndexedShader *shader = depalShaderCache_->GetIndexedShader();
+	if (!shader) {
+		return;
+	}
+
+	// TODO: Mipmaps.
+	int w = 1 << ((entry->dim >> 0) & 0xf);
+	int h = 1 << ((entry->dim >> 8) & 0xf);
+
+	FBO *depalFBO = framebufferManager_->GetTempFBO(w, h, FBO_8888);
+	fbo_bind_as_render_target(depalFBO);
+	shaderManager_->DirtyLastShader();
+
+	TextureShaderApplier shaderApply(shader, w, h, w, h);
+	shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
+	shaderApply.Use(transformDraw_);
+
+	float texel_offset = 0.5f / (float)clutVfb->bufferWidth;
+	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
+		// In this case, we truncated the index entries.  Apply the offset here.
+		if (clutVfb->renderWidth > 256) {
+			texel_offset += 256.0f / (float)clutVfb->renderWidth;
+		}
+	}
+
+	// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
+	// If the width is 256, 255 is right (see offset above.)  We aim for the texel centers.
+	float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
+
+	glUniform2f(shader->u_offset, texel_mult, texel_offset);
+
+	glActiveTexture(GL_TEXTURE3);
+	fbo_bind_color_as_texture(clutVfb->fbo, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glActiveTexture(GL_TEXTURE0);
+
+	glBindTexture(GL_TEXTURE_2D, entry->textureName);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	shaderApply.Shade();
+
+	fbo_bind_color_as_texture(depalFBO, 0);
+
+	framebufferManager_->RebindFramebuffer();
+	SetFramebufferSamplingParams(w, h);
+
+	lastBoundTexture = INVALID_TEX;
+}
 
 void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShader *depal = nullptr;
