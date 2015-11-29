@@ -623,12 +623,7 @@ void TextureCacheDX9::ApplyTexture() {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
 		if ((entry->status & TexCacheEntry::STATUS_INDEXED) != 0) {
-			ERROR_LOG(G3D, "Unfinished: not binding indexed texture cache entry.");
-			// TODO
-			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
-			pD3Ddevice->SetTexture(0, texture);
-			lastBoundTexture = INVALID_TEX;
-			UpdateSamplingParams(*entry, true);
+			ApplyIndexedTexture(nextTexture_);
 		} else {
 			LPDIRECT3DTEXTURE9 texture = DxTex(entry);
 			if (texture != lastBoundTexture) {
@@ -765,6 +760,78 @@ protected:
 	int renderW_;
 	int renderH_;
 };
+
+void TextureCacheDX9::ApplyIndexedTexture(TexCacheEntry *entry) {
+	VirtualFramebuffer *clutVfb = nullptr;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if (framebuffer->fb_address == clutRenderAddress_) {
+			clutVfb = framebuffer;
+		}
+	}
+
+	if (!clutVfb) {
+		ERROR_LOG_REPORT(G3D, "Unable to apply indexed texture: vfb gone");
+		return;
+	}
+
+	LPDIRECT3DPIXELSHADER9 pshader = depalShaderCache_->GetIndexedPixelShader();
+	if (!pshader) {
+		return;
+	}
+
+	// TODO: Mipmaps are theoretically possible, but not implemented.
+	int w = 1 << ((entry->dim >> 0) & 0xf);
+	int h = 1 << ((entry->dim >> 8) & 0xf);
+
+	FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(w, h, FBO_8888);
+	fbo_bind_as_render_target(depalFBO);
+	shaderManager_->DirtyLastShader();
+
+	// Positions are -1 -> 1, so our offsets should be -0.1 for a 10 wide texture.
+	float xoff = -0.5f / (w / 2);
+	float yoff = -0.5f / (h / 2);
+
+	TextureShaderApplierDX9 shaderApply(pshader, w, h, w, h, xoff, yoff);
+	shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
+	shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
+
+	float texel_offset = 0.5f / (float)clutVfb->bufferWidth;
+	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
+		// In this case, we truncated the index entries.  Apply the offset here.
+		if (clutVfb->renderWidth > 256) {
+			texel_offset += 256.0f / (float)clutVfb->renderWidth;
+		}
+	}
+
+	// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
+	// If the width is 256, 255 is right (see offset above.)  We aim for the texel centers.
+	float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
+
+	const float f[4] = { texel_mult, texel_offset, 0.0f, 0.0f };
+	pD3Ddevice->SetPixelShaderConstantF(CONST_PS_DEPAL_OFFSET, f, 1);
+
+	pD3Ddevice->SetTexture(1, fbo_get_color_texture(clutVfb->fbo_dx9));
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	pD3Ddevice->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+	pD3Ddevice->SetTexture(0, DxTex(entry));
+	pD3Ddevice->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
+
+	shaderApply.Shade();
+
+	fbo_bind_color_as_texture(depalFBO, 0);
+
+	framebufferManager_->RebindFramebuffer();
+	SetFramebufferSamplingParams(w, h);
+
+	pD3Ddevice->SetTexture(0, fbo_get_color_texture(depalFBO));
+
+	lastBoundTexture = INVALID_TEX;
+}
 
 void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	LPDIRECT3DPIXELSHADER9 pshader = nullptr;

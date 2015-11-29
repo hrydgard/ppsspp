@@ -26,6 +26,9 @@ namespace DX9 {
 
 class DepalShaderDX9 {
 public:
+	DepalShaderDX9() : pixelShader(nullptr) {
+	}
+
 	LPDIRECT3DPIXELSHADER9 pixelShader;
 };
 
@@ -45,6 +48,7 @@ public:
 	LPDIRECT3DPIXELSHADER9 GetDepalettizePixelShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	LPDIRECT3DVERTEXSHADER9 GetDepalettizeVertexShader() { return vertexShader_; }
 	LPDIRECT3DTEXTURE9 GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	LPDIRECT3DPIXELSHADER9 GetIndexedPixelShader();
 	void Clear();
 	void Decimate();
 
@@ -54,6 +58,7 @@ private:
 	LPDIRECT3DVERTEXSHADER9 vertexShader_;
 	std::map<u32, DepalShaderDX9 *> cache_;
 	std::map<u32, DepalTextureDX9 *> texCache_;
+	DepalShaderDX9 indexedShader_;
 };
 
 }  // namespace

@@ -151,7 +151,6 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteF
 	}
 
 	char *buffer = new char[2048];
-
 	GenerateDepalShader(buffer, pixelFormat, HLSL_DX9);
 
 	LPDIRECT3DPIXELSHADER9 pshader;
@@ -170,6 +169,35 @@ LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetDepalettizePixelShader(GEPaletteF
 	delete[] buffer;
 
 	return depal->pixelShader;
+}
+
+LPDIRECT3DPIXELSHADER9 DepalShaderCacheDX9::GetIndexedPixelShader() {
+	if (indexedShader_.pixelShader != nullptr) {
+		if (indexedShader_.pixelShader == (LPDIRECT3DPIXELSHADER9)-1) {
+			// Previously failed.  Don't try again.
+			return nullptr;
+		}
+		return indexedShader_.pixelShader;
+	}
+
+	char *buffer = new char[2048];
+	GenerateIndexedShader(buffer, HLSL_DX9);
+
+	std::string errorMessage;
+	if (!CompilePixelShader(buffer, &indexedShader_.pixelShader, NULL, errorMessage)) {
+		ERROR_LOG(G3D, "Failed to compile depal pixel shader: %s\n\n%s", buffer, errorMessage.c_str());
+		indexedShader_.pixelShader = nullptr;
+	}
+
+	delete[] buffer;
+
+	if (indexedShader_.pixelShader == nullptr) {
+		// So that we know not to try again next time.
+		indexedShader_.pixelShader = (LPDIRECT3DPIXELSHADER9)-1;
+		return nullptr;
+	}
+
+	return indexedShader_.pixelShader;
 }
 
 }  // namespace
