@@ -1445,9 +1445,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		if (!useIndexed) {
 			decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
 		} else {
-			// TODO: Decode texture to an indexed finalBuf.
-			ERROR_LOG(G3D, "Not finished yet: failing to create indexed texture");
-			finalBuf = nullptr;
+			finalBuf = DecodeLevelToIndexed(GETextureFormat(entry.format), level, &bufw);
 		}
 		if (!decSuccess) {
 			memset(pixelData, 0, decPitch * h);

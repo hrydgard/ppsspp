@@ -419,6 +419,137 @@ void TextureCacheCommon::UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *te
 	DoUnswizzleTex16(texptr, dest, bxc, byc, destPitch);
 }
 
+void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level, int *bufwout) {
+	u32 texaddr = gstate.getTextureAddress(level);
+	bool swizzled = gstate.isTextureSwizzled();
+	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
+		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
+		WARN_LOG_REPORT_ONCE(texmirror, G3D, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
+		if ((texaddr & 0x00200000) == 0x00200000) {
+			// Technically 2 and 6 are slightly different, but this is better than nothing probably.
+			swizzled = !swizzled;
+		}
+		// Note that (texaddr & 0x00600000) == 0x00600000 is very likely to be depth texturing.
+	}
+
+	int bufw = GetTextureBufw(level, texaddr, format);
+	if (bufwout)
+		*bufwout = bufw;
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+	const u8 *texptr = Memory::GetPointer(texaddr);
+
+	tmpTexBuf16.resize(std::max(bufw, w) * h);
+	tmpTexBuf32.resize(std::max(bufw, w) * h);
+	tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+
+	u8 *finalBuf = (u8 *)tmpTexBuf16.data();
+	switch (format) {
+	case GE_TFMT_CLUT4:
+		{
+		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
+		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+
+		const u8 *indexed = texptr;
+		if (swizzled) {
+			UnswizzleFromMem(indexed, bufw, h, 0);
+			indexed = (const u8 *)tmpTexBuf32.data();
+		}
+
+		for (int i = 0; i < bufw * h; i += 2) {
+			u8 index = *indexed++;
+			finalBuf[i + 0] = gstate.transformClutIndex((index >> 0) & 0xf) + clutSharingOffset;
+			finalBuf[i + 1] = gstate.transformClutIndex((index >> 4) & 0xf) + clutSharingOffset;
+		}
+		}
+		break;
+
+	case GE_TFMT_CLUT8:
+		{
+			const u8 *indexed = texptr;
+			if (swizzled) {
+				UnswizzleFromMem(texptr, bufw, h, 1);
+				indexed = (const u8 *)tmpTexBuf32.data();
+			}
+
+			for (int i = 0; i < bufw * h; ++i) {
+				finalBuf[i] = gstate.transformClutIndex(*indexed++);
+			}
+		}
+		break;
+
+	case GE_TFMT_CLUT16:
+		{
+			const u16_le *indexed = (const u16_le *)texptr;
+			if (swizzled) {
+				UnswizzleFromMem(texptr, bufw, h, 2);
+				indexed = (const u16_le *)tmpTexBuf32.data();
+			}
+
+			for (int i = 0; i < bufw * h; ++i) {
+				finalBuf[i] = gstate.transformClutIndex(*indexed++);
+			}
+		}
+		break;
+
+	case GE_TFMT_CLUT32:
+		{
+			const u32_le *indexed = (const u32_le *)texptr;
+			if (swizzled) {
+				UnswizzleFromMem(texptr, bufw, h, 4);
+				indexed = (const u32_le *)tmpTexBuf32.data();
+			}
+
+			for (int i = 0; i < bufw * h; ++i) {
+				finalBuf[i] = gstate.transformClutIndex(*indexed++);
+			}
+		}
+		break;
+
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+	case GE_TFMT_8888:
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+	default:
+		ERROR_LOG_REPORT(G3D, "Invalid indexed format %d", format);
+		return nullptr;
+	}
+
+	// Technically, the index can actually be up to 512.  This is pretty rare (getClutIndexStartPos.)
+	// Unfortunately, not all platforms support uploading > 8 bit values.
+	// TODO: Just apply the extra bit when finalizing the texture?
+	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
+		ERROR_LOG_REPORT(G3D, "Unsupported indexed texture with CLUT indexes outside 0-255");
+	}
+
+	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
+		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
+		finalBuf = (u8 *)RearrangeBuf(finalBuf, bufw, w, h);
+	}
+
+	return finalBuf;
+}
+
+void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {
+	const u8 *read = (const u8 *)inBuf;
+	void *outBuf = inBuf;
+	u8 *write = (u8 *)inBuf;
+	if (outRowBytes > inRowBytes || !allowInPlace) {
+		write = (u8 *)tmpTexBufRearrange.data();
+		outBuf = tmpTexBufRearrange.data();
+	}
+	for (int y = 0; y < h; y++) {
+		memmove(write, read, outRowBytes);
+		read += inRowBytes;
+		write += outRowBytes;
+	}
+
+	return outBuf;
+}
+
 bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	const u32 pixels = 1024 / bpp;
