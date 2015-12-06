@@ -107,13 +107,20 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glBindAttribLocation(program, ATTR_COLOR0, "color0");
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
-#ifndef USING_GLES2
+#if !defined(USING_GLES2)
 	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 		// Dual source alpha
 		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
 		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glBindFragDataLocation(program, 0, "fragColor0");
+	}
+#elif !defined(IOS)
+	if (gl_extensions.GLES3) {
+		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
+			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
+		}
 	}
 #endif
 
