@@ -1533,6 +1533,22 @@ static void LogReadPixelsError(GLenum error) {
 }
 #endif
 
+static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, w);
+	}
+
+	glReadPixels(0, 0, w, h, fmt, type, pixels);
+#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+#endif
+
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+	}
+}
+
 void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
@@ -1669,16 +1685,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		if (useCPU) {
 			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
+			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		} else {
 			// Otherwise we'll directly request the format we need and let the GPU sort it out
 			glPixelStorei(GL_PACK_ALIGNMENT, align);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
+			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
-
-#ifdef DEBUG_READ_PIXELS
-		LogReadPixelsError(glGetError());
-#endif
 
 		fbo_unbind_read();
 		unbind = true;
@@ -1739,10 +1751,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		}
 
 		int byteOffset = y * vfb->fb_stride * 4;
-		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
-#ifdef DEBUG_READ_PIXELS
-		LogReadPixelsError(glGetError());
-#endif
+		SafeGLReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
@@ -1976,7 +1985,7 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 
@@ -1989,7 +1998,7 @@ bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	// The backbuffer is flipped.
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 
@@ -2011,7 +2020,7 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_DEPTH_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
 	return true;
 }
@@ -2035,7 +2044,7 @@ bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebu
 		fbo_bind_for_read(vfb->fbo);
 	glReadBuffer(GL_STENCIL_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 2);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	return true;
 #else
