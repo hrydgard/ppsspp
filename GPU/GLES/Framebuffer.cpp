@@ -48,6 +48,8 @@
 
 #include "UI/OnScreenDisplay.h"
 
+// #define DEBUG_READ_PIXELS 1
+
 extern int g_iNumVideos;
 
 static const char tex_fs[] =
@@ -1181,13 +1183,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	PROFILE_THIS_SCOPE("gpu-readback");
-#ifndef USING_GLES2
 	if (sync) {
 		// flush async just in case when we go for synchronous update
 		// Doesn't actually pack when sent a null argument.
 		PackFramebufferAsync_(nullptr);
 	}
-#endif
 
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
@@ -1270,19 +1270,19 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
-#ifdef USING_GLES2
-			if (nvfb->fbo) {
-				fbo_bind_as_render_target(nvfb->fbo);
-			}
+			if (gl_extensions.IsGLES) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+				}
 
-			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-			// to it. This broke stuff before, so now it only clears on the first use of an
-			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-			if (nvfb->last_frame_render != gpuStats.numFlips)	{
-				ClearBuffer();
+				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+				// to it. This broke stuff before, so now it only clears on the first use of an
+				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+				if (nvfb->last_frame_render != gpuStats.numFlips) {
+					ClearBuffer();
+				}
 			}
-#endif
 		}
 
 		if (gameUsesSequentialCopies_) {
@@ -1313,18 +1313,18 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
 
-#ifdef USING_GLES2
-		PackFramebufferSync_(nvfb, x, y, w, h);
-#else
-		// TODO: Can we fall back to sync without these?
-		if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-			if (!sync) {
-				PackFramebufferAsync_(nvfb);
-			} else {
-				PackFramebufferSync_(nvfb, x, y, w, h);
+		if (gl_extensions.IsGLES) {
+			PackFramebufferSync_(nvfb, x, y, w, h);
+		} else {
+			// TODO: Can we fall back to sync without these?
+			if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+				if (!sync) {
+					PackFramebufferAsync_(nvfb);
+				} else {
+					PackFramebufferSync_(nvfb, x, y, w, h);
+				}
 			}
 		}
-#endif
 
 		RebindFramebuffer();
 	}
@@ -1497,8 +1497,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 	}
 }
 
-#ifndef USING_GLES2
-
+#ifdef DEBUG_READ_PIXELS
 // TODO: Make more generic.
 static void LogReadPixelsError(GLenum error) {
 	switch (error) {
@@ -1519,14 +1518,20 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_OUT_OF_MEMORY:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
+#ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
+#endif
+    default:
+        ERROR_LOG(SCEGE, "glReadPixels: %08x", error);
+        break;
 	}
 }
+#endif
 
 void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	const int MAX_PBO = 2;
@@ -1537,6 +1542,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
+		if (!vfb) {
+			// This call is just to flush the buffers.  We don't have any yet,
+			// so there's nothing to do.
+			return;
+		}
+
 		GLuint pbos[MAX_PBO];
 		glGenBuffers(MAX_PBO, pbos);
 
@@ -1552,7 +1563,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	AsyncPBO &pbo = pixelBufObj_[nextPBO];
 	if (pbo.reading) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
+#ifdef USING_GLES2
+		// Not on desktop GL 2.x...
+		packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
+#else
 		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+#endif
 
 		if (packed) {
 			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
@@ -1583,19 +1599,31 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
 			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
 			case GE_FORMAT_4444: // 16 bit RGBA
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 2;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 2;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_6_5;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
+#endif
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 2;
@@ -1648,7 +1676,9 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
-		// LogReadPixelsError(glGetError());
+#ifdef DEBUG_READ_PIXELS
+		LogReadPixelsError(glGetError());
+#endif
 
 		fbo_unbind_read();
 		unbind = true;
@@ -1667,8 +1697,6 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	}
 }
-
-#endif
 
 void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
@@ -1712,7 +1740,9 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 
 		int byteOffset = y * vfb->fb_stride * 4;
 		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
-		// LogReadPixelsError(glGetError());
+#ifdef DEBUG_READ_PIXELS
+		LogReadPixelsError(glGetError());
+#endif
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
@@ -1791,12 +1821,10 @@ void FramebufferManager::EndFrame() {
 		SetLineWidth();
 	}
 
-#ifndef USING_GLES2
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
-		PackFramebufferAsync_(NULL);
-#endif
+		PackFramebufferAsync_(nullptr);
 
 	// Let's explicitly invalidate any temp FBOs used during this frame.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1847,11 +1875,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-#ifdef USING_GLES2
-			bool sync = true;
-#else
-			bool sync = false;
-#endif
+			bool sync = gl_extensions.IsGLES;
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 		}
 

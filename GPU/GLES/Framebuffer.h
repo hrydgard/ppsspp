@@ -143,8 +143,6 @@ private:
 
 	void SetNumExtraFBOs(int num);
 
-	inline bool ShouldDownloadUsingCPU(const VirtualFramebuffer *vfb) const;
-
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
