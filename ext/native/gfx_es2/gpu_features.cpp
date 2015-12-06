@@ -14,7 +14,6 @@
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
-PFNGLCOPYIMAGESUBDATANVPROC glCopyImageSubDataNV;
 PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 PFNGLMAPBUFFERPROC glMapBuffer;
 
@@ -246,6 +245,10 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_bgra = strstr(extString, "GL_EXT_bgra") != 0;
 	gl_extensions.EXT_gpu_shader4 = strstr(extString, "GL_EXT_gpu_shader4") != 0;
 	gl_extensions.NV_framebuffer_blit = strstr(extString, "GL_NV_framebuffer_blit") != 0;
+	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
+	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
+	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
+	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;
@@ -258,7 +261,6 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
-		gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
 
 #if defined(ANDROID) || defined(BLACKBERRY)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
@@ -269,8 +271,13 @@ void CheckGLExtensions() {
 		DLOG("Addresses returned for invalid extensions: %p %p", invalidAddress, invalidAddress2);
 #endif
 
-		if (gl_extensions.NV_copy_image) {
-			glCopyImageSubDataNV = (PFNGLCOPYIMAGESUBDATANVPROC)eglGetProcAddress("glCopyImageSubDataNV");
+		// These are all the same.  Let's alias.
+		if (!gl_extensions.OES_copy_image) {
+			if (gl_extensions.NV_copy_image) {
+				glCopyImageSubDataOES = (decltype(glCopyImageSubDataOES))eglGetProcAddress("glCopyImageSubDataNV");
+			} else if (gl_extensions.EXT_copy_image) {
+				glCopyImageSubDataOES = (decltype(glCopyImageSubDataOES))eglGetProcAddress("glCopyImageSubDataEXT");
+			}
 		}
 
 		if (gl_extensions.NV_framebuffer_blit) {

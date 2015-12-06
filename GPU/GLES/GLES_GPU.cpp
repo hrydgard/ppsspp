@@ -537,6 +537,9 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
+	if (gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image)
+		features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 

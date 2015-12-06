@@ -1330,16 +1330,12 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-// TODO: If dimensions are the same, we can use glCopyImageSubData.
 void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		fbo_unbind();
 		return;
 	}
-
-	fbo_bind_as_render_target(dst->fbo);
-	glstate.scissorTest.force(false);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
@@ -1365,6 +1361,39 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	int dstX2 = (dstX + w) * dstXFactor;
 	int dstY1 = dstY * dstYFactor;
 	int dstY2 = (dstY + h) * dstYFactor;
+
+	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE)) {
+		// Only if it's the same size.
+		if (dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1) {
+#if defined(USING_GLES2)
+#ifndef IOS
+			glCopyImageSubDataOES(
+				fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+				fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+				dstX2 - dstX1, dstY2 - dstY1, 1);
+			return;
+#endif
+#else
+			if (gl_extensions.ARB_copy_image) {
+				glCopyImageSubData(
+					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+					dstX2 - dstX1, dstY2 - dstY1, 1);
+				return;
+			} else if (gl_extensions.NV_copy_image) {
+				// Older, pre GL 4.x NVIDIA cards.
+				glCopyImageSubDataNV(
+					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+					dstX2 - dstX1, dstY2 - dstY1, 1);
+				return;
+			}
+#endif
+		}
+	}
+
+	fbo_bind_as_render_target(dst->fbo);
+	glstate.scissorTest.force(false);
 
 	if (useBlit) {
 		fbo_bind_for_read(src->fbo);
