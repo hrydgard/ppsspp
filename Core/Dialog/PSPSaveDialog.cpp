@@ -209,9 +209,9 @@ int PSPSaveDialog::Init(int paramAddr)
 	StartFade(true);
 
 	/*INFO_LOG(SCEUTILITY,"Dump Param :");
-	INFO_LOG(SCEUTILITY,"size : %d",param.GetPspParam()->size);
-	INFO_LOG(SCEUTILITY,"language : %d",param.GetPspParam()->language);
-	INFO_LOG(SCEUTILITY,"buttonSwap : %d",param.GetPspParam()->buttonSwap);
+	INFO_LOG(SCEUTILITY,"size : %d",param.GetPspParam()->common.size);
+	INFO_LOG(SCEUTILITY,"language : %d",param.GetPspParam()->common.language);
+	INFO_LOG(SCEUTILITY,"buttonSwap : %d",param.GetPspParam()->common.buttonSwap);
 	INFO_LOG(SCEUTILITY,"result : %d",param.GetPspParam()->common.result);
 	INFO_LOG(SCEUTILITY,"mode : %d",param.GetPspParam()->mode);
 	INFO_LOG(SCEUTILITY,"bind : %d",param.GetPspParam()->bind);

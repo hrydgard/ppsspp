@@ -127,7 +127,7 @@ static const SasReverbData presets[10] = {
 	{
 		"Echo (almost infinite)",
 		0x18040,
-		0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,(int16_t)0x8100,
+		0x0001,0x0001,0x7FFF,0x7FFF,0x0000,0x0000,0x0000,(int16_t)0xC080,
 		0x0000,0x0000,0x1FFF,0x0FFF,0x1005,0x0005,0x0000,0x0000,
 		0x1005,0x0005,0x0000,0x0000,0x0000,0x0000,0x0000,0x0000,
 		0x0000,0x0000,0x1004,0x1002,0x0004,0x0002, //(int16_t)0x8000,(int16_t)0x8000,
@@ -228,7 +228,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// This runs at 22khz.
 	// Very unoptimized, straight from the description. Can probably be reformulated into something way more efficient.
 	// Or we could actually template the whole thing with the parameters as template arguments, as the presets are fixed.
-	for (int i = 0; i < inputSize; i++) {
+	for (size_t i = 0; i < inputSize; i++) {
 		// Dividing by two here is an incorrect hack. Some multiplication factor is needed to prevent the reverb from getting too loud, though.
 		int16_t LeftInput = input[i * 2] >> 1;
 		int16_t RightInput = input[i * 2 + 1] >> 1;

@@ -47,6 +47,8 @@ public:
 	}
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
+	static std::vector<std::string> GetCachedPathsInUse();
+
 private:
 	void InitCache();
 	void ShutdownCache();
@@ -94,34 +96,41 @@ private:
 	u32 AllocateBlock(u32 indexPos);
 
 	struct BlockInfo;
-	void ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size);
+	bool ReadBlockData(u8 *dest, BlockInfo &info, size_t offset, size_t size);
 	void WriteBlockData(BlockInfo &info, u8 *src);
 	void WriteIndexData(u32 indexPos, BlockInfo &info);
 	s64 GetBlockOffset(u32 block);
 
 	std::string MakeCacheFilePath(const std::string &path);
+	std::string MakeCacheFilename(const std::string &path);
 	bool LoadCacheFile(const std::string &path);
 	void LoadCacheIndex();
 	void CreateCacheFile(const std::string &path);
+
+	u64 FreeDiskSpace();
+	u32 DetermineMaxBlocks();
+	u32 CountCachedFiles();
+	void GarbageCollectCacheFiles(u64 goalBytes);
 
 	// File format:
 	// 64 magic
 	// 32 version
 	// 32 blockSize
 	// 64 filesize
+	// 32 maxBlocks
 	// index[filesize / blockSize] <-- ~500 KB for 4GB
 	//   32 (fileoffset - headersize) / blockSize -> -1=not present
 	//   16 generation?
 	//   16 hits?
-	// blocks[MAX_BLOCKS]
+	// blocks[up to maxBlocks]
 	//   8 * blockSize
 
 	enum {
-		CACHE_VERSION = 1,
+		CACHE_VERSION = 2,
 		DEFAULT_BLOCK_SIZE = 65536,
 		MAX_BLOCKS_PER_READ = 16,
-		// TODO: Dynamic.
-		MAX_BLOCKS_CACHED = 4096, // 256 MB
+		MAX_BLOCKS_LOWER_BOUND = 256, // 16 MB
+		MAX_BLOCKS_UPPER_BOUND = 8192, // 512 MB
 		INVALID_BLOCK = 0xFFFFFFFF,
 		INVALID_INDEX = 0xFFFFFFFF,
 	};
@@ -131,6 +140,7 @@ private:
 	u32 blockSize_;
 	u16 generation_;
 	u16 oldestGeneration_;
+	u32 maxBlocks_;
 	size_t cacheSize_;
 	size_t indexCount_;
 	recursive_mutex lock_;
@@ -140,6 +150,7 @@ private:
 		u32_le version;
 		u32_le blockSize;
 		s64_le filesize;
+		u32_le maxBlocks;
 	};
 
 	struct BlockInfo {

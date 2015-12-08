@@ -269,6 +269,13 @@ private:
 				restore();
 			}
 		}
+		void setDWORD(DWORD newc) {
+			newc = ((newc >> 8) & 0xff) | (newc & 0xff00ff00) | ((newc << 16) & 0xff0000);  // ARGB -> ABGR fix
+			if (c != newc) {
+				c = newc;
+				restore();
+			}
+		}
 		void force(const float v[4]) {
 			DWORD old = c;
 			set(v);
@@ -342,6 +349,7 @@ private:
 	class StateVp {
 		D3DVIEWPORT9 viewport;
 	public:
+		StateVp() { memset(&viewport, 0, sizeof(viewport)); }
 		inline void set(int x, int y, int w, int h, float n = 0.f, float f = 1.f) {
 			D3DVIEWPORT9 newviewport;
 			newviewport.X = x;
@@ -350,8 +358,7 @@ private:
 			newviewport.Height = h;
 			newviewport.MinZ = n;
 			newviewport.MaxZ = f;
-
-			if (memcmp(&viewport, &newviewport, sizeof(viewport))) {
+			if (memcmp(&viewport, &newviewport, sizeof(viewport)) != 0) {
 				viewport = newviewport;
 				restore();
 			}

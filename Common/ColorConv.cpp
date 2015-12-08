@@ -389,8 +389,6 @@ void ConvertRGBA5551ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i mask4 = _mm_set1_epi16(0x000f);
-	const __m128i mask8 = _mm_set1_epi16(0x00ff);
-	const __m128i one = _mm_set1_epi16(0x0001);
 
 	const __m128i *srcp = (const __m128i *)src;
 	__m128i *dstp = (__m128i *)dst32;

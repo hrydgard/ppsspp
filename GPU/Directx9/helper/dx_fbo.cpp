@@ -23,7 +23,9 @@
 #include "dx_fbo.h"
 #include "dx_state.h"
 
-struct FBO {
+namespace DX9 {
+	
+struct FBO_DX9 {
 	uint32_t id;
 	LPDIRECT3DSURFACE9 surf;
 	LPDIRECT3DSURFACE9 depthstencil;
@@ -34,8 +36,6 @@ struct FBO {
 	int height;
 	DX9::FBOColorDepth colorDepth;
 };
-
-namespace DX9 {
 
 static LPDIRECT3DSURFACE9 deviceRTsurf;
 static LPDIRECT3DSURFACE9 deviceDSsurf;
@@ -61,10 +61,10 @@ void fbo_shutdown() {
 	deviceDSsurf->Release();
 }
 
-FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
+FBO_DX9 *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	static uint32_t id = 0;
 
-	FBO *fbo = new FBO();
+	FBO_DX9 *fbo = new FBO_DX9();
 	fbo->width = width;
 	fbo->height = height;
 	fbo->colorDepth = colorDepth;
@@ -102,7 +102,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	return fbo;
 }
 
-void fbo_destroy(FBO *fbo) {
+void fbo_destroy(FBO_DX9 *fbo) {
 	fbo->tex->Release();
 	fbo->surf->Release();
 	fbo->depthstencil->Release();
@@ -115,12 +115,14 @@ void fbo_destroy(FBO *fbo) {
 void fbo_unbind() {
 	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
+	dxstate.scissorRect.restore();
+	dxstate.viewport.restore();
 }
 
-void fbo_resolve(FBO *fbo) {
+void fbo_resolve(FBO_DX9 *fbo) {
 }
 
-void fbo_bind_as_render_target(FBO *fbo) {
+void fbo_bind_as_render_target(FBO_DX9 *fbo) {
 	pD3Ddevice->SetRenderTarget(0, fbo->surf);
 	pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
 	dxstate.scissorRect.restore();
@@ -128,38 +130,38 @@ void fbo_bind_as_render_target(FBO *fbo) {
 }
 
 
-LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO *fbo) {
+LPDIRECT3DTEXTURE9 fbo_get_color_texture(FBO_DX9 *fbo) {
 	return fbo->tex;
 }
 
-LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO *fbo) {
+LPDIRECT3DTEXTURE9 fbo_get_depth_texture(FBO_DX9 *fbo) {
 	return fbo->depthstenciltex;
 }
 
-LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO *fbo) {
+LPDIRECT3DSURFACE9 fbo_get_color_for_read(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO *fbo) {
+LPDIRECT3DSURFACE9 fbo_get_color_for_write(FBO_DX9 *fbo) {
 	return fbo->surf;
 }
 
-void fbo_bind_color_as_texture(FBO *fbo, int color) {
+void fbo_bind_color_as_texture(FBO_DX9 *fbo, int color) {
 	pD3Ddevice->SetTexture(0, fbo->tex);
 }
 
-void fbo_bind_depth_as_texture(FBO *fbo) {
+void fbo_bind_depth_as_texture(FBO_DX9 *fbo) {
 	if (fbo->depthstenciltex) {
 		pD3Ddevice->SetTexture(0, fbo->depthstenciltex);
 	}
 }
 
-void fbo_get_dimensions(FBO *fbo, int *w, int *h) {
+void fbo_get_dimensions(FBO_DX9 *fbo, int *w, int *h) {
 	*w = fbo->width;
 	*h = fbo->height;
 }
 
-HRESULT fbo_blit_color(FBO *src, const RECT *srcRect, FBO *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
+HRESULT fbo_blit_color(FBO_DX9 *src, const RECT *srcRect, FBO_DX9 *dst, const RECT *dstRect, D3DTEXTUREFILTERTYPE filter) {
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
 	return pD3Ddevice->StretchRect(srcSurf, srcRect, dstSurf, dstRect, filter);

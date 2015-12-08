@@ -180,13 +180,8 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE},
-#ifndef USING_GLES2
 	{GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE},
-#else
-	{GE_CMD_LOGICOP, 0},
-	{GE_CMD_LOGICOPENABLE, 0},
-#endif
 
 	// Can probably ignore this one as we don't support AA lines.
 	{GE_CMD_ANTIALIASENABLE, FLAG_FLUSHBEFOREONCHANGE},
@@ -476,7 +471,7 @@ GLES_GPU::~GLES_GPU() {
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GLES_GPU::CheckGPUFeatures() {
 	u32 features = 0;
-	if (gl_extensions.ARB_blend_func_extended /*|| gl_extensions.EXT_blend_func_extended*/) {
+	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
 			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
 			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
@@ -542,6 +537,9 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.EXT_blend_minmax || gl_extensions.GLES3)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
+	if (gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image)
+		features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+
 	if (!gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_LOGIC_OP;
 
@@ -555,6 +553,11 @@ void GLES_GPU::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
 #ifdef MOBILE_DEVICE

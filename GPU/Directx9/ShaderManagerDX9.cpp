@@ -255,6 +255,11 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 	float yoff = -0.5f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
 
+	if (invertedX)
+		xoff = -xoff;
+	if (invertedY)
+		yoff = -yoff;
+
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
 }
 
@@ -339,7 +344,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
 			float zScale = gstate.getViewportZScale() / 65535.0f;
 			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 

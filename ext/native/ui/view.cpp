@@ -946,11 +946,17 @@ bool Slider::Key(const KeyInput &input) {
 }
 
 void Slider::Touch(const TouchInput &input) {
+	// Calling it afterwards, so dragging_ hasn't been set false yet when checking it above.
 	Clickable::Touch(input);
-	if (dragging_ || bounds_.Contains(input.x, input.y)) {
+	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
 		Clamp();
+		EventParams params;
+		params.v = this;
+		params.a = (uint32_t)(*value_);
+		params.f = (float)(*value_);
+		OnChange.Trigger(params);
 	}
 }
 
@@ -1021,10 +1027,16 @@ bool SliderFloat::Key(const KeyInput &input) {
 }
 
 void SliderFloat::Touch(const TouchInput &input) {
-	if (dragging_ || bounds_.Contains(input.x, input.y)) {
+	Clickable::Touch(input);
+	if (dragging_) {
 		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
 		Clamp();
+		EventParams params;
+		params.v = this;
+		params.a = (uint32_t)(*value_);
+		params.f = (float)(*value_);
+		OnChange.Trigger(params);
 	}
 }
 

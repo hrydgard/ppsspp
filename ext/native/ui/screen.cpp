@@ -1,3 +1,4 @@
+#include "base/display.h"
 #include "base/logging.h"
 #include "input/input_state.h"
 #include "ui/screen.h"
@@ -109,13 +110,19 @@ void ScreenManager::render() {
 				iter--;
 				iter--;
 				Layer backback = *iter;
-				// Also shift to the right somehow...
+
+				// TODO: Make really sure that this "mismatched" pre/post only happens
+				// when screens are "compatible" (both are UIScreens, for example).
+				backback.screen->preRender();
 				backback.screen->render();
 				stack_.back().screen->render();
+				stack_.back().screen->postRender();
 				break;
 			}
 		default:
+			stack_.back().screen->preRender();
 			stack_.back().screen->render();
+			stack_.back().screen->postRender();
 			break;
 		}
 	} else {

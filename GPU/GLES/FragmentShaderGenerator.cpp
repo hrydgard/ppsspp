@@ -52,6 +52,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
+	const char *fragColor1 = "fragColor1";
 	const char *texture = "texture2D";
 	const char *texelFetch = NULL;
 	bool highpFog = false;
@@ -75,6 +76,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				bitwiseOps = true;
 				texelFetch = "texelFetch2D";
 			}
+			if (gl_extensions.EXT_blend_func_extended) {
+				// Oldy moldy GLES, so use the fixed output name.
+				fragColor1 = "gl_SecondaryFragColorEXT";
+			}
 		}
 
 		// PowerVR needs highp to do the fog in MHU correctly.
@@ -83,7 +88,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		highpTexcoord = highpFog;
 
 		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-			if (gl_extensions.EXT_shader_framebuffer_fetch) {
+			if (gl_extensions.GLES3 && gl_extensions.EXT_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+				lastFragData = "fragColor0";
+			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
 				lastFragData = "gl_LastFragData[0]";
 			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
@@ -178,10 +186,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			}
 			WRITE(p, "uniform sampler2D fbotex;\n");
 		}
-		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
+		if (replaceBlendFuncA >= GE_SRCBLEND_FIXA) {
 			WRITE(p, "uniform vec3 u_blendFixA;\n");
 		}
-		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
+		if (replaceBlendFuncB >= GE_DSTBLEND_FIXB) {
 			WRITE(p, "uniform vec3 u_blendFixB;\n");
 		}
 	}
@@ -246,11 +254,18 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		}
 	}
 
-	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "out vec4 fragColor0;\n");
-		WRITE(p, "out vec4 fragColor1;\n");
-	} else if (!strcmp(fragColor0, "fragColor0")) {
-		WRITE(p, "out vec4 fragColor0;\n");
+	if (!strcmp(fragColor0, "fragColor0")) {
+		const char *qualifierColor0 = "out";
+		if (lastFragData && !strcmp(lastFragData, fragColor0)) {
+			qualifierColor0 = "inout";
+		}
+		// Output the output color definitions.
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
+			WRITE(p, "out vec4 fragColor1;\n");
+		} else {
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
+		}
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
@@ -497,9 +512,12 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_INVDSTALPHA:       srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLESRCALPHA:    srcFactor = "vec3(v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
-			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
+			// PRE_SRC for REPLACE_BLEND_PRE_SRC_2X_ALPHA means "double the src."
+			// It's close to the same, but clamping can still be an issue.
+			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
@@ -531,6 +549,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			default:                            srcFactor = "u_blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -544,6 +563,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			default:                            srcFactor = "u_blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -613,8 +633,8 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  fragColor0 = vec4(v.rgb, %s);\n", replacedAlpha.c_str());
-		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:

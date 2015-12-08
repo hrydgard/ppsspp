@@ -35,18 +35,18 @@ public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
 
-	virtual void update(InputState &input) override;
-	virtual void render() override;
-	virtual void deviceLost() override;
-	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
-	virtual void sendMessage(const char *msg, const char *value) override;
+	void update(InputState &input) override;
+	void render() override;
+	void deviceLost() override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void sendMessage(const char *msg, const char *value) override;
 
-	virtual bool touch(const TouchInput &touch) override;
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool touch(const TouchInput &touch) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
-	virtual void CreateViews() override;
+	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 
 private:

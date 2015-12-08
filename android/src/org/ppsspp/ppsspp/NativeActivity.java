@@ -360,6 +360,12 @@ public class NativeActivity extends Activity {
         if (Build.MANUFACTURER == "OUYA") {
         	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
         	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+        } else {
+        	// Many devices require that we set a config chooser, despite the documentation
+        	// explicitly stating: "If no setEGLConfigChooser method is called, then by default the view will choose an RGB_888 surface with a depth buffer depth of at least 16 bits."
+        	// On these devices, I get these crashes: http://stackoverflow.com/questions/14167319/android-opengl-demo-no-config-chosen
+        	// So let's try it...
+        	mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
         }
         
         mGLSurfaceView.setRenderer(nativeRenderer);
@@ -814,7 +820,7 @@ public class NativeActivity extends Activity {
 			toast.show();
 			Log.i(TAG, params);
 			return true;
-		} else if (command.equals("showKeyboard")) {
+		} else if (command.equals("showKeyboard") && mGLSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
@@ -822,7 +828,7 @@ public class NativeActivity extends Activity {
 					mGLSurfaceView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
-		} else if (command.equals("hideKeyboard")) {
+		} else if (command.equals("hideKeyboard") && mGLSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			inputMethodManager.toggleSoftInputFromWindow(
 					mGLSurfaceView.getApplicationWindowToken(),
@@ -839,7 +845,7 @@ public class NativeActivity extends Activity {
 			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
 			inputBox(title, defString, "OK");
 			return true;
-		} else if (command.equals("vibrate")) {
+		} else if (command.equals("vibrate") && mGLSurfaceView != null) {
 			int milliseconds = -1;
 			if (params != "") {
 				try {

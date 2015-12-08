@@ -467,14 +467,23 @@ void DIRECTX9_GPU::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &DIRECTX9_GPU::Execute_VertexType;
 	}
 
+	CheckGPUFeatures();
+}
+
+void DIRECTX9_GPU::CheckGPUFeatures() {
 	u32 features = 0;
 
-	// Set some flags that may be convenient in the future if we merge the backends more.
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	if (!PSP_CoreParameter().compat.flags().NoDepthRounding)
+	if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
+	}
+
+	// The Phantasy Star hack :(
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_USE_DEPTH_RANGE_HACK;
+	}
 
 	gstate_c.featureFlags = features;
 }
@@ -509,7 +518,6 @@ void DIRECTX9_GPU::InitClearInternal() {
 		dxstate.colorMask.set(true, true, true, true);
 		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
-	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void DIRECTX9_GPU::DumpNextFrame() {
@@ -521,7 +529,7 @@ void DIRECTX9_GPU::BeginFrame() {
 }
 
 void DIRECTX9_GPU::ReapplyGfxStateInternal() {
-	DX9::dxstate.Restore();
+	dxstate.Restore();
 	GPUCommon::ReapplyGfxStateInternal();
 }
 
@@ -2096,6 +2104,7 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	textureCache_.SetTexture(true);
+	textureCache_.ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 

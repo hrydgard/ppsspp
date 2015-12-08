@@ -61,7 +61,7 @@ namespace DX9 {
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
+TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), clutRenderAddress_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -779,10 +779,30 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 }
 
 void TextureCacheDX9::LoadClut(u32 clutAddr, u32 loadBytes) {
+	// Clear the uncached bit, etc. to match framebuffers.
+	clutAddr = clutAddr & 0x3FFFFFFF;
+	bool foundFramebuffer = false;
+
+	clutRenderAddress_ = 0;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
+			framebuffer->last_frame_clut = gpuStats.numFlips;
+			framebuffer->usageFlags |= FB_USAGE_CLUT;
+			foundFramebuffer = true;
+			WARN_LOG_REPORT_ONCE(clutrenderdx9, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
+			clutRenderAddress_ = framebuffer->fb_address;
+		}
+	}
+
 	clutTotalBytes_ = loadBytes;
 	if (Memory::IsValidAddress(clutAddr)) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
+			gpu->PerformMemoryDownload(clutAddr, bytes);
+		}
+
 #ifdef _M_SSE
 		int numBlocks = bytes / 16;
 		if (bytes == loadBytes) {
@@ -903,9 +923,9 @@ void TextureCacheDX9::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebu
 
 		nextTexture_ = entry;
 	} else {
-		if (framebuffer->fbo) {
-			fbo_destroy(framebuffer->fbo);
-			framebuffer->fbo = 0;
+		if (framebuffer->fbo_dx9) {
+			fbo_destroy(framebuffer->fbo_dx9);
+			framebuffer->fbo_dx9 = 0;
 		}
 		pD3Ddevice->SetTexture(0, NULL);
 		gstate_c.needShaderTexClamp = false;
@@ -953,7 +973,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	if (pshader) {
 		LPDIRECT3DTEXTURE9 clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
 
 		float xoff = -0.5f / framebuffer->renderWidth;
@@ -1042,15 +1062,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
 		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 
-		D3DVIEWPORT9 vp;
-		vp.MinZ = 0;
-		vp.MaxZ = 1;
-		vp.X = 0;
-		vp.Y = 0;
-		vp.Width = framebuffer->renderWidth;
-		vp.Height = framebuffer->renderHeight;
-		pD3Ddevice->SetViewport(&vp);
-
+		DXSetViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
@@ -1175,6 +1187,10 @@ void TextureCacheDX9::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
+				if (hasClut && clutRenderAddress_ != 0) {
+					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+				}
+
 				SetTextureFramebuffer(entry, entry->framebuffer);
 				entry->lastFrame = gpuStats.numFlips;
 				return;
@@ -1338,6 +1354,10 @@ void TextureCacheDX9::SetTexture(bool force) {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
+
+		if (hasClut && clutRenderAddress_ != 0) {
+			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+		}
 
 		entry = &cache[cachekey];
 		if (g_Config.bTextureBackoffCache) {

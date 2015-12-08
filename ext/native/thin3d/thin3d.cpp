@@ -207,6 +207,11 @@ bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DIm
 		return false;
 	}
 
+	if (num_levels < 0 || num_levels >= 16) {
+		ELOG("Invalid num_levels: %d. Falling back to one. Image: %dx%d", num_levels, width[0], height[0]);
+		num_levels = 1;
+	}
+
 	Create(LINEAR2D, fmt, width[0], height[0], 1, num_levels);
 	for (int i = 0; i < num_levels; i++) {
 		if (image[i]) {

@@ -373,6 +373,16 @@ typedef struct __GLsync *GLsync;
 #define GL_NUM_SAMPLE_COUNTS                             0x9380
 #define GL_TEXTURE_IMMUTABLE_LEVELS                      0x82DF
 
+/* EXT_blend_func_extended */
+
+#define GL_SRC1_COLOR_EXT                                0x88F9
+#define GL_SRC1_ALPHA_EXT                                0x8589
+#define GL_ONE_MINUS_SRC1_COLOR_EXT                      0x88FA
+#define GL_ONE_MINUS_SRC1_ALPHA_EXT                      0x88FB
+#define GL_SRC_ALPHA_SATURATE_EXT                        0x0308
+#define GL_LOCATION_INDEX_EXT                            0x930F
+#define GL_MAX_DUAL_SOURCE_DRAW_BUFFERS_EXT              0x88FC
+
 /*-------------------------------------------------------------------------
  * Entrypoint definitions
  *-----------------------------------------------------------------------*/
@@ -483,6 +493,15 @@ extern GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLe
 extern GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 extern GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+
+/* EXT_blend_func_extended */
+extern GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationIndexedEXT) (GLuint program, GLuint colorNumber, GLuint index, const GLchar *name);
+extern GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationEXT) (GLuint program, GLuint color, const GLchar *name);
+extern GL_APICALL GLint          (* GL_APIENTRY glGetProgramResourceLocationIndexEXT) (GLuint program, GLenum programInterface, const GLchar *name);
+extern GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program, const GLchar *name);
+
+/* OES_copy_image, etc. */
+extern GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
     
 #endif   // IOS
 

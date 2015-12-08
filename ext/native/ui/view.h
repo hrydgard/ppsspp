@@ -469,6 +469,8 @@ public:
 	// OK to call this from the outside after having modified *value_
 	void Clamp();
 
+	Event OnChange;
+
 private:
 	int *value_;
 	bool showPercent_;
@@ -490,6 +492,9 @@ public:
 
 	// OK to call this from the outside after having modified *value_
 	void Clamp();
+
+	Event OnChange;
+
 private:
 	float *value_;
 	float minValue_;

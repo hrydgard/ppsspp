@@ -182,49 +182,55 @@ void VagDecoder::DoState(PointerWrap &p) {
 }
 
 int SasAtrac3::setContext(u32 context) {
-	contextAddr = context;
-	atracID = _AtracGetIDByContext(context);
-	if (!sampleQueue)
-		sampleQueue = new BufferQueue();
-	sampleQueue->clear();
+	contextAddr_ = context;
+	atracID_ = _AtracGetIDByContext(context);
+	if (!sampleQueue_)
+		sampleQueue_ = new BufferQueue();
+	sampleQueue_->clear();
+	end_ = false;
 	return 0;
 }
 
-int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
-	if (atracID < 0)
-		return -1;
+void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
+	if (atracID_ < 0) {
+		end_ = true;
+		return;
+	}
 	u32 finish = 0;
 	int wantedbytes = wantedSamples * sizeof(s16);
-	while (!finish && sampleQueue->getQueueSize() < wantedbytes) {
+	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
 		u32 numSamples = 0;
 		int remains = 0;
 		static s16 buf[0x800];
-		_AtracDecodeData(atracID, (u8*)buf, 0, &numSamples, &finish, &remains);
+		_AtracDecodeData(atracID_, (u8*)buf, 0, &numSamples, &finish, &remains);
 		if (numSamples > 0)
-			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
+			sampleQueue_->push((u8*)buf, numSamples * sizeof(s16));
 		else
 			finish = 1;
 	}
-	sampleQueue->pop_front((u8*)outbuf, wantedbytes);
-	return finish;
+	sampleQueue_->pop_front((u8*)outbuf, wantedbytes);
+	end_ = finish == 1;
 }
 
 int SasAtrac3::addStreamData(u32 bufPtr, u32 addbytes) {
-	if (atracID > 0) {
-		_AtracAddStreamData(atracID, bufPtr, addbytes);
+	if (atracID_ > 0) {
+		_AtracAddStreamData(atracID_, bufPtr, addbytes);
 	}
 	return 0;
 }
 
 void SasAtrac3::DoState(PointerWrap &p) {
-	auto s = p.Section("SasAtrac3", 1);
+	auto s = p.Section("SasAtrac3", 1, 2);
 	if (!s)
 		return;
 
-	p.Do(contextAddr);
-	p.Do(atracID);
-	if (p.mode == p.MODE_READ && atracID >= 0 && !sampleQueue) {
-		sampleQueue = new BufferQueue();
+	p.Do(contextAddr_);
+	p.Do(atracID_);
+	if (p.mode == p.MODE_READ && atracID_ >= 0 && !sampleQueue_) {
+		sampleQueue_ = new BufferQueue();
+	}
+	if (s >= 2) {
+		p.Do(end_);
 	}
 }
 
@@ -402,6 +408,20 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	resampleBuffer = new s16[grainSize * 4 + 3];
 }
 
+int SasInstance::EstimateMixUs() {
+	int voicesPlayingCount = 0;
+
+	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
+		SasVoice &voice = voices[v];
+		if (!voice.playing || voice.paused)
+			continue;
+		voicesPlayingCount++;
+	}
+
+	// Each voice costs extra time, and each byte of grain costs extra time.
+	return 20 + voicesPlayingCount * 68 + (grainSize * 60) / 100;
+}
+
 void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	// Read N samples into the resample buffer. Could do either PCM or VAG here.
 	switch (type) {
@@ -436,15 +456,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 		}
 		break;
 	case VOICETYPE_ATRAC3:
-		{
-			int ret = atrac3.getNextSamples(output, numSamples);
-			if (ret) {
-				// Hit atrac3 voice end
-				playing = false;
-				on = false;  // ??
-				envelope.End();
-			}
-		}
+		atrac3.getNextSamples(output, numSamples);
 		break;
 	default:
 		{
@@ -463,8 +475,7 @@ bool SasVoice::HaveSamplesEnded() const {
 		return pcmIndex >= pcmSize;
 
 	case VOICETYPE_ATRAC3:
-		// TODO: Is it here, or before the samples are processed?
-		return false;
+		return atrac3.End();
 
 	default:
 		return false;
@@ -561,8 +572,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
-	PROFILE_THIS_SCOPE("mixer");
-
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {

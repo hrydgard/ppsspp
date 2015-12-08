@@ -107,13 +107,20 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glBindAttribLocation(program, ATTR_COLOR0, "color0");
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
-#ifndef USING_GLES2
+#if !defined(USING_GLES2)
 	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 		// Dual source alpha
 		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
 		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glBindFragDataLocation(program, 0, "fragColor0");
+	}
+#elif !defined(IOS)
+	if (gl_extensions.GLES3) {
+		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
+			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
+		}
 	}
 #endif
 
@@ -366,7 +373,12 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 }
 
 static inline void ScaleProjMatrix(Matrix4x4 &in) {
-	const Vec3 trans(gstate_c.vpXOffset, gstate_c.vpYOffset, 0.0f);
+	float yOffset = gstate_c.vpYOffset;
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// GL upside down is a pain as usual.
+		yOffset = -yOffset;
+	}
+	const Vec3 trans(gstate_c.vpXOffset, yOffset, 0.0f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, 1.0);
 	in.translateAndScale(trans, scale);
 }
@@ -427,7 +439,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
 			float zScale = gstate.getViewportZScale() / 65535.0f;
 			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 

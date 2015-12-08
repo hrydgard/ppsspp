@@ -89,7 +89,7 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	FBO *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
+	FBO_DX9 *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
 
 protected:
@@ -140,7 +140,7 @@ private:
 	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
-		FBO *fbo;
+		FBO_DX9 *fbo;
 		int last_frame_used;
 	};
 	struct OffscreenSurface {

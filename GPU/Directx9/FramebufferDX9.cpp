@@ -198,18 +198,19 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-		if (useBufferedRendering_ && vfb && vfb->fbo) {
-			fbo_bind_as_render_target(vfb->fbo);
-			dxstate.viewport.set(0, 0, vfb->renderWidth, vfb->renderHeight);
+		if (useBufferedRendering_ && vfb && vfb->fbo_dx9) {
+			fbo_bind_as_render_target(vfb->fbo_dx9);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 		} else {
 			float x, y, w, h;
 			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-			dxstate.viewport.set(x, y, w, h);
+			DXSetViewport(x, y, w, h);
 		}
 		MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
 		DisableState();
 		DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL);
 		textureCache_->ForgetLastTexture();
+		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -222,8 +223,8 @@ namespace DX9 {
 		// (it always runs at output resolution so FXAA may look odd).
 		float x, y, w, h;
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, uvRotation);
-		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+		DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 0.0f, 480.0f / 512.0f, 1.0f, uvRotation);
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(LPDIRECT3DTEXTURE9 tex, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation) {
@@ -282,9 +283,9 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::DestroyFramebuf(VirtualFramebuffer *v) {
 		textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-		if (v->fbo) {
-			fbo_destroy(v->fbo);
-			v->fbo = 0;
+		if (v->fbo_dx9) {
+			fbo_destroy(v->fbo_dx9);
+			v->fbo_dx9 = 0;
 		}
 
 		// Wipe some pointers
@@ -301,8 +302,8 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::RebindFramebuffer() {
-		if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-			fbo_bind_as_render_target(currentRenderVfb_->fbo);
+		if (currentRenderVfb_ && currentRenderVfb_->fbo_dx9) {
+			fbo_bind_as_render_target(currentRenderVfb_->fbo_dx9);
 		} else {
 			fbo_unbind();
 		}
@@ -355,26 +356,26 @@ namespace DX9 {
 		fbo_unbind();
 
 		if (!useBufferedRendering_) {
-			if (vfb->fbo) {
-				fbo_destroy(vfb->fbo);
-				vfb->fbo = 0;
+			if (vfb->fbo_dx9) {
+				fbo_destroy(vfb->fbo_dx9);
+				vfb->fbo_dx9 = 0;
 			}
 			return;
 		}
 
-		vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
-		if (old.fbo) {
+		vfb->fbo_dx9 = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
+		if (old.fbo_dx9) {
 			INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 			if (vfb->fbo) {
-				fbo_bind_as_render_target(vfb->fbo);
+				fbo_bind_as_render_target(vfb->fbo_dx9);
 				ClearBuffer();
 				if (!g_Config.bDisableSlowFramebufEffects) {
 					BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 				}
 			}
-			fbo_destroy(old.fbo);
-			if (vfb->fbo) {
-				fbo_bind_as_render_target(vfb->fbo);
+			fbo_destroy(old.fbo_dx9);
+			if (vfb->fbo_dx9) {
+				fbo_bind_as_render_target(vfb->fbo_dx9);
 			}
 		}
 
@@ -411,18 +412,18 @@ namespace DX9 {
 		textureCache_->ForgetLastTexture();
 
 		if (useBufferedRendering_) {
-			if (vfb->fbo) {
-				fbo_bind_as_render_target(vfb->fbo);
+			if (vfb->fbo_dx9) {
+				fbo_bind_as_render_target(vfb->fbo_dx9);
 			} else {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
 				fbo_unbind();
 			}
 		} else {
-			if (vfb->fbo) {
+			if (vfb->fbo_dx9) {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
 				textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
-				fbo_destroy(vfb->fbo);
-				vfb->fbo = 0;
+				fbo_destroy(vfb->fbo_dx9);
+				vfb->fbo_dx9 = nullptr;
 			}
 			fbo_unbind();
 
@@ -437,7 +438,7 @@ namespace DX9 {
 
 		// Copy depth pixel value from the read framebuffer to the draw framebuffer
 		if (prevVfb && !g_Config.bDisableSlowFramebufEffects) {
-			if (!prevVfb->fbo || !vfb->fbo || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
+			if (!prevVfb->fbo_dx9 || !vfb->fbo_dx9 || !useBufferedRendering_ || !prevVfb->depthUpdated || isClearingDepth) {
 				// If depth wasn't updated, then we're at least "two degrees" away from the data.
 				// This is an optimization: it probably doesn't need to be copied in this case.
 			} else {
@@ -479,11 +480,11 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
-		if (!useBufferedRendering_ || !vfb->fbo) {
+		if (!useBufferedRendering_ || !vfb->fbo_dx9) {
 			return;
 		}
 
-		fbo_bind_as_render_target(vfb->fbo);
+		fbo_bind_as_render_target(vfb->fbo_dx9);
 
 		// Technically, we should at this point re-interpret the bytes of the old format to the new.
 		// That might get tricky, and could cause unnecessary slowness in some games.
@@ -515,20 +516,14 @@ namespace DX9 {
 			shaderManager_->DirtyLastShader();
 			pD3Ddevice->SetTexture(0, nullptr);
 
-			D3DVIEWPORT9 vp;
-			vp.MinZ = 0;
-			vp.MaxZ = 1;
-			vp.X = 0;
-			vp.Y = 0;
-			vp.Width = vfb->renderWidth;
-			vp.Height = vfb->renderHeight;
-			pD3Ddevice->SetViewport(&vp);
+			DXSetViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 
 			// This should clear stencil and alpha without changing the other colors.
 			HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 			if (FAILED(hr)) {
 				ERROR_LOG_REPORT(G3D, "ReformatFramebufferFrom() failed: %08x", hr);
 			}
+			dxstate.viewport.restore();
 		}
 
 		RebindFramebuffer();
@@ -579,7 +574,7 @@ namespace DX9 {
 		}
 	}
 
-	FBO *FramebufferManagerDX9::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
+	FBO_DX9 *FramebufferManagerDX9::GetTempFBO(u16 w, u16 h, FBOColorDepth depth) {
 		u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
 		auto it = tempFBOs_.find(key);
 		if (it != tempFBOs_.end()) {
@@ -588,7 +583,7 @@ namespace DX9 {
 		}
 
 		textureCache_->ForgetLastTexture();
-		FBO *fbo = fbo_create(w, h, 1, false, depth);
+		FBO_DX9 *fbo = fbo_create(w, h, 1, false, depth);
 		if (!fbo)
 			return fbo;
 		fbo_bind_as_render_target(fbo);
@@ -644,10 +639,10 @@ namespace DX9 {
 		}
 		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			FBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
+			FBO_DX9 *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
 			if (renderCopy) {
 				VirtualFramebuffer copyInfo = *framebuffer;
-				copyInfo.fbo = renderCopy;
+				copyInfo.fbo_dx9 = renderCopy;
 
 				int x = 0;
 				int y = 0;
@@ -656,7 +651,7 @@ namespace DX9 {
 
 				// If max is not > min, we probably could not detect it.  Skip.
 				// See the vertex decoder, where this is updated.
-				if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != 0 && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
+				if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 					x = gstate_c.vertBounds.minU;
 					y = gstate_c.vertBounds.minV;
 					w = gstate_c.vertBounds.maxU - x;
@@ -674,17 +669,20 @@ namespace DX9 {
 				RebindFramebuffer();
 				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(renderCopy));
 			} else {
-				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
+				pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo_dx9));
 			}
 		} else {
-			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo));
+			pD3Ddevice->SetTexture(stage, fbo_get_color_texture(framebuffer->fbo_dx9));
 		}
 	}
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
-
 		fbo_unbind();
-		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		if (useBufferedRendering_) {
+			// In buffered, we no longer clear the backbuffer before we start rendering.
+			ClearBuffer();
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		}
 		currentRenderVfb_ = 0;
 
 		u32 offsetX = 0;
@@ -748,8 +746,9 @@ namespace DX9 {
 				}
 			} else {
 				DEBUG_LOG(SCEGE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
-				// No framebuffer to display! Clear to black.
-				ClearBuffer();
+				// No framebuffer to display! Clear to black. If buffered, we already did that.
+				if (!useBufferedRendering_)
+					ClearBuffer();
 				return;
 			}
 		}
@@ -767,14 +766,10 @@ namespace DX9 {
 		}
 		displayFramebuf_ = vfb;
 
-		if (resized_) {
-			ClearBuffer();
-		}
-
 		if (vfb->fbo) {
 			DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 			DisableState();
-			LPDIRECT3DTEXTURE9 colorTexture = fbo_get_color_texture(vfb->fbo);
+			LPDIRECT3DTEXTURE9 colorTexture = fbo_get_color_texture(vfb->fbo_dx9);
 
 			// Output coordinates
 			float x, y, w, h;
@@ -791,10 +786,10 @@ namespace DX9 {
 				const u32 rh = PSP_CoreParameter().pixelHeight;
 				const RECT srcRect = {(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight)};
 				const RECT dstRect = {(LONG)(x * rw / w, y * rh / h), (LONG)((x + w) * rw / w, (y + h) * rh / h)};
-				HRESULT hr = fbo_blit_color(vfb->fbo, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+				HRESULT hr = fbo_blit_color(vfb->fbo_dx9, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
-					dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+					DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 					// These are in the output display coordinates
 					if (g_Config.iBufFilter == SCALE_LINEAR) {
 						dxstate.texMagFilter.set(D3DTEXF_LINEAR);
@@ -814,7 +809,7 @@ namespace DX9 {
 			fbo_bind_as_render_target(extraFBOs_[0]);
 			int fbo_w, fbo_h;
 			fbo_get_dimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			dxstate.viewport.set(0, 0, fbo_w, fbo_h);
+			DXSetViewport(0, 0, fbo_w, fbo_h);
 			DrawActiveTexture(colorTexture, 0, 0, fbo_w, fbo_h, fbo_w, fbo_h, true, 1.0f, 1.0f, postShaderProgram_);
 
 			fbo_unbind();
@@ -826,18 +821,19 @@ namespace DX9 {
 			return;
 			}
 			colorTexture = fbo_get_color_texture(extraFBOs_[0]);
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 			} else {
 			// Use post-shader, but run shader at output resolution.
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// These are in the output display coordinates
 			DrawActiveTexture(colorTexture, x, y, w, h, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height, postShaderProgram_);
 			}
 			*/
 			pD3Ddevice->SetTexture(0, NULL);
 		}
+		dxstate.viewport.restore();
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
@@ -870,7 +866,7 @@ namespace DX9 {
 			// Create a new fbo if none was found for the size
 			if(!nvfb) {
 				nvfb = new VirtualFramebuffer();
-				nvfb->fbo = 0;
+				nvfb->fbo_dx9 = nullptr;
 				nvfb->fb_address = vfb->fb_address;
 				nvfb->fb_stride = vfb->fb_stride;
 				nvfb->z_address = vfb->z_address;
@@ -891,8 +887,8 @@ namespace DX9 {
 				nvfb->colorDepth = FBO_8888;
 
 				textureCache_->ForgetLastTexture();
-				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
-				if (!(nvfb->fbo)) {
+				nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
+				if (!(nvfb->fbo_dx9)) {
 					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 					delete nvfb;
 					return;
@@ -900,7 +896,7 @@ namespace DX9 {
 
 				nvfb->last_frame_render = gpuStats.numFlips;
 				bvfbs_.push_back(nvfb);
-				fbo_bind_as_render_target(nvfb->fbo);
+				fbo_bind_as_render_target(nvfb->fbo_dx9);
 				ClearBuffer();
 			} else {
 				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -982,8 +978,8 @@ namespace DX9 {
 		int dstY1 = dstY * dstYFactor;
 		int dstY2 = (dstY + h) * dstYFactor;
 
-		LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo);
-		LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo);
+		LPDIRECT3DSURFACE9 srcSurf = fbo_get_color_for_read(src->fbo_dx9);
+		LPDIRECT3DSURFACE9 dstSurf = fbo_get_color_for_write(dst->fbo_dx9);
 		RECT srcRect = {srcX1, srcY1, srcX2, srcY2};
 		RECT dstRect = {dstX1, dstY1, dstX2, dstY2};
 
@@ -997,16 +993,16 @@ namespace DX9 {
 		dstRect.bottom = std::min(dstRect.bottom, (LONG)desc.Height);
 
 		// Direct3D 9 doesn't support rect -> self.
-		FBO *srcFBO = src->fbo;
+		FBO_DX9 *srcFBO = src->fbo_dx9;
 		if (src == dst) {
-			FBO *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (FBOColorDepth)src->colorDepth);
-			HRESULT hr = fbo_blit_color(src->fbo, &srcRect, tempFBO, &srcRect, D3DTEXF_POINT);
+			FBO_DX9 *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (FBOColorDepth)src->colorDepth);
+			HRESULT hr = fbo_blit_color(src->fbo_dx9, &srcRect, tempFBO, &srcRect, D3DTEXF_POINT);
 			if (SUCCEEDED(hr)) {
 				srcFBO = tempFBO;
 			}
 		}
 
-		HRESULT hr = fbo_blit_color(srcFBO, &srcRect, dst->fbo, &dstRect, D3DTEXF_POINT);
+		HRESULT hr = fbo_blit_color(srcFBO, &srcRect, dst->fbo_dx9, &dstRect, D3DTEXF_POINT);
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "fbo_blit_color failed in blit: %08x (%08x -> %08x)", hr, src->fb_address, dst->fb_address);
 		}
@@ -1076,7 +1072,7 @@ namespace DX9 {
 		// Right now that's always 8888.
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
-		LPDIRECT3DSURFACE9 renderTarget = fbo_get_color_for_read(vfb->fbo);
+		LPDIRECT3DSURFACE9 renderTarget = fbo_get_color_for_read(vfb->fbo_dx9);
 		D3DSURFACE_DESC desc;
 		renderTarget->GetDesc(&desc);
 
@@ -1107,7 +1103,6 @@ namespace DX9 {
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();
-			dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 			// Actually, auto mode should be more granular...
 			// Round up to a zoom factor for the render size.
 			int zoom = g_Config.iInternalResolution;
@@ -1131,7 +1126,10 @@ namespace DX9 {
 			}
 
 			UpdateSize();
-			ShowScreenResolution();
+			// Seems related - if you're ok with numbers all the time, show some more :)
+			if (g_Config.iShowFPSCounter != 0) {
+				ShowScreenResolution();
+			}
 			resized_ = false;
 		}
 #if 0
@@ -1165,7 +1163,9 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DecimateFBOs() {
-		fbo_unbind();
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+			fbo_unbind();
+		}
 		currentRenderVfb_ = 0;
 		bool updateVram = !(g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE);
 
@@ -1284,7 +1284,7 @@ namespace DX9 {
 			return true;
 		}
 
-		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? fbo_get_color_for_read(vfb->fbo) : nullptr;
+		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? fbo_get_color_for_read(vfb->fbo_dx9) : nullptr;
 		bool success = false;
 		if (renderTarget) {
 			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
@@ -1359,7 +1359,7 @@ namespace DX9 {
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;
@@ -1400,7 +1400,7 @@ namespace DX9 {
 		}
 
 		bool success = false;
-		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo);
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
 		if (tex) {
 			D3DSURFACE_DESC desc;
 			D3DLOCKED_RECT locked;

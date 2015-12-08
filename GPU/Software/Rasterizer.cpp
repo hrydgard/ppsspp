@@ -830,21 +830,18 @@ static inline Vec3<int> GetSourceFactor(const Vec4<int>& source, const Vec4<int>
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		// TODO: Clamping?
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_SRCBLEND_FIXA:
-		return Vec3<int>::FromRGB(gstate.getFixA());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXA.
+		return Vec3<int>::FromRGB(gstate.getFixA());
 	}
 }
 
@@ -881,25 +878,24 @@ static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& 
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_DSTBLEND_FIXB:
-		return Vec3<int>::FromRGB(gstate.getFixB());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXB.
+		return Vec3<int>::FromRGB(gstate.getFixB());
 	}
 }
 
 static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
+	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
 	Vec3<int> srcfactor = GetSourceFactor(source, dst);
 	Vec3<int> dstfactor = GetDestFactor(source, dst);
 
@@ -1342,24 +1338,21 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int range = (maxY - minY) / 16 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-		{
-      VertexData v[3] = { v0, v1, v2 };
-			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
 			GlobalThreadPool::Loop(bound, 0, range);
-		}
-		else
-		{
+		} else {
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	} else {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-		{
-			auto bound = [&](int a, int b) -> void {DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b); };
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
 			GlobalThreadPool::Loop(bound, 0, range);
-		}
-		else
-		{
+		} else {
 			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
 		}
 	}
@@ -1435,12 +1428,15 @@ void DrawPoint(const VertexData &v0)
 	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 	u16 z = pos.z;
 
-	u8 fog = ClampFogDepth(v0.fogdepth);
+	u8 fog = 255;
+	if (gstate.isFogEnabled() && !clearMode) {
+		fog = ClampFogDepth(v0.fogdepth);
+	}
 
 	if (clearMode) {
-		DrawSinglePixel<true>(p, z, v0.fogdepth, prim_color);
+		DrawSinglePixel<true>(p, z, fog, prim_color);
 	} else {
-		DrawSinglePixel<false>(p, z, v0.fogdepth, prim_color);
+		DrawSinglePixel<false>(p, z, fog, prim_color);
 	}
 }
 
@@ -1516,7 +1512,10 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 		Vec4<int> prim_color = c0;
 
-		// TODO: Interpolate fog as well
+		u8 fog = 255;
+		if (gstate.isFogEnabled() && !clearMode) {
+			fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+		}
 
 		float s = tc.s();
 		float t = tc.t();
@@ -1539,9 +1538,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 		if (clearMode) {
-			DrawSinglePixel<true>(p, z, v0.fogdepth, prim_color);
+			DrawSinglePixel<true>(p, z, fog, prim_color);
 		} else {
-			DrawSinglePixel<false>(p, z, v0.fogdepth, prim_color);
+			DrawSinglePixel<false>(p, z, fog, prim_color);
 		}
 
 		x = x + xinc;

@@ -977,8 +977,21 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 	if (param->utilityData.IsValid())
 	{
 		int total_size = 0;
-		total_size += getSizeNormalized(1); // SFO;
-		total_size += getSizeNormalized((u32)param->dataSize == 0 ? 1 : (u32)param->dataSize); // Save Data
+
+		// The directory record itself.
+		// TODO: Account for number of files / actual record size?
+		total_size += getSizeNormalized(1);
+		// Account for the SFO (is this always 1 sector?)
+		total_size += getSizeNormalized(1);
+		// Add the size of the data itself (don't forget encryption overhead.)
+		// This is only added if a filename is specified.
+		if (param->fileName[0] != 0) {
+			if (g_Config.bEncryptSave) {
+				total_size += getSizeNormalized((u32)param->dataSize + 16);
+			} else {
+				total_size += getSizeNormalized((u32)param->dataSize);
+			}
+		}
 		total_size += getSizeNormalized(param->icon0FileData.size);
 		total_size += getSizeNormalized(param->icon1FileData.size);
 		total_size += getSizeNormalized(param->pic1FileData.size);

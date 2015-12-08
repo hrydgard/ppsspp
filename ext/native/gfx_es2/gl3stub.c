@@ -128,6 +128,16 @@ GLboolean gl3stubInit() {
     FIND_PROC(glTexStorage2D);
     FIND_PROC(glTexStorage3D);
     FIND_PROC(glGetInternalformativ);
+
+    /* EXT_blend_func_extended */
+    FIND_PROC(glBindFragDataLocationIndexedEXT);
+    FIND_PROC(glBindFragDataLocationEXT);
+    FIND_PROC(glGetProgramResourceLocationIndexEXT);
+    FIND_PROC(glGetFragDataIndexEXT);
+
+    /* OES_copy_image, etc. */
+    FIND_PROC(glCopyImageSubDataOES);
+
     #undef FIND_PROC
 
 #endif // IOS
@@ -349,6 +359,15 @@ GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLenum tar
 GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+
+/* EXT_blend_func_extended */
+GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationIndexedEXT) (GLuint program, GLuint colorNumber, GLuint index, const GLchar *name);
+GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationEXT) (GLuint program, GLuint color, const GLchar *name);
+GL_APICALL GLint          (* GL_APIENTRY glGetProgramResourceLocationIndexEXT) (GLuint program, GLenum programInterface, const GLchar *name);
+GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program, const GLchar *name);
+
+/* OES_copy_image, etc. */
+GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
 
 #endif // IOS
 
