@@ -38,9 +38,14 @@
             android:name=".PpssppActivity"
             android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode|navigation"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
-
-            <!-- android:screenOrientation="landscape" -->
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:screenOrientation="landscape">
+            <!--  Let's default to landscape but modify if not. Faster. -->
+            
+            <!-- PpssppActivity inherits from our NativeActivity which inherits from android.app.NativeActivity.
+            Tell it the name of our .so. -->
+            <meta-data android:name="android.app.lib_name"
+                    android:value="ppsspp_jni" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

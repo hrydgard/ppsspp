@@ -287,6 +287,8 @@ bool CheckFontIsUsable(const wchar_t *fontFace) {
 
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
+	ILOG("NativeInit");
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -503,6 +505,7 @@ void NativeInit(int argc, const char *argv[],
 	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 		gl_lost_manager_init();
 	}
+	ILOG("Native init completed");
 }
 
 void NativeInitGraphics() {
@@ -781,7 +784,7 @@ bool NativeIsAtTopLevel() {
 		ILOG("Screen toplevel: %i", (int)top);
 		return currentScreen->isTopLevel();
 	} else {
-		ELOG("No current screen");
+		WLOG("NativeIsAtTopLevel: No current screen");
 		return false;
 	}
 }

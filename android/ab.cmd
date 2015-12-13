@@ -6,4 +6,5 @@ copy ..\assets\compat.ini assets\compat.ini
 copy ..\assets\*.png assets
 SET NDK=C:\AndroidNDK
 SET NDK_MODULE_PATH=..\ext;..\ext\native\ext
-%NDK%/ndk-build -j9 %*
+%NDK%/ndk-build %*
+REM %NDK%/ndk-build -j9 %*
