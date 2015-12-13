@@ -178,6 +178,9 @@ public:
 	void Apply(LPDIRECT3DDEVICE9 device) {
 		device->SetVertexDeclaration(decl_);
 	}
+	bool RequiresBuffer() override {
+		return false;
+	}
 private:
 	LPDIRECT3DVERTEXDECLARATION9 decl_;
 	int stride_;

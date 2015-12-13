@@ -262,6 +262,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
 	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
 	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
+	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;
