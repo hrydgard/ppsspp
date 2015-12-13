@@ -1568,7 +1568,7 @@ static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt,
 		glPixelStorei(GL_PACK_ROW_LENGTH, w);
 	}
 
-	glReadPixels(0, 0, w, h, fmt, type, pixels);
+	glReadPixels(x, y, w, h, fmt, type, pixels);
 #ifdef DEBUG_READ_PIXELS
 	LogReadPixelsError(glGetError());
 #endif
