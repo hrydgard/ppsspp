@@ -159,7 +159,7 @@ public:
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		Bind();
-		if (size > knownSize_) {
+		if (size + offset > knownSize_) {
 			// Allocate the buffer.
 			glBufferData(target_, size + offset, NULL, usage_);
 			knownSize_ = size + offset;
