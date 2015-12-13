@@ -99,9 +99,15 @@ ARCH_FILES := \
   ArmEmitterTest.cpp
 endif
 
+COMMON_GL := \
+  $(SRC)/Common/GL/GLInterface/EGL.cpp \
+  $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
+  $(SRC)/Common/GL/GLInterface/GLInterface.cpp
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   TestRunner.cpp \
+  $(COMMON_GL) \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \
@@ -324,7 +330,7 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_STATIC_LIBRARIES += ppsspp_core
+LOCAL_STATIC_LIBRARIES += ppsspp_core android_native_app_glue
 
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
@@ -458,6 +464,7 @@ endif
 
 $(call import-module,libzip)
 $(call import-module,native)
+$(call import-module,android/native_app_glue)
 
 ifeq ($(ANDROID_NDK_PROFILER),1)
   $(call import-module,android-ndk-profiler)
