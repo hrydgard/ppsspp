@@ -20,6 +20,8 @@ protected:
 	virtual EGLDisplay OpenDisplay() = 0;
 	virtual EGLNativeWindowType InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) = 0;
 	virtual void ShutdownPlatform() = 0;
+	virtual void SetInternalResolution(int internalWidth, int internalHeight) {}
+
 public:
 	void SwapInterval(int Interval);
 	void Swap();

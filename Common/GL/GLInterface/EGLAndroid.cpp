@@ -11,9 +11,9 @@ EGLDisplay cInterfaceEGLAndroid::OpenDisplay()
 
 EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType host_window, EGLConfig config)
 {
-	EGLint format;
+	EGLint format = 0;
 	eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &format);
-	ANativeWindow_setBuffersGeometry(host_window, 0, 0, format);
+	ANativeWindow_setBuffersGeometry(host_window, internalWidth_, internalHeight_, format);
 
 	const int width = ANativeWindow_getWidth(host_window);
 	const int height = ANativeWindow_getHeight(host_window);

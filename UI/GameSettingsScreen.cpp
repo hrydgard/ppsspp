@@ -637,6 +637,7 @@ UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
+	ILOG("New display rotation: %d", g_Config.iScreenRotation);
 	System_SendMessage("rotate", "");
 	return UI::EVENT_DONE;
 }

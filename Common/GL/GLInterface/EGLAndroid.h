@@ -6,10 +6,19 @@
 
 #include "Common/GL/GLInterface/EGL.h"
 
-class cInterfaceEGLAndroid : public cInterfaceEGL
-{
+class cInterfaceEGLAndroid : public cInterfaceEGL {
+public:
+	cInterfaceEGLAndroid() : internalWidth_(0), internalHeight_(0) {}
 protected:
 	EGLDisplay OpenDisplay() override;
 	EGLNativeWindowType InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) override;
 	void ShutdownPlatform() override;
+	void SetInternalResolution(int internalWidth, int internalHeight) override {
+		internalWidth_ = internalWidth;
+		internalHeight_ = internalHeight;
+	}
+
+private:
+	int internalWidth_;
+	int internalHeight_;
 };

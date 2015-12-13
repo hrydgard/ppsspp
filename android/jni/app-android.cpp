@@ -6,10 +6,12 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <android/native_window_jni.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <EGL/EGL.h>
 #include <queue>
 
 #include "base/basictypes.h"
@@ -26,6 +28,8 @@
 #include "net/resolve.h"
 #include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
+
+#include "Common/GL/GLInterfaceBase.h"
 
 #include "app-android.h"
 
@@ -66,6 +70,8 @@ static int display_yres;
 
 static jmethodID postCommand;
 static jobject nativeActivity;
+static volatile bool exitRenderLoop;
+bool renderLoopRunning;
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
@@ -313,18 +319,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- end");
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit()");
-	if (!renderer_inited) {
-		NativeInitGraphics();
-		renderer_inited = true;
-	} else {
-		NativeDeviceLost();  // ???
-		ILOG("displayInit: NativeDeviceLost completed.");
-	}
-}
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
+extern "C" void Java_org_ppsspp_ppsspp_NativeApp_displayResize(JNIEnv *, jclass, jint w, jint h, jint dpi, jfloat refreshRate) {
 	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
 
 	g_dpi = dpi;
@@ -341,69 +336,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jo
 	NativeResized();
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-	static bool hasSetThreadName = false;
-	if (!hasSetThreadName) {
-		hasSetThreadName = true;
-		setCurrentThreadName("AndroidRender");
-	}
-
-	if (renderer_inited) {
-		// TODO: Look into if these locks are a perf loss
-		{
-			lock_guard guard(input_state.lock);
-
-			input_state.pad_lstick_x = left_joystick_x_async;
-			input_state.pad_lstick_y = left_joystick_y_async;
-			input_state.pad_rstick_x = right_joystick_x_async;
-			input_state.pad_rstick_y = right_joystick_y_async;
-
-			UpdateInputState(&input_state);
-		}
-		NativeUpdate(input_state);
-
-		{
-			lock_guard guard(input_state.lock);
-			EndInputState(&input_state);
-		}
-
-		NativeRender();
-		time_update();
-	} else {
-		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
-		// Shouldn't really get here. Let's draw magenta.
-		glDepthMask(GL_TRUE);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(1.0, 0.0, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	}
-
-	lock_guard guard(frameCommandLock);
-	if (!nativeActivity) {
-		while (!frameCommands.empty())
-			frameCommands.pop();
-		return;
-	}
-	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
-
-		DLOG("frameCommand %s %s", frameCmd.command.c_str(), frameCmd.params.c_str());
-
-		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-		jstring param = env->NewStringUTF(frameCmd.params.c_str());
-		env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
-		env->DeleteLocalRef(cmd); 
-		env->DeleteLocalRef(param);
-	}
-}
-
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
-		NativeDeviceLost();
-		ILOG("NativeDeviceLost completed.");
-		NativeShutdownGraphics();
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
 	}
@@ -538,7 +472,7 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 	return retvalX || retvalY || retvalZ;
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
@@ -546,4 +480,100 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass
 		mogaVersion = prm;
 	}
 	NativeMessageReceived(msg.c_str(), prm.c_str());
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(JNIEnv *env, jobject obj) {
+	if (!renderLoopRunning) {
+		ELOG("Render loop already exited");
+		return;
+	}
+	exitRenderLoop = true;
+	while (renderLoopRunning) {
+		sleep_ms(10);
+	}
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
+
+	WLOG("runEGLRenderLoop");
+
+	if (wnd == nullptr) {
+		ELOG("Error: Surface is null.");
+		return;
+	}
+	
+	cInterfaceBase *gl = HostGL_CreateGLInterface();
+	if (!gl) {
+		ELOG("ERROR: Failed to create GL interface");
+		return;
+	}
+	gl->SetMode(MODE_DETECT);
+	gl->Create(wnd);
+	gl->MakeCurrent();
+
+	if (!renderer_inited) {
+		NativeInitGraphics();
+		renderer_inited = true;
+	}
+
+	exitRenderLoop = false;
+	renderLoopRunning = true;
+
+	while (!exitRenderLoop) {
+		static bool hasSetThreadName = false;
+		if (!hasSetThreadName) {
+			hasSetThreadName = true;
+			setCurrentThreadName("AndroidRender");
+		}
+
+		// TODO: Look into if these locks are a perf loss
+		{
+			lock_guard guard(input_state.lock);
+
+			input_state.pad_lstick_x = left_joystick_x_async;
+			input_state.pad_lstick_y = left_joystick_y_async;
+			input_state.pad_rstick_x = right_joystick_x_async;
+			input_state.pad_rstick_y = right_joystick_y_async;
+
+			UpdateInputState(&input_state);
+		}
+		NativeUpdate(input_state);
+
+		{
+			lock_guard guard(input_state.lock);
+			EndInputState(&input_state);
+		}
+
+		NativeRender();
+		time_update();
+
+		gl->Swap();
+
+		lock_guard guard(frameCommandLock);
+		while (!frameCommands.empty()) {
+			FrameCommand frameCmd;
+			frameCmd = frameCommands.front();
+			frameCommands.pop();
+
+			WLOG("frameCommand! '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+
+			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+			jstring param = env->NewStringUTF(frameCmd.params.c_str());
+			env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
+			env->DeleteLocalRef(cmd);
+			env->DeleteLocalRef(param);
+		}
+	}
+
+	NativeDeviceLost();
+	ILOG("NativeDeviceLost completed.");
+	NativeShutdownGraphics();
+	renderer_inited = false;
+
+	delete gl;
+
+	ANativeWindow_release(wnd);
+	renderLoopRunning = false;
+	WLOG("Render loop exited;");
 }

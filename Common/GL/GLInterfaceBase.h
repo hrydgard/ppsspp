@@ -43,8 +43,5 @@ public:
 	virtual bool PeekMessages() { return false; }
 };
 
-extern cInterfaceBase *GLInterface;
 
-// This function has to be defined along the Host_ functions from Core/Host.h.
-// Current canonical implementation: DolphinWX/GLInterface/GLInterface.cpp.
 cInterfaceBase* HostGL_CreateGLInterface();

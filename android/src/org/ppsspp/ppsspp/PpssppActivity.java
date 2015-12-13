@@ -11,7 +11,7 @@ public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
 	// Key used by shortcut.
 	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
-	
+
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
 
@@ -47,15 +47,15 @@ public class PpssppActivity extends NativeActivity {
 					}
 					Looper.loop();
 				}
-				
+
 			}.start();
-			
+
 			try {
 				Thread.sleep(3000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			
+
 			System.exit(-1);
 			return;
 		}
@@ -114,7 +114,7 @@ public class PpssppActivity extends NativeActivity {
 			sz.y = 0;
 			return;
 		}
-		correctRatio(sz, (float)scale);
+		correctRatio(sz, scale);
 	}
 
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle
@@ -123,6 +123,7 @@ public class PpssppActivity extends NativeActivity {
 		final String cmd = command;
 		final String param = parameter;
 		runOnUiThread(new Runnable() {
+			@Override
 			public void run() {
 				processCommand(cmd, param);
 			}

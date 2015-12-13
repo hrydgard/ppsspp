@@ -44,6 +44,9 @@ void cInterfaceEGL::DetectMode()
 			EGL_RED_SIZE, 8,
 			EGL_GREEN_SIZE, 8,
 			EGL_BLUE_SIZE, 8,
+			EGL_ALPHA_SIZE, 8,
+			EGL_DEPTH_SIZE, 16,
+			EGL_STENCIL_SIZE, 8,
 			EGL_RENDERABLE_TYPE, renderable_type,
 			EGL_NONE
 		};
@@ -95,7 +98,6 @@ void cInterfaceEGL::DetectMode()
 }
 
 // Create rendering window.
-// Call browser: Core.cpp:EmuThread() > main.cpp:Video_Initialize()
 bool cInterfaceEGL::Create(void *window_handle, bool core)
 {
 	const char *s;
@@ -128,6 +130,9 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		EGL_RED_SIZE, 8,
 		EGL_GREEN_SIZE, 8,
 		EGL_BLUE_SIZE, 8,
+		EGL_ALPHA_SIZE, 8,
+		EGL_DEPTH_SIZE, 16,
+		EGL_STENCIL_SIZE, 8,
 		EGL_NONE };
 
 	EGLint ctx_attribs[] = {
@@ -154,8 +159,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		break;
 	}
 
-	if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs))
-	{
+	if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs)) {
 		INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
 		exit(1);
 	}
@@ -181,15 +185,13 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 	INFO_LOG(G3D, "EGL_CLIENT_APIS = %s\n", s);
 
 	egl_ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
-	if (!egl_ctx)
-	{
+	if (!egl_ctx) {
 		INFO_LOG(G3D, "Error: eglCreateContext failed\n");
 		exit(1);
 	}
 
 	egl_surf = eglCreateWindowSurface(egl_dpy, config, native_window, nullptr);
-	if (!egl_surf)
-	{
+	if (!egl_surf) {
 		INFO_LOG(G3D, "Error: eglCreateWindowSurface failed\n");
 		exit(1);
 	}
@@ -207,7 +209,6 @@ bool cInterfaceEGL::ClearCurrent()
 	return eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
-// Close backend
 void cInterfaceEGL::Shutdown()
 {
 	ShutdownPlatform();

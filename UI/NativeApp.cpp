@@ -210,7 +210,8 @@ void QtHost::ShutdownSound() { }
 std::string NativeQueryConfig(std::string query) {
 	char temp[128];
 	if (query == "screenRotation") {
-		sprintf(temp, "%i", g_Config.iScreenRotation);
+		ILOG("g_Config.screenRotation = %d", g_Config.iScreenRotation);
+		snprintf(temp, sizeof(temp), "%d", g_Config.iScreenRotation);
 		return std::string(temp);
 	} else if (query == "immersiveMode") {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
@@ -224,7 +225,7 @@ std::string NativeQueryConfig(std::string query) {
 		}
 
 		int max_res = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 1;
-		sprintf(temp, "%i", std::min(scale, max_res));
+		snprintf(temp, sizeof(temp), "%d", std::min(scale, max_res));
 		return std::string(temp);
 	} else if (query == "force44khz") {
 		return std::string("0");
