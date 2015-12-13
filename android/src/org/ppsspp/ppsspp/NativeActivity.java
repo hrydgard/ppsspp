@@ -86,6 +86,9 @@ public class NativeActivity extends Activity {
     
     // Functions for the app activity to override to change behaviour.
     
+    public native void registerCallbacks();
+    public native void unregisterCallbacks();
+
     public boolean useLowProfileButtons() {
     	return true;
     }
@@ -315,6 +318,7 @@ public class NativeActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState); 
+		registerCallbacks();
     	installID = Installation.id(this);
 
 		if (!initialized) {
@@ -408,6 +412,7 @@ public class NativeActivity extends Activity {
 		mGLSurfaceView = null;
 		audioFocusChangeListener = null;
 		audioManager = null;
+		unregisterCallbacks();
 	}  
 	
     private boolean detectOpenGLES20() {

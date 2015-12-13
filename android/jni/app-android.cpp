@@ -64,6 +64,9 @@ static int deviceType;
 static int display_xres;
 static int display_yres;
 
+static jmethodID postCommand;
+static jobject nativeActivity;
+
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
 	lock_guard guard(frameCommandLock);
@@ -157,6 +160,17 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
 	return cpp_string;
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
+	nativeActivity = env->NewGlobalRef(obj);
+	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	ILOG("Got method ID to postCommand: %p", postCommand);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
+	env->DeleteGlobalRef(nativeActivity);
+	nativeActivity = nullptr;
 }
 
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
@@ -299,8 +313,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- end");
 }
 
-static jmethodID postCommand;
-
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
 	ILOG("NativeApp.displayInit()");
 	if (!renderer_inited) {
@@ -310,9 +322,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		NativeDeviceLost();  // ???
 		ILOG("displayInit: NativeDeviceLost completed.");
 	}
-
-	DLOG("(Re)-fetching method ID to postCommand...");
-	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
@@ -370,6 +379,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 
 	lock_guard guard(frameCommandLock);
+	if (!nativeActivity) {
+		while (!frameCommands.empty())
+			frameCommands.pop();
+		return;
+	}
 	while (!frameCommands.empty()) {
 		FrameCommand frameCmd;
 		frameCmd = frameCommands.front();
@@ -379,7 +393,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 
 		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 		jstring param = env->NewStringUTF(frameCmd.params.c_str());
-		env->CallVoidMethod(obj, postCommand, cmd, param);
+		env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
 		env->DeleteLocalRef(cmd); 
 		env->DeleteLocalRef(param);
 	}

@@ -91,16 +91,4 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 	public native void displayResize(int w, int h, int dpi, float refreshRate);
 	public native void displayRender();
 	public native void displayShutdown();
-	
-	// called by the C++ code through JNI. Dispatch anything we can't directly handle
-	// on the gfx thread to the UI thread.
-	public void postCommand(String command, String parameter) {
-		final String cmd = command;
-		final String param = parameter;
-		mActivity.runOnUiThread(new Runnable() {
-			public void run() {
-				NativeRenderer.this.mActivity.processCommand(cmd, param);
-			}
-		});
-	}
 }

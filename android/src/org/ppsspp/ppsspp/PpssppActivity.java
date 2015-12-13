@@ -116,4 +116,16 @@ public class PpssppActivity extends NativeActivity {
 		}
 		correctRatio(sz, (float)scale);
 	}
+
+	// called by the C++ code through JNI. Dispatch anything we can't directly handle
+	// on the gfx thread to the UI thread.
+	public void postCommand(String command, String parameter) {
+		final String cmd = command;
+		final String param = parameter;
+		runOnUiThread(new Runnable() {
+			public void run() {
+				processCommand(cmd, param);
+			}
+		});
+	}
 }
