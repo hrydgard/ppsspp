@@ -210,12 +210,25 @@ void CheckGLExtensions() {
 		}
 	}
 
-	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
-	if (extString) {
-		g_all_gl_extensions = extString;
-	} else {
+	const char *extString = nullptr;
+	if (gl_extensions.ver[0] >= 3) {
+		// Let's use the new way for OpenGL 3.x+, required in the core profile.
+		GLint numExtensions = 0;
+		glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
 		g_all_gl_extensions = "";
-		extString = "";
+		for (GLint i = 0; i < numExtensions; ++i) {
+			g_all_gl_extensions += (const char *)glGetStringi(GL_EXTENSIONS, i);
+			g_all_gl_extensions += " ";
+		}
+		extString = g_all_gl_extensions.c_str();
+	} else {
+		extString = (const char *)glGetString(GL_EXTENSIONS);
+		if (extString) {
+			g_all_gl_extensions = extString;
+		} else {
+			g_all_gl_extensions = "";
+			extString = "";
+		}
 	}
 
 #ifdef WIN32
