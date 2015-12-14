@@ -411,6 +411,7 @@ GLES_GPU::GLES_GPU()
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
+	textureCache_.SetTransformDrawEngine(&transformDraw_);
 	fragmentTestCache_.SetTextureCache(&textureCache_);
 
 	// Sanity check gstate
@@ -452,6 +453,7 @@ GLES_GPU::GLES_GPU()
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
+	transformDraw_.RestoreVAO();
 	glstate.Restore();
 }
 
@@ -502,6 +504,9 @@ void GLES_GPU::CheckGPUFeatures() {
 	}
 	if (gl_extensions.NV_framebuffer_blit) {
 		features |= GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT;
+	}
+	if (gl_extensions.ARB_vertex_array_object) {
+		features |= GPU_SUPPORTS_VAO;
 	}
 
 	bool useCPU = false;
@@ -693,6 +698,7 @@ void GLES_GPU::UpdateCmdInfo() {
 }
 
 void GLES_GPU::ReapplyGfxStateInternal() {
+	transformDraw_.RestoreVAO();
 	glstate.Restore();
 	GPUCommon::ReapplyGfxStateInternal();
 }
@@ -708,6 +714,7 @@ void GLES_GPU::BeginFrameInternal() {
 
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
+	transformDraw_.DecimateBuffers();
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 

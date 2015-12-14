@@ -32,6 +32,7 @@ struct VirtualFramebuffer;
 class FramebufferManager;
 class DepalShaderCache;
 class ShaderManager;
+class TransformDrawEngine;
 
 enum FramebufferNotification {
 	NOTIFY_FB_CREATED,
@@ -74,6 +75,9 @@ public:
 	}
 	void SetShaderManager(ShaderManager *sm) {
 		shaderManager_ = sm;
+	}
+	void SetTransformDrawEngine(TransformDrawEngine *td) {
+		transformDraw_ = td;
 	}
 
 	size_t NumLoadedTextures() const {
@@ -164,6 +168,7 @@ private:
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
 	ShaderManager *shaderManager_;
+	TransformDrawEngine *transformDraw_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);
