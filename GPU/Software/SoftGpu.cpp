@@ -29,6 +29,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "profiler/profiler.h"
 
 #include "GPU/Software/SoftGpu.h"
@@ -42,6 +43,8 @@ static GLint attr_pos = -1, attr_tex = -1;
 static GLint uni_tex = -1;
 
 static GLuint program;
+static GLuint vao;
+static GLuint vbuf;
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
@@ -154,6 +157,11 @@ SoftGPU::SoftGPU()
 	attr_pos = glGetAttribLocation(program, "pos");
 	attr_tex = glGetAttribLocation(program, "TexCoordIn");
 
+	if (gl_extensions.ARB_vertex_array_object) {
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbuf);
+	}
+
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
@@ -168,6 +176,10 @@ SoftGPU::~SoftGPU()
 {
 	glDeleteProgram(program);
 	glDeleteTextures(1, &temp_texture);
+	if (vao != 0) {
+		glDeleteVertexArrays(1, &vao);
+		glDeleteBuffers(1, &vbuf);
+	}
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -272,10 +284,24 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		{texvert_u, 1}
 	};
 
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
+	if (vao != 0) {
+		glBindVertexArray(vao);
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(verts) + sizeof(texverts), nullptr, GL_STREAM_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(verts), sizeof(texverts), texverts);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, (void *)sizeof(verts));
+	} else {
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
+	}
+
 	glEnableVertexAttribArray(attr_pos);
 	glEnableVertexAttribArray(attr_tex);
 	glUniform1i(uni_tex, 0);
