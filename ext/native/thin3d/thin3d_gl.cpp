@@ -238,13 +238,14 @@ bool Thin3DGLShader::Compile(const char *source) {
 	return ok_;
 }
 
-class Thin3DGLVertexFormat : public Thin3DVertexFormat {
+class Thin3DGLVertexFormat : public Thin3DVertexFormat, GfxResourceHolder {
 public:
 	~Thin3DGLVertexFormat();
 
 	void Apply(const void *base = nullptr);
 	void Unapply();
 	void Compile();
+	void GLLost() override;
 	bool RequiresBuffer() override {
 		return id_ != 0;
 	}
@@ -572,6 +573,10 @@ void Thin3DGLVertexFormat::Compile() {
 	}
 	needsEnable_ = true;
 	lastBase_ = -1;
+}
+
+void Thin3DGLVertexFormat::GLLost() {
+	Compile();
 }
 
 Thin3DDepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
