@@ -175,7 +175,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		} else {
 			dxstate.dither.disable();
 		}
-		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 		dxstate.cullMode.set(wantCull, gstate.getCullMode());
 		if (gstate.isModeClear()) {
 			// Well, probably doesn't matter...

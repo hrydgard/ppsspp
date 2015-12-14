@@ -253,7 +253,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		keys_.raster.value = 0;
-		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		bool wantCull = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 		keys_.raster.cullMode = wantCull ? (gstate.getCullMode() ? D3D11_CULL_FRONT : D3D11_CULL_BACK) : D3D11_CULL_NONE;
 
 		if (gstate.isModeClear() || gstate.isModeThrough()) {

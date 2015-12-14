@@ -229,7 +229,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		bool cullEnable;
 		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
-		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		cullEnable = !gstate.isModeClear() && prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP && gstate.isCullEnabled();
 
 		bool depthClampEnable = false;
 		if (gstate.isModeClear() || gstate.isModeThrough()) {

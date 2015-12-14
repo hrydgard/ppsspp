@@ -265,6 +265,10 @@ protected:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
+	inline bool IsTrianglePrim(GEPrimitiveType prim) const {
+		return prim != GE_PRIM_RECTANGLES && prim > GE_PRIM_LINE_STRIP;
+	}
+
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
 			// We always flush when drawing splines/beziers so no need to do so here
@@ -273,7 +277,7 @@ protected:
 		}
 		// Prim == RECTANGLES can cause CanUseHardwareTransform to flip, so we need to dirty.
 		// Also, culling may be affected so dirty the raster state.
-		if ((prim == GE_PRIM_RECTANGLES) != (lastPrim_ == GE_PRIM_RECTANGLES)) {
+		if (IsTrianglePrim(prim) != IsTrianglePrim(lastPrim_)) {
 			Flush();
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE);
 			lastPrim_ = prim;
