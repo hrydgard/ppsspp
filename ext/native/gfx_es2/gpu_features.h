@@ -35,6 +35,7 @@ struct GLExtensions {
 	char model[128];
 
 	bool IsGLES;
+	bool IsCoreContext;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	// OES

@@ -505,7 +505,7 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.NV_framebuffer_blit) {
 		features |= GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT;
 	}
-	if (gl_extensions.ARB_vertex_array_object) {
+	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
 		features |= GPU_SUPPORTS_VAO;
 	}
 
