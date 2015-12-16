@@ -5,8 +5,6 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
-import com.google.common.collect.Sets.SetView;
-
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
