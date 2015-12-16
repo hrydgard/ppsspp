@@ -72,7 +72,7 @@ void cInterfaceEGL::DetectMode()
 			ret = eglGetConfigAttrib(egl_dpy, config[i], EGL_RENDERABLE_TYPE, &attribVal);
 			if (ret)
 			{
-				if (attribVal & EGL_OPENGL_BIT)
+				if ((attribVal & EGL_OPENGL_BIT) && s_opengl_mode != GLInterfaceMode::MODE_DETECT_ES)
 					supportsGL = true;
 				if (attribVal & (1 << 6)) /* EGL_OPENGL_ES3_BIT_KHR */
 					supportsGLES3 = true;
@@ -169,7 +169,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 	}
 	INFO_LOG(G3D, "eglInitialize() succeeded\n");
 
-	if (s_opengl_mode == MODE_DETECT)
+	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
 		DetectMode();
 
 	int attribs32[] = {

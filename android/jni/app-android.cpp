@@ -588,7 +588,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
 	gl->SetBackBufferDimensions(desiredBackbufferSizeX, desiredBackbufferSizeY);
-	gl->SetMode(MODE_OPENGLES2);
+	gl->SetMode(MODE_DETECT_ES);
 
 	bool use565 = false;
 	switch (backbuffer_format) {
