@@ -5,6 +5,8 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
+import com.google.common.collect.Sets.SetView;
+
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -172,17 +174,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         	detectOptimalAudioSettings();
         }
 
-        // isLandscape is used to trigger GetAppInfo currently, we
-        boolean landscape = NativeApp.isLandscape();
-        Log.d(TAG, "Landscape: " + landscape);
-
     	// Get system information
 		ApplicationInfo appInfo = null;
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
 		try {
 		    appInfo = packMgmr.getApplicationInfo(packageName, 0);
-	    } catch  (NameNotFoundException e) {
+	    } catch (NameNotFoundException e) {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
@@ -235,7 +233,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			Log.e(TAG, "Invalid rotation: " + rotString);
 			return;
 		}
-		Log.i(TAG, "Requested rotation: " + rot + " ('" + rotString + "')");
+		Log.i(TAG, "Setting requested rotation: " + rot + " ('" + rotString + "')");
+
 		switch (rot) {
 		case 0:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
@@ -256,8 +255,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	}
 
 	private boolean useImmersive() {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT)
+			return false;
 		String immersive = NativeApp.queryConfig("immersiveMode");
-		return immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+		return immersive.equals("1");
 	}
 
 	@SuppressLint("InlinedApi")
@@ -287,26 +288,20 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         }
 	}
 
-	private Runnable mEmulationRunner = new Runnable()
-	{
+	private Runnable mEmulationRunner = new Runnable() {
 		@Override
-		public void run()
-		{
+		public void run() {
 			// Bit of a hack - loop until onSurfaceCreated succeeds.
 			try {
 				while (mSurface == null)
-				{
 					Thread.sleep(10);
-				}
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 
 			Log.i(TAG, "Starting the render loop: " + mSurface);
-
 			// Start emulation using the provided Surface.
 			runEGLRenderLoop(mSurface);
-
 			Log.i(TAG, "Left the render loop: " + mSurface);
 		}
 	};
@@ -315,20 +310,26 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		registerCallbacks();
-    	installID = Installation.id(this);
-
+	void updateDisplayMetrics(Point outSize) {
 		DisplayMetrics metrics = new DisplayMetrics();
 		Display display = getWindowManager().getDefaultDisplay();
 		display.getMetrics(metrics);
 
 		float refreshRate = display.getRefreshRate();
-		Point outSize = new Point();
+		if (outSize == null) {
+			outSize = new Point();
+		}
 		GetScreenSize(outSize);
 		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
+	}
+
+	@Override
+    public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		registerCallbacks();
+    	installID = Installation.id(this);
+
+    	updateDisplayMetrics(null);
 
 		if (!initialized) {
 			Initialize();
@@ -354,13 +355,14 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 				setupSystemUiCallback();
 			}
 		}
+    	updateDisplayMetrics(null);
 
 		NativeApp.computeDesiredBackbufferDimensions();
 		int bbW = NativeApp.getDesiredBackbufferWidth();
 		int bbH = NativeApp.getDesiredBackbufferHeight();
 
-        mSurfaceView = new NativeSurfaceView(this, bbW, bbH);
-        mSurfaceView.getHolder().addCallback(this);
+        mSurfaceView = new NativeSurfaceView(NativeActivity.this, bbW, bbH);
+        mSurfaceView.getHolder().addCallback(NativeActivity.this);
         Log.i(TAG, "setcontentview before");
 		setContentView(mSurfaceView);
         Log.i(TAG, "setcontentview after");
@@ -379,7 +381,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
 	{
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height);
-		NativeApp.backbufferResize(width, height);
+		// Make sure we have fresh display metrics so the computations go right.
+		// This is needed on some very old devices, I guess event order is different or something...
+		Point sz = new Point();
+        updateDisplayMetrics(sz);
+        NativeApp.backbufferResize(width, height);
 		mSurface = holder.getSurface();
 		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
 			mRenderLoopThread = new Thread(mEmulationRunner);
@@ -470,10 +476,12 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
+    	Log.i(TAG, "onConfigurationChanged");
     	super.onConfigurationChanged(newConfig);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
+        updateDisplayMetrics(null);
     }
 
 	//keep this static so we can call this even if we don't
@@ -891,8 +899,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		} else if (command.equals("finish")) {
 			finish();
 		} else if (command.equals("rotate")) {
-			if (Build.VERSION.SDK_INT >= 9) {
-				updateScreenRotation();
+			updateScreenRotation();
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+				Log.i(TAG, "Must recreate activity on rotation");
 			}
 		} else if (command.equals("immersive")) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
