@@ -20,8 +20,7 @@
 #error Platform doesnt have a GLInterface
 #endif
 
-cInterfaceBase* HostGL_CreateGLInterface()
-{
+cInterfaceBase* HostGL_CreateGLInterface(){
 	#ifdef ANDROID
 		return new cInterfaceEGLAndroid;
 	#elif defined(__APPLE__)

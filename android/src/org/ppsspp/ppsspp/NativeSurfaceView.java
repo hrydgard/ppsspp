@@ -1,66 +1,48 @@
 package org.ppsspp.ppsspp;
 
-// Touch- and sensor-enabled GLSurfaceView.
+// Touch- and sensor-enabled SurfaceView.
 // Supports simple multitouch and pressure.
+// DPI scaling is handled by the native code.
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.graphics.Point;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Handler;
-import android.util.DisplayMetrics;
-// import android.os.Build;
-// import android.util.Log;
 import android.util.Log;
-import android.view.Display;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
 
 import com.bda.controller.*;
 
 public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
-	private static String TAG = "NativeGLView";
+	private static String TAG = "NativeSurfaceView";
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
-	private NativeActivity mActivity;
 
 	// Moga controller
 	private Controller mController = null;
 	private boolean isMogaPro = false;
-	private int dpi;
-	private float refreshRate;
 
-	private double dpi_scale_x;
-	private double dpi_scale_y;
-
-	int last_width, last_height;
-
-	public int fixedW = 0;
-	public int fixedH = 0;
-
-	public NativeSurfaceView(NativeActivity activity) {
+	public NativeSurfaceView(NativeActivity activity, int fixedW, int fixedH) {
 		super(activity);
 
-		DisplayMetrics metrics = new DisplayMetrics();
-		Display display = activity.getWindowManager().getDefaultDisplay();
-		display.getMetrics(metrics);
-		dpi = metrics.densityDpi;
-
-		refreshRate = display.getRefreshRate();
-
-		mActivity = activity;
+		Log.i(TAG, "NativeSurfaceView");
 
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
 
-		onResize(display.getWidth(), display.getHeight());
+		// Maybe we need to use this?
+		if (fixedW != 0 && fixedH != 0) {
+			Log.i(TAG, "Setting surface holder to use a fixed size of " + fixedW + "x" + fixedH + " pixels");
+			this.getHolder().setFixedSize(fixedW, fixedH);
+		}
 
 		try {
 			MogaHack.init(mController, activity);
@@ -71,37 +53,17 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		}
 	}
 
-	void onResize(int width, int height) {
-		Point sz = new Point();
-		mActivity.GetScreenSize(sz);
-		double actualW = sz.x;
-		double actualH = sz.y;
-		dpi_scale_x = (width / actualW);
-		dpi_scale_y = (height / actualH);
-		Log.i(TAG, "onSurfaceChanged: " + dpi_scale_x + "x" + dpi_scale_y + " (width=" + width + ", actualW=" + actualW);
-		int scaled_dpi = (int)(dpi * dpi_scale_x);
-		NativeApp.displayResize(width, height, scaled_dpi, refreshRate);
-		last_width = width;
-		last_height = height;
-	}
-
-	void setFixedSize(int w, int h) {
-		fixedW = w;
-		fixedH = h;
-	}
-
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	private int getToolType(final MotionEvent ev, int pointer) {
 		return ev.getToolType(pointer);
 	}
 
+	@SuppressLint("ClickableViewAccessibility")
 	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
 		int numTouchesHandled = 0;
-		float scaleX = (float)this.dpi_scale_x;
-		float scaleY = (float)this.dpi_scale_y;
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -133,7 +95,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 					code |= tool << 10;  // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(scaleX * ev.getX(i), scaleY * ev.getY(i), code, pid) ? 1 : 0;
+				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
 			}
 		}
 		return numTouchesHandled > 0;

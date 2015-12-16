@@ -1,7 +1,6 @@
 package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
-import android.graphics.Point;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -15,7 +14,8 @@ public class PpssppActivity extends NativeActivity {
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
 
-	static {
+	@SuppressWarnings("deprecation")
+	static void CheckABIAndLoadLibrary() {
 		if (Build.CPU_ABI.equals("armeabi")) {
 			m_hasUnsupportedABI = true;
 		} else {
@@ -28,6 +28,10 @@ public class PpssppActivity extends NativeActivity {
 		}
 	}
 
+	static {
+		CheckABIAndLoadLibrary();
+	}
+
 	public PpssppActivity() {
 		super();
 	}
@@ -36,6 +40,7 @@ public class PpssppActivity extends NativeActivity {
 	public void onCreate(Bundle savedInstanceState) {
 		if (m_hasUnsupportedABI || m_hasNoNativeBinary) {
 			new Thread() {
+				@SuppressWarnings("deprecation")
 				@Override
 				public void run() {
 					Looper.prepare();
@@ -66,55 +71,6 @@ public class PpssppActivity extends NativeActivity {
 		super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 
 		super.onCreate(savedInstanceState);
-	}
-
-
-	private void correctRatio(Point sz, float scale) {
-		float x = sz.x;
-		float y = sz.y;
-		float ratio = x / y;
-		// Log.i(TAG, "Considering size: " + sz.x + "x" + sz.y + "=" + ratio);
-		float targetRatio;
-		if (x >= y) {
-			targetRatio = 480.0f / 272.0f;
-			x = 480.f * scale;
-			y = 272.f * scale;
-		} else {
-			targetRatio = 272.0f / 480.0f;
-			x = 272.0f * scale;
-			y = 480.0f * scale;
-		}
-		float correction = targetRatio / ratio;
-		// Log.i(TAG, "Target ratio: " + targetRatio + " ratio: " + ratio + " correction: " + correction);
-		if (ratio < targetRatio) {
-			y *= correction;
-		} else {
-			x /= correction;
-		}
-		sz.x = (int)x;
-		sz.y = (int)y;
-		// Log.i(TAG, "Corrected ratio: " + sz.x + "x" + sz.y);
-	}
-
-	@Override
-	public void getDesiredBackbufferSize(Point sz) {
-		GetScreenSize(sz);
-		String config = NativeApp.queryConfig("hwScale");
-		int scale;
-		try {
-			scale = Integer.parseInt(config);
-			if (scale == 0) {
-				sz.x = 0;
-				sz.y = 0;
-				return;
-			}
-		}
-		catch (NumberFormatException e) {
-			sz.x = 0;
-			sz.y = 0;
-			return;
-		}
-		correctRatio(sz, scale);
 	}
 
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle

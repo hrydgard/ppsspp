@@ -13,13 +13,19 @@ public class NativeApp {
 	public final static int DEVICE_TYPE_TV = 1;
 	public final static int DEVICE_TYPE_DESKTOP = 2;
 
-	public static native void init(String model, int deviceType, int xres, int yres, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String shortcutParam, String installID, int androidVersion);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String shortcutParam, String installID, int androidVersion);
 
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
 
-	public static native void displayResize(int width, int height, int scaled_dpi, float refreshRate);
+	public static native void computeDesiredBackbufferDimensions();
+	public static native int getDesiredBackbufferWidth();
+	public static native int getDesiredBackbufferHeight();
+
+	public static native void setDisplayParameters(int display_xres, int display_yres, int dpi, float refreshRate);
+	public static native void backbufferResize(int bufferWidth, int bufferHeight);
+
 	public static native boolean isLandscape();
 	public static native boolean isAtTopLevel();
 

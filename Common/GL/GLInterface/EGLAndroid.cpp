@@ -25,4 +25,3 @@ EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType
 void cInterfaceEGLAndroid::ShutdownPlatform()
 {
 }
-

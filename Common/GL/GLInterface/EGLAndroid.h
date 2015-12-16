@@ -13,7 +13,7 @@ protected:
 	EGLDisplay OpenDisplay() override;
 	EGLNativeWindowType InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) override;
 	void ShutdownPlatform() override;
-	void SetInternalResolution(int internalWidth, int internalHeight) override {
+	void OverrideBackbufferDimensions(int internalWidth, int internalHeight) override {
 		internalWidth_ = internalWidth;
 		internalHeight_ = internalHeight;
 	}

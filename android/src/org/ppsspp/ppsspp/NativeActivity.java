@@ -8,7 +8,6 @@ import java.util.Locale;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.UiModeManager;
 import android.content.Context;
@@ -16,11 +15,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -29,6 +26,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Vibrator;
 import android.text.InputType;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -215,10 +213,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
-		Point displaySize = new Point();
-		GetScreenSize(displaySize);
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
 
 		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
 
@@ -291,12 +287,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         }
 	}
 
-	// Override this to scale the backbuffer (use the Android hardware scaler)
-	public void getDesiredBackbufferSize(Point sz) {
-		sz.x = 0;
-		sz.y = 0;
-	}
-
 	private Runnable mEmulationRunner = new Runnable()
 	{
 		@Override
@@ -331,6 +321,15 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		registerCallbacks();
     	installID = Installation.id(this);
 
+		DisplayMetrics metrics = new DisplayMetrics();
+		Display display = getWindowManager().getDefaultDisplay();
+		display.getMetrics(metrics);
+
+		float refreshRate = display.getRefreshRate();
+		Point outSize = new Point();
+		GetScreenSize(outSize);
+		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
+
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -349,25 +348,22 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-        mSurfaceView = new NativeSurfaceView(this);
-        mSurfaceView.getHolder().addCallback(this);
-
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		if (sz.x > 0) {
-			Log.i(TAG, "Requesting fixed size buffer: " + sz.x + "x" + sz.y);
-			// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
-			mSurfaceView.setFixedSize(sz.x, sz.y);
-		}
-
-		setContentView(mSurfaceView);
-
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				setupSystemUiCallback();
 			}
 		}
+
+		NativeApp.computeDesiredBackbufferDimensions();
+		int bbW = NativeApp.getDesiredBackbufferWidth();
+		int bbH = NativeApp.getDesiredBackbufferHeight();
+
+        mSurfaceView = new NativeSurfaceView(this, bbW, bbH);
+        mSurfaceView.getHolder().addCallback(this);
+        Log.i(TAG, "setcontentview before");
+		setContentView(mSurfaceView);
+        Log.i(TAG, "setcontentview after");
 
 		mRenderLoopThread = new Thread(mEmulationRunner);
 		mRenderLoopThread.start();
@@ -383,6 +379,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
 	{
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height);
+		NativeApp.backbufferResize(width, height);
 		mSurface = holder.getSurface();
 		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
 			mRenderLoopThread = new Thread(mEmulationRunner);
@@ -440,18 +437,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		unregisterCallbacks();
 	}
 
-    private boolean detectOpenGLES20() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x20000;
-    }
-
-    private boolean detectOpenGLES30() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x30000;
-    }
-
     @Override
     protected void onPause() {
         super.onPause();
@@ -489,12 +474,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
-
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		if (sz.x > 0) {
-			mSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
-		}
     }
 
 	//keep this static so we can call this even if we don't

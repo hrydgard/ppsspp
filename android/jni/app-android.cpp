@@ -11,7 +11,6 @@
 #include <stdint.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include <EGL/EGL.h>
 #include <queue>
 
 #include "base/basictypes.h"
@@ -65,13 +64,28 @@ static int androidVersion;
 static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
+// This is the ACTUAL display size, not the hardware scaled display size.
+static int display_dpi;
 static int display_xres;
 static int display_yres;
+
+static int desiredBackbufferSizeX;
+static int desiredBackbufferSizeY;
 
 static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
 bool renderLoopRunning;
+
+float dp_xscale = 1.0f;
+float dp_yscale = 1.0f;
+
+InputState input_state;
+
+static bool renderer_inited = false;
+static bool first_lost = true;
+static std::string library_path;
+
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
@@ -149,18 +163,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	}
 }
 
-// Remember that all of these need initialization on init! The process
-// may be reused when restarting the game. Globals are DANGEROUS.
-
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
-
-InputState input_state;
-
-static bool renderer_inited = false;
-static bool first_lost = true;
-static std::string library_path;
-
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	const char *str = env->GetStringUTFChars(jstr, 0);
 	std::string cpp_string = std::string(str);
@@ -208,7 +210,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
+  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jint jAndroidVersion) {
 	jniEnvUI = env;
@@ -232,8 +234,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	right_joystick_y_async = 0;
 	hat_joystick_x_async = 0;
 	hat_joystick_y_async = 0;
-	display_xres = jxres;
-	display_yres = jyres;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
@@ -317,23 +317,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	VFSShutdown();
 	net::Shutdown();
 	ILOG("NativeApp.shutdown() -- end");
-}
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_displayResize(JNIEnv *, jclass, jint w, jint h, jint dpi, jfloat refreshRate) {
-	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
-
-	g_dpi = dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-
-	pixel_xres = w;
-	pixel_yres = h;
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
-	dp_xscale = (float)dp_xres / pixel_xres;
-	dp_yscale = (float)dp_yres / pixel_yres;
-	display_hz = refreshRate;
-
-	NativeResized();
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
@@ -493,21 +476,116 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(
 	}
 }
 
+void correctRatio(int &sz_x, int &sz_y, float scale) {
+	float x = (float)sz_x;
+	float y = (float)sz_y;
+	float ratio = x / y;
+	ILOG("CorrectRatio: Considering size: %0.2f/%0.2f=%0.2f for scale %f", x, y, ratio, scale);
+	float targetRatio;
+
+	// Try to get the longest dimension to match scale*PSP resolution.
+	if (x >= y) {
+		targetRatio = 480.0f / 272.0f;
+		x = 480.f * scale;
+		y = 272.f * scale;
+	} else {
+		targetRatio = 272.0f / 480.0f;
+		x = 272.0f * scale;
+		y = 480.0f * scale;
+	}
+
+	float correction = targetRatio / ratio;
+	ILOG("Target ratio: %0.2f ratio: %0.2f correction: %0.2f", targetRatio, ratio, correction);
+	if (ratio < targetRatio) {
+		y *= correction;
+	} else {
+		x /= correction;
+	}
+
+	sz_x = x;
+	sz_y = y;
+	ILOG("Corrected ratio: %dx%d", sz_x, sz_y);
+}
+
+void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
+	sz_x = display_xres;
+	sz_y = display_yres;
+	std::string config = NativeQueryConfig("hwScale");
+	int scale;
+	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
+		correctRatio(sz_x, sz_y, scale);
+	} else {
+		sz_x = 0;
+		sz_y = 0;
+	}
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
+	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
+	display_xres = xres;
+	display_yres = yres;
+	display_dpi = dpi;
+	display_hz = refreshRate;
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh) {
+	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
+
+	// pixel_*res is the backbuffer resolution.
+	pixel_xres = bufw;
+	pixel_yres = bufh;
+
+	g_dpi = (int)display_dpi;
+	g_dpi_scale = 240.0f / (float)g_dpi;
+
+	dp_xres = display_xres * g_dpi_scale;
+	dp_yres = display_yres * g_dpi_scale;
+
+	// Touch scaling is from display pixels to dp pixels.
+	dp_xscale = (float)dp_xres / (float)display_xres;
+	dp_yscale = (float)dp_yres / (float)display_yres;
+
+	pixel_in_dps = (float)pixel_xres / dp_xres;
+
+	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
+	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
+	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
+	ILOG("g_dpi=%d g_dpi_scale=%f", g_dpi, g_dpi_scale);
+
+	NativeResized();
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
+	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWidth(JNIEnv *, jclass) {
+	return desiredBackbufferSizeX;
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
+	return desiredBackbufferSizeY;
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
-	WLOG("runEGLRenderLoop");
+	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 
 	if (wnd == nullptr) {
 		ELOG("Error: Surface is null.");
 		return;
 	}
-	
+
 	cInterfaceBase *gl = HostGL_CreateGLInterface();
 	if (!gl) {
 		ELOG("ERROR: Failed to create GL interface");
 		return;
 	}
+	ILOG("EGL interface created. Desired backbuffer size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
+
+	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
+	gl->SetBackBufferDimensions(desiredBackbufferSizeX, desiredBackbufferSizeY);
 	gl->SetMode(MODE_DETECT);
 	gl->Create(wnd);
 	gl->MakeCurrent();
@@ -566,11 +644,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		}
 	}
 
+	// Restore lost device objects. TODO: This feels like the wrong place for this.
 	NativeDeviceLost();
 	ILOG("NativeDeviceLost completed.");
+
 	NativeShutdownGraphics();
 	renderer_inited = false;
 
+	gl->ClearCurrent();
 	delete gl;
 
 	ANativeWindow_release(wnd);

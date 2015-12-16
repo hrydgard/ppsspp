@@ -116,6 +116,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		INFO_LOG(G3D, "Error: eglInitialize() failed\n");
 		return false;
 	}
+	INFO_LOG(G3D, "eglInitialize() succeeded\n");
 
 	/* Detection code */
 	EGLConfig config;
@@ -124,7 +125,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 	DetectMode();
 
 	// attributes for a visual in RGBA format with at least
-	// 8 bits per color
+	// 8 bits per color, 16 bits of depth and 8 bits of stencil.
 	int attribs[] = {
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_RED_SIZE, 8,
@@ -139,8 +140,8 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		EGL_CONTEXT_CLIENT_VERSION, 2,
 		EGL_NONE
 	};
-	switch (s_opengl_mode)
-	{
+
+	switch (s_opengl_mode) {
 		case MODE_OPENGL:
 			attribs[1] = EGL_OPENGL_BIT;
 			ctx_attribs[0] = EGL_NONE;
@@ -159,10 +160,12 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		break;
 	}
 
-	if (!eglChooseConfig( egl_dpy, attribs, &config, 1, &num_configs)) {
+	if (!eglChooseConfig(egl_dpy, attribs, &config, 1, &num_configs)) {
 		INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
 		exit(1);
 	}
+
+	INFO_LOG(G3D, "eglChooseConfig successful");
 
 	if (s_opengl_mode == MODE_OPENGL)
 		eglBindAPI(EGL_OPENGL_API);
