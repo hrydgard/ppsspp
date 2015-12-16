@@ -372,7 +372,7 @@ void NativeInit(int argc, const char *argv[],
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
 
-	bool gfxLog = true;
+	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
