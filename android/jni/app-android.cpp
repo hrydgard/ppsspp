@@ -68,6 +68,7 @@ static int deviceType;
 static int display_dpi;
 static int display_xres;
 static int display_yres;
+static int backbuffer_format;  // Android PixelFormat enum
 
 static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
@@ -528,12 +529,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	display_hz = refreshRate;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
 	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
 
 	// pixel_*res is the backbuffer resolution.
 	pixel_xres = bufw;
 	pixel_yres = bufh;
+	backbuffer_format = format;
 
 	g_dpi = (int)display_dpi;
 	g_dpi_scale = 240.0f / (float)g_dpi;
@@ -586,8 +588,20 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
 	gl->SetBackBufferDimensions(desiredBackbufferSizeX, desiredBackbufferSizeY);
-	gl->SetMode(MODE_DETECT);
-	gl->Create(wnd);
+	gl->SetMode(MODE_OPENGLES2);
+
+	bool use565 = false;
+	switch (backbuffer_format) {
+	case 4:  // PixelFormat.RGB_565
+		use565 = true;
+		break;
+	}
+
+	if (!gl->Create(wnd, false, use565)) {
+		ELOG("EGL creation failed");
+		// TODO: What do we do now?
+		return;
+	}
 	gl->MakeCurrent();
 
 	if (!renderer_inited) {

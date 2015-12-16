@@ -21,13 +21,14 @@ protected:
 	virtual EGLNativeWindowType InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) = 0;
 	virtual void ShutdownPlatform() = 0;
 	virtual void SetInternalResolution(int internalWidth, int internalHeight) {}
+	const char *EGLGetErrorString(EGLint error);
 
 public:
 	void SwapInterval(int Interval);
 	void Swap();
 	void SetMode(u32 mode) { s_opengl_mode = mode; }
 	void* GetFuncAddress(const std::string& name);
-	bool Create(void *window_handle, bool core);
+	bool Create(void *window_handle, bool core, bool use16bit) override;
 	bool MakeCurrent();
 	bool ClearCurrent();
 	void Shutdown();

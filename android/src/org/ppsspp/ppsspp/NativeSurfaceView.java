@@ -7,6 +7,7 @@ package org.ppsspp.ppsspp;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.graphics.PixelFormat;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -42,7 +43,11 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		if (fixedW != 0 && fixedH != 0) {
 			Log.i(TAG, "Setting surface holder to use a fixed size of " + fixedW + "x" + fixedH + " pixels");
 			this.getHolder().setFixedSize(fixedW, fixedH);
+		} else {
+			Log.i(TAG, "Using default backbuffer size.");
 		}
+
+		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
 
 		try {
 			MogaHack.init(mController, activity);

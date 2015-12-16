@@ -2,17 +2,20 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include "Common/Log.h"
 #include "Common/GL/GLInterface/EGLAndroid.h"
 
-EGLDisplay cInterfaceEGLAndroid::OpenDisplay()
-{
+EGLDisplay cInterfaceEGLAndroid::OpenDisplay() {
 	return eglGetDisplay(EGL_DEFAULT_DISPLAY);
 }
 
-EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType host_window, EGLConfig config)
-{
-	EGLint format = 0;
-	eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &format);
+EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) {
+	EGLint format;
+	if (EGL_FALSE == eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &format)) {
+		ERROR_LOG(G3D, "Failed getting EGL_NATIVE_VISUAL_ID: error %s", EGLGetErrorString(eglGetError()));
+		return NULL;
+	}
+
 	ANativeWindow_setBuffersGeometry(host_window, internalWidth_, internalHeight_, format);
 
 	const int width = ANativeWindow_getWidth(host_window);
@@ -22,6 +25,5 @@ EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType
 	return host_window;
 }
 
-void cInterfaceEGLAndroid::ShutdownPlatform()
-{
+void cInterfaceEGLAndroid::ShutdownPlatform() {
 }

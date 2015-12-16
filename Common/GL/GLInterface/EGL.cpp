@@ -25,9 +25,6 @@ void* cInterfaceEGL::GetFuncAddress(const std::string& name)
 
 void cInterfaceEGL::DetectMode()
 {
-	if (s_opengl_mode != MODE_DETECT)
-		return;
-
 	EGLint num_configs;
 	bool supportsGL = false, supportsGLES2 = false, supportsGLES3 = false;
 	std::array<int, 3> renderable_types = {
@@ -97,8 +94,62 @@ void cInterfaceEGL::DetectMode()
 		s_opengl_mode = GLInterfaceMode::MODE_OPENGL; // Fall back to OpenGL
 }
 
+static void LogEGLConfig(EGLDisplay egl_dpy, EGLConfig config) {
+	EGLint red = 0, green = 0, blue = 0, alpha = 0, depth = 0, stencil = 0, format = -1, type;
+
+	struct {
+		EGLint value;
+		const char *name;
+	} vals[] = {
+		{ EGL_RED_SIZE, "EGL_RED_SIZE" },
+		{ EGL_GREEN_SIZE, "EGL_GREEN_SIZE" },
+		{ EGL_BLUE_SIZE, "EGL_BLUE_SIZE" },
+		{ EGL_ALPHA_SIZE, "EGL_ALPHA_SIZE" },
+		{ EGL_DEPTH_SIZE, "EGL_DEPTH_SIZE" },
+		{ EGL_STENCIL_SIZE, "EGL_STENCIL_SIZE" },
+		{ EGL_NATIVE_VISUAL_ID, "EGL_NATIVE_VISUAL_ID" },
+		{ EGL_NATIVE_VISUAL_TYPE, "EGL_NATIVE_VISUAL_TYPE" },
+		{ EGL_MAX_SWAP_INTERVAL, "EGL_MAX_SWAP_INTERVAL" },
+		{ EGL_MIN_SWAP_INTERVAL, "EGL_MIN_SWAP_INTERVAL" },
+		{ EGL_MIN_SWAP_INTERVAL, "EGL_MIN_SWAP_INTERVAL" },
+		{ EGL_NATIVE_RENDERABLE, "EGL_NATIVE_RENDERABLE" },
+		{ EGL_COLOR_BUFFER_TYPE, "EGL_COLOR_BUFFER_TYPE" },
+		{ EGL_BUFFER_SIZE, "EGL_BUFFER_SIZE" },
+		{ EGL_CONFIG_ID, "EGL_CONFIG_ID" },
+		{ EGL_SAMPLES, "EGL_SAMPLES" },
+	};
+	
+	for (int i = 0; i < (int)(sizeof(vals)/sizeof(vals[0])); i++) {
+		EGLint value;
+		eglGetConfigAttrib(egl_dpy, config, vals[i].value, &value);
+		INFO_LOG(G3D, "  %s = %d", vals[i].name, value);
+	}
+}
+
+const char *cInterfaceEGL::EGLGetErrorString(EGLint error) {
+	switch (error) {
+	case EGL_SUCCESS: return "EGL_SUCCESS";
+	case EGL_NOT_INITIALIZED: return "EGL_NOT_INITIALIZED";
+	case EGL_BAD_ACCESS: return "EGL_BAD_ACCESS";
+	case EGL_BAD_ALLOC: return "EGL_BAD_ALLOC";
+	case EGL_BAD_ATTRIBUTE: return "EGL_BAD_ATTRIBUTE";
+	case EGL_BAD_CONTEXT: return "EGL_BAD_CONTEXT";
+	case EGL_BAD_CONFIG: return "EGL_BAD_CONFIG";
+	case EGL_BAD_CURRENT_SURFACE: return "EGL_BAD_CURRENT_SURFACE";
+	case EGL_BAD_DISPLAY: return "EGL_BAD_DISPLAY";
+	case EGL_BAD_SURFACE: return "EGL_BAD_SURFACE";
+	case EGL_BAD_MATCH: return "EGL_BAD_MATCH";
+	case EGL_BAD_PARAMETER: return "EGL_BAD_PARAMETER";
+	case EGL_BAD_NATIVE_PIXMAP: return "EGL_BAD_NATIVE_PIXMAP";
+	case EGL_BAD_NATIVE_WINDOW: return "EGL_BAD_NATIVE_WINDOW";
+	case EGL_CONTEXT_LOST: return "EGL_CONTEXT_LOST";
+	default:
+		return "(UNKNOWN)";
+	}
+}
+
 // Create rendering window.
-bool cInterfaceEGL::Create(void *window_handle, bool core)
+bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 {
 	const char *s;
 	EGLint egl_major, egl_minor;
@@ -118,27 +169,43 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 	}
 	INFO_LOG(G3D, "eglInitialize() succeeded\n");
 
-	/* Detection code */
-	EGLConfig config;
-	EGLint num_configs;
+	if (s_opengl_mode == MODE_DETECT)
+		DetectMode();
 
-	DetectMode();
-
-	// attributes for a visual in RGBA format with at least
-	// 8 bits per color, 16 bits of depth and 8 bits of stencil.
-	int attribs[] = {
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+	int attribs32[] = {
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Keep this first!
 		EGL_RED_SIZE, 8,
 		EGL_GREEN_SIZE, 8,
 		EGL_BLUE_SIZE, 8,
 		EGL_ALPHA_SIZE, 8,
 		EGL_DEPTH_SIZE, 16,
 		EGL_STENCIL_SIZE, 8,
-		EGL_NONE };
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_TRANSPARENT_TYPE, EGL_NONE,
+		EGL_SAMPLES, 0,
+		EGL_NONE, 0
+	};
+	int attribs16[] = {
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Keep this first!
+		EGL_RED_SIZE, 5,
+		EGL_GREEN_SIZE, 6,
+		EGL_BLUE_SIZE, 5,
+		EGL_ALPHA_SIZE, 0,
+		EGL_DEPTH_SIZE, 16,
+		EGL_STENCIL_SIZE, 8,
+		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+		EGL_TRANSPARENT_TYPE, EGL_NONE,
+		EGL_SAMPLES, 0,
+		EGL_NONE, 0
+	};
+	int *attribs = attribs32;
+	if (use16bit) {
+		attribs = attribs16;
+	}
 
 	EGLint ctx_attribs[] = {
 		EGL_CONTEXT_CLIENT_VERSION, 2,
-		EGL_NONE
+		EGL_NONE, 0
 	};
 
 	switch (s_opengl_mode) {
@@ -155,17 +222,32 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 			ctx_attribs[1] = 3;
 		break;
 		default:
-			ERROR_LOG(G3D, "Unknown opengl mode set\n");
+			ERROR_LOG(G3D, "Unknown OpenGL mode set\n");
 			return false;
 		break;
 	}
 
-	if (!eglChooseConfig(egl_dpy, attribs, &config, 1, &num_configs)) {
-		INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
-		exit(1);
+	EGLConfig *configs;
+	EGLint num_configs;
+	if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
+		INFO_LOG(G3D, "Error: couldn't get a number of configs\n");
+		eglTerminate(egl_dpy);
+		return false;
 	}
 
-	INFO_LOG(G3D, "eglChooseConfig successful");
+	configs = new EGLConfig[num_configs];
+
+	if (!eglChooseConfig(egl_dpy, attribs, configs, num_configs, &num_configs)) {
+		INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
+		eglTerminate(egl_dpy);
+		return false;
+	}
+
+	INFO_LOG(G3D, "eglChooseConfig successful: num_configs=%d, choosing config 0", num_configs);
+	for (int i = 0; i < num_configs; i++) {
+		INFO_LOG(G3D, "Config %d:", i);
+		LogEGLConfig(egl_dpy, configs[i]);
+	}
 
 	if (s_opengl_mode == MODE_OPENGL)
 		eglBindAPI(EGL_OPENGL_API);
@@ -173,7 +255,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 		eglBindAPI(EGL_OPENGL_ES_API);
 
 	EGLNativeWindowType host_window = (EGLNativeWindowType) window_handle;
-	EGLNativeWindowType native_window = InitializePlatform(host_window, config);
+	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[0]);
 
 	s = eglQueryString(egl_dpy, EGL_VERSION);
 	INFO_LOG(G3D, "EGL_VERSION = %s\n", s);
@@ -187,18 +269,25 @@ bool cInterfaceEGL::Create(void *window_handle, bool core)
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
 	INFO_LOG(G3D, "EGL_CLIENT_APIS = %s\n", s);
 
-	egl_ctx = eglCreateContext(egl_dpy, config, EGL_NO_CONTEXT, ctx_attribs );
+	egl_ctx = eglCreateContext(egl_dpy, configs[0], EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_ctx) {
-		INFO_LOG(G3D, "Error: eglCreateContext failed\n");
-		exit(1);
+		INFO_LOG(G3D, "Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
+		eglTerminate(egl_dpy);
+		delete[] configs;
+		return false;
 	}
 
-	egl_surf = eglCreateWindowSurface(egl_dpy, config, native_window, nullptr);
+	egl_surf = eglCreateWindowSurface(egl_dpy, configs[0], native_window, nullptr);
 	if (!egl_surf) {
-		INFO_LOG(G3D, "Error: eglCreateWindowSurface failed\n");
-		exit(1);
+		INFO_LOG(G3D, "Error: eglCreateWindowSurface failed: native_window=%p error=%s ctx_attribs[1]==%d\n", native_window, EGLGetErrorString(eglGetError()), ctx_attribs[1]);
+
+		eglDestroyContext(egl_dpy, egl_ctx);
+		eglTerminate(egl_dpy);
+		delete[] configs;
+		return false;
 	}
 
+	delete[] configs;
 	return true;
 }
 

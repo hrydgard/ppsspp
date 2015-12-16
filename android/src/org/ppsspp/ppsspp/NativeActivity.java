@@ -380,12 +380,12 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
 	{
-		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height);
+		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// Make sure we have fresh display metrics so the computations go right.
 		// This is needed on some very old devices, I guess event order is different or something...
 		Point sz = new Point();
         updateDisplayMetrics(sz);
-        NativeApp.backbufferResize(width, height);
+        NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
 		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
 			mRenderLoopThread = new Thread(mEmulationRunner);
