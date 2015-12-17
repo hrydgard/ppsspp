@@ -289,6 +289,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
 void EnableCrashingOnCrashes() {
 	typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags);
 	typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags);

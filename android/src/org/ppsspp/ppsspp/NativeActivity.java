@@ -197,10 +197,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         	detectOptimalAudioSettings();
         }
 
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			askForStoragePermission();
-		}
-    	// Get system information
+        // Get system information
 		ApplicationInfo appInfo = null;
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
@@ -742,8 +739,20 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 
 	@TargetApi(11)
+	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
    		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
+	}
+
+	@TargetApi(14)
+	@SuppressWarnings("deprecation")
+	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
+   		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+	}
+
+	@TargetApi(23)
+	private AlertDialog.Builder createDialogBuilderNew() {
+		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 	}
 
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
@@ -760,11 +769,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     	input.setText(defaultText);
     	input.selectAll();
 
+    	// Lovely!
     	AlertDialog.Builder bld = null;
     	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
     		bld = new AlertDialog.Builder(this);
-    	else
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     		bld = createDialogBuilderWithTheme();
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+    		bld = createDialogBuilderWithDeviceTheme();
+    	else
+    		bld = createDialogBuilderNew();
 
     	AlertDialog dlg = bld
     		.setView(fl)
@@ -935,8 +949,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		} else if (command.equals("recreate")) {
 			exitEGLRenderLoop();
 			recreate();
-		} else if (command.equals("ask_permission")) {
-
+		} else if (command.equals("ask_permission") && params.equals("storage")) {
+			askForStoragePermission();
 		}
     	return false;
     }
