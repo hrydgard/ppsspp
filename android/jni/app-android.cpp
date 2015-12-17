@@ -569,20 +569,20 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
 	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 
 	if (wnd == nullptr) {
 		ELOG("Error: Surface is null.");
-		return;
+		return false;
 	}
 
 	cInterfaceBase *gl = HostGL_CreateGLInterface();
 	if (!gl) {
 		ELOG("ERROR: Failed to create GL interface");
-		return;
+		return false;
 	}
 	ILOG("EGL interface created. Desired backbuffer size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
 
@@ -600,7 +600,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	if (!gl->Create(wnd, false, use565)) {
 		ELOG("EGL creation failed");
 		// TODO: What do we do now?
-		return;
+		return false;
 	}
 	gl->MakeCurrent();
 
@@ -671,4 +671,5 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	ANativeWindow_release(wnd);
 	renderLoopRunning = false;
 	WLOG("Render loop exited;");
+	return true;
 }

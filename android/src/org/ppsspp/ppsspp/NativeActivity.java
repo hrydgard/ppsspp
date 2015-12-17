@@ -299,12 +299,15 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
-			runEGLRenderLoop(mSurface);
+			if (!runEGLRenderLoop(mSurface)) {
+				// TODO: Add an alert dialog or something
+				Log.e(TAG, "Failed to start up OpenGL");
+			}
 			Log.i(TAG, "Left the render loop: " + mSurface);
 		}
 	};
 
-	public native void runEGLRenderLoop(Surface surface);
+	public native boolean runEGLRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
@@ -335,9 +338,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 
 		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
-		}
+		updateScreenRotation();
 
 		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
@@ -457,9 +458,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
             updateSystemUiVisibility();
         }
 		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
-		}
+		updateScreenRotation();
 
 		Log.i(TAG, "onResume");
 		if (mSurfaceView != null) {

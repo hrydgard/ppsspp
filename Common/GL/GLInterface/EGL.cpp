@@ -38,13 +38,16 @@ void cInterfaceEGL::DetectMode()
 		// attributes for a visual in RGBA format with at least
 		// 8 bits per color
 		int attribs[] = {
+			EGL_RENDERABLE_TYPE, renderable_type,
 			EGL_RED_SIZE, 8,
 			EGL_GREEN_SIZE, 8,
 			EGL_BLUE_SIZE, 8,
 			EGL_ALPHA_SIZE, 8,
 			EGL_DEPTH_SIZE, 16,
 			EGL_STENCIL_SIZE, 8,
-			EGL_RENDERABLE_TYPE, renderable_type,
+			EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+			EGL_TRANSPARENT_TYPE, EGL_NONE,
+			EGL_SAMPLES, 0,
 			EGL_NONE
 		};
 
