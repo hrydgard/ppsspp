@@ -48,6 +48,15 @@
     <ClInclude Include="ColorConv.h" />
     <ClInclude Include="ColorConvNEON.h" />
     <ClInclude Include="ThreadSafeList.h" />
+    <ClInclude Include="GL\GLInterface\EGL.h">
+      <Filter>GL\GLInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="GL\GLInterface\EGLAndroid.h">
+      <Filter>GL\GLInterface</Filter>
+    </ClInclude>
+    <ClInclude Include="GL\GLInterfaceBase.h">
+      <Filter>GL</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -84,6 +93,15 @@
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ColorConvNEON.cpp" />
+    <ClCompile Include="GL\GLInterface\EGL.cpp">
+      <Filter>GL\GLInterface</Filter>
+    </ClCompile>
+    <ClCompile Include="GL\GLInterface\EGLAndroid.cpp">
+      <Filter>GL\GLInterface</Filter>
+    </ClCompile>
+    <ClCompile Include="GL\GLInterface\GLInterface.cpp">
+      <Filter>GL\GLInterface</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
@@ -91,6 +109,12 @@
   <ItemGroup>
     <Filter Include="Crypto">
       <UniqueIdentifier>{1b593f03-7b28-4707-9228-4981796f5589}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GL">
+      <UniqueIdentifier>{2f2ca112-9e26-499e-9cb9-38a78b4ac09d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GL\GLInterface">
+      <UniqueIdentifier>{2c723cf4-75b6-406a-90c0-ebb7a13ba476}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
