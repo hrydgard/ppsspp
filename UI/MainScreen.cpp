@@ -722,48 +722,52 @@ void MainScreen::CreateViews() {
 		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	}
-	
-	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
-		mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
-		FLAG_HOMEBREWSTOREBUTTON,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED) {
+		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	Choice *hbStore = tabHomebrew->HomebrewStoreButton();
-	if (hbStore) {
-		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
-	}
+		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
+			mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
+			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
+			FLAG_HOMEBREWSTOREBUTTON,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	scrollAllGames->Add(tabAllGames);
-	scrollHomebrew->Add(tabHomebrew);
+		Choice *hbStore = tabHomebrew->HomebrewStoreButton();
+		if (hbStore) {
+			hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
+		}
 
-	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
-	leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
+		scrollAllGames->Add(tabAllGames);
+		scrollHomebrew->Add(tabHomebrew);
 
-	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		leftColumn->AddTab(mm->T("Games"), scrollAllGames);
+		leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 
-	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
-	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
-	if (g_Config.recentIsos.size() > 0) {
-		leftColumn->SetCurrentTab(0);
-	} else if (g_Config.iMaxRecent > 0) {
-		leftColumn->SetCurrentTab(1);
-	}
+		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
-	if (backFromStore_ || showHomebrewTab) {
-		leftColumn->SetCurrentTab(2);
-		backFromStore_ = false;
-		showHomebrewTab = false;
+		if (g_Config.recentIsos.size() > 0) {
+			leftColumn->SetCurrentTab(0);
+		} else if (g_Config.iMaxRecent > 0) {
+			leftColumn->SetCurrentTab(1);
+		}
+
+		if (backFromStore_ || showHomebrewTab) {
+			leftColumn->SetCurrentTab(2);
+			backFromStore_ = false;
+			showHomebrewTab = false;
+		}
+	} else {
+		leftColumn->Add(new Button(mm->T("Give PPSSPP permission to access storage")))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
 	}
 
 /* if (info) {
@@ -845,6 +849,11 @@ void MainScreen::CreateViews() {
 	}
 }
 
+UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
+	System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
 #ifdef ANDROID
 	// Go to app store
@@ -881,6 +890,9 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
+	}
+	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
+		RecreateViews();
 	}
 }
 

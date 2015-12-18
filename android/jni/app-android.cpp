@@ -86,44 +86,42 @@ InputState input_state;
 static bool renderer_inited = false;
 static bool first_lost = true;
 static std::string library_path;
+static std::map<SystemPermission, PermissionStatus> permissions;
 
+void PushCommand(std::string cmd, std::string param) {
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand(cmd, param));
+}
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("toast", text));
+	PushCommand("toast", text);
 }
 
 void ShowKeyboard() {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("showKeyboard", ""));
+	PushCommand("showKeyboard", "");
 }
 
 void Vibrate(int length_ms) {
-	lock_guard guard(frameCommandLock);
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
-	frameCommands.push(FrameCommand("vibrate", temp));
+	PushCommand("vibrate", temp);
 }
 
 void LaunchBrowser(const char *url) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchBrowser", url));
+	PushCommand("launchBrowser", url);
 }
 
 void LaunchMarket(const char *url) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchMarket", url));
+	PushCommand("launchMarket", url);
 }
 
 void LaunchEmail(const char *email_address) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchEmail", email_address));
+	PushCommand("launchEmail", email_address);
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand(command, parameter));
+	PushCommand(command, parameter);
 }
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -159,6 +157,8 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalFramesPerBuffer;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return (int)(display_hz * 1000.0);
+	case SYSPROP_SUPPORTS_PERMISSIONS:
+		return androidVersion >= 23;  // 6.0 Marshmallow introduced run time permissions.
 	default:
 		return -1;
 	}
@@ -327,6 +327,22 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *en
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {
+	switch (permission) {
+	case SYSTEM_PERMISSION_STORAGE:
+		PushCommand("ask_permission", "storage");
+		break;
+	}
+}
+
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
+	if (androidVersion < 23) {
+		return PERMISSION_STATUS_GRANTED;
+	} else {
+		return permissions[permission];
+	}
+}
+
 extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 	float scaledX = x * dp_xscale;
@@ -460,9 +476,21 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
+	// Some messages are caught by app-android.
 	if (msg == "moga") {
 		mogaVersion = prm;
+	} else if (msg == "permission_pending") {
+		// TODO: Add support for other permissions
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
+	} else if (msg == "permission_denied") {
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
+	} else if (msg == "permission_granted") {
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
 	}
+
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
 

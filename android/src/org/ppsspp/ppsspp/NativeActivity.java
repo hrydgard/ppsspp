@@ -5,6 +5,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
@@ -157,6 +158,30 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
+	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1337;
+
+	@TargetApi(23)
+	public void askForStoragePermission() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+				NativeApp.sendMessage("permission_pending", "storage");
+				this.requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
+			} else {
+				NativeApp.sendMessage("permission_granted", "storage");
+			}
+		}
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode,
+	        String permissions[], int[] grantResults) {
+		if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+			NativeApp.sendMessage("permission_granted", "storage");
+		} else {
+			NativeApp.sendMessage("permission_denied", "storage");
+		}
+	}
+
 	public void setShortcutParam(String shortcutParam) {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
 	}
@@ -172,7 +197,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         	detectOptimalAudioSettings();
         }
 
-    	// Get system information
+        // Get system information
 		ApplicationInfo appInfo = null;
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
@@ -714,8 +739,20 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 
 	@TargetApi(11)
+	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
    		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
+	}
+
+	@TargetApi(14)
+	@SuppressWarnings("deprecation")
+	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
+   		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+	}
+
+	@TargetApi(23)
+	private AlertDialog.Builder createDialogBuilderNew() {
+		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 	}
 
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
@@ -732,11 +769,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     	input.setText(defaultText);
     	input.selectAll();
 
+    	// Lovely!
     	AlertDialog.Builder bld = null;
     	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
     		bld = new AlertDialog.Builder(this);
-    	else
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     		bld = createDialogBuilderWithTheme();
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+    		bld = createDialogBuilderWithDeviceTheme();
+    	else
+    		bld = createDialogBuilderNew();
 
     	AlertDialog dlg = bld
     		.setView(fl)
@@ -907,6 +949,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		} else if (command.equals("recreate")) {
 			exitEGLRenderLoop();
 			recreate();
+		} else if (command.equals("ask_permission") && params.equals("storage")) {
+			askForStoragePermission();
 		}
     	return false;
     }

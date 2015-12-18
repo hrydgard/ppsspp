@@ -974,3 +974,7 @@ void NativeShutdown() {
 	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }
+
+void NativePermissionStatus(SystemPermission permission, PermissionStatus status) {
+	// TODO: Send this through the screen system? Nicer than listening to string messages
+}
