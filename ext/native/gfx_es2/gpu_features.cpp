@@ -210,12 +210,25 @@ void CheckGLExtensions() {
 		}
 	}
 
-	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
-	if (extString) {
-		g_all_gl_extensions = extString;
-	} else {
+	const char *extString = nullptr;
+	if (gl_extensions.ver[0] >= 3) {
+		// Let's use the new way for OpenGL 3.x+, required in the core profile.
+		GLint numExtensions = 0;
+		glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
 		g_all_gl_extensions = "";
-		extString = "";
+		for (GLint i = 0; i < numExtensions; ++i) {
+			g_all_gl_extensions += (const char *)glGetStringi(GL_EXTENSIONS, i);
+			g_all_gl_extensions += " ";
+		}
+		extString = g_all_gl_extensions.c_str();
+	} else {
+		extString = (const char *)glGetString(GL_EXTENSIONS);
+		if (extString) {
+			g_all_gl_extensions = extString;
+		} else {
+			g_all_gl_extensions = "";
+			extString = "";
+		}
 	}
 
 #ifdef WIN32
@@ -249,6 +262,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
 	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
 	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
+	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;

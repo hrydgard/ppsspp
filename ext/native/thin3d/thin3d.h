@@ -251,6 +251,7 @@ struct Thin3DVertexComponent {
 
 class Thin3DVertexFormat : public Thin3DObject {
 public:
+	virtual bool RequiresBuffer() = 0;
 };
 
 class Thin3DShader : public Thin3DObject {

@@ -35,6 +35,7 @@ struct GLExtensions {
 	char model[128];
 
 	bool IsGLES;
+	bool IsCoreContext;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	// OES
@@ -54,6 +55,7 @@ struct GLExtensions {
 	bool ARB_shader_image_load_store;
 	bool ARB_conservative_depth;
 	bool ARB_copy_image;
+	bool ARB_vertex_array_object;
 
 	// EXT
 	bool EXT_swap_control_tear;
