@@ -628,6 +628,9 @@
     <ClCompile Include="HW\SasReverb.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1169,6 +1172,9 @@
     </ClInclude>
     <ClInclude Include="HW\SasReverb.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\RamCachingFileLoader.h">
+      <Filter>FileLoaders</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
