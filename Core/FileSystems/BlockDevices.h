@@ -122,21 +122,5 @@ private:
 	u8 *tempBuf;
 };
 
-// This simply fully reads another block device and caches it in RAM.
-// A bit slow to initialize.
-class RAMBlockDevice : public BlockDevice
-{
-public:
-	RAMBlockDevice(BlockDevice *device);
-	~RAMBlockDevice();
-
-	bool ReadBlock(int blockNumber, u8 *outPtr) override;
-	u32 GetNumBlocks() override;
-
-private:
-	int totalBlocks_;
-	u8 *image_;
-};
-
 
 BlockDevice *constructBlockDevice(FileLoader *fileLoader);

@@ -582,7 +582,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #if defined(_M_X64)
-	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM (slow startup)")));
+	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
 #endif
 
 //#ifndef ANDROID
