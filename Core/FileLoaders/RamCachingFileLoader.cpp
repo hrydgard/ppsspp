@@ -70,11 +70,17 @@ void RamCachingFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
-	size_t readSize = ReadFromCache(absolutePos, bytes, data);
-	// While in case the cache size is too small for the entire read.
-	while (readSize < bytes) {
-		SaveIntoCache(absolutePos + readSize, bytes - readSize);
-		readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+	size_t readSize = 0;
+	if (cache_ == nullptr) {
+		lock_guard guard(backendMutex_);
+		readSize = backend_->ReadAt(absolutePos, bytes, data);
+	} else {
+		readSize = ReadFromCache(absolutePos, bytes, data);
+		// While in case the cache size is too small for the entire read.
+		while (readSize < bytes) {
+			SaveIntoCache(absolutePos + readSize, bytes - readSize);
+			readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+		}
 	}
 
 	StartReadAhead(absolutePos + readSize);
@@ -84,7 +90,10 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 }
 
 void RamCachingFileLoader::InitCache() {
-	cache_ = new u8[filesize_];
+	cache_ = (u8 *)malloc(filesize_);
+	if (cache_ == nullptr) {
+		return;
+	}
 
 	lock_guard guard(blocksMutex_);
 	u32 blockCount = (u32)((filesize_ + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
@@ -107,8 +116,10 @@ void RamCachingFileLoader::ShutdownCache() {
 
 	lock_guard guard(blocksMutex_);
 	blocks_.clear();
-	delete [] cache_;
-	cache_ = nullptr;
+	if (cache_ != nullptr) {
+		free(cache_);
+		cache_ = nullptr;
+	}
 }
 
 size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
@@ -183,6 +194,10 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
 }
 
 void RamCachingFileLoader::StartReadAhead(s64 pos) {
+	if (cache_ == nullptr) {
+		return;
+	}
+
 	lock_guard guard(blocksMutex_);
 	aheadPos_ = pos;
 	if (aheadThread_) {
