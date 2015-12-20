@@ -30,7 +30,6 @@
 #include <vector>
 
 #ifdef _WIN32
-#pragma comment(linker, "/subsystem:console")
 #define WIN32_LEAN_AND_MEAN
 #define VK_USE_PLATFORM_WIN32_KHR
 #define NOMINMAX              /* Don't let Windows define min() or max() */
@@ -41,8 +40,8 @@
 #include <unistd.h>
 #endif // _WIN32
 
-#include "ext/vulkan/vulkan.h"
-#include "ext/vulkan/vk_sdk_platform.h"
+#include "vulkan/vulkan.h"
+#include "vulkan/vk_sdk_platform.h"
 
  /* Amount of time, in nanoseconds, to wait for a command buffer to complete */
 #define FENCE_TIMEOUT 10000000000
