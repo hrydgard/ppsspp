@@ -386,7 +386,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 				return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
-			hleLogSuccessI(SCEKERNEL, 0, "waiting");
+			(void)hleLogSuccessI(SCEKERNEL, 0, "waiting");
 
 			// No match - must wait.
 			th.threadID = __KernelGetCurThread();
@@ -399,7 +399,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			__KernelSetEventFlagTimeout(e, timeoutPtr);
 			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false, "event flag waited");
 		} else {
-			hleLogSuccessI(SCEKERNEL, 0);
+			(void)hleLogSuccessI(SCEKERNEL, 0);
 		}
 
 		hleEatCycles(600);
@@ -449,7 +449,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 				return hleLogDebug(SCEKERNEL, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
-			hleLogSuccessI(SCEKERNEL, 0, "waiting");
+			(void)hleLogSuccessI(SCEKERNEL, 0, "waiting");
 
 			// No match - must wait.
 			th.threadID = __KernelGetCurThread();
@@ -465,7 +465,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			else
 				__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, true, "event flag waited");
 		} else {
-			hleLogSuccessI(SCEKERNEL, 0);
+			(void)hleLogSuccessI(SCEKERNEL, 0);
 			__KernelApplyEventFlagMatch(&e->nef.currentPattern, bits, wait, outBitsPtr);
 			hleCheckCurrentCallbacks();
 		}
