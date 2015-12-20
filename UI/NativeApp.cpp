@@ -101,9 +101,9 @@
 
 static UI::Theme ui_theme;
 
-#ifdef ARM
+#if defined(ARM) && defined(ANDROID)
 #include "../../android/jni/ArmEmitterTest.h"
-#elif defined(ARM64)
+#elif defined(ARM64) && defined(ANDROID)
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
