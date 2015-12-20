@@ -415,6 +415,7 @@ void JitSafeMemFuncs::Init(ThunkManager *thunks) {
 	using namespace Gen;
 
 	AllocCodeSpace(FUNCS_ARENA_SIZE);
+  MemoryAccess macc( GetCodePtr(), FUNCS_ARENA_SIZE );
 	thunks_ = thunks;
 
 	readU32 = GetCodePtr();

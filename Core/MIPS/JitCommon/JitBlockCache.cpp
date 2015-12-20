@@ -410,6 +410,7 @@ void JitBlockCache::LinkBlockExits(int i) {
 				//	nextExit = b.normalEntry + b.codeSize;
 				//}
 				ARMXEmitter emit(b.exitPtrs[e]);
+        MemoryAccess macc( b.exitPtrs[ e ], 4 );
 				emit.B(blocks_[destinationBlock].checkedEntry);
 				//u32 op = *((const u32 *)emit.GetCodePtr());
 				//// Overwrite with nops until the next unconditional branch.
@@ -422,7 +423,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
-				// Okay, this is a bit ugly, but we check here if it already has a JMP.
+        //MemoryAccess macc( b.exitPtrs[ e ], 16 );
+        // Okay, this is a bit ugly, but we check here if it already has a JMP.
 				// That means it doesn't have a full exit to pad with INT 3.
 				bool prelinked = *emit.GetCodePtr() == 0xE9;
 				emit.JMP(blocks_[destinationBlock].checkedEntry, true);
@@ -580,6 +582,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// I hope there's enough space...
 	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
 	ARMXEmitter emit((u8 *)b->checkedEntry);
+  MemoryAccess macc( b->checkedEntry, 8 + 4 + 4 );
 	emit.MOVI2R(R0, b->originalAddress);
 	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
@@ -591,7 +594,8 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// Not entirely ideal, but .. pretty good.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
 	XEmitter emit((u8 *)b->checkedEntry);
-	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
+  MemoryAccess macc( b->checkedEntry, 6 + 5 );
+  emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
 	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
 
 #elif defined(ARM64)

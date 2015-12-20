@@ -38,7 +38,11 @@ struct GenericListViewDef
 // the key was pressed between the last call to GetAsyncKeyState
 inline bool KeyDownAsync(int vkey)
 {
+#ifdef UWPAPP
+  return false;
+#else
 	return (GetAsyncKeyState(vkey) & 0x8000) != 0;
+#endif
 }
 
 class GenericListControl
@@ -67,7 +71,9 @@ private:
 	void SelectAll();
 
 	HWND handle;
+#ifndef USING_UWP_UI
 	WNDPROC oldProc;
+#endif
 	const GenericListViewColumn* columns;
 	int columnCount;
 	wchar_t stringBuffer[256];

@@ -96,6 +96,90 @@ static void *SearchForFreeMem(size_t size)
 }
 #endif
 
+#ifdef UWPAPP
+#include <map>
+std::map< void*, std::pair< size_t, bool > > execMem;
+auto FindExecRegion( void* ptr )
+{
+  UINT_PTR iptr = (UINT_PTR)ptr;
+  for ( const auto& iter : execMem )
+  {
+    UINT_PTR imem = (UINT_PTR)iter.first;
+    if ( iptr >= imem && iptr < imem + iter.second.first )
+      return std::make_pair( iter.first, iter.second.first );
+  }
+
+  return std::make_pair( (void*)nullptr, size_t( 0 ) );
+}
+void MakeExecutable( void* ptr, size_t size )
+{
+#if 1
+  auto block = FindExecRegion( ptr );
+  if ( block.first == nullptr )
+  {
+    __debugbreak();
+    return;
+  }
+
+  ULONG oldProtection;
+  auto result = VirtualProtectFromApp( block.first, block.second, PAGE_EXECUTE, &oldProtection );
+  if ( result == FALSE )
+  {
+    __debugbreak();
+  }
+
+  execMem[ block.first ].second = true;
+#else
+  if ( ptr == nullptr || size == 0 )
+  {
+    __debugbreak();
+    return;
+  }
+
+  ULONG oldProtection;
+  auto result = VirtualProtectFromApp( ptr, size, PAGE_EXECUTE, &oldProtection );
+  if ( result == FALSE )
+  {
+    __debugbreak();
+  }
+#endif
+}
+
+void MakeModifiable( void* ptr, size_t size )
+{
+#if 1
+  auto block = FindExecRegion( ptr );
+  if ( block.first == nullptr )
+  {
+    __debugbreak();
+    return;
+  }
+
+  ULONG oldProtection;
+  auto result = VirtualProtectFromApp( block.first, block.second, PAGE_READWRITE, &oldProtection );
+  if ( result == FALSE )
+  {
+    __debugbreak();
+  }
+
+  execMem[ block.first ].second = false;
+#else
+  if ( ptr == nullptr || size == 0 )
+  {
+    __debugbreak();
+    return;
+  }
+
+  ULONG oldProtection;
+  auto result = VirtualProtectFromApp( ptr, size, PAGE_READWRITE, &oldProtection );
+  if ( result == FALSE )
+  {
+    __debugbreak();
+  }
+#endif
+}
+#endif // UWPAPP
+
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 
@@ -123,7 +207,24 @@ void *AllocateExecutableMemory(size_t size, bool exec) {
 	}
 	else
 #endif
-		ptr = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#ifdef UWPAPP
+  ptr = VirtualAllocFromApp( 0, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE );
+  if ( ptr )
+  {
+    execMem[ ptr ].first  = size;
+    execMem[ ptr ].second = false;
+  }
+
+  ULONG oldProtection;
+  auto result = VirtualProtectFromApp( ptr, size, PAGE_EXECUTE, &oldProtection );
+  if ( result == FALSE )
+  {
+    __debugbreak();
+  }
+
+#else
+  ptr = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+#endif
 #elif defined(__SYMBIAN32__)
 	//This function may be called more than once, and we want to create only one big
 	//memory chunk for all the executable code for the JIT
@@ -233,6 +334,9 @@ void FreeMemoryPages(void *ptr, size_t size)
 	size = (size + 4095) & (~4095);
 	if (ptr)
 	{
+#ifdef UWPAPP
+    execMem.erase( ptr );
+#endif
 #ifdef _WIN32
 		if (!VirtualFree(ptr, 0, MEM_RELEASE))
 			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());

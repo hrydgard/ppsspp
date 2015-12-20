@@ -23,6 +23,7 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
+#include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 

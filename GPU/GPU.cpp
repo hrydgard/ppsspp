@@ -24,8 +24,10 @@
 #include "GPU/Software/SoftGpu.h"
 
 #if defined(_WIN32)
+#ifndef UWPAPP
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/GPU_DX9.h"
+#endif
 #endif
 
 GPUStatistics gpuStats;
@@ -51,7 +53,9 @@ bool GPU_Init() {
 		break;
 	case GPU_DIRECTX9:
 #if defined(_WIN32)
+#ifndef UWPAPP
 		SetGPU(new DIRECTX9_GPU());
+#endif
 #endif
 		break;
 	}

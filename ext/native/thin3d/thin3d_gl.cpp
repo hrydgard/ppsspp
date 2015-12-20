@@ -95,7 +95,7 @@ public:
 		if (enabled) {
 			glEnable(GL_BLEND);
 			glBlendEquationSeparate(eqCol, eqAlpha);
-			glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
+      glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
 		} else {
 			glDisable(GL_BLEND);
 		}

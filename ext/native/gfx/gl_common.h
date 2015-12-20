@@ -4,8 +4,19 @@
 #include <OpenGLES/ES3/gl.h>
 #include <OpenGLES/ES3/glext.h>
 #elif defined(USING_GLES2)
+#ifdef UWPAPP
+#define GL_GLEXT_PROTOTYPES
+#define NOMINMAX
+#include "EGL/egl.h"
+#include "EGL/eglext.h"
+#include "GLES2/gl2.h"
+#include "GLES2/gl2ext.h"
+#undef GL_GLEXT_PROTOTYPES
+#include "GLES3/gl3.h"
+#else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#endif
 // At least Nokia platforms need the three below
 #include <KHR/khrplatform.h>
 typedef char GLchar;

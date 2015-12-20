@@ -65,6 +65,10 @@
 
 #endif
 
+#ifdef UWPAPP
+#include <thread>
+#else
+
 namespace std
 {
 
@@ -315,6 +319,8 @@ inline thread::id get_id()
 }	// namespace this_thread
 
 }	// namespace std
+
+#endif
 
 #undef USE_RVALUE_REFERENCES
 #undef USE_BEGINTHREADEX

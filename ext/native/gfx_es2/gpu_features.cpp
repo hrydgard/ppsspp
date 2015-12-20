@@ -5,7 +5,7 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined(USING_GLES2)
 #include "GL/wglew.h"
 #endif
 
@@ -219,7 +219,7 @@ void CheckGLExtensions() {
 		extString = "";
 	}
 
-#ifdef WIN32
+#if defined WIN32 && !defined USING_GLES2
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
 		wglString = wglGetExtensionsStringEXT();

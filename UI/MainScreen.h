@@ -27,6 +27,10 @@ class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
 
+  void NeedRefresh();
+
+  virtual void Draw( UIContext &dc ) override;
+
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
 	UI::Event OnHighlight;
@@ -56,6 +60,7 @@ private:
 	std::string lastLink_;
 	int flags_;
 	UI::Choice *homebrewStoreButton_;
+  bool needRefresh = false;
 };
 
 class MainScreen : public UIScreenWithBackground {
@@ -83,6 +88,7 @@ private:
 	UI::EventReturn OnGameHighlight(UI::EventParams &e);
 	// Event handlers
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
+	UI::EventReturn OnImportFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnRecentChange(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
@@ -96,6 +102,7 @@ private:
 
 	UI::LinearLayout *upgradeBar_;
 	UI::TabHolder *tabHolder_;
+  GameBrowser *tabAllGames_;
 
 	std::string highlightedGamePath_;
 	std::string prevHighlightedGamePath_;

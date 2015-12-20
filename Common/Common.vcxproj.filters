@@ -84,6 +84,7 @@
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ColorConvNEON.cpp" />
+    <ClCompile Include="ArmABI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

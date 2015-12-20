@@ -370,8 +370,12 @@ void __AudioUpdate() {
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-	resampler.Mix(outstereo, numFrames, false, sampleRate);
+	int result = resampler.Mix(outstereo, numFrames, false, sampleRate);
+#ifdef UWPAPP
+  return result;
+#else
 	return numFrames;
+#endif
 }
 
 const AudioDebugStats *__AudioGetDebugStats() {

@@ -28,7 +28,9 @@
 #include "Core/Screenshot.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #ifdef _WIN32
+#ifndef UWPAPP
 #include "GPU/Directx9/GPU_DX9.h"
+#endif
 #endif
 #include "GPU/GLES/GLES_GPU.h"
 #include "GPU/GPUInterface.h"
@@ -224,8 +226,10 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 			success = GLES_GPU::GetDisplayFramebuffer(buf);
 #ifdef _WIN32
+#ifndef UWPAPP
 		} else if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 			success = DX9::DIRECTX9_GPU::GetDisplayFramebuffer(buf);
+#endif
 #endif
 		}
 	}

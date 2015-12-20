@@ -74,8 +74,8 @@ struct GLExtensions {
 	bool ARM_shader_framebuffer_fetch;
 
 	// EGL
-	bool EGL_NV_system_time;
-	bool EGL_NV_coverage_sample;
+	bool EGL_NV_system_time_;
+	bool EGL_NV_coverage_sample_;
 
 	// Bugs
 	int bugs;

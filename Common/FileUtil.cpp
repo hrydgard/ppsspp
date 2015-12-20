@@ -143,10 +143,9 @@ bool Exists(const std::string &filename) {
 #if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
 
-	// Make sure Windows will no longer handle critical errors, which means no annoying "No disk" dialog
-	int OldMode = SetErrorMode(SEM_FAILCRITICALERRORS);
-	bool success = GetFileAttributes(copy.c_str()) != INVALID_FILE_ATTRIBUTES;
-	SetErrorMode(OldMode);
+  WIN32_FILE_ATTRIBUTE_DATA attribs;
+	bool success = GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &attribs) != FALSE 
+              && attribs.dwFileAttributes != INVALID_FILE_ATTRIBUTES;
 	return success;
 #else
 	struct stat64 file_info;
@@ -162,12 +161,13 @@ bool IsDirectory(const std::string &filename)
 
 #if defined(_WIN32)
 	std::wstring copy = ConvertUTF8ToWString(fn);
-	DWORD result = GetFileAttributes(copy.c_str());
-	if (result == INVALID_FILE_ATTRIBUTES) {
+  WIN32_FILE_ATTRIBUTE_DATA attribs;
+  bool success = GetFileAttributesEx(copy.c_str(), GetFileExInfoStandard, &attribs) != FALSE;
+	if (!success || attribs.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
 		WARN_LOG(COMMON, "GetFileAttributes failed on %s: %08x", fn.c_str(), GetLastError());
 		return false;
 	}
-	return (result & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
+	return (attribs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
 #else
 	std::string copy(fn);
 	struct stat64 file_info;
@@ -352,8 +352,13 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
+#ifdef UWPAPP
+  if (SUCCEEDED(CopyFile2(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), NULL)))
+    return true;
+#else
 	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
 		return true;
+#endif
 
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
 			srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg());
@@ -575,7 +580,7 @@ bool DeleteDirRecursively(const std::string &directory)
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
+	HANDLE hFind = FindFirstFileEx(ConvertUTF8ToWString(directory + "\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{

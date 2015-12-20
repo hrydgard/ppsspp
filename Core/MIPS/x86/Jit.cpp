@@ -294,6 +294,12 @@ void Jit::EatInstruction(MIPSOpcode op)
 void Jit::Compile(u32 em_address)
 {
 	PROFILE_THIS_SCOPE("jitc");
+
+  bool cleanSlate = false;
+
+  {
+  MemoryAccess macc( GetCodePtr(), JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 4 );
+
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
 	{
 		ClearCache();
@@ -303,8 +309,6 @@ void Jit::Compile(u32 em_address)
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
-
-	bool cleanSlate = false;
 
 	if (js.hasSetRounding && !js.lastSetRounding) {
 		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
@@ -322,7 +326,7 @@ void Jit::Compile(u32 em_address)
 		js.startDefaultPrefix = false;
 		cleanSlate = true;
 	}
-
+  }
 	if (cleanSlate) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();

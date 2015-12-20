@@ -87,3 +87,32 @@ debian/ppsspp/
 
 # YouCompleteMe file
 .ycm_extra_conf.pyc
+/Common/ARM
+/Common/UWPDebug
+/Common/UWPRelease
+/Core/ARM
+/Core/UWPDebug
+/Core/UWPRelease
+/GPU/ARM
+/GPU/UWPDebug
+/GPU/UWPRelease
+/UI/ARM
+/UI/UWPDebug
+/UI/UWPRelease
+/UWP/ARM
+/UWP/UWPDebug
+/UWP/UWPRelease
+/UWP/Generated Files
+/Windows/ARM
+/Windows/UWPDebug
+/Windows/UWPRelease
+/ext/ARM
+/ext/libkirk/ARM
+/ext/libkirk/UWPDebug
+/ext/libkirk/UWPRelease
+/ext/native/ARM
+/ext/native/UWPDebug
+/ext/native/UWPRelease
+/ext/zlib/ARM
+/ext/zlib/UWPDebug
+/ext/zlib/UWPRelease

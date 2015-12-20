@@ -150,6 +150,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	}
 	screenManager()->finishDialog(this, DR_OK);
 #ifdef _WIN32
+#ifndef UWPAPP
 	cheatFile = activeCheatFile;
 	// Can't rely on a .txt file extension to auto-open in the right editor,
 	// so let's find notepad
@@ -179,6 +180,7 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (!retval) {
 		ERROR_LOG(COMMON, "Failed creating notepad process");
 	}
+#endif
 #elif !defined(MOBILE_DEVICE)
 #if defined(__APPLE__)
 	cheatFile = "open ";

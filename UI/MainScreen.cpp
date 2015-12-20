@@ -422,8 +422,10 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 		path_.SetPath(fileName.toStdString());
 	else
 		return UI::EVENT_DONE;
+#elif defined(UWPAPP)
+  return UI::EVENT_SKIPPED;
 #elif defined(_WIN32)
-	I18NCategory *mm = GetI18NCategory("MainMenu");
+  I18NCategory *mm = GetI18NCategory("MainMenu");
 	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 	if (!folder.size())
 		return UI::EVENT_DONE;
@@ -467,10 +469,12 @@ void GameBrowser::Refresh() {
 			topBar->Add(new Spacer(2.0f));
 			Margins pathMargins(5, 0);
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(1.0f)));
+#ifndef UWPAPP
 #if defined(_WIN32) || defined(USING_QT_UI)
 			topBar->Add(new Choice(mm->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
 			topBar->Add(new Choice(mm->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+#endif
 #endif
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(1.0f)));
@@ -683,6 +687,22 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+void GameBrowser::Draw( UIContext &dc )
+{
+  if ( needRefresh )
+  {
+    Refresh();
+    needRefresh = false;
+  }
+
+  UI::LinearLayout::Draw( dc );
+}
+
+void GameBrowser::NeedRefresh()
+{
+  needRefresh = true;
+}
+
 MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
 	SetBackgroundAudioGame("");
@@ -726,7 +746,14 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
+  bool allowBrowsing = true;
+  std::string gameDir = g_Config.currentDirectory;
+#ifdef UWPAPP
+  std::wstring wgameDir( Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data() );
+  gameDir = std::string( wgameDir.begin(), wgameDir.end() );
+  allowBrowsing = false;
+#endif
+	tabAllGames_ = new GameBrowser(gameDir, allowBrowsing, &g_Config.bGridView2,
 		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
@@ -739,19 +766,19 @@ void MainScreen::CreateViews() {
 		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
 	}
 
-	scrollAllGames->Add(tabAllGames);
+	scrollAllGames->Add(tabAllGames_);
 	scrollHomebrew->Add(tabHomebrew);
 
 	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
 	leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabAllGames_->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 
-	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabAllGames_->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
-	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+	tabAllGames_->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
 	if (g_Config.recentIsos.size() > 0) {
@@ -792,7 +819,9 @@ void MainScreen::CreateViews() {
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(UWPAPP)
+	rightColumnItems->Add(new Choice(mm->T("Import","Import...")))->OnClick.Handle(this, &MainScreen::OnImportFile);
+#elif defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
@@ -911,6 +940,17 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 	MainWindow::BrowseAndBoot("");
 #endif
 	return UI::EVENT_DONE;
+}
+
+#ifdef UWPAPP
+void ImportGame( std::function< void() > );
+#endif
+
+UI::EventReturn MainScreen::OnImportFile(UI::EventParams &e) {
+#ifdef UWPAPP
+  ImportGame( [ this ]() { tabAllGames_->NeedRefresh(); } );
+#endif
+  return UI::EVENT_DONE;
 }
 
 extern void DrawBackground(UIContext &dc, float alpha);

@@ -21,8 +21,8 @@
 #include "Globals.h"
 
 static inline s16 ApplySampleVolume(s16 sample, int vol) {
-#ifdef ARM
-	register int r;
+#if defined ARM && !defined _WIN32
+  register int r;
 	asm volatile("smulwb %0, %1, %2\n\t" \
 	             "ssat %0, #16, %0" \
 	             : "=r"(r) : "r"(vol), "r"(sample));
