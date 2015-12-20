@@ -25,6 +25,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
+#include "base/mutex.h"
 
 class FileLoader;
 
@@ -106,6 +107,7 @@ public:
 
 private:
 	FileLoader *fileLoader_;
+	static recursive_mutex mutex_;
 	u32 lbaSize;
 
 	u32 psarOffset;
