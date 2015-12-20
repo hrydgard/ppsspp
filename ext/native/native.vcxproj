@@ -46,7 +46,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
@@ -160,6 +159,8 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -346,7 +347,6 @@
     <ClCompile Include="ext\libpng17\pngrtran.c" />
     <ClCompile Include="ext\libpng17\pngrutil.c" />
     <ClCompile Include="ext\libpng17\pngset.c" />
-    <ClCompile Include="ext\libpng17\pngtest.c" />
     <ClCompile Include="ext\libpng17\pngtrans.c" />
     <ClCompile Include="ext\libpng17\pngwio.c" />
     <ClCompile Include="ext\libpng17\pngwrite.c" />

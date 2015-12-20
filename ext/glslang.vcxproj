@@ -141,9 +141,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="glslang\glslang\ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="glslang\glslang\GenericCodeGen\CodeGen.cpp" />
     <ClCompile Include="glslang\glslang\GenericCodeGen\Link.cpp" />
     <ClCompile Include="glslang\glslang\MachineIndependent\Constant.cpp" />
@@ -204,7 +201,6 @@
     <ClInclude Include="glslang\glslang\MachineIndependent\Scan.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\ScanContext.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\SymbolTable.h" />
-    <ClInclude Include="glslang\glslang\MachineIndependent\unistd.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\Versions.h" />
     <ClInclude Include="glslang\glslang\Public\ShaderLang.h" />
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
@@ -219,7 +215,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="glslang\glslang\MachineIndependent\glslang.y" />
-    <None Include="glslang\glslang\MachineIndependent\Makefile" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
