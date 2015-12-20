@@ -32,5 +32,3 @@ public:
 	Thin3DContext *CreateThin3DContext() override;
 };
 
-void Vulkan_BeginSurfaceRender();
-void Vulkan_EndSurfaceRender();

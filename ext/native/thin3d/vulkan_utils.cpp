@@ -156,7 +156,6 @@ void VulkanImage::ChangeLayout(VkCommandBuffer cmd, VkImageAspectFlags aspectMas
 	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, false, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
-
 bool CreateShaderModule(VkDevice device, const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
 	VkShaderModuleCreateInfo sm;
 	sm.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;

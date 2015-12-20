@@ -9,7 +9,10 @@
 #undef new
 #endif
 
+#pragma warning(push)
+#pragma warning(disable:4996)
 #include "glslang/SPIRV/GlslangToSpv.h"
+#pragma warning(pop)
 
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
@@ -61,19 +64,19 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
-		instance_layer_names.push_back("VK_LAYER_LUNARG_Threading");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_DrawState");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_Image");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_MemTracker");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_ObjectTracker");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_ParamChecker");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_threading");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_image");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
 	
-		device_layer_names.push_back("VK_LAYER_LUNARG_Threading");
-		device_layer_names.push_back("VK_LAYER_LUNARG_DrawState");
-		device_layer_names.push_back("VK_LAYER_LUNARG_Image");
-		device_layer_names.push_back("VK_LAYER_LUNARG_MemTracker");
-		device_layer_names.push_back("VK_LAYER_LUNARG_ObjectTracker");
-		device_layer_names.push_back("VK_LAYER_LUNARG_ParamChecker");
+		device_layer_names.push_back("VK_LAYER_LUNARG_threading");
+		device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		device_layer_names.push_back("VK_LAYER_LUNARG_image");
+		device_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
+		device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
+		device_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
 
 		instance_extension_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
@@ -542,7 +545,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   assert(queue_count >= 1);
 
   bool found = false;
-  for (int i = 0; i < queue_count; i++) {
+  for (int i = 0; i < (int)queue_count; i++) {
 		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			queue_info.queueFamilyIndex = i;
 			found = true;
