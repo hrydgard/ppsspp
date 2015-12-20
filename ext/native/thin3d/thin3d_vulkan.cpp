@@ -124,7 +124,8 @@ public:
 		b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		b.queueFamilyIndexCount = 0;
 		b.pQueueFamilyIndices = nullptr;
-		assert(VK_SUCCESS == vkCreateBuffer(device, &b, nullptr, &buffer_));
+		VkResult res = vkCreateBuffer(device, &b, nullptr, &buffer_);
+		assert(VK_SUCCESS == res);
 
 		// Okay, that's the buffer. Now let's allocate some memory for it.
 		VkMemoryAllocateInfo alloc;
@@ -133,8 +134,10 @@ public:
 		memMan->memory_type_from_properties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
 		alloc.allocationSize = size;
 
-		assert(VK_SUCCESS == vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_));
-		assert(VK_SUCCESS == vkBindBufferMemory(device, buffer_, deviceMemory_, 0));
+		res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
+		assert(VK_SUCCESS == res);
+		res = vkBindBufferMemory(device, buffer_, deviceMemory_, 0);
+		assert(VK_SUCCESS == res);
 	}
 
 	void Destroy(VkDevice device) {
@@ -146,7 +149,8 @@ public:
 
 	void Begin(VkDevice device) {
 		offset_ = 0;
-		assert(VK_SUCCESS == vkMapMemory(device, deviceMemory_, 0, size_, 0, (void **)(&writePtr_)));
+		VkResult res = vkMapMemory(device, deviceMemory_, 0, size_, 0, (void **)(&writePtr_));
+		assert(VK_SUCCESS == res);
 	}
 
 	void End(VkDevice device) {
@@ -273,7 +277,7 @@ private:
 // invoke Compile again to recreate the shader then link them together.
 class Thin3DVKShader : public Thin3DShader {
 public:
-	Thin3DVKShader(bool isFragmentShader) : module_(nullptr), ok_(false) {
+	Thin3DVKShader(VulkanContext *vulkan, bool isFragmentShader) : vulkan_(vulkan), module_(nullptr), ok_(false) {
 		stage_ = isFragmentShader ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
 	}
 	bool Compile(VkDevice device, const char *source);
@@ -283,6 +287,7 @@ public:
 	VkShaderModule Get() const { return module_; }
 
 private:
+	VulkanContext *vulkan_;
 	VkShaderModule module_;
 	VkShaderStageFlagBits stage_;
 	bool ok_;
@@ -305,7 +310,7 @@ bool Thin3DVKShader::Compile(VkDevice device, const char *source) {
 	}
 #endif
 
-	if (vulkan->CreateShaderModule(spirv, &module_)) {
+	if (CreateShaderModule(device, spirv, &module_)) {
 		ok_ = true;
 	} else {
 		ok_ = false;
@@ -752,7 +757,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreateFence(device_, &f, nullptr, &cmdFences_[1]);
 	assert(VK_SUCCESS == res);
 	// Create as already signalled, so we can wait for it the first time.
-	// f.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	f.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	res = vkCreateFence(device_, &f, nullptr, &initFence_);
 	assert(VK_SUCCESS == res);
 	pendingInitFence_ = false;
@@ -765,6 +770,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	pc.flags = 0;
 	res = vkCreatePipelineCache(device_, &pc, nullptr, &pipelineCache_);
 	assert(VK_SUCCESS == res);
+
 	push_ = pushBuffer_[0];
 	cmd_ = cmdBuffer_[0];
 }
@@ -808,12 +814,14 @@ void Thin3DVKContext::BeginInitCommands() {
 	begin.pNext = nullptr;
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	begin.pInheritanceInfo = nullptr;
-	assert(VK_SUCCESS == vkBeginCommandBuffer(initCmd_, &begin));
+	VkResult res = vkBeginCommandBuffer(initCmd_, &begin);
+	assert(VK_SUCCESS == res);
 	hasInitCommands_ = true;
 }
 
 void Thin3DVKContext::EndInitCommands() {
-	assert(VK_SUCCESS == vkEndCommandBuffer(initCmd_));
+	VkResult res = vkEndCommandBuffer(initCmd_);
+	assert(VK_SUCCESS == res);
 }
 
 void Thin3DVKContext::End() {
@@ -833,7 +841,8 @@ void Thin3DVKContext::End() {
 		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submit.pCommandBuffers = &initCmd_;
 		submit.commandBufferCount = 1;
-		assert(VK_SUCCESS == vkQueueSubmit(queue_, 1, &submit, initFence_));
+		VkResult res = vkQueueSubmit(queue_, 1, &submit, initFence_);
+		assert(VK_SUCCESS == res);
 		hasInitCommands_ = false;
 	}
 
@@ -845,7 +854,8 @@ void Thin3DVKContext::End() {
 		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submit.pCommandBuffers = &cmd_;
 		submit.commandBufferCount = 1;
-		assert(VK_SUCCESS == vkQueueSubmit(queue_, 1, &submit, cmdFence_));
+		VkResult res = vkQueueSubmit(queue_, 1, &submit, cmdFence_);
+		assert(VK_SUCCESS == res);
 	}
 
 	frameNum_++;
@@ -874,7 +884,8 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	alloc.descriptorPool = descriptorPool_;
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
-	assert(VK_SUCCESS == vkAllocateDescriptorSets(device_, &alloc, &descSet));
+	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
+	assert(VK_SUCCESS == res);
 
 	// bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	// bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -1209,7 +1220,7 @@ void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures
 }
 
 Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(false);
+	Thin3DVKShader *shader = new Thin3DVKShader(vulkan_, false);
 	if (shader->Compile(device_, vulkan_source)) {
 		return shader;
 	} else {
@@ -1219,7 +1230,7 @@ Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const
 }
 
 Thin3DShader *Thin3DVKContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(true);
+	Thin3DVKShader *shader = new Thin3DVKShader(vulkan_, true);
 	if (shader->Compile(device_, vulkan_source)) {
 		return shader;
 	} else {

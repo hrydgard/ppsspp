@@ -508,9 +508,6 @@
     <ClCompile Include="ext\libpng17\pngset.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
-    <ClCompile Include="ext\libpng17\pngtest.c">
-      <Filter>ext\libpng17</Filter>
-    </ClCompile>
     <ClCompile Include="ext\libpng17\pngtrans.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
