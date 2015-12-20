@@ -68,7 +68,7 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), tex_(0), flags_(0), zoom_(false),
+	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), vao_(0), tex_(0), flags_(0), zoom_(false),
 	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr), hoverCallback_(nullptr) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
