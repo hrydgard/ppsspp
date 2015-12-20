@@ -307,6 +307,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	if (texPreviewVao != 0) {
 		glBindVertexArray(texPreviewVao);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+		glEnableVertexAttribArray(texPreviewProgram->a_position);
+		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
 	} else {
 		glEnableVertexAttribArray(texPreviewProgram->a_position);
 		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), (float *)vertices.data());
@@ -315,11 +319,6 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	if (indices.empty()) {
 		glDrawArrays(glprim[prim], 0, count);
 	} else {
-		glBindVertexArray(texPreviewVao);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-		glEnableVertexAttribArray(texPreviewProgram->a_position);
-		glVertexAttribPointer(texPreviewProgram->a_position, 2, GL_FLOAT, GL_FALSE, sizeof(GPUDebugVertex), 0);
 		glDrawElements(glprim[prim], count, GL_UNSIGNED_SHORT, texPreviewVao != 0 ? 0 : indices.data());
 	}
 
