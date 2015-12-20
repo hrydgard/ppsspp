@@ -73,10 +73,17 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	g_Vulkan->InitObjects(hInst, hWnd, true);
 
 	_CrtCheckMemory();
+
+	VkClearValue clearVal[2];
+	memset(clearVal, 0, sizeof(clearVal));
+	clearVal[0].color.float32[0] = 0.5f;
+	g_Vulkan->BeginSurfaceRenderPass(clearVal);
 	return true;
 }
 
 void WindowsVulkanContext::Shutdown() {
+	g_Vulkan->EndSurfaceRenderPass();
+
 	g_Vulkan->DestroyObjects();
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
@@ -87,6 +94,12 @@ Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {
 }
 
 void WindowsVulkanContext::SwapBuffers() {
+	g_Vulkan->EndSurfaceRenderPass();
+
+	VkClearValue clearVal[2];
+	memset(clearVal, 0, sizeof(clearVal));
+	clearVal[0].color.float32[0] = 0.5f;
+	g_Vulkan->BeginSurfaceRenderPass(clearVal);
 }
 
 void WindowsVulkanContext::Resize() {
@@ -100,8 +113,4 @@ void WindowsVulkanContext::Resize() {
 }
 
 void WindowsVulkanContext::SwapInterval(int interval) {
-}
-
-Thin3DContext *Vulkan_CreateThin3DContext() {
-	return T3DCreateVulkanContext(g_Vulkan);
 }

@@ -69,7 +69,9 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 }
 
 WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
-	: gfx_(nullptr), hInstance_(hInstance), mainWindow_(mainWindow), displayWindow_(displayWindow)
+	: gfx_(nullptr), hInstance_(hInstance),
+		mainWindow_(mainWindow),
+		displayWindow_(displayWindow)
 {
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;

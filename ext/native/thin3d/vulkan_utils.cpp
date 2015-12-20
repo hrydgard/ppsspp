@@ -35,7 +35,7 @@
 #include "ext/glslang/SPIRV/disassemble.h"
 
 #ifdef USE_CRT_DBG
-#define DBG_NEW
+#define new DBG_NEW
 #endif
 
 #include "thin3d/vulkan_utils.h"
@@ -155,7 +155,6 @@ void VulkanImage::ChangeLayout(VkCommandBuffer cmd, VkImageAspectFlags aspectMas
 	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, false, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
-
 
 bool CreateShaderModule(VkDevice device, const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
 	VkShaderModuleCreateInfo sm;
