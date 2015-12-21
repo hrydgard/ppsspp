@@ -8,10 +8,12 @@
 
 using namespace TiltEventProcessor;
 
+static u32 tiltButtonsDown = 0;
+static bool tiltAnalogSet = false;
+
 //deadzone is normalized - 0 to 1
 //sensitivity controls how fast the deadzone reaches max value
 inline float tiltInputCurve (float x, float deadzone, float sensitivity) {
-
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
@@ -37,7 +39,6 @@ inline float clamp(float f) {
 	return f;
 } 
 
-
 Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
 	// Normalise the accelerometer manually per-platform, to 'g'
 	#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
@@ -49,8 +50,7 @@ Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
 
 	return Tilt(tilt.x_ / maxX, tilt.y_ / maxY);
 
-};
-
+}
 
 Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, bool invertX, bool invertY, float deadzone, float xSensitivity, float ySensitivity) {
 	//first convert to the correct coordinate system
@@ -70,13 +70,13 @@ Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, 
 	
 	//finally, dampen the tilt according to our curve.
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
-};
+}
 
 void TiltEventProcessor::GenerateAnalogStickEvent(const Tilt &tilt) {
 	__CtrlSetAnalogX(clamp(tilt.x_), CTRL_STICK_LEFT);
 	__CtrlSetAnalogY(clamp(tilt.y_), CTRL_STICK_LEFT);
-};
-
+	tiltAnalogSet = true;
+}
 
 void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
@@ -84,13 +84,13 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	if (tilt.x_ == 0) {
 		__CtrlButtonUp(CTRL_RIGHT);
 		__CtrlButtonUp(CTRL_LEFT);
-
+		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
 	}
 
 	if (tilt.y_ == 0) {
 		__CtrlButtonUp(CTRL_UP);
 		__CtrlButtonUp(CTRL_DOWN);
-
+		tiltButtonsDown &= ~(CTRL_UP | CTRL_DOWN);
 	}
 
 	if (tilt.x_ == 0 && tilt.y_ == 0) {
@@ -110,25 +110,23 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
 	}
 
-	for (int i = 0; i < 4; i++) {
-		if (ctrlMask & dir[i]) { 
-			__CtrlButtonDown(dir[i]);
-		}
-	}
-};
-
+	__CtrlButtonDown(ctrlMask);
+	tiltButtonsDown |= ctrlMask;
+}
 
 void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	static const int buttons[4] = {CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE};
 
 	if (tilt.x_ == 0) {
 		__CtrlButtonUp(CTRL_SQUARE);
-		__CtrlButtonUp(CTRL_CIRCLE);	
+		__CtrlButtonUp(CTRL_CIRCLE);
+		tiltButtonsDown &= ~(CTRL_SQUARE | CTRL_CIRCLE);
 	}
 
 	if (tilt.y_ == 0) {
 		__CtrlButtonUp(CTRL_TRIANGLE);
-		__CtrlButtonUp(CTRL_CROSS);	
+		__CtrlButtonUp(CTRL_CROSS);
+		tiltButtonsDown &= ~(CTRL_TRIANGLE | CTRL_CROSS);
 	}
 
 	if (tilt.x_ == 0 && tilt.y_ == 0) {
@@ -137,32 +135,17 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 
 	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
 	__CtrlButtonDown(buttons[direction]);
-}; 
+	tiltButtonsDown |= buttons[direction];
+}
 
 void TiltEventProcessor::ResetTiltEvents() {
-	//this is ugly, but it's needed since the entire tilt system is
-	//stateless. So, when a tilt option is changed, we have to reset 
-	//the tilt. 
-	//this scenario will take place without this:
-	//1) tilt is Analog based. the device is tilted. Analog controller is being moved
-	//2) user changes mode to D-Pad and goes back to game
-	//3) the event handling loop sends all events to D-Pad now. 
-	//	The analog controller doesn't know that the type of tilt input has changed.
-	//	It keeps sending tilt events for the analog.
+	// Reset the buttons we have marked pressed.
+	__CtrlButtonUp(tiltButtonsDown);
+	tiltButtonsDown = 0;
 
-	//D-Pad
-	__CtrlButtonUp(CTRL_RIGHT);
-	__CtrlButtonUp(CTRL_LEFT);
-	__CtrlButtonUp(CTRL_UP);
-	__CtrlButtonUp(CTRL_DOWN);
-
-	//action buttons
-	__CtrlButtonUp(CTRL_SQUARE);
-	__CtrlButtonUp(CTRL_CIRCLE);
-	__CtrlButtonUp(CTRL_TRIANGLE);
-	__CtrlButtonUp(CTRL_CROSS);		
-
-	//analog
-	__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
-	__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
-};
+	if (tiltAnalogSet) {
+		__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
+		__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
+		tiltAnalogSet = false;
+	}
+}
