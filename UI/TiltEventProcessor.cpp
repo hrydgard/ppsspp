@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include "TiltEventProcessor.h"
+#include "UI/TiltEventProcessor.h"
+#include "Core/Config.h"
 #include "Core/HLE/sceCtrl.h"
 #include "math.h"
 #include "base/logging.h"
@@ -72,6 +73,25 @@ Tilt TiltEventProcessor::GenTilt(const Tilt &baseTilt, const Tilt &currentTilt, 
 	return dampTilt(transformedTilt, deadzone, xSensitivity, ySensitivity);
 }
 
+void TiltEventProcessor::TranslateTiltToInput(const Tilt &tilt) {
+	switch (g_Config.iTiltInputType) {
+	case TILT_NULL:
+		break;
+
+	case TILT_ANALOG:
+		GenerateAnalogStickEvent(tilt);
+		break;
+
+	case TILT_DPAD:
+		GenerateDPadEvent(tilt);
+		break;
+
+	case TILT_ACTION_BUTTON:
+		GenerateActionButtonEvent(tilt);
+		break;
+	}
+}
+
 void TiltEventProcessor::GenerateAnalogStickEvent(const Tilt &tilt) {
 	__CtrlSetAnalogX(clamp(tilt.x_), CTRL_STICK_LEFT);
 	__CtrlSetAnalogY(clamp(tilt.y_), CTRL_STICK_LEFT);
@@ -82,14 +102,12 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
 
 	if (tilt.x_ == 0) {
-		__CtrlButtonUp(CTRL_RIGHT);
-		__CtrlButtonUp(CTRL_LEFT);
+		__CtrlButtonUp(CTRL_RIGHT | CTRL_LEFT);
 		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
 	}
 
 	if (tilt.y_ == 0) {
-		__CtrlButtonUp(CTRL_UP);
-		__CtrlButtonUp(CTRL_DOWN);
+		__CtrlButtonUp(CTRL_UP | CTRL_DOWN);
 		tiltButtonsDown &= ~(CTRL_UP | CTRL_DOWN);
 	}
 
@@ -118,14 +136,12 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	static const int buttons[4] = {CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE};
 
 	if (tilt.x_ == 0) {
-		__CtrlButtonUp(CTRL_SQUARE);
-		__CtrlButtonUp(CTRL_CIRCLE);
+		__CtrlButtonUp(CTRL_SQUARE | CTRL_CIRCLE);
 		tiltButtonsDown &= ~(CTRL_SQUARE | CTRL_CIRCLE);
 	}
 
 	if (tilt.y_ == 0) {
-		__CtrlButtonUp(CTRL_TRIANGLE);
-		__CtrlButtonUp(CTRL_CROSS);
+		__CtrlButtonUp(CTRL_TRIANGLE | CTRL_CROSS);
 		tiltButtonsDown &= ~(CTRL_TRIANGLE | CTRL_CROSS);
 	}
 
