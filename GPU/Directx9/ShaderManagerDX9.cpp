@@ -469,7 +469,6 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 		case GE_TEXMAP_UNKNOWN:
 			if (g_Config.bPrescaleUV) {
-				// Shouldn't even get here as we won't use the uniform in the shader.
 				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
 				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
