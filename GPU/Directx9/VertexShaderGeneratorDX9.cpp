@@ -134,7 +134,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			}
 #endif
 		}
-		if (doTexture && (!prescale || uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP || uvGenMode == GE_TEXMAP_TEXTURE_MATRIX)) {
+		if (doTexture) {
 			WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 		}
 		for (int i = 0; i < 4; i++) {
@@ -506,7 +506,7 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale) {
 					if (hasTexcoord) {
-						WRITE(p, "  Out.v_texcoord = In.texcoord;\n");
+						WRITE(p, "  Out.v_texcoord = In.texcoord * u_uvscaleoffset.xy;\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = float2(0.0, 0.0);\n");
 					}
