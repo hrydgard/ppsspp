@@ -598,7 +598,6 @@ static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tes
 				v3.nrm = norm;
 			}
 
-
 			int total = patch.index * 3 * 3 * 4; // A patch has 3x3 tiles, and each tiles have 4 vertices.
 			int tile_index = tile_u + tile_v * 3;
 			int idx0 = total + tile_index * 4 + 0;
@@ -805,7 +804,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
@@ -819,7 +818,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		gstate_c.uv = prevUVScale;
 	}
 }
@@ -901,7 +900,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
@@ -915,7 +914,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		gstate_c.uv = prevUVScale;
 	}
 }
