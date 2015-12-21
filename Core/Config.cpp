@@ -385,11 +385,15 @@ static int DefaultInternalResolution() {
 }
 
 static int DefaultZoomType() {
+#ifdef BLACKBERRY
 	if (pixel_xres < 1.3 * pixel_yres) {
 		return 1;
 	} else {
 		return 2;
 	}
+#else
+	return 2;
+#endif
 }
 
 static bool DefaultTimerHack() {
