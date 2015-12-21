@@ -89,6 +89,10 @@ void TiltEventProcessor::TranslateTiltToInput(const Tilt &tilt) {
 	case TILT_ACTION_BUTTON:
 		GenerateActionButtonEvent(tilt);
 		break;
+
+	case TILT_TRIGGER_BUTTON:
+		GenerateTriggerButtonEvent(tilt);
+		break;
 	}
 }
 
@@ -152,6 +156,25 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
 	__CtrlButtonDown(buttons[direction]);
 	tiltButtonsDown |= buttons[direction];
+}
+
+void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
+	u32 upButtons = 0;
+	u32 downButtons = 0;
+	// KISS, let's only look at X.  Expect deadzone to already be applied.
+	if (tilt.x_ == 0.0f) {
+		upButtons = CTRL_LTRIGGER | CTRL_RTRIGGER;
+	} else if (tilt.x_ < 0.0f) {
+		downButtons = CTRL_LTRIGGER;
+		upButtons = CTRL_RTRIGGER;
+	} else if (tilt.x_ > 0.0f) {
+		downButtons = CTRL_RTRIGGER;
+		upButtons = CTRL_LTRIGGER;
+	}
+
+	__CtrlButtonUp(upButtons);
+	__CtrlButtonDown(downButtons);
+	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
 }
 
 void TiltEventProcessor::ResetTiltEvents() {

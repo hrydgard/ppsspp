@@ -6,7 +6,8 @@ namespace TiltEventProcessor {
 		TILT_NULL = 0,
 		TILT_ANALOG,
 		TILT_DPAD,
-		TILT_ACTION_BUTTON
+		TILT_ACTION_BUTTON,
+		TILT_TRIGGER_BUTTON,
 	};
 
 
@@ -33,7 +34,8 @@ namespace TiltEventProcessor {
 	//and the deadzone radius.
 	void GenerateAnalogStickEvent(const Tilt &tilt);
 	void GenerateDPadEvent(const Tilt &tilt);
-	void GenerateActionButtonEvent(const Tilt &tilt); 
+	void GenerateActionButtonEvent(const Tilt &tilt);
+	void GenerateTriggerButtonEvent(const Tilt &tilt);
 
 	void ResetTiltEvents();
 
