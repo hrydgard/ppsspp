@@ -114,11 +114,11 @@ static inline u8 ClampFogDepth(float fogdepth) {
 
 static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
-	int u = (int)(s * width);
-	int v = (int)(t * height);
+	int u = (int)(s * width + 0.375f);
+	int v = (int)(t * height + 0.375f);
 
 	if (gstate.isTexCoordClampedS()) {
 		if (u >= width - 1)
@@ -144,8 +144,8 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
 {
 	// 8 bits of fractional UV
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
 	int base_u = in_s * width * 256;
 	int base_v = in_t * height * 256;
@@ -190,9 +190,9 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 
 static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
 {
-	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	// TODO: Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
 	// Wrap!
 	u = ((unsigned int)(s) & (width - 1));
@@ -202,8 +202,8 @@ static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, i
 static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *u, int *v)
 {
 	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
 	// Wrap!
 	for (int i = 0; i < 4; i++) {
