@@ -269,10 +269,8 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(menu, ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(menu, ID_OPTIONS_CONTROLS);
-		TranslateSubMenu(menu, "Display Layout Options", MENU_OPTIONS, SUBMENU_DISPLAY_LAYOUT);
-		TranslateMenuItem(menu, ID_OPTIONS_STRETCH);
-		TranslateMenuItem(menu, ID_OPTIONS_PARTIAL_STRETCH);
-		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_AUTO);
+		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_LAYOUT);
+
 		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(menu, ID_OPTIONS_VSYNC);
@@ -487,10 +485,7 @@ namespace MainWindow {
 	}
 
 	static void setDisplayOptions(int options) {
-		g_Config.iSmallDisplayZoom = options;
-		if (g_Config.iSmallDisplayZoom > 2) {
-			g_Config.fSmallDisplayCustomZoom = (float)((g_Config.iSmallDisplayZoom - 2) * 8);
-		}
+		g_Config.iSmallDisplayZoomType = options;
 		NativeMessageReceived("gpu resized", "");
 	}
 
@@ -723,19 +718,9 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
-		case ID_OPTIONS_STRETCH:                 setDisplayOptions(0); break;
-		case ID_OPTIONS_PARTIAL_STRETCH:         setDisplayOptions(1); break;
-		case ID_OPTIONS_DISPLAY_AUTO:            setDisplayOptions(2); break;
-		case ID_OPTIONS_DISPLAY_1:               setDisplayOptions(3); break;
-		case ID_OPTIONS_DISPLAY_2:               setDisplayOptions(4); break;
-		case ID_OPTIONS_DISPLAY_3:               setDisplayOptions(5); break;
-		case ID_OPTIONS_DISPLAY_4:               setDisplayOptions(6); break;
-		case ID_OPTIONS_DISPLAY_5:               setDisplayOptions(7); break;
-		case ID_OPTIONS_DISPLAY_6:               setDisplayOptions(8); break;
-		case ID_OPTIONS_DISPLAY_7:               setDisplayOptions(9); break;
-		case ID_OPTIONS_DISPLAY_8:               setDisplayOptions(10); break;
-		case ID_OPTIONS_DISPLAY_9:               setDisplayOptions(11); break;
-		case ID_OPTIONS_DISPLAY_10:              setDisplayOptions(12); break;
+		case ID_OPTIONS_DISPLAY_LAYOUT:
+			NativeMessageReceived("display layout editor", "");
+			break;
 
 
 		case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
@@ -985,31 +970,6 @@ namespace MainWindow {
 
 		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
 			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
-		}
-
-		static const int displaylayoutitems[] = {
-			ID_OPTIONS_STRETCH,
-			ID_OPTIONS_PARTIAL_STRETCH,
-			ID_OPTIONS_DISPLAY_AUTO,
-			ID_OPTIONS_DISPLAY_1,
-			ID_OPTIONS_DISPLAY_2,
-			ID_OPTIONS_DISPLAY_3,
-			ID_OPTIONS_DISPLAY_4,
-			ID_OPTIONS_DISPLAY_5,
-			ID_OPTIONS_DISPLAY_6,
-			ID_OPTIONS_DISPLAY_7,
-			ID_OPTIONS_DISPLAY_8,
-			ID_OPTIONS_DISPLAY_9,
-			ID_OPTIONS_DISPLAY_10
-		};
-		if (g_Config.iSmallDisplayZoom < 0)
-			g_Config.iSmallDisplayZoom = 0;
-
-		else if (g_Config.iSmallDisplayZoom > 12)
-			g_Config.iSmallDisplayZoom = 12;
-
-		for (int i = 0; i < ARRAY_SIZE(displaylayoutitems); i++) {
-			CheckMenuItem(menu, displaylayoutitems[i], MF_BYCOMMAND | (i == g_Config.iSmallDisplayZoom ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		// Disable Vertex Cache when HW T&L is disabled.

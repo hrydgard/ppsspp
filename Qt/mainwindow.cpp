@@ -90,10 +90,7 @@ void MainWindow::updateMenus()
 	}
 
 	foreach(QAction * action, displayLayoutGroup->actions()) {
-		if (g_Config.iSmallDisplayZoom == action->data().toInt()) {
-			if (g_Config.iSmallDisplayZoom > 2) {
-				g_Config.fSmallDisplayCustomZoom = (float)((g_Config.iSmallDisplayZoom - 2) * 8);
-			}
+		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
 
 			if (gpu)
 				gpu->Resized();
@@ -548,8 +545,8 @@ void MainWindow::createMenus()
 
 	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
 	displayLayoutGroup = new MenuActionGroup(this, displayLayoutMenu, SLOT(displayLayoutGroup_triggered(QAction *)),
-		QStringList() << "Stretched" << "Partialy stretched" << "Auto Scaling" << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
-		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10 << 11 << 12);
+		QStringList() << "Stretched" << "Partialy stretched" << "Auto Scaling" << "Manual Scaling",
+		QList<int>() << 0 << 1 << 2 << 3);
 	videoMenu->addSeparator();
 	videoMenu->add(new MenuAction(this, SLOT(transformAct()),     QT_TR_NOOP("&Hardware Transform"), Qt::Key_F6))
 		->addEventChecked(&g_Config.bHardwareTransform);

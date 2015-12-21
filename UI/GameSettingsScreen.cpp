@@ -828,6 +828,10 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
 	}
+	if (!strcmp(message, "display layout editor")) {
+		UpdateUIState(UISTATE_MENU);
+		screenManager()->push(new DisplayLayoutScreen());
+	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {

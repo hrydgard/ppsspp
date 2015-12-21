@@ -144,10 +144,10 @@ public:
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	int iBufFilter; // 1 = linear, 2 = nearest
-	int iSmallDisplayZoom;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto, anything higher is used to set's integer zoom of psp resolution and allows manual editing
+	int iSmallDisplayZoomType;  // Used to fit display into screen 0 = stretch, 1 = partial stretch, 2 = auto scaling, 3 = manual scaling.
 	float fSmallDisplayOffsetX; // Along with Y it goes from 0.0 to 1.0, XY (0.5, 0.5) = center of the screen
 	float fSmallDisplayOffsetY;
-	float fSmallDisplayCustomZoom; //This is actually used for zoom, both in and out.
+	float fSmallDisplayZoomLevel; //This is used for zoom values, both in and out.
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bVSync;
 	int iFrameSkip;

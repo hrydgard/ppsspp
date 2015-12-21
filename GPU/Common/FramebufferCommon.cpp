@@ -36,18 +36,18 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	if (g_Config.iSmallDisplayZoom == 0) {
+	if (g_Config.iSmallDisplayZoomType == 0) { // Stretching
 		outW = frameW;
 		outH = frameH;
 	} else {
-		if (g_Config.iSmallDisplayZoom > 2) {
+		if (g_Config.iSmallDisplayZoomType == 3) { // Manual Scaling
 			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
 			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
 			// Have to invert Y for GL
 			if (GetGPUBackend() == GPUBackend::OPENGL) {
 				offsetY = offsetY * -1.0f;
 			}
-			float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
+			float customZoom = g_Config.fSmallDisplayZoomLevel;
 			float smallDisplayW = origW * customZoom;
 			float smallDisplayH = origH * customZoom;
 			if (!rotated) {
@@ -63,7 +63,7 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				*h = floorf(smallDisplayW);
 				return;
 			}
-		} else {
+		} else if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
 			float pixelCrop = frameH / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
 			if (!rotated && resCommonWidescreen == 0.0f) {
@@ -77,19 +77,19 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 		float origRatio = !rotated ? origW / origH : origH / origW;
 		float frameRatio = frameW / frameH;
-
+		
 		if (origRatio > frameRatio) {
 			// Image is wider than frame. Center vertically.
 			outW = frameW;
 			outH = frameW / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.iSmallDisplayZoom == 1)
+			if (!rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
 				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frameH * origRatio;
 			outH = frameH;
-			if (rotated && g_Config.iSmallDisplayZoom == 1)
+			if (rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
 				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}

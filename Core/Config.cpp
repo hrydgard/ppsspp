@@ -384,6 +384,14 @@ static int DefaultInternalResolution() {
 #endif
 }
 
+static int DefaultZoomType() {
+	if (pixel_xres < 1.3 * pixel_yres) {
+		return 1;
+	} else {
+		return 2;
+	}
+}
+
 static bool DefaultTimerHack() {
 // Has been in use on Symbian since v0.7. Preferred option.
 #ifdef __SYMBIAN32__
@@ -457,10 +465,10 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 
 	// TODO: Replace these settings with a list of options
-	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 2, true, true),
+	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
 	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
-	ConfigSetting("SmallDisplayCustomZoom", &g_Config.fSmallDisplayCustomZoom, 8.0f, true, true),
+	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),

@@ -42,6 +42,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
 #include "UI/ui_atlas.h"
@@ -886,6 +887,10 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new ControlMappingScreen());
+	}
+	if (!strcmp(message, "display layout editor")) {
+		UpdateUIState(UISTATE_MENU);
+		screenManager()->push(new DisplayLayoutScreen());
 	}
 	if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
