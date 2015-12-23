@@ -842,7 +842,9 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 				glEnableVertexAttribArray(i);
 			}
 		}
-		needsEnable_ = false;
+		if (id_ != 0) {
+			needsEnable_ = false;
+		}
 	}
 
 	intptr_t b = (intptr_t)base;
@@ -865,7 +867,9 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 				ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
 			}
 		}
-		lastBase_ = b;
+		if (id_ != 0) {
+			lastBase_ = b;
+		}
 	}
 }
 
