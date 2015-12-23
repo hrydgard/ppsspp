@@ -105,10 +105,10 @@ public:
 		
 #if !defined(USING_GLES2)
 		if (logicEnabled) {
-			glEnable(GL_LOGIC_OP);
+			glEnable(GL_COLOR_LOGIC_OP);
 			glLogicOp(logicOp);
 		} else {
-			glDisable(GL_LOGIC_OP);
+			glDisable(GL_COLOR_LOGIC_OP);
 		}
 #endif
 	}
