@@ -394,6 +394,7 @@ int sceKernelDcacheWritebackRange(u32 addr, int size)
 	hleEatCycles(165);
 	return 0;
 }
+
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 {
 #ifdef LOG_CACHE
@@ -408,6 +409,7 @@ int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size)
 	hleEatCycles(165);
 	return 0;
 }
+
 int sceKernelDcacheWritebackInvalidateAll()
 {
 #ifdef LOG_CACHE
@@ -419,7 +421,6 @@ int sceKernelDcacheWritebackInvalidateAll()
 	return 0;
 }
 
-
 u32 sceKernelIcacheInvalidateAll()
 {
 #ifdef LOG_CACHE
@@ -429,7 +430,6 @@ u32 sceKernelIcacheInvalidateAll()
 	currentMIPS->InvalidateICache(0, 0x3FFFFFFF);
 	return 0;
 }
-
 
 u32 sceKernelIcacheClearAll()
 {
@@ -447,23 +447,19 @@ void KernelObject::GetQuickInfo(char *ptr, int size)
 	strcpy(ptr, "-");
 }
 
-KernelObjectPool::KernelObjectPool()
-{
+KernelObjectPool::KernelObjectPool() {
 	memset(occupied, 0, sizeof(bool)*maxCount);
 	nextID = initialNextID;
 }
 
-SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop)
-{
+SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop) {
 	if (rangeTop > maxCount)
 		rangeTop = maxCount;
 	if (nextID >= rangeBottom && nextID < rangeTop)
 		rangeBottom = nextID++;
 
-	for (int i = rangeBottom; i < rangeTop; i++)
-	{
-		if (!occupied[i])
-		{
+	for (int i = rangeBottom; i < rangeTop; i++) {
+		if (!occupied[i]) {
 			occupied[i] = true;
 			pool[i] = obj;
 			pool[i]->uid = i + handleOffset;
@@ -475,69 +471,49 @@ SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop
 	return 0;
 }
 
-bool KernelObjectPool::IsValid(SceUID handle) const
-{
+bool KernelObjectPool::IsValid(SceUID handle) const {
 	int index = handle - handleOffset;
-	if (index < 0)
+	if (index < 0 || index >= maxCount)
 		return false;
-	if (index >= maxCount)
-		return false;
-
-	return occupied[index];
+	else
+		return occupied[index];
 }
 
-void KernelObjectPool::Clear()
-{
-	for (int i=0; i<maxCount; i++)
-	{
-		//brutally clear everything, no validation
+void KernelObjectPool::Clear() {
+	for (int i = 0; i < maxCount; i++) {
+		// brutally clear everything, no validation
 		if (occupied[i])
 			delete pool[i];
-		occupied[i]=false;
+		pool[i] = nullptr;
+		occupied[i] = false;
 	}
-	memset(pool, 0, sizeof(KernelObject*)*maxCount);
 	nextID = initialNextID;
 }
 
-KernelObject *&KernelObjectPool::operator [](SceUID handle)
-{
-	_dbg_assert_msg_(SCEKERNEL, IsValid(handle), "GRABBING UNALLOCED KERNEL OBJ");
-	return pool[handle - handleOffset];
-}
-
-void KernelObjectPool::List()
-{
-	for (int i = 0; i < maxCount; i++)
-	{
-		if (occupied[i])
-		{
+void KernelObjectPool::List() {
+	for (int i = 0; i < maxCount; i++) {
+		if (occupied[i]) {
 			char buffer[256];
-			if (pool[i])
-			{
-				pool[i]->GetQuickInfo(buffer,256);
+			if (pool[i]) {
+				pool[i]->GetQuickInfo(buffer, 256);
 				INFO_LOG(SCEKERNEL, "KO %i: %s \"%s\": %s", i + handleOffset, pool[i]->GetTypeName(), pool[i]->GetName(), buffer);
-			}
-			else
-			{
-				strcpy(buffer,"WTF? Zero Pointer");
+			} else {
+				strcpy(buffer, "WTF? Zero Pointer");
 			}
 		}
 	}
 }
 
-int KernelObjectPool::GetCount() const
-{
+int KernelObjectPool::GetCount() const {
 	int count = 0;
-	for (int i=0; i<maxCount; i++)
-	{
+	for (int i = 0; i < maxCount; i++) {
 		if (occupied[i])
 			count++;
 	}
 	return count;
 }
 
-void KernelObjectPool::DoState(PointerWrap &p)
-{
+void KernelObjectPool::DoState(PointerWrap &p) {
 	auto s = p.Section("KernelObjectPool", 1);
 	if (!s)
 		return;
@@ -545,40 +521,34 @@ void KernelObjectPool::DoState(PointerWrap &p)
 	int _maxCount = maxCount;
 	p.Do(_maxCount);
 
-	if (_maxCount != maxCount)
-	{
+	if (_maxCount != maxCount) {
 		p.SetError(p.ERROR_FAILURE);
 		ERROR_LOG(SCEKERNEL, "Unable to load state: different kernel object storage.");
 		return;
 	}
 
-	if (p.mode == p.MODE_READ)
-	{
-		hleCurrentThreadName = NULL;
+	if (p.mode == p.MODE_READ) {
+		hleCurrentThreadName = nullptr;
 		kernelObjects.Clear();
 	}
 
 	p.Do(nextID);
 	p.DoArray(occupied, maxCount);
-	for (int i = 0; i < maxCount; ++i)
-	{
+	for (int i = 0; i < maxCount; ++i) {
 		if (!occupied[i])
 			continue;
 
 		int type;
-		if (p.mode == p.MODE_READ)
-		{
+		if (p.mode == p.MODE_READ) {
 			p.Do(type);
 			pool[i] = CreateByIDType(type);
 
 			// Already logged an error.
-			if (pool[i] == NULL)
+			if (pool[i] == nullptr)
 				return;
 
 			pool[i]->uid = i + handleOffset;
-		}
-		else
-		{
+		} else {
 			type = pool[i]->GetIDType();
 			p.Do(type);
 		}
@@ -588,11 +558,9 @@ void KernelObjectPool::DoState(PointerWrap &p)
 	}
 }
 
-KernelObject *KernelObjectPool::CreateByIDType(int type)
-{
+KernelObject *KernelObjectPool::CreateByIDType(int type) {
 	// Used for save states.  This is ugly, but what other way is there?
-	switch (type)
-	{
+	switch (type) {
 	case SCE_KERNEL_TMID_Alarm:
 		return __KernelAlarmObject();
 	case SCE_KERNEL_TMID_EventFlag:

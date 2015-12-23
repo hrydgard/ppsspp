@@ -1,59 +1,53 @@
 package org.ppsspp.ppsspp;
 
-// Touch- and sensor-enabled GLSurfaceView.
+// Touch- and sensor-enabled SurfaceView.
 // Supports simple multitouch and pressure.
+// DPI scaling is handled by the native code.
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Handler;
-// import android.os.Build;
-// import android.util.Log;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.SurfaceView;
+
 import com.bda.controller.*;
 
-public class NativeGLView extends GLSurfaceView implements SensorEventListener, ControllerListener {
-	private static String TAG = "NativeGLView";
+public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
+	private static String TAG = "NativeSurfaceView";
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
-	private NativeActivity mActivity;
-	
+
 	// Moga controller
 	private Controller mController = null;
 	private boolean isMogaPro = false;
-	
-	public NativeGLView(NativeActivity activity) {
-		super(activity);
-		mActivity = activity;
 
-		/*// TODO: This would be nice.
-		if (Build.VERSION.SDK_INT >= 11) {
-			try {
-				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
-						"setPreserveEGLContextOnPause", new Class[] { Boolean.class });
-				Log.i(TAG, "Invoking setPreserveEGLContextOnPause");
-				method_setPreserveEGLContextOnPause.invoke(this, true);
-			} catch (NoSuchMethodException e) {
-				e.printStackTrace();
-			} catch (IllegalArgumentException e) {
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (InvocationTargetException e) {
-				e.printStackTrace();
-			}
-		}*/
-		
+	public NativeSurfaceView(NativeActivity activity, int fixedW, int fixedH) {
+		super(activity);
+
+		Log.i(TAG, "NativeSurfaceView");
+
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-		
+
 		mController = Controller.getInstance(activity);
+
+		// Maybe we need to use this?
+		if (fixedW != 0 && fixedH != 0) {
+			Log.i(TAG, "Setting surface holder to use a fixed size of " + fixedW + "x" + fixedH + " pixels");
+			this.getHolder().setFixedSize(fixedW, fixedH);
+		} else {
+			Log.i(TAG, "Using default backbuffer size.");
+		}
+
+		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
+
 		try {
 			MogaHack.init(mController, activity);
 			Log.i(TAG, "MOGA initialized");
@@ -67,19 +61,19 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	private int getToolType(final MotionEvent ev, int pointer) {
 		return ev.getToolType(pointer);
 	}
-	
+
+	@SuppressLint("ClickableViewAccessibility")
+	@Override
 	public boolean onTouchEvent(final MotionEvent ev) {
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
 		int numTouchesHandled = 0;
-		float scaleX = (float)mActivity.getRenderer().getDpiScaleX();
-		float scaleY = (float)mActivity.getRenderer().getDpiScaleY();
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
-			
+
 			final int action = ev.getActionMasked();
-			
+
 			// These code bits are now the same as the constants in input_state.h.
 			switch (action) {
 			case MotionEvent.ACTION_DOWN:
@@ -98,23 +92,25 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			default:
 				break;
 			}
-			
+
 			if (code != 0) {
 				if (canReadToolType) {
 					int tool = getToolType(ev, i);
 					code |= tool << 10;  // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(scaleX * ev.getX(i), scaleY * ev.getY(i), code, pid) ? 1 : 0;
+				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
 			}
 		}
 		return numTouchesHandled > 0;
 	}
 
 	// Sensor management
+	@Override
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
 	}
 
+	@Override
 	public void onSensorChanged(SensorEvent event) {
 		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) {
 			return;
@@ -122,41 +118,37 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		// Can also look at event.timestamp for accuracy magic
 		NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
 	}
-	
-	@Override
+
 	public void onPause() {
-		super.onPause();
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
 			mController.onPause();
 		}
 	}
-	 
-	@Override
+
 	public void onResume() {
-		super.onResume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
 			mController.onResume();
-			
+
 			// According to the docs, the Moga's state can be inconsistent here.
 			// We should do a one time poll. TODO
 		}
 	}
-	
+
 	public void onDestroy() {
 		if (mController != null) {
-			mController.exit();	
+			mController.exit();
 		}
 	}
-	
+
 	// MOGA Controller - from ControllerListener
 	@Override
 	public void onKeyEvent(KeyEvent event) {
 		// The Moga left stick doubles as a D-pad. This creates mapping conflicts so let's turn it off.
 		// Unfortunately this breaks menu navigation in PPSSPP currently but meh.
 		// This is different on Moga Pro though.
-		
+
 		if (!isMogaPro) {
 			switch (event.getKeyCode()) {
 			case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -216,7 +208,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 				break;
 			}
 			break;
-			
+
 		case StateEvent.STATE_POWER_LOW:
 			switch (state.getAction()) {
 			case StateEvent.ACTION_TRUE:

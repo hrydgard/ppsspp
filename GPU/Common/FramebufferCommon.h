@@ -29,6 +29,7 @@ enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
 	FB_USAGE_RENDERTARGET = 2,
 	FB_USAGE_TEXTURE = 4,
+	FB_USAGE_CLUT = 8,
 };
 
 enum {
@@ -55,6 +56,7 @@ struct VirtualFramebuffer {
 	int last_frame_attached;
 	int last_frame_render;
 	int last_frame_displayed;
+	int last_frame_clut;
 	bool memoryUpdated;
 	bool depthUpdated;
 

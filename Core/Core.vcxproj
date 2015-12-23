@@ -204,6 +204,7 @@
     <ClCompile Include="FileLoaders\DiskCachingFileLoader.cpp" />
     <ClCompile Include="FileLoaders\HTTPFileLoader.cpp" />
     <ClCompile Include="FileLoaders\LocalFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp" />
     <ClCompile Include="FileLoaders\RetryingFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
@@ -531,6 +532,7 @@
     <ClInclude Include="FileLoaders\DiskCachingFileLoader.h" />
     <ClInclude Include="FileLoaders\HTTPFileLoader.h" />
     <ClInclude Include="FileLoaders\LocalFileLoader.h" />
+    <ClInclude Include="FileLoaders\RamCachingFileLoader.h" />
     <ClInclude Include="FileLoaders\RetryingFileLoader.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />

@@ -104,6 +104,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
 bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
 	QString text = emugl->InputBoxGetQString(QString(title), QString(defaultValue));

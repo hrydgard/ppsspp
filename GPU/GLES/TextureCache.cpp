@@ -34,6 +34,7 @@
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/DepalettizeShader.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TransformPipeline.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -68,7 +69,7 @@
 // Hack!
 extern int g_iNumVideos;
 
-TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), texelsScaledThisFrame_(0) {
+TextureCache::TextureCache() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), clutRenderAddress_(0), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = -1;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -801,10 +802,30 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 }
 
 void TextureCache::LoadClut(u32 clutAddr, u32 loadBytes) {
+	// Clear the uncached bit, etc. to match framebuffers.
+	clutAddr = clutAddr & 0x3FFFFFFF;
+	bool foundFramebuffer = false;
+
+	clutRenderAddress_ = 0;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
+			framebuffer->last_frame_clut = gpuStats.numFlips;
+			framebuffer->usageFlags |= FB_USAGE_CLUT;
+			foundFramebuffer = true;
+			WARN_LOG_REPORT_ONCE(clutrender, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
+			clutRenderAddress_ = framebuffer->fb_address;
+		}
+	}
+
 	clutTotalBytes_ = loadBytes;
 	if (Memory::IsValidAddress(clutAddr)) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
+		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
+			gpu->PerformMemoryDownload(clutAddr, bytes);
+		}
+
 #ifdef _M_SSE
 		int numBlocks = bytes / 16;
 		if (bytes == loadBytes) {
@@ -1092,8 +1113,13 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		glUseProgram(depal->program);
 
 		// Restore will rebind all of the state below.
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+			transformDraw_->BindBuffer(pos, sizeof(pos), uv, sizeof(uv));
+			transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		} else {
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		}
 		glEnableVertexAttribArray(depal->a_position);
 		glEnableVertexAttribArray(depal->a_texcoord0);
 
@@ -1116,9 +1142,15 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 #endif
 		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 
-		glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-		glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
+			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+		} else {
+			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		}
 		glDisableVertexAttribArray(depal->a_position);
 		glDisableVertexAttribArray(depal->a_texcoord0);
 
@@ -1237,6 +1269,10 @@ void TextureCache::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
+				if (hasClut && clutRenderAddress_ != 0) {
+					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+				}
+
 				SetTextureFramebuffer(entry, entry->framebuffer);
 				entry->lastFrame = gpuStats.numFlips;
 				return;
@@ -1398,6 +1434,10 @@ void TextureCache::SetTexture(bool force) {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
+
+		if (hasClut && clutRenderAddress_ != 0) {
+			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
+		}
 
 		entry = &cache[cachekey];
 		if (g_Config.bTextureBackoffCache) {

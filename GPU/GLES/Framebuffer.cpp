@@ -48,6 +48,8 @@
 
 #include "UI/OnScreenDisplay.h"
 
+// #define DEBUG_READ_PIXELS 1
+
 extern int g_iNumVideos;
 
 static const char tex_fs[] =
@@ -504,11 +506,18 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+		transformDraw_->BindBuffer(pos, sizeof(pos));
+		transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+	} else {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	}
 	glDisableVertexAttribArray(program->a_position);
 
 	glsl_unbind();
@@ -523,7 +532,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		u0,v1,
 	};
 
-	static const GLushort indices[4] = {0,1,3,2};
+	static const GLubyte indices[4] = {0,1,3,2};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
@@ -580,13 +589,21 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		glsl_bind(program);
 	}
 
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
+	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+		transformDraw_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
+		transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+	} else {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	}
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 
@@ -1181,13 +1198,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
 	PROFILE_THIS_SCOPE("gpu-readback");
-#ifndef USING_GLES2
 	if (sync) {
 		// flush async just in case when we go for synchronous update
 		// Doesn't actually pack when sent a null argument.
 		PackFramebufferAsync_(nullptr);
 	}
-#endif
 
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
@@ -1270,19 +1285,19 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
-#ifdef USING_GLES2
-			if (nvfb->fbo) {
-				fbo_bind_as_render_target(nvfb->fbo);
-			}
+			if (gl_extensions.IsGLES) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+				}
 
-			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-			// to it. This broke stuff before, so now it only clears on the first use of an
-			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-			if (nvfb->last_frame_render != gpuStats.numFlips)	{
-				ClearBuffer();
+				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+				// to it. This broke stuff before, so now it only clears on the first use of an
+				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+				if (nvfb->last_frame_render != gpuStats.numFlips) {
+					ClearBuffer();
+				}
 			}
-#endif
 		}
 
 		if (gameUsesSequentialCopies_) {
@@ -1313,33 +1328,29 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels
 		// PackFramebufferAsync_() - Asynchronous pixel data transfer using glReadPixels with PBOs
 
-#ifdef USING_GLES2
-		PackFramebufferSync_(nvfb, x, y, w, h);
-#else
-		// TODO: Can we fall back to sync without these?
-		if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-			if (!sync) {
-				PackFramebufferAsync_(nvfb);
-			} else {
-				PackFramebufferSync_(nvfb, x, y, w, h);
+		if (gl_extensions.IsGLES) {
+			PackFramebufferSync_(nvfb, x, y, w, h);
+		} else {
+			// TODO: Can we fall back to sync without these?
+			if (gl_extensions.ARB_pixel_buffer_object && gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+				if (!sync) {
+					PackFramebufferAsync_(nvfb);
+				} else {
+					PackFramebufferSync_(nvfb, x, y, w, h);
+				}
 			}
 		}
-#endif
 
 		RebindFramebuffer();
 	}
 }
 
-// TODO: If dimensions are the same, we can use glCopyImageSubData.
 void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		fbo_unbind();
 		return;
 	}
-
-	fbo_bind_as_render_target(dst->fbo);
-	glstate.scissorTest.force(false);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 	bool useNV = useBlit && !gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT);
@@ -1365,6 +1376,39 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	int dstX2 = (dstX + w) * dstXFactor;
 	int dstY1 = dstY * dstYFactor;
 	int dstY2 = (dstY + h) * dstYFactor;
+
+	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE)) {
+		// Only if it's the same size.
+		if (dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1) {
+#if defined(USING_GLES2)
+#ifndef IOS
+			glCopyImageSubDataOES(
+				fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+				fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+				dstX2 - dstX1, dstY2 - dstY1, 1);
+			return;
+#endif
+#else
+			if (gl_extensions.ARB_copy_image) {
+				glCopyImageSubData(
+					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+					dstX2 - dstX1, dstY2 - dstY1, 1);
+				return;
+			} else if (gl_extensions.NV_copy_image) {
+				// Older, pre GL 4.x NVIDIA cards.
+				glCopyImageSubDataNV(
+					fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
+					fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,
+					dstX2 - dstX1, dstY2 - dstY1, 1);
+				return;
+			}
+#endif
+		}
+	}
+
+	fbo_bind_as_render_target(dst->fbo);
+	glstate.scissorTest.force(false);
 
 	if (useBlit) {
 		fbo_bind_for_read(src->fbo);
@@ -1497,8 +1541,7 @@ void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u
 	}
 }
 
-#ifndef USING_GLES2
-
+#ifdef DEBUG_READ_PIXELS
 // TODO: Make more generic.
 static void LogReadPixelsError(GLenum error) {
 	switch (error) {
@@ -1519,12 +1562,34 @@ static void LogReadPixelsError(GLenum error) {
 	case GL_OUT_OF_MEMORY:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_OUT_OF_MEMORY");
 		break;
+#ifndef USING_GLES2
 	case GL_STACK_UNDERFLOW:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_UNDERFLOW");
 		break;
 	case GL_STACK_OVERFLOW:
 		ERROR_LOG(SCEGE, "glReadPixels: GL_STACK_OVERFLOW");
 		break;
+#endif
+    default:
+        ERROR_LOG(SCEGE, "glReadPixels: %08x", error);
+        break;
+	}
+}
+#endif
+
+static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		// Some drivers seem to require we specify this.  See #8254.
+		glPixelStorei(GL_PACK_ROW_LENGTH, w);
+	}
+
+	glReadPixels(x, y, w, h, fmt, type, pixels);
+#ifdef DEBUG_READ_PIXELS
+	LogReadPixelsError(glGetError());
+#endif
+
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
 }
 
@@ -1537,6 +1602,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 
 	// We'll prepare two PBOs to switch between readying and reading
 	if (!pixelBufObj_) {
+		if (!vfb) {
+			// This call is just to flush the buffers.  We don't have any yet,
+			// so there's nothing to do.
+			return;
+		}
+
 		GLuint pbos[MAX_PBO];
 		glGenBuffers(MAX_PBO, pbos);
 
@@ -1552,7 +1623,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	AsyncPBO &pbo = pixelBufObj_[nextPBO];
 	if (pbo.reading) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo.handle);
+#ifdef USING_GLES2
+		// Not on desktop GL 2.x...
+		packed = (GLubyte *)glMapBufferRange(GL_PIXEL_PACK_BUFFER, 0, pbo.size, GL_MAP_READ_BIT);
+#else
 		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+#endif
 
 		if (packed) {
 			DEBUG_LOG(SCEGE, "Reading PBO to memory , bufSize = %u, packed = %p, fb_address = %08x, stride = %u, pbo = %u",
@@ -1583,19 +1659,31 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
 			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
 			case GE_FORMAT_4444: // 16 bit RGBA
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 2;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 2;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_6_5;
+#else
 				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
+#endif
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 2;
@@ -1641,14 +1729,12 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		if (useCPU) {
 			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
+			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, UseBGRA8888() ? GL_BGRA_EXT : GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		} else {
 			// Otherwise we'll directly request the format we need and let the GPU sort it out
 			glPixelStorei(GL_PACK_ALIGNMENT, align);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
+			SafeGLReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
-
-		// LogReadPixelsError(glGetError());
 
 		fbo_unbind_read();
 		unbind = true;
@@ -1667,8 +1753,6 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	}
 }
-
-#endif
 
 void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (vfb->fbo) {
@@ -1711,8 +1795,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		}
 
 		int byteOffset = y * vfb->fb_stride * 4;
-		glReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
-		// LogReadPixelsError(glGetError());
+		SafeGLReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
@@ -1781,19 +1864,20 @@ void FramebufferManager::EndFrame() {
 
 		resized_ = false;
 #ifdef _WIN32
-		ShowScreenResolution();
+		// Seems related - if you're ok with numbers all the time, show some more :)
+		if (g_Config.iShowFPSCounter != 0) {
+			ShowScreenResolution();
+		}
 #endif
 		ClearBuffer();
 		DestroyDraw2DProgram();
 		SetLineWidth();
 	}
 
-#ifndef USING_GLES2
 	// We flush to memory last requested framebuffer, if any.
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
-		PackFramebufferAsync_(NULL);
-#endif
+		PackFramebufferAsync_(nullptr);
 
 	// Let's explicitly invalidate any temp FBOs used during this frame.
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
@@ -1844,11 +1928,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed_ - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if (ShouldDownloadFramebuffer(vfb) && age == 0 && !vfb->memoryUpdated) {
-#ifdef USING_GLES2
-			bool sync = true;
-#else
-			bool sync = false;
-#endif
+			bool sync = gl_extensions.IsGLES;
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 		}
 
@@ -1949,7 +2029,7 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 
@@ -1962,7 +2042,7 @@ bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	// The backbuffer is flipped.
 	buffer.Allocate(pw, ph, GPU_DBG_FORMAT_888_RGB, true);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
-	glReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, pw, ph, GL_RGB, GL_UNSIGNED_BYTE, buffer.GetData());
 	return true;
 }
 
@@ -1984,7 +2064,7 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_DEPTH_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_DEPTH_COMPONENT, GL_FLOAT, buffer.GetData());
 
 	return true;
 }
@@ -2008,7 +2088,7 @@ bool FramebufferManager::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebu
 		fbo_bind_for_read(vfb->fbo);
 	glReadBuffer(GL_STENCIL_ATTACHMENT);
 	glPixelStorei(GL_PACK_ALIGNMENT, 2);
-	glReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, buffer.GetData());
 
 	return true;
 #else

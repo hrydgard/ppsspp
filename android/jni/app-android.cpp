@@ -6,6 +6,7 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <android/native_window_jni.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <GLES2/gl2.h>
@@ -26,6 +27,8 @@
 #include "net/resolve.h"
 #include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
+
+#include "Common/GL/GLInterfaceBase.h"
 
 #include "app-android.h"
 
@@ -61,45 +64,64 @@ static int androidVersion;
 static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
+// This is the ACTUAL display size, not the hardware scaled display size.
+static int display_dpi;
 static int display_xres;
 static int display_yres;
+static int backbuffer_format;  // Android PixelFormat enum
+
+static int desiredBackbufferSizeX;
+static int desiredBackbufferSizeY;
+
+static jmethodID postCommand;
+static jobject nativeActivity;
+static volatile bool exitRenderLoop;
+bool renderLoopRunning;
+
+float dp_xscale = 1.0f;
+float dp_yscale = 1.0f;
+
+InputState input_state;
+
+static bool renderer_inited = false;
+static bool first_lost = true;
+static std::string library_path;
+static std::map<SystemPermission, PermissionStatus> permissions;
+
+void PushCommand(std::string cmd, std::string param) {
+	lock_guard guard(frameCommandLock);
+	frameCommands.push(FrameCommand(cmd, param));
+}
 
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("toast", text));
+	PushCommand("toast", text);
 }
 
 void ShowKeyboard() {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("showKeyboard", ""));
+	PushCommand("showKeyboard", "");
 }
 
 void Vibrate(int length_ms) {
-	lock_guard guard(frameCommandLock);
 	char temp[32];
 	sprintf(temp, "%i", length_ms);
-	frameCommands.push(FrameCommand("vibrate", temp));
+	PushCommand("vibrate", temp);
 }
 
 void LaunchBrowser(const char *url) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchBrowser", url));
+	PushCommand("launchBrowser", url);
 }
 
 void LaunchMarket(const char *url) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchMarket", url));
+	PushCommand("launchMarket", url);
 }
 
 void LaunchEmail(const char *email_address) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand("launchEmail", email_address));
+	PushCommand("launchEmail", email_address);
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
-	lock_guard guard(frameCommandLock);
-	frameCommands.push(FrameCommand(command, parameter));
+	PushCommand(command, parameter);
 }
 
 std::string System_GetProperty(SystemProperty prop) {
@@ -135,28 +157,29 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalFramesPerBuffer;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return (int)(display_hz * 1000.0);
+	case SYSPROP_SUPPORTS_PERMISSIONS:
+		return androidVersion >= 23;  // 6.0 Marshmallow introduced run time permissions.
 	default:
 		return -1;
 	}
 }
-
-// Remember that all of these need initialization on init! The process
-// may be reused when restarting the game. Globals are DANGEROUS.
-
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
-
-InputState input_state;
-
-static bool renderer_inited = false;
-static bool first_lost = true;
-static std::string library_path;
 
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	const char *str = env->GetStringUTFChars(jstr, 0);
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
 	return cpp_string;
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
+	nativeActivity = env->NewGlobalRef(obj);
+	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	ILOG("Got method ID to postCommand: %p", postCommand);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
+	env->DeleteGlobalRef(nativeActivity);
+	nativeActivity = nullptr;
 }
 
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
@@ -188,7 +211,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
-  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jint jxres, jint jyres, jstring jlangRegion, jstring japkpath,
+  (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
 		jstring jinstallID, jint jAndroidVersion) {
 	jniEnvUI = env;
@@ -212,8 +235,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	right_joystick_y_async = 0;
 	hat_joystick_x_async = 0;
 	hat_joystick_y_async = 0;
-	display_xres = jxres;
-	display_yres = jyres;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
@@ -299,99 +320,26 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- end");
 }
 
-static jmethodID postCommand;
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	ILOG("NativeApp.displayInit()");
-	if (!renderer_inited) {
-		NativeInitGraphics();
-		renderer_inited = true;
-	} else {
-		NativeDeviceLost();  // ???
-		ILOG("displayInit: NativeDeviceLost completed.");
-	}
-
-	DLOG("(Re)-fetching method ID to postCommand...");
-	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
-}
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h, jint dpi, jfloat refreshRate) {
-	ILOG("NativeApp.displayResize(%i x %i, dpi=%i, refresh=%0.2f)", w, h, dpi, refreshRate);
-
-	g_dpi = dpi;
-	g_dpi_scale = 240.0f / (float)g_dpi;
-
-	pixel_xres = w;
-	pixel_yres = h;
-	dp_xres = pixel_xres * g_dpi_scale;
-	dp_yres = pixel_yres * g_dpi_scale;
-	dp_xscale = (float)dp_xres / pixel_xres;
-	dp_yscale = (float)dp_yres / pixel_yres;
-	display_hz = refreshRate;
-
-	NativeResized();
-}
-
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-	static bool hasSetThreadName = false;
-	if (!hasSetThreadName) {
-		hasSetThreadName = true;
-		setCurrentThreadName("AndroidRender");
-	}
-
-	if (renderer_inited) {
-		// TODO: Look into if these locks are a perf loss
-		{
-			lock_guard guard(input_state.lock);
-
-			input_state.pad_lstick_x = left_joystick_x_async;
-			input_state.pad_lstick_y = left_joystick_y_async;
-			input_state.pad_rstick_x = right_joystick_x_async;
-			input_state.pad_rstick_y = right_joystick_y_async;
-
-			UpdateInputState(&input_state);
-		}
-		NativeUpdate(input_state);
-
-		{
-			lock_guard guard(input_state.lock);
-			EndInputState(&input_state);
-		}
-
-		NativeRender();
-		time_update();
-	} else {
-		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
-		// Shouldn't really get here. Let's draw magenta.
-		glDepthMask(GL_TRUE);
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(1.0, 0.0, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	}
-
-	lock_guard guard(frameCommandLock);
-	while (!frameCommands.empty()) {
-		FrameCommand frameCmd;
-		frameCmd = frameCommands.front();
-		frameCommands.pop();
-
-		DLOG("frameCommand %s %s", frameCmd.command.c_str(), frameCmd.params.c_str());
-
-		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-		jstring param = env->NewStringUTF(frameCmd.params.c_str());
-		env->CallVoidMethod(obj, postCommand, cmd, param);
-		env->DeleteLocalRef(cmd); 
-		env->DeleteLocalRef(param);
-	}
-}
-
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	if (renderer_inited) {
-		NativeDeviceLost();
-		ILOG("NativeDeviceLost completed.");
-		NativeShutdownGraphics();
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");
+	}
+}
+
+void System_AskForPermission(SystemPermission permission) {
+	switch (permission) {
+	case SYSTEM_PERMISSION_STORAGE:
+		PushCommand("ask_permission", "storage");
+		break;
+	}
+}
+
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
+	if (androidVersion < 23) {
+		return PERMISSION_STATUS_GRANTED;
+	} else {
+		return permissions[permission];
 	}
 }
 
@@ -524,12 +472,232 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEn
 	return retvalX || retvalY || retvalZ;
 }
 
-extern "C" void Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {
 	std::string msg = GetJavaString(env, message);
 	std::string prm = GetJavaString(env, param);
 
+	// Some messages are caught by app-android.
 	if (msg == "moga") {
 		mogaVersion = prm;
+	} else if (msg == "permission_pending") {
+		// TODO: Add support for other permissions
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
+	} else if (msg == "permission_denied") {
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
+	} else if (msg == "permission_granted") {
+		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+		NativePermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
 	}
+
 	NativeMessageReceived(msg.c_str(), prm.c_str());
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeActivity_exitEGLRenderLoop(JNIEnv *env, jobject obj) {
+	if (!renderLoopRunning) {
+		ELOG("Render loop already exited");
+		return;
+	}
+	exitRenderLoop = true;
+	while (renderLoopRunning) {
+		sleep_ms(10);
+	}
+}
+
+void correctRatio(int &sz_x, int &sz_y, float scale) {
+	float x = (float)sz_x;
+	float y = (float)sz_y;
+	float ratio = x / y;
+	ILOG("CorrectRatio: Considering size: %0.2f/%0.2f=%0.2f for scale %f", x, y, ratio, scale);
+	float targetRatio;
+
+	// Try to get the longest dimension to match scale*PSP resolution.
+	if (x >= y) {
+		targetRatio = 480.0f / 272.0f;
+		x = 480.f * scale;
+		y = 272.f * scale;
+	} else {
+		targetRatio = 272.0f / 480.0f;
+		x = 272.0f * scale;
+		y = 480.0f * scale;
+	}
+
+	float correction = targetRatio / ratio;
+	ILOG("Target ratio: %0.2f ratio: %0.2f correction: %0.2f", targetRatio, ratio, correction);
+	if (ratio < targetRatio) {
+		y *= correction;
+	} else {
+		x /= correction;
+	}
+
+	sz_x = x;
+	sz_y = y;
+	ILOG("Corrected ratio: %dx%d", sz_x, sz_y);
+}
+
+void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
+	sz_x = display_xres;
+	sz_y = display_yres;
+	std::string config = NativeQueryConfig("hwScale");
+	int scale;
+	if (1 == sscanf(config.c_str(), "%d", &scale) && scale > 0) {
+		correctRatio(sz_x, sz_y, scale);
+	} else {
+		sz_x = 0;
+		sz_y = 0;
+	}
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
+	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
+	display_xres = xres;
+	display_yres = yres;
+	display_dpi = dpi;
+	display_hz = refreshRate;
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint bufw, jint bufh, jint format) {
+	ILOG("NativeApp.backbufferResize(%d x %d)", bufw, bufh);
+
+	// pixel_*res is the backbuffer resolution.
+	pixel_xres = bufw;
+	pixel_yres = bufh;
+	backbuffer_format = format;
+
+	g_dpi = (int)display_dpi;
+	g_dpi_scale = 240.0f / (float)g_dpi;
+
+	dp_xres = display_xres * g_dpi_scale;
+	dp_yres = display_yres * g_dpi_scale;
+
+	// Touch scaling is from display pixels to dp pixels.
+	dp_xscale = (float)dp_xres / (float)display_xres;
+	dp_yscale = (float)dp_yres / (float)display_yres;
+
+	pixel_in_dps = (float)pixel_xres / dp_xres;
+
+	ILOG("dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
+	ILOG("dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
+	ILOG("pixel_xres=%d pixel_yres=%d", pixel_xres, pixel_yres);
+	ILOG("g_dpi=%d g_dpi_scale=%f", g_dpi, g_dpi_scale);
+
+	NativeResized();
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
+	getDesiredBackbufferSize(desiredBackbufferSizeX, desiredBackbufferSizeY);
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWidth(JNIEnv *, jclass) {
+	return desiredBackbufferSizeX;
+}
+
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
+	return desiredBackbufferSizeY;
+}
+
+extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
+
+	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
+
+	if (wnd == nullptr) {
+		ELOG("Error: Surface is null.");
+		return false;
+	}
+
+	cInterfaceBase *gl = HostGL_CreateGLInterface();
+	if (!gl) {
+		ELOG("ERROR: Failed to create GL interface");
+		return false;
+	}
+	ILOG("EGL interface created. Desired backbuffer size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
+
+	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
+	gl->SetBackBufferDimensions(desiredBackbufferSizeX, desiredBackbufferSizeY);
+	gl->SetMode(MODE_DETECT_ES);
+
+	bool use565 = false;
+	switch (backbuffer_format) {
+	case 4:  // PixelFormat.RGB_565
+		use565 = true;
+		break;
+	}
+
+	if (!gl->Create(wnd, false, use565)) {
+		ELOG("EGL creation failed");
+		// TODO: What do we do now?
+		return false;
+	}
+	gl->MakeCurrent();
+
+	if (!renderer_inited) {
+		NativeInitGraphics();
+		renderer_inited = true;
+	}
+
+	exitRenderLoop = false;
+	renderLoopRunning = true;
+
+	while (!exitRenderLoop) {
+		static bool hasSetThreadName = false;
+		if (!hasSetThreadName) {
+			hasSetThreadName = true;
+			setCurrentThreadName("AndroidRender");
+		}
+
+		// TODO: Look into if these locks are a perf loss
+		{
+			lock_guard guard(input_state.lock);
+
+			input_state.pad_lstick_x = left_joystick_x_async;
+			input_state.pad_lstick_y = left_joystick_y_async;
+			input_state.pad_rstick_x = right_joystick_x_async;
+			input_state.pad_rstick_y = right_joystick_y_async;
+
+			UpdateInputState(&input_state);
+		}
+		NativeUpdate(input_state);
+
+		{
+			lock_guard guard(input_state.lock);
+			EndInputState(&input_state);
+		}
+
+		NativeRender();
+		time_update();
+
+		gl->Swap();
+
+		lock_guard guard(frameCommandLock);
+		while (!frameCommands.empty()) {
+			FrameCommand frameCmd;
+			frameCmd = frameCommands.front();
+			frameCommands.pop();
+
+			WLOG("frameCommand! '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+
+			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+			jstring param = env->NewStringUTF(frameCmd.params.c_str());
+			env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
+			env->DeleteLocalRef(cmd);
+			env->DeleteLocalRef(param);
+		}
+	}
+
+	// Restore lost device objects. TODO: This feels like the wrong place for this.
+	NativeDeviceLost();
+	ILOG("NativeDeviceLost completed.");
+
+	NativeShutdownGraphics();
+	renderer_inited = false;
+
+	gl->ClearCurrent();
+	delete gl;
+
+	ANativeWindow_release(wnd);
+	renderLoopRunning = false;
+	WLOG("Render loop exited;");
+	return true;
 }
