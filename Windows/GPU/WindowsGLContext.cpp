@@ -133,7 +133,24 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
-	NOTICE_LOG(G3D, "GL: %s", finalMessage);
+
+	switch (type) {
+	case GL_DEBUG_TYPE_ERROR_ARB:
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
+		ERROR_LOG(G3D, "GL: %s", finalMessage);
+		break;
+
+	case GL_DEBUG_TYPE_PORTABILITY_ARB:
+	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
+		NOTICE_LOG(G3D, "GL: %s", finalMessage);
+		break;
+
+	case GL_DEBUG_TYPE_OTHER_ARB:
+	default:
+		INFO_LOG(G3D, "GL: %s", finalMessage);
+		break;
+	}
 }
 
 bool GL_Init(HWND window, std::string *error_message) {
