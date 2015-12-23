@@ -15,9 +15,6 @@
 DrawBuffer ui_draw2d;
 DrawBuffer ui_draw2d_front;
 
-// Theme.
-static const Atlas *themeAtlas;
-
 void UIBegin(Thin3DShaderSet *shaderSet) {
 	ui_draw2d.Begin(shaderSet);
 	ui_draw2d_front.Begin(shaderSet);
