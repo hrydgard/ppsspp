@@ -102,20 +102,53 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	{
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo))
-		{
+		if (g_paramSFO.ReadSFO(paramsfo)) {
+			// TODO: Check the SFO for other parameters that might be useful for identifying?
 			gameID = g_paramSFO.GetValueString("DISC_ID");
 
 			for (size_t i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
-				if(g_HDRemasters[i].gameID == gameID) {
+				if (g_HDRemasters[i].gameID == gameID) {
 					g_RemasterMode = true;
 					Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
-					if(g_HDRemasters[i].DoubleTextureCoordinates)
+					if (g_HDRemasters[i].DoubleTextureCoordinates)
 						g_DoubleTextureCoordinates = true;
 					break;
 				}
 			}
-			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
+			if (g_RemasterMode) {
+				INFO_LOG(LOADER, "HDRemaster found, using increased memory");
+			}
+		}
+	}
+}
+
+void InitMemoryForGamePBP(FileLoader *fileLoader) {
+	bool useLargeMem = false;
+
+	// TODO: Change PBPReader to read FileLoader objects?
+	std::string filename = fileLoader->Path();
+	PBPReader pbp(filename.c_str());
+	if (pbp.IsValid() && !pbp.IsELF()) {
+		size_t sfoSize;
+		u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
+		if (sfoData) {
+			ParamSFOData paramSFO;
+			paramSFO.ReadSFO(sfoData, sfoSize);
+
+			// This is the parameter CFW uses to determine homebrew wants the full 64MB.
+			int memsize = paramSFO.GetValueInt("MEMSIZE");
+			useLargeMem = memsize == 1;
+
+			delete [] sfoData;
+		}
+	}
+
+	if (useLargeMem) {
+		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
+			INFO_LOG(LOADER, "Homebrew requested full PSP-2000 memory access");
+			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+		} else {
+			WARN_LOG(LOADER, "Homebrew requested full PSP-2000 memory access, ignoring in PSP-1000 mode");
 		}
 	}
 }
