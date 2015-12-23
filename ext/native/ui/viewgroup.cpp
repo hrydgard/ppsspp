@@ -446,7 +446,15 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		MeasureBySpec(layoutParams_->width, weightZeroSum, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, maxOther, vert, &measuredHeight_);
 
-		float unit = (measuredWidth_ - weightZeroSum) / weightSum;
+		// If we've got stretch, allow growing to fill the parent.
+		float allowedWidth = measuredWidth_;
+		if (horiz.type == AT_MOST && measuredWidth_ < horiz.size) {
+			allowedWidth = horiz.size;
+		}
+
+		float unit = (allowedWidth - weightZeroSum) / weightSum;
+		float usedWidth = 0.0f;
+
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->GetVisibility() == V_GONE)
@@ -463,15 +471,30 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum), v - (float)(margins.top + margins.bottom));
+				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - marginSum);
+				if (horiz.type == EXACTLY) {
+					h.type = EXACTLY;
+				}
+				views_[i]->Measure(dc, h, v - (float)(margins.top + margins.bottom));
+				usedWidth += views_[i]->GetMeasuredWidth();
 			}
 		}
+
+		if (horiz.type == AT_MOST && measuredWidth_ < horiz.size) {
+			measuredWidth_ += usedWidth;
+		}
 	} else {
-		//MeasureBySpec(layoutParams_->height, vert.type == UNSPECIFIED ? sum : weightZeroSum, vert, &measuredHeight_);
 		MeasureBySpec(layoutParams_->height, weightZeroSum, vert, &measuredHeight_);
 		MeasureBySpec(layoutParams_->width, maxOther, horiz, &measuredWidth_);
 
-		float unit = (measuredHeight_ - weightZeroSum) / weightSum;
+		// If we've got stretch, allow growing to fill the parent.
+		float allowedHeight = measuredHeight_;
+		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
+			allowedHeight = vert.size;
+		}
+
+		float unit = (allowedHeight - weightZeroSum) / weightSum;
+		float usedHeight = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (size_t i = 0; i < views_.size(); i++) {
@@ -489,8 +512,17 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
-				views_[i]->Measure(dc, h - (float)(margins.left + margins.right), MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum));
+				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - marginSum);
+				if (vert.type == EXACTLY) {
+					v.type = EXACTLY;
+				}
+				views_[i]->Measure(dc, h - (float)(margins.left + margins.right), v);
+				usedHeight += views_[i]->GetMeasuredHeight();
 			}
+		}
+
+		if (vert.type == AT_MOST && measuredWidth_ < vert.size) {
+			measuredHeight_ += usedHeight;
 		}
 	}
 }
