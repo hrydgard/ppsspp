@@ -238,14 +238,14 @@ private:
 	// Vertex buffer objects
 	// Element buffer objects
 	struct BufferNameInfo {
-		BufferNameInfo() : sz(0), used(false) {}
-		BufferNameInfo(size_t s) : sz(s), used(true) {}
+		BufferNameInfo() : sz(0), used(false), lastFrame(0) {}
 
 		size_t sz;
 		bool used;
+		int lastFrame;
 	};
 	std::vector<GLuint> bufferNameCache_;
-	std::vector<BufferNameInfo> bufferNameInfo_;
+	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
 	GLuint sharedVao_;
 
@@ -261,6 +261,7 @@ private:
 	int vertexCountInDrawCalls;
 
 	int decimationCounter_;
+	int bufferDecimationCounter_;
 	int decodeCounter_;
 	u32 dcid_;
 
