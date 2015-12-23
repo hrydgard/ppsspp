@@ -111,6 +111,10 @@ public:
 	// Set to NONE to not attach this edge to the container.
 	float left, top, right, bottom;
 	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
+
+	static LayoutParamsType StaticType() {
+		return LP_ANCHOR;
+	}
 };
 
 class AnchorLayout : public ViewGroup {
@@ -151,6 +155,10 @@ public:
 	Margins margins;
 
 	bool HasMargins() const { return hasMargins_; }
+
+	static LayoutParamsType StaticType() {
+		return LP_LINEAR;
+	}
 
 private:
 	bool hasMargins_;

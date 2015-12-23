@@ -395,9 +395,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			continue;
 		numVisible++;
 
-		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
-		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+		const LinearLayoutParams *linLayoutParams = views_[i]->GetLayoutParams()->As<LinearLayoutParams>();
 
 		Margins margins = defaultMargins_;
 
@@ -459,9 +457,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->GetVisibility() == V_GONE)
 				continue;
-			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
-			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+			const LinearLayoutParams *linLayoutParams = views_[i]->GetLayoutParams()->As<LinearLayoutParams>();
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
 				Margins margins = defaultMargins_;
@@ -500,9 +496,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->GetVisibility() == V_GONE)
 				continue;
-			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
-			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+			const LinearLayoutParams *linLayoutParams = views_[i]->GetLayoutParams()->As<LinearLayoutParams>();
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
 				Margins margins = defaultMargins_;
@@ -548,9 +542,7 @@ void LinearLayout::Layout() {
 		if (views_[i]->GetVisibility() == V_GONE)
 			continue;
 
-		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
-		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+		const LinearLayoutParams *linLayoutParams = views_[i]->GetLayoutParams()->As<LinearLayoutParams>();
 
 		Gravity gravity = G_TOPLEFT;
 		Margins margins = defaultMargins_;
@@ -615,10 +607,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	// Respect margins
 	Margins margins;
 	if (views_.size()) {
-		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-		if (!linLayoutParams->Is(LP_LINEAR)) {
-			linLayoutParams = 0;
-		}
+		const LinearLayoutParams *linLayoutParams = views_[0]->GetLayoutParams()->As<LinearLayoutParams>();
 		if (linLayoutParams) {
 			margins = linLayoutParams->margins;
 		}
@@ -657,8 +646,7 @@ void ScrollView::Layout() {
 
 	// Respect margins
 	Margins margins;
-	const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-	if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+	const LinearLayoutParams *linLayoutParams = views_[0]->GetLayoutParams()->As<LinearLayoutParams>();
 	if (linLayoutParams) {
 		margins = linLayoutParams->margins;
 	}
@@ -909,8 +897,7 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			}
 		}
 
-		const AnchorLayoutParams *params = static_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
-		if (!params->Is(LP_ANCHOR)) params = 0;
+		const AnchorLayoutParams *params = views_[i]->GetLayoutParams()->As<AnchorLayoutParams>();
 		if (params) {
 			width = params->width;
 			height = params->height;
@@ -937,8 +924,7 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 void AnchorLayout::Layout() {
 	for (size_t i = 0; i < views_.size(); i++) {
-		const AnchorLayoutParams *params = static_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
-		if (!params->Is(LP_ANCHOR)) params = 0;
+		const AnchorLayoutParams *params = views_[i]->GetLayoutParams()->As<AnchorLayoutParams>();
 
 		Bounds vBounds;
 		vBounds.w = views_[i]->GetMeasuredWidth();
