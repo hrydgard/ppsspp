@@ -271,7 +271,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 	};
 
 	HGLRC	m_hrc;
-	if(wglewIsSupported("WGL_ARB_create_context") == 1) {
+	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
 		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
 		if (!m_hrc)
 			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs43);
@@ -305,20 +305,33 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	GL_SwapInterval(0);
 
-	// TODO: Also support GL_KHR_debug which might be more widely supported?
-	if (g_Config.bGfxDebugOutput && glewIsSupported("GL_ARB_debug_output")) {
-		glGetError();
-		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
-		if (glGetError()) {
-			ERROR_LOG(G3D, "Failed to register a debug log callback");
-		}
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-		if (glGetError()) {
-			ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+	if (g_Config.bGfxDebugOutput) {
+		if (wglewIsSupported("GL_KHR_debug") == 1) {
+			glGetError();
+			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to register a debug log callback");
+			}
+			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+			}
+		} else if (glewIsSupported("GL_ARB_debug_output")) {
+			glGetError();
+			glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to register a debug log callback");
+			}
+			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+			}
+
+			// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
+			// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
 		}
 
-		// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
-		// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
+		glEnable(GL_DEBUG_OUTPUT);
 	}
 
 	pauseRequested = false;
