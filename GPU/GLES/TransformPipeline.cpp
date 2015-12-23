@@ -109,7 +109,7 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
-#define VERTEXCACHE_NAME_CACHE_FULL_SIZE 80
+#define VERTEXCACHE_NAME_CACHE_FULL_SIZE 800
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
@@ -175,6 +175,7 @@ void TransformDrawEngine::RestoreVAO() {
 void TransformDrawEngine::InitDeviceObjects() {
 	if (bufferNameCache_.empty()) {
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
+		bufferNameInfo_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
 
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
@@ -193,6 +194,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
+		bufferNameInfo_.clear();
 
 		if (sharedVao_ != 0) {
 			glDeleteVertexArrays(1, &sharedVao_);
@@ -205,6 +207,7 @@ void TransformDrawEngine::GLLost() {
 	ILOG("TransformDrawEngine::GLLost()");
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
+	bufferNameInfo_.clear();
 	ClearTrackedVertexArrays();
 	InitDeviceObjects();
 }
@@ -575,27 +578,57 @@ VertexArrayInfo::~VertexArrayInfo() {
 		glDeleteBuffers(1, &ebo);
 }
 
-GLuint TransformDrawEngine::AllocateBuffer() {
-	if (bufferNameCache_.empty()) {
-		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
-		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
+GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
+	size_t unused = -1;
+	for (size_t i = 0; i < bufferNameCache_.size(); ++i) {
+		if (bufferNameInfo_[i].used) {
+			continue;
+		}
+		unused = i;
+		if (bufferNameInfo_[i].sz == sz) {
+			break;
+		}
 	}
-	GLuint buf = bufferNameCache_.back();
-	bufferNameCache_.pop_back();
-	return buf;
+
+	if (unused == -1) {
+		size_t oldSize = bufferNameCache_.size();
+		bufferNameCache_.resize(oldSize + VERTEXCACHE_NAME_CACHE_SIZE);
+		bufferNameInfo_.resize(oldSize + VERTEXCACHE_NAME_CACHE_SIZE);
+		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[oldSize]);
+
+		unused = oldSize;
+	}
+
+	bufferNameInfo_[unused] = BufferNameInfo(sz);
+	return bufferNameCache_[unused];
 }
 
 void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	// We can reuse buffers by setting new data on them.
-	bufferNameCache_.push_back(buf);
+	bool found = false;
+	for (size_t i = 0; i < bufferNameCache_.size(); ++i) {
+		if (bufferNameCache_[i] == buf) {
+			bufferNameInfo_[i].used = false;
+			found = true;
+			break;
+		}
+	}
 
-	// But let's not keep too many around, will eat up memory.
-	if (bufferNameCache_.size() >= VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
-		GLsizei extra = (GLsizei)bufferNameCache_.size() - VERTEXCACHE_NAME_CACHE_SIZE;
+	if (!found) {
+		// We purged this out of the cache already?
 		glstate.arrayBuffer.unbind();
 		glstate.elementArrayBuffer.unbind();
-		glDeleteBuffers(extra, &bufferNameCache_[VERTEXCACHE_NAME_CACHE_SIZE]);
-		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
+		glDeleteBuffers(1, &buf);
+	}
+
+	// But let's not keep too many around, will eat up memory.
+	if (bufferNameCache_.size() > VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
+		GLsizei extra = (GLsizei)bufferNameCache_.size() - VERTEXCACHE_NAME_CACHE_FULL_SIZE;
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glDeleteBuffers(extra, &bufferNameCache_[VERTEXCACHE_NAME_CACHE_FULL_SIZE]);
+		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_FULL_SIZE);
+		bufferNameInfo_.resize(VERTEXCACHE_NAME_CACHE_FULL_SIZE);
 	}
 }
 
@@ -707,16 +740,18 @@ void TransformDrawEngine::DoFlush() {
 
 						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
-						vai->vbo = AllocateBuffer();
+						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						vai->vbo = AllocateBuffer(vsz);
 						glstate.arrayBuffer.bind(vai->vbo);
-						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, vsz, decoded, GL_STATIC_DRAW);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
-							vai->ebo = AllocateBuffer();
+							size_t esz = sizeof(short) * indexGen.VertexCount();
+							vai->ebo = AllocateBuffer(esz);
 							glstate.elementArrayBuffer.bind(vai->ebo);
-							glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * indexGen.VertexCount(), (GLvoid *)decIndex, GL_STATIC_DRAW);
+							glBufferData(GL_ELEMENT_ARRAY_BUFFER, esz, (GLvoid *)decIndex, GL_STATIC_DRAW);
 						} else {
 							vai->ebo = 0;
 							glstate.elementArrayBuffer.bind(vai->ebo);
@@ -954,7 +989,7 @@ void TransformDrawEngine::Resized() {
 
 GLuint TransformDrawEngine::BindBuffer(const void *p, size_t sz) {
 	// Get a new buffer each time we need one.
-	GLuint buf = AllocateBuffer();
+	GLuint buf = AllocateBuffer(sz);
 	glstate.arrayBuffer.bind(buf);
 
 	// These aren't used more than once per frame, so let's use GL_STREAM_DRAW.
@@ -965,7 +1000,7 @@ GLuint TransformDrawEngine::BindBuffer(const void *p, size_t sz) {
 }
 
 GLuint TransformDrawEngine::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
-	GLuint buf = AllocateBuffer();
+	GLuint buf = AllocateBuffer(sz1 + sz2);
 	glstate.arrayBuffer.bind(buf);
 
 	glBufferData(GL_ARRAY_BUFFER, sz1 + sz2, nullptr, GL_STREAM_DRAW);
@@ -977,7 +1012,7 @@ GLuint TransformDrawEngine::BindBuffer(const void *p1, size_t sz1, const void *p
 }
 
 GLuint TransformDrawEngine::BindElementBuffer(const void *p, size_t sz) {
-	GLuint buf = AllocateBuffer();
+	GLuint buf = AllocateBuffer(sz);
 	glstate.elementArrayBuffer.bind(buf);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
 	buffersThisFrame_.push_back(buf);

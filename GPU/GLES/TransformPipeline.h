@@ -203,7 +203,7 @@ private:
 	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
-	GLuint AllocateBuffer();
+	GLuint AllocateBuffer(size_t sz);
 	void FreeBuffer(GLuint buf);
 
 	u32 ComputeMiniHash();
@@ -237,7 +237,15 @@ private:
 
 	// Vertex buffer objects
 	// Element buffer objects
+	struct BufferNameInfo {
+		BufferNameInfo() : sz(0), used(false) {}
+		BufferNameInfo(size_t s) : sz(s), used(true) {}
+
+		size_t sz;
+		bool used;
+	};
 	std::vector<GLuint> bufferNameCache_;
+	std::vector<BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
 	GLuint sharedVao_;
 
