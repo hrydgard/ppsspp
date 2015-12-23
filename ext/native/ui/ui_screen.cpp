@@ -195,7 +195,9 @@ void PopupScreen::CreateViews() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	anchor->Overflow(false);
+	root_ = anchor;
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 

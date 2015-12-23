@@ -115,10 +115,16 @@ public:
 
 class AnchorLayout : public ViewGroup {
 public:
-	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
+	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams), overflow_(true) {}
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
+	void Overflow(bool allow) {
+		overflow_ = allow;
+	}
 	std::string Describe() const override { return "AnchorLayout: " + View::Describe(); }
+
+private:
+	bool overflow_;
 };
 
 class LinearLayoutParams : public LayoutParams {

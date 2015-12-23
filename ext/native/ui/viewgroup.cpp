@@ -859,6 +859,15 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		MeasureSpec specW(UNSPECIFIED, 0.0f);
 		MeasureSpec specH(UNSPECIFIED, 0.0f);
 
+		if (!overflow_) {
+			if (horiz.type != UNSPECIFIED) {
+				specW = MeasureSpec(AT_MOST, horiz.size);
+			}
+			if (vert.type != UNSPECIFIED) {
+				specH = MeasureSpec(AT_MOST, vert.size);
+			}
+		}
+
 		const AnchorLayoutParams *params = static_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
 		if (!params->Is(LP_ANCHOR)) params = 0;
 		if (params) {
@@ -866,15 +875,19 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			height = params->height;
 
 			if (!params->center) {
-				if (params->left >= 0 && params->right >= 0) 	{
+				if (params->left >= 0 && params->right >= 0) {
 					width = measuredWidth_ - params->left - params->right;
 				}
-				if (params->top >= 0 && params->bottom >= 0) 	{
+				if (params->top >= 0 && params->bottom >= 0) {
 					height = measuredHeight_ - params->top - params->bottom;
 				}
 			}
-			specW = width < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, width);
-			specH = height < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, height);
+			if (width >= 0) {
+				specW = MeasureSpec(EXACTLY, width);
+			}
+			if (height >= 0) {
+				specH = MeasureSpec(EXACTLY, height);
+			}
 		}
 
 		views_[i]->Measure(dc, specW, specH);
