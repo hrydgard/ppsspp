@@ -566,7 +566,7 @@ void Thin3DGLVertexFormat::Compile() {
 	semanticsMask_ = sem;
 	// TODO : Compute stride as well?
 
-	if (gl_extensions.ARB_vertex_array_object) {
+	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
 		glGenVertexArrays(1, &id_);
 	} else {
 		id_ = 0;
