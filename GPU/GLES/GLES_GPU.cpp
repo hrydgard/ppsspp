@@ -587,7 +587,13 @@ void GLES_GPU::BuildReportingInfo() {
 	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
 	const char *glVersion = GetGLStringAlways(GL_VERSION);
 	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
-	const char *glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+	const char *glExtensions = nullptr;
+
+	if (gl_extensions.VersionGEThan(3, 0)) {
+		glExtensions = g_all_gl_extensions.c_str();
+	} else {
+		glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+	}
 
 	char temp[16384];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
