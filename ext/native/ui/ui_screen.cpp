@@ -485,7 +485,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
-	if (&units_)
+	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
 	if (IsFocusMovementEnabled())
@@ -509,7 +509,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
-	if (&units_)
+	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
