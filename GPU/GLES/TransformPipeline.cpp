@@ -109,8 +109,9 @@ enum {
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
 #define VERTEXCACHE_NAME_DECIMATION_INTERVAL 41
+#define VERTEXCACHE_NAME_DECIMATION_MAX 100
 #define VERTEXCACHE_NAME_CACHE_SIZE 64
-#define VERTEXCACHE_NAME_CACHE_FULL_SIZE 800
+#define VERTEXCACHE_NAME_CACHE_FULL_BYTES (1024 * 1024)
 #define VERTEXCACHE_NAME_CACHE_MAX_AGE 120
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
@@ -179,6 +180,7 @@ void TransformDrawEngine::InitDeviceObjects() {
 	if (bufferNameCache_.empty()) {
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
+		bufferNameCacheSize_ = 0;
 
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
 			glGenVertexArrays(1, &sharedVao_);
@@ -197,6 +199,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
 		bufferNameInfo_.clear();
+		bufferNameCacheSize_ = 0;
 
 		if (sharedVao_ != 0) {
 			glDeleteVertexArrays(1, &sharedVao_);
@@ -210,6 +213,7 @@ void TransformDrawEngine::GLLost() {
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();
+	bufferNameCacheSize_ = 0;
 	ClearTrackedVertexArrays();
 	InitDeviceObjects();
 }
@@ -583,12 +587,12 @@ VertexArrayInfo::~VertexArrayInfo() {
 GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
 	GLuint unused = 0;
 	for (GLuint buf : bufferNameCache_) {
-		auto it = bufferNameInfo_.find(buf);
-		if (it != bufferNameInfo_.end() && it->second.used) {
+		const BufferNameInfo &info = bufferNameInfo_[buf];
+		if (info.used) {
 			continue;
 		}
 		unused = buf;
-		if (it != bufferNameInfo_.end() && it->second.sz == sz) {
+		if (info.sz == sz) {
 			// Let's pick this one, it's exactly the right size.
 			break;
 		}
@@ -602,8 +606,12 @@ GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
 		unused = bufferNameCache_[oldSize];
 	}
 
-	bufferNameInfo_[unused].sz = sz;
-	bufferNameInfo_[unused].used = true;
+	BufferNameInfo &info = bufferNameInfo_[unused];
+
+	// Record the change in size.
+	bufferNameCacheSize_ += sz - info.sz;
+	info.sz = sz;
+	info.used = true;
 	return unused;
 }
 
@@ -1021,7 +1029,7 @@ void TransformDrawEngine::DecimateBuffers() {
 	// Let's not keep too many around, will eat up memory.
 	// First check if there's any to free, and only check if it seems somewhat full.
 	bool hasOld = false;
-	if (bufferNameCache_.size() > VERTEXCACHE_NAME_CACHE_FULL_SIZE) {
+	if (bufferNameCacheSize_ > VERTEXCACHE_NAME_CACHE_FULL_BYTES) {
 		for (GLuint buf : bufferNameCache_) {
 			const BufferNameInfo &info = bufferNameInfo_[buf];
 			const int age = gpuStats.numFlips - info.lastFrame;
@@ -1033,18 +1041,26 @@ void TransformDrawEngine::DecimateBuffers() {
 	}
 
 	if (hasOld) {
-		// Okay, it is.  Let's rebuild the arrays
+		// Okay, it is.  Let's rebuild the array.
 		std::vector<GLuint> toFree;
 		std::vector<GLuint> toKeep;
 
-		toKeep.reserve(VERTEXCACHE_NAME_CACHE_FULL_SIZE);
+		toKeep.reserve(bufferNameCache_.size());
 
-		for (GLuint buf : bufferNameCache_) {
+		for (size_t i = 0, n = bufferNameCache_.size(); i < n; ++i)  {
+			const GLuint buf = bufferNameCache_[i];
 			const BufferNameInfo &info = bufferNameInfo_[buf];
 			const int age = gpuStats.numFlips - info.lastFrame;
 			if (!info.used && age > VERTEXCACHE_NAME_CACHE_MAX_AGE) {
 				toFree.push_back(buf);
+				bufferNameCacheSize_ -= bufferNameInfo_[buf].sz;
 				bufferNameInfo_.erase(buf);
+
+				// If we've removed all we want to this round, keep the rest and abort.
+				if (toFree.size() >= VERTEXCACHE_NAME_DECIMATION_MAX && i + 1 < bufferNameCache_.size()) {
+					toKeep.insert(toKeep.end(), bufferNameCache_.begin() + i + 1, bufferNameCache_.end());
+					break;
+				}
 			} else {
 				toKeep.push_back(buf);
 			}
