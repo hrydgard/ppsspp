@@ -242,8 +242,8 @@ public:
 	bool bGamepadOnlyFocused;
 	// Control Style
 	int iTouchButtonStyle;
-	// Control Positions
 	int iTouchButtonOpacity;
+	int iTouchButtonHideSeconds;
 	// Floating analog stick (recenters on thumb on press).
 	bool bAutoCenterTouchAnalog;
 
