@@ -302,6 +302,21 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	return true;
 }
 
+static bool ReadVFSToString(const char *filename, std::string *contents, recursive_mutex *mtx) {
+	size_t sz;
+	uint8_t *data = VFSReadFile(filename, &sz);
+	if (data) {
+		if (mtx) {
+			lock_guard lock(*mtx);
+			*contents = std::string((const char *)data, sz);
+		} else {
+			*contents = std::string((const char *)data, sz);
+		}
+	}
+	delete [] data;
+	return data != nullptr;
+}
+
 
 class GameInfoWorkItem : public PrioritizedWorkQueueItem {
 public:
@@ -356,14 +371,8 @@ public:
 					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
 				} else {
 					// Read standard icon
-					size_t sz;
 					DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
-					uint8_t *contents = VFSReadFile("unknown.png", &sz);
-					if (contents) {
-						lock_guard lock(info_->lock);
-						info_->iconTextureData = std::string((const char *)contents, sz);
-					}
-					delete [] contents;
+					ReadVFSToString("unknown.png", &info_->iconTextureData, &info_->lock);
 				}
 				info_->iconDataLoaded = true;
 
@@ -399,18 +408,11 @@ handleELF:
 				info_->id_version = "ELF000000_1.00";
 				info_->paramSFOLoaded = true;
 			}
-			{
-				// Read standard icon
-				size_t sz;
-				uint8_t *contents = VFSReadFile("unknown.png", &sz);
-				DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
-				if (contents) {
-					lock_guard lock(info_->lock);
-					info_->iconTextureData = std::string((const char *)contents, sz);
-					info_->iconDataLoaded = true;
-				}
-				delete [] contents;
-			}
+
+			// Read standard icon
+			DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+			ReadVFSToString("unknown.png", &info_->iconTextureData, &info_->lock);
+			info_->iconDataLoaded = true;
 			break;
 
 		case FILETYPE_PSP_SAVEDATA_DIRECTORY:
@@ -503,14 +505,8 @@ handleELF:
 
 				// Fall back to unknown icon if ISO is broken/is a homebrew ISO, override is allowed though
 				if (!ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock)) {
-					size_t sz;
-					uint8_t *contents = VFSReadFile("unknown.png", &sz);
 					DEBUG_LOG(LOADER, "Loading unknown.png because no icon was found");
-					if (contents) {
-						lock_guard lock(info_->lock);
-						info_->iconTextureData = std::string((const char *)contents, sz);
-					}
-					delete [] contents;
+					ReadVFSToString("unknown.png", &info_->iconTextureData, &info_->lock);
 				}
 				info_->iconDataLoaded = true;
 				break;
@@ -519,45 +515,24 @@ handleELF:
 			case FILETYPE_ARCHIVE_ZIP:
 				info_->paramSFOLoaded = true;
 				{
-					// Read standard icon
-					size_t sz;
-					uint8_t *contents = VFSReadFile("zip.png", &sz);
-					if (contents) {
-						lock_guard lock(info_->lock);
-						info_->iconTextureData = std::string((const char *)contents, sz);
-						info_->iconDataLoaded = true;
-					}
-					delete [] contents;
+					ReadVFSToString("zip.png", &info_->iconTextureData, &info_->lock);
+					info_->iconDataLoaded = true;
 				}
 				break;
 
 			case FILETYPE_ARCHIVE_RAR:
 				info_->paramSFOLoaded = true;
 				{
-					// Read standard icon
-					size_t sz;
-					uint8_t *contents = VFSReadFile("rargray.png", &sz);
-					if (contents) {
-						lock_guard lock(info_->lock);
-						info_->iconTextureData = std::string((const char *)contents, sz);
-						info_->iconDataLoaded = true;
-					}
-					delete [] contents;
+					ReadVFSToString("rargray.png", &info_->iconTextureData, &info_->lock);
+					info_->iconDataLoaded = true;
 				}
 				break;
 
 			case FILETYPE_ARCHIVE_7Z:
 				info_->paramSFOLoaded = true;
 				{
-					// Read standard icon
-					size_t sz;
-					uint8_t *contents = VFSReadFile("7z.png", &sz);
-					if (contents) {
-						lock_guard lock(info_->lock);
-						info_->iconTextureData = std::string((const char *)contents, sz);
-						info_->iconDataLoaded = true;
-					}
-					delete[] contents;
+					ReadVFSToString("7z.png", &info_->iconTextureData, &info_->lock);
+					info_->iconDataLoaded = true;
 				}
 				break;
 
