@@ -135,16 +135,13 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 	std::string filename = fileLoader->Path();
 	PBPReader pbp(filename.c_str());
 	if (pbp.IsValid() && !pbp.IsELF()) {
-		size_t sfoSize;
-		u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
-		if (sfoData) {
+		std::vector<u8> sfoData;
+		if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
 			ParamSFOData paramSFO;
-			if (paramSFO.ReadSFO(sfoData, sfoSize)) {
+			if (paramSFO.ReadSFO(sfoData)) {
 				// This is the parameter CFW uses to determine homebrew wants the full 64MB.
 				UseLargeMem(paramSFO.GetValueInt("MEMSIZE"));
 			}
-
-			delete [] sfoData;
 		}
 	}
 }

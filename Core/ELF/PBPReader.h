@@ -45,8 +45,7 @@ public:
 	bool IsValid() const { return file_ != 0; }
 	bool IsELF() const { return file_ == 0 && isELF_; }
 
-	// Delete the returned buffer with delete [].
-	u8 *GetSubFile(PBPSubFile file, size_t *outSize);
+	bool GetSubFile(PBPSubFile file, std::vector<u8> *out);
 	void GetSubFileAsString(PBPSubFile file, std::string *out);
 
 	size_t GetSubFileSize(PBPSubFile file) {

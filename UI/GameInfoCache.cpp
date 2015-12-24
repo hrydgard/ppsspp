@@ -336,14 +336,12 @@ public:
 				}
 
 				// First, PARAM.SFO.
-				size_t sfoSize;
-				u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
-				{
+				std::vector<u8> sfoData;
+				if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
 					lock_guard lock(info_->lock);
-					info_->paramSFO.ReadSFO(sfoData, sfoSize);
+					info_->paramSFO.ReadSFO(sfoData);
 					info_->ParseParamSFO();
 				}
-				delete [] sfoData;
 
 				// Then, ICON0.PNG.
 				{

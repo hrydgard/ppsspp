@@ -1377,17 +1377,17 @@ static bool __KernelLoadPBP(const char *filename, std::string *error_string)
 		return false;
 	}
 
-	size_t elfSize;
-	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
+	std::vector<u8> elfData;
+	if (!pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfData)) {
+		return false;
+	}
 	u32 magic;
 	u32 error;
-	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
+	Module *module = __KernelLoadELFFromPtr(&elfData[0], PSP_GetDefaultLoadAddress(), false, error_string, &magic, error);
 	if (!module) {
-		delete [] elfData;
 		return false;
 	}
 	mipsr4k.pc = module->nm.entry_addr;
-	delete [] elfData;
 	return true;
 }
 

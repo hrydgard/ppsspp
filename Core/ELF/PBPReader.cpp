@@ -54,30 +54,27 @@ PBPReader::PBPReader(const char *filename) : header_(), isELF_(false) {
 	DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
 }
 
-u8 *PBPReader::GetSubFile(PBPSubFile file, size_t *outSize) {
+bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
 	if (!file_) {
-		*outSize = 0;
-		return new u8[0];
+		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
 	const u32 off = header_.offsets[(int)file];
 
-	*outSize = expected;
 	if (fseek(file_, off, SEEK_SET) != 0) {
 		ERROR_LOG(LOADER, "PBP file offset invalid: %d", off);
-		*outSize = 0;
-		return new u8[0];
+		return false;
 	} else {
-		u8 *buffer = new u8[expected];
-		size_t bytes = fread(buffer, 1, expected, file_);
+		out->resize(expected);
+		size_t bytes = fread((void *)out->data(), 1, expected, file_);
 		if (bytes != expected) {
 			ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 			if (bytes < expected) {
-				*outSize = bytes;
+				out->resize(bytes);
 			}
 		}
-		return buffer;
+		return true;
 	}
 }
 

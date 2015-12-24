@@ -144,21 +144,15 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		// TODO: Change PBPReader to read FileLoader objects?
 		std::string filename = fileLoader->Path();
 		PBPReader pbp(filename.c_str());
-		if (pbp.IsValid()) {
-			if (!pbp.IsELF()) {
-				size_t sfoSize;
-				u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
-				{
-					recursive_mutex _lock;
-					lock_guard lock(_lock);
-					ParamSFOData paramSFO;
-					paramSFO.ReadSFO(sfoData, sfoSize);
-					// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
-					// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
-					if (paramSFO.GetValueString("CATEGORY") == "ME")
-						return FILETYPE_PSP_PS1_PBP;
-				}
-				delete[] sfoData;
+		if (pbp.IsValid() && !pbp.IsELF()) {
+			std::vector<u8> sfoData;
+			if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+				ParamSFOData paramSFO;
+				paramSFO.ReadSFO(sfoData);
+				// PS1 Eboots are supposed to use "ME" as their PARAM SFO category.
+				// If they don't, and they're still malformed (e.g. PSISOIMG0000 isn't found), there's nothing we can do.
+				if (paramSFO.GetValueString("CATEGORY") == "ME")
+					return FILETYPE_PSP_PS1_PBP;
 			}
 		}
 
