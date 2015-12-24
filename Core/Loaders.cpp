@@ -141,9 +141,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	else if (id == 'PBP\x00') {
 		// Do this PS1 eboot check FIRST before checking other eboot types.
 		// It seems like some are malformed and slip through the PSAR check below.
-		// TODO: Change PBPReader to read FileLoader objects?
-		std::string filename = fileLoader->Path();
-		PBPReader pbp(filename.c_str());
+		PBPReader pbp(fileLoader);
 		if (pbp.IsValid() && !pbp.IsELF()) {
 			std::vector<u8> sfoData;
 			if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
@@ -166,11 +164,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
-		std::string path = File::GetDir(filename);
+		std::string path = File::GetDir(fileLoader->Path());
 		// If loading from memstick...
 		size_t pos = path.find("/PSP/GAME/");
 		if (pos != std::string::npos) {
-			filename = path;
 			return FILETYPE_PSP_PBP_DIRECTORY;
 		}
 		return FILETYPE_PSP_PBP;

@@ -131,9 +131,7 @@ void InitMemoryForGamePBP(FileLoader *fileLoader) {
 		return;
 	}
 
-	// TODO: Change PBPReader to read FileLoader objects?
-	std::string filename = fileLoader->Path();
-	PBPReader pbp(filename.c_str());
+	PBPReader pbp(fileLoader);
 	if (pbp.IsValid() && !pbp.IsELF()) {
 		std::vector<u8> sfoData;
 		if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {

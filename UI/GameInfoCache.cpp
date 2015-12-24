@@ -322,16 +322,19 @@ public:
 		case FILETYPE_PSP_PBP:
 		case FILETYPE_PSP_PBP_DIRECTORY:
 			{
-				std::string pbpFile = filename;
-				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY)
-					pbpFile += "/EBOOT.PBP";
+				FileLoader *pbpLoader = info_->GetFileLoader();
+				std::unique_ptr<FileLoader> altLoader;
+				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY) {
+					pbpLoader = ConstructFileLoader(pbpLoader->Path() + "/EBOOT.PBP");
+					altLoader.reset(pbpLoader);
+				}
 
-				PBPReader pbp(pbpFile.c_str());
+				PBPReader pbp(pbpLoader);
 				if (!pbp.IsValid()) {
 					if (pbp.IsELF()) {
 						goto handleELF;
 					}
-					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpFile.c_str());
+					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->Path().c_str());
 					return;
 				}
 

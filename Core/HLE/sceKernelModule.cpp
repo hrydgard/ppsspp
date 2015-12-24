@@ -29,6 +29,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/Reporting.h"
 #include "Core/Host.h"
+#include "Core/Loaders.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -1368,11 +1369,11 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 	return module;
 }
 
-static bool __KernelLoadPBP(const char *filename, std::string *error_string)
+static bool __KernelLoadPBP(FileLoader *fileLoader, std::string *error_string)
 {
-	PBPReader pbp(filename);
+	PBPReader pbp(fileLoader);
 	if (!pbp.IsValid()) {
-		ERROR_LOG(LOADER,"%s is not a valid homebrew PSP1.0 PBP",filename);
+		ERROR_LOG(LOADER, "%s is not a valid homebrew PSP1.0 PBP", fileLoader->Path().c_str());
 		*error_string = "Not a valid homebrew PBP";
 		return false;
 	}
