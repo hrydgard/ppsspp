@@ -208,6 +208,9 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 		delete fileLoader;
 		fileLoader = ConstructFileLoader(gamePath);
 		filePath_ = gamePath;
+
+		// This is a fallback title, while we're loading / if unable to load.
+		title = File::GetFilename(filePath_);
 	}
 
 	return GetFileLoader()->Exists();
@@ -279,6 +282,11 @@ void GameInfo::ParseParamSFO() {
 	paramSFOLoaded = true;
 }
 
+std::string GameInfo::GetTitle() {
+	lock_guard guard(lock);
+	return title;
+}
+
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
@@ -331,10 +339,7 @@ public:
 		std::string filename = gamePath_;
 		{
 			lock_guard lock(info_->lock);
-			info_->path = gamePath_;
 			info_->fileType = Identify_File(info_->GetFileLoader());
-			// Fallback title
-			info_->title = File::GetFilename(info_->path);
 		}
 
 		switch (info_->fileType) {
@@ -403,7 +408,6 @@ handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			{
 				lock_guard lock(info_->lock);
-				info_->title = File::GetFilename(filename);
 				info_->id = "ELF000000";
 				info_->id_version = "ELF000000_1.00";
 				info_->paramSFOLoaded = true;
