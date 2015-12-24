@@ -58,7 +58,7 @@ bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
-	size_t bytes = file_->ReadAt(off, expected, (void *)out->data());
+	size_t bytes = file_->ReadAt(off, expected, &(*out)[0]);
 	if (bytes != expected) {
 		ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
 		if (bytes < expected) {
