@@ -543,6 +543,7 @@ ReliableHashType TransformDrawEngine::ComputeHash() {
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
+		FreeVertexArray(vai->second);
 		delete vai->second;
 	}
 	vai_.clear();
@@ -567,21 +568,13 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 			kill = iter->second->lastFrame < threshold;
 		}
 		if (kill) {
+			FreeVertexArray(iter->second);
 			delete iter->second;
 			vai_.erase(iter++);
 		} else {
 			++iter;
 		}
 	}
-}
-
-VertexArrayInfo::~VertexArrayInfo() {
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
-	if (vbo)
-		glDeleteBuffers(1, &vbo);
-	if (ebo)
-		glDeleteBuffers(1, &ebo);
 }
 
 GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
@@ -623,6 +616,17 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 		it->second.lastFrame = gpuStats.numFlips;
 	} else {
 		ERROR_LOG(G3D, "Unexpected buffer freed (%d) but not tracked", buf);
+	}
+}
+
+void TransformDrawEngine::FreeVertexArray(VertexArrayInfo *vai) {
+	if (vai->vbo) {
+		FreeBuffer(vai->vbo);
+		vai->vbo = 0;
+	}
+	if (vai->ebo) {
+		FreeBuffer(vai->ebo);
+		vai->ebo = 0;
 	}
 }
 

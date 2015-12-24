@@ -77,7 +77,6 @@ public:
 		drawsUntilNextFullHash = 0;
 		flags = 0;
 	}
-	~VertexArrayInfo();
 
 	enum Status {
 		VAI_NEW,
@@ -205,6 +204,7 @@ private:
 
 	GLuint AllocateBuffer(size_t sz);
 	void FreeBuffer(GLuint buf);
+	void FreeVertexArray(VertexArrayInfo *vai);
 
 	u32 ComputeMiniHash();
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
