@@ -202,6 +202,7 @@ u64 GameInfo::GetInstallDataSizeInBytes() {
 }
 
 bool GameInfo::LoadFromPath(const std::string &gamePath) {
+	lock_guard guard(lock);
 	// No need to rebuild if we already have it loaded.
 	if (filePath_ != gamePath) {
 		delete fileLoader;
@@ -313,10 +314,13 @@ public:
 			return;
 
 		std::string filename = gamePath_;
-		info_->path = gamePath_;
-		info_->fileType = Identify_File(info_->GetFileLoader());
-		// Fallback title
-		info_->title = File::GetFilename(info_->path);
+		{
+			lock_guard lock(info_->lock);
+			info_->path = gamePath_;
+			info_->fileType = Identify_File(info_->GetFileLoader());
+			// Fallback title
+			info_->title = File::GetFilename(info_->path);
+		}
 
 		switch (info_->fileType) {
 		case FILETYPE_PSP_PBP:
@@ -347,23 +351,21 @@ public:
 				}
 
 				// Then, ICON0.PNG.
-				{
+				if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 					lock_guard lock(info_->lock);
-					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
-						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
-					} else {
-						// Read standard icon
-						size_t sz;
-						DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
-						uint8_t *contents = VFSReadFile("unknown.png", &sz);
-						if (contents) {
-							lock_guard lock(info_->lock);
-							info_->iconTextureData = std::string((const char *)contents, sz);
-						}
-						delete [] contents;
+					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
+				} else {
+					// Read standard icon
+					size_t sz;
+					DEBUG_LOG(LOADER, "Loading unknown.png because a PBP was missing an icon");
+					uint8_t *contents = VFSReadFile("unknown.png", &sz);
+					if (contents) {
+						lock_guard lock(info_->lock);
+						info_->iconTextureData = std::string((const char *)contents, sz);
 					}
-					info_->iconDataLoaded = true;
+					delete [] contents;
 				}
+				info_->iconDataLoaded = true;
 
 				if (info_->wantFlags & GAMEINFO_WANTBG) {
 					if (pbp.GetSubFileSize(PBP_PIC0_PNG) > 0) {
@@ -390,10 +392,13 @@ public:
 		case FILETYPE_PSP_ELF:
 handleELF:
 			// An elf on its own has no usable information, no icons, no nothing.
-			info_->title = File::GetFilename(filename);
-			info_->id = "ELF000000";
-			info_->id_version = "ELF000000_1.00";
-			info_->paramSFOLoaded = true;
+			{
+				lock_guard lock(info_->lock);
+				info_->title = File::GetFilename(filename);
+				info_->id = "ELF000000";
+				info_->id_version = "ELF000000_1.00";
+				info_->paramSFOLoaded = true;
+			}
 			{
 				// Read standard icon
 				size_t sz;
@@ -479,7 +484,7 @@ handleELF:
 
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
-				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
+				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 					info_->ParseParamSFO();
@@ -565,6 +570,7 @@ handleELF:
 		info_->hasConfig = g_Config.hasGameConfig(info_->id);
 
 		if (info_->wantFlags & GAMEINFO_WANTSIZE) {
+			lock_guard lock(info_->lock);
 			info_->gameSize = info_->GetGameSizeInBytes();
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
