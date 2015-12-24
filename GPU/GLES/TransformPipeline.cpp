@@ -193,6 +193,7 @@ void TransformDrawEngine::InitDeviceObjects() {
 }
 
 void TransformDrawEngine::DestroyDeviceObjects() {
+	ClearTrackedVertexArrays();
 	if (!bufferNameCache_.empty()) {
 		glstate.arrayBuffer.unbind();
 		glstate.elementArrayBuffer.unbind();
@@ -205,7 +206,6 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 			glDeleteVertexArrays(1, &sharedVao_);
 		}
 	}
-	ClearTrackedVertexArrays();
 }
 
 void TransformDrawEngine::GLLost() {
