@@ -226,8 +226,9 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.Draw()->Flush();
 	dc.PushScissor(bounds_);
 
-	if (title_.empty() && !ginfo->title.empty()) {
-		title_ = CleanSaveString(ginfo->title);
+	const std::string currentTitle = ginfo->GetTitle();
+	if (!currentTitle.empty()) {
+		title_ = CleanSaveString(currentTitle);
 	}
 	if (subtitle_.empty() && ginfo->gameSize > 0) {
 		std::string savedata_title = ginfo->paramSFO.GetValueString("SAVEDATA_TITLE");
@@ -360,7 +361,7 @@ void SavedataScreen::CreateViews() {
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(screenManager()->getThin3DContext(), e.s, 0);
-	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->title));
+	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->GetTitle()));
 	// the game path: e.s;
 	return UI::EVENT_DONE;
 }

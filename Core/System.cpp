@@ -177,10 +177,7 @@ void CPU_Init() {
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	if (g_Config.iPSPModel == PSP_MODEL_FAT)
-		Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
-	else
-		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
@@ -208,6 +205,17 @@ void CPU_Init() {
 	case FILETYPE_PSP_ISO_NP:
 	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
+		break;
+	case FILETYPE_PSP_PBP_DIRECTORY: {
+		// TODO: Can we get this lower into LoadFile?
+		std::string ebootFilename = loadedFile->Path() + "/EBOOT.PBP";
+		FileLoader *tempLoader = ConstructFileLoader(ebootFilename);
+		InitMemoryForGamePBP(tempLoader);
+		delete tempLoader;
+		break;
+	}
+	case FILETYPE_PSP_PBP:
+		InitMemoryForGamePBP(loadedFile);
 		break;
 	default:
 		break;
