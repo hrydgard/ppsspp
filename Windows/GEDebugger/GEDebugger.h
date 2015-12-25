@@ -74,8 +74,6 @@ private:
 	void SetBreakNext(BreakNextType type);
 	void UpdateTextureLevel(int level);
 	void DescribeFramebufTab(const GPUgstate &state, wchar_t desc[256]);
-	void DescribeDepthbufPixel(int x, int y, wchar_t desc[256]);
-	void DescribeStencilbufPixel(int x, int y, wchar_t desc[256]);
 	void DescribeTexture(const GPUgstate &state, wchar_t desc[256]);
 	void PreviewFramebufHover(int x, int y);
 	void PreviewTextureHover(int x, int y);

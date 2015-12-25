@@ -52,16 +52,20 @@ void MakeModifiable(void* ptr, size_t size);
 
 struct MemoryAccess
 {
+  static volatile int accc;
+
   template< typename T >
   MemoryAccess( T ptr, size_t size )
     : ptr( (void*)ptr )
     , size( size )
   {
     MODF_BLOCK( this->ptr, size );
+    accc++;
   }
   ~MemoryAccess()
   {
     EXEC_BLOCK( ptr, size );
+    accc--;
   }
   void* ptr;
   size_t size;

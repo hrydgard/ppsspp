@@ -14,7 +14,8 @@ enum {
 	GPU_VENDOR_POWERVR = 5,
 	GPU_VENDOR_ADRENO = 6,
 	GPU_VENDOR_BROADCOM = 7,
-	GPU_VENDOR_UNKNOWN = 0,
+  GPU_VENDOR_ANGLE = 8, // Windows 10
+  GPU_VENDOR_UNKNOWN = 0,
 };
 
 enum {
@@ -35,6 +36,7 @@ struct GLExtensions {
 	char model[128];
 
 	bool IsGLES;
+	bool IsCoreContext;
 	bool GLES3;  // true if the full OpenGL ES 3.0 is supported
 
 	// OES
@@ -44,6 +46,7 @@ struct GLExtensions {
 	bool OES_texture_npot;  // If this is set, can wrap non-pow-2 textures. Set on desktop.
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
+	bool OES_copy_image;
 
 	// ARB
 	bool ARB_framebuffer_object;
@@ -52,6 +55,8 @@ struct GLExtensions {
 	bool EXT_blend_func_extended;  // dual source blending (GLES, new 2015)
 	bool ARB_shader_image_load_store;
 	bool ARB_conservative_depth;
+	bool ARB_copy_image;
+	bool ARB_vertex_array_object;
 
 	// EXT
 	bool EXT_swap_control_tear;
@@ -62,6 +67,7 @@ struct GLExtensions {
 	bool EXT_gpu_shader4;
 	bool EXT_blend_minmax;
 	bool EXT_framebuffer_object;
+	bool EXT_copy_image;
 	bool PBO_EXT;
 
 	// NV

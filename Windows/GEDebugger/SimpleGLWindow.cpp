@@ -18,6 +18,7 @@
 #include <WindowsX.h>
 #include "math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gpu_features.h"
 #include "Common/Common.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
@@ -67,12 +68,15 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), tex_(0), flags_(0), zoom_(false),
+	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), vao_(0), tex_(0), flags_(0), zoom_(false),
 	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr), hoverCallback_(nullptr) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
 
 SimpleGLWindow::~SimpleGLWindow() {
+	if (vao_ != 0) {
+		glDeleteVertexArrays(1, &vao_);
+	}
 	if (drawProgram_ != nullptr) {
 		glsl_destroy(drawProgram_);
 	}
@@ -152,6 +156,22 @@ void SimpleGLWindow::CreateProgram() {
 	glUniform1i(drawProgram_->sampler0, 0);
 	glsl_unbind();
 
+	if (gl_extensions.ARB_vertex_array_object) {
+		glGenVertexArrays(1, &vao_);
+		glBindVertexArray(vao_);
+
+		glGenBuffers(1, &ibuf_);
+		glGenBuffers(1, &vbuf_);
+
+		const GLubyte indices[4] = {0, 1, 3, 2};
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+	} else {
+		vao_ = 0;
+	}
+
 	glEnableVertexAttribArray(drawProgram_->a_position);
 	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
 }
@@ -199,10 +219,18 @@ void SimpleGLWindow::DrawChecker() {
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoords), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoords), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 }
 
 void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt) {
@@ -343,17 +371,26 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	GetContentSize(x, y, fw, fh);
 
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
-	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
+	static const float texCoordsNormal[8] = {0,0, 1,0, 1,1, 0,1};
 	static const float texCoordsFlipped[8] = {0,1, 1,1, 1,0, 0,0};
 	static const GLubyte indices[4] = {0,1,3,2};
+	const float *texCoords = tflipped_ ? texCoordsFlipped : texCoordsNormal;
 
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, tflipped_ ? texCoordsFlipped : texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoordsNormal), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoordsNormal), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 
 	if (andSwap) {
 		Swap();
@@ -369,13 +406,25 @@ void SimpleGLWindow::Clear() {
 void SimpleGLWindow::Begin() {
 	Redraw(false);
 
-	glDisableVertexAttribArray(drawProgram_->a_position);
-	glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	} else {
+		glDisableVertexAttribArray(drawProgram_->a_position);
+		glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 }
 
 void SimpleGLWindow::End() {
-	glEnableVertexAttribArray(drawProgram_->a_position);
-	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(vao_);
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+	} else {
+		glEnableVertexAttribArray(drawProgram_->a_position);
+		glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 
 	Swap();
 }
@@ -519,7 +568,7 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		win = new SimpleGLWindow(hwnd);
 		
 		// Continue with window creation.
-		return win != NULL ? TRUE : FALSE;
+		return win != nullptr ? TRUE : FALSE;
 
 	case WM_NCDESTROY:
 		delete win;

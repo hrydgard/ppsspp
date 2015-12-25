@@ -107,13 +107,20 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glBindAttribLocation(program, ATTR_COLOR0, "color0");
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
-#ifndef USING_GLES2
+#if !defined(USING_GLES2)
 	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 		// Dual source alpha
 		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
 		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glBindFragDataLocation(program, 0, "fragColor0");
+	}
+#elif !defined(IOS) && !defined(UWPAPP)
+	if (gl_extensions.GLES3) {
+		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
+			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
+		}
 	}
 #endif
 
@@ -538,7 +545,6 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 		case GE_TEXMAP_UNKNOWN:
 			if (g_Config.bPrescaleUV) {
-				// Shouldn't even get here as we won't use the uniform in the shader.
 				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
 				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
@@ -789,11 +795,6 @@ bool ShaderManager::DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs) 
 }
 
 Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
-	// This doesn't work - we miss some events that really do need to dirty the prescale.
-	// like changing the texmapmode.
-	// if (g_Config.bPrescaleUV)
-	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
-
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;

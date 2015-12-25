@@ -5,10 +5,10 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.UiModeManager;
 import android.content.Context;
@@ -16,11 +16,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -29,6 +27,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Vibrator;
 import android.text.InputType;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Gravity;
@@ -37,6 +36,8 @@ import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceHolder;
 import android.view.View;
 import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.Window;
@@ -46,54 +47,54 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-public class NativeActivity extends Activity {
+public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
-	
+
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
-	
+
 	// Graphics and audio interfaces
-	private NativeGLView mGLSurfaceView;
-	protected NativeRenderer nativeRenderer;
-	
+	private NativeSurfaceView mSurfaceView;
+	private Surface mSurface;
+	private Thread mRenderLoopThread;
+
 	private String shortcutParam = "";
-	
+
 	public static String runCommand;
 	public static String commandParameter;
 	public static String installID;
-	
+
 	// Remember settings for best audio latency
 	private int optimalFramesPerBuffer;
 	private int optimalSampleRate;
-	
+
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
-	
+
 	private Vibrator vibrator;
 
 	private boolean isXperiaPlay;
-    
+
     // Allow for multiple connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
     InputDeviceState inputPlayerA;
     InputDeviceState inputPlayerB;
     InputDeviceState inputPlayerC;
     String inputPlayerADesc;
-    
+
     // Functions for the app activity to override to change behaviour.
-    
+
+    public native void registerCallbacks();
+    public native void unregisterCallbacks();
+
     public boolean useLowProfileButtons() {
     	return true;
     }
-    
-	NativeRenderer getRenderer() {
-		return nativeRenderer;
-	}
-    
+
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
 		try {
@@ -107,8 +108,8 @@ public class NativeActivity extends Activity {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
 		}
 	}
-	
-	String getApplicationLibraryDir(ApplicationInfo application) {    
+
+	String getApplicationLibraryDir(ApplicationInfo application) {
 	    String libdir = null;
 	    try {
 	        // Starting from Android 2.3, nativeLibraryDir is available:
@@ -156,33 +157,53 @@ public class NativeActivity extends Activity {
 			size.y = d.getHeight();
 		}
 	}
-	
+
+	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1337;
+
+	@TargetApi(23)
+	public void askForStoragePermission() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+				NativeApp.sendMessage("permission_pending", "storage");
+				this.requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
+			} else {
+				NativeApp.sendMessage("permission_granted", "storage");
+			}
+		}
+	}
+
+	@Override
+	public void onRequestPermissionsResult(int requestCode,
+	        String permissions[], int[] grantResults) {
+		if (requestCode == REQUEST_CODE_STORAGE_PERMISSION && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+			NativeApp.sendMessage("permission_granted", "storage");
+		} else {
+			NativeApp.sendMessage("permission_denied", "storage");
+		}
+	}
+
 	public void setShortcutParam(String shortcutParam) {
 		this.shortcutParam = ((shortcutParam == null) ? "" : shortcutParam);
 	}
-	
+
 	public void Initialize() {
     	// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
         this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
 		this.audioFocusChangeListener = new AudioFocusChangeListener();
-		
+
         if (Build.VERSION.SDK_INT >= 17) {
         	// Get the optimal buffer sz
         	detectOptimalAudioSettings();
         }
 
-        // isLandscape is used to trigger GetAppInfo currently, we 
-        boolean landscape = NativeApp.isLandscape();
-        Log.d(TAG, "Landscape: " + landscape);
-        
-    	// Get system information
-		ApplicationInfo appInfo = null;  
+        // Get system information
+		ApplicationInfo appInfo = null;
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
 		try {
 		    appInfo = packMgmr.getApplicationInfo(packageName, 0);
-	    } catch  (NameNotFoundException e) {
+	    } catch (NameNotFoundException e) {
 		    e.printStackTrace();
 		    throw new RuntimeException("Unable to locate assets, aborting...");
 	    }
@@ -202,42 +223,22 @@ public class NativeActivity extends Activity {
 		}
 
 	    isXperiaPlay = IsXperiaPlay();
-		
+
 		String libraryDir = getApplicationLibraryDir(appInfo);
 	    File sdcard = Environment.getExternalStorageDirectory();
 
-	    String externalStorageDir = sdcard.getAbsolutePath(); 
+	    String externalStorageDir = sdcard.getAbsolutePath();
 	    String dataDir = this.getFilesDir().getAbsolutePath();
-		String apkFilePath = appInfo.sourceDir; 
+		String apkFilePath = appInfo.sourceDir;
 
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
-		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
+		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
-		Point displaySize = new Point();
-		GetScreenSize(displaySize);
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, displaySize.x, displaySize.y, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
 
 		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
 
-		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
-		}	
-
-	    // Detect OpenGL support.
-	    // We don't currently use this detection for anything but good to have in the log.
-        if (!detectOpenGLES20()) {
-        	Log.i(TAG, "OpenGL ES 2.0 NOT detected. Things will likely go badly.");
-        } else {
-        	if (detectOpenGLES30()) {
-            	Log.i(TAG, "OpenGL ES 3.0 detected.");
-        	}
-        	else {
-            	Log.i(TAG, "OpenGL ES 2.0 detected.");
-        	}
-        }
-        
         vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
         if (Build.VERSION.SDK_INT >= 11) {
         	checkForVibrator();
@@ -255,6 +256,8 @@ public class NativeActivity extends Activity {
 			Log.e(TAG, "Invalid rotation: " + rotString);
 			return;
 		}
+		Log.i(TAG, "Setting requested rotation: " + rot + " ('" + rotString + "')");
+
 		switch (rot) {
 		case 0:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
@@ -273,10 +276,12 @@ public class NativeActivity extends Activity {
 			break;
 		}
 	}
-	
+
 	private boolean useImmersive() {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT)
+			return false;
 		String immersive = NativeApp.queryConfig("immersiveMode");
-		return immersive.equals("1") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
+		return immersive.equals("1");
 	}
 
 	@SuppressLint("InlinedApi")
@@ -295,7 +300,7 @@ public class NativeActivity extends Activity {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
 		}
 	}
-	
+
 	// Need API 11 to check for existence of a vibrator? Zany.
 	@TargetApi(11)
 	public void checkForVibrator() {
@@ -306,70 +311,67 @@ public class NativeActivity extends Activity {
         }
 	}
 
-	// Override this to scale the backbuffer (use the Android hardware scaler)
-	public void getDesiredBackbufferSize(Point sz) {
-		sz.x = 0;
-		sz.y = 0;
+	private Runnable mEmulationRunner = new Runnable() {
+		@Override
+		public void run() {
+			// Bit of a hack - loop until onSurfaceCreated succeeds.
+			try {
+				while (mSurface == null)
+					Thread.sleep(10);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+
+			Log.i(TAG, "Starting the render loop: " + mSurface);
+			// Start emulation using the provided Surface.
+			if (!runEGLRenderLoop(mSurface)) {
+				// TODO: Add an alert dialog or something
+				Log.e(TAG, "Failed to start up OpenGL");
+			}
+			Log.i(TAG, "Left the render loop: " + mSurface);
+		}
+	};
+
+	public native boolean runEGLRenderLoop(Surface surface);
+	// Tells the render loop thread to exit, so we can restart it.
+	public native void exitEGLRenderLoop();
+
+	void updateDisplayMetrics(Point outSize) {
+		DisplayMetrics metrics = new DisplayMetrics();
+		Display display = getWindowManager().getDefaultDisplay();
+		display.getMetrics(metrics);
+
+		float refreshRate = display.getRefreshRate();
+		if (outSize == null) {
+			outSize = new Point();
+		}
+		GetScreenSize(outSize);
+		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
 	}
 
-    @Override
+	@Override
     public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState); 
+		super.onCreate(savedInstanceState);
+		registerCallbacks();
     	installID = Installation.id(this);
+
+    	updateDisplayMetrics(null);
 
 		if (!initialized) {
 			Initialize();
 			initialized = true;
 		}
+
+		// OK, config should be initialized, we can query for screen rotation.
+		updateScreenRotation();
+
 		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
-		
+
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
-        
-        mGLSurfaceView = new NativeGLView(this);
-		nativeRenderer = new NativeRenderer(this);
-
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		if (sz.x > 0) {
-			Log.i(TAG, "Requesting fixed size buffer: " + sz.x + "x" + sz.y);
-			// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
-			nativeRenderer.setFixedSize(sz.x, sz.y, mGLSurfaceView);
-		}
-        mGLSurfaceView.setEGLContextClientVersion(2);
-        
-        // Setup the GLSurface and ask android for the correct 
-        // Number of bits for r, g, b, a, depth and stencil components
-        // The PSP only has 16-bit Z so that should be enough.
-        // Might want to change this for other apps (24-bit might be useful).
-        // Actually, we might be able to do without both stencil and depth in
-        // the back buffer, but that would kill non-buffered rendering.
-        
-        // It appears some gingerbread devices blow up if you use a config chooser at all ????  (Xperia Play)
-        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-        
-        // On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set the format here,
-        // if we specify that we want destination alpha in the config chooser, which we do.
-        // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
-        
-        
-        // Needed to avoid banding on Ouya?
-        if (Build.MANUFACTURER == "OUYA") {
-        	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
-        	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
-        } else {
-        	// Many devices require that we set a config chooser, despite the documentation
-        	// explicitly stating: "If no setEGLConfigChooser method is called, then by default the view will choose an RGB_888 surface with a depth buffer depth of at least 16 bits."
-        	// On these devices, I get these crashes: http://stackoverflow.com/questions/14167319/android-opengl-demo-no-config-chosen
-        	// So let's try it...
-        	mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
-        }
-        
-        mGLSurfaceView.setRenderer(nativeRenderer);
-		setContentView(mGLSurfaceView);
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
@@ -377,7 +379,61 @@ public class NativeActivity extends Activity {
 				setupSystemUiCallback();
 			}
 		}
+    	updateDisplayMetrics(null);
+
+		NativeApp.computeDesiredBackbufferDimensions();
+		int bbW = NativeApp.getDesiredBackbufferWidth();
+		int bbH = NativeApp.getDesiredBackbufferHeight();
+
+        mSurfaceView = new NativeSurfaceView(NativeActivity.this, bbW, bbH);
+        mSurfaceView.getHolder().addCallback(NativeActivity.this);
+        Log.i(TAG, "setcontentview before");
+		setContentView(mSurfaceView);
+        Log.i(TAG, "setcontentview after");
+
+		mRenderLoopThread = new Thread(mEmulationRunner);
+		mRenderLoopThread.start();
     }
+
+	@Override
+	public void surfaceCreated(SurfaceHolder holder)
+	{
+		Log.d(TAG, "Surface created.");
+	}
+
+	@Override
+	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
+	{
+		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
+		// Make sure we have fresh display metrics so the computations go right.
+		// This is needed on some very old devices, I guess event order is different or something...
+		Point sz = new Point();
+        updateDisplayMetrics(sz);
+        NativeApp.backbufferResize(width, height, format);
+		mSurface = holder.getSurface();
+		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
+			mRenderLoopThread = new Thread(mEmulationRunner);
+			mRenderLoopThread.start();
+		}
+	}
+
+    @Override
+	public void surfaceDestroyed(SurfaceHolder holder)
+	{
+		mSurface = null;
+		Log.w(TAG, "Surface destroyed.");
+		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
+			// This will wait until the thread has exited.
+			exitEGLRenderLoop();
+			try {
+				mRenderLoopThread.join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+
 
     @TargetApi(19)
 	void setupSystemUiCallback() {
@@ -390,47 +446,36 @@ public class NativeActivity extends Activity {
             }
         });
     }
-    
+
     @Override
     protected void onStop() {
-    	super.onStop(); 
+    	exitEGLRenderLoop();
+    	super.onStop();
     	Log.i(TAG, "onStop - do nothing special");
-    } 
+    }
 
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
       	Log.i(TAG, "onDestroy");
-		mGLSurfaceView.onDestroy();
-		nativeRenderer.onDestroyed();
+		mSurfaceView.onDestroy();
 		NativeApp.audioShutdown();
 		// Probably vain attempt to help the garbage collector...
-		mGLSurfaceView = null;
+		mSurfaceView = null;
 		audioFocusChangeListener = null;
 		audioManager = null;
-	}  
-	
-    private boolean detectOpenGLES20() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x20000;
-    }
+		unregisterCallbacks();
+	}
 
-    private boolean detectOpenGLES30() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x30000;
-    }
-   
-    @Override 
+    @Override
     protected void onPause() {
         super.onPause();
     	Log.i(TAG, "onPause");
     	loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.pause();
-        mGLSurfaceView.onPause();
+        mSurfaceView.onPause();
     }
-      
+
 	@Override
 	protected void onResume() {
 		super.onResume();
@@ -438,33 +483,27 @@ public class NativeActivity extends Activity {
             updateSystemUiVisibility();
         }
 		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= 9) {
-			updateScreenRotation();
-		}	
+		updateScreenRotation();
 
 		Log.i(TAG, "onResume");
-		if (mGLSurfaceView != null) {
-			mGLSurfaceView.onResume();
+		if (mSurfaceView != null) {
+			mSurfaceView.onResume();
 		} else {
 			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
 		}
-		
+
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 	}
-    
+
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
+    	Log.i(TAG, "onConfigurationChanged");
     	super.onConfigurationChanged(newConfig);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
-        
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		if (sz.x > 0) {
-			mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
-		}
+        updateDisplayMetrics(null);
     }
 
 	//keep this static so we can call this even if we don't
@@ -475,7 +514,7 @@ public class NativeActivity extends Activity {
 					AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
 		}
 	}
-	
+
 	//keep this static so we can call this even if we don't
 	//instantiate NativeAudioPlayer
 	public static void loseAudioFocus(AudioManager audioManager,AudioFocusChangeListener focusChangeListener){
@@ -483,7 +522,7 @@ public class NativeActivity extends Activity {
 			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
-	
+
     // We simply grab the first input device to produce an event and ignore all others that are connected.
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private InputDeviceState getInputDeviceState(InputEvent event) {
@@ -574,11 +613,11 @@ public class NativeActivity extends Activity {
 				}
 			}
         }
-        
+
         // Let's go through the old path (onKeyUp, onKeyDown).
 		return super.dispatchKeyEvent(event);
-    } 
-    
+    }
+
 	@TargetApi(16)
 	static public String getInputDesc(InputDevice input) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
@@ -643,7 +682,7 @@ public class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_SEARCH:
 			NativeApp.keyDown(0, keyCode, repeat);
 			return true;
-			
+
 		case KeyEvent.KEYCODE_DPAD_UP:
 		case KeyEvent.KEYCODE_DPAD_DOWN:
 		case KeyEvent.KEYCODE_DPAD_LEFT:
@@ -698,12 +737,24 @@ public class NativeActivity extends Activity {
 		}
 	}
 
-	
+
 	@TargetApi(11)
+	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
    		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
 	}
-	
+
+	@TargetApi(14)
+	@SuppressWarnings("deprecation")
+	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
+   		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
+	}
+
+	@TargetApi(23)
+	private AlertDialog.Builder createDialogBuilderNew() {
+		return new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
+	}
+
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
 	public void inputBox(String title, String defaultText, String defaultAction) {
     	final FrameLayout fl = new FrameLayout(this);
@@ -717,33 +768,40 @@ public class NativeActivity extends Activity {
     	input.setInputType(InputType.TYPE_CLASS_TEXT);
     	input.setText(defaultText);
     	input.selectAll();
-    	
+
+    	// Lovely!
     	AlertDialog.Builder bld = null;
     	if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
     		bld = new AlertDialog.Builder(this);
-    	else
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH)
     		bld = createDialogBuilderWithTheme();
+    	else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M)
+    		bld = createDialogBuilderWithDeviceTheme();
+    	else
+    		bld = createDialogBuilderNew();
 
     	AlertDialog dlg = bld
     		.setView(fl)
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
-    			public void onClick(DialogInterface d, int which) {
+    			@Override
+				public void onClick(DialogInterface d, int which) {
     	    		NativeApp.sendMessage("inputbox_completed", input.getText().toString());
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-    			public void onClick(DialogInterface d, int which) {
+    			@Override
+				public void onClick(DialogInterface d, int which) {
     	    		NativeApp.sendMessage("inputbox_failed", "");
     				d.cancel();
     			}
     		}).create();
-    	
+
     	dlg.setCancelable(true);
     	dlg.show();
     }
-	
+
     public boolean processCommand(String command, String params) {
 		if (command.equals("launchBrowser")) {
 			try {
@@ -820,18 +878,18 @@ public class NativeActivity extends Activity {
 			toast.show();
 			Log.i(TAG, params);
 			return true;
-		} else if (command.equals("showKeyboard") && mGLSurfaceView != null) {
+		} else if (command.equals("showKeyboard") && mSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
 			inputMethodManager.toggleSoftInputFromWindow(
-					mGLSurfaceView.getApplicationWindowToken(),
+					mSurfaceView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
-		} else if (command.equals("hideKeyboard") && mGLSurfaceView != null) {
+		} else if (command.equals("hideKeyboard") && mSurfaceView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			inputMethodManager.toggleSoftInputFromWindow(
-					mGLSurfaceView.getApplicationWindowToken(),
+					mSurfaceView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
@@ -845,7 +903,7 @@ public class NativeActivity extends Activity {
 			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
 			inputBox(title, defString, "OK");
 			return true;
-		} else if (command.equals("vibrate") && mGLSurfaceView != null) {
+		} else if (command.equals("vibrate") && mSurfaceView != null) {
 			int milliseconds = -1;
 			if (params != "") {
 				try {
@@ -862,13 +920,13 @@ public class NativeActivity extends Activity {
 			// permission.
 			switch (milliseconds) {
 			case -1:
-				mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
 				break;
 			case -2:
-				mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
 				break;
 			case -3:
-				mGLSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 				break;
 			default:
 				if (vibrator != null) {
@@ -880,15 +938,19 @@ public class NativeActivity extends Activity {
 		} else if (command.equals("finish")) {
 			finish();
 		} else if (command.equals("rotate")) {
-			if (Build.VERSION.SDK_INT >= 9) {
-				updateScreenRotation();
-			}	
+			updateScreenRotation();
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+				Log.i(TAG, "Must recreate activity on rotation");
+			}
 		} else if (command.equals("immersive")) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				updateSystemUiVisibility();
 			}
 		} else if (command.equals("recreate")) {
+			exitEGLRenderLoop();
 			recreate();
+		} else if (command.equals("ask_permission") && params.equals("storage")) {
+			askForStoragePermission();
 		}
     	return false;
     }

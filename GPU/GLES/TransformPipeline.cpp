@@ -161,10 +161,27 @@ TransformDrawEngine::~TransformDrawEngine() {
 	delete [] uvScale;
 }
 
+void TransformDrawEngine::RestoreVAO() {
+	if (sharedVao_ != 0) {
+		glBindVertexArray(sharedVao_);
+	} else if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+		// Note: this is here because, InitDeviceObjects() is called before GPU_SUPPORTS_VAO is setup.
+		// So, this establishes it if Supports() returns true and there isn't one yet.
+		glGenVertexArrays(1, &sharedVao_);
+		glBindVertexArray(sharedVao_);
+	}
+}
+
 void TransformDrawEngine::InitDeviceObjects() {
 	if (bufferNameCache_.empty()) {
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
+
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+			glGenVertexArrays(1, &sharedVao_);
+		} else {
+			sharedVao_ = 0;
+		}
 	} else {
 		ERROR_LOG(G3D, "Device objects already initialized!");
 	}
@@ -176,6 +193,10 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 		glstate.elementArrayBuffer.unbind();
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
+
+		if (sharedVao_ != 0) {
+			glDeleteVertexArrays(1, &sharedVao_);
+		}
 	}
 	ClearTrackedVertexArrays();
 }
@@ -763,6 +784,13 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO) && vbo == 0) {
+			vbo = BindBuffer(decoded, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex());
+			if (useElements) {
+				ebo = BindElementBuffer(decIndex, sizeof(short) * indexGen.VertexCount());
+			}
+		}
+
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -818,14 +846,26 @@ rotateVBO:
 			const int vertexSize = sizeof(transformed[0]);
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
+
+			const uint8_t *bufferStart = (const uint8_t *)drawBuffer;
+			if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+				bufferStart = 0;
+				BindBuffer(drawBuffer, vertexSize * maxIndex);
+				if (drawIndexed) {
+					BindElementBuffer(inds, sizeof(short) * numTrans);
+					inds = 0;
+				}
+			} else {
+				glstate.arrayBuffer.unbind();
+				glstate.elementArrayBuffer.unbind();
+			}
+
+			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, bufferStart);
 			int attrMask = program->attrMask;
-			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, u));
-			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color0));
-			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + offsetof(TransformedVertex, color1));
-      if (drawIndexed) {
+			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, bufferStart + offsetof(TransformedVertex, u));
+			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color0));
+			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color1));
+			if (drawIndexed) {
 				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
 			} else {
 				glDrawArrays(glprim[prim], 0, numTrans);
@@ -910,6 +950,46 @@ void TransformDrawEngine::Resized() {
 		delete uvScale;
 		uvScale = 0;
 	}
+}
+
+GLuint TransformDrawEngine::BindBuffer(const void *p, size_t sz) {
+	// Get a new buffer each time we need one.
+	GLuint buf = AllocateBuffer();
+	glstate.arrayBuffer.bind(buf);
+
+	// These aren't used more than once per frame, so let's use GL_STREAM_DRAW.
+	glBufferData(GL_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
+	buffersThisFrame_.push_back(buf);
+
+	return buf;
+}
+
+GLuint TransformDrawEngine::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
+	GLuint buf = AllocateBuffer();
+	glstate.arrayBuffer.bind(buf);
+
+	glBufferData(GL_ARRAY_BUFFER, sz1 + sz2, nullptr, GL_STREAM_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sz1, p1);
+	glBufferSubData(GL_ARRAY_BUFFER, sz1, sz2, p2);
+	buffersThisFrame_.push_back(buf);
+
+	return buf;
+}
+
+GLuint TransformDrawEngine::BindElementBuffer(const void *p, size_t sz) {
+	GLuint buf = AllocateBuffer();
+	glstate.elementArrayBuffer.bind(buf);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
+	buffersThisFrame_.push_back(buf);
+
+	return buf;
+}
+
+void TransformDrawEngine::DecimateBuffers() {
+	for (GLuint buf : buffersThisFrame_) {
+		FreeBuffer(buf);
+	}
+	buffersThisFrame_.clear();
 }
 
 bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {

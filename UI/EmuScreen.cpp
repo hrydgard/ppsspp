@@ -17,7 +17,6 @@
 
 #include <algorithm>
 
-#include "android/jni/app-android.h"
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/timeutil.h"

@@ -26,6 +26,15 @@ PFNGLREADBUFFERPROC            glReadBuffer            = NULL;
 PFNGLBLITFRAMEBUFFERPROC       glBlitFramebuffer       = NULL;
 PFNGLINVALIDATEFRAMEBUFFERPROC glInvalidateFramebuffer = NULL;
 PFNGLTEXSTORAGE2DPROC          glTexStorage2D          = NULL;
+
+PFNGLMAPBUFFERRANGEPROC glMapBufferRange = NULL;
+PFNGLUNMAPBUFFERPROC    glUnmapBuffer    = NULL;
+
+PFNGLGETSTRINGIPROC glGetStringi = NULL;
+
+PFNGLGENVERTEXARRAYSPROC    glGenVertexArrays    = NULL;
+PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays = NULL;
+PFNGLBINDVERTEXARRAYPROC    glBindVertexArray    = NULL;
 #endif // UWAPAPP
 
 GLboolean gl3stubInit() {
@@ -35,6 +44,12 @@ GLboolean gl3stubInit() {
     FIND_PROC(glBlitFramebuffer);
     FIND_PROC(glInvalidateFramebuffer);
     FIND_PROC(glTexStorage2D);
+    FIND_PROC(glMapBufferRange);
+    FIND_PROC(glUnmapBuffer);
+    FIND_PROC(glGetStringi);
+    FIND_PROC(glGenVertexArrays);
+    FIND_PROC(glDeleteVertexArrays);
+    FIND_PROC(glBindVertexArray);
 #ifndef UWPAPP
     FIND_PROC(glDrawRangeElements);
     FIND_PROC(glTexImage3D);
@@ -136,14 +151,31 @@ GLboolean gl3stubInit() {
     FIND_PROC(glInvalidateSubFramebuffer);
     FIND_PROC(glTexStorage3D);
     FIND_PROC(glGetInternalformativ);
+
+    /* EXT_blend_func_extended */
+    FIND_PROC(glBindFragDataLocationIndexedEXT);
+    FIND_PROC(glBindFragDataLocationEXT);
+    FIND_PROC(glGetProgramResourceLocationIndexEXT);
+    FIND_PROC(glGetFragDataIndexEXT);
+
+    /* OES_copy_image, etc. */
+    FIND_PROC(glCopyImageSubDataOES);
+
 #endif // !UWPAPP
-    #undef FIND_PROC
+
+#undef FIND_PROC
 
 #endif // IOS
     if (!glReadBuffer ||
         !glBlitFramebuffer ||
         !glInvalidateFramebuffer ||
-        !glTexStorage2D
+        !glTexStorage2D ||
+        !glMapBufferRange ||
+        !glUnmapBuffer ||
+        !glGetStringi ||
+        !glGenVertexArrays ||
+        !glDeleteVertexArrays ||
+        !glBindVertexArray
 #ifndef UWPAPP
         ||
         !glDrawRangeElements ||
@@ -362,6 +394,15 @@ GL_APICALL void           (* GL_APIENTRY glProgramParameteri) (GLuint program, G
 GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
+
+/* EXT_blend_func_extended */
+GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationIndexedEXT) (GLuint program, GLuint colorNumber, GLuint index, const GLchar *name);
+GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationEXT) (GLuint program, GLuint color, const GLchar *name);
+GL_APICALL GLint          (* GL_APIENTRY glGetProgramResourceLocationIndexEXT) (GLuint program, GLenum programInterface, const GLchar *name);
+GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program, const GLchar *name);
+
+/* OES_copy_image, etc. */
+GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
 
 #endif // IOS && UWPAPP
 

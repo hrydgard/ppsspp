@@ -181,11 +181,8 @@ static bool Memory_TryBase(u32 flags) {
 #elif defined(UWPAPP)
     if ( !CanIgnoreView( view ) && view.out_ptr_low ) {
       *( view.out_ptr_low ) = (u8*)( base + view.virtual_address );
-//      ptr = VirtualAllocFromApp( base + ( view.virtual_address & MEMVIEW32_MASK ), view.size, MEM_COMMIT, PAGE_READWRITE );
     }
     *( view.out_ptr ) = (u8*)VirtualAllocFromApp( base + ( view.virtual_address & MEMVIEW32_MASK ), view.size, MEM_COMMIT, PAGE_READWRITE );
-    //*( view.out_ptr ) = (u8*)ptr;// (u8*)base + ( view.virtual_address & MEMVIEW32_MASK );
-    //**( view.out_ptr ) = 1;
 #else
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -246,7 +243,7 @@ void MemoryMap_Setup(u32 flags)
 #if defined(_XBOX)
 	base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE|MEM_LARGE_PAGES, PAGE_READWRITE);
 #elif defined(UWPAPP)
-	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE, PAGE_READWRITE);
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 #elif defined(__SYMBIAN32__)
 	memmap = new RChunk();
 	memmap->CreateDisconnectedLocal(0 , 0, 0x10000000);

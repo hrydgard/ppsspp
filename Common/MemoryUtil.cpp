@@ -97,6 +97,9 @@ static void *SearchForFreeMem(size_t size)
 #endif
 
 #ifdef UWPAPP
+
+volatile int MemoryAccess::accc = 0;
+
 #include <map>
 std::map< void*, std::pair< size_t, bool > > execMem;
 auto FindExecRegion( void* ptr )
@@ -113,7 +116,7 @@ auto FindExecRegion( void* ptr )
 }
 void MakeExecutable( void* ptr, size_t size )
 {
-#if 1
+#if 0
   auto block = FindExecRegion( ptr );
   if ( block.first == nullptr )
   {
@@ -147,7 +150,7 @@ void MakeExecutable( void* ptr, size_t size )
 
 void MakeModifiable( void* ptr, size_t size )
 {
-#if 1
+#if 0
   auto block = FindExecRegion( ptr );
   if ( block.first == nullptr )
   {

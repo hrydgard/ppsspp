@@ -423,7 +423,7 @@ void JitBlockCache::LinkBlockExits(int i) {
 				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
 				XEmitter emit(b.exitPtrs[e]);
-        //MemoryAccess macc( b.exitPtrs[ e ], 16 );
+        MemoryAccess macc( b.exitPtrs[ e ], 16 );
         // Okay, this is a bit ugly, but we check here if it already has a JMP.
 				// That means it doesn't have a full exit to pad with INT 3.
 				bool prelinked = *emit.GetCodePtr() == 0xE9;

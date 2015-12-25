@@ -441,7 +441,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	delete[] knot_v;
 
 	// Hacky normal generation through central difference.
-	if (spatch.computeNormals && !origNrm) {
+	if (computeNormals && !origNrm) {
 #ifdef _M_SSE
 		const __m128 facing = spatch.patchFacing ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
 #endif
@@ -451,7 +451,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			Vec3f vc_pos = vertices[v * (patch_div_s + 1)].pos;
 
 			for (int u = 0; u < patch_div_s + 1; u++) {
-				const int l = std::max(0, u - 1);
 				const int t = std::max(0, v - 1);
 				const int r = std::min(patch_div_s, u + 1);
 				const int b = std::min(patch_div_t, v + 1);
@@ -599,7 +598,6 @@ static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tes
 				v3.nrm = norm;
 			}
 
-
 			int total = patch.index * 3 * 3 * 4; // A patch has 3x3 tiles, and each tiles have 4 vertices.
 			int tile_index = tile_u + tile_v * 3;
 			int idx0 = total + tile_index * 4 + 0;
@@ -659,7 +657,6 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 			float u = ((float)tile_u / (float)tess_u);
 			float v = ((float)tile_v / (float)tess_v);
-			float bu = u;
 			float bv = v;
 
 			// TODO: Should be able to precompute the four curves per U, then just Bernstein per V. Will benefit large tesselation factors.
@@ -807,7 +804,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
@@ -821,7 +818,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		gstate_c.uv = prevUVScale;
 	}
 }
@@ -903,7 +900,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
@@ -917,7 +914,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV) {
+	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
 		gstate_c.uv = prevUVScale;
 	}
 }

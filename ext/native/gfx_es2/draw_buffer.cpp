@@ -19,8 +19,6 @@ enum {
 	MAX_VERTS = 65536,
 };
 
-// #define USE_VBO
-
 DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	verts_ = new Vertex[MAX_VERTS];
 	fontscalex = 1.0f;
@@ -37,11 +35,6 @@ void DrawBuffer::Init(Thin3DContext *t3d) {
 		return;
 
 	t3d_ = t3d;
-#ifdef USE_VBO
-	vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
-#else
-	vbuf_ = nullptr;
-#endif
 	inited_ = true;
 
 	std::vector<Thin3DVertexComponent> components;
@@ -52,6 +45,11 @@ void DrawBuffer::Init(Thin3DContext *t3d) {
 	Thin3DShader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
 	vformat_ = t3d_->CreateVertexFormat(components, 24, vshader);
+	if (vformat_->RequiresBuffer()) {
+		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
+	} else {
+		vbuf_ = nullptr;
+	}
 }
 
 void DrawBuffer::Shutdown() {
@@ -83,13 +81,14 @@ void DrawBuffer::Flush(bool set_blend_state) {
 		return;
 
 	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_);
-#ifdef USE_VBO
-	vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
-	int offset = 0;
-	t3d_->Draw(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, vbuf_, count_, offset);
-#else
-	t3d_->DrawUP(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, (const void *)verts_, count_);
-#endif
+
+	if (vbuf_) {
+		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
+		int offset = 0;
+		t3d_->Draw(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, vbuf_, count_, offset);
+	} else {
+		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, (const void *)verts_, count_);
+	}
 	count_ = 0;
 }
 

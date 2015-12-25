@@ -152,6 +152,9 @@ extern "C"
   }
 }
 
+void System_AskForPermission( SystemPermission permission ) {}
+PermissionStatus System_GetPermissionStatus( SystemPermission permission ) { return PERMISSION_STATUS_GRANTED; }
+
 std::string System_GetProperty( SystemProperty prop ) {
   static bool hasCheckedGPUDriverVersion = false;
   switch ( prop ) {

@@ -52,6 +52,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *fragColor0 = "gl_FragColor";
+	const char *fragColor1 = "fragColor1";
 	const char *texture = "texture2D";
 	const char *texelFetch = NULL;
 	bool highpFog = false;
@@ -75,6 +76,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 				bitwiseOps = true;
 				texelFetch = "texelFetch2D";
 			}
+			if (gl_extensions.EXT_blend_func_extended) {
+				// Oldy moldy GLES, so use the fixed output name.
+				fragColor1 = "gl_SecondaryFragColorEXT";
+			}
 		}
 
 		// PowerVR needs highp to do the fog in MHU correctly.
@@ -83,7 +88,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		highpTexcoord = highpFog;
 
 		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-			if (gl_extensions.EXT_shader_framebuffer_fetch) {
+			if (gl_extensions.GLES3 && gl_extensions.EXT_shader_framebuffer_fetch) {
+				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
+				lastFragData = "fragColor0";
+			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
 				lastFragData = "gl_LastFragData[0]";
 			} else if (gl_extensions.NV_shader_framebuffer_fetch) {
@@ -246,11 +254,18 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		}
 	}
 
-	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "out vec4 fragColor0;\n");
-		WRITE(p, "out vec4 fragColor1;\n");
-	} else if (!strcmp(fragColor0, "fragColor0")) {
-		WRITE(p, "out vec4 fragColor0;\n");
+	if (!strcmp(fragColor0, "fragColor0")) {
+		const char *qualifierColor0 = "out";
+		if (lastFragData && !strcmp(lastFragData, fragColor0)) {
+			qualifierColor0 = "inout";
+		}
+		// Output the output color definitions.
+		if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
+			WRITE(p, "out vec4 fragColor1;\n");
+		} else {
+			WRITE(p, "%s vec4 fragColor0;\n", qualifierColor0);
+		}
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
@@ -618,8 +633,8 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  fragColor0 = vec4(v.rgb, %s);\n", replacedAlpha.c_str());
-		WRITE(p, "  fragColor1 = vec4(0.0, 0.0, 0.0, v.a);\n");
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha.c_str());
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:

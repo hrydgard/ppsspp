@@ -99,8 +99,14 @@ ARCH_FILES := \
   ArmEmitterTest.cpp
 endif
 
+EGL_FILES := \
+  $(SRC)/Common/GL/GLInterface/EGL.cpp \
+  $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
+  $(SRC)/Common/GL/GLInterface/GLInterface.cpp
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
+  $(EGL_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -214,6 +220,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileLoaders/DiskCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/HTTPFileLoader.cpp \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/RamCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \

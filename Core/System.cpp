@@ -47,6 +47,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
+#include "Core/FileLoaders/RamCachingFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -187,6 +188,11 @@ void CPU_Init() {
 
 	std::string filename = coreParameter.fileToStart;
 	loadedFile = ConstructFileLoader(filename);
+#ifdef _M_X64
+	if (g_Config.bCacheFullIsoInRam) {
+		loadedFile = new RamCachingFileLoader(loadedFile);
+	}
+#endif
 	IdentifiedFileType type = Identify_File(loadedFile);
 
 	// TODO: Put this somewhere better?

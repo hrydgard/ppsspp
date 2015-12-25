@@ -127,6 +127,7 @@ public:
 	void SetFragmentTestCache(FragmentTestCache *testCache) {
 		fragmentTestCache_ = testCache;
 	}
+	void RestoreVAO();
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 	void GLLost() override;
@@ -188,6 +189,11 @@ public:
 		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
 	}
 
+	GLuint BindBuffer(const void *p, size_t sz);
+	GLuint BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2);
+	GLuint BindElementBuffer(const void *p, size_t sz);
+	void DecimateBuffers();
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
@@ -232,6 +238,8 @@ private:
 	// Vertex buffer objects
 	// Element buffer objects
 	std::vector<GLuint> bufferNameCache_;
+	std::vector<GLuint> buffersThisFrame_;
+	GLuint sharedVao_;
 
 	// Other
 	ShaderManager *shaderManager_;

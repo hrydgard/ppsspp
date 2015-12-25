@@ -44,6 +44,7 @@ void ImportGame( std::function< void() > completition )
     picker->FileTypeFilter->Append( ".elf" );
     picker->FileTypeFilter->Append( ".iso" );
     picker->FileTypeFilter->Append( ".cso" );
+    picker->FileTypeFilter->Append( ".pbp" );
 
     create_task( picker->PickSingleFileAsync() ).then( [ completition ]( StorageFile^ file )
     {

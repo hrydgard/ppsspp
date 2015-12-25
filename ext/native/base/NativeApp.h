@@ -14,6 +14,17 @@ struct TouchInput;
 struct KeyInput;
 struct AxisInput;
 
+enum SystemPermission {
+	SYSTEM_PERMISSION_STORAGE,
+};
+
+enum PermissionStatus {
+	PERMISSION_STATUS_UNKNOWN,
+	PERMISSION_STATUS_DENIED,
+	PERMISSION_STATUS_PENDING,
+	PERMISSION_STATUS_GRANTED,
+};
+
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version);
@@ -94,6 +105,8 @@ void NativeShutdown();
 void NativeRestoreState(bool firstTime);  // onCreate
 void NativeSaveState();  // onDestroy
 
+void NativePermissionStatus(SystemPermission permission, PermissionStatus status);
+
 // Calls back into Java / SDL
 // These APIs must be implemented by every port (for example app-android.cpp, PCMain.cpp).
 // You are free to call these.
@@ -118,6 +131,8 @@ void LaunchEmail(const char *email_address);
 bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outlength);
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
 void System_SendMessage(const char *command, const char *parameter);
+PermissionStatus System_GetPermissionStatus(SystemPermission permission);
+void System_AskForPermission(SystemPermission permission);
 
 // This will get muddy with multi-screen support :/ But this will always be the type of the main device.
 enum SystemDeviceType {
@@ -149,6 +164,8 @@ enum SystemProperty {
 	SYSPROP_AUDIO_FRAMES_PER_BUFFER,
 	SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE,
 	SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER,
+
+	SYSPROP_SUPPORTS_PERMISSIONS,
 };
 
 std::string System_GetProperty(SystemProperty prop);

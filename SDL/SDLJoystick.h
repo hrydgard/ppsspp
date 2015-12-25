@@ -78,6 +78,7 @@ private:
 		SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
 		SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
 		SDLJoyButtonMap[15] = NKCODE_BUTTON_11;
+		SDLJoyButtonMap[16] = NKCODE_BUTTON_12;
 
 		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
 		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;

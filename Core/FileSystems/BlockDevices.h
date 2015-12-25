@@ -25,6 +25,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/ELF/PBPReader.h"
+#include "base/mutex.h"
 
 class FileLoader;
 
@@ -106,6 +107,7 @@ public:
 
 private:
 	FileLoader *fileLoader_;
+	static recursive_mutex mutex_;
 	u32 lbaSize;
 
 	u32 psarOffset;
@@ -120,22 +122,6 @@ private:
 	int currentBlock;
 	u8 *blockBuf;
 	u8 *tempBuf;
-};
-
-// This simply fully reads another block device and caches it in RAM.
-// A bit slow to initialize.
-class RAMBlockDevice : public BlockDevice
-{
-public:
-	RAMBlockDevice(BlockDevice *device);
-	~RAMBlockDevice();
-
-	bool ReadBlock(int blockNumber, u8 *outPtr) override;
-	u32 GetNumBlocks() override;
-
-private:
-	int totalBlocks_;
-	u8 *image_;
 };
 
 

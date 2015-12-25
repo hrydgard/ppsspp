@@ -792,8 +792,6 @@ bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
 
 // TODO: vector output
 bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
-	int search_start_layer = 0;
-
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		if (iter->first == btn) {
 			for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
@@ -801,7 +799,7 @@ bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
 			}
 		}
 	}
-	return false;
+	return keys->size() > 0;
 }
 
 bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *pspKeys) {
@@ -810,8 +808,6 @@ bool AxisToPspButton(int deviceId, int axisId, int direction, std::vector<int> *
 }
 
 bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction) {
-	int search_start_layer = 0;
-
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
 			if (iter->first == btn && iter2->keyCode >= AXIS_BIND_NKCODE_START) {
