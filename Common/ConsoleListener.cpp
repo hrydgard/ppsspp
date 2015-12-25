@@ -514,7 +514,7 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 	std::string SLog = "";
 
 	const HWND hWnd = GetConsoleWindow();
-	const HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	//const HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 	// Get console info
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
@@ -632,7 +632,7 @@ void ConsoleListener::ClearScreen(bool Cursor)
 	CONSOLE_SCREEN_BUFFER_INFO csbi; 
 	DWORD dwConSize; 
 	
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE); 
+	//HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE); 
 	
 	GetConsoleScreenBufferInfo(hConsole, &csbi); 
 	dwConSize = csbi.dwSize.X * csbi.dwSize.Y;

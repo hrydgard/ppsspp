@@ -408,7 +408,7 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, const u32 numPixels) 
 		__m128i b = _mm_and_si128(_mm_srli_epi16(c, 8), mask4);
 		// And lastly 00A0 00A0.  No mask needed, we have a wall.
 		__m128i a = _mm_srli_epi16(c, 12);
-		a = _mm_slli_epi16(g, 8);
+		a = _mm_slli_epi16(a, 8);
 
 		// We swizzle after combining - R0G0 R0G0 and B0A0 B0A0 -> RRGG RRGG and BBAA BBAA.
 		__m128i rg = _mm_or_si128(r, g);
