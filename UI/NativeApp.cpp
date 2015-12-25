@@ -914,20 +914,7 @@ bool NativeAxis(const AxisInput &axis) {
 	//now transform out current tilt to the calibrated coordinate system
 	Tilt trueTilt = GenTilt(baseTilt, currentTilt, g_Config.bInvertTiltX, g_Config.bInvertTiltY, g_Config.fDeadzoneRadius, xSensitivity, ySensitivity);
 
-	//now send the appropriate tilt event
-	switch (g_Config.iTiltInputType) {
-		case TILT_ANALOG:
-			GenerateAnalogStickEvent(trueTilt);
-			break;
-		
-		case TILT_DPAD:
-			GenerateDPadEvent(trueTilt);
-			break;
-		
-		case TILT_ACTION_BUTTON:
-			GenerateActionButtonEvent(trueTilt);
-			break;
-	}
+	TranslateTiltToInput(trueTilt);
 	return true;
 }
 

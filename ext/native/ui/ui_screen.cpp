@@ -195,7 +195,9 @@ void PopupScreen::CreateViews() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	anchor->Overflow(false);
+	root_ = anchor;
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
@@ -343,21 +345,25 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), screenManager_(screenManager), units_(units) {
+	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager), units_(units) {
+	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), screenManager_(screenManager), units_(units) {
+	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
 	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager), units_(units) {
+	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
@@ -387,7 +393,11 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	}
 	Choice::Draw(dc);
 	char temp[32];
-	sprintf(temp, "%i", *value_);
+	if (zeroLabel_.size() && *value_ == 0) {
+		strcpy(temp, zeroLabel_.c_str());
+	} else {
+		sprintf(temp, fmt_, *value_);
+	}
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -418,7 +428,11 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	}
 	Choice::Draw(dc);
 	char temp[32];
-	sprintf(temp, "%2.2f", *value_);
+	if (zeroLabel_.size() && *value_ == 0.0f) {
+		strcpy(temp, zeroLabel_.c_str());
+	} else {
+		sprintf(temp, fmt_, *value_);
+	}
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -485,7 +499,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
-	if (&units_)
+	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
 	if (IsFocusMovementEnabled())
@@ -509,7 +523,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	edit_->OnTextChange.Handle(this, &SliderFloatPopupScreen::OnTextChange);
 	changing_ = false;
 	lin->Add(edit_);
-	if (&units_)
+	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)));
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));

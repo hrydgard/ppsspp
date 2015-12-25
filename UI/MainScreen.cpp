@@ -277,8 +277,9 @@ void GameButton::Draw(UIContext &dc) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		if (title_.empty() && !ginfo->title.empty()) {
-			title_ = ReplaceAll(ginfo->title + discNumInfo, "&", "&&");
+		const std::string currentTitle = ginfo->GetTitle();
+		if (!currentTitle.empty()) {
+			title_ = ReplaceAll(currentTitle + discNumInfo, "&", "&&");
 			title_ = ReplaceAll(title_, "\n", " ");
 		}
 
@@ -310,8 +311,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
-	if (!ginfo->id.empty() && ginfo->hasConfig)
-	{
+	if (ginfo->hasConfig && !ginfo->id.empty()) {
 		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}
 	if (overlayColor) {
@@ -726,7 +726,7 @@ void MainScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 
 	leftColumn->SetClip(true);
@@ -842,12 +842,12 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
@@ -1150,7 +1150,7 @@ void UmdReplaceScreen::CreateViews() {
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *di = GetI18NCategory("Dialog");
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 	leftColumn->SetClip(true);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));

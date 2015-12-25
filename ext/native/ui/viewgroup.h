@@ -111,14 +111,24 @@ public:
 	// Set to NONE to not attach this edge to the container.
 	float left, top, right, bottom;
 	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
+
+	static LayoutParamsType StaticType() {
+		return LP_ANCHOR;
+	}
 };
 
 class AnchorLayout : public ViewGroup {
 public:
-	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
+	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams), overflow_(true) {}
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
+	void Overflow(bool allow) {
+		overflow_ = allow;
+	}
 	std::string Describe() const override { return "AnchorLayout: " + View::Describe(); }
+
+private:
+	bool overflow_;
 };
 
 class LinearLayoutParams : public LayoutParams {
@@ -145,6 +155,10 @@ public:
 	Margins margins;
 
 	bool HasMargins() const { return hasMargins_; }
+
+	static LayoutParamsType StaticType() {
+		return LP_LINEAR;
+	}
 
 private:
 	bool hasMargins_;

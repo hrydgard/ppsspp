@@ -2723,7 +2723,7 @@ void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
 }
 
 void ARMXEmitter::VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
-	if (shiftAmount == (8 * (Size & 0xF))) {
+	if ((u32)shiftAmount == (8 * (Size & 0xF))) {
 		// Entirely different encoding (A2) for size == shift! Bleh.
 		int sz = 0;
 		switch (Size & 0xF) {

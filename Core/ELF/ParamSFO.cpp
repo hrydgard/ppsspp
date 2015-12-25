@@ -86,6 +86,14 @@ u8* ParamSFOData::GetValueData(std::string key, unsigned int *size)
 	return it->second.u_value;
 }
 
+std::vector<std::string> ParamSFOData::GetKeys() {
+	std::vector<std::string> result;
+	for (const auto &pair : values) {
+		result.push_back(pair.first);
+	}
+	return result;
+}
+
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 {

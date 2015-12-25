@@ -51,71 +51,95 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelMemory.h"
 
+static void UseLargeMem(int memsize) {
+	if (memsize != 1) {
+		// Nothing requested.
+		return;
+	}
+
+	if (Memory::g_PSPModel != PSP_MODEL_FAT) {
+		INFO_LOG(LOADER, "Game requested full PSP-2000 memory access");
+		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+	} else {
+		WARN_LOG(LOADER, "Game requested full PSP-2000 memory access, ignoring in PSP-1000 mode");
+	}
+}
+
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
 void InitMemoryForGameISO(FileLoader *fileLoader) {
-	IFileSystem* umd2;
-
 	if (!fileLoader->Exists()) {
 		return;
 	}
 
+	IFileSystem *fileSystem = nullptr;
+	IFileSystem *blockSystem = nullptr;
 	bool actualIso = false;
-	if (fileLoader->IsDirectory())
-	{
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
-	}
-	else 
-	{
+	if (fileLoader->IsDirectory()) {
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		blockSystem = fileSystem;
+	} else {
 		auto bd = constructBlockDevice(fileLoader);
 		// Can't init anything without a block device...
 		if (!bd)
 			return;
 
-		umd2 = new ISOFileSystem(&pspFileSystem, bd);
-		actualIso = true;
+		ISOFileSystem *iso = new ISOFileSystem(&pspFileSystem, bd);
+		fileSystem = iso;
+		blockSystem = new ISOBlockSystem(iso);
 	}
 
-	// Parse PARAM.SFO
-
-	//pspFileSystem.Mount("host0:",umd2);
-
-	IFileSystem *entireIso = 0;
-	if (actualIso) {
-		entireIso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
-	} else {
-		entireIso = umd2;
-	}
-
-	pspFileSystem.Mount("umd0:", entireIso);
-	pspFileSystem.Mount("umd1:", entireIso);
-	pspFileSystem.Mount("disc0:", umd2);
-	pspFileSystem.Mount("umd:", entireIso);
+	pspFileSystem.Mount("umd0:", blockSystem);
+	pspFileSystem.Mount("umd1:", blockSystem);
+	pspFileSystem.Mount("disc0:", fileSystem);
+	pspFileSystem.Mount("umd:", blockSystem);
+	// TODO: Should we do this?
+	//pspFileSystem.Mount("host0:", fileSystem);
 
 	std::string gameID;
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
 
-	if (fileInfo.exists)
-	{
+	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
-		if (g_paramSFO.ReadSFO(paramsfo))
-		{
+		if (g_paramSFO.ReadSFO(paramsfo)) {
+			UseLargeMem(g_paramSFO.GetValueInt("MEMSIZE"));
+			// TODO: Check the SFO for other parameters that might be useful for identifying?
 			gameID = g_paramSFO.GetValueString("DISC_ID");
+		}
+	}
 
-			for (size_t i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
-				if(g_HDRemasters[i].gameID == gameID) {
-					g_RemasterMode = true;
-					Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
-					if(g_HDRemasters[i].DoubleTextureCoordinates)
-						g_DoubleTextureCoordinates = true;
-					break;
-				}
+	for (size_t i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
+		if (g_HDRemasters[i].gameID == gameID) {
+			g_RemasterMode = true;
+			Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
+			if (g_HDRemasters[i].DoubleTextureCoordinates)
+				g_DoubleTextureCoordinates = true;
+			break;
+		}
+	}
+	if (g_RemasterMode) {
+		INFO_LOG(LOADER, "HDRemaster found, using increased memory");
+	}
+}
+
+void InitMemoryForGamePBP(FileLoader *fileLoader) {
+	if (!fileLoader->Exists()) {
+		return;
+	}
+
+	PBPReader pbp(fileLoader);
+	if (pbp.IsValid() && !pbp.IsELF()) {
+		std::vector<u8> sfoData;
+		if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+			ParamSFOData paramSFO;
+			if (paramSFO.ReadSFO(sfoData)) {
+				// This is the parameter CFW uses to determine homebrew wants the full 64MB.
+				UseLargeMem(paramSFO.GetValueInt("MEMSIZE"));
 			}
-			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
 		}
 	}
 }

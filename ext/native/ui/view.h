@@ -292,6 +292,26 @@ public:
 	// Fake RTTI
 	bool Is(LayoutParamsType type) const { return type_ == type; }
 
+	template <typename T>
+	T *As() {
+		if (Is(T::StaticType())) {
+			return static_cast<T *>(this);
+		}
+		return nullptr;
+	}
+
+	template <typename T>
+	const T *As() const {
+		if (Is(T::StaticType())) {
+			return static_cast<const T *>(this);
+		}
+		return nullptr;
+	}
+
+	static LayoutParamsType StaticType() {
+		return LP_PLAIN;
+	}
+
 private:
 	LayoutParamsType type_;
 };

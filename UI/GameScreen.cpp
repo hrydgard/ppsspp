@@ -66,7 +66,7 @@ void GameScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
-		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
+		tvTitle_ = leftColumn->Add(new TextView(info->GetTitle(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		tvTitle_->SetShadow(true);
 		// This one doesn't need to be updated.
 #ifndef UWPAPP
@@ -161,7 +161,7 @@ void GameScreen::update(InputState &input) {
 	GameInfo *info = g_gameInfoCache.GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_)
-		tvTitle_->SetText(info->title + " (" + info->id + ")");
+		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
 		texvGameIcon_->SetTexture(info->iconTexture);
 		// Fade the icon with the background.
@@ -281,7 +281,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
 	if (info) {
-		host->CreateDesktopShortcut(gamePath_, info->title);
+		host->CreateDesktopShortcut(gamePath_, info->GetTitle());
 	}
 	return UI::EVENT_DONE;
 }

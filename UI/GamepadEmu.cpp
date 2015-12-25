@@ -33,6 +33,34 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
 
+int GamepadView::framesWithoutTouch_;
+
+void GamepadView::Touch(const TouchInput &input) {
+	framesWithoutTouch_ = 0;
+}
+
+void GamepadView::Update(const InputState &input) {
+	++framesWithoutTouch_;
+}
+
+float GamepadView::GetButtonOpacity() {
+	int fadeAfterFrames = g_Config.iTouchButtonHideSeconds * 60;
+	int fadeTransitionFrames = std::min(fadeAfterFrames, 5 * 60);
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+
+	float multiplier = 1.0f;
+	if (framesWithoutTouch_ > fadeAfterFrames && fadeAfterFrames != 0) {
+		if (framesWithoutTouch_ > fadeAfterFrames + fadeTransitionFrames) {
+			multiplier = 0.0f;
+		} else {
+			int framesIntoFade = framesWithoutTouch_ - fadeAfterFrames;
+			multiplier = 1.0f - (framesIntoFade / (float)fadeTransitionFrames);
+		}
+	}
+
+	return opacity * multiplier;
+}
+
 void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	const AtlasImage &image = dc.Draw()->GetAtlas()->images[bgImg_];
 	w = image.w * scale_;
@@ -40,6 +68,7 @@ void MultiTouchButton::GetContentDimensions(const UIContext &dc, float &w, float
 }
 
 void MultiTouchButton::Touch(const TouchInput &input) {
+	GamepadView::Touch(input);
 	if ((input.flags & TOUCH_DOWN) && bounds_.Contains(input.x, input.y)) {
 		pointerDownMask_ |= 1 << input.id;
 	}
@@ -58,7 +87,7 @@ void MultiTouchButton::Touch(const TouchInput &input) {
 }
 
 void MultiTouchButton::Draw(UIContext &dc) {
-	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+	float opacity = GetButtonOpacity();
 
 	float scale = scale_;
 	if (IsDown()) {
@@ -132,7 +161,7 @@ bool PSPButton::IsDown() {
 }
 
 PSPDpad::PSPDpad(int arrowIndex, int overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
-	: UI::View(layoutParams), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex),
+	: GamepadView(layoutParams), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex),
 		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
 }
 
@@ -143,6 +172,7 @@ void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) cons
 
 void PSPDpad::Touch(const TouchInput &input) {
 	int lastDown = down_;
+	GamepadView::Touch(input);
 
 	if (input.flags & TOUCH_DOWN) {
 		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
@@ -222,7 +252,7 @@ void PSPDpad::ProcessTouch(float x, float y, bool down) {
 }
 
 void PSPDpad::Draw(UIContext &dc) {
-	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+	float opacity = GetButtonOpacity();
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
@@ -246,7 +276,7 @@ void PSPDpad::Draw(UIContext &dc) {
 }
 
 PSPStick::PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams)
-	: UI::View(layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
+	: GamepadView(layoutParams), dragPointerId_(-1), bgImg_(bgImg), stickImageIndex_(stickImg), stick_(stick), scale_(scale), centerX_(-1), centerY_(-1) {
 	stick_size_ = 50;
 }
 
@@ -257,7 +287,7 @@ void PSPStick::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 }
 
 void PSPStick::Draw(UIContext &dc) {
-	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+	float opacity = GetButtonOpacity();
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0x808080, opacity);
@@ -278,6 +308,7 @@ void PSPStick::Draw(UIContext &dc) {
 }
 
 void PSPStick::Touch(const TouchInput &input) {
+	GamepadView::Touch(input);
 	if (input.flags & TOUCH_RELEASE_ALL) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
