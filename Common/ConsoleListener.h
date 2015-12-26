@@ -46,7 +46,7 @@ public:
 	bool Hidden() const { return bHidden; }
 private:
 #if defined(_WIN32) && !defined(_XBOX)
-	HWND GetHwnd(void);
+	HWND hWnd;
 	HANDLE hConsole;
 
 	static unsigned int WINAPI RunThread(void *lpParam);

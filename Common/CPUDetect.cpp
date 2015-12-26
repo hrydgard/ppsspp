@@ -280,7 +280,7 @@ std::string CPUInfo::Summarize()
 	if (bSSE4_2) sum += ", SSE4.2";
 	if (HTT) sum += ", HTT";
 	if (bAVX) sum += ", AVX";
-	if (bAVX) sum += ", FMA";
+	if (bFMA) sum += ", FMA";
 	if (bAES) sum += ", AES";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;

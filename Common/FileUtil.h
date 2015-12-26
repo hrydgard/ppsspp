@@ -187,6 +187,7 @@ public:
 
 private:
 	IOFile& operator=(const IOFile&) /*= delete*/;
+	IOFile(const IOFile&) /*= delete*/;
 
 	std::FILE* m_file;
 	bool m_good;
