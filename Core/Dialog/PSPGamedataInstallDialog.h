@@ -48,6 +48,7 @@ public:
 
 private:
 	void UpdateProgress();
+	void OpenNextFile();
 
 	SceUtilityGamedataInstallParam request;
 	u32 paramAddr;
@@ -57,4 +58,8 @@ private:
 	u64 allFilesSize;  // use this to calculate progress value.
 	u64 allReadSize;   // use this to calculate progress value.
 	int progressValue;
+
+	u32 currentInputFile;
+	u32 currentInputBytesLeft;
+	u32 currentOutputFile;
 };

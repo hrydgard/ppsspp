@@ -62,6 +62,8 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	progressValue = 0;
 	allFilesSize = 0;
 	allReadSize = 0;
+	currentInputFile = 0;
+	currentOutputFile = 0;
 
 	for (std::string filename : inFileNames) {
 		allFilesSize += pspFileSystem.GetFileInfo("disc0:/PSP_GAME/INSDIR/" + filename).size;
@@ -86,43 +88,39 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	std::string fullinFileName;
-	std::string outFileName;
-	u64 totalLength;
-	u64 restLength;
 	u32 bytesToRead = 4096;
-	u32 inhandle;
-	u32 outhandle;
 	size_t readSize;
 	
 	if (readFiles < numFiles) {
-		u8 *temp = new u8[4096];
-		fullinFileName = "disc0:/PSP_GAME/INSDIR/" + inFileNames[readFiles];
-		outFileName = GetGameDataInstallFileName(&request, inFileNames[readFiles]);
-		totalLength = pspFileSystem.GetFileInfo(fullinFileName).size;
-		restLength = totalLength;
-		inhandle = pspFileSystem.OpenFile(fullinFileName, FILEACCESS_READ);
-		if (inhandle != 0) {
-			outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
-			if (outhandle != 0) {
-				while (restLength > 0) {
-					if (restLength < bytesToRead)
-						bytesToRead = (u32)restLength;
-					readSize = pspFileSystem.ReadFile(inhandle, temp, bytesToRead);
-					if(readSize > 0) {
-						pspFileSystem.WriteFile(outhandle, temp, readSize);
-						restLength -= readSize;
-						allReadSize += readSize;
-					} else
-						break;
+		OpenNextFile();
+
+		if (currentInputFile != 0 && currentOutputFile != 0) {
+			u8 *temp = new u8[4096];
+
+			while (currentInputBytesLeft > 0) {
+				if (currentInputBytesLeft < bytesToRead)
+					bytesToRead = currentInputBytesLeft;
+				readSize = pspFileSystem.ReadFile(currentInputFile, temp, bytesToRead);
+				if (readSize > 0) {
+					pspFileSystem.WriteFile(currentOutputFile, temp, readSize);
+					currentInputBytesLeft -= readSize;
+					allReadSize += readSize;
+				} else {
+					break;
 				}
-				pspFileSystem.CloseFile(outhandle);
 			}
+			pspFileSystem.CloseFile(currentOutputFile);
+			currentOutputFile = 0;
+
+			pspFileSystem.CloseFile(currentInputFile);
+			currentInputFile = 0;
+
+			delete[] temp;
+
 			++readFiles;
-			pspFileSystem.CloseFile(inhandle);
 		}
+
 		UpdateProgress();
-		delete[] temp;
 	} else {
 		//What is this?
 		request.unknownResult1 = readFiles;
@@ -132,6 +130,30 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	}
 	return 0;
+}
+
+void PSPGamedataInstallDialog::OpenNextFile() {
+	std::string inputFileName = "disc0:/PSP_GAME/INSDIR/" + inFileNames[readFiles];
+	std::string outputFileName = GetGameDataInstallFileName(&request, inFileNames[readFiles]);
+
+	currentInputFile = pspFileSystem.OpenFile(inputFileName, FILEACCESS_READ);
+	if (!currentInputFile) {
+		// TODO: Generate an error code?
+		ERROR_LOG_REPORT(SCEUTILITY, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
+		++readFiles;
+		return;
+	}
+	currentOutputFile = pspFileSystem.OpenFile(outputFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
+	if (!currentOutputFile) {
+		// TODO: Generate an error code?
+		ERROR_LOG(SCEUTILITY, "Unable to write to install file: %s", inFileNames[readFiles].c_str());
+		pspFileSystem.CloseFile(currentInputFile);
+		currentInputFile = 0;
+		++readFiles;
+		return;
+	}
+
+	currentInputBytesLeft = (u32)pspFileSystem.GetFileInfo(inputFileName).size;
 }
 
 int PSPGamedataInstallDialog::Abort() {
@@ -168,7 +190,7 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
-	auto s = p.Section("PSPGamedataInstallDialog", 0, 2);
+	auto s = p.Section("PSPGamedataInstallDialog", 0, 3);
 	if (!s)
 		return;
 
@@ -187,5 +209,15 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 		p.Do(progressValue);
 	} else {
 		paramAddr = 0;
+	}
+
+	if (s > 3) {
+		p.Do(currentInputFile);
+		p.Do(currentInputBytesLeft);
+		p.Do(currentOutputFile);
+	} else {
+		currentInputFile = 0;
+		currentInputBytesLeft = 0;
+		currentOutputFile = 0;
 	}
 }
