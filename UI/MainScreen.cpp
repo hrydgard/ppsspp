@@ -1085,6 +1085,9 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
 
+	// However, let's make sure the config was saved, since it may not have been.
+	g_Config.Save();
+
 	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
 #ifdef ANDROID
 #ifdef ANDROID_NDK_PROFILER
