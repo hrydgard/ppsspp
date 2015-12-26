@@ -25,7 +25,7 @@
 
 class GamepadView : public UI::View {
 public:
-	GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {
+	GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), lastFrameTime_(0.0f), secondsWithoutTouch_(0) {
 	}
 
 	void Touch(const TouchInput &input) override;
@@ -37,7 +37,8 @@ public:
 protected:
 	float GetButtonOpacity();
 
-	static int framesWithoutTouch_;
+	float lastFrameTime_;
+	float secondsWithoutTouch_;
 };
 
 class MultiTouchButton : public GamepadView {
