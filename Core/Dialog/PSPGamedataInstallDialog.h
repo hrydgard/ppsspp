@@ -51,9 +51,10 @@ private:
 	void OpenNextFile();
 	void CopyCurrentFileData();
 	void CloseCurrentFile();
+	void WriteSfoFile();
 
 	SceUtilityGamedataInstallParam request;
-	u32 paramAddr;
+	PSPPointer<SceUtilityGamedataInstallParam> param;
 	std::vector<std::string> inFileNames;
 	int numFiles;
 	int readFiles;

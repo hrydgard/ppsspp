@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "Common/Common.h"
 #include "Common/ChunkFile.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -31,6 +32,8 @@ const static int GAMEDATA_INIT_DELAY_US = 200000;
 const static int GAMEDATA_SHUTDOWN_DELAY_US = 2000;
 const static u32 GAMEDATA_BYTES_PER_READ = 32768;
 const static u32 GAMEDATA_READS_PER_UPDATE = 100;
+
+static const std::string SFO_FILENAME = "PARAM.SFO";
 
 namespace
 {
@@ -58,7 +61,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	this->paramAddr = paramAddr;
+	param.ptr = paramAddr;
 	inFileNames = GetPSPFileList("disc0:/PSP_GAME/INSDIR");
 	numFiles = (int)inFileNames.size();
 	readFiles = 0;
@@ -101,10 +104,12 @@ int PSPGamedataInstallDialog::Update(int animSpeed) {
 
 		UpdateProgress();
 	} else {
-		//What is this?
+		WriteSfoFile();
+
+		// TODO: What is this?  Should one of these update per file or anything?
 		request.unknownResult1 = readFiles;
 		request.unknownResult2 = readFiles;
-		Memory::WriteStruct(paramAddr,&request);
+		Memory::WriteStruct(param.ptr, &request);
 
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	}
@@ -168,6 +173,41 @@ void PSPGamedataInstallDialog::CloseCurrentFile() {
 	++readFiles;
 }
 
+void PSPGamedataInstallDialog::WriteSfoFile() {
+	ParamSFOData sfoFile;
+	std::string sfopath = GetGameDataInstallFileName(&request, SFO_FILENAME);
+	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
+	if (sfoInfo.exists) {
+		std::vector<u8> sfoData;
+		if (pspFileSystem.ReadEntireFile(sfopath, sfoData) >= 0) {
+			sfoFile.ReadSFO(sfoData);
+		}
+	}
+
+	// Update based on the just-saved data.
+	sfoFile.SetValue("TITLE", param->sfoParam.title, 128);
+	sfoFile.SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
+	sfoFile.SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
+	sfoFile.SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
+	// TODO: Verify category.
+	sfoFile.SetValue("CATEGORY", "MS", 4);
+	sfoFile.SetValue("SAVEDATA_DIRECTORY", std::string(param->gameName) + param->dataName, 64);
+
+	// TODO: Maybe there should be other things in the SFO file?  Needs testing.
+
+	u8 *sfoData;
+	size_t sfoSize;
+	sfoFile.WriteSFO(&sfoData,&sfoSize);
+
+	u32 handle = pspFileSystem.OpenFile(sfopath, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
+	if (handle != 0) {
+		pspFileSystem.WriteFile(handle, sfoData, sfoSize);
+		pspFileSystem.CloseFile(handle);
+	}
+
+	delete[] sfoData;
+}
+
 int PSPGamedataInstallDialog::Abort() {
 	// TODO: Delete the files or anything?
 	return PSPDialog::Shutdown();
@@ -198,7 +238,7 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 	else 
 		progressValue = 100;
 	request.progress = progressValue;
-	Memory::WriteStruct(paramAddr, &request);
+	Memory::WriteStruct(param.ptr, &request);
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
@@ -212,7 +252,7 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 
 	// This was included in version 2 and higher.
 	if (s > 2) {
-		p.Do(paramAddr);
+		p.Do(param.ptr);
 		p.Do(inFileNames);
 		p.Do(numFiles);
 		p.Do(readFiles);
@@ -220,7 +260,7 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 		p.Do(allReadSize);
 		p.Do(progressValue);
 	} else {
-		paramAddr = 0;
+		param.ptr = 0;
 	}
 
 	if (s > 3) {
