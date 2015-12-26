@@ -1090,6 +1090,8 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
+	// However, let's make sure the config was saved, since it may not have been.
+	g_Config.Save();
 	exit(0);
 #endif
 
