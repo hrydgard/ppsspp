@@ -340,7 +340,7 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	auto s = p.Section("Memory", 1, 2);
+	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
 
@@ -348,7 +348,8 @@ void DoState(PointerWrap &p)
 		if (!g_RemasterMode)
 			g_MemorySize = RAM_NORMAL_SIZE;
 		g_PSPModel = PSP_MODEL_FAT;
-	} else {
+	} else if (s == 2) {
+		// In version 2, we determine memory size based on PSP model.
 		u32 oldMemorySize = g_MemorySize;
 		p.Do(g_PSPModel);
 		p.DoMarker("PSPModel");
@@ -358,6 +359,17 @@ void DoState(PointerWrap &p)
 				Shutdown();
 				Init();
 			}
+		}
+	} else {
+		// In version 3, we started just saving the memory size directly.
+		// It's no longer based strictly on the PSP model.
+		u32 oldMemorySize = g_MemorySize;
+		p.Do(g_PSPModel);
+		p.DoMarker("PSPModel");
+		p.Do(g_MemorySize);
+		if (oldMemorySize != g_MemorySize) {
+			Shutdown();
+			Init();
 		}
 	}
 

@@ -37,16 +37,17 @@ struct PBPHeader {
 	u32_le offsets[8];
 };
 
+class FileLoader;
+
 class PBPReader {
 public:
-	PBPReader(const char *filename);
+	PBPReader(FileLoader *fileLoader);
 	~PBPReader();
 
-	bool IsValid() const { return file_ != 0; }
-	bool IsELF() const { return file_ == 0 && isELF_; }
+	bool IsValid() const { return file_ != nullptr; }
+	bool IsELF() const { return file_ == nullptr && isELF_; }
 
-	// Delete the returned buffer with delete [].
-	u8 *GetSubFile(PBPSubFile file, size_t *outSize);
+	bool GetSubFile(PBPSubFile file, std::vector<u8> *out);
 	void GetSubFileAsString(PBPSubFile file, std::string *out);
 
 	size_t GetSubFileSize(PBPSubFile file) {
@@ -59,7 +60,7 @@ public:
 	}
 
 private:
-	FILE *file_;
+	FileLoader *file_;
 	size_t fileSize_;
 	const PBPHeader header_;
 	bool isELF_;

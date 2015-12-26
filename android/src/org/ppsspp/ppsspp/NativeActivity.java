@@ -172,6 +172,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
+	@TargetApi(23)
+	public void sendInitialGrants() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+			// Let's start out granted if it was granted already.
+			if (this.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+				NativeApp.sendMessage("permission_granted", "storage");
+			}
+		}
+	}
+
 	@Override
 	public void onRequestPermissionsResult(int requestCode,
 	        String permissions[], int[] grantResults) {
@@ -238,6 +248,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
 
 		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
+
+		sendInitialGrants();
 
         vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
         if (Build.VERSION.SDK_INT >= 11) {

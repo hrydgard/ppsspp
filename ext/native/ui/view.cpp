@@ -95,8 +95,10 @@ bool IsFocusMovementEnabled() {
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
 	*measured = sz;
 	if (sz == WRAP_CONTENT) {
-		if (spec.type == UNSPECIFIED || spec.type == AT_MOST)
+		if (spec.type == UNSPECIFIED)
 			*measured = contentWidth;
+		else if (spec.type == AT_MOST)
+			*measured = contentWidth < spec.size ? contentWidth : spec.size;
 		else if (spec.type == EXACTLY)
 			*measured = spec.size;
 	} else if (sz == FILL_PARENT)	{

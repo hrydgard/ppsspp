@@ -34,6 +34,8 @@ public:
 	std::string GetValueString(std::string key);
 	u8* GetValueData(std::string key, unsigned int *size);
 
+	std::vector<std::string> GetKeys();
+
 	bool ReadSFO(const u8 *paramsfo, size_t size);
 	bool WriteSFO(u8 **paramsfo, size_t *size);
 
