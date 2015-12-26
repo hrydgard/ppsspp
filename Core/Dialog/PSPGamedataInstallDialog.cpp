@@ -31,7 +31,9 @@ std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 const static int GAMEDATA_INIT_DELAY_US = 200000;
 const static int GAMEDATA_SHUTDOWN_DELAY_US = 2000;
 const static u32 GAMEDATA_BYTES_PER_READ = 32768;
-const static u32 GAMEDATA_READS_PER_UPDATE = 100;
+// TODO: Could adjust based on real-time into frame?  Or eat cycles?
+// If this is too high, some games (e.g. Senjou no Valkyria 3) will lag.
+const static u32 GAMEDATA_READS_PER_UPDATE = 20;
 
 static const std::string SFO_FILENAME = "PARAM.SFO";
 
