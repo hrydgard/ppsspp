@@ -49,6 +49,8 @@ public:
 private:
 	void UpdateProgress();
 	void OpenNextFile();
+	void CopyCurrentFileData();
+	void CloseCurrentFile();
 
 	SceUtilityGamedataInstallParam request;
 	u32 paramAddr;

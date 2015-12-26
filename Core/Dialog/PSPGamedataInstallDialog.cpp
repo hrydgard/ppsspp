@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Common/Common.h"
 #include "Common/ChunkFile.h"
 #include "Core/MemMapHelpers.h"
@@ -28,6 +29,8 @@ std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
 // Guesses.
 const static int GAMEDATA_INIT_DELAY_US = 200000;
 const static int GAMEDATA_SHUTDOWN_DELAY_US = 2000;
+const static u32 GAMEDATA_BYTES_PER_READ = 32768;
+const static u32 GAMEDATA_READS_PER_UPDATE = 100;
 
 namespace
 {
@@ -87,37 +90,13 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-
-	u32 bytesToRead = 4096;
-	size_t readSize;
 	
 	if (readFiles < numFiles) {
-		OpenNextFile();
-
 		if (currentInputFile != 0 && currentOutputFile != 0) {
-			u8 *temp = new u8[4096];
-
-			while (currentInputBytesLeft > 0) {
-				if (currentInputBytesLeft < bytesToRead)
-					bytesToRead = currentInputBytesLeft;
-				readSize = pspFileSystem.ReadFile(currentInputFile, temp, bytesToRead);
-				if (readSize > 0) {
-					pspFileSystem.WriteFile(currentOutputFile, temp, readSize);
-					currentInputBytesLeft -= readSize;
-					allReadSize += readSize;
-				} else {
-					break;
-				}
-			}
-			pspFileSystem.CloseFile(currentOutputFile);
-			currentOutputFile = 0;
-
-			pspFileSystem.CloseFile(currentInputFile);
-			currentInputFile = 0;
-
-			delete[] temp;
-
-			++readFiles;
+			// Continue copying, this will close once done automatically.
+			CopyCurrentFileData();
+		} else {
+			OpenNextFile();
 		}
 
 		UpdateProgress();
@@ -156,6 +135,39 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentInputBytesLeft = (u32)pspFileSystem.GetFileInfo(inputFileName).size;
 }
 
+void PSPGamedataInstallDialog::CopyCurrentFileData() {
+	u8 buffer[GAMEDATA_BYTES_PER_READ];
+	for (u32 i = 0; i < GAMEDATA_READS_PER_UPDATE; ++i) {
+		if (currentInputBytesLeft <= 0) {
+			break;
+		}
+
+		const u32 bytesToRead = std::min(GAMEDATA_BYTES_PER_READ, currentInputBytesLeft);
+		size_t readSize = pspFileSystem.ReadFile(currentInputFile, buffer, bytesToRead);
+		if (readSize > 0) {
+			pspFileSystem.WriteFile(currentOutputFile, buffer, readSize);
+			currentInputBytesLeft -= (u32)readSize;
+			allReadSize += readSize;
+		} else {
+			break;
+		}
+	}
+
+	if (currentInputBytesLeft <= 0) {
+		CloseCurrentFile();
+	}
+}
+
+void PSPGamedataInstallDialog::CloseCurrentFile() {
+	pspFileSystem.CloseFile(currentOutputFile);
+	currentOutputFile = 0;
+
+	pspFileSystem.CloseFile(currentInputFile);
+	currentInputFile = 0;
+
+	++readFiles;
+}
+
 int PSPGamedataInstallDialog::Abort() {
 	// TODO: Delete the files or anything?
 	return PSPDialog::Shutdown();
@@ -182,7 +194,7 @@ void PSPGamedataInstallDialog::UpdateProgress() {
 	// Update progress bar(if there is).
 	// We only should update progress[0] here as the max progress value is 100.
 	if (allFilesSize != 0)
-		progressValue = (int)(allReadSize / allFilesSize) * 100;
+		progressValue = (int)((allReadSize * 100) / allFilesSize);
 	else 
 		progressValue = 100;
 	request.progress = progressValue;
