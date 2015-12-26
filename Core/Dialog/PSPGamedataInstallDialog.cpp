@@ -15,13 +15,19 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Common.h"
 #include "Common/ChunkFile.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
 
 std::string saveBasePath = "ms0:/PSP/SAVEDATA/";
+
+// Guesses.
+const static int GAMEDATA_INIT_DELAY_US = 200000;
+const static int GAMEDATA_SHUTDOWN_DELAY_US = 2000;
 
 namespace
 {
@@ -44,92 +50,97 @@ PSPGamedataInstallDialog::~PSPGamedataInstallDialog() {
 }
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
-///////////////////////////////////////////////////////
+	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
+		ERROR_LOG_REPORT(SCEUTILITY, "A game install request is already running, not starting a new one");
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
 	this->paramAddr = paramAddr;
-	inFileNames = GetPSPFileList ("disc0:/PSP_GAME/INSDIR");
+	inFileNames = GetPSPFileList("disc0:/PSP_GAME/INSDIR");
 	numFiles = (int)inFileNames.size();
 	readFiles = 0;
 	progressValue = 0;
 	allFilesSize = 0;
 	allReadSize = 0;
-	for (auto it = inFileNames.begin(); it != inFileNames.end(); ++it) {
-		allFilesSize += pspFileSystem.GetFileInfo("disc0:/PSP_GAME/INSDIR/" + (*it)).size;
+
+	for (std::string filename : inFileNames) {
+		allFilesSize += pspFileSystem.GetFileInfo("disc0:/PSP_GAME/INSDIR/" + filename).size;
 	}
-//////////////////////////////////////////////////////
-	// Already running
-	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-		return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+	if (allFilesSize == 0) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Game install with no files / data");
+		// TODO: What happens here?
+		return -1;
+	}
 
 	int size = Memory::Read_U32(paramAddr);
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size);
 
-	status = SCE_UTILITY_STATUS_INITIALIZE;
+	ChangeStatusInit(GAMEDATA_INIT_DELAY_US);
 	return 0;
 }
 
 int PSPGamedataInstallDialog::Update(int animSpeed) {
-	if (status == SCE_UTILITY_STATUS_INITIALIZE){
-		status = SCE_UTILITY_STATUS_RUNNING;
-	} else if (status == SCE_UTILITY_STATUS_RUNNING) {
-		std::string fullinFileName;
-		std::string outFileName;
-		u64 totalLength;
-		u64 restLength;
-		u32 bytesToRead = 4096;
-		u32 inhandle;
-		u32 outhandle;	
-		size_t readSize;
-	
-		if (readFiles < numFiles) {
-			u8 *temp = new u8[4096];
-			fullinFileName = "disc0:/PSP_GAME/INSDIR/" + inFileNames[readFiles];
-			outFileName = GetGameDataInstallFileName(&request, inFileNames[readFiles]);
-			totalLength = pspFileSystem.GetFileInfo(fullinFileName).size;
-			restLength = totalLength;	
-			inhandle = pspFileSystem.OpenFile(fullinFileName, FILEACCESS_READ);
-			if (inhandle != 0) {
-				outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
-				if (outhandle != 0) {
-					while (restLength > 0) {
-						if (restLength < bytesToRead) 
-							bytesToRead = (u32)restLength;
-						readSize = pspFileSystem.ReadFile(inhandle, temp, bytesToRead);
-						if(readSize > 0) {
-							pspFileSystem.WriteFile(outhandle, temp, readSize);
-							restLength -= readSize;
-							allReadSize += readSize;							
-						} else
-							break;
-					}
-					pspFileSystem.CloseFile(outhandle);
-				}
-				++readFiles;
-				pspFileSystem.CloseFile(inhandle);
-			}
-			updateProgress();
-			delete[] temp;
-		} else {
-			//What is this?
-			request.unknownResult1 = readFiles;
-			request.unknownResult2 = readFiles;
-			Memory::WriteStruct(paramAddr,&request);
+	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-			status = SCE_UTILITY_STATUS_FINISHED;
+	std::string fullinFileName;
+	std::string outFileName;
+	u64 totalLength;
+	u64 restLength;
+	u32 bytesToRead = 4096;
+	u32 inhandle;
+	u32 outhandle;
+	size_t readSize;
+	
+	if (readFiles < numFiles) {
+		u8 *temp = new u8[4096];
+		fullinFileName = "disc0:/PSP_GAME/INSDIR/" + inFileNames[readFiles];
+		outFileName = GetGameDataInstallFileName(&request, inFileNames[readFiles]);
+		totalLength = pspFileSystem.GetFileInfo(fullinFileName).size;
+		restLength = totalLength;
+		inhandle = pspFileSystem.OpenFile(fullinFileName, FILEACCESS_READ);
+		if (inhandle != 0) {
+			outhandle = pspFileSystem.OpenFile(outFileName, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
+			if (outhandle != 0) {
+				while (restLength > 0) {
+					if (restLength < bytesToRead)
+						bytesToRead = (u32)restLength;
+					readSize = pspFileSystem.ReadFile(inhandle, temp, bytesToRead);
+					if(readSize > 0) {
+						pspFileSystem.WriteFile(outhandle, temp, readSize);
+						restLength -= readSize;
+						allReadSize += readSize;
+					} else
+						break;
+				}
+				pspFileSystem.CloseFile(outhandle);
+			}
+			++readFiles;
+			pspFileSystem.CloseFile(inhandle);
 		}
-	} else if (status == SCE_UTILITY_STATUS_FINISHED) {
-		status = SCE_UTILITY_STATUS_SHUTDOWN;
-	}	
+		UpdateProgress();
+		delete[] temp;
+	} else {
+		//What is this?
+		request.unknownResult1 = readFiles;
+		request.unknownResult2 = readFiles;
+		Memory::WriteStruct(paramAddr,&request);
+
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	}
 	return 0;
 }
 
 int PSPGamedataInstallDialog::Abort() {
+	// TODO: Delete the files or anything?
 	return PSPDialog::Shutdown();
 }
 
 int PSPGamedataInstallDialog::Shutdown(bool force) {
-	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+	if (GetStatus() != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	return PSPDialog::Shutdown(force);
@@ -145,16 +156,15 @@ std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(SceUtilityGamed
 	return GameDataInstallPath + filename;
 }
 
-void PSPGamedataInstallDialog::updateProgress() {
+void PSPGamedataInstallDialog::UpdateProgress() {
 	// Update progress bar(if there is).
-	// progress value is progress[3] << 24 | progress[2] << 16 | progress[1] << 8 | progress[0].
 	// We only should update progress[0] here as the max progress value is 100.
 	if (allFilesSize != 0)
 		progressValue = (int)(allReadSize / allFilesSize) * 100;
 	else 
 		progressValue = 100;
-	request.progress[0] = progressValue;
-	Memory::WriteStruct(paramAddr,&request);
+	request.progress = progressValue;
+	Memory::WriteStruct(paramAddr, &request);
 }
 
 void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
