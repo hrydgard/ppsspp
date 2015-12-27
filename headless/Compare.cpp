@@ -30,6 +30,7 @@
 #include <cstdarg>
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 bool teamCityMode = false;
 std::string teamCityName = "";
