@@ -190,7 +190,6 @@ public:
 	bool bAlwaysDepthWrite;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	bool bTimerHack;
-	bool bAlphaMaskHack;
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;
