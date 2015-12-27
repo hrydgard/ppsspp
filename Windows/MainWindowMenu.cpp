@@ -31,7 +31,6 @@
 #include "Core/SaveState.h"
 #include "Core/Core.h"
 
-extern std::map<int, int> windowsTransTable;
 extern bool g_TakeScreenshot;
 
 namespace MainWindow {
