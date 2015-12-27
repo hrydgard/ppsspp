@@ -37,6 +37,8 @@ u32 Timer::GetTimeMs()
 {
 #ifdef _XBOX
 	return GetTickCount();
+#elif defined(UWPAPP)
+  return (u32)GetTickCount64();
 #elif defined(_WIN32)
 	return timeGetTime();
 #elif defined(BLACKBERRY)
@@ -153,14 +155,14 @@ std::string Timer::GetTimeElapsedFormatted() const
 // Get current time
 void Timer::IncreaseResolution()
 {
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(_WIN32) && !defined(_XBOX) && !defined(UWPAPP)
 	timeBeginPeriod(1);
 #endif
 }
 
 void Timer::RestoreResolution()
 {
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(_WIN32) && !defined(_XBOX) && !defined(UWPAPP)
 	timeEndPeriod(1);
 #endif
 }

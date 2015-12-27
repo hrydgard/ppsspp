@@ -93,6 +93,8 @@
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />
     <ClCompile Include="ColorConvNEON.cpp" />
+    <ClCompile Include="ArmABI.cpp" />
+
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
@@ -102,6 +104,7 @@
     <ClCompile Include="GL\GLInterface\GLInterface.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
+
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

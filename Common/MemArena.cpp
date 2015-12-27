@@ -127,8 +127,8 @@ size_t MemArena::roundup(size_t x) {
 
 void MemArena::GrabLowMemSpace(size_t size)
 {
-#ifdef _WIN32
-#ifndef _XBOX
+#if defined _WIN32
+#if !defined _XBOX && !defined UWPAPP
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
 #endif
@@ -174,11 +174,16 @@ void MemArena::ReleaseSpace()
 void *MemArena::CreateView(s64 offset, size_t size, void *base)
 {
 #ifdef _WIN32
-#ifdef _XBOX
+#if defined _XBOX
     size = roundup(size);
 	// use 64kb pages
     void * ptr = VirtualAlloc(NULL, size, MEM_COMMIT|MEM_LARGE_PAGES, PAGE_READWRITE);
     return ptr;
+#elif defined UWPAPP
+  size = roundup( size );
+  // use 64kb pages
+  void * ptr = VirtualAllocFromApp( NULL, size, MEM_COMMIT, PAGE_READWRITE );
+  return ptr;
 #else
 	size = roundup(size);
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, base);
@@ -207,7 +212,7 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 void MemArena::ReleaseView(void* view, size_t size)
 {
 #ifdef _WIN32
-#ifndef _XBOX
+#if !defined _XBOX && !defined UWPAPP
 	UnmapViewOfFile(view);
 #endif
 #else

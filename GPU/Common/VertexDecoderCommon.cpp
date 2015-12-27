@@ -1071,8 +1071,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	// Attempt to JIT as well
 	if (jitCache && g_Config.bVertexDecoderJit) {
-		jitted_ = jitCache->Compile(*this, &jittedSize_);
-		if (!jitted_) {
+    MemoryAccess macc( jitCache->GetCodePtr(), 4096 );
+    jitted_ = jitCache->Compile( *this, &jittedSize_ );
+    if ( !jitted_ ) {
 			WARN_LOG(G3D, "Vertex decoder JIT failed! fmt = %08x", fmt_);
 		}
 	}
@@ -1089,7 +1090,7 @@ void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowe
 	if (jitted_) {
 		// We've compiled the steps into optimized machine code, so just jump!
 		jitted_(ptr_, decoded_, count);
-	} else {
+  } else {
 		// Interpret the decode steps
 		for (; count; count--) {
 			for (int i = 0; i < numSteps_; i++) {
@@ -1171,9 +1172,10 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 {
 	// 256k should be enough.
 	AllocCodeSpace(1024 * 64 * 4);
+  MemoryAccess macc( region, region_size );
 
 	// Add some random code to "help" MSVC's buggy disassembler :(
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(_M_ARM)
 	using namespace Gen;
 	for (int i = 0; i < 100; i++) {
 		MOV(32, R(EAX), R(EBX));
@@ -1188,5 +1190,6 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
+  MemoryAccess macc( region, region_size );
 	ClearCodeSpace();
 }

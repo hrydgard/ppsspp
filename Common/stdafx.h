@@ -19,7 +19,9 @@
 
 #ifndef _WIN32_WINNT
 
-#if _MSC_VER < 1700
+#ifdef UWPAPP
+#define _WIN32_WINNT _WIN32_WINNT_WIN10 // Compile for Windows Universal Application
+#elif _MSC_VER < 1700
 #define _WIN32_WINNT 0x501 // Compile for XP on Visual Studio 2010 and below
 #else
 #define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above

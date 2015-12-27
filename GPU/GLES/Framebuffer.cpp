@@ -1123,7 +1123,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 			} else {
 				// Fullscreen Image
 				glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
+        glViewport( 0, 0, pixelWidth_, pixelHeight_ );
+        DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
 			}
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1381,7 +1382,7 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 		// Only if it's the same size.
 		if (dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1) {
 #if defined(USING_GLES2)
-#ifndef IOS
+#if !defined IOS && !defined UWPAPP
 			glCopyImageSubDataOES(
 				fbo_get_color_texture(src->fbo), GL_TEXTURE_2D, 0, srcX1, srcY1, 0,
 				fbo_get_color_texture(dst->fbo), GL_TEXTURE_2D, 0, dstX1, dstY1, 0,

@@ -7,6 +7,9 @@
 
 namespace W32Util
 {
+#ifdef UWPAPP
+//  void BrowseForFolder( const char *title, std::function< void( Windows::Storage::StorageFolder^, std::vector< Windows::Storage::StorageFile^ > ) > callback );
+#endif
 	std::string BrowseForFolder(HWND parent, const char *title);
 	std::string BrowseForFolder(HWND parent, const wchar_t *title);
 	bool BrowseForFileName (bool _bLoad, HWND _hParent, const wchar_t*_pTitle,

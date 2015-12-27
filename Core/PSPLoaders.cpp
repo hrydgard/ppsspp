@@ -230,16 +230,24 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 
 static std::string NormalizePath(const std::string &path)
 {
-#ifdef _WIN32
+#ifdef UWPAPP
+  wchar_t buf[ 512 ] = { 0 };
+  std::wstring wpath(path.begin(), path.end());
+  if ( GetFullPathNameW( wpath.c_str(), sizeof( buf ) - 1, buf, NULL ) == 0 )
+    return "";
+  wpath = buf;
+  return std::string(wpath.begin(), wpath.end());
+#elif defined _WIN32
 	char buf[512] = {0};
 	if (GetFullPathNameA(path.c_str(), sizeof(buf) - 1, buf, NULL) == 0)
 		return "";
+  return buf;
 #else
 	char buf[PATH_MAX + 1];
 	if (realpath(path.c_str(), buf) == NULL)
 		return "";
+  return buf;
 #endif
-	return buf;
 }
 
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)

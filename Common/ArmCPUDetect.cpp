@@ -223,6 +223,12 @@ void CPUInfo::Detect()
 #elif defined(__SYMBIAN32__)
 	strcpy(brand_string, "Samsung ARMv6");
 	num_cores = 1;
+#elif defined(WIN32)
+  isVFP3 = true;
+  isVFP4 = true;
+  SYSTEM_INFO sysInfo;
+  GetSystemInfo( &sysInfo );
+  num_cores = sysInfo.dwNumberOfProcessors;
 #else
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;

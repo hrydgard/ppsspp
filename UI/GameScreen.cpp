@@ -69,7 +69,9 @@ void GameScreen::CreateViews() {
 		tvTitle_ = leftColumn->Add(new TextView(info->GetTitle(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
 		tvTitle_->SetShadow(true);
 		// This one doesn't need to be updated.
+#ifndef UWPAPP
 		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)))->SetShadow(true);
+#endif
 		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 290, NONE, NONE)));
 		tvGameSize_->SetShadow(true);
 		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 320, NONE, NONE)));
@@ -111,7 +113,7 @@ void GameScreen::CreateViews() {
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(new Choice(ga->T("Remove From Recent")))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
 }
@@ -200,8 +202,10 @@ void GameScreen::update(InputState &input) {
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
 #ifdef _WIN32
+#ifndef UWPAPP
 	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
 	_wsystem(ConvertUTF8ToWString(str).c_str());
+#endif
 #endif
 	return UI::EVENT_DONE;
 }

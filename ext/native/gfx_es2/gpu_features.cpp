@@ -5,7 +5,7 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined(USING_GLES2)
 #include "GL/wglew.h"
 #endif
 
@@ -113,7 +113,10 @@ void CheckGLExtensions() {
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
-		} else {
+    }
+    else if ( vendor == "Google Inc." ) {
+      gl_extensions.gpuVendor = GPU_VENDOR_ANGLE;
+    } else {
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 		}
 	} else {
@@ -201,6 +204,10 @@ void CheckGLExtensions() {
 		}
 #endif
 
+    // This needs to be a better way
+    if (gl_extensions.gpuVendor == GPU_VENDOR_ANGLE)
+      gl3stubInit();
+
 		if (gl_extensions.GLES3) {
 			if (gl_extensions.ver[1] >= 1) {
 				ILOG("OpenGL ES 3.1 support detected!\n");
@@ -231,7 +238,7 @@ void CheckGLExtensions() {
 		}
 	}
 
-#ifdef WIN32
+#if defined WIN32 && !defined USING_GLES2
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
 		wglString = wglGetExtensionsStringEXT();
@@ -262,7 +269,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
 	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
 	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
-	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
+	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0 || strstr( extString, "GL_OES_vertex_array_object" ) != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = strstr(extString, "OES_texture_npot") != 0;

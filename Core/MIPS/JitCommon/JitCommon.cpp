@@ -42,8 +42,8 @@ namespace MIPSComp {
 	FakeJit *jit;
 #endif
 	void JitAt() {
-		jit->Compile(currentMIPS->pc);
-	}
+    jit->Compile(currentMIPS->pc);
+  }
 }
 
 #if defined(ARM) || defined(DISASM_ALL)

@@ -20,6 +20,14 @@ class Thin3DTexture;
 #include <QtGui/QFont>
 #endif
 
+struct ID2D1Factory3;
+struct ID2D1Device2;
+struct ID2D1DeviceContext2;
+struct ID2D1RenderTarget;
+struct IDWriteFactory3;
+struct IWICImagingFactory2;
+struct IWICBitmap;
+
 struct TextStringEntry {
 	Thin3DTexture *texture;
 	int width;
@@ -66,6 +74,14 @@ private:
 	std::map<uint32_t, QFont *> fontMap_;
 #else
 	std::map<uint32_t, TextDrawerFontContext *> fontMap_;
+#endif
+
+#ifdef USING_UWP_UI
+  ID2D1Factory3*        m_d2dFactory      = nullptr;
+  ID2D1Device2*         m_d2dDevice       = nullptr;
+  ID2D1DeviceContext2*  m_d2dContext      = nullptr;
+  IDWriteFactory3*      m_dwriteFactory   = nullptr;
+  IWICImagingFactory2*  m_wicFactory      = nullptr;
 #endif
 
 	uint32_t fontHash_;

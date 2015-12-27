@@ -1048,7 +1048,8 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
       /* multiply */
       if (instr&(1<<23)) {
         /* int multiply */
-        mnemonic = "UMULL\0UMLAL\0SMULL\0SMLAL" + 6*((instr>>21)&3);
+        mnemonic  = "UMULL\0UMLAL\0SMULL\0SMLAL";
+        mnemonic += 6*((instr>>21)&3);
         format = "3,4,0,2";
       }
       else {
@@ -1140,7 +1141,8 @@ lMaybeLDRHetc:
         /* Might well be LDRH or similar. */
         if ((instr&(Wbit+Pbit))==Wbit) goto lUndefined;	/* "class E", case 1 */
         if ((instr&(Lbit+(1<<6)))==(1<<6)) goto lUndefined;	/* STRSH etc */
-        mnemonic = "STR\0LDR" + ((instr&Lbit) >> 18);
+        mnemonic  = "STR\0LDR";
+        mnemonic += ((instr&Lbit) >> 18);
         if (instr&(1<<6)) *flagp++='S';
         *flagp++ = (instr&(1<<5)) ? 'B' : 'H';
         format = "3,/";
@@ -1170,9 +1172,9 @@ lMaybeLDRHetc:
           if ((instr&(30<<7))!=0 && !(instr&3)) result.oddbits=1;
           break;
         }
-        mnemonic = "AND\0EOR\0SUB\0RSB\0ADD\0ADC\0SBC\0RSC\0"
-                   "TST\0TEQ\0CMP\0CMN\0ORR\0MOV\0BIC\0MVN" /* \0 */
-                   + (op21 >> 19);
+        mnemonic  = "AND\0EOR\0SUB\0RSB\0ADD\0ADC\0SBC\0RSC\0"
+                    "TST\0TEQ\0CMP\0CMN\0ORR\0MOV\0BIC\0MVN" /* \0 */;
+        mnemonic += (op21 >> 19);
         /* Rd needed for all but TST,TEQ,CMP,CMN (8..11) */
         /* Rn needed for all but MOV,MVN (13,15) */
              if (op21 < ( 8<<21)) format = "3,4,*";
@@ -1234,8 +1236,9 @@ lMaybeLDRHetc:
           goto lUndefined;    /* "class A" */
         }
       } else {
-        mnemonic = "STR\0LDR"  + ((instr&Lbit) >> 18);
-        format   = "3,/";
+        mnemonic  = "STR\0LDR";
+        mnemonic += ((instr&Lbit) >> 18);
+        format    = "3,/";
         if (instr&Bbit) *flagp++='B';
         if ((instr&(Wbit+Pbit))==Wbit) *flagp++='T';
         poss_tt = target_Data;
@@ -1244,12 +1247,14 @@ lMaybeLDRHetc:
     case 8:
     case 9:
       /* STM/LDM */
-      mnemonic = "STM\0LDM" + ((instr&Lbit) >> 18);
+      mnemonic  = "STM\0LDM";
+      mnemonic += ((instr&Lbit) >> 18);
       if (RN_is(13)) {
         /* r13, so treat as stack */
         word x = (instr&(3<<23)) >> 22;
         if (instr&Lbit) x^=6;
-        { const char * foo = "EDEAFDFA"+x;
+        { const char * foo = "EDEAFDFA";
+          foo += x;
           *flagp++ = *foo++;
           *flagp++ = *foo;
         }
@@ -1264,8 +1269,9 @@ lMaybeLDRHetc:
     case 10:
     case 11:
       /* B or BL */
-      mnemonic = "B\0BL"+((instr&(1<<24))>>23);
-      format   = "&";
+      mnemonic  = "B\0BL";
+      mnemonic += ((instr&(1<<24))>>23);
+      format    = "&";
       break;
     case 12:
     case 13:
@@ -1307,7 +1313,8 @@ lUndefined:
 
     { word cond = instr>>28;
       if (cond!=14) {
-        const char * ip = "EQNECSCCMIPLVSVCHILSGELTGTLEALNV"+2*cond;
+        const char * ip = "EQNECSCCMIPLVSVCHILSGELTGTLEALNV";
+        ip += 2*cond;
         *op++ = *ip++;
         *op++ = *ip;
       }
@@ -1438,7 +1445,8 @@ lPling:
             }
             else {
               /* rotated register */
-              const char * rot = "LSL\0LSR\0ASR\0ROR" + ((instr&(3<<5)) >> 3);
+              const char * rot = "LSL\0LSR\0ASR\0ROR";
+              rot += ((instr&(3<<5)) >> 3);
               op = append(op, regnames[instr&15]);
               if (instr&(1<<4)) {
                 /* register rotation */

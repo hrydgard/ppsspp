@@ -39,6 +39,7 @@ public:
 	// uninitialized, it just breaks into the debugger.
 	void ClearCodeSpace()
 	{
+    MemoryAccess macc( region, region_size );
 		PoisonMemory();
 		ResetCodePtr();
 	}

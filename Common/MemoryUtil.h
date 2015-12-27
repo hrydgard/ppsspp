@@ -39,6 +39,38 @@ void ResetExecutableMemory(void* ptr);
 
 inline int GetPageSize() { return 4096; }
 
+#ifdef UWPAPP
+void MakeExecutable(void* ptr, size_t size);
+void MakeModifiable(void* ptr, size_t size);
+
+#define EXEC_BLOCK(ptr, size) MakeExecutable( (void*)ptr, size );
+#define MODF_BLOCK(ptr, size) MakeModifiable( (void*)ptr, size );
+#else
+#define EXEC_BLOCK(ptr, size)
+#define MODF_BLOCK(ptr, size)
+#endif
+
+struct MemoryAccess
+{
+  static volatile int accc;
+
+  template< typename T >
+  MemoryAccess( T ptr, size_t size )
+    : ptr( (void*)ptr )
+    , size( size )
+  {
+    MODF_BLOCK( this->ptr, size );
+    accc++;
+  }
+  ~MemoryAccess()
+  {
+    EXEC_BLOCK( ptr, size );
+    accc--;
+  }
+  void* ptr;
+  size_t size;
+};
+
 template <typename T>
 class SimpleBuf {
 public:

@@ -14,7 +14,8 @@ enum {
 	GPU_VENDOR_POWERVR = 5,
 	GPU_VENDOR_ADRENO = 6,
 	GPU_VENDOR_BROADCOM = 7,
-	GPU_VENDOR_UNKNOWN = 0,
+  GPU_VENDOR_ANGLE = 8, // Windows 10
+  GPU_VENDOR_UNKNOWN = 0,
 };
 
 enum {
@@ -79,8 +80,8 @@ struct GLExtensions {
 	bool ARM_shader_framebuffer_fetch;
 
 	// EGL
-	bool EGL_NV_system_time;
-	bool EGL_NV_coverage_sample;
+	bool EGL_NV_system_time_;
+	bool EGL_NV_coverage_sample_;
 
 	// Bugs
 	int bugs;

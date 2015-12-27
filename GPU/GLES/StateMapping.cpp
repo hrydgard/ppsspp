@@ -197,9 +197,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (blendState.enabled) {
 		glstate.blend.enable();
 		glstate.blendEquationSeparate.set(glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
-		glstate.blendFuncSeparate.set(
-			glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
-			glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
+    glstate.blendFuncSeparate.set(
+      glBlendFactorLookup[ (size_t)blendState.srcColor ], glBlendFactorLookup[ (size_t)blendState.dstColor ],
+      glBlendFactorLookup[ (size_t)blendState.srcAlpha ], glBlendFactorLookup[ (size_t)blendState.dstAlpha ]);
 		if (blendState.dirtyShaderBlend) {
 			shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
 		}
@@ -336,7 +336,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			}
 		}
 
-		glstate.colorMask.set(rmask, gmask, bmask, amask);
+		glstate.colorMask.set(rmask, gmask, bmask, /*amask*/true);
 
 		// Stencil Test
 		if (gstate.isStencilTestEnabled() && enableStencilTest) {
@@ -372,7 +372,27 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		vpAndScissor.viewportY = PSP_CoreParameter().pixelHeight - vpAndScissor.viewportH - vpAndScissor.viewportY;
 	}
 	glstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH);
-	glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
+
+#ifdef UWPAPP
+  float depthMin = vpAndScissor.depthRangeMin;
+  float depthMax = vpAndScissor.depthRangeMax;
+
+  if ( !gstate.isModeThrough() ) {
+    // ANGLE can't handle negative depth ranges, so we fix it in the projection matrix.
+    if ( gstate_c.vpDepth != depthMax - depthMin ) {
+      gstate_c.vpDepth = depthMax - depthMin;
+      vpAndScissor.dirtyProj = true;
+    }
+    if ( depthMin > depthMax ) {
+      std::swap( depthMin, depthMax );
+    }
+    if ( depthMin < 0.0f ) depthMin = 0.0f;
+    if ( depthMax > 1.0f ) depthMax = 1.0f;
+  }
+	glstate.depthRange.set(depthMin, depthMax);
+#else
+  glstate.depthRange.set( vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax );
+#endif
 
 	if (vpAndScissor.dirtyProj) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);

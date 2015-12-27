@@ -3215,8 +3215,9 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 // uninitialized, it just breaks into the debugger.
 void ARMXCodeBlock::PoisonMemory() {
 	// TODO: this isn't right for ARM!
-	memset(region, 0xCC, region_size);
-	ResetCodePtr();
+  MemoryAccess macc( region, region_size );
+  memset( region, 0xCC, region_size );
+  ResetCodePtr();
 }
 
 }

@@ -45,7 +45,7 @@ extern "C" {
  * otherwise. */
 GLboolean gl3stubInit();
 
-#if !defined(IOS)
+#if !defined(IOS) && !defined(UWPAPP)
     
 /*-------------------------------------------------------------------------
  * Data type definitions
@@ -388,8 +388,10 @@ typedef struct __GLsync *GLsync;
  *-----------------------------------------------------------------------*/
 
 /* OpenGL ES 3.0 */
-
 extern GL_APICALL void           (* GL_APIENTRY glReadBuffer) (GLenum mode);
+extern GL_APICALL void           (* GL_APIENTRY glBlitFramebuffer) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
+extern GL_APICALL void           (* GL_APIENTRY glInvalidateFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments);
+extern GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 extern GL_APICALL void           (* GL_APIENTRY glDrawRangeElements) (GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid* indices);
 extern GL_APICALL void           (* GL_APIENTRY glTexImage3D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* pixels);
 extern GL_APICALL void           (* GL_APIENTRY glTexSubImage3D) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* pixels);
@@ -412,7 +414,6 @@ extern GL_APICALL void           (* GL_APIENTRY glUniformMatrix2x4fv) (GLint loc
 extern GL_APICALL void           (* GL_APIENTRY glUniformMatrix4x2fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 extern GL_APICALL void           (* GL_APIENTRY glUniformMatrix3x4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 extern GL_APICALL void           (* GL_APIENTRY glUniformMatrix4x3fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
-extern GL_APICALL void           (* GL_APIENTRY glBlitFramebuffer) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 extern GL_APICALL void           (* GL_APIENTRY glRenderbufferStorageMultisample) (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 extern GL_APICALL void           (* GL_APIENTRY glFramebufferTextureLayer) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
 extern GL_APICALL GLvoid*        (* GL_APIENTRY glMapBufferRange) (GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
@@ -488,9 +489,7 @@ extern GL_APICALL void           (* GL_APIENTRY glResumeTransformFeedback) (void
 extern GL_APICALL void           (* GL_APIENTRY glGetProgramBinary) (GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, GLvoid* binary);
 extern GL_APICALL void           (* GL_APIENTRY glProgramBinary) (GLuint program, GLenum binaryFormat, const GLvoid* binary, GLsizei length);
 extern GL_APICALL void           (* GL_APIENTRY glProgramParameteri) (GLuint program, GLenum pname, GLint value);
-extern GL_APICALL void           (* GL_APIENTRY glInvalidateFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments);
 extern GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height);
-extern GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 extern GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 extern GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 
@@ -502,8 +501,25 @@ extern GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint p
 
 /* OES_copy_image, etc. */
 extern GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
-    
-#endif   // IOS
+
+#endif   // IOS && UWPAPP
+
+#ifdef UWPAPP
+extern PFNGLREADBUFFERPROC            glReadBuffer;
+extern PFNGLBLITFRAMEBUFFERPROC       glBlitFramebuffer;
+extern PFNGLINVALIDATEFRAMEBUFFERPROC glInvalidateFramebuffer;
+extern PFNGLTEXSTORAGE2DPROC          glTexStorage2D;
+
+extern PFNGLMAPBUFFERRANGEPROC glMapBufferRange;
+extern PFNGLUNMAPBUFFERPROC    glUnmapBuffer;
+
+extern PFNGLGETSTRINGIPROC glGetStringi;
+
+extern PFNGLGENVERTEXARRAYSPROC    glGenVertexArrays;
+extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
+extern PFNGLBINDVERTEXARRAYPROC    glBindVertexArray;
+
+#endif // UWAPAPP
 
 #ifdef __cplusplus
 }

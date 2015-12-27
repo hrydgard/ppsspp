@@ -12,7 +12,7 @@
 #include <QtOpenGL/QGLWidget>
 #endif
 
-#if defined(_WIN32) && !defined(USING_QT_UI)
+#if defined(_WIN32) && !defined(USING_QT_UI) && !defined(USING_UWP_UI)
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -204,6 +204,225 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	target.Flush(true);
+}
+
+#elif defined USING_UWP_UI
+
+#include <d2d1_3.h>
+#include <dwrite_3.h>
+#include <wincodec.h>
+
+enum {
+	MAX_TEXT_WIDTH = 1024,
+	MAX_TEXT_HEIGHT = 512
+};
+
+struct TextDrawerFontContext
+{
+  IDWriteTextFormat* textFormat = nullptr;
+};
+
+struct TextDrawerContext
+{
+};
+
+TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
+	fontScaleX_ = 1.0f;
+	fontScaleY_ = 1.0f;
+
+  CoCreateInstance( CLSID_WICImagingFactory2, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS( &m_wicFactory ) );
+
+  D2D1CreateFactory( D2D1_FACTORY_TYPE_SINGLE_THREADED, &m_d2dFactory );
+
+  DWriteCreateFactory( DWRITE_FACTORY_TYPE_SHARED, __uuidof( IDWriteFactory3 ), (IUnknown**)&m_dwriteFactory );
+}
+
+TextDrawer::~TextDrawer() {
+  for ( auto iter = cache_.begin(); iter != cache_.end(); ++iter ) {
+    if ( iter->second->texture )
+      iter->second->texture->Release();
+    delete iter->second;
+  }
+
+  for ( auto iter = fontMap_.begin(); iter != fontMap_.end(); ++iter ) {
+    iter->second->textFormat->Release();
+    delete iter->second;
+  }
+  fontMap_.clear();
+
+  m_wicFactory->Release();
+  m_dwriteFactory->Release();
+  m_d2dFactory->Release();
+}
+
+uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
+  std::wstring fname;
+  if ( fontName )
+    fname = ConvertUTF8ToWString( fontName );
+  else
+    fname = L"Tahoma";
+
+  uint32_t fontHash = hash::Fletcher( (const uint8_t *)fontName, strlen( fontName ) );
+  fontHash ^= size;
+  fontHash ^= flags << 10;
+
+  auto iter = fontMap_.find( fontHash );
+  if ( iter != fontMap_.end() ) {
+    fontHash_ = fontHash;
+    return fontHash;
+  }
+
+  TextDrawerFontContext *font = new TextDrawerFontContext();
+
+  float textScale = 1.0f;
+
+  INT nHeight = MulDiv( size, (INT)( 72 * textScale ), 72 );
+  m_dwriteFactory->CreateTextFormat( fname.c_str()
+                                   , nullptr
+                                   , DWRITE_FONT_WEIGHT_REGULAR
+                                   , DWRITE_FONT_STYLE_NORMAL
+                                   , DWRITE_FONT_STRETCH_NORMAL
+                                   , nHeight
+                                   , L"en-US" // locale
+                                   , &font->textFormat );
+
+  fontMap_[ fontHash ] = font;
+  fontHash_ = fontHash;
+  return fontHash;
+}
+
+void TextDrawer::SetFont(uint32_t fontHandle) {
+  auto iter = fontMap_.find( fontHandle );
+  if ( iter != fontMap_.end() ) {
+    fontHash_ = fontHandle;
+  }
+}
+
+void TextDrawer::MeasureString(const char *str, float *w, float *h) {
+  auto iter = fontMap_.find( fontHash_ );
+
+  std::wstring wstr = ConvertUTF8ToWString( ReplaceAll( str, "\n", "\r\n" ) );
+
+  IDWriteTextLayout* textLayout;
+  m_dwriteFactory->CreateTextLayout( wstr.data(), wstr.size(), iter->second->textFormat, 10000, 10000, &textLayout );
+  DWRITE_TEXT_METRICS metrics;
+  textLayout->GetMetrics( &metrics );
+  *w = metrics.width * fontScaleX_;
+  *h = metrics.height * fontScaleY_;
+  textLayout->Release();
+}
+
+void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
+  if ( !strlen( str ) )
+    return;
+
+  uint32_t stringHash = hash::Fletcher( (const uint8_t *)str, strlen( str ) );
+  uint32_t entryHash = stringHash ^ fontHash_;
+
+  target.Flush( true );
+
+  TextStringEntry *entry;
+
+  auto iter = cache_.find( entryHash );
+  if ( iter != cache_.end() ) {
+    entry = iter->second;
+    entry->lastUsedFrame = frameCount_;
+  }
+  else {
+    // Render the string to our bitmap and save to a GL texture.
+    std::wstring wstr = ConvertUTF8ToWString( ReplaceAll( str, "\n", "\r\n" ) );
+    SIZE size;
+
+    auto iter = fontMap_.find( fontHash_ );
+
+    IDWriteTextLayout *layout;
+    m_dwriteFactory->CreateTextLayout( wstr.data(), wstr.size(), iter->second->textFormat, 10000, 10000, &layout );
+    DWRITE_TEXT_METRICS metrics;
+    layout->GetMetrics( &metrics );
+    size.cx = metrics.width;
+    size.cy = metrics.height;
+
+    if ( size.cx > MAX_TEXT_WIDTH )
+      size.cx = MAX_TEXT_WIDTH;
+    if ( size.cy > MAX_TEXT_HEIGHT )
+      size.cy = MAX_TEXT_HEIGHT;
+
+    entry = new TextStringEntry();
+    entry->width = size.cx;
+    entry->height = size.cy;
+    entry->bmWidth = ( size.cx + 3 ) & ~3;
+    entry->bmHeight = ( size.cy + 3 ) & ~3;
+    entry->lastUsedFrame = frameCount_;
+    entry->texture = thin3d_->CreateTexture( LINEAR2D, RGBA4444, entry->bmWidth, entry->bmHeight, 1, 1 );
+
+    IWICBitmap*          wicBitmap       = nullptr;
+    ID2D1RenderTarget*   d2dRenderTarget = nullptr;
+
+    m_wicFactory->CreateBitmap( entry->bmWidth, entry->bmHeight, GUID_WICPixelFormat32bppPBGRA, WICBitmapCacheOnDemand, &wicBitmap );
+    D2D1_RENDER_TARGET_PROPERTIES rtProps;
+    rtProps.type = D2D1_RENDER_TARGET_TYPE_SOFTWARE;
+    rtProps.pixelFormat.format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    rtProps.pixelFormat.alphaMode = D2D1_ALPHA_MODE_STRAIGHT;
+    rtProps.dpiX = 0;
+    rtProps.dpiY = 0;
+    rtProps.usage = D2D1_RENDER_TARGET_USAGE_NONE;
+    rtProps.minLevel = D2D1_FEATURE_LEVEL_DEFAULT;
+    m_d2dFactory->CreateWicBitmapRenderTarget( wicBitmap
+                                             , D2D1::RenderTargetProperties( D2D1_RENDER_TARGET_TYPE_DEFAULT
+                                                                           , D2D1::PixelFormat( DXGI_FORMAT_B8G8R8A8_UNORM
+                                                                                              , D2D1_ALPHA_MODE_PREMULTIPLIED )
+                                                                           , 0.f
+                                                                           , 0.f
+                                                                           , D2D1_RENDER_TARGET_USAGE_GDI_COMPATIBLE )
+                                             , &d2dRenderTarget );
+
+    ID2D1SolidColorBrush* brush;
+    d2dRenderTarget->CreateSolidColorBrush( D2D1::ColorF( D2D1::ColorF::White ), &brush );
+    d2dRenderTarget->BeginDraw();
+    d2dRenderTarget->Clear( D2D1::ColorF( D2D1::ColorF::Black ) );
+    d2dRenderTarget->SetTransform( D2D1::Matrix3x2F::Identity() );
+    d2dRenderTarget->DrawTextLayout( D2D1::Point2F( 0.0f, 0.0f ), layout, brush );
+    d2dRenderTarget->EndDraw();
+
+    brush->Release();
+
+    WICRect lockRect = { 0, 0, entry->bmWidth, entry->bmHeight };
+    int* pBitmapBits;
+    IWICBitmapLock* lock;
+    wicBitmap->Lock( &lockRect, WICBitmapLockRead, &lock );
+    UINT bufferSize;
+    WICInProcPointer dataPointer;
+    lock->GetDataPointer( &bufferSize, &dataPointer );
+    pBitmapBits = (int*)dataPointer;
+
+    // Convert the bitmap to a gl-compatible array of pixels.
+    uint16_t *bitmapData = new uint16_t[ entry->bmWidth * entry->bmHeight ];
+    for ( int y = 0; y < entry->bmHeight; y++ ) {
+      for ( int x = 0; x < entry->bmWidth; x++ ) {
+        BYTE bAlpha = (BYTE)( ( pBitmapBits[ entry->bmWidth * y + x ] & 0xff ) >> 4 );
+        bitmapData[ entry->bmWidth * y + x ] = ( bAlpha ) | 0xfff0; // ^ rand();
+      }
+    }
+
+    lock->Release();
+    d2dRenderTarget->Release();
+    wicBitmap->Release();
+
+    entry->texture->SetImageData( 0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData );
+    entry->texture->Finalize( 0 );
+    delete[] bitmapData;
+
+    cache_[ entryHash ] = entry;
+  }
+
+  thin3d_->SetTexture( 0, entry->texture );
+
+  // Okay, the texture is bound, let's draw.
+  float w = entry->bmWidth * fontScaleX_;
+  float h = entry->bmHeight * fontScaleY_;
+  DrawBuffer::DoAlign( align, &x, &y, &w, &h );
+  target.DrawTexRect( x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color );
+  target.Flush( true );
 }
 
 #else

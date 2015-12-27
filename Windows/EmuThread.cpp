@@ -110,7 +110,7 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
-	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
+	NativeInit(static_cast<int>(args.size()), args.empty() ? NULL : &args[0], "1234", "1234", "1234");
 
 	Host *nativeHost = host;
 	host = oldHost;
@@ -139,7 +139,11 @@ unsigned int WINAPI TheThread(void *)
 		}
 		std::string full_error = StringFromFormat("%s\n\n%s", genericError, error_string.c_str());
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+#ifdef UWPAPP
+    bool yes = false;
+#else
 		bool yes = IDYES == MessageBox(0, ConvertUTF8ToWString(full_error).c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
+#endif
 		ERROR_LOG(BOOT, full_error.c_str());
 
 		if (yes) {
@@ -151,7 +155,11 @@ unsigned int WINAPI TheThread(void *)
 		}
 
 		// No safe way out without graphics.
+#ifdef UWPAPP
+    *(int*)234 = 1;
+#else
 		ExitProcess(1);
+#endif
 	}
 
 	NativeInitGraphics();
@@ -167,8 +175,13 @@ unsigned int WINAPI TheThread(void *)
 
 	_InterlockedExchange(&emuThreadReady, THREAD_CORE_LOOP);
 
-	if (g_Config.bBrowse)
-		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
+  if ( g_Config.bBrowse )
+  {
+#ifdef UWPAPP
+#else
+    PostMessage( MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0 );
+#endif
+  }
 
 	Core_EnableStepping(FALSE);
 

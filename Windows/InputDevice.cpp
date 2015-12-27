@@ -24,10 +24,6 @@
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Windows/InputDevice.h"
-#include "Windows/XinputDevice.h"
-#include "Windows/DinputDevice.h"
-#include "Windows/KeyboardDevice.h"
-#include "Windows/WindowsHost.h"
 
 static volatile bool inputThreadStatus = false;
 static volatile bool inputThreadEnabled = false;

@@ -8,6 +8,7 @@
 #include "Common/GL/GLInterface/EGLAndroid.h"
 #elif defined(__APPLE__)
 #include "Common/GL/GLInterface/AGL.h"
+#elif defined(UWPAPP)
 #elif defined(_WIN32)
 #include "Common/GL/GLInterface/WGL.h"
 #elif HAVE_X11
@@ -25,6 +26,8 @@ cInterfaceBase* HostGL_CreateGLInterface(){
 		return new cInterfaceEGLAndroid;
 	#elif defined(__APPLE__)
 		return new cInterfaceAGL;
+  #elif defined(UWPAPP)
+		return nullptr;
 	#elif defined(_WIN32)
 		return new cInterfaceWGL;
 	#elif defined(HAVE_X11) && HAVE_X11

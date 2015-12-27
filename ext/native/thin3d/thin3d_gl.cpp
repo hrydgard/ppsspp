@@ -95,7 +95,7 @@ public:
 		if (enabled) {
 			glEnable(GL_BLEND);
 			glBlendEquationSeparate(eqCol, eqAlpha);
-			glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
+      glBlendFuncSeparate(srcCol, dstCol, srcAlpha, dstAlpha);
 		} else {
 			glDisable(GL_BLEND);
 		}
@@ -848,7 +848,13 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 	}
 
 	intptr_t b = (intptr_t)base;
-	if (b != lastBase_) {
+  // This assumption is wrong. If one applies this vertex format, then applies an other
+  // then whis again with the same base as before, the setup will be wrong
+  // The same  goes if some other mechanism changes the attrib binding, and then this
+  // vertex format gets applied with the same base again.
+  // This may cause a one frame glitch on some GLES2 drivers, but some (like ANGLE)
+  // are crashing because of it.
+	/*if (b != lastBase_)*/ {
 		for (size_t i = 0; i < components_.size(); i++) {
 			switch (components_[i].type) {
 			case FLOATx2:

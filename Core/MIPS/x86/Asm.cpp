@@ -65,6 +65,8 @@ void ImHere() {
 void Jit::GenerateFixedCode(JitOptions &jo) {
 	const u8 *start = AlignCode16();
 
+  MemoryAccess macc( start, 4096 );
+
 	restoreRoundingMode = AlignCode16(); {
 		STMXCSR(M(&mips_->temp));
 		// Clear the rounding mode and flush-to-zero bits back to 0.

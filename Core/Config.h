@@ -406,6 +406,10 @@ public:
 	// Volatile development settings
 	bool bShowFrameProfiler;
 
+#ifdef UWPAPP
+  Windows::Storage::StorageFolder^ currentFolder;
+#endif
+
 	std::string currentDirectory;
 	std::string externalDirectory; 
 	std::string memStickDirectory;

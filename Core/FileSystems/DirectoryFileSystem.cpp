@@ -216,7 +216,11 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		openmode = OPEN_EXISTING;
 	}
 	//Let's do it!
+#ifdef UWPAPP
+  hFile = CreateFile2( ConvertUTF8ToWString( fullName ).c_str(), desired, sharemode, openmode, NULL );
+#else
 	hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
+#endif
 	bool success = hFile != INVALID_HANDLE_VALUE;
 	if (!success) {
 		DWORD w32err = GetLastError();
@@ -364,8 +368,11 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	case FILEMOVE_CURRENT:  moveMethod = FILE_CURRENT;  break;
 	case FILEMOVE_END:      moveMethod = FILE_END;      break;
 	}
-	DWORD newPos = SetFilePointer(hFile, (LONG)position, 0, moveMethod);
-	return newPos;
+  LARGE_INTEGER distance;
+  distance.QuadPart = position;
+  LARGE_INTEGER cursor;
+  SetFilePointerEx(hFile, distance, &cursor, moveMethod);
+	return (size_t)cursor.QuadPart;
 #else
 	int moveMethod = 0;
 	switch (type) {
@@ -496,7 +503,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 	const char * fullToC = fullTo.c_str();
 
 #ifdef _WIN32
-	bool retValue = (MoveFile(ConvertUTF8ToWString(fullFrom).c_str(), ConvertUTF8ToWString(fullToC).c_str()) == TRUE);
+	bool retValue = (MoveFileEx(ConvertUTF8ToWString(fullFrom).c_str(), ConvertUTF8ToWString(fullToC).c_str(), 0) == TRUE);
 #else
 	bool retValue = (0 == rename(fullFrom.c_str(), fullToC));
 #endif
@@ -726,7 +733,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 
 	std::string w32path = GetLocalPath(path) + "\\*.*";
 
-	hFind = FindFirstFile(ConvertUTF8ToWString(w32path).c_str(), &findData);
+	hFind = FindFirstFileEx(ConvertUTF8ToWString(w32path).c_str(), FindExInfoStandard, &findData, FindExSearchNameMatch, NULL, 0);
 
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list

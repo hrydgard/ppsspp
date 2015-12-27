@@ -425,8 +425,10 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
+#ifdef USING_WIN_UI
 	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
+#endif
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
 #endif
@@ -816,6 +818,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	if (iMaxRecent == 0)
 		iMaxRecent = 30;
 
+#ifdef UWPAPP
+  iMaxRecent = 0;
+#endif
+
 	if (iMaxRecent > 0) {
 		recentIsos.clear();
 		for (int i = 0; i < iMaxRecent; i++) {
@@ -928,7 +934,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	CleanRecent();
 
 #ifdef _WIN32
-	iTempGPUBackend = iGPUBackend;
+#ifdef USING_WIN_UI
+  iTempGPUBackend = iGPUBackend;
+#endif
 #endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"

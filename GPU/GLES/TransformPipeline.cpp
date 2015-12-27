@@ -803,7 +803,7 @@ rotateVBO:
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
-		if (useElements) {
+    if (useElements) {
 			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
 		} else {
 			glDrawArrays(glprim[prim], 0, vertexCount);

@@ -1,0 +1,14 @@
+prefix=../../../Build/Windows10/x86
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 1.2.101
+Requires: libavutil >= 54.31.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lswresample 
+Libs.private: 
+Cflags: -I${includedir}

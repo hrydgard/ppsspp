@@ -970,6 +970,7 @@ static const DefaultSymbol defaultSymbols[]= {
 };
 
 void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) const {
+#ifndef UWPAPP
 	wchar_t temp[256];
 	lock_guard guard(lock_);
 
@@ -1023,6 +1024,7 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symType) const {
 
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+#endif
 }
 
 #endif
