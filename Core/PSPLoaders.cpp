@@ -122,7 +122,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (entry.gameID != gameID) {
 			continue;
 		}
-		if (entry.umdDataValue && umdData.find(entry.umdDataValue) != umdData.npos) {
+		if (entry.umdDataValue && umdData.find(entry.umdDataValue) == umdData.npos) {
 			continue;
 		}
 
