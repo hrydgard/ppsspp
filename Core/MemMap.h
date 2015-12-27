@@ -282,7 +282,7 @@ inline bool IsValidAddress(const u32 address) {
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		return true;
 	} else if ((address & 0xBFFF0000) == 0x00010000) {
-		return true;
+		return (address & 0x0000FFFF) < SCRATCHPAD_SIZE;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
 		return true;
 	} else {
