@@ -25,8 +25,10 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
+#include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
@@ -469,11 +471,12 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-static DirectoryFileSystem *memstickSystem = NULL;
+static DirectoryFileSystem *memstickSystem = nullptr;
+static DirectoryFileSystem *exdataSystem = nullptr;
 #if defined(USING_WIN_UI) || defined(APPLE)
-static DirectoryFileSystem *flash0System = NULL;
+static DirectoryFileSystem *flash0System = nullptr;
 #else
-static VFSFileSystem *flash0System = NULL;
+static VFSFileSystem *flash0System = nullptr;
 #endif
 
 static void __IoManagerThread() {
@@ -506,6 +509,18 @@ void __IoInit() {
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
 	pspFileSystem.Mount("flash0:", flash0System);
+
+	if (g_RemasterMode) {
+		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
+		if (File::Exists(exdataPath)) {
+			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FILESYSTEM_SIMULATE_FAT32);
+			pspFileSystem.Mount("exdata0:", exdataSystem);
+			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		} else {
+			INFO_LOG(SCEIO, "Did not find exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		}
+	}
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
@@ -558,10 +573,16 @@ void __IoShutdown() {
 	pspFileSystem.Unmount("pfat0:", memstickSystem);
 	pspFileSystem.Unmount("flash0:", flash0System);
 
+	if (g_RemasterMode && exdataSystem) {
+		pspFileSystem.Unmount("exdata0:", exdataSystem);
+		delete exdataSystem;
+		exdataSystem = nullptr;
+	}
+
 	delete memstickSystem;
-	memstickSystem = NULL;
+	memstickSystem = nullptr;
 	delete flash0System;
-	flash0System = NULL;
+	flash0System = nullptr;
 
 	memStickCallbacks.clear();
 	memStickFatCallbacks.clear();
