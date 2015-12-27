@@ -228,6 +228,12 @@ typedef enum _keycode_t {
 	NKCODE_KANA = 218,
 	NKCODE_ASSIST = 219,
 
+	// Extended keycodes on latam kayboards.
+
+	NKCODE_START_QUESTION = 220,		
+	NKCODE_LEFTBRACE = 221,
+	NKCODE_RIGHTBRACE = 222,
+
 	// Ouya buttons. Just here for reference, they map straight to regular android buttons
 	// and will be mapped the same way.
 	NKCODE_OUYA_BUTTON_A = 97,

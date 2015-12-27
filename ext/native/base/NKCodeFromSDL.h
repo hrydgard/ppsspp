@@ -5,6 +5,7 @@
 
 // TODO: Add any missing keys 
 static const std::map<int, int> KeyMapRawSDLtoNative = InitConstMap<int, int>
+	(SDLK_UNKNOWN, NKCODE_UNKNOWN)
 	(SDLK_p, NKCODE_P)
 	(SDLK_o, NKCODE_O)
 	(SDLK_i, NKCODE_I)
@@ -46,7 +47,7 @@ static const std::map<int, int> KeyMapRawSDLtoNative = InitConstMap<int, int>
 	(SDLK_RIGHTBRACKET, NKCODE_RIGHT_BRACKET)
 	(SDLK_BACKSLASH, NKCODE_BACKSLASH)
 	(SDLK_SEMICOLON, NKCODE_SEMICOLON)
-	// (SDLK_, NKCODE_APOSTROPHE) // I cannot find the SDL equiv
+	(SDLK_QUOTE, NKCODE_APOSTROPHE)
 	(SDLK_SLASH, NKCODE_SLASH)
 	(SDLK_AT, NKCODE_AT)
 	(SDLK_PLUS, NKCODE_PLUS)
@@ -107,5 +108,11 @@ static const std::map<int, int> KeyMapRawSDLtoNative = InitConstMap<int, int>
 	(SDLK_LEFT, NKCODE_DPAD_LEFT)
 	(SDLK_UP, NKCODE_DPAD_UP)
 	(SDLK_RIGHT, NKCODE_DPAD_RIGHT)
-	(SDLK_DOWN, NKCODE_DPAD_DOWN);
+	(SDLK_DOWN, NKCODE_DPAD_DOWN)
+	(SDLK_PAUSE, NKCODE_BREAK)
+	('|', NKCODE_EXT_PIPE)
+	('{', NKCODE_LEFTBRACE)
+	('}', NKCODE_RIGHTBRACE)
+	(191, NKCODE_START_QUESTION)
+	(SDLK_APPLICATION, NKCODE_MENU);
 
