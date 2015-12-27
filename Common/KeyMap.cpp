@@ -606,6 +606,10 @@ const KeyMap_IntStrPair key_names[] = {
 	{NKCODE_EXT_MOUSEBUTTON_3, "MB3"},
 	{NKCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
 	{NKCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
+
+	{NKCODE_START_QUESTION, "¿"},		
+	{NKCODE_LEFTBRACE, "{"},
+	{NKCODE_RIGHTBRACE, "}"},
 };
 
 const KeyMap_IntStrPair axis_names[] = {
