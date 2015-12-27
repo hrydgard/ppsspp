@@ -711,7 +711,11 @@ int main(int argc, char *argv[]) {
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_DOWN;
-					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					auto mapped = KeyMapRawSDLtoNative.find(k);
+					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+						break;
+					}
+					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 
@@ -726,7 +730,11 @@ int main(int argc, char *argv[]) {
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_UP;
-					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					auto mapped = KeyMapRawSDLtoNative.find(k);
+					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+						break;
+					}
+					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 					for (int i = 0; i < ARRAY_SIZE(legacyKeyMap); i++) {
