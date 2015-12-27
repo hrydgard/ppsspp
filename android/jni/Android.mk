@@ -444,8 +444,18 @@ ifeq ($(UNITTEST),1)
 
   ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
     TESTARMEMITTER_FILE = $(SRC)/unittest/TestArm64Emitter.cpp
-  else
+  else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
     TESTARMEMITTER_FILE = $(SRC)/unittest/TestArmEmitter.cpp
+  else
+    TESTARMEMITTER_FILE = \
+      $(SRC)/Common/ArmEmitter.cpp \
+      $(SRC)/Common/Arm64Emitter.cpp \
+      $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+      $(SRC)/Core/Util/DisArm64.cpp \
+      $(SRC)/ext/disarm.cpp \
+      $(SRC)/unittest/TestArmEmitter.cpp \
+      $(SRC)/unittest/TestArm64Emitter.cpp \
+      $(SRC)/unittest/TestX64Emitter.cpp
   endif
 
   LOCAL_MODULE := ppsspp_unittest
