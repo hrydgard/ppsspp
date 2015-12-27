@@ -113,14 +113,17 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	displayFramebufPtr_(0),
 	displayStride_(0),
 	displayFormat_(GE_FORMAT_565),
-	displayFramebuf_(0),
-	prevDisplayFramebuf_(0),
-	prevPrevDisplayFramebuf_(0),
+	displayFramebuf_(nullptr),
+	prevDisplayFramebuf_(nullptr),
+	prevPrevDisplayFramebuf_(nullptr),
 	frameLastFramebufUsed_(0),
-	currentRenderVfb_(0),
+	currentRenderVfb_(nullptr),
 	framebufRangeEnd_(0),
-	hackForce04154000Download_(false),
-	updateVRAM_(false) {
+	updateVRAM_(false),
+	usePostShader_(false),
+	postShaderAtOutputResolution_(false),
+	postShaderIsUpscalingFilter_(false),
+	hackForce04154000Download_(false) {
 	UpdateSize();
 }
 
@@ -889,6 +892,9 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	std::ostringstream messageStream;
 	messageStream << gr->T("Internal Resolution") << ": ";
 	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
+	if (postShaderIsUpscalingFilter_) {
+		messageStream << gr->T("(upscaling)") << " ";
+	}
 	messageStream << gr->T("Window Size") << ": ";
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
