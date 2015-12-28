@@ -757,6 +757,9 @@ void Module::Cleanup() {
 			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
 		}
 		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size);
+
+		// Let's also invalidate, just to make sure it's cleared out for any future data.
+		currentMIPS->InvalidateICache(memoryBlockAddr, memoryBlockSize);
 	}
 }
 
@@ -958,6 +961,8 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
+
+	currentMIPS->InvalidateICache(module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	PspModuleInfo *modinfo;

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HW/AsyncIOManager.h"
@@ -58,6 +59,10 @@ bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 		result = results_[handle];
 		results_.erase(handle);
 		resultsPending_.erase(handle);
+
+		if (result.invalidateAddr && result.result > 0) {
+			currentMIPS->InvalidateICache(result.invalidateAddr, (int)result.result);
+		}
 		return true;
 	} else {
 		return false;
@@ -111,7 +116,7 @@ u64 AsyncIOManager::ResultFinishTicks(u32 handle) {
 void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 	switch (ev.type) {
 	case IO_EVENT_READ:
-		Read(ev.handle, ev.buf, ev.bytes);
+		Read(ev.handle, ev.buf, ev.bytes, ev.invalidateAddr);
 		break;
 
 	case IO_EVENT_WRITE:
@@ -123,10 +128,10 @@ void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 	}
 }
 
-void AsyncIOManager::Read(u32 handle, u8 *buf, size_t bytes) {
+void AsyncIOManager::Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr) {
 	int usec = 0;
 	s64 result = pspFileSystem.ReadFile(handle, buf, bytes, usec);
-	EventResult(handle, AsyncIOResult(result, usec));
+	EventResult(handle, AsyncIOResult(result, usec, invalidateAddr));
 }
 
 void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
