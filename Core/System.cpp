@@ -184,7 +184,7 @@ void CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
-	loadedFile = ConstructFileLoader(filename);
+	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #ifdef _M_X64
 	if (g_Config.bCacheFullIsoInRam) {
 		loadedFile = new RamCachingFileLoader(loadedFile);
@@ -206,17 +206,11 @@ void CPU_Init() {
 	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
 		break;
-	case FILETYPE_PSP_PBP_DIRECTORY: {
-		// TODO: Can we get this lower into LoadFile?
-		std::string ebootFilename = loadedFile->Path() + "/EBOOT.PBP";
-		FileLoader *tempLoader = ConstructFileLoader(ebootFilename);
-		InitMemoryForGamePBP(tempLoader);
-		delete tempLoader;
-		break;
-	}
 	case FILETYPE_PSP_PBP:
 		InitMemoryForGamePBP(loadedFile);
 		break;
+	case FILETYPE_PSP_PBP_DIRECTORY:
+		ERROR_LOG(LOADER, "PBP directory resolution failed.");
 	default:
 		break;
 	}
