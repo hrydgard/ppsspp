@@ -45,34 +45,6 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 		return new FileBlockDevice(fileLoader);
 }
 
-RAMBlockDevice::RAMBlockDevice(BlockDevice *device) {
-	totalBlocks_ = device->GetNumBlocks();
-	u32 blockSize = GetBlockSize();
-	image_ = new u8[totalBlocks_ * blockSize];
-	for (int i = 0; i < totalBlocks_; i++) {
-		device->ReadBlock(i, image_ + i * blockSize);
-	}
-	delete device;
-}
-
-RAMBlockDevice::~RAMBlockDevice() {
-	delete[] image_;
-}
-
-bool RAMBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) {
-	if (blockNumber >= 0 && blockNumber < totalBlocks_) {
-		u32 blockSize = GetBlockSize();
-		memcpy(outPtr, image_ + blockSize * blockNumber, blockSize);
-		return true;
-	}
-	return false;
-}
-
-u32 RAMBlockDevice::GetNumBlocks() {
-	return totalBlocks_;
-}
-
-
 
 FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader) {
@@ -372,9 +344,12 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 }
 
 
+recursive_mutex NPDRMDemoBlockDevice::mutex_;
+
 NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader)
 {
+	lock_guard guard(mutex_);
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
@@ -440,6 +415,7 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice()
 {
+	lock_guard guard(mutex_);
 	delete [] table;
 	delete [] tempBuf;
 	delete [] blockBuf;
@@ -449,6 +425,7 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len);
 
 bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 {
+	lock_guard guard(mutex_);
 	CIPHER_KEY ckey;
 	int block, lba, lzsize;
 	size_t readSize;

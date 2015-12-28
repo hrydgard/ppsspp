@@ -160,10 +160,11 @@ ViewController* sharedViewController;
 	g_dpi_scale = 240.0f / (float)g_dpi;
 	pixel_xres = size.width * scale;
 	pixel_yres = size.height * scale;
-	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
 	dp_xres = pixel_xres * g_dpi_scale;
 	dp_yres = pixel_yres * g_dpi_scale;
+
+	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
 	NativeInitGraphics();
 

@@ -21,64 +21,51 @@
 
 #include "Common/Log.h"
 #include "Common/FileUtil.h"
+#include "Core/Loaders.h"
 #include "Core/ELF/PBPReader.h"
 
-PBPReader::PBPReader(const char *filename) : header_(), isELF_(false) {
-	file_ = File::OpenCFile(filename, "rb");
-	if (!file_) {
-		ERROR_LOG(LOADER, "Failed to open PBP file %s", filename);
+PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_(false) {
+	if (!fileLoader->Exists()) {
+		ERROR_LOG(LOADER, "Failed to open PBP file %s", fileLoader->Path().c_str());
 		return;
 	}
 
-	fseek(file_, 0, SEEK_END);
-	fileSize_ = ftell(file_);
-	fseek(file_, 0, SEEK_SET);
-	if (fread((char *)&header_, 1, sizeof(header_), file_) != sizeof(header_)) {
-		ERROR_LOG(LOADER, "PBP is too small to be valid: %s", filename);
-		fclose(file_);
-		file_ = nullptr;
+	fileSize_ = (size_t)fileLoader->FileSize();
+	if (fileLoader->ReadAt(0, sizeof(header_), (u8 *)&header_) != sizeof(header_)) {
+		ERROR_LOG(LOADER, "PBP is too small to be valid: %s", fileLoader->Path().c_str());
 		return;
 	}
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
 		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
-			DEBUG_LOG(LOADER, "%s: File actually an ELF, not a PBP", filename);
+			DEBUG_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->Path().c_str());
 			isELF_ = true;
 		} else {
-			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", filename, header_.magic);
+			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", fileLoader->Path().c_str(), header_.magic);
 		}
-		fclose(file_);
-		file_ = nullptr;
 		return;
 	}
 
 	DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
+	file_ = fileLoader;
 }
 
-u8 *PBPReader::GetSubFile(PBPSubFile file, size_t *outSize) {
+bool PBPReader::GetSubFile(PBPSubFile file, std::vector<u8> *out) {
 	if (!file_) {
-		*outSize = 0;
-		return new u8[0];
+		return false;
 	}
 
 	const size_t expected = GetSubFileSize(file);
 	const u32 off = header_.offsets[(int)file];
 
-	*outSize = expected;
-	if (fseek(file_, off, SEEK_SET) != 0) {
-		ERROR_LOG(LOADER, "PBP file offset invalid: %d", off);
-		*outSize = 0;
-		return new u8[0];
-	} else {
-		u8 *buffer = new u8[expected];
-		size_t bytes = fread(buffer, 1, expected, file_);
-		if (bytes != expected) {
-			ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
-			if (bytes < expected) {
-				*outSize = bytes;
-			}
+	out->resize(expected);
+	size_t bytes = file_->ReadAt(off, expected, &(*out)[0]);
+	if (bytes != expected) {
+		ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
+		if (bytes < expected) {
+			out->resize(bytes);
 		}
-		return buffer;
 	}
+	return true;
 }
 
 void PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) {
@@ -91,21 +78,16 @@ void PBPReader::GetSubFileAsString(PBPSubFile file, std::string *out) {
 	const u32 off = header_.offsets[(int)file];
 
 	out->resize(expected);
-	if (fseek(file_, off, SEEK_SET) != 0) {
-		ERROR_LOG(LOADER, "PBP file offset invalid: %d", off);
-		out->clear();
-	} else {
-		size_t bytes = fread((void *)out->data(), 1, expected, file_);
-		if (bytes != expected) {
-			ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
-			if (bytes < expected) {
-				out->resize(bytes);
-			}
+	size_t bytes = file_->ReadAt(off, expected, (void *)out->data());
+	if (bytes != expected) {
+		ERROR_LOG(LOADER, "PBP file read truncated: %d -> %d", (int)expected, (int)bytes);
+		if (bytes < expected) {
+			out->resize(bytes);
 		}
 	}
 }
 
 PBPReader::~PBPReader() {
-	if (file_)
-		fclose(file_);
+	// Does not take ownership.
+	file_ = nullptr;
 }

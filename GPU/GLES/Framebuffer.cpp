@@ -506,11 +506,18 @@ void FramebufferManager::DrawPlainColor(u32 color) {
 
 	glsl_bind(program);
 	glUniform4fv(plainColorLoc_, 1, col);
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+		transformDraw_->BindBuffer(pos, sizeof(pos));
+		transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+	} else {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	}
 	glDisableVertexAttribArray(program->a_position);
 
 	glsl_unbind();
@@ -525,7 +532,7 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		u0,v1,
 	};
 
-	static const GLushort indices[4] = {0,1,3,2};
+	static const GLubyte indices[4] = {0,1,3,2};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
@@ -582,13 +589,21 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 		glsl_bind(program);
 	}
 
-	glstate.arrayBuffer.unbind();
-	glstate.elementArrayBuffer.unbind();
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
-	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_SHORT, indices);
+	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+		transformDraw_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
+		transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+	} else {
+		glstate.arrayBuffer.unbind();
+		glstate.elementArrayBuffer.unbind();
+		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	}
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 
@@ -1568,7 +1583,7 @@ static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt,
 		glPixelStorei(GL_PACK_ROW_LENGTH, w);
 	}
 
-	glReadPixels(0, 0, w, h, fmt, type, pixels);
+	glReadPixels(x, y, w, h, fmt, type, pixels);
 #ifdef DEBUG_READ_PIXELS
 	LogReadPixelsError(glGetError());
 #endif

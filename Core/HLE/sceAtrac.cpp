@@ -193,7 +193,7 @@ struct Atrac {
 			if (loopEndSample <= 0) {
 				// There's no looping, but we need to stream the data in our buffer.
 				bufferState = ATRAC_STATUS_STREAMED_WITHOUT_LOOP;
-			} else if (loopEndSample == endSample + firstSampleoffset + firstOffsetExtra()) {
+			} else if (loopEndSample == endSample + firstSampleoffset + (int)firstOffsetExtra()) {
 				bufferState = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 			} else {
 				bufferState = ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER;

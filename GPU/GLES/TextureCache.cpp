@@ -34,6 +34,7 @@
 #include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/DepalettizeShader.h"
 #include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TransformPipeline.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -1112,8 +1113,13 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		glUseProgram(depal->program);
 
 		// Restore will rebind all of the state below.
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+			transformDraw_->BindBuffer(pos, sizeof(pos), uv, sizeof(uv));
+			transformDraw_->BindElementBuffer(indices, sizeof(indices));
+		} else {
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+		}
 		glEnableVertexAttribArray(depal->a_position);
 		glEnableVertexAttribArray(depal->a_texcoord0);
 
@@ -1136,9 +1142,15 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 #endif
 		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
 
-		glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-		glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
+			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
+			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+		} else {
+			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+		}
 		glDisableVertexAttribArray(depal->a_position);
 		glDisableVertexAttribArray(depal->a_texcoord0);
 

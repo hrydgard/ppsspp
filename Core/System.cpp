@@ -47,6 +47,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
+#include "Core/FileLoaders/RamCachingFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -176,10 +177,7 @@ void CPU_Init() {
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	if (g_Config.iPSPModel == PSP_MODEL_FAT)
-		Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
-	else
-		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
@@ -187,6 +185,11 @@ void CPU_Init() {
 
 	std::string filename = coreParameter.fileToStart;
 	loadedFile = ConstructFileLoader(filename);
+#ifdef _M_X64
+	if (g_Config.bCacheFullIsoInRam) {
+		loadedFile = new RamCachingFileLoader(loadedFile);
+	}
+#endif
 	IdentifiedFileType type = Identify_File(loadedFile);
 
 	// TODO: Put this somewhere better?
@@ -202,6 +205,17 @@ void CPU_Init() {
 	case FILETYPE_PSP_ISO_NP:
 	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
+		break;
+	case FILETYPE_PSP_PBP_DIRECTORY: {
+		// TODO: Can we get this lower into LoadFile?
+		std::string ebootFilename = loadedFile->Path() + "/EBOOT.PBP";
+		FileLoader *tempLoader = ConstructFileLoader(ebootFilename);
+		InitMemoryForGamePBP(tempLoader);
+		delete tempLoader;
+		break;
+	}
+	case FILETYPE_PSP_PBP:
+		InitMemoryForGamePBP(loadedFile);
 		break;
 	default:
 		break;

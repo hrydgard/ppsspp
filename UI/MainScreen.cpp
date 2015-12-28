@@ -277,8 +277,9 @@ void GameButton::Draw(UIContext &dc) {
 		float tw, th;
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		if (title_.empty() && !ginfo->title.empty()) {
-			title_ = ReplaceAll(ginfo->title + discNumInfo, "&", "&&");
+		const std::string currentTitle = ginfo->GetTitle();
+		if (!currentTitle.empty()) {
+			title_ = ReplaceAll(currentTitle + discNumInfo, "&", "&&");
 			title_ = ReplaceAll(title_, "\n", " ");
 		}
 
@@ -310,8 +311,7 @@ void GameButton::Draw(UIContext &dc) {
 	} else {
 		dc.Draw()->Flush();
 	}
-	if (!ginfo->id.empty() && ginfo->hasConfig)
-	{
+	if (ginfo->hasConfig && !ginfo->id.empty()) {
 		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}
 	if (overlayColor) {
@@ -706,7 +706,7 @@ void MainScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64);
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 
 	leftColumn->SetClip(true);
@@ -722,48 +722,52 @@ void MainScreen::CreateViews() {
 		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	}
-	
-	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
-		mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
-		FLAG_HOMEBREWSTOREBUTTON,
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED) {
+		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	Choice *hbStore = tabHomebrew->HomebrewStoreButton();
-	if (hbStore) {
-		hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
-	}
+		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
+			mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
+			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "http://www.ppsspp.org/gethomebrew.html",
+			FLAG_HOMEBREWSTOREBUTTON,
+			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	scrollAllGames->Add(tabAllGames);
-	scrollHomebrew->Add(tabHomebrew);
+		Choice *hbStore = tabHomebrew->HomebrewStoreButton();
+		if (hbStore) {
+			hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
+		}
 
-	leftColumn->AddTab(mm->T("Games"), scrollAllGames);
-	leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
+		scrollAllGames->Add(tabAllGames);
+		scrollHomebrew->Add(tabHomebrew);
 
-	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
-	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		leftColumn->AddTab(mm->T("Games"), scrollAllGames);
+		leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+		tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 
-	tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
-	tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+		tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
-	if (g_Config.recentIsos.size() > 0) {
-		leftColumn->SetCurrentTab(0);
-	} else if (g_Config.iMaxRecent > 0) {
-		leftColumn->SetCurrentTab(1);
-	}
+		tabAllGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+		tabHomebrew->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 
-	if (backFromStore_ || showHomebrewTab) {
-		leftColumn->SetCurrentTab(2);
-		backFromStore_ = false;
-		showHomebrewTab = false;
+		if (g_Config.recentIsos.size() > 0) {
+			leftColumn->SetCurrentTab(0);
+		} else if (g_Config.iMaxRecent > 0) {
+			leftColumn->SetCurrentTab(1);
+		}
+
+		if (backFromStore_ || showHomebrewTab) {
+			leftColumn->SetCurrentTab(2);
+			backFromStore_ = false;
+			showHomebrewTab = false;
+		}
+	} else {
+		leftColumn->Add(new Button(mm->T("Give PPSSPP permission to access storage")))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
 	}
 
 /* if (info) {
@@ -809,12 +813,12 @@ void MainScreen::CreateViews() {
 	if (vertical) {
 		root_ = new LinearLayout(ORIENT_VERTICAL);
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		root_->Add(rightColumn);
 		root_->Add(leftColumn);
 	} else {
 		root_ = new LinearLayout(ORIENT_HORIZONTAL);
-		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 		root_->Add(leftColumn);
 		root_->Add(rightColumn);
@@ -843,6 +847,11 @@ void MainScreen::CreateViews() {
 		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
 		root_ = newRoot;
 	}
+}
+
+UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
+	System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
@@ -881,6 +890,9 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		screenManager()->push(new GameSettingsScreen(""));
+	}
+	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
+		RecreateViews();
 	}
 }
 
@@ -1073,6 +1085,9 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// Request the framework to exit cleanly.
 	System_SendMessage("finish", "");
 
+	// However, let's make sure the config was saved, since it may not have been.
+	g_Config.Save();
+
 	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
 #ifdef ANDROID
 #ifdef ANDROID_NDK_PROFILER
@@ -1098,7 +1113,7 @@ void UmdReplaceScreen::CreateViews() {
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *di = GetI18NCategory("Dialog");
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 	leftColumn->SetClip(true);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));

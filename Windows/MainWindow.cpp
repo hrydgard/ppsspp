@@ -360,6 +360,10 @@ namespace MainWindow
 		}
 	}
 
+	void Minimize() {
+		ShowWindow(hwndMain, SW_MINIMIZE);
+	}
+
 	RECT DetermineWindowRectangle() {
 		RECT rc;
 

@@ -159,7 +159,7 @@ public:
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
 		Bind();
-		if (size > knownSize_) {
+		if (size + offset > knownSize_) {
 			// Allocate the buffer.
 			glBufferData(target_, size + offset, NULL, usage_);
 			knownSize_ = size + offset;
@@ -238,15 +238,24 @@ bool Thin3DGLShader::Compile(const char *source) {
 	return ok_;
 }
 
-class Thin3DGLVertexFormat : public Thin3DVertexFormat {
+class Thin3DGLVertexFormat : public Thin3DVertexFormat, GfxResourceHolder {
 public:
+	~Thin3DGLVertexFormat();
+
 	void Apply(const void *base = nullptr);
 	void Unapply();
 	void Compile();
+	void GLLost() override;
+	bool RequiresBuffer() override {
+		return id_ != 0;
+	}
 
 	std::vector<Thin3DVertexComponent> components_;
 	int semanticsMask_;  // Fast way to check what semantics to enable/disable.
 	int stride_;
+	GLuint id_;
+	bool needsEnable_;
+	intptr_t lastBase_;
 };
 
 struct UniformInfo {
@@ -543,6 +552,12 @@ void Thin3DGLTexture::Finalize(int zim_flags) {
 }
 
 
+Thin3DGLVertexFormat::~Thin3DGLVertexFormat() {
+	if (id_) {
+		glDeleteVertexArrays(1, &id_);
+	}
+}
+
 void Thin3DGLVertexFormat::Compile() {
 	int sem = 0;
 	for (int i = 0; i < (int)components_.size(); i++) {
@@ -550,6 +565,18 @@ void Thin3DGLVertexFormat::Compile() {
 	}
 	semanticsMask_ = sem;
 	// TODO : Compute stride as well?
+
+	if (gl_extensions.ARB_vertex_array_object && gl_extensions.IsCoreContext) {
+		glGenVertexArrays(1, &id_);
+	} else {
+		id_ = 0;
+	}
+	needsEnable_ = true;
+	lastBase_ = -1;
+}
+
+void Thin3DGLVertexFormat::GLLost() {
+	Compile();
 }
 
 Thin3DDepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
@@ -753,9 +780,10 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
 
 	vbuf->Bind();
-	ibuf->Bind();
 	fmt->Apply();
 	ss->Apply();
+	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
+	ibuf->Bind();
 	
 	glDrawElements(primToGL[prim], offset, GL_INT, 0);
 	
@@ -804,36 +832,55 @@ Thin3DContext *T3DCreateGLContext() {
 }
 
 void Thin3DGLVertexFormat::Apply(const void *base) {
-	for (int i = 0; i < SEM_MAX; i++) {
-		if (semanticsMask_ & (1 << i)) {
-			glEnableVertexAttribArray(i);
+	if (id_ != 0) {
+		glBindVertexArray(id_);
+	}
+
+	if (needsEnable_ || id_ == 0) {
+		for (int i = 0; i < SEM_MAX; i++) {
+			if (semanticsMask_ & (1 << i)) {
+				glEnableVertexAttribArray(i);
+			}
+		}
+		if (id_ != 0) {
+			needsEnable_ = false;
 		}
 	}
+
 	intptr_t b = (intptr_t)base;
-	for (size_t i = 0; i < components_.size(); i++) {
-		switch (components_[i].type) {
-		case FLOATx2:
-			glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
-			break;
-		case FLOATx3:
-			glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
-			break;
-		case FLOATx4:
-			glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
-			break;
-		case UNORM8x4:
-			glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
-			break;
-		case INVALID:
-			ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
+	if (b != lastBase_) {
+		for (size_t i = 0; i < components_.size(); i++) {
+			switch (components_[i].type) {
+			case FLOATx2:
+				glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				break;
+			case FLOATx3:
+				glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				break;
+			case FLOATx4:
+				glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				break;
+			case UNORM8x4:
+				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
+				break;
+			case INVALID:
+				ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
+			}
+		}
+		if (id_ != 0) {
+			lastBase_ = b;
 		}
 	}
 }
 
 void Thin3DGLVertexFormat::Unapply() {
-	for (int i = 0; i < SEM_MAX; i++) {
-		if (semanticsMask_ & (1 << i)) {
-			glDisableVertexAttribArray(i);
+	if (id_ == 0) {
+		for (int i = 0; i < SEM_MAX; i++) {
+			if (semanticsMask_ & (1 << i)) {
+				glDisableVertexAttribArray(i);
+			}
 		}
+	} else {
+		glBindVertexArray(0);
 	}
 }

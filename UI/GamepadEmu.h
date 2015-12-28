@@ -23,17 +23,33 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
-class MultiTouchButton : public UI::View {
+class GamepadView : public UI::View {
 public:
-	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: UI::View(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
+	GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), lastFrameTime_(0.0f), secondsWithoutTouch_(0) {
 	}
 
-	virtual bool Key(const KeyInput &input) override { return false; }
-	virtual void Update(const InputState &input) override {}
-	virtual void Touch(const TouchInput &input) override;
-	virtual void Draw(UIContext &dc) override;
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Touch(const TouchInput &input) override;
+	bool Key(const KeyInput &input) override {
+		return false;
+	}
+	void Update(const InputState &input) override;
+
+protected:
+	float GetButtonOpacity();
+
+	float lastFrameTime_;
+	float secondsWithoutTouch_;
+};
+
+class MultiTouchButton : public GamepadView {
+public:
+	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: GamepadView(layoutParams), pointerDownMask_(0), scale_(scale), bgImg_(bgImg), img_(img), angle_(0.0f), flipImageH_(false) {
+	}
+
+	void Touch(const TouchInput &input) override;
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	virtual bool IsDown() { return pointerDownMask_ != 0; }
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
@@ -56,8 +72,8 @@ public:
 		: MultiTouchButton(bgImg, img, scale, layoutParams), value_(value) {
 
 	}
-	virtual void Touch(const TouchInput &input) override;
-	virtual bool IsDown() override { return *value_; }
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override { return *value_; }
 
 private:
 	bool *value_;
@@ -69,18 +85,16 @@ public:
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit) {
 	}
 	void Touch(const TouchInput &input) override;
-	virtual bool IsDown() override;
+	bool IsDown() override;
 
 private:
 	int pspButtonBit_;
 };
 
-class PSPDpad : public UI::View {
+class PSPDpad : public GamepadView {
 public:
 	PSPDpad(int arrowIndex, int overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams);
 
-	bool Key(const KeyInput &input) override { return false; }
-	void Update(const InputState &input) override {}
 	void Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -97,12 +111,10 @@ private:
 	int down_;
 };
 
-class PSPStick : public UI::View {
+class PSPStick : public GamepadView {
 public:
 	PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams);
 
-	bool Key(const KeyInput &input) override { return false; }
-	void Update(const InputState &input) override {}
 	void Touch(const TouchInput &input) override;
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
@@ -136,7 +148,7 @@ public:
 	ComboKey(int pspButtonBit, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
 		: MultiTouchButton(bgImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit)  {
 	}
-	virtual void Touch(const TouchInput &input);
+	void Touch(const TouchInput &input) override;
 private:
 	int pspButtonBit_;
 };

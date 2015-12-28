@@ -129,6 +129,9 @@ protected:
 	bool tflipped_;
 
 	GLSLProgram *drawProgram_;
+	GLuint vao_;
+	GLuint ibuf_;
+	GLuint vbuf_;
 	GLuint checker_;
 	GLuint tex_;
 	u32 flags_;

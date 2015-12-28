@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/Dialog/SavedataParam.h"
 
 struct SceUtilityGamedataInstallParam {
 	pspUtilityDialogCommon common;
@@ -25,12 +26,8 @@ struct SceUtilityGamedataInstallParam {
 	char gameName[13];
 	char ignore1[3];
 	char dataName[20];
-	char gamedataParamsGameTitle[128];
-	char gamedataParamsDataTitle[128];
-	char gamedataParamsData[1024];
-	u8 unknown2;
-	char ignore2[3];
-	char progress[4]; // This is progress value,should be updated.
+	PspUtilitySavedataSFOParam sfoParam;
+	int progress;
 	u32_le unknownResult1;
 	u32_le unknownResult2;
 	char ignore3[48];
@@ -50,8 +47,14 @@ public:
 	std::string GetGameDataInstallFileName(SceUtilityGamedataInstallParam *param, std::string filename);
 
 private:
+	void UpdateProgress();
+	void OpenNextFile();
+	void CopyCurrentFileData();
+	void CloseCurrentFile();
+	void WriteSfoFile();
+
 	SceUtilityGamedataInstallParam request;
-	u32 paramAddr;
+	PSPPointer<SceUtilityGamedataInstallParam> param;
 	std::vector<std::string> inFileNames;
 	int numFiles;
 	int readFiles;
@@ -59,5 +62,7 @@ private:
 	u64 allReadSize;   // use this to calculate progress value.
 	int progressValue;
 
-	void updateProgress();
+	u32 currentInputFile;
+	u32 currentInputBytesLeft;
+	u32 currentOutputFile;
 };

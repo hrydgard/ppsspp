@@ -241,6 +241,13 @@ public:
 
 	virtual void Draw(UIContext &dc) override;
 
+	void SetFormat(const char *fmt) {
+		fmt_ = fmt;
+	}
+	void SetZeroLabel(const std::string &str) {
+		zeroLabel_ = str;
+	}
+
 	Event OnChange;
 
 private:
@@ -251,6 +258,8 @@ private:
 	int minValue_;
 	int maxValue_;
 	int step_;
+	const char *fmt_;
+	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
@@ -263,6 +272,13 @@ public:
 
 	virtual void Draw(UIContext &dc) override;
 
+	void SetFormat(const char *fmt) {
+		fmt_ = fmt;
+	}
+	void SetZeroLabel(const std::string &str) {
+		zeroLabel_ = str;
+	}
+
 	Event OnChange;
 
 private:
@@ -272,6 +288,8 @@ private:
 	float minValue_;
 	float maxValue_;
 	float step_;
+	const char *fmt_;
+	std::string zeroLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;

@@ -62,6 +62,7 @@ namespace MainWindow
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen);
+	void Minimize();
 	void SendToggleFullscreen(bool fullscreen);  // To be used off-thread
 	void ToggleDebugConsoleVisibility();
 	void SetInternalResolution(int res = -1);

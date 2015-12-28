@@ -63,6 +63,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
 void SystemToast(const char *text) {
 	dialog_instance_t dialog = 0;
 	dialog_create_toast(&dialog);

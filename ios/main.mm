@@ -63,6 +63,8 @@ int System_GetPropertyInt(SystemProperty prop) {
     return 44100;
   case SYSPROP_DISPLAY_REFRESH_RATE:
     return 60000;
+  case SYSPROP_DEVICE_TYPE:
+    return DEVICE_TYPE_MOBILE;
   default:
     return -1;
   }
@@ -73,6 +75,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		[[UIApplication sharedApplication] animatedExit];
 	}
 }
+
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 

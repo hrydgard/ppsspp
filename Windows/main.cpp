@@ -289,6 +289,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
 void EnableCrashingOnCrashes() {
 	typedef BOOL (WINAPI *tGetPolicy)(LPDWORD lpFlags);
 	typedef BOOL (WINAPI *tSetPolicy)(DWORD dwFlags);
@@ -352,8 +355,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	PROFILE_INIT();
 
+#if defined(_M_X64) && defined(_MSC_VER) && _MSC_VER < 1900
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
-#ifdef _M_X64
 	_set_FMA3_enable(0);
 #endif
 
@@ -479,6 +482,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	g_Config.bEnableLogging = true;
 #endif
 
+	if (iCmdShow == SW_MAXIMIZE) {
+		// Consider this to mean --fullscreen.
+		g_Config.bFullScreen = true;
+	}
+
 	LogManager::Init();
 	// Consider at least the following cases before changing this code:
 	//   - By default in Release, the console should be hidden by default even if logging is enabled.
@@ -517,6 +525,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();
+
+	const bool minimized = iCmdShow == SW_MINIMIZE || iCmdShow == SW_SHOWMINIMIZED || iCmdShow == SW_SHOWMINNOACTIVE;
+	if (minimized) {
+		MainWindow::Minimize();
+	}
 
 	// Emu thread is always running!
 	EmuThread_Start();

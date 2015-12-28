@@ -33,11 +33,10 @@ private:
 	void runLoop();
 	void fillMapping()
 	{
-		// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
-		// on other controllers.
-
 		//TODO: C++11 aggregate initialization
 		//would remove runtime overhead completely
+		
+		// Mapping on Windows
 #ifdef _WIN32
 		SDLJoyButtonMap[0] = NKCODE_BUTTON_2;
 		SDLJoyButtonMap[1] = NKCODE_BUTTON_3;
@@ -61,7 +60,8 @@ private:
 		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
 		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
 		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
-#else
+		// Mapping on MacOSX to match X360 controller
+#elif __APPLE__
 		SDLJoyButtonMap[0] = NKCODE_DPAD_UP;
 		SDLJoyButtonMap[1] = NKCODE_DPAD_DOWN;
 		SDLJoyButtonMap[2] = NKCODE_DPAD_LEFT;
@@ -78,6 +78,7 @@ private:
 		SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
 		SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
 		SDLJoyButtonMap[15] = NKCODE_BUTTON_11;
+		SDLJoyButtonMap[16] = NKCODE_BUTTON_12;
 
 		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
 		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
@@ -85,6 +86,33 @@ private:
 		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
 		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
 		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
+		// Mapping on Linux/Android/Other to match X360 and wii-u pro controller
+#else
+		SDLJoyButtonMap[0] = NKCODE_BUTTON_1;
+		SDLJoyButtonMap[1] = NKCODE_BUTTON_2;
+		SDLJoyButtonMap[2] = NKCODE_BUTTON_3;
+		SDLJoyButtonMap[3] = NKCODE_BUTTON_4;
+		SDLJoyButtonMap[4] = NKCODE_BUTTON_5;
+		SDLJoyButtonMap[5] = NKCODE_BUTTON_6;
+		SDLJoyButtonMap[6] = NKCODE_BUTTON_7;
+		SDLJoyButtonMap[7] = NKCODE_BUTTON_8;
+		SDLJoyButtonMap[8] = NKCODE_BUTTON_9;
+		SDLJoyButtonMap[9] = NKCODE_BUTTON_10;
+		SDLJoyButtonMap[10] = NKCODE_BUTTON_11;
+		SDLJoyButtonMap[11] = NKCODE_BUTTON_12;
+		SDLJoyButtonMap[12] = NKCODE_BUTTON_13;
+		SDLJoyButtonMap[13] = NKCODE_DPAD_UP;
+		SDLJoyButtonMap[14] = NKCODE_DPAD_DOWN;
+		SDLJoyButtonMap[15] = NKCODE_DPAD_LEFT;
+		SDLJoyButtonMap[16] = NKCODE_DPAD_RIGHT;
+	
+		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
+		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
+		SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
+		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
+		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
+		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
+
 #endif
 	}
 	std::map<int, int> SDLJoyButtonMap;

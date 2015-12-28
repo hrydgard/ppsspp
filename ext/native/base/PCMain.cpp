@@ -245,6 +245,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
 void LaunchBrowser(const char *url) {
 #if defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
@@ -876,15 +879,15 @@ int main(int argc, char *argv[]) {
 #ifndef _WIN32
 	delete joystick;
 #endif
+	NativeShutdownGraphics();
+	NativeShutdown();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifndef MOBILE_DEVICE
 	exit(0);
 #endif
-	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-	NativeShutdown();
 #ifdef USING_EGL
 	EGL_Close();
 #endif

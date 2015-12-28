@@ -555,8 +555,10 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 		if (e.isRawSector) {
 			positionOnIso = e.sectorStart * 2048ULL + e.seekPos;
 			fileSize = (s64)e.openSize;
+		} else if (e.file == nullptr) {
+			ERROR_LOG(FILESYS, "File no longer exists (loaded savestate with different ISO?)");
+			return 0;
 		} else {
-			_dbg_assert_msg_(FILESYS, e.file != 0, "Expecting non-raw fd to have a tree entry.");
 			positionOnIso = e.file->startingPosition + e.seekPos;
 			fileSize = e.file->size;
 		}
