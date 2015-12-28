@@ -205,8 +205,10 @@ void CheckGLExtensions() {
 #endif
 
     // This needs to be a better way
+#ifdef UWPAPP
     if (gl_extensions.gpuVendor == GPU_VENDOR_ANGLE)
       gl3stubInit();
+#endif // UWPAPP
 
 		if (gl_extensions.GLES3) {
 			if (gl_extensions.ver[1] >= 1) {
@@ -345,10 +347,10 @@ void CheckGLExtensions() {
 	if (eglString) {
 		g_all_egl_extensions = eglString;
 
-		gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
-		gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;
+		gl_extensions.EGL_NV_system_time_ = strstr(eglString, "EGL_NV_system_time") != 0;
+		gl_extensions.EGL_NV_coverage_sample_ = strstr(eglString, "EGL_NV_coverage_sample") != 0;
 
-		if (gl_extensions.EGL_NV_system_time) {
+		if (gl_extensions.EGL_NV_system_time_) {
 			eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC)eglGetProcAddress("eglGetSystemTimeNV");
 			eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC)eglGetProcAddress("eglGetSystemTimeFrequencyNV");
 		}

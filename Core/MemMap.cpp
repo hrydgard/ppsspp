@@ -212,7 +212,7 @@ static bool Memory_TryBase(u32 flags) {
 
 	return true;
 
-#if defined(_WIN32) && !defined(UWPAPP)
+#if !defined(__SYMBIAN32__) && !defined(_XBOX) && !defined(UWPAPP)
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
