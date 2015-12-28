@@ -273,6 +273,9 @@ protected:
 
 	bool useBufferedRendering_;
 	bool updateVRAM_;
+	bool usePostShader_;
+	bool postShaderAtOutputResolution_;
+	bool postShaderIsUpscalingFilter_;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
