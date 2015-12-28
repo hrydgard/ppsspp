@@ -121,10 +121,10 @@ void ConsoleListener::Open()
 	{
 		// Open the console window and create the window handle for GetStdHandle()
 		AllocConsole();
-		HWND hConWnd = GetConsoleWindow();
-		ShowWindow(hConWnd, SW_SHOWDEFAULT);
+		hWnd = GetConsoleWindow();
+		ShowWindow(hWnd, SW_SHOWDEFAULT);
 		// disable console close button
-		HMENU hMenu=GetSystemMenu(hConWnd,false);
+		HMENU hMenu=GetSystemMenu(hWnd, false);
 		EnableMenuItem(hMenu,SC_CLOSE,MF_GRAYED|MF_BYCOMMAND);
 		// Save the window handle that AllocConsole() created
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -513,9 +513,6 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 	bool DAft = true;
 	std::string SLog = "";
 
-	const HWND hWnd = GetConsoleWindow();
-	const HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
 	// Get console info
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
 	GetConsoleScreenBufferInfo(hConsole, &ConInfo);
@@ -631,8 +628,6 @@ void ConsoleListener::ClearScreen(bool Cursor)
 	DWORD cCharsWritten; 
 	CONSOLE_SCREEN_BUFFER_INFO csbi; 
 	DWORD dwConSize; 
-	
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE); 
 	
 	GetConsoleScreenBufferInfo(hConsole, &csbi); 
 	dwConSize = csbi.dwSize.X * csbi.dwSize.Y;

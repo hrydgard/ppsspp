@@ -15,46 +15,50 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "GamepadEmu.h"
+#include <algorithm>
+#include "Common/Log.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/HLE/sceCtrl.h"
+#include "UI/GamepadEmu.h"
+#include "UI/ui_atlas.h"
 #include "base/colorutil.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
+#include "base/timeutil.h"
 #include "math/math_util.h"
 #include "ui/virtual_input.h"
 #include "ui/ui_context.h"
-#include "Core/Config.h"
-#include "Core/System.h"
-#include "ui_atlas.h"
-#include "Core/HLE/sceCtrl.h"
-
-#include <algorithm>
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
 
-int GamepadView::framesWithoutTouch_;
-
 void GamepadView::Touch(const TouchInput &input) {
-	framesWithoutTouch_ = 0;
+	secondsWithoutTouch_ = 0.0f;
 }
 
 void GamepadView::Update(const InputState &input) {
-	++framesWithoutTouch_;
+	const float now = time_now();
+	float delta = now - lastFrameTime_;
+	if (delta > 0) {
+		secondsWithoutTouch_ += delta;
+	}
+	lastFrameTime_ = now;
 }
 
 float GamepadView::GetButtonOpacity() {
-	int fadeAfterFrames = g_Config.iTouchButtonHideSeconds * 60;
-	int fadeTransitionFrames = std::min(fadeAfterFrames, 5 * 60);
+	float fadeAfterSeconds = g_Config.iTouchButtonHideSeconds;
+	float fadeTransitionSeconds = std::min(fadeAfterSeconds, 0.5f);
 	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
 
 	float multiplier = 1.0f;
-	if (framesWithoutTouch_ > fadeAfterFrames && fadeAfterFrames != 0) {
-		if (framesWithoutTouch_ > fadeAfterFrames + fadeTransitionFrames) {
+	if (secondsWithoutTouch_ >= fadeAfterSeconds && fadeAfterSeconds > 0.0f) {
+		if (secondsWithoutTouch_ >= fadeAfterSeconds + fadeTransitionSeconds) {
 			multiplier = 0.0f;
 		} else {
-			int framesIntoFade = framesWithoutTouch_ - fadeAfterFrames;
-			multiplier = 1.0f - (framesIntoFade / (float)fadeTransitionFrames);
+			float secondsIntoFade = secondsWithoutTouch_ - fadeAfterSeconds;
+			multiplier = 1.0f - (secondsIntoFade / fadeTransitionSeconds);
 		}
 	}
 

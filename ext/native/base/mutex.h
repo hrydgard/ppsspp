@@ -125,6 +125,7 @@ public:
 private:
 	mutexType mut_;
 	recursive_mutex(const recursive_mutex &other);
+	recursive_mutex& operator=(const recursive_mutex& other);
 };
 
 class lock_guard {

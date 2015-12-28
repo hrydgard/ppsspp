@@ -879,15 +879,15 @@ int main(int argc, char *argv[]) {
 #ifndef _WIN32
 	delete joystick;
 #endif
+	NativeShutdownGraphics();
+	NativeShutdown();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
 #ifndef MOBILE_DEVICE
 	exit(0);
 #endif
-	NativeShutdownGraphics();
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-	NativeShutdown();
 #ifdef USING_EGL
 	EGL_Close();
 #endif
