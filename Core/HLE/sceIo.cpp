@@ -799,6 +799,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
+				currentMIPS->InvalidateICache(data_addr, size);
 				return true;
 			}
 
@@ -815,6 +816,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				ev.handle = f->handle;
 				ev.buf = data;
 				ev.bytes = size;
+				ev.invalidateAddr = data_addr;
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
@@ -823,6 +825,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				} else {
 					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
 				}
+				currentMIPS->InvalidateICache(data_addr, size);
 				return true;
 			}
 		} else {
@@ -948,6 +951,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;
 			ev.bytes = size;
+			ev.invalidateAddr = 0;
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
