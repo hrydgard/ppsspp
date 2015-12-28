@@ -233,11 +233,28 @@ struct ReportedConfigSetting : public ConfigSetting {
 };
 
 const char *DefaultLangRegion() {
+	// Unfortunate default.  There's no need to use bFirstRun, since this is only a default.
 	static std::string defaultLangRegion = "en_US";
-	if (g_Config.bFirstRun) {
-		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
-		if (i18nrepo.IniExists(langRegion))
-			defaultLangRegion = langRegion;
+	std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
+	if (i18nrepo.IniExists(langRegion)) {
+		defaultLangRegion = langRegion;
+	} else if (langRegion.length() >= 3) {
+		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.
+		IniFile mapping;
+		mapping.LoadFromVFS("langregion.ini");
+		std::vector<std::string> keys;
+		mapping.GetKeys("LangRegionNames", keys);
+
+		for (std::string key : keys) {
+			if (startsWithNoCase(key, langRegion)) {
+				// Exact submatch, or different case.  Let's use it.
+				defaultLangRegion = key;
+				break;
+			} else if (startsWithNoCase(key, langRegion.substr(0, 3))) {
+				// Best so far.
+				defaultLangRegion = key;
+			}
+		}
 	}
 
 	return defaultLangRegion.c_str();
