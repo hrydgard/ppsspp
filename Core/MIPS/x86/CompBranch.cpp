@@ -196,6 +196,9 @@ bool Jit::PredictTakeBranch(u32 targetAddr, bool likely) {
 }
 
 void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink) {
+	if (andLink)
+		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+
 	// We may want to try to continue along this branch a little while, to reduce reg flushing.
 	bool predictTakeBranch = PredictTakeBranch(targetAddr, likely);
 	if (CanContinueBranch(predictTakeBranch ? targetAddr : notTakenAddr))
@@ -237,9 +240,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 			RestoreState(state);
 			CONDITIONAL_LOG_EXIT(targetAddr);
 
-			if (andLink)
-				gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
-
 			// Don't forget to run the delay slot if likely.
 			if (likely)
 				CompileDelaySlot(DELAYSLOT_NICE);
@@ -253,8 +253,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 		else
 		{
 			// Take the branch
-			if (andLink)
-				MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(GetCompilerPC() + 8));
 			CONDITIONAL_LOG_EXIT(targetAddr);
 			WriteExit(targetAddr, js.nextExit++);
 
@@ -288,8 +286,6 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 		}
 
 		// Take the branch
-		if (andLink)
-			MOV(32, gpr.GetDefaultLocation(MIPS_REG_RA), Imm32(GetCompilerPC() + 8));
 		CONDITIONAL_LOG_EXIT(targetAddr);
 		WriteExit(targetAddr, js.nextExit++);
 
@@ -303,7 +299,7 @@ void Jit::CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool del
 
 void Jit::CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink) {
 	// Continuing is handled in the imm branch case... TODO: move it here?
-	if (taken && andLink)
+	if (andLink)
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 	if (taken || !likely)
 		CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -427,15 +423,17 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		if (!immBranchTaken)
 		{
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (andLink)
+				gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 			if (likely)
 				js.compilerPC += 4;
 			return;
 		}
 
 		// Branch taken.  Always compile the delay slot, and then go to dest.
-		CompileDelaySlot(DELAYSLOT_NICE);
 		if (andLink)
 			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
 
 		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
