@@ -1030,7 +1030,8 @@ void DeveloperToolsScreen::CreateViews() {
 	if (!iosCanUseJit) {
 		canUseJit = false;
 		if (targetIsJailbroken) {
-			list->Add(new TextView(sy->T("iOS9NoDynarec", "Dynarec (JIT) - (JIT temporarily unavailable on iOS 9)")));
+			// if the device is jailbroken and it's being marked as unable to JIT, then that means it must be arm64 iOS 9
+			list->Add(new TextView(sy->T("iOS9NoDynarec", "Dynarec (JIT) - (JIT not yet working on arm64 iOS 9)")));
 		} else {
 			list->Add(new TextView(sy->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
 		}
