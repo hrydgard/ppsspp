@@ -37,6 +37,8 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#include "ext/armips/Core/Assembler.h"
+
 SymbolMap *g_symbolMap;
 
 void SymbolMap::SortSymbols() {

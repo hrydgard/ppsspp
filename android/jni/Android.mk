@@ -401,22 +401,19 @@ ifeq ($(UNITTEST),1)
   LIBARMIPS_FILES := \
 	$(SRC)/ext/armips/Archs/ARM/Arm.cpp \
 	$(SRC)/ext/armips/Archs/ARM/ArmOpcodes.cpp \
+	$(SRC)/ext/armips/Archs/ARM/ArmParser.cpp \
 	$(SRC)/ext/armips/Archs/ARM/ArmRelocator.cpp \
 	$(SRC)/ext/armips/Archs/ARM/CArmInstruction.cpp \
 	$(SRC)/ext/armips/Archs/ARM/CThumbInstruction.cpp \
 	$(SRC)/ext/armips/Archs/ARM/Pool.cpp \
 	$(SRC)/ext/armips/Archs/ARM/ThumbOpcodes.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/CMipsInstruction.cpp \
-	$(SRC)/ext/armips/Archs/MIPS/CMipsMacro.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/Mips.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/MipsElfFile.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/MipsMacros.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/MipsOpcodes.cpp \
-	$(SRC)/ext/armips/Archs/MIPS/MipsPSP.cpp \
+	$(SRC)/ext/armips/Archs/MIPS/MipsParser.cpp \
 	$(SRC)/ext/armips/Archs/MIPS/PsxRelocator.cpp \
-	$(SRC)/ext/armips/Archs/Z80/CZ80Instruction.cpp \
-	$(SRC)/ext/armips/Archs/Z80/z80.cpp \
-	$(SRC)/ext/armips/Archs/Z80/z80Opcodes.cpp \
 	$(SRC)/ext/armips/Archs/Architecture.cpp \
 	$(SRC)/ext/armips/Commands/CAssemblerCommand.cpp \
 	$(SRC)/ext/armips/Commands/CAssemblerLabel.cpp \
@@ -424,31 +421,41 @@ ifeq ($(UNITTEST),1)
 	$(SRC)/ext/armips/Commands/CDirectiveConditional.cpp \
 	$(SRC)/ext/armips/Commands/CDirectiveData.cpp \
 	$(SRC)/ext/armips/Commands/CDirectiveFile.cpp \
-	$(SRC)/ext/armips/Commands/CDirectiveFill.cpp \
 	$(SRC)/ext/armips/Commands/CDirectiveMessage.cpp \
+	$(SRC)/ext/armips/Commands/CommandSequence.cpp \
 	$(SRC)/ext/armips/Core/ELF/ElfFile.cpp \
 	$(SRC)/ext/armips/Core/ELF/ElfRelocator.cpp \
 	$(SRC)/ext/armips/Core/Assembler.cpp \
-	$(SRC)/ext/armips/Core/CMacro.cpp \
 	$(SRC)/ext/armips/Core/Common.cpp \
-	$(SRC)/ext/armips/Core/Directives.cpp \
+	$(SRC)/ext/armips/Core/Expression.cpp \
 	$(SRC)/ext/armips/Core/FileManager.cpp \
-	$(SRC)/ext/armips/Core/MathParser.cpp \
 	$(SRC)/ext/armips/Core/Misc.cpp \
 	$(SRC)/ext/armips/Core/SymbolData.cpp \
 	$(SRC)/ext/armips/Core/SymbolTable.cpp \
+	$(SRC)/ext/armips/Parser/DirectivesParser.cpp \
+	$(SRC)/ext/armips/Parser/ExpressionParser.cpp \
+	$(SRC)/ext/armips/Parser/Parser.cpp \
+	$(SRC)/ext/armips/Parser/Tokenizer.cpp \
 	$(SRC)/ext/armips/Util/ByteArray.cpp \
-	$(SRC)/ext/armips/Util/CommonClasses.cpp \
 	$(SRC)/ext/armips/Util/CRC.cpp \
 	$(SRC)/ext/armips/Util/EncodingTable.cpp \
 	$(SRC)/ext/armips/Util/FileClasses.cpp \
-	$(SRC)/ext/armips/Util/StringFormat.cpp \
 	$(SRC)/ext/armips/Util/Util.cpp
 
   ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
     TESTARMEMITTER_FILE = $(SRC)/unittest/TestArm64Emitter.cpp
-  else
+  else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
     TESTARMEMITTER_FILE = $(SRC)/unittest/TestArmEmitter.cpp
+  else
+    TESTARMEMITTER_FILE = \
+      $(SRC)/Common/ArmEmitter.cpp \
+      $(SRC)/Common/Arm64Emitter.cpp \
+      $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+      $(SRC)/Core/Util/DisArm64.cpp \
+      $(SRC)/ext/disarm.cpp \
+      $(SRC)/unittest/TestArmEmitter.cpp \
+      $(SRC)/unittest/TestArm64Emitter.cpp \
+      $(SRC)/unittest/TestX64Emitter.cpp
   endif
 
   LOCAL_MODULE := ppsspp_unittest
