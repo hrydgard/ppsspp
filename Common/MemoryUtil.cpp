@@ -98,8 +98,6 @@ static void *SearchForFreeMem(size_t size)
 
 #ifdef UWPAPP
 
-volatile int MemoryAccess::accc = 0;
-
 #include <map>
 std::map< void*, std::pair< size_t, bool > > execMem;
 auto FindExecRegion( void* ptr )
