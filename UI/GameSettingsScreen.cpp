@@ -384,7 +384,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
-#if defined(USING_WIN_UI) || ( defined UWPAPP && !_M_ARM )
+#if defined(USING_WIN_UI) || ( defined UWPAPP && !defined _M_ARM )
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
