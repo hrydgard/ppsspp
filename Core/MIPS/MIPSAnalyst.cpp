@@ -503,6 +503,7 @@ namespace MIPSAnalyst {
 	}
 
 	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2) {
+		MIPSInfo branchInfo = MIPSGetInfo(branchOp);
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & IS_CONDBRANCH) {
 			return false;
@@ -513,6 +514,10 @@ namespace MIPSAnalyst {
 		}
 		if (reg2 != MIPS_REG_ZERO && GetOutGPReg(op) == reg2) {
 			return false;
+		}
+		// If the branch is an "and link" branch, check the delay slot for RA.
+		if ((branchInfo & OUT_RA) != 0) {
+			return GetOutGPReg(op) != MIPS_REG_RA && !ReadsFromGPReg(op, MIPS_REG_RA);
 		}
 		return true;
 	}
