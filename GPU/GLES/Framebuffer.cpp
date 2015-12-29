@@ -1375,8 +1375,12 @@ void FramebufferManager::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int 
 	int dstY2 = (dstY + h) * dstYFactor;
 
 	if (gstate_c.Supports(GPU_SUPPORTS_ANY_COPY_IMAGE)) {
-		// Only if it's the same size.
-		if (dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1) {
+		// glBlitFramebuffer can clip, but glCopyImageSubData is more restricted.
+		// In case the src goes outside, we just skip the optimization in that case.
+		const bool sameSize = dstX2 - dstX1 == srcX2 - srcX1 && dstY2 - dstY1 == srcY2 - srcY1;
+		const bool srcInsideBounds = srcX2 <= src->renderWidth && srcY2 <= src->renderHeight;
+		const bool dstInsideBounds = dstX2 <= dst->renderWidth && dstY2 <= dst->renderHeight;
+		if (sameSize && srcInsideBounds && dstInsideBounds) {
 #if defined(USING_GLES2)
 #ifndef IOS
 			glCopyImageSubDataOES(
