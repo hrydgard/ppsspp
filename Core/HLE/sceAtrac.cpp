@@ -374,11 +374,11 @@ struct Atrac {
 #else
 		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
 		avcodec_close(pCodecCtx);
-        if ( pCodecCtx != NULL ) {
-            av_freep(&pCodecCtx->extradata);
-            av_freep(&pCodecCtx->subtitle_header);
-            av_freep(&pCodecCtx);
-        }
+		if ( pCodecCtx != NULL ) {
+			av_freep(&pCodecCtx->extradata);
+			av_freep(&pCodecCtx->subtitle_header);
+			av_freep(&pCodecCtx);
+		}
 #endif
 		av_free_packet(packet);
 		delete packet;
