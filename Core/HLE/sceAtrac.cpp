@@ -373,14 +373,10 @@ struct Atrac {
 		avcodec_free_context(&pCodecCtx);
 #else
 		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
+		av_freep(&pCodecCtx->extradata);
+		av_freep(&pCodecCtx->subtitle_header);
 		avcodec_close(pCodecCtx);
-		if (pCodecCtx != NULL) {
-			av_freep(&pCodecCtx->extradata);
-			av_freep(&pCodecCtx->subtitle_header);
-			av_freep(&pCodecCtx);
-        } else {
-			ERROR_LOG(ME,"Unexpected: pCodecCtx is NULL");
-        }
+		av_freep(&pCodecCtx);
 #endif
 		av_free_packet(packet);
 		delete packet;
