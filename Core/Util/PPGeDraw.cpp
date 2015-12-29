@@ -22,6 +22,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -40,6 +41,12 @@ static int atlasHeight;
 
 struct PPGeVertex {
 	u16_le u, v;
+	u32_le color;
+	float_le x, y, z;
+};
+
+struct PPGeRemasterVertex {
+	float_le u, v;
 	u32_le color;
 	float_le x, y, z;
 };
@@ -117,15 +124,23 @@ static void BeginVertexData() {
 	vertexStart = dataWritePtr;
 }
 
-static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF)
-{
-	PPGeVertex vtx;
-	vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
-	vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
-	vtx.color = color;
-	Memory::WriteStruct(dataWritePtr, &vtx);
+static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
+	if (g_RemasterMode) {
+		PPGeRemasterVertex vtx;
+		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
+		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.color = color;
+		Memory::WriteStruct(dataWritePtr, &vtx);
+		dataWritePtr += sizeof(vtx);
+	} else {
+		PPGeVertex vtx;
+		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
+		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.color = color;
+		Memory::WriteStruct(dataWritePtr, &vtx);
+		dataWritePtr += sizeof(vtx);
+	}
 	vertexCount++;
-	dataWritePtr += sizeof(vtx);
 }
 
 static void EndVertexDataAndDraw(int prim) {
@@ -298,7 +313,11 @@ void PPGeBegin()
 	WriteCmd(GE_CMD_MAXZ, 0xFFFF);
 
 	// Through mode, so we don't have to bother with matrices
-	WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	if (g_RemasterMode) {
+		WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	} else {
+		WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	}
 }
 
 void PPGeEnd()

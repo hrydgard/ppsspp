@@ -98,6 +98,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	//pspFileSystem.Mount("host0:", fileSystem);
 
 	std::string gameID;
+	std::string umdData;
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
@@ -107,19 +108,28 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
 			UseLargeMem(g_paramSFO.GetValueInt("MEMSIZE"));
-			// TODO: Check the SFO for other parameters that might be useful for identifying?
 			gameID = g_paramSFO.GetValueString("DISC_ID");
+		}
+
+		std::vector<u8> umdDataBin;
+		if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
+			umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
 		}
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
-		if (g_HDRemasters[i].gameID == gameID) {
-			g_RemasterMode = true;
-			Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
-			if (g_HDRemasters[i].DoubleTextureCoordinates)
-				g_DoubleTextureCoordinates = true;
-			break;
+	for (size_t i = 0; i < g_HDRemastersCount; i++) {
+		const auto &entry = g_HDRemasters[i];
+		if (entry.gameID != gameID) {
+			continue;
 		}
+		if (entry.umdDataValue && umdData.find(entry.umdDataValue) == umdData.npos) {
+			continue;
+		}
+
+		g_RemasterMode = true;
+		Memory::g_MemorySize = entry.memorySize;
+		g_DoubleTextureCoordinates = entry.doubleTextureCoordinates;
+		break;
 	}
 	if (g_RemasterMode) {
 		INFO_LOG(LOADER, "HDRemaster found, using increased memory");
@@ -264,15 +274,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 	path = ReplaceAll(path, "/", "\\");
 #endif
 
-	if (!PSP_CoreParameter().mountRoot.empty())
-	{
+	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const std::string rootNorm = NormalizePath(PSP_CoreParameter().mountRoot + "/");
 		const std::string pathNorm = NormalizePath(path + "/");
 
 		// If root is not a subpath of path, we can't boot the game.
-		if (!startsWith(pathNorm, rootNorm))
-		{
+		if (!startsWith(pathNorm, rootNorm)) {
 			*error_string = "Cannot boot ELF located outside mountRoot.";
 			return false;
 		}
@@ -281,6 +289,11 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string)
 		file = filepath + "/" + file;
 		path = rootNorm + "/";
 		pspFileSystem.SetStartingDirectory(filepath);
+	} else {
+		size_t pos = path.find("/PSP/GAME/");
+		if (pos != std::string::npos) {
+			pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
+		}
 	}
 
 	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
