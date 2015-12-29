@@ -404,20 +404,19 @@ void JitBlockCache::LinkBlockExits(int i) {
 			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
 			if (destinationBlock != -1) 	{
 #if defined(ARM)
-				//break Yu-Gi-Oh 6 crash with edit card in Android version
-				//const u8 *nextExit = b.exitPtrs[e + 1];
-				//if (!nextExit) {
-				//	nextExit = b.normalEntry + b.codeSize;
-				//}
+				const u8 *nextExit = b.exitPtrs[e + 1];
+				if (!nextExit) {
+					nextExit = b.normalEntry + b.codeSize;
+				}
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks_[destinationBlock].checkedEntry);
-				//u32 op = *((const u32 *)emit.GetCodePtr());
-				//// Overwrite with nops until the next unconditional branch.
-				//while ((op & 0xFF000000) != 0xEA000000) {
-				//	emit.BKPT(1);
-				//	op = *((const u32 *)emit.GetCodePtr());
-				//}
-				//emit.BKPT(1);
+				u32 op = *((const u32 *)emit.GetCodePtr());
+				// Overwrite with nops until the next unconditional branch.
+				while ((op & 0xFF000000) != 0xEA000000) {
+					emit.BKPT(1);
+					op = *((const u32 *)emit.GetCodePtr());
+				}
+				emit.BKPT(1);
 				emit.FlushIcache();
 				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
