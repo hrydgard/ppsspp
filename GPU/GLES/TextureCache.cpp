@@ -55,6 +55,8 @@
 
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT 6
+// Note: only used when hash backoff is disabled.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
@@ -1341,12 +1343,16 @@ void TextureCache::SetTexture(bool force) {
 				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
-				} else if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-					// Reset to STATUS_HASHING.
+				} else {
 					if (g_Config.bTextureBackoffCache) {
-						entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+						if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+							// Reset to STATUS_HASHING.
+							entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+							entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+						}
+					} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
+						entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 					}
-					entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 				}
 			}
 
@@ -1567,8 +1573,11 @@ void TextureCache::SetTexture(bool force) {
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+		// Remember for later that we /wanted/ to scale this texture.
+		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 		scaleFactor = 1;
+	}
 
 	if (scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
