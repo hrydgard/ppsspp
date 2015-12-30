@@ -311,6 +311,12 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	glDisableVertexAttribArray(attr_tex);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	if (vao != 0) {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	}
 }
 
 void SoftGPU::CopyDisplayToOutput()

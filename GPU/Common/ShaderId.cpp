@@ -257,11 +257,6 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
 		}
 
-		if (enableAlphaTest)
-			gpuStats.numAlphaTestedDraws++;
-		else
-			gpuStats.numNonAlphaTestedDraws++;
-
 		// 2 bits.
 		id.SetBits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());
 

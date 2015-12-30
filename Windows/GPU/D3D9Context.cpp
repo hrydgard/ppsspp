@@ -28,9 +28,6 @@ static HWND hWnd;   // Holds Our Window Handle
 static D3DPRESENT_PARAMETERS pp;
 static HMODULE hD3D9;
 
-// TODO: Make config?
-static bool enableGLDebug = true;
-
 void D3D9_SwapBuffers() {
 	if (has9Ex) {
 		deviceEx->EndScene();
