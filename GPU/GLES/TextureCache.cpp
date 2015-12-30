@@ -242,6 +242,13 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 				gpuStats.numTextureInvalidations++;
 				// Start it over from 0 (unless it's safe.)
 				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
+				if (type == GPU_INVALIDATE_SAFE) {
+					u32 diff = gpuStats.numFlips - iter->second.lastFrame;
+					// We still need to mark if the texture is frequently changing, even if it's safely changing.
+					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+						iter->second.status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					}
+				}
 				iter->second.framesUntilNextFullHash = 0;
 			} else if (!iter->second.framebuffer) {
 				iter->second.invalidHint++;
