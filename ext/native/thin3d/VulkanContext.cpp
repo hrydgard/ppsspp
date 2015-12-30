@@ -55,8 +55,10 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	swap_chain_(nullptr),
 	cmd_pool_(nullptr),
 	cmd_(nullptr),
+	cmdInitActive_(false),
 	dbgCreateMsgCallback(nullptr),
-	dbgDestroyMsgCallback(nullptr)
+	dbgDestroyMsgCallback(nullptr),
+	queue_count(0)
 {
 	// List extensions to try to enable.
 	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -273,11 +275,17 @@ void vk_submit_sync(VkDevice device, VkSemaphore waitForSemaphore, VkQueue queue
 }
 
 void VulkanContext::BeginInitCommandBuffer() {
+	assert(!cmdInitActive_);
 	VulkanBeginCommandBuffer(cmd_);
+	cmdInitActive_ = true;
 }
 
 void VulkanContext::SubmitInitCommandBufferSync() {
-	vk_submit_sync(device_, 0, gfx_queue_, cmd_);
+	if (cmdInitActive_) {
+		vkEndCommandBuffer(cmd_);
+		vk_submit_sync(device_, 0, gfx_queue_, cmd_);
+		cmdInitActive_ = false;
+	}
 }
 
 void VulkanContext::InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresent) {
@@ -306,10 +314,10 @@ void VulkanContext::DestroyObjects() {
 void VulkanContext::EndSurfaceRenderPass() {
 	vkCmdEndRenderPass(cmd_);
 
+	vk_transition_to_present(cmd_, swapChainBuffers[current_buffer].image);
+
 	VkResult res = vkEndCommandBuffer(cmd_);
 	assert(res == VK_SUCCESS);
-
-	vk_transition_to_present(cmd_, swapChainBuffers[current_buffer].image);
 
 	/* Make sure command buffer is finished before presenting */
 	vk_submit_sync(device_, acquireSemaphore, gfx_queue_, cmd_);
@@ -1056,7 +1064,7 @@ void VulkanContext::InitCommandPool() {
   cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cmd_pool_info.pNext = NULL;
   cmd_pool_info.queueFamilyIndex = gfx_queue_family_index_;
-  cmd_pool_info.flags = 0;
+  cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
   res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &cmd_pool_);
   assert(res == VK_SUCCESS);
