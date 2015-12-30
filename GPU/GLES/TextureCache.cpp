@@ -19,10 +19,12 @@
 #include <cstring>
 
 #include "ext/xxhash.h"
+#include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
 
 #include "Common/ColorConv.h"
+#include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -36,8 +38,7 @@
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "Core/Config.h"
-#include "Core/Host.h"
+#include "UI/OnScreenDisplay.h"
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
@@ -2007,6 +2008,16 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 				Decimate();
 				// Try again, now that we've cleared out textures in lowMemoryMode_.
 				glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
+
+				I18NCategory *err = GetI18NCategory("Error");
+				if (scaleFactor > 1) {
+					osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+				} else {
+					osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+				}
+			} else if (err != GL_NO_ERROR) {
+				// We checked the err anyway, might as well log if there is one.
+				WARN_LOG(G3D, "Got an error in texture upload: %08x", err);
 			}
 		}
 	}
