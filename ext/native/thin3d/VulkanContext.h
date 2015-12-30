@@ -161,6 +161,7 @@ public:
 
 	VkCommandPool cmd_pool_;
 	VkCommandBuffer cmd_;  // Buffer for initialization commands
+	bool cmdInitActive_;
 
 	VkInstance instance_;
 	VkDevice device_;
