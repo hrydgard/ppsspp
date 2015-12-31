@@ -35,7 +35,7 @@ static const char * const vulkan_fsTexCol =
 "layout(location = 1) in vec2 oTexCoord0;\n"
 "layout(location = 0) out vec4 fragColor0\n;"
 "layout(binding = 2) uniform sampler2D Sampler0;\n"
-"void main() { fragColor0 = texture2D(Sampler0, oTexCoord0) * oColor0; }\n";
+"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n";
 
 static const char * const glsl_fsCol =
 "#ifdef GL_ES\n"
