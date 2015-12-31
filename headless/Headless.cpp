@@ -72,7 +72,7 @@ void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void GL_SwapInterval(int) { }
 void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 void NativeMessageReceived(const char *message, const char *value) {}
 
@@ -299,15 +299,16 @@ int main(int argc, const char* argv[])
 	host = headlessHost;
 
 	std::string error_string;
-	bool glWorking = host->InitGraphics(&error_string);
+
+	GraphicsContext *graphicsContext;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
 	
 	PrintfLogger *printfLogger = new PrintfLogger();
 
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);

@@ -19,6 +19,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -394,8 +395,8 @@ static const CommandTableEntry commandTable[] = {
 
 GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 
-GLES_GPU::GLES_GPU()
-: resized_(false) {
+GLES_GPU::GLES_GPU(GraphicsContext *ctx)
+: resized_(false), gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -466,7 +467,7 @@ GLES_GPU::~GLES_GPU() {
 	shaderManager_ = nullptr;
 
 #ifdef _WIN32
-	GL_SwapInterval(0);
+	gfxCtx_->SwapInterval(0);
 #endif
 }
 
@@ -674,7 +675,7 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
-			GL_SwapInterval(desiredVSyncInterval);
+		gfxCtx_->SwapInterval(desiredVSyncInterval);
 		//}
 		lastVsync_ = desiredVSyncInterval;
 	}

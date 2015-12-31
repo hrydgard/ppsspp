@@ -41,15 +41,13 @@ SDLJoystick *joystick = NULL;
 #include "util/text/utf8.h"
 #include "math/math_util.h"
 
-#ifdef PPSSPP
-// Bad: PPSSPP includes from native
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Common/GraphicsContext.h"
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
-#endif
 
 static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
@@ -622,6 +620,8 @@ int main(int argc, char *argv[]) {
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
 	NativeInitGraphics();
+	GraphicsContext *gfx = new DummyGraphicsContext();
+
 	NativeResized();
 
 	SDL_AudioSpec fmt, ret_fmt;

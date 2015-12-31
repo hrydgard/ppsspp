@@ -57,6 +57,7 @@
     <ClInclude Include="GL\GLInterfaceBase.h">
       <Filter>GL</Filter>
     </ClInclude>
+    <ClInclude Include="GraphicsContext.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

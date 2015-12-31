@@ -247,7 +247,7 @@ ViewController* sharedViewController;
 		EndInputState(&input_state);
 	}
 
-	NativeRender();
+	NativeRender(NULL);
 	time_update();
 }
 

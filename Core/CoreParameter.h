@@ -35,11 +35,15 @@ enum GPUCore {
 
 class FileLoader;
 
+class GraphicsContext;
+
 // PSP_CoreParameter()
 struct CoreParameter {
 	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true), freezeNext(false), frozen(false), mountIsoLoader(nullptr) {}
+
 	CPUCore cpuCore;
 	GPUCore gpuCore;
+	GraphicsContext *graphicsContext;  // TODO: Find a better place.
 	bool enableSound;  // there aren't multiple sound cores.
 
 	std::string fileToStart;

@@ -21,8 +21,7 @@
 #include "Core/Debugger/SymbolMap.h"
 
 // TODO: Get rid of this junk
-class HeadlessHost : public Host
-{
+class HeadlessHost : public Host {
 public:
 	void UpdateUI() override {}
 
@@ -31,7 +30,7 @@ public:
 
 	void SetDebugMode(bool mode) { }
 
-	bool InitGraphics(std::string *error_message) override {return false;}
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
 	void ShutdownGraphics() override {}
 
 	void InitSound() override {}

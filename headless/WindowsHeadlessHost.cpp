@@ -140,7 +140,7 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **graphicsContext)
 {
 	hWnd = CreateHiddenWindow();
 
@@ -169,13 +169,14 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
 
-	GL_SwapInterval(0);
+	// GL_SwapInterval(0);
 
 	glewInit();
 	CheckGLExtensions();
 
 	LoadNativeAssets();
 
+	*graphicsContext = new DummyGraphicsContext();
 	return ResizeGL();
 }
 

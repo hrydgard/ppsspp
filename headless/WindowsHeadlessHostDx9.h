@@ -29,7 +29,7 @@
 class WindowsHeadlessHostDx9 : public WindowsHeadlessHost
 {
 public:
-	bool InitGraphics(std::string *error_message) override;
+	bool InitGraphics(std::string *error_message, GraphicsContext **graphicsContext) override;
 	void ShutdownGraphics() override;
 
 	void SwapBuffers() override;

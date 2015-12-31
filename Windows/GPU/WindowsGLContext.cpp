@@ -41,8 +41,8 @@ static HANDLE resumeEvent;
 
 static int xres, yres;
 
-void GL_SwapBuffers() {
-	SwapBuffers(hDC);
+void WindowsGLContext::SwapBuffers() {
+	::SwapBuffers(hDC);
 
 	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
@@ -60,7 +60,7 @@ void GL_SwapBuffers() {
 	// glFinish();
 }
 
-void GL_Pause() {
+void WindowsGLContext::Pause() {
 	if (!hRC) {
 		return;
 	}
@@ -73,7 +73,7 @@ void GL_Pause() {
 	// OK, we now know the rendering thread is paused.
 }
 
-void GL_Resume() {
+void WindowsGLContext::Resume() {
 	if (!hRC) {
 		return;
 	}
@@ -153,7 +153,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	}
 }
 
-bool GL_Init(HWND window, std::string *error_message) {
+bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
 	*error_message = "ok";
 	hWnd = window;
 	GLuint PixelFormat;
@@ -320,7 +320,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	GL_SwapInterval(0);
+	SwapInterval(0);
 
 	if (g_Config.bGfxDebugOutput) {
 		if (wglewIsSupported("GL_KHR_debug") == 1) {
@@ -361,13 +361,13 @@ bool GL_Init(HWND window, std::string *error_message) {
 	return true;												// Success
 }
 
-void GL_SwapInterval(int interval) {
+void WindowsGLContext::SwapInterval(int interval) {
 	// glew loads wglSwapIntervalEXT if available
 	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(interval);
 }
 
-void GL_Shutdown() { 
+void WindowsGLContext::Shutdown() {
 	CloseHandle(pauseEvent);
 	CloseHandle(resumeEvent);
 	if (hRC) {
@@ -391,4 +391,15 @@ void GL_Shutdown() {
 		hDC = NULL;
 	}
 	hWnd = NULL;
+}
+
+void WindowsGLContext::Resize() {
+}
+
+Thin3DContext *WindowsGLContext::CreateThin3DContext() {
+	Thin3DContext *ctx = T3DCreateGLContext();
+	if (ctx) {
+		CheckGLExtensions();
+	}
+	return ctx;
 }

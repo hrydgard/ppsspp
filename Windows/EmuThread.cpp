@@ -117,8 +117,10 @@ unsigned int WINAPI TheThread(void *)
 
 	host->UpdateUI();
 
+	GraphicsContext *graphicsContext;
+
 	std::string error_string;
-	if (!host->InitGraphics(&error_string)) {
+	if (!host->InitGraphics(&error_string, &graphicsContext)) {
 		I18NCategory *err = GetI18NCategory("Error");
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 
@@ -154,7 +156,9 @@ unsigned int WINAPI TheThread(void *)
 		ExitProcess(1);
 	}
 
-	NativeInitGraphics();
+	PSP_CoreParameter().graphicsContext = graphicsContext;
+
+	NativeInitGraphics(graphicsContext);
 	NativeResized();
 
 	INFO_LOG(BOOT, "Done.");
@@ -179,7 +183,7 @@ unsigned int WINAPI TheThread(void *)
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
 
-		Core_Run();
+		Core_Run(graphicsContext);
 	}
 
 shutdown:

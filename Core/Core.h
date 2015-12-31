@@ -20,9 +20,11 @@
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 
+class GraphicsContext;
+
 // called from emu thread
 void UpdateRunLoop();
-void Core_Run();
+void Core_Run(GraphicsContext *ctx);
 void Core_Stop();
 void Core_ErrorPause();
 // called from gui

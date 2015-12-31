@@ -36,7 +36,7 @@ struct InputState;
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 void System_SendMessage(const char *command, const char *parameter) {}
