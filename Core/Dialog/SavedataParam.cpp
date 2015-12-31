@@ -916,7 +916,7 @@ std::string SavedataParam::GetSpaceText(u64 size)
 		size /= 1024;
 	}
 
-	snprintf(text, sizeof(text), "%lld TB", size);
+	snprintf(text, sizeof(text), "%llu TB", size);
 	return std::string(text);
 }
 

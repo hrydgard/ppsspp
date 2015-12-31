@@ -165,7 +165,8 @@ private:
 	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
 
 	// Make copy constructor private for now.
-	FixedSizeQueue(FixedSizeQueue &other) {	}
+	FixedSizeQueue(FixedSizeQueue &other);
+	FixedSizeQueue& operator=(const FixedSizeQueue &other);
 };
 
 
@@ -210,7 +211,7 @@ public:
 	T *BeginPop() {
 		return blocks[curReadBlock];
 	}
-	T *EndPop() {
+	void EndPop() {
 		curReadBlock++;
 		if (curReadBlock == NUM_BLOCKS)
 			curReadBlock = 0;
