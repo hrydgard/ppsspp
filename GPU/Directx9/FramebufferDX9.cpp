@@ -678,12 +678,20 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
 		fbo_unbind();
+		currentRenderVfb_ = 0;
+
+		if (displayFramebufPtr_ == 0) {
+			DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+			// No framebuffer to display! Clear to black.
+			ClearBuffer();
+			return;
+		}
+
 		if (useBufferedRendering_) {
 			// In buffered, we no longer clear the backbuffer before we start rendering.
 			ClearBuffer();
 			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		}
-		currentRenderVfb_ = 0;
 
 		u32 offsetX = 0;
 		u32 offsetY = 0;

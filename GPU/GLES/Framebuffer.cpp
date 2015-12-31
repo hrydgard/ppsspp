@@ -989,6 +989,15 @@ void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
 	glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 
+	currentRenderVfb_ = 0;
+
+	if (displayFramebufPtr_ == 0) {
+		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+		// No framebuffer to display! Clear to black.
+		ClearBuffer();
+		return;
+	}
+
 	if (useBufferedRendering_) {
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 #ifdef USING_GLES2
@@ -1000,8 +1009,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		// Hardly necessary to clear depth and stencil I guess...
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
-
-	currentRenderVfb_ = 0;
 
 	u32 offsetX = 0;
 	u32 offsetY = 0;
