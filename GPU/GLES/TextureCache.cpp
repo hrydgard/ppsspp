@@ -1619,7 +1619,7 @@ void TextureCache::SetTexture(bool force) {
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
-	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
+	if (maxLevel > 0 && scaleFactor == 1) {
 		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 			if (badMipSizes) {
 				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
