@@ -114,7 +114,7 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 // their own similar buffer solutions.
 class VulkanPushBuffer {
 public:
-	VulkanPushBuffer(VkDevice device, VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr) {
+	VulkanPushBuffer(VkDevice device, VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {
 		VkBufferCreateInfo b;
 		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		b.pNext = nullptr;
@@ -630,7 +630,6 @@ public:
 
 private:
 	VulkanContext *vulkan_;
-	VkDevice device_;
 	VulkanImage image_;
 	VulkanImage staging_;
 	VkImageView view_;
@@ -668,7 +667,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	VkCommandPoolCreateInfo p;
 	p.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	p.pNext = nullptr;
-	p.flags = 0;
+	p.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 	res = vkCreateCommandPool(device_, &p, nullptr, &cmdPool_);
 	assert(VK_SUCCESS == res);
@@ -702,14 +701,17 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[1].binding = 1;
 	bindings[2].descriptorCount = 1;
 	bindings[2].pImmutableSamplers = nullptr;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[2].binding = 2;
 
 	VkDescriptorSetLayoutCreateInfo dsl;
 	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -750,10 +752,10 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreateFence(device_, &f, nullptr, &cmdFences_[0]);
 	assert(VK_SUCCESS == res);
 
+	f.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	res = vkCreateFence(device_, &f, nullptr, &cmdFences_[1]);
 	assert(VK_SUCCESS == res);
 	// Create as already signalled, so we can wait for it the first time.
-	f.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 	res = vkCreateFence(device_, &f, nullptr, &initFence_);
 	assert(VK_SUCCESS == res);
 	pendingInitFence_ = false;
@@ -769,6 +771,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 
 	push_ = pushBuffer_[0];
 	cmd_ = cmdBuffer_[0];
+	cmdFence_ = cmdFences_[0];
 }
 
 Thin3DVKContext::~Thin3DVKContext() {
@@ -898,6 +901,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkWriteDescriptorSet writes[2];
+	memset(writes, 0, sizeof(writes));
 	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writes[0].pNext = nullptr;
 	writes[0].dstSet = descSet;
@@ -1101,8 +1105,8 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	// So we need to do a staging copy. We upload the data to the staging buffer immediately, then we actually do the final copy once it's used the first time
 	// as we need a command buffer and the architecture of Thin3D doesn't really work the way we want.. 
 	if (!image_.IsValid()) {
-		staging_.Create2D(device_, vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
-		image_.Create2D(device_, vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
+		staging_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
+		image_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
 	}
 
 	VkImageViewCreateInfo iv;
@@ -1121,11 +1125,11 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	iv.subresourceRange.baseArrayLayer = 0;
 	iv.subresourceRange.baseMipLevel = 0;
 	iv.subresourceRange.levelCount = 1;
-	VkResult res = vkCreateImageView(device_, &iv, nullptr, &view_);
+	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &iv, nullptr, &view_);
 	assert(VK_SUCCESS == res);
 
 	// TODO: Support setting only parts of the image efficiently.
-	staging_.SetImageData2D(device_, data, width, height, stride);
+	staging_.SetImageData2D(vulkan_->GetDevice(), data, width, height, stride);
 	state_ = TextureState::STAGED;
 }
 
