@@ -71,6 +71,41 @@ enum DoLightComputation {
 };
 
 
+const char *vulkan_base_uniforms = R"(
+layout(set=0, binding=4) uniform base {
+	mat4 proj;
+	mat4 world;
+	mat4 view;
+	mat4 texmtx;
+	vec4 uvscaleoffset;
+	vec2 fogcoef;
+	vec4 depthRange;
+	vec4 matambientalpha;
+};
+)";
+
+const char *vulkan_light_uniforms = R"(
+layout(set=0, binding=5) uniform light {
+	vec4 ambient;
+	vec3 matdiffuse;
+	vec4 matspecular;
+	vec3 matemissive;
+	vec3 pos[4];
+	// TODO: Make lighttype/comp uniforms too
+	vec3 att[4];
+	vec3 dir[4];
+	float angle[4];
+	float spotCoef[4];
+	vec3 ambient[4];
+	vec3 diffuse[4];
+	vec3 specular[4];
+)";
+
+const char *vulkan_bone_uniforms = R"(
+layout(set=0, binding=6) uniform bone {
+	mat4 m[8];
+)";
+
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -178,80 +213,14 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
 	// are present and what parts aren't, but we will not be ultra detailed about it.
 	
-//	WRITE(p, )
+	WRITE(p, "%s", vulkan_base_uniforms);
+	if (enableLighting)
+		WRITE(p, "%s", vulkan_light_uniforms);
+	if (enableBones)
+		WRITE(p, "%s", vulkan_bone_uniforms);
 
-
-	if (isModeThrough) {
-		WRITE(p, "uniform mat4 u_proj_through;\n");
-	} else {
-		WRITE(p, "uniform mat4 u_proj;\n");
-		// Add all the uniforms we'll need to transform properly.
-	}
 
 	bool prescale = false;
-
-	if (useHWTransform) {
-		// When transforming by hardware, we need a great deal more uniforms...
-		WRITE(p, "uniform mat4 u_world;\n");
-		WRITE(p, "uniform mat4 u_view;\n");
-		if (doTextureProjection)
-			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
-		if (enableBones) {
-#ifdef USE_BONE_ARRAY
-			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBoneWeights);
-#else
-			for (int i = 0; i < numBoneWeights; i++) {
-				WRITE(p, "uniform mat4 u_bone%i;\n", i);
-			}
-#endif
-		}
-		if (doTexture && (!prescale || uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP || uvGenMode == GE_TEXMAP_TEXTURE_MATRIX)) {
-			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
-		}
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_OFF) {
-				// This is needed for shade mapping
-				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
-			}
-			if (doLight[i] == LIGHT_FULL) {
-				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
-				GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * i, 2));
-
-				if (type != GE_LIGHTTYPE_DIRECTIONAL)
-					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
-
-				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
-					WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
-					WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
-					WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
-				}
-				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
-				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
-
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
-					WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
-				}
-			}
-		}
-		if (enableLighting) {
-			WRITE(p, "uniform lowp vec4 u_ambient;\n");
-			if ((matUpdate & 2) == 0 || !hasColor)
-				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
-			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
-			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
-		}
-	}
-
-	if (useHWTransform || !hasColor)
-		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
-
-	if (enableFog) {
-		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
-	}
-
-	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-		WRITE(p, "uniform highp vec4 u_depthRange;\n");
-	}
 
 	WRITE(p, "layout (location = 1) %s out lowp vec4 v_color0;\n", shading);
 	if (lmode) {
@@ -276,9 +245,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
 		WRITE(p, "\nvec4 depthRoundZVP(vec4 v) {\n");
 		WRITE(p, "  float z = v.z / v.w;\n");
-		WRITE(p, "  z = z * u_depthRange.x + u_depthRange.y;\n");
+		WRITE(p, "  z = z * base.depthRange.x + base.depthRange.y;\n");
 		WRITE(p, "  z = floor(z);\n");
-		WRITE(p, "  z = (z - u_depthRange.z) * u_depthRange.w;\n");
+		WRITE(p, "  z = (z - base.depthRange.z) * base.depthRange.w;\n");
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
@@ -299,7 +268,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			if (lmode)
 				WRITE(p, "  v_color1 = color1;\n");
 		} else {
-			WRITE(p, "  v_color0 = u_matambientalpha;\n");
+			WRITE(p, "  v_color0 = base.matambientalpha;\n");
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
 		}
@@ -307,22 +276,22 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = base.proj * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  gl_Position = depthRoundZVP(base.proj * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = u_proj * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  gl_Position = base.proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(position.xyz, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (base.world * vec4(position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 worldnormal = normalize((base.world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
 			else
 				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
@@ -333,8 +302,6 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				"w1.x", "w1.y", "w1.z", "w1.w",
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
-
-#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
 
 			// To loop through the weights, we unfortunately need to put them in a float array.
 			// GLSL ES sucks - no way to directly initialize an array!
@@ -349,80 +316,48 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
 			}
 
-			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
+			WRITE(p, "  mat4 skinMatrix = w[0] * bone.m[0];\n");
 			if (numBoneWeights > 1) {
 				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
-				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
+				WRITE(p, "    skinMatrix += w[i] * bone.m[i];\n");
 				WRITE(p, "  }\n");
 			}
-
-#else
-
-#ifdef USE_BONE_ARRAY
-			if (numBoneWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
-			else
-				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone[0]");
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
-				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
-			}
-#else
-			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
-			// WRITE(p, "THIS SHOULD ERROR! #error");
-			if (numBoneWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = w1 * u_bone0");
-			else
-				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone0");
-			for (int i = 1; i < numBoneWeights; i++) {
-				const char *weightAttr = boneWeightAttr[i];
-				// workaround for "cant do .x of scalar" issue
-				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
-				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
-				WRITE(p, " + %s * u_bone%i", weightAttr, i);
-			}
-#endif
-
-#endif
 
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
 			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (base.world * vec4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
 				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
 			} else {
 				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize((base.world * vec4(skinnednormal, 0.0)).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = base.view * vec4(worldpos, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(u_proj * viewPos);\n");
+			WRITE(p, "  gl_Position = depthRoundZVP(base.proj * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * viewPos;\n");
+			WRITE(p, "  gl_Position = base.proj * viewPos;\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "u_matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
+		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "base.matambientalpha";
+		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "light.matdiffuse";
+		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "light.matspecular.rgb";
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  lowp vec4 lightSum0 = light.ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -460,9 +395,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 				// We prenormalize light positions for directional lights.
-				WRITE(p, "  toLight = u_lightpos%i;\n", i);
+				WRITE(p, "  toLight = light.pos[%i];\n", i);
 			} else {
-				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
+				WRITE(p, "  toLight = light.pos[%i] - worldpos;\n", i);
 				WRITE(p, "  distance = length(toLight);\n");
 				WRITE(p, "  toLight /= distance;\n");
 			}
@@ -477,7 +412,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(dot[%i], u_matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -489,13 +424,13 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				timesLightScale = "";
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
+				WRITE(p, "  lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
+				WRITE(p, "  lowp float angle%i = dot(normalize(light.dir[%i]), toLight);\n", i, i);
+				WRITE(p, "  if (angle[%i] >= light.angle[%i]) {\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle[%i], light.spotCoef[%i]);\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -505,13 +440,13 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * dot%i;\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * dot[%i];\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  dot[%i] = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
+				WRITE(p, "  if (dot[%i] > 0.0)\n", i);
+				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot[%i], u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
+			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
 		if (enableLighting) {
@@ -595,12 +530,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (base.texmtx * %s).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", ls0, ls1);
+				WRITE(p, "  v_texcoord = base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5;\n", ls0, ls1);
 				break;
 
 			default:
