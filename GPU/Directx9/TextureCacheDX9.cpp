@@ -777,8 +777,7 @@ static inline u32 MiniHash(const u32 *ptr) {
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheDX9::TexCacheEntry *entry) {
 	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-		h = std::max(272, (int)entry->maxSeenV);
+		h = (int)entry->maxSeenV;
 	}
 
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
@@ -954,7 +953,14 @@ void TextureCacheDX9::ApplyTexture() {
 			// Texture scale/offset and gen modes don't apply in through.
 			// So we can optimize how much of the texture we look at.
 			if (gstate.isModeThrough()) {
-				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertBounds.maxV);
+				if (nextTexture_->maxSeenV == 0) {
+					// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+					nextTexture_->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
+				} else if (gstate_c.vertBounds.maxV > nextTexture_->maxSeenV) {
+					// The max height changed higher, so we're better off hashing the entire thing.
+					nextTexture_->maxSeenV = 512;
+					nextTexture_->status |= TexCacheEntry::STATUS_FREE_CHANGE;
+				}
 			} else {
 				// Otherwise, we need to reset to ensure we use the whole thing.
 				// Can't tell how much is used.
@@ -1278,7 +1284,11 @@ void TextureCacheDX9::SetTexture(bool force) {
 				reason = "hash fail";
 				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-					entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
+						entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
+					} else {
+						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					}
 				}
 				entry->numFrames = 0;
 

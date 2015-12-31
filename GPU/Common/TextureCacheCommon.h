@@ -53,10 +53,11 @@ public:
 			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
 			STATUS_ALPHA_MASK = 0x0c,
 
-			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 			STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
 			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
+			STATUS_FREE_CHANGE = 0x100,    // Allow one change before marking "frequent".
 		};
 
 		// Status, but int so we can zero initialize.
