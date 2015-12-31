@@ -243,8 +243,8 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
 #ifndef MOBILE_DEVICE
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
 		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
 		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
 		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
@@ -268,21 +268,16 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 		}
 
 		dxstate.colorMask.set(rmask, gmask, bmask, amask);
-		
+
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		// Stencil Test
-		if (gstate.isStencilTestEnabled()) {
+		if (stencilState.enabled) {
 			dxstate.stencilTest.enable();
-			dxstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
-				gstate.getStencilTestRef(),
-				gstate.getStencilTestMask());
-			dxstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
-				stencilOps[gstate.getStencilOpZFail()],  // depth fail
-				stencilOps[gstate.getStencilOpZPass()]); // depth pass
-			if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
-				dxstate.stencilMask.set(abits <= 0x7f ? 0xff : 0x00);
-			} else {
-				dxstate.stencilMask.set(~abits);
-			}
+			dxstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+			dxstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+			dxstate.stencilMask.set(stencilState.writeMask);
 		} else {
 			dxstate.stencilTest.disable();
 		}

@@ -1119,3 +1119,125 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 		blendState.setEquation(eqLookupNoMinMax[blendFuncEq], alphaEq);
 	}
 }
+
+void ConvertStencilFuncState(GenericStencilFuncState &state) {
+	state.enabled = gstate.isStencilTestEnabled() && !g_Config.bDisableStencilTest;
+	if (!state.enabled)
+		return;
+
+	// The PSP's mask is reversed (bits not to write.)
+	state.writeMask = (~(gstate.pmska >> 0)) & 0xFF;
+
+	state.sFail = gstate.getStencilOpSFail();
+	state.zFail = gstate.getStencilOpZFail();
+	state.zPass = gstate.getStencilOpZPass();
+
+	state.testFunc = gstate.getStencilTestFunction();
+	state.testRef = gstate.getStencilTestRef();
+	state.testMask = gstate.getStencilTestMask();
+
+	bool usesRef = state.sFail == GE_STENCILOP_REPLACE || state.zFail == GE_STENCILOP_REPLACE || state.zPass == GE_STENCILOP_REPLACE;
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_565:
+		state.writeMask = 0;
+		break;
+
+	case GE_FORMAT_5551:
+		state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
+
+		// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
+		if (state.sFail == GE_STENCILOP_DECR)
+			state.sFail = GE_STENCILOP_ZERO;
+		if (state.zFail == GE_STENCILOP_DECR)
+			state.zFail = GE_STENCILOP_ZERO;
+		if (state.zPass == GE_STENCILOP_DECR)
+			state.zPass = GE_STENCILOP_ZERO;
+
+		if (!usesRef) {
+			// For 5551, we treat any non-zero value in the buffer as 255.  Only zero is treated as zero.
+			// See: https://github.com/hrydgard/ppsspp/pull/4150#issuecomment-26211193
+			switch (state.testFunc) {
+			case GE_COMP_NEVER:
+			case GE_COMP_ALWAYS:
+				// Fine as is.
+				break;
+			case GE_COMP_EQUAL:
+				if (state.testRef == 255) {
+					if (!usesRef) {
+						state.testFunc = GE_COMP_NOTEQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				} else if (state.testRef != 0) {
+					// This should never pass, regardless of buffer value.  Only 0 and 255 are directly equal.
+					state.testFunc = GE_COMP_NEVER;
+				}
+				break;
+			case GE_COMP_NOTEQUAL:
+				if (state.testRef == 255) {
+					if (!usesRef) {
+						state.testFunc = GE_COMP_EQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				} else if (state.testRef != 0) {
+					state.testFunc = GE_COMP_ALWAYS;
+				}
+				break;
+			case GE_COMP_LESS:
+				if (state.testRef == 255) {
+					state.testFunc = GE_COMP_NEVER;
+				} else {
+					if (!usesRef || state.testRef == 0) {
+						// Any non-zero value in the buffer should be treated as 255.
+						state.testFunc = GE_COMP_NOTEQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				}
+				break;
+			case GE_COMP_LEQUAL:
+				if (state.testRef == 0) {
+					state.testFunc = GE_COMP_ALWAYS;
+				} else {
+					if (!usesRef) {
+						// Everything but 0 in the buffer is "255", so only 0 doesn't match.
+						state.testFunc = GE_COMP_NOTEQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				}
+				break;
+			case GE_COMP_GREATER:
+				if (state.testRef > 0) {
+					if (!usesRef) {
+						// If we have a 1 in the buffer, it's the same as 255, which > can never match.
+						state.testFunc = GE_COMP_EQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				} else {
+					state.testFunc = GE_COMP_NEVER;
+				}
+				break;
+			case GE_COMP_GEQUAL:
+				if (state.testRef == 255) {
+					state.testFunc = GE_COMP_ALWAYS;
+				} else {
+					if (!usesRef || state.testRef == 0) {
+						// If the buffer is non-zero, we treat as 255.  So only 0 can match.
+						state.testFunc = GE_COMP_EQUAL;
+						state.testRef = 0;
+						state.testMask = 255;
+					}
+				}
+				break;
+			}
+		}
+		break;
+
+	default:
+		// Hard to do anything useful for 4444, and 8888 is fine.
+		break;
+	}
+}

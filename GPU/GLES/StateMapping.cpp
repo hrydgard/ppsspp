@@ -312,8 +312,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
 #ifndef MOBILE_DEVICE
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
 		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
 		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
 		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
@@ -338,21 +338,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
-		// Stencil Test
-		if (gstate.isStencilTestEnabled() && enableStencilTest) {
-			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
-				gstate.getStencilTestRef(),
-				gstate.getStencilTestMask());
-			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
-				stencilOps[gstate.getStencilOpZFail()],  // depth fail
-				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
 
-			if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
-				glstate.stencilMask.set(abits <= 0x7f ? 0xff : 0x00);
-			} else {
-				glstate.stencilMask.set(~abits);
-			}
+		// Stencil Test
+		if (stencilState.enabled) {
+			glstate.stencilTest.enable();
+			glstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+			glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+			glstate.stencilMask.set(stencilState.writeMask);
 		} else {
 			glstate.stencilTest.disable();
 		}
