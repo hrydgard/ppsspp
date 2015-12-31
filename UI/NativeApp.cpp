@@ -37,7 +37,6 @@
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
 #include "Windows/MainWindow.h"
-#include "Windows/GPU/D3D9Context.h"
 #endif
 
 #include "base/display.h"
@@ -68,6 +67,7 @@
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
