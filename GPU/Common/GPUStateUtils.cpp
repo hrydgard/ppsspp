@@ -1137,6 +1137,17 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	state.testMask = gstate.getStencilTestMask();
 
 	bool usesRef = state.sFail == GE_STENCILOP_REPLACE || state.zFail == GE_STENCILOP_REPLACE || state.zPass == GE_STENCILOP_REPLACE;
+	u8 maskedRef = state.testRef & state.testMask;
+
+	auto rewriteFunc = [&](GEComparison func, u8 ref, u8 mask = 0xFF) {
+		// We can only safely rewrite if it doesn't use the ref, or if the ref is the same.
+		if (!usesRef || maskedRef == ref) {
+			state.testFunc = func;
+			state.testRef = ref;
+			state.testMask = mask;
+		}
+	};
+
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
 		state.writeMask = 0;
@@ -1153,86 +1164,73 @@ void ConvertStencilFuncState(GenericStencilFuncState &state) {
 		if (state.zPass == GE_STENCILOP_DECR)
 			state.zPass = GE_STENCILOP_ZERO;
 
-		if (!usesRef) {
-			// For 5551, we treat any non-zero value in the buffer as 255.  Only zero is treated as zero.
-			// See: https://github.com/hrydgard/ppsspp/pull/4150#issuecomment-26211193
-			switch (state.testFunc) {
-			case GE_COMP_NEVER:
-			case GE_COMP_ALWAYS:
-				// Fine as is.
-				break;
-			case GE_COMP_EQUAL:
-				if (state.testRef == 255) {
-					if (!usesRef) {
-						state.testFunc = GE_COMP_NOTEQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				} else if (state.testRef != 0) {
-					// This should never pass, regardless of buffer value.  Only 0 and 255 are directly equal.
-					state.testFunc = GE_COMP_NEVER;
-				}
-				break;
-			case GE_COMP_NOTEQUAL:
-				if (state.testRef == 255) {
-					if (!usesRef) {
-						state.testFunc = GE_COMP_EQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				} else if (state.testRef != 0) {
-					state.testFunc = GE_COMP_ALWAYS;
-				}
-				break;
-			case GE_COMP_LESS:
-				if (state.testRef == 255) {
-					state.testFunc = GE_COMP_NEVER;
-				} else {
-					if (!usesRef || state.testRef == 0) {
-						// Any non-zero value in the buffer should be treated as 255.
-						state.testFunc = GE_COMP_NOTEQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				}
-				break;
-			case GE_COMP_LEQUAL:
-				if (state.testRef == 0) {
-					state.testFunc = GE_COMP_ALWAYS;
-				} else {
-					if (!usesRef) {
-						// Everything but 0 in the buffer is "255", so only 0 doesn't match.
-						state.testFunc = GE_COMP_NOTEQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				}
-				break;
-			case GE_COMP_GREATER:
-				if (state.testRef > 0) {
-					if (!usesRef) {
-						// If we have a 1 in the buffer, it's the same as 255, which > can never match.
-						state.testFunc = GE_COMP_EQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				} else {
-					state.testFunc = GE_COMP_NEVER;
-				}
-				break;
-			case GE_COMP_GEQUAL:
-				if (state.testRef == 255) {
-					state.testFunc = GE_COMP_ALWAYS;
-				} else {
-					if (!usesRef || state.testRef == 0) {
-						// If the buffer is non-zero, we treat as 255.  So only 0 can match.
-						state.testFunc = GE_COMP_EQUAL;
-						state.testRef = 0;
-						state.testMask = 255;
-					}
-				}
-				break;
+		// For 5551, we treat any non-zero value in the buffer as 255.  Only zero is treated as zero.
+		// See: https://github.com/hrydgard/ppsspp/pull/4150#issuecomment-26211193
+		switch (state.testFunc) {
+		case GE_COMP_NEVER:
+		case GE_COMP_ALWAYS:
+			// Fine as is.
+			break;
+		case GE_COMP_EQUAL: // maskedRef == maskedBuffer
+			if (maskedRef == 0) {
+				// Remove any mask, we might have bits less than 255 but that should not match.
+				rewriteFunc(GE_COMP_EQUAL, 0);
+			} else if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+				// Equal to 255, for our buffer, means not equal to zero.
+				rewriteFunc(GE_COMP_NOTEQUAL, 0);
+			} else {
+				// This should never pass, regardless of buffer value.  Only 0 and 255 are directly equal.
+				state.testFunc = GE_COMP_NEVER;
 			}
+			break;
+		case GE_COMP_NOTEQUAL: // maskedRef != maskedBuffer
+			if (maskedRef == 0) {
+				// Remove the mask, since our buffer might not be exactly 255.
+				rewriteFunc(GE_COMP_NOTEQUAL, 0);
+			} else if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+				// The only value != 255 is 0, in our buffer.
+				rewriteFunc(GE_COMP_EQUAL, 0);
+			} else {
+				// Every other value evaluates as not equal, always.
+				state.testFunc = GE_COMP_ALWAYS;
+			}
+			break;
+		case GE_COMP_LESS: // maskedRef < maskedBuffer
+			if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+				// No possible value is less than 255.
+				state.testFunc = GE_COMP_NEVER;
+			} else {
+				// "0 < (0 or 255)" and "254 < (0 or 255)" can only work for non zero.
+				rewriteFunc(GE_COMP_NOTEQUAL, 0);
+			}
+			break;
+		case GE_COMP_LEQUAL: // maskedRef <= maskedBuffer
+			if (maskedRef == 0) {
+				// 0 is <= every possible value.
+				state.testFunc = GE_COMP_ALWAYS;
+			} else {
+				// "1 <= (0 or 255)" and "255 <= (0 or 255)" simply mean, anything but zero.
+				rewriteFunc(GE_COMP_NOTEQUAL, 0);
+			}
+			break;
+		case GE_COMP_GREATER: // maskedRef > maskedBuffer
+			if (maskedRef > 0) {
+				// "1 > (0 or 255)" and "255 > (0 or 255)" can only match 0.
+				rewriteFunc(GE_COMP_EQUAL, 0);
+			} else {
+				// 0 is never greater than any possible value.
+				state.testFunc = GE_COMP_NEVER;
+			}
+			break;
+		case GE_COMP_GEQUAL: // maskedRef >= maskedBuffer
+			if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+				// 255 is >= every possible value.
+				state.testFunc = GE_COMP_ALWAYS;
+			} else {
+				// "0 >= (0 or 255)" and "254 >= "(0 or 255)" are the same, equal to zero.
+				rewriteFunc(GE_COMP_EQUAL, 0);
+			}
+			break;
 		}
 		break;
 
