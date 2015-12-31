@@ -55,6 +55,8 @@ namespace DX9 {
 
 // Changes more frequent than this will be considered "frequent" and prevent texture scaling.
 #define TEXCACHE_FRAME_CHANGE_FREQUENT 6
+// Note: only used when hash backoff is disabled.
+#define TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST 33
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
@@ -246,6 +248,13 @@ void TextureCacheDX9::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 				gpuStats.numTextureInvalidations++;
 				// Start it over from 0 (unless it's safe.)
 				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
+				if (type == GPU_INVALIDATE_SAFE) {
+					u32 diff = gpuStats.numFlips - iter->second.lastFrame;
+					// We still need to mark if the texture is frequently changing, even if it's safely changing.
+					if (diff < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+						iter->second.status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					}
+				}
 				iter->second.framesUntilNextFullHash = 0;
 			} else if (!iter->second.framebuffer) {
 				iter->second.invalidHint++;
@@ -768,8 +777,7 @@ static inline u32 MiniHash(const u32 *ptr) {
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheDX9::TexCacheEntry *entry) {
 	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-		h = std::max(272, (int)entry->maxSeenV);
+		h = (int)entry->maxSeenV;
 	}
 
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
@@ -945,7 +953,14 @@ void TextureCacheDX9::ApplyTexture() {
 			// Texture scale/offset and gen modes don't apply in through.
 			// So we can optimize how much of the texture we look at.
 			if (gstate.isModeThrough()) {
-				nextTexture_->maxSeenV = std::max(nextTexture_->maxSeenV, gstate_c.vertBounds.maxV);
+				if (nextTexture_->maxSeenV == 0) {
+					// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
+					nextTexture_->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
+				} else if (gstate_c.vertBounds.maxV > nextTexture_->maxSeenV) {
+					// The max height changed higher, so we're better off hashing the entire thing.
+					nextTexture_->maxSeenV = 512;
+					nextTexture_->status |= TexCacheEntry::STATUS_FREE_CHANGE;
+				}
 			} else {
 				// Otherwise, we need to reset to ensure we use the whole thing.
 				// Can't tell how much is used.
@@ -1251,12 +1266,16 @@ void TextureCacheDX9::SetTexture(bool force) {
 				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
-				} else if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-					// Reset to STATUS_HASHING.
+				} else {
 					if (g_Config.bTextureBackoffCache) {
-						entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+						if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+							// Reset to STATUS_HASHING.
+							entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+							entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+						}
+					} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
+						entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 					}
-					entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
 				}
 			}
 
@@ -1265,7 +1284,11 @@ void TextureCacheDX9::SetTexture(bool force) {
 				reason = "hash fail";
 				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-					entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
+						entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
+					} else {
+						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+					}
 				}
 				entry->numFrames = 0;
 
@@ -1458,15 +1481,25 @@ void TextureCacheDX9::SetTexture(bool force) {
 		scaleFactor = g_Config.iTexScalingLevel;
 	}
 
+	// Rachet down scale factor in low-memory mode.
+	if (lowMemoryMode_) {
+		// Keep it even, though, just in case of npot troubles.
+		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
+	}
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0) {
+		// Remember for later that we /wanted/ to scale this texture.
+		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
+		scaleFactor = 1;
+	}
 
-	if (scaleFactor != 1 && (entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+	if (scaleFactor != 1) {
 		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
-			// INFO_LOG(G3D, "Skipped scaling for now..");
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
 			texelsScaledThisFrame_ += w * h;
@@ -1489,7 +1522,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	}
 
 	// Mipmapping is only enabled when texture scaling is disabled.
-	if (maxLevel > 0 && g_Config.iTexScalingLevel == 1) {
+	if (maxLevel > 0 && scaleFactor == 1) {
 		for (u32 i = 1; i <= maxLevel; i++) {
 			LoadTextureLevel(*entry, i, maxLevel, replaceImages, scaleFactor, dstFmt);
 		}
@@ -1840,7 +1873,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxL
 			pool = D3DPOOL_DEFAULT;
 			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
 		}
-		int levels = g_Config.iTexScalingLevel == 1 ? maxLevel + 1 : 1;
+		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		HRESULT hr = pD3Ddevice->CreateTexture(w, h, levels, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &texture, NULL);
 		if (FAILED(hr)) {
 			INFO_LOG(G3D, "Failed to create D3D texture");
