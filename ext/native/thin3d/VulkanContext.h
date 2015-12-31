@@ -117,7 +117,7 @@ public:
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc);
+	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata = nullptr);
 	void DestroyDebugMsgCallback();
 
 	VkSemaphore acquireSemaphore;

@@ -155,23 +155,23 @@ void vk_transition_to_present(VkCommandBuffer cmd, VkImage image) {
 }
 
 void vk_transition_from_present(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier = {};
-	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	prePresentBarrier.pNext = NULL;
-	prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	prePresentBarrier.dstAccessMask = 0;
-	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	prePresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	prePresentBarrier.subresourceRange.baseMipLevel = 0;
-	prePresentBarrier.subresourceRange.levelCount = 1;
-	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
-	prePresentBarrier.subresourceRange.layerCount = 1;
-	prePresentBarrier.image = image;
+	VkImageMemoryBarrier postPresentBarrier = {};
+	postPresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	postPresentBarrier.pNext = NULL;
+	postPresentBarrier.srcAccessMask = 0;
+	postPresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	postPresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	postPresentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	postPresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	postPresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	postPresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	postPresentBarrier.subresourceRange.baseMipLevel = 0;
+	postPresentBarrier.subresourceRange.levelCount = 1;
+	postPresentBarrier.subresourceRange.baseArrayLayer = 0;
+	postPresentBarrier.subresourceRange.layerCount = 1;
+	postPresentBarrier.image = image;
 	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
+		0, 0, nullptr, 0, nullptr, 1, &postPresentBarrier);
 }
 
 VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[2]) {
@@ -193,16 +193,16 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 		NULL,
 		&current_buffer);
 
+	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
+	// return codes
+	assert(res == VK_SUCCESS);
+
 	VkCommandBufferBeginInfo begin;
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin.pNext = NULL;
 	begin.flags = 0;
 	begin.pInheritanceInfo = nullptr;
 	vkBeginCommandBuffer(cmd_, &begin);
-
-	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
-	// return codes
-	assert(res == VK_SUCCESS);
 
 	vk_transition_from_present(cmd_, swapChainBuffers[current_buffer].image);
 
@@ -598,7 +598,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   return res;
 }
 
-VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc) {
+VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata) {
 	VkResult res;
 	VkDebugReportCallbackEXT msg_callback;
 
@@ -618,9 +618,9 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	VkDebugReportCallbackCreateInfoEXT cb;
 	cb.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	cb.pNext = nullptr;
-	cb.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
+	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
-	cb.pUserData = NULL;
+	cb.pUserData = userdata;
 	res = dbgCreateMsgCallback(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
@@ -1427,6 +1427,10 @@ void TransitionImageLayout(
 	image_memory_barrier.subresourceRange.levelCount = 1;
 	image_memory_barrier.subresourceRange.layerCount = 1;
 
+	if (old_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+		image_memory_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+	}
+
 	if (old_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 		image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	}
@@ -1443,11 +1447,11 @@ void TransitionImageLayout(
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-		image_memory_barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 	}
 
 	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
