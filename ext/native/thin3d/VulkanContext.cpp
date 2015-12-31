@@ -1134,10 +1134,10 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h) {
 
 	/* Create a mappable image.  It will be the texture if linear images are ok to be textures */
 	/* or it will be the staging image if they are not.                                        */
-	VkResult res = vkCreateImage(vulkan->Device(), &image_create_info, NULL, &mappableImage);
+	VkResult res = vkCreateImage(vulkan->GetDevice(), &image_create_info, NULL, &mappableImage);
 	assert(res == VK_SUCCESS);
 
-	vkGetImageMemoryRequirements(vulkan->Device(), mappableImage, &mem_reqs);
+	vkGetImageMemoryRequirements(vulkan->GetDevice(), mappableImage, &mem_reqs);
 	assert(res == VK_SUCCESS);
 
 	mem_alloc.allocationSize = mem_reqs.size;
@@ -1146,10 +1146,10 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h) {
 	pass = vulkan->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &mem_alloc.memoryTypeIndex);
 	assert(pass);
 
-	res = vkAllocateMemory(vulkan->Device(), &mem_alloc, NULL, &(mappableMemory));
+	res = vkAllocateMemory(vulkan->GetDevice(), &mem_alloc, NULL, &(mappableMemory));
 	assert(res == VK_SUCCESS);
 
-	res = vkBindImageMemory(vulkan->Device(), mappableImage, mappableMemory, 0);
+	res = vkBindImageMemory(vulkan->GetDevice(), mappableImage, mappableMemory, 0);
 	assert(res == VK_SUCCESS);
 }
 
@@ -1627,4 +1627,37 @@ void init_glslang() {
 
 void finalize_glslang() {
 	glslang::FinalizeProcess();
+}
+
+const char *VulkanResultToString(VkResult res) {
+	switch (res) {
+	case VK_NOT_READY: return "VK_NOT_READY";
+	case VK_TIMEOUT: return "VK_TIMEOUT";
+	case VK_EVENT_SET: return "VK_EVENT_SET";
+	case VK_EVENT_RESET: return "VK_EVENT_RESET";
+	case VK_INCOMPLETE: return "VK_INCOMPLETE";
+	case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
+	case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+	case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
+	case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
+	case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
+	case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
+	case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
+	case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
+	case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
+	case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
+	case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+	case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
+	case VK_SUBOPTIMAL_KHR: return "VK_SUBOPTIMAL_KHR";
+	case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
+	case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+	case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+	default:
+		return "Unknown";
+	}
+}
+
+void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line) {
+	const char *error = "(none)";
+
 }

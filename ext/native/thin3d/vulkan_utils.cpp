@@ -40,28 +40,7 @@
 
 #include "thin3d/vulkan_utils.h"
 
-void VulkanDeviceMemoryManager::Init(VkPhysicalDevice gpu) {
-	// Get Memory information and properties
-	vkGetPhysicalDeviceMemoryProperties(gpu, &memory_properties_);
-}
-
-VkResult VulkanDeviceMemoryManager::memory_type_from_properties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex) {
-	// Search memtypes to find first index with those properties
-	for (uint32_t i = 0; i < 32; i++) {
-		if ((typeBits & 1) == 1) {
-			// Type is available, does it match user properties?
-			if ((memory_properties_.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
-				*typeIndex = i;
-				return VK_SUCCESS;
-			}
-		}
-		typeBits >>= 1;
-	}
-	// No memory types matched, return failure
-	return VK_ERROR_FORMAT_NOT_SUPPORTED;
-}
-
-void VulkanImage::Create2D(VkDevice device, VulkanDeviceMemoryManager *memMan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height) {
+void VulkanImage::Create2D(VkDevice device, VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height) {
 	width_ = width;
 	height_ = height;
 
@@ -94,8 +73,8 @@ void VulkanImage::Create2D(VkDevice device, VulkanDeviceMemoryManager *memMan, V
 	mem_alloc_.allocationSize = mem_reqs.size;
 	mem_alloc_.memoryTypeIndex = 0;
 
-	err = memMan->memory_type_from_properties(mem_reqs.memoryTypeBits, required_props, &mem_alloc_.memoryTypeIndex);
-	assert(!err);
+	bool res = vulkan->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, required_props, &mem_alloc_.memoryTypeIndex);
+	assert(res);
 
 	err = vkAllocateMemory(device, &mem_alloc_, nullptr, &memory_);
 	assert(!err);
