@@ -863,7 +863,7 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
-static void DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
 	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 
@@ -875,86 +875,70 @@ static void DisplayWaitForVblanks(const char *reason, int vblanks, bool callback
 
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
+
+	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
 }
 
-static void DisplayWaitForVblanksCB(const char *reason, int vblanks) {
-	DisplayWaitForVblanks(reason, vblanks, true);
+static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
+	return DisplayWaitForVblanks(reason, vblanks, true);
 }
 
 static u32 sceDisplayWaitVblankStart() {
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStart()");
-	DisplayWaitForVblanks("vblank start waited", 1);
-	return 0;
+	return DisplayWaitForVblanks("vblank start waited", 1);
 }
 
 static u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
-		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblank()");
-		DisplayWaitForVblanks("vblank waited", 1);
-		return 0;
+		return DisplayWaitForVblanks("vblank waited", 1);
 	} else {
-		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblank() - not waiting since in vBlank");
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
-		return 1;
+		return hleLogSuccessI(SCEDISPLAY, 1, "not waiting since in vblank");
 	}
 }
 
 static u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (vblanks <= 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
-	VERBOSE_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMulti(%d)", vblanks);
 	if (!__KernelIsDispatchEnabled())
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
-	DisplayWaitForVblanks("vblank start multi waited", vblanks);
-	return 0;
+	return DisplayWaitForVblanks("vblank start multi waited", vblanks);
 }
 
 static u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
-		VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB()");
-		DisplayWaitForVblanksCB("vblank waited", 1);
-		return 0;
+		return DisplayWaitForVblanksCB("vblank waited", 1);
 	} else {
-		DEBUG_LOG(SCEDISPLAY,"sceDisplayWaitVblankCB() - not waiting since in vBlank");
 		hleEatCycles(1110);
 		hleReSchedule("vblank wait skipped");
-		return 1;
+		return hleLogSuccessI(SCEDISPLAY, 1, "not waiting since in vblank");
 	}
 }
 
 static u32 sceDisplayWaitVblankStartCB() {
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartCB()");
-	DisplayWaitForVblanksCB("vblank start waited", 1);
-	return 0;
+	return DisplayWaitForVblanksCB("vblank start waited", 1);
 }
 
 static u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (vblanks <= 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid number of vblanks");
 	}
-	VERBOSE_LOG(SCEDISPLAY,"sceDisplayWaitVblankStartMultiCB(%d)", vblanks);
 	if (!__KernelIsDispatchEnabled())
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	if (__IsInInterrupt())
-		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 
-	DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
-	return 0;
+	return DisplayWaitForVblanksCB("vblank start multi waited", vblanks);
 }
 
 static u32 sceDisplayGetVcount() {
-	VERBOSE_LOG(SCEDISPLAY,"%i=sceDisplayGetVcount()", vCount);
-
 	hleEatCycles(150);
 	hleReSchedule("get vcount");
-	return vCount;
+	return hleLogSuccessVerboseI(SCEDISPLAY, vCount);
 }
 
 static u32 __DisplayGetCurrentHcount() {
@@ -971,16 +955,13 @@ static u32 __DisplayGetAccumulatedHcount() {
 }
 
 static u32 sceDisplayGetCurrentHcount() {
-	u32 currentHCount = __DisplayGetCurrentHcount();
-	DEBUG_LOG(SCEDISPLAY, "%i=sceDisplayGetCurrentHcount()", currentHCount);
 	hleEatCycles(275);
-	return currentHCount;
+	return hleLogSuccessI(SCEDISPLAY, __DisplayGetCurrentHcount());
 }
 
 static int sceDisplayAdjustAccumulatedHcount(int value) {
 	if (value < 0) {
-		ERROR_LOG_REPORT(SCEDISPLAY, "sceDisplayAdjustAccumulatedHcount(%d): invalid value", value);
-		return SCE_KERNEL_ERROR_INVALID_VALUE;
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid value");
 	}
 
 	// Since it includes the current hCount, find the difference to apply to the base.
@@ -988,8 +969,7 @@ static int sceDisplayAdjustAccumulatedHcount(int value) {
 	int diff = value - accumHCount;
 	hCountBase += diff;
 
-	DEBUG_LOG(SCEDISPLAY, "sceDisplayAdjustAccumulatedHcount(%d)", value);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 static int sceDisplayGetAccumulatedHcount() {
