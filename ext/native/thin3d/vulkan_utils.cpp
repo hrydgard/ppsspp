@@ -40,7 +40,8 @@
 
 #include "thin3d/vulkan_utils.h"
 
-void VulkanImage::Create2D(VkDevice device, VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height) {
+void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height) {
+	VkDevice device = vulkan->GetDevice();
 	width_ = width;
 	height_ = height;
 
