@@ -780,16 +780,14 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
-	FrameBufferState fbstate;
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
-	hleEatCycles(290);
-	if (topaddr == 0) {
-		DEBUG_LOG(SCEDISPLAY,"- screen off");
-	} else {
+	FrameBufferState fbstate = {0};
+	if (topaddr != 0) {
 		fbstate.topaddr = topaddr;
 		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
 	}
+
+	hleEatCycles(290);
 
 	s64 delayCycles = 0;
 	if (topaddr != framebuf.topaddr && g_Config.iForceMaxEmulatedFPS > 0) {
@@ -818,13 +816,9 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
-		if (topaddr != 0) {
-			framebuf = fbstate;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		} else {
-			WARN_LOG(SCEDISPLAY, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
-		}
-	} else if (topaddr != 0) {
+		framebuf = fbstate;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+	} else {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
@@ -834,19 +828,23 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
 		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
 		// So, instead, we delay this HLE thread only (a small deviation from correct behavior.)
-		return hleDelayResult(0, "set framebuf", cyclesToUs(delayCycles));
+		return hleDelayResult(hleLogSuccessI(SCEDISPLAY, 0, "delaying frame thread"), "set framebuf", cyclesToUs(delayCycles));
 	} else {
-		return 0;
+		if (topaddr == 0) {
+			return hleLogSuccessI(SCEDISPLAY, 0, "disabling display");
+		} else {
+			return hleLogSuccessI(SCEDISPLAY, 0);
+		}
 	}
 }
 
 bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
-	if (topaddr != NULL)
+	if (topaddr != nullptr)
 		*topaddr = Memory::GetPointer(fbState.topaddr);
-	if (linesize != NULL)
+	if (linesize != nullptr)
 		*linesize = fbState.pspFramebufLinesize;
-	if (pixelFormat != NULL)
+	if (pixelFormat != nullptr)
 		*pixelFormat = fbState.pspFramebufFormat;
 
 	return true;
@@ -854,7 +852,6 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int lat
 
 static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == 1 && framebufIsLatched ? latchedFramebuf : framebuf;
-	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, latchedMode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
@@ -863,7 +860,7 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 	if (Memory::IsValidAddress(pixelFormatPtr))
 		Memory::Write_U32(fbState.pspFramebufFormat, pixelFormatPtr);
 
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 static void DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
@@ -1067,7 +1064,7 @@ static u32 sceDisplaySetHoldMode(u32 hMode) {
 const HLEFunction sceDisplay[] = {
 	{0X0E20F177, &WrapU_III<sceDisplaySetMode>,               "sceDisplaySetMode",                 'x', "iii" },
 	{0X289D82FE, &WrapU_UIII<sceDisplaySetFramebuf>,          "sceDisplaySetFrameBuf",             'x', "xiii"},
-	{0XEEDA2E54, &WrapU_UUUI<sceDisplayGetFramebuf>,          "sceDisplayGetFrameBuf",             'x', "xxxi"},
+	{0XEEDA2E54, &WrapU_UUUI<sceDisplayGetFramebuf>,          "sceDisplayGetFrameBuf",             'x', "pppi"},
 	{0X36CDFADE, &WrapU_V<sceDisplayWaitVblank>,              "sceDisplayWaitVblank",              'x', "",   HLE_NOT_DISPATCH_SUSPENDED },
 	{0X984C27E7, &WrapU_V<sceDisplayWaitVblankStart>,         "sceDisplayWaitVblankStart",         'x', "",   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 	{0X40F1469C, &WrapU_I<sceDisplayWaitVblankStartMulti>,    "sceDisplayWaitVblankStartMulti",    'x', "i"   },
