@@ -1693,7 +1693,7 @@ GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutF
 	}
 }
 
-void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int *bufwout) {
+void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int scaleFactor, int *bufwout) {
 	void *finalBuf = NULL;
 
 	u32 texaddr = gstate.getTextureAddress(level);
@@ -1810,7 +1810,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_8888:
 		if (!swizzled) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if ((g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
+			if ((scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
 				if (UseBGRA8888()) {
 					tmpTexBuf32.resize(std::max(bufw, w) * h);
 					finalBuf = tmpTexBuf32.data();
@@ -1903,7 +1903,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
+	if (!(scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -1973,7 +1973,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 
 	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	int bufw;
-	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
+	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
 	if (finalBuf == NULL) {
 		return;
 	}
@@ -2065,7 +2065,7 @@ bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt);
+	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt, 1);
 	if (finalBuf == NULL) {
 		return false;
 	}
