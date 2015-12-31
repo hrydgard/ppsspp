@@ -135,6 +135,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 
+	init_glslang();
+
 	g_Vulkan = new VulkanContext("PPSSPP", VULKAN_FLAG_VALIDATE);
 	g_Vulkan->CreateDevice(0);
 	g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg);
@@ -157,6 +159,8 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->DestroyDevice();
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
+
+	finalize_glslang();
 }
 
 Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {

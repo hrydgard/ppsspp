@@ -114,7 +114,7 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 // their own similar buffer solutions.
 class VulkanPushBuffer {
 public:
-	VulkanPushBuffer(VkDevice device, VulkanDeviceMemoryManager *memMan, size_t size) : offset_(0), size_(size), writePtr_(nullptr) {
+	VulkanPushBuffer(VkDevice device, VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr) {
 		VkBufferCreateInfo b;
 		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		b.pNext = nullptr;
@@ -131,7 +131,7 @@ public:
 		VkMemoryAllocateInfo alloc;
 		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		alloc.pNext = nullptr;
-		memMan->memory_type_from_properties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
+		vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
 		alloc.allocationSize = size;
 
 		res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
@@ -504,8 +504,6 @@ private:
 
 	VulkanContext *vulkan_;
 
-	VulkanDeviceMemoryManager vulkanMem_;
-
 	// These are used to compose the pipeline cache key.
 	Thin3DVKBlendState *curBlendState_;
 	Thin3DVKDepthStencilState *curDepthStencilState_;
@@ -593,10 +591,10 @@ enum class TextureState {
 
 class Thin3DVKTexture : public Thin3DTexture {
 public:
-	Thin3DVKTexture(VkDevice device, VulkanDeviceMemoryManager *memMan) : device_(device), memMan_(memMan), state_(TextureState::UNINITIALIZED) {
+	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), state_(TextureState::UNINITIALIZED) {
 	}
-	Thin3DVKTexture(VkDevice device, VulkanDeviceMemoryManager *memMan, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
-		: device_(device), memMan_(memMan), format_(format), mipLevels_(mipLevels) {
+	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
+		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
 	}
 
@@ -631,7 +629,7 @@ public:
 	VkImageView GetImageView() { return view_; }
 
 private:
-	VulkanDeviceMemoryManager *memMan_;
+	VulkanContext *vulkan_;
 	VkDevice device_;
 	VulkanImage image_;
 	VulkanImage staging_;
@@ -645,8 +643,8 @@ private:
 };
 
 Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
-	: viewportDirty_(false), scissorDirty_(false) {
-	device_ = vulkan->Device();
+	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan) {
+	device_ = vulkan->GetDevice();
 
 	noScissor_.offset.x = 0;
 	noScissor_.offset.y = 0;
@@ -655,8 +653,6 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 
 	memset(boundTextures_, 0, sizeof(boundTextures_));
 	CreatePresets();
-
-	vulkanMem_.Init(vulkan->GetPhysicalDevice());
 
 	VkSamplerCreateInfo info;
 	memset(&info, 0, sizeof(info));
@@ -694,8 +690,8 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	res = vkCreateDescriptorPool(device_, &dp, nullptr, &descriptorPool_);
 	assert(VK_SUCCESS == res);
-	pushBuffer_[0] = new VulkanPushBuffer(device_, &vulkanMem_, 1024 * 1024);
-	pushBuffer_[1] = new VulkanPushBuffer(device_, &vulkanMem_, 1024 * 1024);
+	pushBuffer_[0] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
+	pushBuffer_[1] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
 
 	// binding 0 - vertex data
 	// binding 1 - uniform data
@@ -1091,11 +1087,11 @@ Thin3DVertexFormat *Thin3DVKContext::CreateVertexFormat(const std::vector<Thin3D
 }
 
 Thin3DTexture *Thin3DVKContext::CreateTexture() {
-	return new Thin3DVKTexture(device_, &vulkanMem_);
+	return new Thin3DVKTexture(vulkan_);
 }
 
 Thin3DTexture *Thin3DVKContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
-	return new Thin3DVKTexture(device_, &vulkanMem_, type, format, width, height, depth, mipLevels);
+	return new Thin3DVKTexture(vulkan_, type, format, width, height, depth, mipLevels);
 }
 
 void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
@@ -1105,8 +1101,8 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	// So we need to do a staging copy. We upload the data to the staging buffer immediately, then we actually do the final copy once it's used the first time
 	// as we need a command buffer and the architecture of Thin3D doesn't really work the way we want.. 
 	if (!image_.IsValid()) {
-		staging_.Create2D(device_, memMan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
-		image_.Create2D(device_, memMan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
+		staging_.Create2D(device_, vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
+		image_.Create2D(device_, vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
 	}
 
 	VkImageViewCreateInfo iv;
