@@ -71,7 +71,7 @@ public:
 
 	VkResult CreateDevice(int physical_device);
 
-	VkDevice Device() {
+	VkDevice GetDevice() {
 		return device_;
 	}
 
@@ -273,6 +273,11 @@ void TransitionImageLayout(
 	VkImageAspectFlags aspectMask,
 	VkImageLayout old_image_layout,
 	VkImageLayout new_image_layout);
+
+void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line);
+
+// DO NOT call vulkan functions within this! Instead, store the result in a variable and check that.
+#define VulkanAssert(x) if ((x) != VK_SUCCESS) VulkanAssertImpl((x), __FUNCTION__, __FILE__, __LINE__);
 
 #endif // UTIL_INIT
 
