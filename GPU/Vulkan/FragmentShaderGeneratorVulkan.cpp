@@ -44,6 +44,29 @@
 
 // #define DEBUG_SHADER
 
+// TODO: Which binding number?
+static const char *vulkan_uniform_buffer = R"(
+layout(set=0, binding=3) uniform constants {
+	// Blend function replacement
+	vec3 u_blendFixA;
+	vec3 u_blendFixB;
+
+	// Texture clamp emulation
+	vec4 u_texclamp;
+	vec2 u_texclampoff;
+
+	// Alpha/Color test emulation
+	vec4 u_alphacolorref;
+	ivec4 u_alphacolormask;
+
+	// Stencil replacement
+	float u_stencilReplaceValue;
+	vec3 u_texenv;
+
+	vec3 u_fogcolor;
+)";
+
+
 // Missing: Z depth range
 bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	char *p = buffer;
@@ -87,10 +110,13 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
 	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
 	GEBlendMode replaceBlendEq = (GEBlendMode)id.Bits(FS_BIT_BLENDEQ, 3);
+	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = doFlatShading ? "flat" : "";
+
+	WRITE(p, "%s\n", vulkan_uniform_buffer);
 
 	if (doTexture) {
 		WRITE(p, "layout (binding = 1) uniform sampler2D tex;\n");
@@ -100,37 +126,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 			WRITE(p, "layout (binding = 2) uniform sampler2D fbotex;\n");
 		}
-		if (replaceBlendFuncA == GE_SRCBLEND_FIXA) {
-			WRITE(p, "uniform vec3 u_blendFixA;\n");
-		}
-		if (replaceBlendFuncB == GE_DSTBLEND_FIXB) {
-			WRITE(p, "uniform vec3 u_blendFixB;\n");
-		}
-	}
-
-	if (needShaderTexClamp && doTexture) {
-		WRITE(p, "uniform vec4 u_texclamp;\n");
-		if (id.Bit(FS_BIT_TEXTURE_AT_OFFSET)) {
-			WRITE(p, "uniform vec2 u_texclampoff;\n");
-		}
-	}
-
-	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "uniform vec4 u_alphacolorref;\n");
-		if (((enableColorTest && !colorTestAgainstZero) || (enableAlphaTest && !alphaTestAgainstZero))) {
-			WRITE(p, "uniform ivec4 u_alphacolormask;\n");
-		}
-	}
-
-	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
-	if (stencilToAlpha && replaceAlphaWithStencilType == STENCIL_VALUE_UNIFORM) {
-		WRITE(p, "uniform float u_stencilReplaceValue;\n");
-	}
-	if (doTexture && texFunc == GE_TEXFUNC_BLEND)
-		WRITE(p, "uniform vec3 u_texenv;\n");
-
-	if (enableFog) {
-		WRITE(p, "uniform vec3 u_fogcolor;\n");
 	}
 
 	WRITE(p, "layout (location = 1) %s in vec4 v_color0;\n", shading);
