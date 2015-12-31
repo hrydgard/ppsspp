@@ -32,7 +32,7 @@ public:
 
 	bool IsValid() const { return image_ != nullptr; }
 	// This can be done completely unsynchronized.
-	void Create2D(VkDevice device, VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height);
+	void Create2D(VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height);
 
 	// This can only be used if you pass in VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT in required_props in Create2D.
 	void SetImageData2D(VkDevice device, const uint8_t *data, int width, int height, int pitch);
