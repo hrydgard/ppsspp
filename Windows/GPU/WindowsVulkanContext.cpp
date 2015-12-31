@@ -56,8 +56,15 @@
 #include "thin3d/thin3d.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 
-const bool g_validate_ = true;
-VulkanContext *g_Vulkan;
+static const bool g_validate_ = true;
+static VulkanContext *g_Vulkan;
+
+struct VulkanLogOptions {
+	bool breakOnWarning;
+	bool breakOnError;
+	bool msgBoxOnError;
+};
+static VulkanLogOptions g_LogOptions;
 
 const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	switch (type) {
@@ -92,7 +99,8 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	}
 }
 
-static VkBool32 Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
+static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
+	VulkanLogOptions *options = (VulkanLogOptions *)pUserData;
 	std::ostringstream message;
 
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
@@ -112,8 +120,16 @@ static VkBool32 Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTy
 	OutputDebugStringA(message.str().c_str());
 	OutputDebugStringA("\n");
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		// MessageBox(NULL, message.str().c_str(), "Alert", MB_OK);
-	} else {
+		if (options->breakOnError) {
+			DebugBreak();
+		}
+		if (options->msgBoxOnError) {
+			MessageBoxA(NULL, message.str().c_str(), "Alert", MB_OK);
+		}
+	} else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
+		if (options->breakOnWarning) {
+			DebugBreak();
+		}
 	}
 #else
 	std::cout << message << std::endl;
@@ -137,9 +153,16 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	init_glslang();
 
-	g_Vulkan = new VulkanContext("PPSSPP", VULKAN_FLAG_VALIDATE);
+	g_LogOptions.breakOnError = true;
+	g_LogOptions.breakOnWarning = true;
+	g_LogOptions.msgBoxOnError = false;
+
+	g_Vulkan = new VulkanContext("PPSSPP", g_validate_ ? VULKAN_FLAG_VALIDATE : 0);
 	g_Vulkan->CreateDevice(0);
-	g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg);
+	if (g_validate_) {
+		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
+	}
 	g_Vulkan->InitObjects(hInst, hWnd, true);
 
 	_CrtCheckMemory();
