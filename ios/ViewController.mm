@@ -18,6 +18,7 @@
 #include "input/keycodes.h"
 
 #include "Core/Config.h"
+#include "Common/GraphicsContext.h"
 #include "GPU/GLES/FBO.h"
 
 #include <sys/types.h>
@@ -46,6 +47,7 @@ extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
 
 ViewController* sharedViewController;
+static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
 {
@@ -177,6 +179,8 @@ ViewController* sharedViewController;
 
 	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
+	graphicsContext = new DummyGraphicsContext();
+
 	NativeInitGraphics();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
@@ -222,7 +226,10 @@ ViewController* sharedViewController;
 		self.gameController = nil;
 	}
 #endif
-	
+	NativeShutdownGraphics();
+	graphicsContext->Shutdown();
+	delete graphicsContext;
+	graphicsContext = NULL;
 	NativeShutdown();
 }
 
@@ -247,7 +254,7 @@ ViewController* sharedViewController;
 		EndInputState(&input_state);
 	}
 
-	NativeRender(NULL);
+	NativeRender(graphicsContext);
 	time_update();
 }
 
