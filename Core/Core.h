@@ -27,6 +27,8 @@ void UpdateRunLoop();
 void Core_Run(GraphicsContext *ctx);
 void Core_Stop();
 void Core_ErrorPause();
+// For platforms that don't call Core_Run
+void Core_SetGraphicsContext(GraphicsContext *ctx);
 // called from gui
 void Core_EnableStepping(bool step);
 void Core_DoSingleStep();

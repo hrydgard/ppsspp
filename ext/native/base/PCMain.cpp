@@ -46,6 +46,13 @@ SDLJoystick *joystick = NULL;
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
 
+class GLDummyGraphicsContext : public DummyGraphicsContext {
+public:
+	Thin3DContext *CreateThin3DContext() override {
+		return T3DCreateGLContext();
+	}
+};
+
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
 
@@ -619,7 +626,7 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	GraphicsContext *graphicsContext = new DummyGraphicsContext();
+	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	NativeInitGraphics(graphicsContext);
 
 	NativeResized();
@@ -851,12 +858,7 @@ int main(int argc, char *argv[]) {
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
-#ifdef PPSSPP
 		UpdateRunLoop();
-#else
-		NativeUpdate(input_state);
-		NativeRender(graphicsContext);
-#endif
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)

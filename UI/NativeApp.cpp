@@ -507,6 +507,7 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	Core_SetGraphicsContext(graphicsContext);
 	thin3d = graphicsContext->CreateThin3DContext();
 
 	ui_draw2d.SetAtlas(&ui_atlas);

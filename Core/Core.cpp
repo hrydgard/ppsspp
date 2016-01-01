@@ -58,6 +58,10 @@ static GraphicsContext *graphicsContext;
 
 extern InputState input_state;
 
+void Core_SetGraphicsContext(GraphicsContext *ctx) {
+  graphicsContext = ctx;
+}
+
 void Core_NotifyWindowHidden(bool hidden) {
 	windowHidden = hidden;
 	// TODO: Wait until we can react?
@@ -314,9 +318,7 @@ reswitch:
 			return;
 		}
 	}
-
 }
-
 
 void Core_EnableStepping(bool step) {
 	if (step) {
