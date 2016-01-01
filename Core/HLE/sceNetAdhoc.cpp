@@ -82,6 +82,9 @@ void __NetAdhocShutdown() {
 		sceNetAdhocctlTerm();
 	}
 	if (netAdhocInited) {
+		// Should not really call HLE funcs from shutdown.
+		// Prevent attempting to delete the thread, already deleted by shutdown.
+		threadAdhocID = 0;
 		sceNetAdhocTerm();
 	}
 	if (dummyThreadHackAddr) {
