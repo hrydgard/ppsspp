@@ -20,4 +20,15 @@ public:
 	void Resize() override;
 
 	Thin3DContext *CreateThin3DContext() override;
+
+private:
+	HDC hDC;     // Private GDI Device Context
+	HGLRC hRC;   // Permanent Rendering Context
+	HWND hWnd;   // Holds Our Window Handle
+	volatile bool pauseRequested;
+	volatile bool resumeRequested;
+	HANDLE pauseEvent;
+	HANDLE resumeEvent;
+
+	int xres, yres;
 };

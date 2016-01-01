@@ -83,9 +83,7 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-#ifndef _WIN32
 InputState input_state;
-#endif
 
 int printUsage(const char *progname, const char *reason)
 {

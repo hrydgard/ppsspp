@@ -31,16 +31,6 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/GPU/WindowsGLContext.h"
 
-static HDC hDC;     // Private GDI Device Context
-static HGLRC hRC;   // Permanent Rendering Context
-static HWND hWnd;   // Holds Our Window Handle
-static volatile bool pauseRequested;
-static volatile bool resumeRequested;
-static HANDLE pauseEvent;
-static HANDLE resumeEvent;
-
-static int xres, yres;
-
 void WindowsGLContext::SwapBuffers() {
 	::SwapBuffers(hDC);
 

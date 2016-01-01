@@ -4,7 +4,9 @@
 #include "base/NativeApp.h"
 #include "base/mutex.h"
 #include "i18n/i18n.h"
+#include "input/input_state.h"
 #include "util/text/utf8.h"
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "../Globals.h"
@@ -28,6 +30,8 @@
 static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
+
+InputState input_state;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 

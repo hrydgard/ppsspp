@@ -87,6 +87,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 		return false;
 	}
 	gl->MakeCurrent();
+	return true;
 }
 
 void AndroidEGLGraphicsContext::Shutdown() {
@@ -134,10 +135,10 @@ static int desiredBackbufferSizeY;
 static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
-bool renderLoopRunning;
+static bool renderLoopRunning;
 
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
+static float dp_xscale = 1.0f;
+static float dp_yscale = 1.0f;
 
 InputState input_state;
 

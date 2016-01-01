@@ -56,11 +56,7 @@ static double lastActivity = 0.0;
 static double lastKeepAwake = 0.0;
 static GraphicsContext *graphicsContext;
 
-#ifdef _WIN32
-InputState input_state;
-#else
 extern InputState input_state;
-#endif
 
 void Core_NotifyWindowHidden(bool hidden) {
 	windowHidden = hidden;
