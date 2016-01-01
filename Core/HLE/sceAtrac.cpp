@@ -735,7 +735,6 @@ int Atrac::Analyze() {
 					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 				}
 				if (chunkSize >= 12) {
-					firstSampleoffset = Memory::Read_U32(first.addr + offset + 4);
 					u32 largerOffset = Memory::Read_U32(first.addr + offset + 8);
 					sampleOffsetAdjust = firstSampleoffset - largerOffset;
 				}
