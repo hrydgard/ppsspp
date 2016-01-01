@@ -45,6 +45,27 @@
 //   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
 //   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
+//
+// This buffer is generally filled by sceAtracAddStreamData, and where to fill it is given by
+// either sceAtracGetStreamDataInfo when continuing to move forwards in the stream of audio data,
+// or sceAtracGetBufferInfoForResetting when seeking to a specific location in the audio stream.
+//
+// State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
+// To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
+// the buffer it will call sceAtracSetSecondBuffer.
+//
+// Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
+// ultimately this will share the same buffer - it's just offset a bit more.
+//
+// Low level decoding doesn't use the buffer, and decodes only a single packet at a time.
+//
+// Lastly, sceSas has some integration with sceAtrac, which allows setting an Atrac id as
+// a voice for an SAS core.  In this mode, the game will directly modify some of the AtracContext,
+// but will largely only interact using sceSas.
+//
+// Note that this buffer is THE view of the audio stream.  On a PSP, the firmware does not manage
+// any cache or separate version of the buffer - at most it manages decode state from earlier in
+// the buffer.
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
@@ -928,12 +949,10 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	return 0;
 }
 
-// PSP allow games to add stream data to a temp buf, the buf size is given by "atracBufSize "here.
-// "first.offset" means how many bytes the temp buf has been written,
-// and "first.writableBytes" means how many bytes the temp buf is allowed to write
-// (We always have "first.offset + first.writableBytes = atracBufSize").
-// We only reset the temp buf when games call sceAtracGetStreamDataInfo,
-// because that function would tell games how to add the left stream data.
+// Notifies that more data is (OR will be very soon) available in the buffer.
+// This implies it has been added to whatever position sceAtracGetStreamDataInfo would indicate.
+//
+// The total size of the buffer is atracBufSize.
 static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
