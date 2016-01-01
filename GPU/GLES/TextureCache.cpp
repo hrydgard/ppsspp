@@ -729,13 +729,8 @@ void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, b
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
-			if ((clut[i] & 0xf) != i) {
-				clutAlphaLinear_ = false;
-				break;
-			}
-			// Alpha 0 doesn't matter. 
-			// TODO: Well, depending on blend mode etc, it can actually matter, although unlikely.
-			if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
+			u16 step = clutAlphaLinearColor_ | i;
+			if (clut[i] != step) {
 				clutAlphaLinear_ = false;
 				break;
 			}
