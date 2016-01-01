@@ -405,15 +405,14 @@ struct Atrac {
 		int seekFrame = sample + offsetSamples - unalignedSamples;
 
 #ifdef USE_FFMPEG
-		if (sample != currentSample && pCodecCtx != nullptr) {
-			avcodec_flush_buffers(pCodecCtx);
-		}
-
-		if (sample == 0 && pCodecCtx != nullptr) {
+		if ((sample != currentSample || sample == 0) && pCodecCtx != nullptr) {
 			// Prefill the decode buffer with packets before the first sample offset.
 			avcodec_flush_buffers(pCodecCtx);
-			u32 off = getFileOffsetBySample(sample);
-			for (u32 pos = dataOff; pos < off; pos += atracBytesPerFrame) {
+
+			const u32 off = getFileOffsetBySample(sample);
+			const u32 backfill = atracBytesPerFrame * 2;
+			const u32 start = off - dataOff < backfill ? dataOff : off - backfill;
+			for (u32 pos = start; pos < off; pos += atracBytesPerFrame) {
 				av_init_packet(packet);
 				packet->data = data_buf + pos;
 				packet->size = atracBytesPerFrame;
