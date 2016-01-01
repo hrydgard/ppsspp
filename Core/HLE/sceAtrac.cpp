@@ -292,8 +292,7 @@ struct Atrac {
 	}
 
 	u32 getFileOffsetBySample(int sample) const {
-		// This matches where ffmpeg was getting the packets, but it's not clear why the first atracBytesPerFrame is there...
-		int offsetSample = sample + firstSampleoffset;
+		int offsetSample = sample + firstSampleoffset + firstOffsetExtra();
 		int frameOffset = offsetSample / (int)samplesPerFrame();
 		return (u32)(dataOff + atracBytesPerFrame + frameOffset * atracBytesPerFrame);
 	}
@@ -313,7 +312,7 @@ struct Atrac {
 		}
 
 		// Since the first frame is shorter by this offset, add to round up at this offset.
-		const int remainingBytes = first.fileoffset - getFileOffsetBySample(currentSample - samplesPerFrame() + firstOffsetExtra());
+		const int remainingBytes = first.fileoffset - getFileOffsetBySample(currentSample - samplesPerFrame());
 		return remainingBytes / atracBytesPerFrame;
 	}
 
@@ -1149,7 +1148,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		// This is because we're filling the buffer start to finish, not streaming.
 		bufferInfo->first.writePosPtr = atrac->first.addr + atrac->first.size;
 		bufferInfo->first.writableBytes = atrac->first.filesize - atrac->first.size;
-		int minWriteBytes = atrac->getFileOffsetBySample(sample) - atrac->first.size;
+		int minWriteBytes = atrac->getFileOffsetBySample(sample - atrac->firstOffsetExtra()) - atrac->first.size;
 		if (minWriteBytes > 0) {
 			bufferInfo->first.minWriteBytes = minWriteBytes;
 		} else {
@@ -1160,7 +1159,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		atrac->first.writableBytes = bufferInfo->first.writableBytes;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
-		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
+		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame() - atrac->firstOffsetExtra());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
 		const u32 bufSizeAligned = (atrac->atracBufSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
