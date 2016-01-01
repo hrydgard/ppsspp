@@ -1065,8 +1065,10 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 					if (atrac->getFileOffsetBySample(atrac->currentSample) < atrac->first.filesize) {
 						numSamples = std::min(maxSamples, atrac->samplesPerFrame());
 						u32 outBytes = numSamples * atrac->atracOutputChannels * sizeof(s16);
-						memset(outbuf, 0, outBytes);
-						CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+						if (outbuf != nullptr) {
+							memset(outbuf, 0, outBytes);
+							CBreakPoints::ExecMemCheck(outbufPtr, true, outBytes, currentMIPS->pc);
+						}
 					}
 				}
 			}
