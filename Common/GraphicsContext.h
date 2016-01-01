@@ -12,6 +12,7 @@ public:
 
 	virtual void Shutdown() = 0;
 	virtual void SwapInterval(int interval) = 0;
+
 	virtual void SwapBuffers() = 0;
 
 	// Used during window resize. Must be called from the window thread,

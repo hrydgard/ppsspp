@@ -619,8 +619,8 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	NativeInitGraphics();
-	GraphicsContext *gfx = new DummyGraphicsContext();
+	GraphicsContext *graphicsContext = new DummyGraphicsContext();
+	NativeInitGraphics(graphicsContext);
 
 	NativeResized();
 
@@ -855,7 +855,7 @@ int main(int argc, char *argv[]) {
 		UpdateRunLoop();
 #else
 		NativeUpdate(input_state);
-		NativeRender();
+		NativeRender(graphicsContext);
 #endif
 		if (g_QuitRequested)
 			break;
@@ -876,8 +876,7 @@ int main(int argc, char *argv[]) {
 #ifdef USING_EGL
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
-		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
-		{
+		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0) {
 			SDL_GL_SwapWindow(g_Screen);
 			lastT = t;
 		}
@@ -892,6 +891,8 @@ int main(int argc, char *argv[]) {
 	delete joystick;
 #endif
 	NativeShutdownGraphics();
+	graphicsContext->Shutdown();
+	delete graphicsContext;
 	NativeShutdown();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though
