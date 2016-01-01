@@ -349,7 +349,12 @@ private:
 	class StateVp {
 		D3DVIEWPORT9 viewport;
 	public:
-		StateVp() { memset(&viewport, 0, sizeof(viewport)); }
+		StateVp() {
+			memset(&viewport, 0, sizeof(viewport));
+			// It's an error if w/h is zero, so let's start with something that can work.
+			viewport.Width = 1;
+			viewport.Height = 1;
+		}
 		inline void set(int x, int y, int w, int h, float n = 0.f, float f = 1.f) {
 			D3DVIEWPORT9 newviewport;
 			newviewport.X = x;
