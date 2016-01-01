@@ -63,23 +63,10 @@ namespace DX9 {
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), clutMaxBytes_(0), clutRenderAddress_(0), texelsScaledThisFrame_(0) {
+TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
-	// This is 5MB of temporary storage. Might be possible to shrink it.
-	tmpTexBuf32.resize(1024 * 512);  // 2MB
-	tmpTexBuf16.resize(1024 * 512);  // 1MB
-	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-
-	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-
-	// Zap these so that reads from uninitialized parts of the CLUT look the same in
-	// release and debug
-	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
-	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 
 	D3DCAPS9 pCaps;
 	ZeroMemory(&pCaps, sizeof(pCaps));
@@ -102,8 +89,6 @@ TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstim
 
 TextureCacheDX9::~TextureCacheDX9() {
 	Clear(true);
-	FreeAlignedMemory(clutBufConverted_);
-	FreeAlignedMemory(clutBufRaw_);
 }
 
 static u32 EstimateTexMemoryUsage(const TextureCacheDX9::TexCacheEntry *entry) {
@@ -443,104 +428,6 @@ inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address
 	}
 }
 
-void TextureCacheDX9::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
-	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
-	// These checks are mainly to reduce scanning all textures.
-	const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
-	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
-	const u64 cacheKey = (u64)addr << 32;
-	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
-	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height * bpp) << 32);
-
-	// The first mirror starts at 0x04200000 and there are 3.  We search all for framebuffers.
-	const u64 mirrorCacheKey = (u64)0x04200000 << 32;
-	const u64 mirrorCacheKeyEnd = (u64)0x04800000 << 32;
-
-	switch (msg) {
-	case NOTIFY_FB_CREATED:
-	case NOTIFY_FB_UPDATED:
-		// Ensure it's in the framebuffer cache.
-		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
-			fbCache_.push_back(framebuffer);
-		}
-		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, addr, framebuffer);
-		}
-		// Let's assume anything in mirrors is fair game to check.
-		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, addr, framebuffer);
-		}
-		break;
-
-	case NOTIFY_FB_DESTROYED:
-		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
-		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, addr, framebuffer);
-		}
-		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, addr, framebuffer);
-		}
-		break;
-	}
-}
-
-void *TextureCacheDX9::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
-	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
-	const u32 pitch = rowWidth / 4;
-	const int bxc = rowWidth / 16;
-	int byc = (height + 7) / 8;
-	if (byc == 0)
-		byc = 1;
-
-	u32 ydest = 0;
-	if (rowWidth >= 16) {
-		u32 *ydestp = tmpTexBuf32.data();
-		// The most common one, so it gets an optimized implementation.
-		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
-	} else if (rowWidth == 8) {
-		const u32 *src = (const u32 *) texptr;
-		for (int by = 0; by < byc; by++) {
-			for (int n = 0; n < 8; n++, ydest += 2) {
-				tmpTexBuf32[ydest + 0] = *src++;
-				tmpTexBuf32[ydest + 1] = *src++;
-				src += 2; // skip two u32
-			}
-		}
-	} else if (rowWidth == 4) {
-		const u32 *src = (const u32 *) texptr;
-		for (int by = 0; by < byc; by++) {
-			for (int n = 0; n < 8; n++, ydest++) {
-				tmpTexBuf32[ydest] = *src++;
-				src += 3;
-			}
-		}
-	} else if (rowWidth == 2) {
-		const u16 *src = (const u16 *) texptr;
-		for (int by = 0; by < byc; by++) {
-			for (int n = 0; n < 4; n++, ydest++) {
-				u16 n1 = src[0];
-				u16 n2 = src[8];
-				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
-				src += 16;
-			}
-		}
-	} else if (rowWidth == 1) {
-		const u8 *src = (const u8 *) texptr;
-		for (int by = 0; by < byc; by++) {
-			for (int n = 0; n < 2; n++, ydest++) {
-				u8 n1 = src[ 0];
-				u8 n2 = src[16];
-				u8 n3 = src[32];
-				u8 n4 = src[48];
-				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
-				src += 64;
-			}
-		}
-	}
-	return tmpTexBuf32.data();
-}
-
 void *TextureCacheDX9::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -784,62 +671,6 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 
 	return DoQuickTexHash(checkp, sizeInRAM);
-}
-
-void TextureCacheDX9::LoadClut(u32 clutAddr, u32 loadBytes) {
-	// Clear the uncached bit, etc. to match framebuffers.
-	clutAddr = clutAddr & 0x3FFFFFFF;
-	bool foundFramebuffer = false;
-
-	clutRenderAddress_ = 0;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		if ((framebuffer->fb_address | 0x04000000) == clutAddr) {
-			framebuffer->last_frame_clut = gpuStats.numFlips;
-			framebuffer->usageFlags |= FB_USAGE_CLUT;
-			foundFramebuffer = true;
-			WARN_LOG_REPORT_ONCE(clutrenderdx9, G3D, "Using rendered CLUT for texture decode at %08x (%dx%dx%d)", clutAddr, framebuffer->width, framebuffer->height, framebuffer->colorDepth);
-			clutRenderAddress_ = framebuffer->fb_address;
-		}
-	}
-
-	clutTotalBytes_ = loadBytes;
-	if (Memory::IsValidAddress(clutAddr)) {
-		// It's possible for a game to (successfully) access outside valid memory.
-		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
-		if (foundFramebuffer && !g_Config.bDisableSlowFramebufEffects) {
-			gpu->PerformMemoryDownload(clutAddr, bytes);
-		}
-
-#ifdef _M_SSE
-		int numBlocks = bytes / 16;
-		if (bytes == loadBytes) {
-			const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
-			__m128i *dest = (__m128i *)clutBufRaw_;
-			for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
-				__m128i data1 = _mm_loadu_si128(source);
-				__m128i data2 = _mm_loadu_si128(source + 1);
-				_mm_store_si128(dest, data1);
-				_mm_store_si128(dest + 1, data2);
-			}
-		} else {
-			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-			if (bytes < loadBytes) {
-				memset(clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
-			}
-		}
-#else
-		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
-		if (bytes < clutTotalBytes_) {
-			memset(clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
-		}
-#endif
-	} else {
-		memset(clutBufRaw_, 0x00, loadBytes);
-	}
-	// Reload the clut next time.
-	clutLastFormat_ = 0xFFFFFFFF;
-	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }
 
 void TextureCacheDX9::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -1202,7 +1033,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			if (match) {
-				if (hasClut && clutRenderAddress_ != 0) {
+				if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
 					WARN_LOG_REPORT_ONCE(clutAndTexRender, G3D, "Using rendered texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 				}
 
@@ -1378,7 +1209,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
 
-		if (hasClut && clutRenderAddress_ != 0) {
+		if (hasClut && clutRenderAddress_ != 0xFFFFFFFF) {
 			WARN_LOG_REPORT_ONCE(clutUseRender, G3D, "Using texture with rendered CLUT: texfmt=%d, clutfmt=%d", gstate.getTextureFormat(), gstate.getClutPaletteFormat());
 		}
 
@@ -1759,7 +1590,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (w != bufw) {
+	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case D3DFMT_A4R4G4B4:
@@ -1772,21 +1603,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			break;
 		}
 		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
-		int inRowBytes = bufw * pixelSize;
-		int outRowBytes = w * pixelSize;
-		const u8 *read = (const u8 *)finalBuf;
-		u8 *write = 0;
-		if (w > bufw) {
-			write = (u8 *)tmpTexBufRearrange.data();
-			finalBuf = tmpTexBufRearrange.data();
-		} else {
-			write = (u8 *)finalBuf;
-		}
-		for (int y = 0; y < h; y++) {
-			memmove(write, read, outRowBytes);
-			read += inRowBytes;
-			write += outRowBytes;
-		}
+		finalBuf = RearrangeBuf(finalBuf, bufw * pixelSize, w * pixelSize, h);
 	}
 
 	return finalBuf;

@@ -28,6 +28,7 @@ enum CheckAlphaResult {
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"
+#include "GPU/GPUState.h"
 
 void SetupTextureDecoder();
 
