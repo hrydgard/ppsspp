@@ -137,3 +137,16 @@ struct GenericBlendState {
 
 void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
 void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+
+struct GenericStencilFuncState {
+	bool enabled;
+	GEComparison testFunc;
+	u8 testRef;
+	u8 testMask;
+	u8 writeMask;
+	GEStencilOp sFail;
+	GEStencilOp zFail;
+	GEStencilOp zPass;
+};
+
+void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);
