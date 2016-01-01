@@ -1083,7 +1083,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			int loopEndAdjusted = atrac->loopEndSample - atrac->firstOffsetExtra() - atrac->firstSampleoffset;
 			if ((hitEnd || atrac->currentSample > loopEndAdjusted) && loopNum != 0) {
 				atrac->SeekToSample(atrac->loopStartSample - atrac->firstOffsetExtra() - atrac->firstSampleoffset);
-				if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+				if (atrac->bufferState != ATRAC_STATUS_FOR_SCESAS) {
 					if (atrac->loopNum > 0)
 						atrac->loopNum--;
 				}
