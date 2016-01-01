@@ -428,12 +428,12 @@ struct Atrac {
 
 	bool FillPacket() {
 		u32 off = getFileOffsetBySample(currentSample);
-		if (off < first.filesize) {
+		if (off < first.size) {
 #ifdef USE_FFMPEG
 			av_init_packet(packet);
 #endif // USE_FFMPEG
 			packet->data = data_buf + off;
-			packet->size = atracBytesPerFrame;
+			packet->size = std::min((u32)atracBytesPerFrame, first.size - off);
 			packet->pos = off;
 
 			return true;
