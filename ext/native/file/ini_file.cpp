@@ -531,7 +531,7 @@ bool IniFile::Load(std::istream &in) {
 	// Maximum number of letters in a line
 	static const int MAX_BYTES = 1024*32;
 
-	while (!in.eof())
+	while (!(in.eof() || in.fail()))
 	{
 		char templine[MAX_BYTES];
 		in.getline(templine, MAX_BYTES);

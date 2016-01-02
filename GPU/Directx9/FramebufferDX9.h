@@ -130,8 +130,6 @@ private:
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
 	TransformDrawEngineDX9 *transformDraw_;
-	bool usePostShader_;
-	bool postShaderAtOutputResolution_;
 	
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;

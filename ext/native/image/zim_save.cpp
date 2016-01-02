@@ -164,7 +164,7 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 				for (int y = 0; y < height; y++) {
 					for (int x = 0; x < width; x++) {
 						int dithval = dith[(x&3)+((y&0x3)<<2)] - 8;
-						dithval = 0;
+						//dithval = 0; please check this
 						int r = clamp32((image_data[i * 4] + dithval/2) >> 3);
 						int g = clamp64((image_data[i * 4 + 1] + dithval/4) >> 2);
 						int b = clamp32((image_data[i * 4 + 2] + dithval/2) >> 3);
