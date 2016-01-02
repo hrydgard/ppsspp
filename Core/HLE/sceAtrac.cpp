@@ -408,7 +408,12 @@ struct Atrac {
 			// Prefill the decode buffer with packets before the first sample offset.
 			avcodec_flush_buffers(pCodecCtx);
 
-			const u32 off = getFileOffsetBySample(sample);
+			int adjust = 0;
+			if (sample == 0) {
+				int offsetSamples = firstSampleoffset + firstOffsetExtra();
+				adjust = -(offsetSamples % samplesPerFrame());
+			}
+			const u32 off = getFileOffsetBySample(sample + adjust);
 			const u32 backfill = atracBytesPerFrame * 2;
 			const u32 start = off - dataOff < backfill ? dataOff : off - backfill;
 			for (u32 pos = start; pos < off; pos += atracBytesPerFrame) {
@@ -426,8 +431,8 @@ struct Atrac {
 		currentSample = sample;
 	}
 
-	bool FillPacket() {
-		u32 off = getFileOffsetBySample(currentSample);
+	bool FillPacket(int adjust = 0) {
+		u32 off = getFileOffsetBySample(currentSample + adjust);
 		if (off < first.size) {
 #ifdef USE_FFMPEG
 			av_init_packet(packet);
@@ -1004,7 +1009,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				atrac->SeekToSample(atrac->currentSample);
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
-				while (atrac->FillPacket()) {
+				while (atrac->FillPacket(-skipSamples)) {
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
