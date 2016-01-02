@@ -395,6 +395,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1 (US)
+	{ 0xc7b1113cfdfedab6, 104, "tonyhawkp8_upload_tutorial_frame", }, // Tony Hawk's Project 8 (US)
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
 	{ 0xca7cb2c0b9410618, 680, "kudwafter_download_frame", }, // Kud Wafter
 	{ 0xcb22120018386319, 692, "photokano_download_frame", }, // Photo Kano
