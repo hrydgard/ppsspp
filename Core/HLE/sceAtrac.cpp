@@ -292,7 +292,7 @@ struct Atrac {
 	}
 
 	u32 getFileOffsetBySample(int sample) const {
-		int offsetSample = sample + firstSampleoffset + firstOffsetExtra();
+		int offsetSample = sample + firstSampleoffset;
 		int frameOffset = offsetSample / (int)samplesPerFrame();
 		return (u32)(dataOff + atracBytesPerFrame + frameOffset * atracBytesPerFrame);
 	}
@@ -312,7 +312,7 @@ struct Atrac {
 		}
 
 		// Since the first frame is shorter by this offset, add to round up at this offset.
-		const int remainingBytes = first.fileoffset - getFileOffsetBySample(currentSample - samplesPerFrame());
+		const int remainingBytes = first.fileoffset - getFileOffsetBySample(currentSample - samplesPerFrame() + firstOffsetExtra());
 		return remainingBytes / atracBytesPerFrame;
 	}
 
@@ -408,7 +408,12 @@ struct Atrac {
 			// Prefill the decode buffer with packets before the first sample offset.
 			avcodec_flush_buffers(pCodecCtx);
 
-			const u32 off = getFileOffsetBySample(sample);
+			int adjust = 0;
+			if (sample == 0) {
+				int offsetSamples = firstSampleoffset + firstOffsetExtra();
+				adjust = -(offsetSamples % samplesPerFrame());
+			}
+			const u32 off = getFileOffsetBySample(sample + adjust);
 			const u32 backfill = atracBytesPerFrame * 2;
 			const u32 start = off - dataOff < backfill ? dataOff : off - backfill;
 			for (u32 pos = start; pos < off; pos += atracBytesPerFrame) {
@@ -426,8 +431,8 @@ struct Atrac {
 		currentSample = sample;
 	}
 
-	bool FillPacket() {
-		u32 off = getFileOffsetBySample(currentSample);
+	bool FillPacket(int adjust = 0) {
+		u32 off = getFileOffsetBySample(currentSample + adjust);
 		if (off < first.size) {
 #ifdef USE_FFMPEG
 			av_init_packet(packet);
@@ -1004,7 +1009,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				atrac->SeekToSample(atrac->currentSample);
 
 				AtracDecodeResult res = ATDECODE_FEEDME;
-				while (atrac->FillPacket()) {
+				while (atrac->FillPacket(-skipSamples)) {
 					res = atrac->DecodePacket();
 					if (res == ATDECODE_FAILED) {
 						*SamplesNum = 0;
@@ -1093,7 +1098,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 				// Still move forward, so we know that we've read everything.
 				// This seems to be reflected in the context as well.
-				atrac->currentSample += atrac->samplesPerFrame();
+				atrac->currentSample += atrac->samplesPerFrame() - numSamples;
 			}
 
 			*finish = finishFlag;
@@ -1154,7 +1159,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		// This is because we're filling the buffer start to finish, not streaming.
 		bufferInfo->first.writePosPtr = atrac->first.addr + atrac->first.size;
 		bufferInfo->first.writableBytes = atrac->first.filesize - atrac->first.size;
-		int minWriteBytes = atrac->getFileOffsetBySample(sample - atrac->firstOffsetExtra()) - atrac->first.size;
+		int minWriteBytes = atrac->getFileOffsetBySample(sample) - atrac->first.size;
 		if (minWriteBytes > 0) {
 			bufferInfo->first.minWriteBytes = minWriteBytes;
 		} else {
@@ -1165,7 +1170,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		atrac->first.writableBytes = bufferInfo->first.writableBytes;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
-		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame() - atrac->firstOffsetExtra());
+		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
 		const u32 bufSizeAligned = (atrac->atracBufSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
