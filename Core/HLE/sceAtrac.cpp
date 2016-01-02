@@ -963,6 +963,32 @@ static u32 AtracValidateManaged(const Atrac *atrac) {
 	}
 }
 
+static void AtracGetStreamDataInfo(Atrac *atrac, u32 &readOffset) {
+	readOffset = atrac->first.fileoffset;
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+		// Nothing to write.
+		readOffset = 0;
+		atrac->first.offset = 0;
+		atrac->first.writableBytes = 0;
+	} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// If we're buffering the entire file, just give the same as readOffset.
+		atrac->first.offset = readOffset;
+		// In this case, the bytes writable are just the remaining bytes, always.
+		atrac->first.writableBytes = atrac->first.filesize - readOffset;
+	} else {
+		// TODO
+		atrac->first.offset = 0;
+
+		if (readOffset >= atrac->first.filesize) {
+			if (atrac->bufferState == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+				readOffset = 0;
+			} else {
+				readOffset = atrac->dataOff;
+			}
+		}
+	}
+}
+
 // Notifies that more data is (OR will be very soon) available in the buffer.
 // This implies it has been added to whatever position sceAtracGetStreamDataInfo would indicate.
 //
@@ -981,6 +1007,9 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 			return hleLogDebug(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
 		return hleLogWarning(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
 	}
+
+	u32 readOffset;
+	AtracGetStreamDataInfo(atrac, readOffset);
 
 	if (bytesToAdd > atrac->first.writableBytes)
 		return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
@@ -1498,29 +1527,8 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 	}
 
-	u32 readOffset = atrac->first.fileoffset;
-	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
-		// Nothing to write.
-		readOffset = 0;
-		atrac->first.offset = 0;
-		atrac->first.writableBytes = 0;
-	} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
-		// If we're buffering the entire file, just give the same as readOffset.
-		atrac->first.offset = readOffset;
-		// In this case, the bytes writable are just the remaining bytes, always.
-		atrac->first.writableBytes = atrac->first.filesize - readOffset;
-	} else {
-		if (readOffset >= atrac->first.filesize) {
-			if (atrac->bufferState == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-				readOffset = 0;
-			} else {
-				readOffset = atrac->dataOff;
-			}
-		}
-
-		// TODO
-		atrac->first.offset = 0;
-	}
+	u32 readOffset;
+	AtracGetStreamDataInfo(atrac, readOffset);
 
 	if (Memory::IsValidAddress(writePtrAddr))
 		Memory::Write_U32(atrac->first.addr + atrac->first.offset, writePtrAddr);
