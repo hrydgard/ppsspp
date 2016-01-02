@@ -100,7 +100,7 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 }
 
 static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
-	VulkanLogOptions *options = (VulkanLogOptions *)pUserData;
+	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	std::ostringstream message;
 
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
@@ -167,16 +167,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	_CrtCheckMemory();
 
-	VkClearValue clearVal[2];
-	memset(clearVal, 0, sizeof(clearVal));
-	clearVal[0].color.float32[0] = 0.5f;
-	g_Vulkan->BeginSurfaceRenderPass(clearVal);
 	return true;
 }
 
 void WindowsVulkanContext::Shutdown() {
-	g_Vulkan->EndSurfaceRenderPass();
-
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
@@ -191,12 +185,6 @@ Thin3DContext *WindowsVulkanContext::CreateThin3DContext() {
 }
 
 void WindowsVulkanContext::SwapBuffers() {
-	g_Vulkan->EndSurfaceRenderPass();
-
-	VkClearValue clearVal[2];
-	memset(clearVal, 0, sizeof(clearVal));
-	clearVal[0].color.float32[0] = 0.5f;
-	g_Vulkan->BeginSurfaceRenderPass(clearVal);
 }
 
 void WindowsVulkanContext::Resize() {

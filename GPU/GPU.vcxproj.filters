@@ -210,7 +210,6 @@
     <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
     <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
-    <ClInclude Include="Vulkan\ShaderCompiler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -404,6 +403,5 @@
     <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
-    <ClCompile Include="Vulkan\ShaderCompiler.cpp" />
   </ItemGroup>
 </Project>
