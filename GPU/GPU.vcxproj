@@ -338,6 +338,7 @@
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
+    <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
   </ItemGroup>
   <ItemGroup>

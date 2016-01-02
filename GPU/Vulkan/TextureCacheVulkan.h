@@ -29,12 +29,8 @@ public:
 		return false;
 	}
 
-	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override {
-		return false;
-	}
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) override {
-
-	}
+	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) override;
 
 	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override {
 

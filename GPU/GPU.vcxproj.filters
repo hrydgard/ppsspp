@@ -403,5 +403,6 @@
     <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
     <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
   </ItemGroup>
 </Project>
