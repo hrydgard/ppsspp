@@ -349,20 +349,24 @@ void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, in
 		r = Convert5To8((pix >> 0) & 0x1F);
 		g = Convert6To8((pix >> 5) & 0x3F);
 		b = Convert5To8((pix >> 11) & 0x1F);
+		break;
 	case GPU_DBG_FORMAT_565_REV:
 		b = Convert5To8((pix >> 0) & 0x1F);
 		g = Convert6To8((pix >> 5) & 0x3F);
 		r = Convert5To8((pix >> 11) & 0x1F);
+		break;
 	case GPU_DBG_FORMAT_5551:
 		r = Convert5To8((pix >> 0) & 0x1F);
 		g = Convert5To8((pix >> 5) & 0x1F);
 		b = Convert5To8((pix >> 10) & 0x1F);
 		a = (pix >> 15) & 1 ? 255 : 0;
+		break;
 	case GPU_DBG_FORMAT_5551_REV:
 		a = pix & 1 ? 255 : 0;
 		b = Convert5To8((pix >> 1) & 0x1F);
 		g = Convert5To8((pix >> 6) & 0x1F);
 		r = Convert5To8((pix >> 11) & 0x1F);
+		break;
 	case GPU_DBG_FORMAT_5551_BGRA:
 		b = Convert5To8((pix >> 0) & 0x1F);
 		g = Convert5To8((pix >> 5) & 0x1F);
