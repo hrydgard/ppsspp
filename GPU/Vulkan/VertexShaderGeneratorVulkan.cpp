@@ -32,6 +32,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
+#include "GPU/Vulkan/ShaderManagerVulkan.h"
 
 // "Varying" layout - must match fragment shader
 // color0 = 0
@@ -69,42 +70,6 @@ enum DoLightComputation {
 	LIGHT_SHADE,
 	LIGHT_FULL,
 };
-
-
-const char *vulkan_base_uniforms = R"(
-layout(set=0, binding=4) uniform base {
-	mat4 proj;
-	mat4 world;
-	mat4 view;
-	mat4 texmtx;
-	vec4 uvscaleoffset;
-	vec2 fogcoef;
-	vec4 depthRange;
-	vec4 matambientalpha;
-};
-)";
-
-const char *vulkan_light_uniforms = R"(
-layout(set=0, binding=5) uniform light {
-	vec4 ambient;
-	vec3 matdiffuse;
-	vec4 matspecular;
-	vec3 matemissive;
-	vec3 pos[4];
-	// TODO: Make lighttype/comp uniforms too
-	vec3 att[4];
-	vec3 dir[4];
-	float angle[4];
-	float spotCoef[4];
-	vec3 ambient[4];
-	vec3 diffuse[4];
-	vec3 specular[4];
-)";
-
-const char *vulkan_bone_uniforms = R"(
-layout(set=0, binding=6) uniform bone {
-	mat4 m[8];
-)";
 
 // Depth range and viewport
 //
@@ -213,12 +178,11 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
 	// are present and what parts aren't, but we will not be ultra detailed about it.
 	
-	WRITE(p, "%s", vulkan_base_uniforms);
+	WRITE(p, "layout (binding=3) uniform base {\n%s\n}\n", ub_vs_transformCommonStr);
 	if (enableLighting)
-		WRITE(p, "%s", vulkan_light_uniforms);
+		WRITE(p, "layout (binding=4) uniform light {\n%s\n}\n", ub_vs_lightsStr);
 	if (enableBones)
-		WRITE(p, "%s", vulkan_bone_uniforms);
-
+		WRITE(p, "layout (binding=5) uniform bone {\n%s\n}\n", ub_vs_bonesStr);
 
 	bool prescale = false;
 
@@ -409,10 +373,10 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (dot%i == 0.0 && u_matspecular.a == 0.0) {\n", i);
+				WRITE(p, "  if (dot%i == 0.0 && light.matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot[%i], u_matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(dot[%i], light.matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -444,7 +408,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			if (doSpecular) {
 				WRITE(p, "  dot[%i] = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
 				WRITE(p, "  if (dot[%i] > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot[%i], u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot[%i], light.matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
 			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
@@ -471,7 +435,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			if (hasColor) {
 				WRITE(p, "  v_color0 = color0;\n");
 			} else {
-				WRITE(p, "  v_color0 = u_matambientalpha;\n");
+				WRITE(p, "  v_color0 = base.matambientalpha;\n");
 			}
 			if (lmode)
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
@@ -490,9 +454,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 					}
 				} else {
 					if (hasTexcoord) {
-						WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = texcoord * base.uvscaleoffset.xy + base.uvscaleoffset.zw;\n");
 					} else {
-						WRITE(p, "  v_texcoord = u_uvscaleoffset.zw;\n");
+						WRITE(p, "  v_texcoord = base.uvscaleoffset.zw;\n");
 					}
 				}
 				break;
@@ -546,7 +510,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 		// Compute fogdepth
 		if (enableFog)
-			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
+			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
 	}
 	WRITE(p, "}\n");
 	return true;

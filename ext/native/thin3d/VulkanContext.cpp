@@ -42,7 +42,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	: device_(nullptr),
 	gfx_queue_(nullptr),
 	connection(nullptr),
-	gfx_queue_family_index_(-1),
+	graphics_queue_family_index_(-1),
 	surface(nullptr),
 	window(nullptr),
 	prepared(false),
@@ -50,6 +50,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	instance_(nullptr),
 	width(0),
 	height(0),
+	flags_(flags),
 	swapchain_format(VK_FORMAT_UNDEFINED),
 	swapchainImageCount(0),
 	swap_chain_(nullptr),
@@ -58,7 +59,8 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	cmdInitActive_(false),
 	dbgCreateMsgCallback(nullptr),
 	dbgDestroyMsgCallback(nullptr),
-	queue_count(0)
+	queue_count(0),
+	curFrame_(0)
 {
 	// List extensions to try to enable.
 	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -117,14 +119,14 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
 	assert(!res);
 
-	init_global_layer_properties();
-	init_global_extension_properties();
+	InitGlobalLayerProperties();
+	InitGlobalExtensionProperties();
 
 	if (!CheckLayers(instance_layer_properties, instance_layer_names)) {
 		exit(1);
 	}
 
-	init_device_layer_properties();
+	InitDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties, device_layer_names)) {
 		exit(1);
 	}
@@ -134,7 +136,7 @@ VulkanContext::~VulkanContext() {
 	vkDestroyInstance(instance_, NULL);
 }
 
-void vk_transition_to_present(VkCommandBuffer cmd, VkImage image) {
+void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
 	VkImageMemoryBarrier prePresentBarrier = {};
 	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	prePresentBarrier.pNext = NULL;
@@ -154,45 +156,39 @@ void vk_transition_to_present(VkCommandBuffer cmd, VkImage image) {
 		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
 }
 
-void vk_transition_from_present(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier postPresentBarrier = {};
-	postPresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	postPresentBarrier.pNext = NULL;
-	postPresentBarrier.srcAccessMask = 0;
-	postPresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	postPresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	postPresentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	postPresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	postPresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	postPresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	postPresentBarrier.subresourceRange.baseMipLevel = 0;
-	postPresentBarrier.subresourceRange.levelCount = 1;
-	postPresentBarrier.subresourceRange.baseArrayLayer = 0;
-	postPresentBarrier.subresourceRange.layerCount = 1;
-	postPresentBarrier.image = image;
+void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
+	VkImageMemoryBarrier prePresentBarrier = {};
+	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	prePresentBarrier.pNext = NULL;
+	prePresentBarrier.srcAccessMask = 0;
+	prePresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	prePresentBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	prePresentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prePresentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	prePresentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	prePresentBarrier.subresourceRange.baseMipLevel = 0;
+	prePresentBarrier.subresourceRange.levelCount = 1;
+	prePresentBarrier.subresourceRange.baseArrayLayer = 0;
+	prePresentBarrier.subresourceRange.layerCount = 1;
+	prePresentBarrier.image = image;
 	vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &postPresentBarrier);
+		0, 0, nullptr, 0, nullptr, 1, &prePresentBarrier);
 }
 
 VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[2]) {
-	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo;
-	acquireSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	acquireSemaphoreCreateInfo.pNext = NULL;
-	acquireSemaphoreCreateInfo.flags = 0;
+	FrameData *frame = &frame_[curFrame_];
 
-	VkResult res = vkCreateSemaphore(device_,
-		&acquireSemaphoreCreateInfo,
-		NULL,
-		&acquireSemaphore);
-	assert(res == VK_SUCCESS);
+	// Make sure the command buffer from the frame before the previous has been fully executed.
+	WaitAndResetFence(frame->fence);
 
-	// Get the index of the next available swapchain image, and a semaphore to block on.
-	res = fpAcquireNextImageKHR(device_, swap_chain_,
+	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
+	// Now, I wonder if we should do this early in the frame or late?
+	VkResult res = fpAcquireNextImageKHR(device_, swap_chain_,
 		UINT64_MAX,
 		acquireSemaphore,
 		NULL,
 		&current_buffer);
-
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
 	assert(res == VK_SUCCESS);
@@ -202,9 +198,9 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	begin.pNext = NULL;
 	begin.flags = 0;
 	begin.pInheritanceInfo = nullptr;
-	vkBeginCommandBuffer(cmd_, &begin);
+	res = vkBeginCommandBuffer(cmd_, &begin);
 
-	vk_transition_from_present(cmd_, swapChainBuffers[current_buffer].image);
+	TransitionFromPresent(frame->cmdBuf, swapChainBuffers[current_buffer].image);
 
 	VkRenderPassBeginInfo rp_begin;
 	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -218,8 +214,8 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	rp_begin.clearValueCount = 2;
 	rp_begin.pClearValues = clear_values;
 
-	vkCmdBeginRenderPass(cmd_, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
-	return cmd_;
+	vkCmdBeginRenderPass(frame->cmdBuf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
+	return frame->cmdBuf;
 }
 
 void VulkanContext::WaitUntilQueueIdle() {
@@ -274,6 +270,47 @@ void vk_submit_sync(VkDevice device, VkSemaphore waitForSemaphore, VkQueue queue
 	vkDestroyFence(device, drawFence, NULL);
 }
 
+void VulkanContext::EndSurfaceRenderPass() {
+	FrameData *frame = &frame_[curFrame_];
+	vkCmdEndRenderPass(frame->cmdBuf);
+
+	TransitionToPresent(frame->cmdBuf, swapChainBuffers[current_buffer].image);
+
+	VkResult res = vkEndCommandBuffer(frame->cmdBuf);
+	assert(res == VK_SUCCESS);
+
+	VkSubmitInfo submit_info = {};
+	submit_info.pNext = NULL;
+	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_info.waitSemaphoreCount = 1;
+	submit_info.pWaitSemaphores = &acquireSemaphore;
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &frame->cmdBuf;
+	submit_info.signalSemaphoreCount = 0;
+	submit_info.pSignalSemaphores = NULL;
+	res = vkQueueSubmit(gfx_queue_, 1, &submit_info, frame->fence);
+	assert(res == VK_SUCCESS);
+
+	// At this point we are certain that acquireSemaphore is of no further use and can be destroyed.
+
+	VkPresentInfoKHR present;
+	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	present.pNext = NULL;
+	present.swapchainCount = 1;
+	present.pSwapchains = &swap_chain_;
+	present.pImageIndices = &current_buffer;
+	present.pWaitSemaphores = NULL;
+	present.waitSemaphoreCount = 0;
+	present.pResults = NULL;
+
+	res = fpQueuePresentKHR(gfx_queue_, &present);
+	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
+	// return codes
+	assert(!res);
+
+	curFrame_ ^= 1;
+}
+
 void VulkanContext::BeginInitCommandBuffer() {
 	assert(!cmdInitActive_);
 	VulkanBeginCommandBuffer(cmd_);
@@ -300,9 +337,33 @@ void VulkanContext::InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresen
 	InitSurfaceRenderPass(depthPresent, true);
 	InitFramebuffers(depthPresent);
 	SubmitInitCommandBufferSync();
+
+	// Create frame data
+
+	VkCommandBufferAllocateInfo cmd = {};
+	cmd.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmd.pNext = NULL;
+	cmd.commandPool = cmd_pool_;
+	cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmd.commandBufferCount = 2;
+
+	VkCommandBuffer cmdBuf[2];
+	VkResult res = vkAllocateCommandBuffers(device_, &cmd, cmdBuf);
+	assert(res == VK_SUCCESS);
+
+	frame_[0].cmdBuf = cmdBuf[0];
+	frame_[0].fence = CreateFence(true);  // So it can be instantly waited on
+	frame_[1].cmdBuf = cmdBuf[1];
+	frame_[1].fence = CreateFence(true);
 }
 
 void VulkanContext::DestroyObjects() {
+	VkCommandBuffer cmdBuf[2] = { frame_[0].cmdBuf, frame_[1].cmdBuf };
+
+	vkFreeCommandBuffers(device_, cmd_pool_, 2, cmdBuf);
+	vkDestroyFence(device_, frame_[0].fence, nullptr);
+	vkDestroyFence(device_, frame_[1].fence, nullptr);
+
 	DestroyFramebuffers();
 	DestroySurfaceRenderPass();
 	DestroyDepthStencilBuffer();
@@ -311,39 +372,7 @@ void VulkanContext::DestroyObjects() {
 	DestroyCommandPool();
 }
 
-void VulkanContext::EndSurfaceRenderPass() {
-	vkCmdEndRenderPass(cmd_);
-
-	vk_transition_to_present(cmd_, swapChainBuffers[current_buffer].image);
-
-	VkResult res = vkEndCommandBuffer(cmd_);
-	assert(res == VK_SUCCESS);
-
-	/* Make sure command buffer is finished before presenting */
-	vk_submit_sync(device_, acquireSemaphore, gfx_queue_, cmd_);
-	// At this point we are certain that acquireSemaphore is of no further use and can be destroyed.
-
-	/* Now present the image in the window */
-
-	VkPresentInfoKHR present;
-	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present.pNext = NULL;
-	present.swapchainCount = 1;
-	present.pSwapchains = &swap_chain_;
-	present.pImageIndices = &current_buffer;
-	present.pWaitSemaphores = NULL;
-	present.waitSemaphoreCount = 0;
-	present.pResults = NULL;
-
-	res = fpQueuePresentKHR(gfx_queue_, &present);
-	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
-	// return codes
-	assert(!res);
-
-	vkDestroySemaphore(device_, acquireSemaphore, NULL);
-}
-
-VkResult VulkanContext::init_layer_extension_properties(layer_properties &layer_props) {
+VkResult VulkanContext::InitLayerExtensionProperties(layer_properties &layer_props) {
 	VkExtensionProperties *instance_extensions;
 	uint32_t instance_extension_count;
 	VkResult res;
@@ -371,7 +400,7 @@ VkResult VulkanContext::init_layer_extension_properties(layer_properties &layer_
 	return res;
 }
 
-VkResult VulkanContext::init_global_extension_properties() {
+VkResult VulkanContext::InitGlobalExtensionProperties() {
 	uint32_t instance_extension_count;
 	VkResult res;
 
@@ -394,7 +423,7 @@ VkResult VulkanContext::init_global_extension_properties() {
 	return res;
 }
 
-VkResult VulkanContext::init_global_layer_properties() {
+VkResult VulkanContext::InitGlobalLayerProperties() {
 	uint32_t instance_layer_count;
 	VkLayerProperties *vk_props = NULL;
 	VkResult res;
@@ -429,7 +458,7 @@ VkResult VulkanContext::init_global_layer_properties() {
 	for (uint32_t i = 0; i < instance_layer_count; i++) {
 		layer_properties layer_props;
 		layer_props.properties = vk_props[i];
-		res = init_layer_extension_properties(layer_props);
+		res = InitLayerExtensionProperties(layer_props);
 		if (res)
 			return res;
 		instance_layer_properties.push_back(layer_props);
@@ -439,7 +468,7 @@ VkResult VulkanContext::init_global_layer_properties() {
 	return res;
 }
 
-VkResult VulkanContext::init_device_extension_properties(layer_properties &layer_props) {
+VkResult VulkanContext::InitDeviceExtensionProperties(layer_properties &layer_props) {
 	VkExtensionProperties *device_extensions;
 	uint32_t device_extension_count;
 	VkResult res;
@@ -469,10 +498,7 @@ VkResult VulkanContext::init_device_extension_properties(layer_properties &layer
 	return res;
 }
 
-/*
- * TODO: function description here
- */
-VkResult VulkanContext::init_device_layer_properties() {
+VkResult VulkanContext::InitDeviceLayerProperties() {
 	uint32_t device_layer_count;
 	VkLayerProperties *vk_props = NULL;
 	VkResult res;
@@ -509,7 +535,7 @@ VkResult VulkanContext::init_device_layer_properties() {
 	for (uint32_t i = 0; i < device_layer_count; i++) {
 		layer_properties layer_props;
 		layer_props.properties = vk_props[i];
-		res = init_device_extension_properties(layer_props);
+		res = InitDeviceExtensionProperties(layer_props);
 		if (res)
 			return res;
 		device_layer_properties.push_back(layer_props);
@@ -607,7 +633,6 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 		std::cout << "GetInstanceProcAddr: Unable to find vkDbgCreateMsgCallback function." << std::endl;
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
-	std::cout << "Got dbgCreateMsgCallback function\n";
 
 	dbgDestroyMsgCallback = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugReportCallbackEXT");
 	if (!dbgDestroyMsgCallback) {
@@ -624,7 +649,6 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	res = dbgCreateMsgCallback(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
-		puts("Successfully created message callback object\n");
 		msg_callbacks.push_back(msg_callback);
 		break;
 	case VK_ERROR_OUT_OF_HOST_MEMORY:
@@ -805,7 +829,7 @@ void VulkanContext::InitSurfaceAndQueue(HINSTANCE conn, HWND wnd) {
 		exit(-1);
 	}
 
-	gfx_queue_family_index_ = graphicsQueueNodeIndex;
+	graphics_queue_family_index_ = graphicsQueueNodeIndex;
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
@@ -829,7 +853,18 @@ void VulkanContext::InitSurfaceAndQueue(HINSTANCE conn, HWND wnd) {
 	}
 	delete[] surfFormats;
 
-	vkGetDeviceQueue(device_, gfx_queue_family_index_, 0, &gfx_queue_);
+	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
+
+	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo;
+	acquireSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	acquireSemaphoreCreateInfo.pNext = NULL;
+	acquireSemaphoreCreateInfo.flags = 0;
+
+	res = vkCreateSemaphore(device_,
+		&acquireSemaphoreCreateInfo,
+		NULL,
+		&acquireSemaphore);
+	assert(res == VK_SUCCESS);
 }
 
 void VulkanContext::InitSwapchain() {
@@ -874,13 +909,13 @@ void VulkanContext::InitSwapchain() {
 	// always available.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 	for (size_t i = 0; i < presentModeCount; i++) {
-		if (presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
+		if ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
 			swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 			break;
 		}
-		if ((swapchainPresentMode != VK_PRESENT_MODE_MAILBOX_KHR) &&
-			(presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)) {
+		if ((flags_ & VULKAN_FLAG_PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
 			swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+			break;
 		}
 	}
 
@@ -1063,7 +1098,7 @@ void VulkanContext::InitCommandPool() {
   VkCommandPoolCreateInfo cmd_pool_info = {};
   cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   cmd_pool_info.pNext = NULL;
-  cmd_pool_info.queueFamilyIndex = gfx_queue_family_index_;
+  cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
   cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
   res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &cmd_pool_);
@@ -1295,7 +1330,7 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 		// that could be avoided with smarter code - for example we can check the fence the next
 		// time the texture is used and discard the staging image then.
 
-		VkFence fence = vulkan->CreateFence();
+		VkFence fence = vulkan->CreateFence(false);
 		
 		res = vkQueueSubmit(vulkan->gfx_queue_, 1, submit_info, fence);
 		assert(res == VK_SUCCESS);
@@ -1307,7 +1342,7 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			imageLayout);
 
-		vulkan->WaitForFence(fence);
+		vulkan->WaitAndResetFence(fence);
 
 		/* Release the resources for the staging image */
 		vkFreeMemory(vulkan->device_, mappableMemory, NULL);
@@ -1346,18 +1381,21 @@ void VulkanTexture::Destroy(VulkanContext *vulkan) {
 	mem = NULL;
 }
 
-VkFence VulkanContext::CreateFence() {
+VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
   VkFenceCreateInfo fenceInfo;
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.pNext = NULL;
-  fenceInfo.flags = 0;
+  fenceInfo.flags = presignalled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
   vkCreateFence(device_, &fenceInfo, NULL, &fence);
 	return fence;
 }
 
-void VulkanContext::WaitForFence(VkFence fence) {
-	vkWaitForFences(device_, 1, &fence, true, 0);
+void VulkanContext::WaitAndResetFence(VkFence fence) {
+	VkResult res = vkWaitForFences(device_, 1, &fence, true, UINT64_MAX);
+	assert(!res);
+	res = vkResetFences(device_, 1, &fence);
+	assert(!res);
 }
 
 void VulkanContext::DestroyCommandBuffer() {
@@ -1387,6 +1425,7 @@ void VulkanContext::DestroySwapChain() {
 	fpDestroySwapchainKHR(device_, swap_chain_, NULL);
 	swap_chain_ = nullptr;
 	swapChainBuffers.clear();
+	vkDestroySemaphore(device_, acquireSemaphore, NULL);
 }
 
 void VulkanContext::DestroyFramebuffers() {
@@ -1426,7 +1465,6 @@ void TransitionImageLayout(
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
 	image_memory_barrier.subresourceRange.levelCount = 1;
 	image_memory_barrier.subresourceRange.layerCount = 1;
-
 	if (old_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 		image_memory_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	}
@@ -1442,7 +1480,9 @@ void TransitionImageLayout(
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
 		/* Make sure any Copy or CPU writes to image are flushed */
-		image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+		if (old_image_layout != VK_IMAGE_LAYOUT_UNDEFINED) {
+			image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+		}
 		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	}
 
@@ -1580,13 +1620,11 @@ EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 	}
 }
 
-//
 // Compile a given string containing GLSL into SPV for use by VK
 // Return value of false means an error was encountered.
-//
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	const char *pshader,
-	std::vector<unsigned int> &spirv) {
+	std::vector<unsigned int> &spirv, std::string *errorMessage) {
 
 	glslang::TProgram& program = *new glslang::TProgram;
 	const char *shaderStrings[1];
@@ -1605,6 +1643,10 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	if (!shader->parse(&Resources, 100, false, messages)) {
 		puts(shader->getInfoLog());
 		puts(shader->getInfoDebugLog());
+		if (errorMessage) {
+			*errorMessage = shader->getInfoLog();
+			(*errorMessage) += shader->getInfoDebugLog();
+		}
 		return false; // something didn't work
 	}
 
@@ -1617,11 +1659,15 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	if (!program.link(messages)) {
 		puts(shader->getInfoLog());
 		puts(shader->getInfoDebugLog());
+		if (errorMessage) {
+			*errorMessage = shader->getInfoLog();
+			(*errorMessage) += shader->getInfoDebugLog();
+		}
 		return false;
 	}
 
+	// Can't fail, parsing worked, "linking" worked.
 	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv);
-
 	return true;
 }
 
@@ -1663,5 +1709,4 @@ const char *VulkanResultToString(VkResult res) {
 
 void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line) {
 	const char *error = "(none)";
-
 }
