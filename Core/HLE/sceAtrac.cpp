@@ -1098,7 +1098,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 
 				// Still move forward, so we know that we've read everything.
 				// This seems to be reflected in the context as well.
-				atrac->currentSample += atrac->samplesPerFrame();
+				atrac->currentSample += atrac->samplesPerFrame() - numSamples;
 			}
 
 			*finish = finishFlag;
