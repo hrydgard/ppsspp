@@ -1473,14 +1473,16 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 // Games call this function to get some info for add more stream data,
 // such as where the data read from, where the data add to,
 // and how many bytes are allowed to add.
-static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
+static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): bad atrac ID", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
-		return ATRAC_ERROR_NO_DATA;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
+		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
+		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
+	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
 	} else {
 		// TODO: Is this check even needed?  More testing is needed on writableBytes.
 		if (atrac->resetBuffer) {
@@ -1492,29 +1494,36 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableByt
 
 		u32 readOffset = atrac->first.fileoffset;
 		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+			// Nothing to write.
 			readOffset = 0;
+			atrac->first.offset = 0;
+			atrac->first.writableBytes = 0;
+		} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+			// If we're buffering the entire file, just give the same as readOffset.
+			atrac->first.offset = readOffset;
+			// In this case, the bytes writable are just the remaining bytes, always.
+			atrac->first.writableBytes = atrac->first.filesize - readOffset;
+		} else {
+			if (readOffset >= atrac->first.filesize) {
+				if (atrac->bufferState == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+					readOffset = 0;
+				} else {
+					readOffset = atrac->dataOff;
+				}
+			}
+			// TODO
+			atrac->first.offset = 0;
 		}
 
-		atrac->first.offset = 0;
-		if (Memory::IsValidAddress(writeAddr))
-			Memory::Write_U32(atrac->first.addr, writeAddr);
+		if (Memory::IsValidAddress(writePtrAddr))
+			Memory::Write_U32(atrac->first.addr + atrac->first.offset, writePtrAddr);
 		if (Memory::IsValidAddress(writableBytesAddr))
 			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		if (Memory::IsValidAddress(readOffsetAddr))
 			Memory::Write_U32(readOffset, readOffsetAddr);
-		if ((Memory::IsValidAddress(writeAddr)) && (Memory::IsValidAddress(writableBytesAddr)) && (Memory::IsValidAddress(readOffsetAddr)))
-			DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
-				  writeAddr, atrac->first.addr,
-				  writableBytesAddr, atrac->first.writableBytes,
-				  readOffsetAddr, atrac->first.fileoffset);
-		else
-			//TODO:Use JPCSPtrace to correct
-			DEBUG_LOG_REPORT(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x]) invalid address", atracID,
-			writeAddr, atrac->first.addr,
-			writableBytesAddr, atrac->first.writableBytes,
-			readOffsetAddr, atrac->first.fileoffset);
+
+		return hleLogSuccessI(ME, 0);
 	}
-	return 0;
 }
 
 static u32 sceAtracReleaseAtracID(int atracID) {
@@ -2427,7 +2436,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32
 
 const HLEFunction sceAtrac3plus[] = {
 	{0X7DB31251, &WrapU_IU<sceAtracAddStreamData>,                 "sceAtracAddStreamData",                'x', "ix"   },
-	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixxxx"},
+	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixppp"},
 	{0XD5C28CC0, &WrapU_V<sceAtracEndEntry>,                       "sceAtracEndEntry",                     'x', ""     },
 	{0X780F88D1, &WrapU_I<sceAtracGetAtracID>,                     "sceAtracGetAtracID",                   'x', "i"    },
 	{0XCA3CA3D2, &WrapU_IIU<sceAtracGetBufferInfoForResetting>,    "sceAtracGetBufferInfoForReseting",     'x', "iix"  },
@@ -2441,7 +2450,7 @@ const HLEFunction sceAtrac3plus[] = {
 	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
 	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ixx"  },
 	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ippp" },
-	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ixxx" },
+	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ippp" },
 	{0X61EB33F5, &WrapU_I<sceAtracReleaseAtracID>,                 "sceAtracReleaseAtracID",               'x', "i"    },
 	{0X644E5607, &WrapU_IIII<sceAtracResetPlayPosition>,           "sceAtracResetPlayPosition",            'x', "iiii" },
 	{0X3F6E26B5, &WrapU_IUUU<sceAtracSetHalfwayBuffer>,            "sceAtracSetHalfwayBuffer",             'x', "ixxx" },
