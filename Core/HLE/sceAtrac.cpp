@@ -411,7 +411,7 @@ struct Atrac {
 			int adjust = 0;
 			if (sample == 0) {
 				int offsetSamples = firstSampleoffset + firstOffsetExtra();
-				adjust = -(offsetSamples % samplesPerFrame());
+				adjust = -(int)(offsetSamples % samplesPerFrame());
 			}
 			const u32 off = getFileOffsetBySample(sample + adjust);
 			const u32 backfill = atracBytesPerFrame * 2;
