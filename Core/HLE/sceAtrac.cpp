@@ -45,6 +45,27 @@
 //   * Smaller with a second buffer to help with a loop in the middle (state STREAMED WITH SECOND BUF = 6)
 //   * Not managed, decoding using "low level" manual looping etc. (LOW LEVEL = 8)
 //   * Not managed, reserved externally - possibly by sceSas - through low level (RESERVED = 16)
+//
+// This buffer is generally filled by sceAtracAddStreamData, and where to fill it is given by
+// either sceAtracGetStreamDataInfo when continuing to move forwards in the stream of audio data,
+// or sceAtracGetBufferInfoForResetting when seeking to a specific location in the audio stream.
+//
+// State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
+// To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
+// the buffer it will call sceAtracSetSecondBuffer.
+//
+// Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
+// ultimately this will share the same buffer - it's just offset a bit more.
+//
+// Low level decoding doesn't use the buffer, and decodes only a single packet at a time.
+//
+// Lastly, sceSas has some integration with sceAtrac, which allows setting an Atrac id as
+// a voice for an SAS core.  In this mode, the game will directly modify some of the AtracContext,
+// but will largely only interact using sceSas.
+//
+// Note that this buffer is THE view of the audio stream.  On a PSP, the firmware does not manage
+// any cache or separate version of the buffer - at most it manages decode state from earlier in
+// the buffer.
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
@@ -148,10 +169,11 @@ struct AVPacket {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
 		atracChannels(0),atracOutputChannels(2),
-		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), jointStereo(0),
+		atracBitrate(64), atracBytesPerFrame(0), bufferMaxSize(0), jointStereo(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
-		failedDecode(false), resetBuffer(false), codecType(0), bufferState(ATRAC_STATUS_NO_DATA) {
+		failedDecode(false), resetBuffer(false), codecType(0), ignoreDataBuf(false),
+		bufferState(ATRAC_STATUS_NO_DATA) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -175,6 +197,7 @@ struct Atrac {
 		if (data_buf)
 			delete [] data_buf;
 		data_buf = 0;
+		ignoreDataBuf = false;
 		bufferState = ATRAC_STATUS_NO_DATA;
 
 		if (atracContext.IsValid())
@@ -182,7 +205,7 @@ struct Atrac {
 	}
 
 	void SetBufferState() {
-		if (atracBufSize >= first.filesize) {
+		if (bufferMaxSize >= first.filesize) {
 			if (first.size < first.filesize) {
 				// The buffer is big enough, but we don't have all the data yet.
 				bufferState = ATRAC_STATUS_HALFWAY_BUFFER;
@@ -202,7 +225,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 6);
+		auto s = p.Section("Atrac", 1, 7);
 		if (!s)
 			return;
 
@@ -214,7 +237,7 @@ struct Atrac {
 
 		p.Do(atracID);
 		p.Do(first);
-		p.Do(atracBufSize);
+		p.Do(bufferMaxSize);
 		p.Do(codecType);
 
 		p.Do(currentSample);
@@ -267,8 +290,14 @@ struct Atrac {
 			}
 		}
 
+		if (s >= 7) {
+			p.Do(ignoreDataBuf);
+		} else {
+			ignoreDataBuf = false;
+		}
+
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
-		if (p.mode == p.MODE_READ && data_buf != nullptr) {
+		if (p.mode == p.MODE_READ && bufferState != ATRAC_STATUS_NO_DATA) {
 			__AtracSetContext(this);
 		}
 		
@@ -328,7 +357,7 @@ struct Atrac {
 	u16 atracOutputChannels;
 	u32 atracBitrate;
 	u16 atracBytesPerFrame;
-	u32 atracBufSize;
+	u32 bufferMaxSize;
 	int jointStereo;
 
 	int currentSample;
@@ -346,6 +375,8 @@ struct Atrac {
 
 	bool failedDecode;
 	bool resetBuffer;
+	// Indicates that the data_buf array should not be used.
+	bool ignoreDataBuf;
 
 	u32 codecType;
 	AtracStatus bufferState;
@@ -394,6 +425,10 @@ struct Atrac {
 		currentSample = sample;
 	}
 
+	u8 *BufferStart() {
+		return ignoreDataBuf ? Memory::GetPointer(first.addr) : data_buf;
+	}
+
 	void SeekToSample(int sample) {
 		// Discard any pending packet data.
 		packet->size = 0;
@@ -418,7 +453,7 @@ struct Atrac {
 			const u32 start = off - dataOff < backfill ? dataOff : off - backfill;
 			for (u32 pos = start; pos < off; pos += atracBytesPerFrame) {
 				av_init_packet(packet);
-				packet->data = data_buf + pos;
+				packet->data = BufferStart() + pos;
 				packet->size = atracBytesPerFrame;
 				packet->pos = pos;
 
@@ -437,7 +472,7 @@ struct Atrac {
 #ifdef USE_FFMPEG
 			av_init_packet(packet);
 #endif // USE_FFMPEG
-			packet->data = data_buf + off;
+			packet->data = BufferStart() + off;
 			packet->size = std::min((u32)atracBytesPerFrame, first.size - off);
 			packet->pos = off;
 
@@ -457,7 +492,7 @@ struct Atrac {
 			bufferPos = dataOff;
 		}
 
-		packet->data = data_buf + bufferPos;
+		packet->data = BufferStart() + bufferPos;
 		packet->size = atracBytesPerFrame;
 		packet->pos = bufferPos;
 		bufferPos += atracBytesPerFrame;
@@ -928,45 +963,88 @@ u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	return 0;
 }
 
-// PSP allow games to add stream data to a temp buf, the buf size is given by "atracBufSize "here.
-// "first.offset" means how many bytes the temp buf has been written,
-// and "first.writableBytes" means how many bytes the temp buf is allowed to write
-// (We always have "first.offset + first.writableBytes = atracBufSize").
-// We only reset the temp buf when games call sceAtracGetStreamDataInfo,
-// because that function would tell games how to add the left stream data.
-static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
-	Atrac *atrac = getAtrac(atracID);
+static u32 AtracValidateManaged(const Atrac *atrac) {
 	if (!atrac) {
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (!atrac->data_buf) {
+	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
 		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
+		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
+	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
+		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
 	} else {
-		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
-			// Let's avoid spurious warnings.  Some games call this with 0 which is pretty harmless.
-			if (bytesToAdd == 0)
-				return hleLogDebug(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
-			return hleLogWarning(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
-		}
-		if (bytesToAdd > atrac->first.writableBytes)
-			return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
+		return 0;
+	}
+}
 
-		if (bytesToAdd > 0) {
-			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
-			atrac->first.fileoffset += addbytes;
-		}
-		atrac->first.size += bytesToAdd;
-		if (atrac->first.size >= atrac->first.filesize) {
-			atrac->first.size = atrac->first.filesize;
-			if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
-				atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
-			if (atrac->atracContext.IsValid()) {
-				_AtracGenerateContext(atrac, atrac->atracContext);
+static void AtracGetStreamDataInfo(Atrac *atrac, u32 &readOffset) {
+	readOffset = atrac->first.fileoffset;
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+		// Nothing to write.
+		readOffset = 0;
+		atrac->first.offset = 0;
+		atrac->first.writableBytes = 0;
+	} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// If we're buffering the entire file, just give the same as readOffset.
+		atrac->first.offset = readOffset;
+		// In this case, the bytes writable are just the remaining bytes, always.
+		atrac->first.writableBytes = atrac->first.filesize - readOffset;
+	} else {
+		// TODO
+		atrac->first.offset = 0;
+
+		if (readOffset >= atrac->first.filesize) {
+			if (atrac->bufferState == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+				readOffset = 0;
+			} else {
+				readOffset = atrac->dataOff;
 			}
 		}
-		atrac->first.writableBytes -= bytesToAdd;
-		atrac->first.offset += bytesToAdd;
 	}
+}
+
+// Notifies that more data is (OR will be very soon) available in the buffer.
+// This implies it has been added to whatever position sceAtracGetStreamDataInfo would indicate.
+//
+// The total size of the buffer is atrac->bufferMaxSize.
+static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
+	Atrac *atrac = getAtrac(atracID);
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
+		// Let's avoid spurious warnings.  Some games call this with 0 which is pretty harmless.
+		if (bytesToAdd == 0)
+			return hleLogDebug(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
+		return hleLogWarning(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
+	}
+
+	u32 readOffset;
+	AtracGetStreamDataInfo(atrac, readOffset);
+
+	if (bytesToAdd > atrac->first.writableBytes)
+		return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
+
+	if (bytesToAdd > 0) {
+		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
+		Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+		atrac->first.fileoffset += addbytes;
+	}
+	atrac->first.size += bytesToAdd;
+	if (atrac->first.size >= atrac->first.filesize) {
+		atrac->first.size = atrac->first.filesize;
+		if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER)
+			atrac->bufferState = ATRAC_STATUS_ALL_DATA_LOADED;
+		if (atrac->atracContext.IsValid()) {
+			_AtracGenerateContext(atrac, atrac->atracContext);
+		}
+	}
+	atrac->first.writableBytes -= bytesToAdd;
+	atrac->first.offset += bytesToAdd;
+
 	return hleLogSuccessI(ME, 0);
 }
 
@@ -1173,7 +1251,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
-		const u32 bufSizeAligned = (atrac->atracBufSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
+		const u32 bufSizeAligned = (atrac->bufferMaxSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
 		const int needsMoreFrames = atrac->firstOffsetExtra();
 
 		bufferInfo->first.writePosPtr = atrac->first.addr;
@@ -1382,15 +1460,13 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	auto remainingFrames = PSPPointer<u32>::Create(remainAddr);
 
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
-	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
-		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
-	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
-		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
-	} else if (!remainingFrames.IsValid()) {
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (!remainingFrames.IsValid()) {
 		// Would crash.
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	} else {
@@ -1424,78 +1500,58 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytes
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
-	} else if (atrac->bufferState == ATRAC_STATUS_LOW_LEVEL) {
-		return hleLogError(ME, ATRAC_ERROR_IS_LOW_LEVEL, "cannot use for low level stream");
-	} else if (atrac->bufferState == ATRAC_STATUS_FOR_SCESAS) {
-		return hleLogError(ME, ATRAC_ERROR_IS_FOR_SCESAS, "cannot use for SAS stream");
-	} else {
-		auto outEndSample = PSPPointer<u32>::Create(outEndSampleAddr);
-		if (outEndSample.IsValid())
-			*outEndSample = atrac->endSample;
-		auto outLoopStart = PSPPointer<u32>::Create(outLoopStartSampleAddr);
-		if (outLoopStart.IsValid())
-			*outLoopStart = atrac->loopStartSample == -1 ? -1 : atrac->loopStartSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
-		auto outLoopEnd = PSPPointer<u32>::Create(outLoopEndSampleAddr);
-		if (outLoopEnd.IsValid())
-			*outLoopEnd = atrac->loopEndSample == -1 ? -1 : atrac->loopEndSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
-
-		if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
-			return hleReportError(ME, 0, "invalid address");
-		}
-		return hleLogSuccessI(ME, 0);
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
-	return 0;
+
+	auto outEndSample = PSPPointer<u32>::Create(outEndSampleAddr);
+	if (outEndSample.IsValid())
+		*outEndSample = atrac->endSample;
+	auto outLoopStart = PSPPointer<u32>::Create(outLoopStartSampleAddr);
+	if (outLoopStart.IsValid())
+		*outLoopStart = atrac->loopStartSample == -1 ? -1 : atrac->loopStartSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
+	auto outLoopEnd = PSPPointer<u32>::Create(outLoopEndSampleAddr);
+	if (outLoopEnd.IsValid())
+		*outLoopEnd = atrac->loopEndSample == -1 ? -1 : atrac->loopEndSample - atrac->firstSampleoffset - atrac->firstOffsetExtra();
+
+	if (!outEndSample.IsValid() || !outLoopStart.IsValid() || !outLoopEnd.IsValid()) {
+		return hleReportError(ME, 0, "invalid address");
+	}
+	return hleLogSuccessI(ME, 0);
 }
 
 // Games call this function to get some info for add more stream data,
 // such as where the data read from, where the data add to,
 // and how many bytes are allowed to add.
-static u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
+static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writableBytesAddr, u32 readOffsetAddr) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): bad atrac ID", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x): no data", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
-		return ATRAC_ERROR_NO_DATA;
-	} else {
-		// TODO: Is this check even needed?  More testing is needed on writableBytes.
-		if (atrac->resetBuffer) {
-			// Reset temp buf for adding more stream data and set full filled buffer.
-			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
-		} else {
-			atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
-		}
-
-		u32 readOffset = atrac->first.fileoffset;
-		if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED) {
-			readOffset = 0;
-		}
-
-		atrac->first.offset = 0;
-		if (Memory::IsValidAddress(writeAddr))
-			Memory::Write_U32(atrac->first.addr, writeAddr);
-		if (Memory::IsValidAddress(writableBytesAddr))
-			Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
-		if (Memory::IsValidAddress(readOffsetAddr))
-			Memory::Write_U32(readOffset, readOffsetAddr);
-		if ((Memory::IsValidAddress(writeAddr)) && (Memory::IsValidAddress(writableBytesAddr)) && (Memory::IsValidAddress(readOffsetAddr)))
-			DEBUG_LOG(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x])", atracID, 
-				  writeAddr, atrac->first.addr,
-				  writableBytesAddr, atrac->first.writableBytes,
-				  readOffsetAddr, atrac->first.fileoffset);
-		else
-			//TODO:Use JPCSPtrace to correct
-			DEBUG_LOG_REPORT(ME, "sceAtracGetStreamDataInfo(%i, %08x[%08x], %08x[%08x], %08x[%08x]) invalid address", atracID,
-			writeAddr, atrac->first.addr,
-			writableBytesAddr, atrac->first.writableBytes,
-			readOffsetAddr, atrac->first.fileoffset);
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
-	return 0;
+
+	// TODO: Is this check even needed?  More testing is needed on writableBytes.
+	if (atrac->resetBuffer) {
+		// Reset temp buf for adding more stream data and set full filled buffer.
+		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->bufferMaxSize);
+	} else {
+		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
+	}
+
+	u32 readOffset;
+	AtracGetStreamDataInfo(atrac, readOffset);
+
+	if (Memory::IsValidAddress(writePtrAddr))
+		Memory::Write_U32(atrac->first.addr + atrac->first.offset, writePtrAddr);
+	if (Memory::IsValidAddress(writableBytesAddr))
+		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+	if (Memory::IsValidAddress(readOffsetAddr))
+		Memory::Write_U32(readOffset, readOffsetAddr);
+
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 sceAtracReleaseAtracID(int atracID) {
@@ -1612,7 +1668,7 @@ int __AtracSetContext(Atrac *atrac) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
-	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
+	u8* tempbuf = (u8*)av_malloc(atrac->bufferMaxSize);
 
 	AVCodecID ff_codec;
 	if (atrac->codecType == PSP_MODE_AT_3) {
@@ -1691,13 +1747,20 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 	atrac->first.fileoffset = atrac->first.size;
 
 	// got the size of temp buf, and calculate writableBytes and offset
-	atrac->atracBufSize = bufferSize;
+	atrac->bufferMaxSize = bufferSize;
 	atrac->first.writableBytes = (u32)std::max((int)bufferSize - (int)atrac->first.size, 0);
 	atrac->first.offset = atrac->first.size;
 
 	// some games may reuse an atracID for playing sound
 	atrac->CleanStuff();
 	atrac->SetBufferState();
+
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED || atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// This says, don't use the data_buf array, use the PSP RAM.
+		// This way, games can load data async into the buffer, and it still works.
+		// TODO: Support this always, even for streaming.
+		atrac->ignoreDataBuf = true;
+	}
 
 	if (atrac->codecType == PSP_MODE_AT_3) {
 		if (atrac->atracChannels == 1) {
@@ -2125,7 +2188,7 @@ int _AtracGetIDByContext(u32 contextAddr) {
 
 void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.buffer = atrac->first.addr;
-	context->info.bufferByte = atrac->atracBufSize;
+	context->info.bufferByte = atrac->bufferMaxSize;
 	context->info.secondBuffer = atrac->second.addr;
 	context->info.secondBufferByte = atrac->second.size;
 	context->info.codec = atrac->codecType;
@@ -2242,8 +2305,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr)) {
 		atrac->atracChannels = Memory::Read_U32(paramsAddr);
 		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
-		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
-		atrac->atracBytesPerFrame = atrac->atracBufSize;
+		atrac->bufferMaxSize = Memory::Read_U32(paramsAddr + 8);
+		atrac->atracBytesPerFrame = atrac->bufferMaxSize;
 		atrac->first.writableBytes = atrac->atracBytesPerFrame;
 		atrac->CleanStuff();
 		INFO_LOG(ME, "Channels: %i outputChannels: %i bytesperFrame: %x", 
@@ -2408,7 +2471,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32
 
 const HLEFunction sceAtrac3plus[] = {
 	{0X7DB31251, &WrapU_IU<sceAtracAddStreamData>,                 "sceAtracAddStreamData",                'x', "ix"   },
-	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixxxx"},
+	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixppp"},
 	{0XD5C28CC0, &WrapU_V<sceAtracEndEntry>,                       "sceAtracEndEntry",                     'x', ""     },
 	{0X780F88D1, &WrapU_I<sceAtracGetAtracID>,                     "sceAtracGetAtracID",                   'x', "i"    },
 	{0XCA3CA3D2, &WrapU_IIU<sceAtracGetBufferInfoForResetting>,    "sceAtracGetBufferInfoForReseting",     'x', "iix"  },
@@ -2422,7 +2485,7 @@ const HLEFunction sceAtrac3plus[] = {
 	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
 	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ixx"  },
 	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ippp" },
-	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ixxx" },
+	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ippp" },
 	{0X61EB33F5, &WrapU_I<sceAtracReleaseAtracID>,                 "sceAtracReleaseAtracID",               'x', "i"    },
 	{0X644E5607, &WrapU_IIII<sceAtracResetPlayPosition>,           "sceAtracResetPlayPosition",            'x', "iiii" },
 	{0X3F6E26B5, &WrapU_IUUU<sceAtracSetHalfwayBuffer>,            "sceAtracSetHalfwayBuffer",             'x', "ixxx" },
