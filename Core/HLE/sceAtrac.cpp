@@ -169,10 +169,11 @@ struct AVPacket {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), bufferPos(0),
 		atracChannels(0),atracOutputChannels(2),
-		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), jointStereo(0),
+		atracBitrate(64), atracBytesPerFrame(0), bufferMaxSize(0), jointStereo(0),
 		currentSample(0), endSample(0), firstSampleoffset(0), dataOff(0),
 		loopinfoNum(0), loopStartSample(-1), loopEndSample(-1), loopNum(0),
-		failedDecode(false), resetBuffer(false), codecType(0), bufferState(ATRAC_STATUS_NO_DATA) {
+		failedDecode(false), resetBuffer(false), codecType(0), ignoreDataBuf(false),
+		bufferState(ATRAC_STATUS_NO_DATA) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -196,6 +197,7 @@ struct Atrac {
 		if (data_buf)
 			delete [] data_buf;
 		data_buf = 0;
+		ignoreDataBuf = false;
 		bufferState = ATRAC_STATUS_NO_DATA;
 
 		if (atracContext.IsValid())
@@ -203,7 +205,7 @@ struct Atrac {
 	}
 
 	void SetBufferState() {
-		if (atracBufSize >= first.filesize) {
+		if (bufferMaxSize >= first.filesize) {
 			if (first.size < first.filesize) {
 				// The buffer is big enough, but we don't have all the data yet.
 				bufferState = ATRAC_STATUS_HALFWAY_BUFFER;
@@ -223,7 +225,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 6);
+		auto s = p.Section("Atrac", 1, 7);
 		if (!s)
 			return;
 
@@ -235,7 +237,7 @@ struct Atrac {
 
 		p.Do(atracID);
 		p.Do(first);
-		p.Do(atracBufSize);
+		p.Do(bufferMaxSize);
 		p.Do(codecType);
 
 		p.Do(currentSample);
@@ -286,6 +288,12 @@ struct Atrac {
 			} else {
 				SetBufferState();
 			}
+		}
+
+		if (s >= 7) {
+			p.Do(ignoreDataBuf);
+		} else {
+			ignoreDataBuf = false;
 		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
@@ -349,7 +357,7 @@ struct Atrac {
 	u16 atracOutputChannels;
 	u32 atracBitrate;
 	u16 atracBytesPerFrame;
-	u32 atracBufSize;
+	u32 bufferMaxSize;
 	int jointStereo;
 
 	int currentSample;
@@ -367,6 +375,8 @@ struct Atrac {
 
 	bool failedDecode;
 	bool resetBuffer;
+	// Indicates that the data_buf array should not be used.
+	bool ignoreDataBuf;
 
 	u32 codecType;
 	AtracStatus bufferState;
@@ -992,7 +1002,7 @@ static void AtracGetStreamDataInfo(Atrac *atrac, u32 &readOffset) {
 // Notifies that more data is (OR will be very soon) available in the buffer.
 // This implies it has been added to whatever position sceAtracGetStreamDataInfo would indicate.
 //
-// The total size of the buffer is atracBufSize.
+// The total size of the buffer is atrac->bufferMaxSize.
 static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 	Atrac *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
@@ -1237,7 +1247,7 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
 
 		// Update the writable bytes.  When streaming, this is just the number of bytes until the end.
-		const u32 bufSizeAligned = (atrac->atracBufSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
+		const u32 bufSizeAligned = (atrac->bufferMaxSize / atrac->atracBytesPerFrame) * atrac->atracBytesPerFrame;
 		const int needsMoreFrames = atrac->firstOffsetExtra();
 
 		bufferInfo->first.writePosPtr = atrac->first.addr;
@@ -1522,7 +1532,7 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 	// TODO: Is this check even needed?  More testing is needed on writableBytes.
 	if (atrac->resetBuffer) {
 		// Reset temp buf for adding more stream data and set full filled buffer.
-		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->bufferMaxSize);
 	} else {
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->first.writableBytes);
 	}
@@ -1654,7 +1664,7 @@ int __AtracSetContext(Atrac *atrac) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
-	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
+	u8* tempbuf = (u8*)av_malloc(atrac->bufferMaxSize);
 
 	AVCodecID ff_codec;
 	if (atrac->codecType == PSP_MODE_AT_3) {
@@ -1733,7 +1743,7 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 	atrac->first.fileoffset = atrac->first.size;
 
 	// got the size of temp buf, and calculate writableBytes and offset
-	atrac->atracBufSize = bufferSize;
+	atrac->bufferMaxSize = bufferSize;
 	atrac->first.writableBytes = (u32)std::max((int)bufferSize - (int)atrac->first.size, 0);
 	atrac->first.offset = atrac->first.size;
 
@@ -2167,7 +2177,7 @@ int _AtracGetIDByContext(u32 contextAddr) {
 
 void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.buffer = atrac->first.addr;
-	context->info.bufferByte = atrac->atracBufSize;
+	context->info.bufferByte = atrac->bufferMaxSize;
 	context->info.secondBuffer = atrac->second.addr;
 	context->info.secondBufferByte = atrac->second.size;
 	context->info.codec = atrac->codecType;
@@ -2284,8 +2294,8 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	if (Memory::IsValidAddress(paramsAddr)) {
 		atrac->atracChannels = Memory::Read_U32(paramsAddr);
 		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
-		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
-		atrac->atracBytesPerFrame = atrac->atracBufSize;
+		atrac->bufferMaxSize = Memory::Read_U32(paramsAddr + 8);
+		atrac->atracBytesPerFrame = atrac->bufferMaxSize;
 		atrac->first.writableBytes = atrac->atracBytesPerFrame;
 		atrac->CleanStuff();
 		INFO_LOG(ME, "Channels: %i outputChannels: %i bytesperFrame: %x", 
