@@ -439,8 +439,15 @@ void FramebufferManager::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFo
 	int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
 	if (applyPostShader) {
-		glsl_bind(postShaderProgram_);
-		UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
+		// Make sure we've compiled the shader.
+		if (!postShaderProgram_) {
+			CompileDraw2DProgram();
+		}
+		// Might've changed if the shader was just changed to Off.
+		if (usePostShader_) {
+			glsl_bind(postShaderProgram_);
+			UpdatePostShaderUniforms(480, 272, renderWidth_, renderHeight_);
+		}
 	}
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
