@@ -351,6 +351,7 @@ public:
 		info->pVertexAttributeDescriptions = attrDescs;
 		info->vertexBindingDescriptionCount = 1;
 		info->pVertexBindingDescriptions = bindDescs;
+		info->flags = 0;
 	}
 
 	bool RequiresBuffer() {
@@ -505,8 +506,6 @@ private:
 	void ApplyDynamicState();
 	void DirtyDynamicState();
 
-	void BeginInitCommands();
-
 	VulkanContext *vulkan_;
 
 	// These are used to compose the pipeline cache key.
@@ -549,15 +548,7 @@ private:
 	enum {MAX_BOUND_TEXTURES = 1};
 	Thin3DVKTexture *boundTextures_[MAX_BOUND_TEXTURES];
 
-	// Ephemeral command buffer used for initializing textures, etc. As there can only be one in flight, can cause annoying stalls until I do something better.
-	VkCommandBuffer initCmd_;
-	bool hasInitCommands_;
-	VkFence initFence_;
-
-	// TODO: Transpose this into a struct FrameObject[2].
-
 	VkCommandBuffer cmd_; // The current one
-	
 	VulkanPushBuffer *pushBuffer_[2];
 	int frameNum_;
 	VulkanPushBuffer *push_;
@@ -722,22 +713,6 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkCommandBufferAllocateInfo cb;
-	cb.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cb.pNext = nullptr;
-	cb.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	cb.commandPool = cmdPool_;
-	cb.commandBufferCount = 1;
-	res = vkAllocateCommandBuffers(device_, &cb, &initCmd_);
-	assert(VK_SUCCESS == res);
-	hasInitCommands_ = false;
-	
-	VkFenceCreateInfo f;
-	f.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	f.pNext = nullptr;
-	f.flags = 0;
-	vkCreateFence(device_, &f, nullptr, &initFence_);
-
 	VkPipelineCacheCreateInfo pc;
 	pc.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
 	pc.pNext = nullptr;
@@ -781,42 +756,9 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 	viewportDirty_ = true;
 }
 
-void Thin3DVKContext::BeginInitCommands() {
-	assert(!hasInitCommands_);
-
-	VkCommandBufferBeginInfo begin;
-	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin.pNext = nullptr;
-	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	begin.pInheritanceInfo = nullptr;
-	VkResult res = vkBeginCommandBuffer(initCmd_, &begin);
-	assert(VK_SUCCESS == res);
-	hasInitCommands_ = true;
-}
-
 void Thin3DVKContext::End() {
 	// Stop collecting data in the frame data buffer.
 	push_->End(device_);
-
-	// IF something needs to be uploaded etc, sneak it in before we actually run the main command buffer.
-	if (hasInitCommands_) {
-		VkResult res = vkEndCommandBuffer(initCmd_);
-		assert(VK_SUCCESS == res);
-
-		// Run the texture uploads etc _before_ we execute the ordinary command buffer
-		VkSubmitInfo submit = {};
-		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submit.pCommandBuffers = &initCmd_;
-		submit.commandBufferCount = 1;
-		res = vkQueueSubmit(queue_, 1, &submit, initFence_);
-		assert(VK_SUCCESS == res);
-		// Before we can begin, we must be sure that the command buffer is no longer in use, as we only have a single one for init
-		// tasks (for now).
-		vulkan_->WaitAndResetFence(initFence_);
-		hasInitCommands_ = false;
-		// Init cmd buffer is again available for writing.
-	}
-
 	vulkan_->EndSurfaceRenderPass();
 
 	frameNum_++;
@@ -868,6 +810,8 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	writes[0].dstArrayElement = 0;
 	writes[0].dstBinding = 0;
 	writes[0].pBufferInfo = &bufferDesc;
+	writes[0].pImageInfo = nullptr;
+	writes[0].pTexelBufferView = nullptr;
 	writes[0].descriptorCount = 1;
 	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 
@@ -876,7 +820,9 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	writes[1].dstSet = descSet;
 	writes[1].dstArrayElement = 0;
 	writes[1].dstBinding = 1;
+	writes[1].pBufferInfo = nullptr;
 	writes[1].pImageInfo = &imageDesc;
+	writes[1].pTexelBufferView = nullptr;
 	writes[1].descriptorCount = 1;
 	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
@@ -1176,10 +1122,8 @@ void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures
 		boundTextures_[i] = static_cast<Thin3DVKTexture *>(textures[i]);
 		// Bind simply copies the texture to VRAM if needed.
 		if (boundTextures_[i]->NeedsUpload()) {
-			if (!hasInitCommands_) {
-				BeginInitCommands();
-			}
-			boundTextures_[i]->Upload(initCmd_);
+			VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+			boundTextures_[i]->Upload(cmd);
 		}
 	}
 }
