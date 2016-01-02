@@ -64,6 +64,34 @@ struct layer_properties {
 	std::vector<VkExtensionProperties> extensions;
 };
 
+class VulkanDeleteList {
+public:
+	void QueueDelete(VkImage image) { images_.push_back(image); }
+	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
+
+	void Ingest(VulkanDeleteList &del) {
+		images_ = del.images_;
+		memory_ = del.memory_;
+		del.images_.clear();
+		del.memory_.clear();
+	}
+
+	void PerformDeletes(VkDevice device) {
+		for (auto &mem : memory_) {
+			vkFreeMemory(device, mem, nullptr);
+		}
+		memory_.clear();
+		for (auto &image : images_) {
+			vkDestroyImage(device, image, nullptr);
+		}
+		images_.clear();
+	}
+
+private:
+	std::vector<VkImage> images_;
+	std::vector<VkDeviceMemory> memory_;
+};
+
 // VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.
 // Optionally, it can create a depth buffer for you as well.
 class VulkanContext {
@@ -77,29 +105,28 @@ public:
 		return device_;
 	}
 
+	template <class T>
+	void QueueDelete(T mem) {
+		globalDeleteList_.QueueDelete(mem);
+	}
+
 	void InitSurfaceAndQueue(HINSTANCE conn, HWND wnd);
-	void InitSwapchain();
+	void InitSwapchain(VkCommandBuffer cmd);
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
-	void InitDepthStencilBuffer();
+	void InitDepthStencilBuffer(VkCommandBuffer cmd);
 	void InitCommandPool();
-	void InitCommandBuffer();
 
 	void InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresent);
 	void DestroyObjects();
 
-	void BeginInitCommandBuffer();
-	void SubmitInitCommandBufferSync();
-	VkCommandBuffer GetInitCommandBuffer() {
-		return cmd_;
-	}
+	VkCommandBuffer GetInitCommandBuffer();
 
 	void DestroySurfaceRenderPass();
 	void DestroyFramebuffers();
 	void DestroySwapChain();
 	void DestroyDepthStencilBuffer();
 	void DestroyCommandPool();
-	void DestroyCommandBuffer();
 	void DestroyDevice();
 
 	void WaitUntilQueueIdle();
@@ -147,7 +174,7 @@ public:
 	VkResult InitDeviceExtensionProperties(layer_properties &layer_props);
 	VkResult InitDeviceLayerProperties();
 
-
+private:
 	VkSemaphore acquireSemaphore;
 
 #ifdef _WIN32
@@ -162,9 +189,8 @@ public:
 	xcb_intern_atom_reply_t *atom_wm_delete_window;
 #endif // _WIN32
 
+	// TODO: Move to frame data
 	VkCommandPool cmd_pool_;
-	VkCommandBuffer cmd_;  // Buffer for initialization commands
-	bool cmdInitActive_;
 
 	VkInstance instance_;
 	VkDevice device_;
@@ -190,7 +216,6 @@ public:
 	std::vector<VkQueueFamilyProperties> queue_props;
 	VkPhysicalDeviceMemoryProperties memory_properties;
 
-private:
 	struct swap_chain_buffer {
 		VkImage image;
 		VkImageView view;
@@ -208,11 +233,22 @@ private:
 	// Manages flipping command buffers for the backbuffer render pass.
 	// It is recommended to do the same for other rendering passes.
 	struct FrameData {
+		FrameData() : fence(nullptr), hasInitCommands(false), cmdInit(nullptr), cmdBuf(nullptr) {}
+
 		VkFence fence;
+		bool hasInitCommands;
+		VkCommandBuffer cmdInit;
 		VkCommandBuffer cmdBuf;
+
+		VulkanDeleteList deleteList;
 	};
+
 	FrameData frame_[2];
 	int curFrame_;
+
+	// At the end of the frame, this is copied into the frame's delete list, so it can be processed
+	// the next time the frame comes around again.
+	VulkanDeleteList globalDeleteList_;
 
 	// Simple loader for the WSI extension.
 	PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
@@ -271,8 +307,6 @@ private:
 VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
 
 void VulkanBeginCommandBuffer(VkCommandBuffer cmd);
-
-void vk_submit_sync(VkDevice device, VkSemaphore waitForSemaphore, VkQueue queue, VkCommandBuffer cmd);
 
 void init_glslang();
 void finalize_glslang();
