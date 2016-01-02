@@ -40,12 +40,12 @@
 
 #include "thin3d/vulkan_utils.h"
 
-void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageUsageFlags usage, int width, int height) {
+void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags required_props, VkImageTiling tiling, VkImageUsageFlags usage, int width, int height) {
 	VkDevice device = vulkan->GetDevice();
 	width_ = width;
 	height_ = height;
 
-	VkImageCreateInfo i;
+	VkImageCreateInfo i = {};
 	i.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	i.pNext = NULL;
 	i.imageType = VK_IMAGE_TYPE_2D;
@@ -54,13 +54,13 @@ void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags requi
 	i.mipLevels = 1;
 	i.arrayLayers = 1;
 	i.samples = VK_SAMPLE_COUNT_1_BIT;
-	i.tiling = VK_IMAGE_TILING_LINEAR;
+	i.tiling = tiling;
 	i.usage = usage;
 	i.flags = 0;
 	i.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	i.queueFamilyIndexCount = 0;
 	i.pQueueFamilyIndices = nullptr;
-	i.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+	i.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 	VkMemoryRequirements mem_reqs;
 
@@ -81,6 +81,7 @@ void VulkanImage::Create2D(VulkanContext *vulkan, VkFormat format, VkFlags requi
 	assert(!err);
 
 	err = vkBindImageMemory(device, image_, memory_, 0);  // at offset 0.
+	assert(!err);
 }
 
 void VulkanImage::SetImageData2D(VkDevice device, const uint8_t *data, int width, int height, int pitch) {
@@ -121,14 +122,18 @@ void VulkanImage::ChangeLayout(VkCommandBuffer cmd, VkImageAspectFlags aspectMas
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
 	image_memory_barrier.subresourceRange.levelCount = 1;
 
+	if (old_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	}
+
 	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-		/* Make sure anything that was copying from this image has completed */
+		// Make sure anything that was copying from this image has completed
 		image_memory_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		/* Make sure any Copy or CPU writes to image are flushed */
-		image_memory_barrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+		// Make sure any Copy or CPU writes to image are flushed
+		image_memory_barrier.dstAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
 	}
 
 	VkPipelineStageFlags src_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;

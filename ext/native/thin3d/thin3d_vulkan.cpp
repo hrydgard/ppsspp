@@ -33,9 +33,10 @@
 #include "thin3d/VulkanContext.h"
 
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
-// binding 0 - vertex data
-// binding 1 - uniform data
-// binding 2 - sampler
+// binding 0 - uniform data
+// binding 1 - sampler
+//
+// Vertex data lives in a separate namespace (location = 0, 1, etc)
 
 #define VK_PROTOTYPES
 #include "ext/vulkan/vulkan.h"
@@ -383,6 +384,10 @@ public:
 	void SetVector(const char *name, float *value, int n) override;
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
 
+	int GetUBOSize() const {
+		return uboSize_;
+	}
+
 	Thin3DVKShader *vshader;
 	Thin3DVKShader *fshader;
 
@@ -422,6 +427,7 @@ struct DescriptorSetKey {
 	bool operator < (const DescriptorSetKey &other) const {
 		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
 		if (vertexFormat_ < other.vertexFormat_) return true; else if (vertexFormat_ > other.vertexFormat_) return false;
+		if (frame < other.frame) return true; else if (frame > other.frame) return false;
 		return false;
 	}
 };
@@ -500,7 +506,6 @@ private:
 	void DirtyDynamicState();
 
 	void BeginInitCommands();
-	void EndInitCommands();
 
 	VulkanContext *vulkan_;
 
@@ -520,17 +525,13 @@ private:
 	std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
 
 	VkDescriptorPool descriptorPool_;
-	VkDescriptorSet descriptorSet_;
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
 	VkPipelineCache pipelineCache_;
 
 	VkCommandPool cmdPool_;
-	VkInstance instance_;
-	VkPhysicalDevice physicalDevice_;
 	VkDevice device_;
 	VkQueue queue_;
-	VkRenderPass renderPass_;
 	int queueFamilyIndex_;
 
 	// Default object that Thin3D doesn't yet abstract
@@ -552,20 +553,11 @@ private:
 	VkCommandBuffer initCmd_;
 	bool hasInitCommands_;
 	VkFence initFence_;
-	bool pendingInitFence_;
 
 	// TODO: Transpose this into a struct FrameObject[2].
 
-	// We write to one, while we wait for the draws from the other to complete.
-	// Then, at the end of the frame, they switch roles.
-	// cmdBuf_ for commands, pushBuffer_ for data. cmd_ will often refer to push_.
-
-	VkCommandBuffer cmdBuffer_[2];
 	VkCommandBuffer cmd_; // The current one
 	
-	VkFence cmdFences_[2];
-	VkFence cmdFence_;
-
 	VulkanPushBuffer *pushBuffer_[2];
 	int frameNum_;
 	VulkanPushBuffer *push_;
@@ -634,7 +626,6 @@ private:
 	VulkanImage staging_;
 	VkImageView view_;
 
-	int32_t width_, height_, depth_;
 	int mipLevels_;
 
 	T3DImageFormat format_;
@@ -642,14 +633,22 @@ private:
 };
 
 Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
-	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan) {
+	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0) {
 	device_ = vulkan->GetDevice();
 
+	queue_ = vulkan->GetGraphicsQueue();
+	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
 	noScissor_.offset.x = 0;
 	noScissor_.offset.y = 0;
 	noScissor_.extent.width = pixel_xres;
 	noScissor_.extent.height = pixel_yres;
-
+	scissor_ = noScissor_;
+	viewport_.x = 0;
+	viewport_.y = 0;
+	viewport_.width = pixel_xres;
+	viewport_.height = pixel_yres;
+	viewport_.minDepth = 0.0f;
+	viewport_.maxDepth = 0.0f;
 	memset(boundTextures_, 0, sizeof(boundTextures_));
 	CreatePresets();
 
@@ -672,18 +671,16 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreateCommandPool(device_, &p, nullptr, &cmdPool_);
 	assert(VK_SUCCESS == res);
 
-	VkDescriptorPoolSize dpTypes[3];
+	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[1].descriptorCount = 1;
+	dpTypes[1].descriptorCount = 2;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[2].descriptorCount = 1;
-	dpTypes[2].type = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 
 	VkDescriptorPoolCreateInfo dp;
 	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	dp.pNext = nullptr;
-	dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;   // We want to individually alloc and free descriptor sets. (do we?)
+	dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;   // We want to individually alloc and free descriptor sets. (do we? or one per "frame"?)
 	dp.maxSets = 200;  // One set for every texture available... sigh
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
@@ -692,31 +689,25 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	pushBuffer_[0] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
 	pushBuffer_[1] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
 
-	// binding 0 - vertex data
-	// binding 1 - uniform data
-	// binding 2 - sampler
-	// binding 3 - image
-	VkDescriptorSetLayoutBinding bindings[4];
+	// binding 0 - uniform data
+	// binding 1 - sampler
+	// binding 2 - image
+	VkDescriptorSetLayoutBinding bindings[2];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
-	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
-	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[1].binding = 1;
-	bindings[2].descriptorCount = 1;
-	bindings[2].pImmutableSamplers = nullptr;
-	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[2].binding = 2;
 
 	VkDescriptorSetLayoutCreateInfo dsl;
 	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	dsl.pNext = nullptr;
-	dsl.bindingCount = 3;
+	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
@@ -737,10 +728,6 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	cb.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	cb.commandPool = cmdPool_;
 	cb.commandBufferCount = 1;
-	res = vkAllocateCommandBuffers(device_, &cb, &cmdBuffer_[0]);
-	assert(VK_SUCCESS == res);
-	res = vkAllocateCommandBuffers(device_, &cb, &cmdBuffer_[1]);
-	assert(VK_SUCCESS == res);
 	res = vkAllocateCommandBuffers(device_, &cb, &initCmd_);
 	assert(VK_SUCCESS == res);
 	hasInitCommands_ = false;
@@ -749,16 +736,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	f.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	f.pNext = nullptr;
 	f.flags = 0;
-	res = vkCreateFence(device_, &f, nullptr, &cmdFences_[0]);
-	assert(VK_SUCCESS == res);
-
-	f.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-	res = vkCreateFence(device_, &f, nullptr, &cmdFences_[1]);
-	assert(VK_SUCCESS == res);
-	// Create as already signalled, so we can wait for it the first time.
-	res = vkCreateFence(device_, &f, nullptr, &initFence_);
-	assert(VK_SUCCESS == res);
-	pendingInitFence_ = false;
+	vkCreateFence(device_, &f, nullptr, &initFence_);
 
 	VkPipelineCacheCreateInfo pc;
 	pc.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
@@ -768,18 +746,12 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	pc.flags = 0;
 	res = vkCreatePipelineCache(device_, &pc, nullptr, &pipelineCache_);
 	assert(VK_SUCCESS == res);
-
-	push_ = pushBuffer_[0];
-	cmd_ = cmdBuffer_[0];
-	cmdFence_ = cmdFences_[0];
 }
 
 Thin3DVKContext::~Thin3DVKContext() {
 	for (auto x : pipelines_) {
 		vkDestroyPipeline(device_, x.second, nullptr);
 	}
-	vkFreeCommandBuffers(device_, cmdPool_, 2, cmdBuffer_);
-	vkFreeCommandBuffers(device_, cmdPool_, 1, &cmd_);
 	vkDestroyCommandPool(device_, cmdPool_, nullptr);
 	// This also destroys all descriptor sets.
 	vkDestroyDescriptorPool(device_, descriptorPool_, nullptr);
@@ -790,23 +762,27 @@ Thin3DVKContext::~Thin3DVKContext() {
 }
 
 void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
-	VkClearValue clearVal[2];
+	VkClearValue clearVal[2] = {};
 	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
-	clearVal[0].color.float32[2] = 1.0f;
+
+	if (frameNum_ & 1)
+		clearVal[0].color.float32[2] = 1.0f;
 	clearVal[1].depthStencil.depth = depthVal;
 	clearVal[1].depthStencil.stencil = stencilVal;
-	vulkan_->BeginSurfaceRenderPass(clearVal);
 
-	// Make sure we don't stomp over the old command buffer.
-	vkWaitForFences(device_, 1, &cmdFence_, true, 0);
+	cmd_ = vulkan_->BeginSurfaceRenderPass(clearVal);
+
+	push_ = pushBuffer_[frameNum_ & 1];
+
+	// OK, we now know that nothing is reading from this frame's data pushbuffer,
+	// and that the command buffer can be safely reset and reused. So let's do that.
 	push_->Begin(device_);
+	scissorDirty_ = true;
+	viewportDirty_ = true;
 }
 
 void Thin3DVKContext::BeginInitCommands() {
 	assert(!hasInitCommands_);
-
-	// Before we can begin, we must be sure that the command buffer is no longer in use, as we only have a single one for init
-	// tasks (for now).
 
 	VkCommandBufferBeginInfo begin;
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -818,49 +794,34 @@ void Thin3DVKContext::BeginInitCommands() {
 	hasInitCommands_ = true;
 }
 
-void Thin3DVKContext::EndInitCommands() {
-	VkResult res = vkEndCommandBuffer(initCmd_);
-	assert(VK_SUCCESS == res);
-}
-
 void Thin3DVKContext::End() {
 	// Stop collecting data in the frame data buffer.
 	push_->End(device_);
 
-	vkCmdEndRenderPass(cmd_);
-	VkResult endRes = vkEndCommandBuffer(cmd_);
-
+	// IF something needs to be uploaded etc, sneak it in before we actually run the main command buffer.
 	if (hasInitCommands_) {
-		assert(!pendingInitFence_);
-		EndInitCommands();
+		VkResult res = vkEndCommandBuffer(initCmd_);
+		assert(VK_SUCCESS == res);
 
 		// Run the texture uploads etc _before_ we execute the ordinary command buffer
-		pendingInitFence_ = true;
 		VkSubmitInfo submit = {};
 		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submit.pCommandBuffers = &initCmd_;
 		submit.commandBufferCount = 1;
-		VkResult res = vkQueueSubmit(queue_, 1, &submit, initFence_);
+		res = vkQueueSubmit(queue_, 1, &submit, initFence_);
 		assert(VK_SUCCESS == res);
+		// Before we can begin, we must be sure that the command buffer is no longer in use, as we only have a single one for init
+		// tasks (for now).
+		vulkan_->WaitAndResetFence(initFence_);
 		hasInitCommands_ = false;
+		// Init cmd buffer is again available for writing.
 	}
 
-	if (VK_SUCCESS != endRes) {
-		ELOG("vkEndCommandBuffer failed");
-		vkResetCommandBuffer(cmd_, 0);
-	} else {
-		VkSubmitInfo submit = {};
-		submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submit.pCommandBuffers = &cmd_;
-		submit.commandBufferCount = 1;
-		VkResult res = vkQueueSubmit(queue_, 1, &submit, cmdFence_);
-		assert(VK_SUCCESS == res);
-	}
+	vulkan_->EndSurfaceRenderPass();
 
 	frameNum_++;
-	push_ = pushBuffer_[frameNum_ & 1];
-	cmd_ = cmdBuffer_[frameNum_ & 1];
-	cmdFence_ = cmdFences_[frameNum_ & 1];
+	cmd_ = nullptr;  // will be set on the next begin
+	push_ = nullptr;
 
 	DirtyDynamicState();
 }
@@ -886,14 +847,13 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
 	assert(VK_SUCCESS == res);
 
-	// bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-	// bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	// bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+	// bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	// bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = push_->GetVkBuffer();
 	bufferDesc.offset = 0;
-	bufferDesc.range = 16 * 4;
+	bufferDesc.range = curShaderSet_->GetUBOSize();
 
 	VkDescriptorImageInfo imageDesc;
 	imageDesc.imageView = boundTextures_[0]->GetImageView();
@@ -906,7 +866,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	writes[0].pNext = nullptr;
 	writes[0].dstSet = descSet;
 	writes[0].dstArrayElement = 0;
-	writes[0].dstBinding = 1;
+	writes[0].dstBinding = 0;
 	writes[0].pBufferInfo = &bufferDesc;
 	writes[0].descriptorCount = 1;
 	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
@@ -915,7 +875,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	writes[1].pNext = nullptr;
 	writes[1].dstSet = descSet;
 	writes[1].dstArrayElement = 0;
-	writes[1].dstBinding = 2;
+	writes[1].dstBinding = 1;
 	writes[1].pImageInfo = &imageDesc;
 	writes[1].descriptorCount = 1;
 	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1031,7 +991,7 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
 	info.layout = pipelineLayout_;
 	info.subpass = 0;
-	info.renderPass = renderPass_;
+	info.renderPass = vulkan_->GetSurfaceRenderPass();
 
 	// OK, need to create a new pipeline.
 	VkPipeline pipeline;
@@ -1105,8 +1065,8 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	// So we need to do a staging copy. We upload the data to the staging buffer immediately, then we actually do the final copy once it's used the first time
 	// as we need a command buffer and the architecture of Thin3D doesn't really work the way we want.. 
 	if (!image_.IsValid()) {
-		staging_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
-		image_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
+		staging_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
+		image_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_TILING_OPTIMAL, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
 	}
 
 	VkImageViewCreateInfo iv;
@@ -1131,6 +1091,8 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	// TODO: Support setting only parts of the image efficiently.
 	staging_.SetImageData2D(vulkan_->GetDevice(), data, width, height, stride);
 	state_ = TextureState::STAGED;
+	width_ = width;
+	height_ = height;
 }
 
 void Thin3DVKTexture::Finalize(int zim_flags) {
@@ -1142,20 +1104,23 @@ bool Thin3DVKTexture::NeedsUpload() {
 }
 
 void Thin3DVKTexture::Upload(VkCommandBuffer cmd) {
-	if (state_ == TextureState::STAGED) {
-		// Before we can texture, we need to Copy and ChangeLayout.
-		VkImageCopy copy_region;
-		copy_region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		copy_region.srcOffset = { 0, 0, 0 };
-		copy_region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-		copy_region.dstOffset = { 0, 0, 0 };
-		copy_region.extent = { (uint32_t)width_, (uint32_t)height_, 1 };
-		vkCmdCopyImage(cmd, staging_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
-		image_.ChangeLayout(cmd, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-		// From this point on, the image can be used for texturing.
-		// Even before this function call (but after SetImageData), the image object can be referenced in a descriptor set.
-		state_ = TextureState::INITIALIZED;
+	if (state_ != TextureState::STAGED) {
+		return;
 	}
+
+	// Before we can texture, we need to Copy and ChangeLayout.
+	VkImageCopy copy_region;
+	copy_region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copy_region.srcOffset = { 0, 0, 0 };
+	copy_region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+	copy_region.dstOffset = { 0, 0, 0 };
+	copy_region.extent = { (uint32_t)width_, (uint32_t)height_, 1 };
+	vkCmdCopyImage(cmd, staging_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+	image_.ChangeLayout(cmd, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	// From this point on, the image can be used for texturing.
+	// Even before this function call (but after SetImageData), the image object can be referenced in a descriptor set. Better make sure that the image is uploaded
+	// before it's actually used though...
+	state_ = TextureState::INITIALIZED;
 }
 
 static bool isPowerOf2(int n) {
@@ -1286,6 +1251,7 @@ void Thin3DVKContext::SetRenderState(T3DRenderState rs, uint32_t value) {
 }
 
 void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
+	return;
 	ApplyDynamicState();
 	
 	curPrim_ = primToVK[prim];
@@ -1307,6 +1273,7 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 }
 
 void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
+	return;
 	ApplyDynamicState();
 	
 	curPrim_ = primToVK[prim];
