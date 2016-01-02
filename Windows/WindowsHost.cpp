@@ -187,6 +187,7 @@ void WindowsHost::SetDebugMode(bool mode) {
 }
 
 void WindowsHost::PollControllers(InputState &input_state) {
+	return;
 	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
 	{

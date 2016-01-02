@@ -176,22 +176,24 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 		bool alphaMask = gstate.isClearModeAlphaMask();
 		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_A_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		// Stencil Test
-		if (alphaMask) {
+		if (stencilState.enabled) {
 			key.stencilTestEnable = true;
-			key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
-			key.stencilPassOp = VK_STENCIL_OP_REPLACE;
-			key.stencilFailOp = VK_STENCIL_OP_REPLACE;
-			key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
-			// TODO: Are these right?
+			key.stencilCompareOp = compareOps[stencilState.testFunc];
+			key.stencilPassOp = stencilOps[stencilState.zPass];
+			key.stencilFailOp = stencilOps[stencilState.sFail];
+			key.stencilDepthFailOp = stencilOps[stencilState.zFail];
 			dynState.useStencil = true;
-			dynState.stencilRef = 0xFF;
-			dynState.stencilCompareMask = 0xFF;
-			dynState.stencilWriteMask = 0xFF;
+			dynState.stencilRef = stencilState.testRef;
+			dynState.stencilCompareMask = stencilState.testMask;
+			dynState.stencilWriteMask = stencilState.writeMask;
 		} else {
 			key.stencilTestEnable = false;
+			dynState.useStencil = false;
 		}
-
 	} else {
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();

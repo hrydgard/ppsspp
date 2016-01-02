@@ -34,7 +34,7 @@ static const char * const vulkan_fsTexCol =
 "layout(location = 0) in vec4 oColor0;\n"
 "layout(location = 1) in vec2 oTexCoord0;\n"
 "layout(location = 0) out vec4 fragColor0\n;"
-"layout(binding = 2) uniform sampler2D Sampler0;\n"
+"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 "void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n";
 
 static const char * const glsl_fsCol =
@@ -87,7 +87,7 @@ static const char * const vulkan_vsCol =
 "#version 140\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (std140, binding = 1) uniform bufferVals {\n"
+"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
 "    mat4 WorldViewProj;\n"
 "} myBufferVals;\n"
 "layout (location = 0) in vec4 pos;\n"
@@ -128,7 +128,7 @@ static const char * const vulkan_vsTexCol =
 "#version 140\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
-"layout (std140, binding = 1) uniform bufferVals {\n"
+"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
 "    mat4 WorldViewProj;\n"
 "} myBufferVals;\n"
 "layout (location = 0) in vec4 pos;\n"

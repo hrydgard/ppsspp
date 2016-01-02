@@ -96,6 +96,10 @@ R"(matrix4x4 proj;
 )";
 
 struct UB_VS_Lights {
+	float ambientColor[4];
+	float materialDiffuse[4];
+	float materialSpecular[4];
+	float materialEmissive[4];
 	float lpos[4][4];
 	float ldir[4][4];
 	float latt[4][4];
@@ -107,7 +111,11 @@ struct UB_VS_Lights {
 };
 
 static const char *ub_vs_lightsStr =
-R"(vec3 lpos[4];
+R"(vec3 ambientColor;
+	vec3 materialDiffuse;
+  vec4 materialSpecular;
+  vec3 materialEmissive;
+  vec3 lpos[4];
   vec3 ldir[4];
   vec3 latt[4];
 	float lightAngle[4];
@@ -117,26 +125,12 @@ R"(vec3 lpos[4];
 	vec3 lightSpecular[4];
 )";
 
-struct UB_VS_LightGlobal {
-	float ambientColor[4];
-	float materialDiffuse[4];
-	float materialSpecular[4];
-	float materialEmissive[4];
-};
-
-static const char *ub_vs_lightsGlobalStr =
-R"(vec3 ambientColor;
-	vec3 materialDiffuse;
-  vec4 materialSpecular;
-  vec3 materialEmissive;
-)";
-
 struct UB_VS_Bones {
 	float bones[8][16];
 };
 
 static const char *ub_vs_bonesStr =
-R"(matrix4x4 bone[8];
+R"(matrix4x4 m[8];
 )";
 
 // Let's not bother splitting this, we'll just upload the lot for every draw call.
@@ -242,7 +236,6 @@ private:
 
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_TransformCommon ub_transformCommon;
-	UB_VS_LightGlobal ub_lightGlobal;
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
 	UB_FS_All ub_fragment;

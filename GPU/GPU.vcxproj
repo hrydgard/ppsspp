@@ -249,7 +249,6 @@
     <ClInclude Include="Vulkan\FramebufferVulkan.h" />
     <ClInclude Include="Vulkan\GPU_Vulkan.h" />
     <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
-    <ClInclude Include="Vulkan\ShaderCompiler.h" />
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
     <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
     <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
@@ -337,7 +336,6 @@
     <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
     <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
     <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
-    <ClCompile Include="Vulkan\ShaderCompiler.cpp" />
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
     <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />

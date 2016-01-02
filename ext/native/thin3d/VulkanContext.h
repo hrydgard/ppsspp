@@ -54,6 +54,8 @@
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
+	VULKAN_FLAG_PRESENT_MAILBOX = 2,
+	VULKAN_FLAG_PRESENT_IMMEDIATE = 4,
 };
 
 // A layer can expose extensions, keep track of those extensions here.
@@ -103,8 +105,8 @@ public:
 	void WaitUntilQueueIdle();
 
 	// Utility functions for shorter code
-	VkFence CreateFence();
-	void WaitForFence(VkFence fence);
+	VkFence CreateFence(bool presignalled);
+	void WaitAndResetFence(VkFence fence);
 
 	int GetWidth() { return width; }
 	int GetHeight() { return height; }
@@ -120,32 +122,33 @@ public:
 	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata = nullptr);
 	void DestroyDebugMsgCallback();
 
-	VkSemaphore acquireSemaphore;
-
-	VkRenderPass GetSurfaceRenderPass() {
+	VkRenderPass GetSurfaceRenderPass() const {
 		return surface_render_pass_;
 	}
 
-	VkPhysicalDevice GetPhysicalDevice() {
+	VkPhysicalDevice GetPhysicalDevice() const {
 		return physical_devices_[0];
 	}
 
-	VkQueue GetGraphicsQueue() {
+	VkQueue GetGraphicsQueue() const {
 		return gfx_queue_;
 	}
 
-	int GetGraphicsQueueFamilyIndex() {
-		return gfx_queue_family_index_;
+	int GetGraphicsQueueFamilyIndex() const {
+		return graphics_queue_family_index_;
 	}
 
-	VkResult init_global_extension_properties();
-	VkResult init_layer_extension_properties(layer_properties &layer_props);
 
-	VkResult init_global_layer_properties();
+	VkResult InitGlobalExtensionProperties();
+	VkResult InitLayerExtensionProperties(layer_properties &layer_props);
 
-	VkResult init_device_extension_properties(layer_properties &layer_props);
-	VkResult init_device_layer_properties();
+	VkResult InitGlobalLayerProperties();
 
+	VkResult InitDeviceExtensionProperties(layer_properties &layer_props);
+	VkResult InitDeviceLayerProperties();
+
+
+	VkSemaphore acquireSemaphore;
 
 #ifdef _WIN32
 #define APP_NAME_STR_LEN 80
@@ -182,7 +185,7 @@ public:
 	std::vector<VkExtensionProperties> device_extension_properties;
 	std::vector<VkPhysicalDevice> physical_devices_;
 
-	uint32_t gfx_queue_family_index_;
+	uint32_t graphics_queue_family_index_;
 	VkPhysicalDeviceProperties gpu_props;
 	std::vector<VkQueueFamilyProperties> queue_props;
 	VkPhysicalDeviceMemoryProperties memory_properties;
@@ -195,12 +198,21 @@ private:
 
 	// Swap chain
 	int width, height;
+	int flags_;
 	VkFormat swapchain_format;
 	std::vector<VkFramebuffer> framebuffers_;
 	uint32_t swapchainImageCount;
 	VkSwapchainKHR swap_chain_;
 	std::vector<swap_chain_buffer> swapChainBuffers;
 
+	// Manages flipping command buffers for the backbuffer render pass.
+	// It is recommended to do the same for other rendering passes.
+	struct FrameData {
+		VkFence fence;
+		VkCommandBuffer cmdBuf;
+	};
+	FrameData frame_[2];
+	int curFrame_;
 
 	// Simple loader for the WSI extension.
 	PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
@@ -265,7 +277,7 @@ void vk_submit_sync(VkDevice device, VkSemaphore waitForSemaphore, VkQueue queue
 void init_glslang();
 void finalize_glslang();
 
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<unsigned int> &spirv);
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
 
 void TransitionImageLayout(
 	VkCommandBuffer cmd,
@@ -273,11 +285,6 @@ void TransitionImageLayout(
 	VkImageAspectFlags aspectMask,
 	VkImageLayout old_image_layout,
 	VkImageLayout new_image_layout);
-
-void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line);
-
-// DO NOT call vulkan functions within this! Instead, store the result in a variable and check that.
-#define VulkanAssert(x) if ((x) != VK_SUCCESS) VulkanAssertImpl((x), __FUNCTION__, __FILE__, __LINE__);
 
 #endif // UTIL_INIT
 

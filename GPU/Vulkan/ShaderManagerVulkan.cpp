@@ -37,7 +37,6 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
-#include "GPU/Vulkan/ShaderCompiler.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "UI/OnScreenDisplay.h"
@@ -51,7 +50,8 @@ VulkanFragmentShader::VulkanFragmentShader(VkDevice device, ShaderID id, const c
 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
-	bool success = CompileGLSLVulkan(code, spirv, errorMessage);
+
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -100,7 +100,7 @@ VulkanVertexShader::VulkanVertexShader(VkDevice device, ShaderID id, const char 
 #endif
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
-	bool success = CompileGLSLVulkan(code, spirv, errorMessage);
+	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
 			ERROR_LOG(G3D, "Warnings in shader compilation!");
@@ -142,33 +142,12 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 	}
 }
 
-/*
-// Utility
-void ShaderManagerVulkan::VSSetMatrix4x3(int creg, const float *m4x3) {
-	float m4x4[16];
-	ConvertMatrix4x3To4x4Transposed(m4x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m4x4, 4);
-}
-
-void ShaderManagerVulkan::VSSetMatrix4x3_3(int creg, const float *m4x3) {
-	float m3x4[16];
-	ConvertMatrix4x3To3x4Transposed(m3x4, m4x3);
-	pD3Ddevice->SetVertexShaderConstantF(creg, m3x4, 3);
-}
-
-void ShaderManagerVulkan::VSSetMatrix(int creg, const float* pMatrix) {
-	float transp[16];
-	Transpose4x4(transp, pMatrix);
-	pD3Ddevice->SetVertexShaderConstantF(creg, transp, 4);
-}
-*/
-
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
 static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
 	// Half pixel offset hack
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = -0.5f / gstate_c.curRTRenderHeight;
+	float yoff = 0.5f / gstate_c.curRTRenderHeight;
 	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
 
 	if (invertedX)
@@ -180,9 +159,7 @@ static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invert
 }
 
 static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
-	float xoff = -0.5f / gstate_c.curRTRenderWidth;
-	float yoff = 0.5f / gstate_c.curRTRenderHeight;
-	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
+	in.translateAndScale(Vec3(0.0f, 0.0f, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
 void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
@@ -402,20 +379,20 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
-		Uint8x3ToFloat4_AlphaUint8(ub_lightGlobal.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
+		Uint8x3ToFloat4_AlphaUint8(ub_lights.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
 		// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
 		Uint8x3ToFloat4_AlphaUint8(ub_transformCommon.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
-		Uint8x3ToFloat4(ub_lightGlobal.materialDiffuse, gstate.materialdiffuse);
+		Uint8x3ToFloat4(ub_lights.materialDiffuse, gstate.materialdiffuse);
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
-		Uint8x3ToFloat4(ub_lightGlobal.materialEmissive, gstate.materialemissive);
+		Uint8x3ToFloat4(ub_lights.materialEmissive, gstate.materialemissive);
 	}
 	if (dirtyUniforms & DIRTY_MATSPECULAR) {
-		Uint8x3ToFloat4_Alpha(ub_lightGlobal.materialEmissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		Uint8x3ToFloat4_Alpha(ub_lights.materialEmissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {
