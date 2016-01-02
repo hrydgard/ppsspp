@@ -297,7 +297,7 @@ struct Atrac {
 		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
-		if (p.mode == p.MODE_READ && data_buf != nullptr) {
+		if (p.mode == p.MODE_READ && bufferState != ATRAC_STATUS_NO_DATA) {
 			__AtracSetContext(this);
 		}
 		
@@ -425,6 +425,10 @@ struct Atrac {
 		currentSample = sample;
 	}
 
+	u8 *BufferStart() {
+		return ignoreDataBuf ? Memory::GetPointer(first.addr) : data_buf;
+	}
+
 	void SeekToSample(int sample) {
 		// Discard any pending packet data.
 		packet->size = 0;
@@ -449,7 +453,7 @@ struct Atrac {
 			const u32 start = off - dataOff < backfill ? dataOff : off - backfill;
 			for (u32 pos = start; pos < off; pos += atracBytesPerFrame) {
 				av_init_packet(packet);
-				packet->data = data_buf + pos;
+				packet->data = BufferStart() + pos;
 				packet->size = atracBytesPerFrame;
 				packet->pos = pos;
 
@@ -468,7 +472,7 @@ struct Atrac {
 #ifdef USE_FFMPEG
 			av_init_packet(packet);
 #endif // USE_FFMPEG
-			packet->data = data_buf + off;
+			packet->data = BufferStart() + off;
 			packet->size = std::min((u32)atracBytesPerFrame, first.size - off);
 			packet->pos = off;
 
@@ -488,7 +492,7 @@ struct Atrac {
 			bufferPos = dataOff;
 		}
 
-		packet->data = data_buf + bufferPos;
+		packet->data = BufferStart() + bufferPos;
 		packet->size = atracBytesPerFrame;
 		packet->pos = bufferPos;
 		bufferPos += atracBytesPerFrame;
@@ -1750,6 +1754,13 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 	// some games may reuse an atracID for playing sound
 	atrac->CleanStuff();
 	atrac->SetBufferState();
+
+	if (atrac->bufferState == ATRAC_STATUS_ALL_DATA_LOADED || atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
+		// This says, don't use the data_buf array, use the PSP RAM.
+		// This way, games can load data async into the buffer, and it still works.
+		// TODO: Support this always, even for streaming.
+		atrac->ignoreDataBuf = true;
+	}
 
 	if (atrac->codecType == PSP_MODE_AT_3) {
 		if (atrac->atracChannels == 1) {
