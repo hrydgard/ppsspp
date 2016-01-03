@@ -197,6 +197,9 @@ public:
 	VkResult InitDeviceExtensionProperties(layer_properties &layer_props);
 	VkResult InitDeviceLayerProperties();
 
+	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
+	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
+
 private:
 	VkSemaphore acquireSemaphore;
 
@@ -296,6 +299,9 @@ private:
 	VkRenderPass surface_render_pass_;
 	uint32_t current_buffer;
 	uint32_t queue_count;
+
+	VkPhysicalDeviceFeatures featuresAvailable_;
+	VkPhysicalDeviceFeatures featuresEnabled_;
 };
 
 // Wrapper around what you need to use a texture.
