@@ -337,6 +337,24 @@ private:
 	bool needStaging;
 };
 
+// Placeholder
+
+class VulkanFramebuffer {
+public:
+	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
+	// void TransitionToImage()
+
+	void BeginPass(VkCommandBuffer cmd);
+	void EndPass(VkCommandBuffer cmd);
+	void TransitionToTexture(VkCommandBuffer cmd);
+
+	VkImageView GetColorImageView();
+
+private:
+	VkImage image_;
+	VkFramebuffer framebuffer_;
+};
+
 // Use these to push vertex, index and uniform data.
 // TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
 // TODO: Make this dynamically grow by chaining new buffers in the future.
