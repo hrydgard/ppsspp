@@ -260,7 +260,7 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 	if (invertedY)
 		yoff = -yoff;
 
-	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
@@ -482,6 +482,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
+		float viewZInvScale;
 
 		// We had to scale and translate Z to account for our clamped Z range.
 		// Therefore, we also need to reverse this to round properly.
@@ -493,12 +494,10 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 		//
 		// The projection already accounts for those, so we need to reverse them.
 		//
-		// Additionally, D3D9 uses a range from [0, 1] which makes things easy.
-		// We just correct the center.
-		viewZScale *= (1.0f / gstate_c.vpDepthScale);
-		viewZCenter -= 65535.0f * gstate_c.vpZOffset - 32767.5f;
+		// Additionally, D3D9 uses a range from [0, 1].  We double and move the center.
+		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 2.0f;
+		viewZCenter -= 65535.0f * gstate_c.vpZOffset + 32768.5f;
 
-		float viewZInvScale;
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {

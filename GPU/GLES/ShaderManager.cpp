@@ -603,9 +603,9 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		//
 		// The projection already accounts for those, so we need to reverse them.
 		//
-		// Additionally, OpenGL uses a range from [-1, 1].  So we halve the scale.
-		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 0.5f;
-		viewZCenter -= 65535.0f * gstate_c.vpZOffset;
+		// Additionally, OpenGL uses a range from [-1, 1].  So we multiply by scale and add the center.
+		viewZScale *= (1.0f / gstate_c.vpDepthScale);
+		viewZCenter -= 65535.0f * (gstate_c.vpZOffset);
 
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
