@@ -317,6 +317,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
 	{ 0x93d8a275ba288b26, 32, "vdot_t", },
 	{ 0x94c7083b64a946b4, 2028, "powf", },
+	{ 0x94eb1e7dccca76a4, 680, "shinigamitoshoujo_download_frame", }, // Shinigami to Shoujo (JP)
 	{ 0x95a52ce1bc460108, 2036, "_malloc_r", },
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
