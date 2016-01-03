@@ -177,6 +177,12 @@ void *AllocateExecutableMemory(size_t size, bool exec) {
 	else if (exec && (uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
 		map_hint += round_page(size);
+
+		// If we moved ahead too far, skip backwards and recalculate.
+		// When we free, we keep moving forward and eventually move too far.
+		if ((uintptr_t)map_hint - (uintptr_t) &hint_location >= 0x70000000) {
+			map_hint = 0;
+		}
 	}
 #endif
 
