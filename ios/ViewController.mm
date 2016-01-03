@@ -15,6 +15,7 @@
 #include "input/input_state.h"
 #include "net/resolve.h"
 #include "ui/screen.h"
+#include "thin3d/thin3d.h"
 #include "input/keycodes.h"
 
 #include "Core/Config.h"
@@ -31,6 +32,13 @@
 #ifndef kCFCoreFoundationVersionNumber_IOS_9_0
 #define kCFCoreFoundationVersionNumber_IOS_9_0 1240.10
 #endif
+
+class IOSDummyGraphicsContext : public DummyGraphicsContext {
+public:
+    Thin3DContext *CreateThin3DContext() override {
+        return T3DCreateGLContext();
+    }
+};
 
 float dp_xscale = 1.0f;
 float dp_yscale = 1.0f;
@@ -104,7 +112,7 @@ static GraphicsContext *graphicsContext;
 				targetIsJailbroken = true;
 				// if we're running on iOS arm64, only iOS <9 is supported with JIT.
 				// if we're running on anything that isn't arm64, then JIT is supported on all iOS versions.
-				if (![self isArm64] || [self isArm64] && kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_IOS_9_0) {
+				if (![self isArm64] || ([self isArm64] && kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_IOS_9_0)) {
 					iosCanUseJit = true;
 				}
 			}
@@ -179,9 +187,9 @@ static GraphicsContext *graphicsContext;
 
 	pixel_in_dps = (float)pixel_xres / (float)dp_xres;
 
-	graphicsContext = new DummyGraphicsContext();
+	graphicsContext = new IOSDummyGraphicsContext();
 
-	NativeInitGraphics();
+	NativeInitGraphics(graphicsContext);
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
