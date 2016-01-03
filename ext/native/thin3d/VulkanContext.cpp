@@ -65,6 +65,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	instance_extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
+	// DrawState validation is broken, hangs on vkResetDescriptorPool.
 	if (flags & VULKAN_FLAG_VALIDATE) {
 		instance_layer_names.push_back("VK_LAYER_LUNARG_threading");
 		// instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
@@ -588,6 +589,28 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   queue_info.queueCount = 1;
   queue_info.pQueuePriorities = queue_priorities;
 
+
+	// Optional features
+	vkGetPhysicalDeviceFeatures(physical_devices_[0], &featuresAvailable_);
+	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
+
+	// Enable a few safe ones if they are available.
+	if (featuresAvailable_.dualSrcBlend) {
+		featuresEnabled_.dualSrcBlend = true;
+	}
+	if (featuresAvailable_.largePoints) {
+		featuresEnabled_.largePoints = true;
+	}
+	if (featuresAvailable_.wideLines) {
+		featuresEnabled_.wideLines = true;
+	}
+	if (featuresAvailable_.geometryShader) {
+		featuresEnabled_.geometryShader = true;
+	}
+	if (featuresAvailable_.logicOp) {
+		featuresEnabled_.logicOp = true;
+	}
+
   VkDeviceCreateInfo device_info = {};
   device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   device_info.pNext = NULL;
@@ -599,7 +622,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   device_info.enabledExtensionCount = (uint32_t)device_extension_names.size();
   device_info.ppEnabledExtensionNames =
           device_info.enabledExtensionCount ? device_extension_names.data() : NULL;
-  device_info.pEnabledFeatures = NULL;
+	device_info.pEnabledFeatures = &featuresEnabled_;
 
   res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
   assert(res == VK_SUCCESS);
