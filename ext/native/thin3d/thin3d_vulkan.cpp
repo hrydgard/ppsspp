@@ -108,98 +108,6 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 }
 
 
-// Use these to push vertex, index and uniform data.
-// TODO: Make this dynamically grow by chaining new buffers in the future.
-// Until then, we cap at a maximum size.
-// We'll have two of these that we alternate between on each frame.
-// These will only be used for the "Thin3D" system - the PSP emulation etc will have
-// their own similar buffer solutions.
-class VulkanPushBuffer {
-public:
-	VulkanPushBuffer(VkDevice device, VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {
-		VkBufferCreateInfo b;
-		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		b.pNext = nullptr;
-		b.size = size;
-		b.flags = 0;
-		b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		b.queueFamilyIndexCount = 0;
-		b.pQueueFamilyIndices = nullptr;
-		VkResult res = vkCreateBuffer(device, &b, nullptr, &buffer_);
-		assert(VK_SUCCESS == res);
-
-		// Okay, that's the buffer. Now let's allocate some memory for it.
-		VkMemoryAllocateInfo alloc;
-		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		alloc.pNext = nullptr;
-		vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
-		alloc.allocationSize = size;
-
-		res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
-		assert(VK_SUCCESS == res);
-		res = vkBindBufferMemory(device, buffer_, deviceMemory_, 0);
-		assert(VK_SUCCESS == res);
-	}
-
-	void Destroy(VulkanContext *vulkan) {
-		vulkan->QueueDelete(buffer_);
-		vulkan->QueueDelete(deviceMemory_);
-	}
-
-	void Reset() { offset_ = 0; }
-
-	void Begin(VkDevice device) {
-		offset_ = 0;
-		VkResult res = vkMapMemory(device, deviceMemory_, 0, size_, 0, (void **)(&writePtr_));
-		assert(VK_SUCCESS == res);
-	}
-
-	void End(VkDevice device) {
-		vkUnmapMemory(device, deviceMemory_);
-		writePtr_ = nullptr;
-	}
-
-
-	size_t Allocate(size_t numBytes) {
-		size_t out = offset_;
-		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-		return out;
-	}
-
-	// TODO: Add alignment support?
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size) {
-		size_t off = Allocate(size);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	size_t PushAligned(const void *data, size_t size, int align) {
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	void *Push(size_t size, size_t *bindOffset) {
-		size_t off = Allocate(size);
-		*bindOffset = off;
-		return writePtr_ + off;
-	}
-
-	VkBuffer GetVkBuffer() const { return buffer_; }
-
-private:
-	// TODO: Make it possible to suballocate pushbuffers in a large DeviceMemory block.
-	VkDeviceMemory deviceMemory_;
-	VkBuffer buffer_;
-	size_t offset_;
-	size_t size_;
-	uint8_t *writePtr_;
-};
-
 class Thin3DVKBlendState : public Thin3DBlendState {
 public:
 	bool blendEnabled;
@@ -678,12 +586,11 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[1].descriptorPool);
 	assert(VK_SUCCESS == res);
 
-	frame_[0].pushBuffer = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
-	frame_[1].pushBuffer = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
+	frame_[0].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+	frame_[1].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
 
 	// binding 0 - uniform data
-	// binding 1 - sampler
-	// binding 2 - image
+	// binding 1 - combined sampler/image
 	VkDescriptorSetLayoutBinding bindings[2];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
@@ -714,14 +621,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkPipelineCacheCreateInfo pc;
-	pc.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-	pc.pNext = nullptr;
-	pc.pInitialData = nullptr;
-	pc.initialDataSize = 0;
-	pc.flags = 0;
-	res = vkCreatePipelineCache(device_, &pc, nullptr, &pipelineCache_);
-	assert(VK_SUCCESS == res);
+	pipelineCache_ = vulkan_->CreatePipelineCache();
 }
 
 Thin3DVKContext::~Thin3DVKContext() {

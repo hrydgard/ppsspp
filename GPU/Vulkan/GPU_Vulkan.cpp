@@ -17,7 +17,7 @@
 
 #include "GPU/Vulkan/GPU_Vulkan.h"
 
-GPU_Vulkan::GPU_Vulkan() {
+GPU_Vulkan::GPU_Vulkan(VulkanContext *vulkan) : transformDraw_(vulkan) {
 
 }
 

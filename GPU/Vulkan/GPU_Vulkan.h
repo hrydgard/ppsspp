@@ -31,7 +31,7 @@ class LinkedShader;
 
 class GPU_Vulkan : public GPUCommon {
 public:
-	GPU_Vulkan();
+	GPU_Vulkan(VulkanContext *vulkan);
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
