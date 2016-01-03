@@ -33,8 +33,6 @@ namespace DX9 {
 class PSShader;
 class VSShader;
 
-void ConvertProjMatrixToD3D(Matrix4x4 & in);
-
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
