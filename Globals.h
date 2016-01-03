@@ -31,7 +31,7 @@
 #define IS_BIG_ENDIAN (*(const u16 *)"\0\xff" < 0x100)
 
 static inline u8 clamp_u8(int i) {
-#ifdef ARM
+#if defined ARM && !defined _WIN32
 	asm("usat %0, #8, %1" : "=r"(i) : "r"(i));
 #else
 	if (i > 255)
@@ -43,8 +43,8 @@ static inline u8 clamp_u8(int i) {
 }
 
 static inline s16 clamp_s16(int i) {
-#ifdef ARM
-	asm("ssat %0, #16, %1" : "=r"(i) : "r"(i));
+#if defined ARM && !defined _WIN32
+  asm("ssat %0, #16, %1" : "=r"(i) : "r"(i));
 #else
 	if (i > 32767)
 		return 32767;

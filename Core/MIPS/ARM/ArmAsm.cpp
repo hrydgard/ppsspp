@@ -72,6 +72,8 @@ namespace MIPSComp {
 using namespace ArmJitConstants;
 
 void ArmJit::GenerateFixedCode() {
+  MemoryAccess macc( GetCodePtr(), 4096 );
+
 	const u8 *start = GetCodePtr();
 
 	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.

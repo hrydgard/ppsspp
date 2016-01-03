@@ -115,7 +115,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glBindFragDataLocation(program, 0, "fragColor0");
 	}
-#elif !defined(IOS)
+#elif !defined(IOS) && !defined(UWPAPP)
 	if (gl_extensions.GLES3) {
 		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
@@ -372,14 +372,14 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
-static inline void ScaleProjMatrix(Matrix4x4 &in) {
+static inline void ScaleProjMatrix(Matrix4x4 &in, bool invertedZ) {
 	float yOffset = gstate_c.vpYOffset;
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		// GL upside down is a pain as usual.
 		yOffset = -yOffset;
 	}
 	const Vec3 trans(gstate_c.vpXOffset, yOffset, 0.0f);
-	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, 1.0);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f);
 	in.translateAndScale(trans, scale);
 }
 
@@ -469,7 +469,8 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			}
 		}
 
-		ScaleProjMatrix(flippedMatrix);
+    const bool invertedZ = gstate_c.vpDepth < 0;
+    ScaleProjMatrix(flippedMatrix, invertedZ);
 
 		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix.m);
 	}

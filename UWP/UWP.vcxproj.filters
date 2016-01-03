@@ -1,0 +1,259 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>c3f08bad-7699-4e45-962c-e0608e877396</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>33af5284-fbb7-49f5-bf21-c54c60565972</UniqueIdentifier>
+      <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
+    </Filter>
+    <Filter Include="GPU">
+      <UniqueIdentifier>{d99c1fd5-54ff-42c8-adac-f7314d6b2b2e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other Platforms">
+      <UniqueIdentifier>{c97efb99-b13e-4da3-9a38-842fef24fc88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content">
+      <UniqueIdentifier>{9dd28fce-6b31-463d-9138-b43e05eddb64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lang">
+      <UniqueIdentifier>{05f5e559-80c7-415b-a7db-8a7eb9826ceb}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="MainPage.xaml.cpp" />
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="UWPWindowsHost.cpp" />
+    <ClCompile Include="GPU\WindowsEGLContext.cpp">
+      <Filter>GPU</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Windows\KeyboardDevice.cpp" />
+    <ClCompile Include="..\Windows\XinputDevice.cpp" />
+    <ClCompile Include="XAudioSoundStream.cpp" />
+    <ClCompile Include="..\android\jni\TestRunner.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Windows\EmuThread.cpp" />
+    <ClCompile Include="..\Windows\InputDevice.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="MainPage.xaml.h" />
+    <ClInclude Include="UWPWindowsHost.h" />
+    <ClInclude Include="GPU\WindowsEGLContext.h">
+      <Filter>GPU</Filter>
+    </ClInclude>
+    <ClInclude Include="XAudioSoundStream.h" />
+    <ClInclude Include="..\Windows\KeyboardDevice.h" />
+    <ClInclude Include="..\Windows\XinputDevice.h" />
+    <ClInclude Include="..\android\jni\TestRunner.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Windows\EmuThread.h" />
+    <ClInclude Include="..\Windows\InputDevice.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UWP_TemporaryKey.pfx" />
+    <None Include="packages.config" />
+    <None Include="Content\7z.png">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\compat.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\icon.svg">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\icon-114.png">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\knownfuncs.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\langregion.ini">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ppge_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ppsspp.icns">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\rargray.png">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\Roboto-Condensed.ttf">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ui_atlas.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\ui_atlas_lowmem.zim">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\unknown.png">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="Content\zip.png">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="lang\ar_AE.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\az_AZ.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\bg_BG.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ca_ES.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\cz_CZ.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\da_DK.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\de_DE.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\dr_ID.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\en_US.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\es_ES.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\es_LA.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\fa_IR.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\fi_FI.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\fr_FR.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\gl_ES.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\gr_EL.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\he_IL.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\he_IL_invert.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\hu_HU.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\id_ID.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\it_IT.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ja_JP.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ko_KR.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\lt-LT.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ms_MY.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\nl_NL.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\no_NO.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\pl_PL.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\pt_BR.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\pt_PT.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\README.md">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ro_RO.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\ru_RU.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\sv_SE.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\tg_PH.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\th_TH.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\tr_TR.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\uk_UA.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\vi_VN.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\zh_CN.ini">
+      <Filter>lang</Filter>
+    </None>
+    <None Include="lang\zh_TW.ini">
+      <Filter>lang</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="MainPage.xaml" />
+  </ItemGroup>
+</Project>

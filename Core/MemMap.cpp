@@ -142,8 +142,9 @@ static bool Memory_TryBase(u32 flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
 
-#if defined(_XBOX)
-	void *ptr;
+#if defined(_XBOX) || defined(UWPAPP)
+	void *ptr = NULL;
+  u32 ptrs = 0;
 #elif !defined(__SYMBIAN32__)
 	size_t position = 0;
 	size_t last_position = 0;
@@ -172,11 +173,16 @@ static bool Memory_TryBase(u32 flags) {
 		}
 		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
 #elif defined(_XBOX)
-		if (!CanIgnoreView(view)) {
+		if (!CanIgnoreView(view) && view.out_ptr_low) {
 			*(view.out_ptr_low) = (u8*)(base + view.virtual_address);
 			ptr = VirtualAlloc(base + (view.virtual_address & MEMVIEW32_MASK), view.size, MEM_COMMIT, PAGE_READWRITE);
 		}
 		*(view.out_ptr) = (u8*)base + (view.virtual_address & MEMVIEW32_MASK);
+#elif defined(UWPAPP)
+    if ( !CanIgnoreView( view ) && view.out_ptr_low ) {
+      *( view.out_ptr_low ) = (u8*)( base + view.virtual_address );
+    }
+    *( view.out_ptr ) = (u8*)VirtualAllocFromApp( base + ( view.virtual_address & MEMVIEW32_MASK ), view.size, MEM_COMMIT, PAGE_READWRITE );
 #else
 		if (view.flags & MV_MIRROR_PREVIOUS) {
 			position = last_position;
@@ -206,7 +212,7 @@ static bool Memory_TryBase(u32 flags) {
 
 	return true;
 
-#if !defined(__SYMBIAN32__)
+#if !defined(__SYMBIAN32__) && !defined(_XBOX) && !defined(UWPAPP)
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++)
@@ -236,6 +242,8 @@ void MemoryMap_Setup(u32 flags)
 	// Find a base to reserve 256MB
 #if defined(_XBOX)
 	base = (u8*)VirtualAlloc(0, 0x10000000, MEM_RESERVE|MEM_LARGE_PAGES, PAGE_READWRITE);
+#elif defined(UWPAPP)
+	base = (u8*)VirtualAllocFromApp(0, 0x10000000, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 #elif defined(__SYMBIAN32__)
 	memmap = new RChunk();
 	memmap->CreateDisconnectedLocal(0 , 0, 0x10000000);
@@ -263,7 +271,7 @@ void MemoryMap_Setup(u32 flags)
 
 
 	// Now, create views in high memory where there's plenty of space.
-#if defined(_WIN32) && !defined(_M_X64)
+#if defined(_WIN32) && !defined(_M_X64) && !defined(UWPAPP)
 	// Try a whole range of possible bases. Return once we got a valid one.
 	int base_attempts = 0;
 	u32 max_base_addr = 0x7FFF0000 - 0x10000000;

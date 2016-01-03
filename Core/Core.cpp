@@ -167,16 +167,18 @@ void UpdateRunLoop() {
 	}
 }
 
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || defined(USING_UWP_UI)
 
 void GPU_SwapBuffers() {
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
 		GL_SwapBuffers();
 		break;
+#ifndef UWPAPP
 	case GPU_BACKEND_DIRECT3D9:
 		D3D9_SwapBuffers();
 		break;
+#endif
 	}
 }
 
@@ -198,6 +200,9 @@ void Core_RunLoop() {
 		if (!windowHidden) {
 			GPU_SwapBuffers();
 		}
+#elif defined(USING_UWP_UI)
+    UpdateRunLoop();
+    GPU_SwapBuffers();
 #else
 		UpdateRunLoop();
 #endif
@@ -221,6 +226,23 @@ void Core_RunLoop() {
 				}
 			}
 		}
+#elif defined(USING_UWP_UI)
+    if ( !windowHidden && !Core_IsStepping() ) {
+      GPU_SwapBuffers();
+
+      // Keep the system awake for longer than normal for cutscenes and the like.
+      const double now = time_now_d();
+      if ( now < lastActivity + ACTIVITY_IDLE_TIMEOUT ) {
+        // Only resetting it ever prime number seconds in case the call is expensive.
+        // Using a prime number to ensure there's no interaction with other periodic events.
+        if ( now - lastKeepAwake > 89.0 || now < lastKeepAwake ) {
+#ifndef UWPAPP
+          SetThreadExecutionState( ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED );
+#endif
+          lastKeepAwake = now;
+        }
+      }
+    }
 #endif
 	}
 }

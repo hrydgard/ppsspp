@@ -133,7 +133,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(UWPAPP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D9" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTempGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
@@ -194,10 +194,12 @@ void GameSettingsScreen::CreateViews() {
 	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
 
+#ifndef UWPAPP
 	static const char *displayRotation[] = {"Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed"};
 	PopupMultiChoice *dispRotChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Display Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager()));
 	dispRotChoice->SetEnabledPtr(&displayRotEnable_);
 	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+#endif
 
 #ifdef ANDROID
 	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
@@ -207,7 +209,7 @@ void GameSettingsScreen::CreateViews() {
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
 #endif
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
 	CheckBox *mipmapping = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
@@ -353,7 +355,7 @@ void GameSettingsScreen::CreateViews() {
 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 	if (IsVistaOrHigher()) {
 		static const char *backend[] = { "Auto", "DSound (compatible)", "WASAPI (fast)" };
 		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
@@ -382,7 +384,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
 	controlsSettings->Add(new Choice(co->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || ( defined UWPAPP && !defined _M_ARM )
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
@@ -443,17 +445,21 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	static const char *inverseDeadzoneModes[] = { "Off", "X", "Y", "X + Y" };
 
+#ifndef UWPAPP
 	controlsSettings->Add(new ItemHeader(co->T("DInput Analog Settings", "DInput Analog Settings")));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iDInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fDInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
+#endif
 
+#if !_M_ARM
 	controlsSettings->Add(new ItemHeader(co->T("XInput Analog Settings", "XInput Analog Settings")));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogDeadzone, 0.0f, 1.0f, co->T("Deadzone Radius"), 0.01f, screenManager(), "/ 1.0"));
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iXInputAnalogInverseMode, co->T("Analog Mapper Mode"), inverseDeadzoneModes, 0, ARRAY_SIZE(inverseDeadzoneModes), co->GetName(), screenManager()));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogInverseDeadzone, 0.0f, 1.0f, co->T("Analog Mapper Low End", "Analog Mapper Low End (Inverse Deadzone)"), 0.01f, screenManager(), "/ 1.0"));
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Mapper High End", "Analog Mapper High End (Axis Sensitivity)"), 0.01f, screenManager(), "x"));
+#endif
 #endif
 
 	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
@@ -551,7 +557,12 @@ void GameSettingsScreen::CreateViews() {
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
 	wchar_t myDocumentsPath[MAX_PATH];
-	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+#ifdef UWPAPP
+  wcscpy_s( myDocumentsPath, Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data() );
+  const HRESULT result = S_OK;
+#else
+  const HRESULT result = SHGetFolderPath( NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath );
+#endif
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	installed_ = File::Exists(installedFile);
@@ -695,7 +706,17 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-#ifdef _WIN32
+#if defined UWPAPP
+
+UI::EventReturn GameSettingsScreen::OnSavePathMydoc( UI::EventParams &e ) {
+  return UI::EVENT_SKIPPED;
+}
+
+UI::EventReturn GameSettingsScreen::OnSavePathOther( UI::EventParams &e ) {
+  return UI::EVENT_SKIPPED;
+}
+
+#elif defined _WIN32
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
@@ -706,8 +727,13 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
 		otherinstalled_ = false;
 		wchar_t myDocumentsPath[MAX_PATH];
-		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+#ifdef UWPAPP
+    wcscpy_s( myDocumentsPath, Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data() );
+    const HRESULT result = S_OK;
+#else
+    const HRESULT result = SHGetFolderPath( NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath );
+#endif
+    const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
 	}
 	else if (installed_) {
@@ -723,8 +749,13 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		}
 
 		wchar_t myDocumentsPath[MAX_PATH];
-		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+#ifdef UWPAPP
+    wcscpy_s( myDocumentsPath, Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data() );
+    const HRESULT result = S_OK;
+#else
+    const HRESULT result = SHGetFolderPath( NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath );
+#endif
+    const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
 		installed_ = true;
 	}
@@ -870,7 +901,7 @@ void GlobalSettingsScreen::CreateViews() {
 }*/
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(UWPAPP)
 	// If the user ends up deciding not to restart, set the temporary variable back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
@@ -883,7 +914,7 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(UWPAPP)
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.

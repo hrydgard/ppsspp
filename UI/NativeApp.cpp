@@ -34,7 +34,9 @@
 #endif
 #include <memory>
 
-#if defined(_WIN32)
+#if defined(UWPAPP)
+#include "UWP/XAudioSoundStream.h"
+#elif defined(_WIN32)
 #include "Windows/DSoundStream.h"
 #include "Windows/MainWindow.h"
 #include "Windows/GPU/D3D9Context.h"
@@ -264,6 +266,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 }
 
 #ifdef _WIN32
+#ifndef UWPAPP
 bool CheckFontIsUsable(const wchar_t *fontFace) {
 	wchar_t actualFontFace[1024] = { 0 };
 
@@ -284,6 +287,7 @@ bool CheckFontIsUsable(const wchar_t *fontFace) {
 	}
 	return false;
 }
+#endif
 #endif
 
 void NativeInit(int argc, const char *argv[],
@@ -467,6 +471,7 @@ void NativeInit(int argc, const char *argv[],
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
 #ifdef _WIN32
+#ifndef UWPAPP
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
@@ -476,6 +481,7 @@ void NativeInit(int argc, const char *argv[],
 	} else {
 		g_Config.sFont = des->T("Font", "Roboto");
 	}
+#endif
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
@@ -516,7 +522,7 @@ void NativeInitGraphics() {
 		thin3d = T3DCreateGLContext();
 		CheckGLExtensions();
 	} else {
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 		thin3d = D3D9_CreateThin3DContext();
 #endif
 	}
@@ -527,9 +533,15 @@ void NativeInitGraphics() {
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 #ifdef _WIN32
+#ifdef USING_WIN_UI
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
 	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+#else
+  ui_theme.uiFont = UI::FontStyle( UBUNTU24, "", 20 );
+  ui_theme.uiFontSmall = UI::FontStyle( UBUNTU24, "", 14 );
+  ui_theme.uiFontSmaller = UI::FontStyle( UBUNTU24, "", 11 );
+#endif
 #else
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
@@ -582,8 +594,10 @@ void NativeInitGraphics() {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 #ifdef _WIN32
+#ifndef UWPAPP
 		UINT ExitCode = 0;
 		ExitProcess(ExitCode);
+#endif
 #endif
 	}
 
@@ -599,7 +613,14 @@ void NativeInitGraphics() {
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
-	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
+  if ( winAudioBackend )
+  {
+#ifdef UWPAPP
+    winAudioBackend->Init( &Win32Mix, 44100 );
+#else
+    winAudioBackend->Init( MainWindow::GetHWND(), &Win32Mix, 44100 );
+#endif
+  }
 #endif
 }
 
@@ -726,10 +747,11 @@ void NativeRender() {
 	if (resized) {
 		resized = false;
 		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 			D3D9_Resize(0);
 #endif
 		} else if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+      host->ResizeGraphics();
 #ifndef _WIN32
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
@@ -958,7 +980,9 @@ void NativeShutdown() {
 #endif
 
 #ifdef _WIN32
+#ifndef UWPAPP
 	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
+#endif // UWPAPP
 #endif
 }
 

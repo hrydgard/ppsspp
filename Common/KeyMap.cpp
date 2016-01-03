@@ -374,9 +374,10 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 				azerty = true;
 			else if (q == 'q' && w == 'w' && y == 'z')
 				qwertz = true;
-#elif defined(_WIN32) && !defined(_XBOX)
+#elif defined(_WIN32) && !defined(_XBOX) && !defined(UWPAPP)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
+      // TODO: For UWPAPP something should be done
 			switch ((int)(intptr_t)localeId & 0xFFFF) {
 			case 0x407:
 				qwertz = true;

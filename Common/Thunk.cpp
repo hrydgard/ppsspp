@@ -43,7 +43,8 @@ void ThunkManager::Init()
 #endif
 
 	AllocCodeSpace(THUNK_ARENA_SIZE);
-	save_regs = GetCodePtr();
+  MemoryAccess macc( region, region_size );
+  save_regs = GetCodePtr();
 #ifdef _M_X64
 	for (int i = 2; i < ABI_GetNumXMMRegs(); i++)
 		MOVAPS(MDisp(RSP, stackOffset + (i - 2) * 16), (X64Reg)(XMM0 + i));
@@ -150,8 +151,10 @@ const void *ThunkManager::ProtectFunction(const void *function, int num_params)
 	if (!region)
 		PanicAlert("Trying to protect functions before the emu is started. Bad bad bad.");
 
-	const u8 *call_point = GetCodePtr();
-	Enter(this, true);
+  MemoryAccess macc( region, region_size );
+  
+  const u8 *call_point = GetCodePtr();
+  Enter(this, true);
 
 #ifdef _M_X64
 	ABI_CallFunction(function);

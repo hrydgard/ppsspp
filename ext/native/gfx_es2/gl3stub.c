@@ -21,10 +21,36 @@
 #include "EGL/egl.h"
 #endif
 
+#ifdef UWPAPP
+PFNGLREADBUFFERPROC            glReadBuffer            = NULL;
+PFNGLBLITFRAMEBUFFERPROC       glBlitFramebuffer       = NULL;
+PFNGLINVALIDATEFRAMEBUFFERPROC glInvalidateFramebuffer = NULL;
+PFNGLTEXSTORAGE2DPROC          glTexStorage2D          = NULL;
+
+PFNGLMAPBUFFERRANGEPROC glMapBufferRange = NULL;
+PFNGLUNMAPBUFFERPROC    glUnmapBuffer    = NULL;
+
+PFNGLGETSTRINGIPROC glGetStringi = NULL;
+
+PFNGLGENVERTEXARRAYSPROC    glGenVertexArrays    = NULL;
+PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays = NULL;
+PFNGLBINDVERTEXARRAYPROC    glBindVertexArray    = NULL;
+#endif // UWAPAPP
+
 GLboolean gl3stubInit() {
 #if !defined(IOS)
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
     FIND_PROC(glReadBuffer);
+    FIND_PROC(glBlitFramebuffer);
+    FIND_PROC(glInvalidateFramebuffer);
+    FIND_PROC(glTexStorage2D);
+    FIND_PROC(glMapBufferRange);
+    FIND_PROC(glUnmapBuffer);
+    FIND_PROC(glGetStringi);
+    FIND_PROC(glGenVertexArrays);
+    FIND_PROC(glDeleteVertexArrays);
+    FIND_PROC(glBindVertexArray);
+#ifndef UWPAPP
     FIND_PROC(glDrawRangeElements);
     FIND_PROC(glTexImage3D);
     FIND_PROC(glTexSubImage3D);
@@ -47,7 +73,6 @@ GLboolean gl3stubInit() {
     FIND_PROC(glUniformMatrix4x2fv);
     FIND_PROC(glUniformMatrix3x4fv);
     FIND_PROC(glUniformMatrix4x3fv);
-    FIND_PROC(glBlitFramebuffer);
     FIND_PROC(glRenderbufferStorageMultisample);
     FIND_PROC(glFramebufferTextureLayer);
     FIND_PROC(glMapBufferRange);
@@ -123,9 +148,7 @@ GLboolean gl3stubInit() {
     FIND_PROC(glGetProgramBinary);
     FIND_PROC(glProgramBinary);
     FIND_PROC(glProgramParameteri);
-    FIND_PROC(glInvalidateFramebuffer);
     FIND_PROC(glInvalidateSubFramebuffer);
-    FIND_PROC(glTexStorage2D);
     FIND_PROC(glTexStorage3D);
     FIND_PROC(glGetInternalformativ);
 
@@ -138,10 +161,23 @@ GLboolean gl3stubInit() {
     /* OES_copy_image, etc. */
     FIND_PROC(glCopyImageSubDataOES);
 
-    #undef FIND_PROC
+#endif // !UWPAPP
+
+#undef FIND_PROC
 
 #endif // IOS
     if (!glReadBuffer ||
+        !glBlitFramebuffer ||
+        !glInvalidateFramebuffer ||
+        !glTexStorage2D ||
+        !glMapBufferRange ||
+        !glUnmapBuffer ||
+        !glGetStringi ||
+        !glGenVertexArrays ||
+        !glDeleteVertexArrays ||
+        !glBindVertexArray
+#ifndef UWPAPP
+        ||
         !glDrawRangeElements ||
         !glTexImage3D ||
         !glTexSubImage3D ||
@@ -164,7 +200,6 @@ GLboolean gl3stubInit() {
         !glUniformMatrix4x2fv ||
         !glUniformMatrix3x4fv ||
         !glUniformMatrix4x3fv ||
-        !glBlitFramebuffer ||
         !glRenderbufferStorageMultisample ||
         !glFramebufferTextureLayer ||
         !glMapBufferRange ||
@@ -240,11 +275,11 @@ GLboolean gl3stubInit() {
         !glGetProgramBinary ||
         !glProgramBinary ||
         !glProgramParameteri ||
-        !glInvalidateFramebuffer ||
         !glInvalidateSubFramebuffer ||
-        !glTexStorage2D ||
         !glTexStorage3D ||
-        !glGetInternalformativ)
+        !glGetInternalformativ
+#endif // UWPAPP
+          )
     {
         return GL_FALSE;
     }
@@ -252,10 +287,13 @@ GLboolean gl3stubInit() {
     return GL_TRUE;
 }
 
-#if !defined(IOS)
+#if !defined(IOS) && !defined(UWPAPP)
 
 /* Function pointer definitions */
 GL_APICALL void           (* GL_APIENTRY glReadBuffer) (GLenum mode);
+GL_APICALL void           (* GL_APIENTRY glBlitFramebuffer) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
+GL_APICALL void           (* GL_APIENTRY glInvalidateFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments);
+GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glDrawRangeElements) (GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid* indices);
 GL_APICALL void           (* GL_APIENTRY glTexImage3D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid* pixels);
 GL_APICALL void           (* GL_APIENTRY glTexSubImage3D) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid* pixels);
@@ -278,7 +316,6 @@ GL_APICALL void           (* GL_APIENTRY glUniformMatrix2x4fv) (GLint location, 
 GL_APICALL void           (* GL_APIENTRY glUniformMatrix4x2fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 GL_APICALL void           (* GL_APIENTRY glUniformMatrix3x4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 GL_APICALL void           (* GL_APIENTRY glUniformMatrix4x3fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
-GL_APICALL void           (* GL_APIENTRY glBlitFramebuffer) (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 GL_APICALL void           (* GL_APIENTRY glRenderbufferStorageMultisample) (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glFramebufferTextureLayer) (GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer);
 GL_APICALL GLvoid*        (* GL_APIENTRY glMapBufferRange) (GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access);
@@ -354,9 +391,7 @@ GL_APICALL void           (* GL_APIENTRY glResumeTransformFeedback) (void);
 GL_APICALL void           (* GL_APIENTRY glGetProgramBinary) (GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, GLvoid* binary);
 GL_APICALL void           (* GL_APIENTRY glProgramBinary) (GLuint program, GLenum binaryFormat, const GLvoid* binary, GLsizei length);
 GL_APICALL void           (* GL_APIENTRY glProgramParameteri) (GLuint program, GLenum pname, GLint value);
-GL_APICALL void           (* GL_APIENTRY glInvalidateFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments);
 GL_APICALL void           (* GL_APIENTRY glInvalidateSubFramebuffer) (GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height);
-GL_APICALL void           (* GL_APIENTRY glTexStorage2D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 GL_APICALL void           (* GL_APIENTRY glTexStorage3D) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth);
 GL_APICALL void           (* GL_APIENTRY glGetInternalformativ) (GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 
@@ -369,7 +404,7 @@ GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program,
 /* OES_copy_image, etc. */
 GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
 
-#endif // IOS
+#endif // IOS && UWPAPP
 
 #endif // GLES2
 

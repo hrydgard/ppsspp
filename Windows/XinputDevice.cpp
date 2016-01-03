@@ -6,6 +6,7 @@
 #include "Common/KeyMap.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "Common\Log.h"
 #include "XinputDevice.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
@@ -24,6 +25,11 @@ static int s_XInputDLLRefCount = 0;
 static void UnloadXInputDLL();
 
 static int LoadXInputDLL() {
+#ifdef UWPAPP
+  PPSSPP_XInputGetState = XInputGetState;
+  PPSSPP_XInputSetState = XInputSetState;
+  PPSSPP_XInputGetCapabilities = XInputGetCapabilities;
+#else
 	DWORD version = 0;
 
 	if (s_pXInputDLL) {
@@ -52,17 +58,19 @@ static int LoadXInputDLL() {
 		UnloadXInputDLL();
 		return -1;
 	}
-
+#endif
 	return 0;
 }
 
 static void UnloadXInputDLL() {
+#ifndef UWPAPP
 	if ( s_pXInputDLL ) {
 		if (--s_XInputDLLRefCount == 0) {
 			FreeLibrary( s_pXInputDLL );
 			s_pXInputDLL = NULL;
 		}
 	}
+#endif
 }
 
 #ifndef XUSER_MAX_COUNT
@@ -203,8 +211,10 @@ bool NormalizedDeadzoneDiffers(u8 x1, u8 x2, const u8 thresh) {
 }
 
 int XinputDevice::UpdateState(InputState &input_state) {
+#ifndef UWPAPP
 	if (!s_pXInputDLL)
 		return 0;
+#endif
 
 	if (this->check_delay-- > 0)
 		return -1;

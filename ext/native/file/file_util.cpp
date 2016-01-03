@@ -233,8 +233,10 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 #ifdef UNICODE
-
-	HANDLE hFind = FindFirstFile((ConvertUTF8ToWString(directory) + L"\\*").c_str(), &ffd);
+  auto directoryw = ConvertUTF8ToWString( directory );
+  if ( !directoryw.empty() && ( directoryw.back() != L'/' || directoryw.back() != L'\\' ) )
+    directoryw.push_back( L'\\' );
+	HANDLE hFind = FindFirstFileEx((directoryw + L"*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 #else
 	HANDLE hFind = FindFirstFile((std::string(directory) + "\\*").c_str(), &ffd);
 #endif
@@ -314,7 +316,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 std::vector<std::string> getWindowsDrives()
 {
 	std::vector<std::string> drives;
-
+#ifndef UWPAPP
 	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
 	std::vector<TCHAR> buff(buffsize);
 	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
@@ -331,6 +333,7 @@ std::vector<std::string> getWindowsDrives()
 			while (*drive++) {}
 		}
 	}
+#endif
 	return drives;
 }
 #endif

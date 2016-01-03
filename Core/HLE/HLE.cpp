@@ -437,6 +437,14 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 	}
 }
 
+void UnlockJITCode();
+void LockJITCode();
+struct TMPUnlockJITCode
+{
+  TMPUnlockJITCode() { UnlockJITCode(); }
+  ~TMPUnlockJITCode() { LockJITCode(); }
+};
+
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
 	latestSyscall = info;
@@ -467,6 +475,8 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 
 inline void CallSyscallWithoutFlags(const HLEFunction *info)
 {
+//  TMPUnlockJITCode unlock;
+
 	latestSyscall = info;
 	info->func();
 

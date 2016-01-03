@@ -28,7 +28,7 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined _M_ARM
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
@@ -65,6 +65,7 @@ static unsigned long long _xgetbv(unsigned int index)
 #endif
 
 #if !defined(MIPS)
+#if !( defined(_WIN32) && defined(_M_ARM) )
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #if defined(__i386__) && defined(__PIC__)
@@ -88,6 +89,7 @@ void do_cpuid(u32 regs[4], u32 cpuid_leaf)
 
 #endif
 #endif
+#endif
 
 CPUInfo cpu_info;
 
@@ -96,6 +98,16 @@ CPUInfo::CPUInfo() {
 }
 
 // Detects the various cpu features
+#if defined(_WIN32) && defined(_M_ARM)
+void CPUInfo::Detect() {
+  ZeroMemory( this, sizeof( *this ) );
+
+  // For now
+  num_cores = 2;
+  logical_cpu_count = 2;
+  bNEON = true;
+}
+#else
 void CPUInfo::Detect() {
 	memset(this, 0, sizeof(*this));
 #ifdef _M_IX86
@@ -106,7 +118,7 @@ void CPUInfo::Detect() {
 #endif
 	num_cores = 1;
 
-#ifdef _WIN32
+#if defined _WIN32 && !defined UWPAPP
 #ifdef _M_IX86
 	BOOL f64 = false;
 	IsWow64Process(GetCurrentProcess(), &f64);
@@ -186,12 +198,14 @@ void CPUInfo::Detect() {
 		//  - XGETBV result has the XCR bit set.
 		if (((cpu_id[2] >> 28) & 1) && ((cpu_id[2] >> 27) & 1) && ((cpu_id[2] >> 26) & 1))
 		{
+#if !defined( _WIN32 ) || !defined( _M_ARM )
 			if ((_xgetbv(_XCR_XFEATURE_ENABLED_MASK) & 0x6) == 0x6)
 			{
 				bAVX = true;
 				if ((cpu_id[2] >> 12) & 1)
 					bFMA = true;
 			}
+#endif
 		}
 
 		if (max_std_fn >= 7)
@@ -260,6 +274,7 @@ void CPUInfo::Detect() {
 		}
 	}
 }
+#endif
 
 // Turn the cpu info into a string we can show
 std::string CPUInfo::Summarize()

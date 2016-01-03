@@ -197,6 +197,8 @@ void ArmJit::CompileDelaySlot(int flags)
 
 void ArmJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
+  MemoryAccess macc( GetCodePtr(), JitBlockCache::MAX_BLOCK_INSTRUCTIONS * 4 );
+
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
@@ -372,6 +374,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 		blocks.ProxyBlock(js.blockStart, js.lastContinuedPC, (GetCompilerPC() - js.lastContinuedPC) / sizeof(u32), GetCodePtr());
 		b->originalSize = js.initialBlockSize;
 	}
+
 	return b->normalEntry;
 }
 

@@ -81,6 +81,8 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 #ifndef _XBOX
 	#if _M_IX86
 		#define Crash() {__asm int 3}
+  #elif _M_ARM
+    #define Crash() { __debugbreak(); }
 	#else
 extern "C" {
 	__declspec(dllimport) void __stdcall DebugBreak(void);

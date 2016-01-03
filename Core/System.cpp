@@ -575,7 +575,12 @@ void InitSysDirectories() {
 
 	// Detect the "My Documents"(XP) or "Documents"(on Vista/7/8) folder.
 	wchar_t myDocumentsPath[MAX_PATH];
+#ifdef UWPAPP
+  wcscpy_s( myDocumentsPath, Windows::Storage::ApplicationData::Current->LocalFolder->Path->Data() );
+  const HRESULT result = S_OK;
+#else
 	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+#endif
 	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
 
 	const std::string installedFile = path + "installed.txt";

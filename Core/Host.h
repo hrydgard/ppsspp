@@ -35,6 +35,7 @@ public:
 
 	virtual bool InitGraphics(std::string *error_string) = 0;
 	virtual void ShutdownGraphics() = 0;
+  virtual void ResizeGraphics() {}
 
 	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}

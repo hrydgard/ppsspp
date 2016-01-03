@@ -23,7 +23,7 @@ struct JitBlock;
 #undef emit
 #endif
 
-#if defined(ARM)
+#if defined(ARM) || defined(_M_ARM)
 #include "../ARM/ArmJit.h"
 typedef MIPSComp::ArmJit NativeJit;
 #elif defined(ARM64)

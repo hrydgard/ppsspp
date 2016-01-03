@@ -297,6 +297,10 @@ ReliableHash64Func DoReliableHash64 = &XXH64;
 #endif
 #endif
 
+#ifdef HAVE_ARMV7
+# undef HAVE_ARMV7
+#endif
+
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
 #ifdef HAVE_ARMV7
