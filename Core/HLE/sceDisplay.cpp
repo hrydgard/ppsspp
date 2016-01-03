@@ -284,6 +284,11 @@ void __DisplayDoState(PointerWrap &p) {
 #endif
 	if (s < 6) {
 		p.Do(gpuStats);
+
+		// Removed values from gpuStats.
+		int ignore = 42;
+		p.Do(ignore);
+		p.Do(ignore);
 	}
 	gpu->DoState(p);
 
