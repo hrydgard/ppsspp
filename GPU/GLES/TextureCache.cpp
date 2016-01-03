@@ -853,7 +853,7 @@ void TextureCache::ApplyTexture() {
 			// Texture scale/offset and gen modes don't apply in through.
 			// So we can optimize how much of the texture we look at.
 			if (gstate.isModeThrough()) {
-				if (nextTexture_->maxSeenV == 0) {
+				if (nextTexture_->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
 					// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
 					nextTexture_->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
 				} else if (gstate_c.vertBounds.maxV > nextTexture_->maxSeenV) {
