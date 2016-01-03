@@ -27,7 +27,7 @@
 #define WRITE p+=sprintf
 
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
-void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
+void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
 	if (gl_extensions.IsGLES) {
 		WRITE(p, "#version 300 es\n");
@@ -250,7 +250,8 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
 	case GLSL_300:
-		GenerateDepalShader300(buffer, pixelFormat);
+	case GLSL_VULKAN:
+		GenerateDepalShader300(buffer, pixelFormat, language);
 		break;
 	case HLSL_DX9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);

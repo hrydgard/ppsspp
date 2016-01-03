@@ -65,7 +65,7 @@ public:
 	void Resized() override;
 	void ClearShaderCache() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCache_.DecodeTexture(dest, state);
+		return false;
 	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
