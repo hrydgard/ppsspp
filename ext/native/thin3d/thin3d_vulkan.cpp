@@ -376,8 +376,8 @@ public:
 	bool Link();
 
 	// Returns the binding offset.
-	size_t PushUBO(VulkanPushBuffer *buf) {
-		return buf->PushAligned(ubo_, uboSize_, 16);
+	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan) {
+		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment);
 	}
 
 	int GetUniformLoc(const char *name);
@@ -422,12 +422,10 @@ class Thin3DVKTexture;
 
 struct DescriptorSetKey {
 	Thin3DVKTexture *texture_;
-	Thin3DVertexFormat *vertexFormat_;
-	int frame;  // 0 or 1
+	int frame;  // 0 or 1s
 
 	bool operator < (const DescriptorSetKey &other) const {
 		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
-		if (vertexFormat_ < other.vertexFormat_) return true; else if (vertexFormat_ > other.vertexFormat_) return false;
 		if (frame < other.frame) return true; else if (frame > other.frame) return false;
 		return false;
 	}
@@ -549,32 +547,31 @@ private:
 	Thin3DVKTexture *boundTextures_[MAX_BOUND_TEXTURES];
 
 	VkCommandBuffer cmd_; // The current one
-	VulkanPushBuffer *pushBuffer_[2];
+
+	struct FrameData {
+		VulkanPushBuffer *pushBuffer;
+	};
+
+	FrameData frame_[2];
+
 	int frameNum_;
 	VulkanPushBuffer *push_;
 };
 
 
-VkFormat FormatToVulkan(T3DImageFormat fmt) {
+VkFormat FormatToVulkan(T3DImageFormat fmt, int *bpp) {
 	switch (fmt) {
-	case RGBA8888: return VK_FORMAT_R8G8B8A8_UNORM;
-	case RGBA4444: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
-	case D24S8: return VK_FORMAT_D24_UNORM_S8_UINT;
-	case D16: return VK_FORMAT_D16_UNORM;
+	case RGBA8888: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
+	case RGBA4444: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
+	case D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
 
-enum class TextureState {
-	UNINITIALIZED,
-	STAGED,
-	INITIALIZED,
-	PENDING_DESTRUCTION,
-};
-
 class Thin3DVKTexture : public Thin3DTexture {
 public:
-	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), state_(TextureState::UNINITIALIZED) {
+	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
 	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
@@ -591,36 +588,31 @@ public:
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
-
+		vkTex_ = new VulkanTexture();
 		// We don't actually do anything here.
 		return true;
 	}
 
 	void Destroy() {
+		vkTex_->Destroy(vulkan_);
+		delete vkTex_;
 	}
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-
-	void Upload(VkCommandBuffer cmd);
 
 	void Finalize(int zim_flags) override;
 
 	void AutoGenMipmaps() {}
 
-	bool NeedsUpload();
-
-	VkImageView GetImageView() { return view_; }
+	VkImageView GetImageView() { return vkTex_->view; }
 
 private:
 	VulkanContext *vulkan_;
-	VulkanImage image_;
-	VulkanImage staging_;
-	VkImageView view_;
+	VulkanTexture *vkTex_;
 
 	int mipLevels_;
 
 	T3DImageFormat format_;
-	TextureState state_;
 };
 
 Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
@@ -664,9 +656,9 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[1].descriptorCount = 2;
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = 200;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp;
 	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -677,8 +669,9 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	res = vkCreateDescriptorPool(device_, &dp, nullptr, &descriptorPool_);
 	assert(VK_SUCCESS == res);
-	pushBuffer_[0] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
-	pushBuffer_[1] = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
+
+	frame_[0].pushBuffer = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
+	frame_[1].pushBuffer = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
 
 	// binding 0 - uniform data
 	// binding 1 - sampler
@@ -747,17 +740,16 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 
 	cmd_ = vulkan_->BeginSurfaceRenderPass(clearVal);
 
-	push_ = pushBuffer_[frameNum_ & 1];
+	push_ = frame_[frameNum_ & 1].pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
-	// and that the command buffer can be safely reset and reused. So let's do that.
 	push_->Begin(device_);
 	scissorDirty_ = true;
 	viewportDirty_ = true;
 }
 
 void Thin3DVKContext::End() {
-	// Stop collecting data in the frame data buffer.
+	// Stop collecting data in the frame's data pushbuffer.
 	push_->End(device_);
 	vulkan_->EndSurfaceRenderPass();
 
@@ -771,7 +763,6 @@ void Thin3DVKContext::End() {
 VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	DescriptorSetKey key;
 	key.texture_ = boundTextures_[0];
-	key.vertexFormat_ = nullptr;
 	key.frame = frameNum_ & 1;
 
 	auto iter = descSets_.find(key);
@@ -786,6 +777,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	alloc.descriptorPool = descriptorPool_;
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
+	// OutputDebugStringA("Allocated a desc set!\n");
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
 	assert(VK_SUCCESS == res);
 
@@ -1005,68 +997,20 @@ Thin3DTexture *Thin3DVKContext::CreateTexture(T3DTextureType type, T3DImageForma
 }
 
 void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	VkFormat vulkanFormat = FormatToVulkan(format_);
-
-	// nVidia and probably many other GPUs can texture _directly_ from a mappable buffer! But let's not rely on that, and it's not quite optimal.
-	// So we need to do a staging copy. We upload the data to the staging buffer immediately, then we actually do the final copy once it's used the first time
-	// as we need a command buffer and the architecture of Thin3D doesn't really work the way we want.. 
-	if (!image_.IsValid()) {
-		staging_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, width, height);
-		image_.Create2D(vulkan_, vulkanFormat, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, VK_IMAGE_TILING_OPTIMAL, (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT), width, height);
+	int bpp;
+	VkFormat vulkanFormat = FormatToVulkan(format_, &bpp);
+	int bytesPerPixel = bpp / 8;
+	vkTex_->Create(vulkan_, width, height, vulkanFormat);
+	int rowPitch;
+	uint8_t *dstData = vkTex_->Lock(vulkan_, &rowPitch);
+	for (int y = 0; y < height; y++) {
+		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
 	}
-
-	VkImageViewCreateInfo iv;
-	iv.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	iv.pNext = nullptr;
-	iv.image = image_.GetImage();
-	iv.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	iv.flags = 0;
-	iv.format = FormatToVulkan(format_);
-	iv.components.r = VK_COMPONENT_SWIZZLE_R;
-	iv.components.g = VK_COMPONENT_SWIZZLE_G;
-	iv.components.b = VK_COMPONENT_SWIZZLE_B;
-	iv.components.a = VK_COMPONENT_SWIZZLE_A;
-	iv.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	iv.subresourceRange.layerCount = 1;
-	iv.subresourceRange.baseArrayLayer = 0;
-	iv.subresourceRange.baseMipLevel = 0;
-	iv.subresourceRange.levelCount = 1;
-	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &iv, nullptr, &view_);
-	assert(VK_SUCCESS == res);
-
-	// TODO: Support setting only parts of the image efficiently.
-	staging_.SetImageData2D(vulkan_->GetDevice(), data, width, height, stride);
-	state_ = TextureState::STAGED;
-	width_ = width;
-	height_ = height;
+	vkTex_->Unlock(vulkan_);
 }
 
 void Thin3DVKTexture::Finalize(int zim_flags) {
 	// TODO
-}
-
-bool Thin3DVKTexture::NeedsUpload() {
-	return state_ == TextureState::STAGED;
-}
-
-void Thin3DVKTexture::Upload(VkCommandBuffer cmd) {
-	if (state_ != TextureState::STAGED) {
-		return;
-	}
-
-	// Before we can texture, we need to Copy and ChangeLayout.
-	VkImageCopy copy_region;
-	copy_region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-	copy_region.srcOffset = { 0, 0, 0 };
-	copy_region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-	copy_region.dstOffset = { 0, 0, 0 };
-	copy_region.extent = { (uint32_t)width_, (uint32_t)height_, 1 };
-	vkCmdCopyImage(cmd, staging_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image_.GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
-	image_.ChangeLayout(cmd, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	// From this point on, the image can be used for texturing.
-	// Even before this function call (but after SetImageData), the image object can be referenced in a descriptor set. Better make sure that the image is uploaded
-	// before it's actually used though...
-	state_ = TextureState::INITIALIZED;
 }
 
 static bool isPowerOf2(int n) {
@@ -1120,11 +1064,6 @@ Thin3DShaderSet *Thin3DVKContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<Thin3DVKTexture *>(textures[i]);
-		// Bind simply copies the texture to VRAM if needed.
-		if (boundTextures_[i]->NeedsUpload()) {
-			VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
-			boundTextures_[i]->Upload(cmd);
-		}
 	}
 }
 
@@ -1195,7 +1134,6 @@ void Thin3DVKContext::SetRenderState(T3DRenderState rs, uint32_t value) {
 }
 
 void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
-	return;
 	ApplyDynamicState();
 	
 	curPrim_ = primToVK[prim];
@@ -1203,7 +1141,7 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_);
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize());
 
 	VkPipeline pipeline = GetOrCreatePipeline();
@@ -1217,7 +1155,6 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 }
 
 void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
-	return;
 	ApplyDynamicState();
 	
 	curPrim_ = primToVK[prim];
@@ -1227,7 +1164,7 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	Thin3DVKBuffer *ibuf = (Thin3DVKBuffer *)idata;
 	Thin3DVKBuffer *vbuf = (Thin3DVKBuffer *)vdata;
 
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_);
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
 	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize());
 	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize());
 
@@ -1252,18 +1189,18 @@ void Thin3DVKContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_);
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_);
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet();
-	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
-
 	VkBuffer buffers[1] = { push_->GetVkBuffer() };
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
+
+	VkDescriptorSet descSet = GetOrCreateDescriptorSet();
+	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 	vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 }
 

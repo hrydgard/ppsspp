@@ -694,13 +694,19 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+	switch (GetGPUBackend()) {
+	case GPUBackend::VULKAN:
+		ortho.setOrthoD3D(0.0f, xres, 0, yres, -1.0f, 1.0f);
+		break;
+	case GPUBackend::DIRECT3D9:
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
 		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
 		ortho = translation * ortho;
-	} else {
+		break;
+	case GPUBackend::OPENGL:
 		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
+		break;
 	}
 
 	ui_draw2d.SetDrawMatrix(ortho);
