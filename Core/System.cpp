@@ -360,6 +360,7 @@ void System_Wake() {
 static bool pspIsInited = false;
 static bool pspIsIniting = false;
 static bool pspIsQuiting = false;
+// Ugly!
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	if (pspIsIniting || pspIsQuiting) {
@@ -407,7 +408,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
 	if (success) {
-		success = GPU_Init();
+		success = GPU_Init(coreParameter.graphicsContext);
 		if (!success) {
 			PSP_Shutdown();
 			*error_string = "Unable to initialize rendering engine.";

@@ -38,13 +38,13 @@ static void SetGPU(T *obj) {
 	gpuDebug = obj;
 }
 
-bool GPU_Init() {
+bool GPU_Init(GraphicsContext *ctx) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
-		SetGPU(new GLES_GPU());
+		SetGPU(new GLES_GPU(ctx));
 		break;
 	case GPU_SOFTWARE:
 		SetGPU(new SoftGPU());

@@ -1,6 +1,5 @@
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
-#include <DxErr.h>
 
 #include "GPU/Directx9/helper/global.h"
 #include "GPU/Directx9/helper/dx_fbo.h"
@@ -16,19 +15,7 @@
 #include "thin3d/thin3d.h"
 #include "thin3d/d3dx9_loader.h"
 
-static bool has9Ex = false;
-static LPDIRECT3D9 d3d;
-static LPDIRECT3D9EX d3dEx;
-static int adapterId;
-static LPDIRECT3DDEVICE9 device;
-static LPDIRECT3DDEVICE9EX deviceEx;
-static HDC hDC;     // Private GDI Device Context
-static HGLRC hRC;   // Permanent Rendering Context
-static HWND hWnd;   // Holds Our Window Handle
-static D3DPRESENT_PARAMETERS pp;
-static HMODULE hD3D9;
-
-void D3D9_SwapBuffers() {
+void D3D9Context::SwapBuffers() {
 	if (has9Ex) {
 		deviceEx->EndScene();
 		deviceEx->PresentEx(NULL, NULL, NULL, NULL, 0);
@@ -40,7 +27,7 @@ void D3D9_SwapBuffers() {
 	}
 }
 
-Thin3DContext *D3D9_CreateThin3DContext() {
+Thin3DContext *D3D9Context::CreateThin3DContext() {
 	return T3DCreateDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 
@@ -54,14 +41,19 @@ bool IsWin7OrLater() {
 	return (major > 6) || ((major == 6) && (minor >= 1));
 }
 
-static void GetRes(int &xres, int &yres) {
+static void GetRes(HWND hWnd, int &xres, int &yres) {
 	RECT rc;
 	GetClientRect(hWnd, &rc);
 	xres = rc.right - rc.left;
 	yres = rc.bottom - rc.top;
 }
 
-bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
+void D3D9Context::SwapInterval(int interval) {
+	// Dummy
+}
+
+bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
+	bool windowed = true;
 	hWnd = wnd;
 
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
@@ -136,7 +128,7 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 		dwBehaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
 
 	int xres, yres;
-	GetRes(xres, yres);
+	GetRes(hWnd, xres, yres);
 
 	memset(&pp, 0, sizeof(pp));
 	pp.BackBufferWidth = xres;
@@ -195,11 +187,11 @@ bool D3D9_Init(HWND wnd, bool windowed, std::string *error_message) {
 	return true;
 }
 
-void D3D9_Resize(HWND window) {
+void D3D9Context::Resize() {
 	// This should only be called from the emu thread.
 
 	int xres, yres;
-	GetRes(xres, yres);
+	GetRes(hWnd, xres, yres);
 	bool w_changed = pp.BackBufferWidth != xres;
 	bool h_changed = pp.BackBufferHeight != yres;
 
@@ -218,7 +210,7 @@ void D3D9_Resize(HWND window) {
 	}
 }
 
-void D3D9_Shutdown() {
+void D3D9Context::Shutdown() {
 	DX9::DestroyShaders();
 	DX9::fbo_shutdown();
 	device->EndScene();

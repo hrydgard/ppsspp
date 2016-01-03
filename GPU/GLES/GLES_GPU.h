@@ -30,10 +30,11 @@
 
 class ShaderManager;
 class LinkedShader;
+class GraphicsContext;
 
 class GLES_GPU : public GPUCommon {
 public:
-	GLES_GPU();
+	GLES_GPU(GraphicsContext *gfxCtx);
 	~GLES_GPU();
 
 	// This gets called on startup and when we get back from settings.
@@ -192,4 +193,6 @@ private:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	GraphicsContext *gfxCtx_;
 };

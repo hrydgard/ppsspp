@@ -47,6 +47,7 @@ enum PSPDirectories {
 	DIRECTORY_CACHE,
 };
 
+class GraphicsContext;
 
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();

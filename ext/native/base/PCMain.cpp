@@ -41,15 +41,20 @@ SDLJoystick *joystick = NULL;
 #include "util/text/utf8.h"
 #include "math/math_util.h"
 
-#ifdef PPSSPP
-// Bad: PPSSPP includes from native
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Common/GraphicsContext.h"
+
+class GLDummyGraphicsContext : public DummyGraphicsContext {
+public:
+	Thin3DContext *CreateThin3DContext() override {
+		return T3DCreateGLContext();
+	}
+};
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
-#endif
 
 static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
@@ -621,7 +626,9 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	NativeInitGraphics();
+	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
+	NativeInitGraphics(graphicsContext);
+
 	NativeResized();
 
 	SDL_AudioSpec fmt, ret_fmt;
@@ -851,12 +858,7 @@ int main(int argc, char *argv[]) {
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
-#ifdef PPSSPP
 		UpdateRunLoop();
-#else
-		NativeUpdate(input_state);
-		NativeRender();
-#endif
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)
@@ -876,8 +878,7 @@ int main(int argc, char *argv[]) {
 #ifdef USING_EGL
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
-		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
-		{
+		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0) {
 			SDL_GL_SwapWindow(g_Screen);
 			lastT = t;
 		}
@@ -892,6 +893,8 @@ int main(int argc, char *argv[]) {
 	delete joystick;
 #endif
 	NativeShutdownGraphics();
+	graphicsContext->Shutdown();
+	delete graphicsContext;
 	NativeShutdown();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though

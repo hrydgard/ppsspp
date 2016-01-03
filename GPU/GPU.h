@@ -22,6 +22,7 @@
 
 class GPUInterface;
 class GPUDebugInterface;
+class GraphicsContext;
 
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
@@ -103,6 +104,6 @@ extern GPUStatistics gpuStats;
 extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
-bool GPU_Init();
+bool GPU_Init(GraphicsContext *ctx);
 void GPU_Shutdown();
 void GPU_Reinitialize();

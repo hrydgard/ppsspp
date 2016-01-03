@@ -28,6 +28,7 @@
 #include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
 
+#include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
 
 #include "app-android.h"
@@ -41,6 +42,64 @@ struct FrameCommand {
 	std::string command;
 	std::string params;
 };
+
+class AndroidEGLGraphicsContext : public GraphicsContext {
+public:
+	AndroidEGLGraphicsContext() : wnd_(nullptr), gl(nullptr) {}
+	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat);
+	void Shutdown() override;
+	void SwapBuffers() override;
+	void SwapInterval(int interval) override {}
+	void Resize() {}
+	Thin3DContext *CreateThin3DContext() {
+		return T3DCreateGLContext();
+	}
+
+private:
+	ANativeWindow *wnd_;
+	cInterfaceBase *gl;
+};
+
+bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, int backbufferHeight, int backbufferFormat) {
+	wnd_ = wnd;
+	gl = HostGL_CreateGLInterface();
+	if (!gl) {
+		ELOG("ERROR: Failed to create GL interface");
+		return false;
+	}
+	ILOG("EGL interface created. Desired backbuffer size: %dx%d", backbufferWidth, backbufferHeight);
+
+	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
+	gl->SetBackBufferDimensions(backbufferWidth, backbufferHeight);
+	gl->SetMode(MODE_DETECT_ES);
+
+	bool use565 = false;
+	switch (backbufferFormat) {
+	case 4:  // PixelFormat.RGB_565
+		use565 = true;
+		break;
+	}
+
+	if (!gl->Create(wnd, false, use565)) {
+		ELOG("EGL creation failed");
+		// TODO: What do we do now?
+		delete gl;
+		return false;
+	}
+	gl->MakeCurrent();
+	return true;
+}
+
+void AndroidEGLGraphicsContext::Shutdown() {
+	gl->ClearCurrent();
+	delete gl;
+	ANativeWindow_release(wnd_);
+}
+
+void AndroidEGLGraphicsContext::SwapBuffers() {
+	gl->Swap();
+}
+
 
 static recursive_mutex frameCommandLock;
 static std::queue<FrameCommand> frameCommands;
@@ -76,10 +135,10 @@ static int desiredBackbufferSizeY;
 static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
-bool renderLoopRunning;
+static bool renderLoopRunning;
 
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
+static float dp_xscale = 1.0f;
+static float dp_yscale = 1.0f;
 
 InputState input_state;
 
@@ -87,6 +146,8 @@ static bool renderer_inited = false;
 static bool first_lost = true;
 static std::string library_path;
 static std::map<SystemPermission, PermissionStatus> permissions;
+
+AndroidEGLGraphicsContext *graphicsContext;
 
 void PushCommand(std::string cmd, std::string param) {
 	lock_guard guard(frameCommandLock);
@@ -607,33 +668,15 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		return false;
 	}
 
-	cInterfaceBase *gl = HostGL_CreateGLInterface();
-	if (!gl) {
-		ELOG("ERROR: Failed to create GL interface");
+	AndroidEGLGraphicsContext *graphicsContext = new AndroidEGLGraphicsContext();
+	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format)) {
+		ELOG("Failed to initialize graphics context.");
+		delete graphicsContext;
 		return false;
 	}
-	ILOG("EGL interface created. Desired backbuffer size: %dx%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
-
-	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
-	gl->SetBackBufferDimensions(desiredBackbufferSizeX, desiredBackbufferSizeY);
-	gl->SetMode(MODE_DETECT_ES);
-
-	bool use565 = false;
-	switch (backbuffer_format) {
-	case 4:  // PixelFormat.RGB_565
-		use565 = true;
-		break;
-	}
-
-	if (!gl->Create(wnd, false, use565)) {
-		ELOG("EGL creation failed");
-		// TODO: What do we do now?
-		return false;
-	}
-	gl->MakeCurrent();
 
 	if (!renderer_inited) {
-		NativeInitGraphics();
+		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
 	}
 
@@ -665,10 +708,10 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 			EndInputState(&input_state);
 		}
 
-		NativeRender();
+		NativeRender(graphicsContext);
 		time_update();
 
-		gl->Swap();
+		graphicsContext->SwapBuffers();
 
 		lock_guard guard(frameCommandLock);
 		while (!frameCommands.empty()) {
@@ -693,10 +736,8 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	NativeShutdownGraphics();
 	renderer_inited = false;
 
-	gl->ClearCurrent();
-	delete gl;
+	graphicsContext->Shutdown();
 
-	ANativeWindow_release(wnd);
 	renderLoopRunning = false;
 	WLOG("Render loop exited;");
 	return true;

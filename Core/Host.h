@@ -21,6 +21,7 @@
 #include "Common/CommonTypes.h"
 
 struct InputState;
+class GraphicsContext;
 
 // TODO: Whittle this down. Collecting a bunch of random stuff like this isn't good design :P
 class Host {
@@ -33,7 +34,7 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual bool InitGraphics(std::string *error_string) = 0;
+	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;
 
 	virtual void InitSound() = 0;

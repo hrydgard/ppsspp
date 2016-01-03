@@ -275,6 +275,9 @@
     <ClInclude Include="GPU\WindowsGLContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\WindowsGraphicsContext.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">

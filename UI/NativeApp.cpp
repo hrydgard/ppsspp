@@ -37,7 +37,6 @@
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
 #include "Windows/MainWindow.h"
-#include "Windows/GPU/D3D9Context.h"
 #endif
 
 #include "base/display.h"
@@ -68,6 +67,7 @@
 #include "Common/FileUtil.h"
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
@@ -506,20 +506,9 @@ void NativeInit(int argc, const char *argv[],
 	}
 }
 
-void NativeInitGraphics() {
-#ifndef _WIN32
-	// Force backend to GL
-	g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
-#endif
-
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
-		thin3d = T3DCreateGLContext();
-		CheckGLExtensions();
-	} else {
-#ifdef _WIN32
-		thin3d = D3D9_CreateThin3DContext();
-#endif
-	}
+void NativeInitGraphics(GraphicsContext *graphicsContext) {
+	Core_SetGraphicsContext(graphicsContext);
+	thin3d = graphicsContext->CreateThin3DContext();
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -692,7 +681,7 @@ void DrawDownloadsOverlay(UIContext &dc) {
 	dc.Flush();
 }
 
-void NativeRender() {
+void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
 
 	float xres = dp_xres;
@@ -725,17 +714,16 @@ void NativeRender() {
 
 	if (resized) {
 		resized = false;
-		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
-#ifdef _WIN32
-			D3D9_Resize(0);
-#endif
-		} else if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+
+		graphicsContext->Resize();
+		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
+		if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
 			NativeMessageReceived("gpu resized", "");
-#endif
 		}
+#endif
 	}
 }
 

@@ -288,12 +288,10 @@ namespace MainWindow
 	}
 
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen) {
+		GraphicsContext *graphicsContext = PSP_CoreParameter().graphicsContext;
 		// Make sure no rendering is happening during the switch.
-
-		bool isOpenGL = g_Config.iGPUBackend == GPU_BACKEND_OPENGL;
-
-		if (isOpenGL) {
-			GL_Pause();
+		if (graphicsContext) {
+			graphicsContext->Pause();
 		}
 
 		int oldWindowState = g_WindowState;
@@ -355,8 +353,8 @@ namespace MainWindow
 
 		WindowsRawInput::NotifyMenu();
 
-		if (isOpenGL) {
-			GL_Resume();
+		if (graphicsContext) {
+			graphicsContext->Resume();
 		}
 	}
 
