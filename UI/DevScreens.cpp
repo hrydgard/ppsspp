@@ -466,6 +466,14 @@ void SystemInfoScreen::CreateViews() {
 				eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 			}
 		}
+	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+		tabHolder->AddTab("Vulkan Features", oglExtensionsScroll);
+
+		oglExtensions->Add(new ItemHeader("Vulkan Features"));
+		std::vector<std::string> features = thin3d->GetFeatureList();
+		for (auto &feature : features) {
+			oglExtensions->Add(new TextView(feature))->SetFocusable(true);
+		}
 	}
 }
 
