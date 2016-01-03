@@ -141,9 +141,9 @@ public:
 		assert(VK_SUCCESS == res);
 	}
 
-	void Destroy(VkDevice device) {
-		vkDestroyBuffer(device, buffer_, nullptr);
-		vkFreeMemory(device, deviceMemory_, nullptr);
+	void Destroy(VulkanContext *vulkan) {
+		vulkan->QueueDelete(buffer_);
+		vulkan->QueueDelete(deviceMemory_);
 	}
 
 	void Reset() { offset_ = 0; }
@@ -422,11 +422,11 @@ class Thin3DVKTexture;
 
 struct DescriptorSetKey {
 	Thin3DVKTexture *texture_;
-	int frame;  // 0 or 1s
+	VulkanPushBuffer *buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
 		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
-		if (frame < other.frame) return true; else if (frame > other.frame) return false;
+		if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
 		return false;
 	}
 };
@@ -517,11 +517,6 @@ private:
 	// We keep a pipeline state cache.
 	std::map<PipelineKey, VkPipeline> pipelines_;
 
-	// Also, a descriptor set state cache. We precompute a descriptor set for every active texture.
-	// The only difference between descriptor sets will be their textures. And input bindings? Hm
-	std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
-
-	VkDescriptorPool descriptorPool_;
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
 	VkPipelineCache pipelineCache_;
@@ -550,6 +545,11 @@ private:
 
 	struct FrameData {
 		VulkanPushBuffer *pushBuffer;
+
+		// Per-frame descriptor set cache. As it's per frame and reset every frame, we don't need to
+		// worry about invalidating descriptors pointing to deleted textures.
+		std::map<DescriptorSetKey, VkDescriptorSet> descSets_;
+		VkDescriptorPool descriptorPool;
 	};
 
 	FrameData frame_[2];
@@ -557,7 +557,6 @@ private:
 	int frameNum_;
 	VulkanPushBuffer *push_;
 };
-
 
 VkFormat FormatToVulkan(T3DImageFormat fmt, int *bpp) {
 	switch (fmt) {
@@ -573,6 +572,7 @@ class Thin3DVKTexture : public Thin3DTexture {
 public:
 	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
+
 	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
@@ -583,6 +583,7 @@ public:
 	}
 
 	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
+		ILOG("texture created: %p", this);
 		format_ = format;
 		mipLevels_ = mipLevels;
 		width_ = width;
@@ -593,20 +594,19 @@ public:
 		return true;
 	}
 
-	void Destroy() {
-		vkTex_->Destroy(vulkan_);
-		delete vkTex_;
-	}
-
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
-
 	void Finalize(int zim_flags) override;
-
 	void AutoGenMipmaps() {}
 
 	VkImageView GetImageView() { return vkTex_->view; }
 
 private:
+	void Destroy() {
+		ILOG("texture destroyed: %p", this);
+		vkTex_->Destroy(vulkan_);
+		delete vkTex_;
+	}
+
 	VulkanContext *vulkan_;
 	VulkanTexture *vkTex_;
 
@@ -663,11 +663,13 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	VkDescriptorPoolCreateInfo dp;
 	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	dp.pNext = nullptr;
-	dp.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;   // We want to individually alloc and free descriptor sets. (do we? or one per "frame"?)
-	dp.maxSets = 200;  // One set for every texture available... sigh
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
+	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	res = vkCreateDescriptorPool(device_, &dp, nullptr, &descriptorPool_);
+	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[0].descriptorPool);
+	assert(VK_SUCCESS == res);
+	res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[1].descriptorPool);
 	assert(VK_SUCCESS == res);
 
 	frame_[0].pushBuffer = new VulkanPushBuffer(device_, vulkan_, 1024 * 1024);
@@ -722,7 +724,9 @@ Thin3DVKContext::~Thin3DVKContext() {
 	}
 	vkDestroyCommandPool(device_, cmdPool_, nullptr);
 	// This also destroys all descriptor sets.
-	vkDestroyDescriptorPool(device_, descriptorPool_, nullptr);
+	for (int i = 0; i < 2; i++) {
+		vkDestroyDescriptorPool(device_, frame_[i].descriptorPool, nullptr);
+	}
 	vkDestroyDescriptorSetLayout(device_, descriptorSetLayout_, nullptr);
 	vkDestroyPipelineLayout(device_, pipelineLayout_, nullptr);
 	vkDestroySampler(device_, sampler_, nullptr);
@@ -740,10 +744,16 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 
 	cmd_ = vulkan_->BeginSurfaceRenderPass(clearVal);
 
-	push_ = frame_[frameNum_ & 1].pushBuffer;
+	FrameData *frame = &frame_[frameNum_ & 1];
+	push_ = frame->pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Begin(device_);
+
+	frame->descSets_.clear();
+	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
+	assert(result == VK_SUCCESS);
+
 	scissorDirty_ = true;
 	viewportDirty_ = true;
 }
@@ -762,11 +772,14 @@ void Thin3DVKContext::End() {
 
 VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	DescriptorSetKey key;
-	key.texture_ = boundTextures_[0];
-	key.frame = frameNum_ & 1;
 
-	auto iter = descSets_.find(key);
-	if (iter != descSets_.end()) {
+	FrameData *frame = &frame_[frameNum_ & 1];
+
+	key.texture_ = boundTextures_[0];
+	key.buffer_ = push_;  // Not currently strictly necessary as a single frame always uses a specific push buffer
+
+	auto iter = frame->descSets_.find(key);
+	if (iter != frame->descSets_.end()) {
 		return iter->second;
 	}
 
@@ -774,7 +787,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	VkDescriptorSetAllocateInfo alloc;
 	alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	alloc.pNext = nullptr;
-	alloc.descriptorPool = descriptorPool_;
+	alloc.descriptorPool = frame->descriptorPool;
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
 	// OutputDebugStringA("Allocated a desc set!\n");
@@ -820,7 +833,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 
 	vkUpdateDescriptorSets(device_, 2, writes, 0, nullptr);
 
-	descSets_[key] = descSet;
+	frame->descSets_[key] = descSet;
 	return descSet;
 }
 
@@ -1099,17 +1112,6 @@ int Thin3DVKShaderSet::GetUniformLoc(const char *name) {
 	if (!strcmp(name, "WorldViewProj")) {
 		return 0;
 	}
-
-	/*
-	auto iter = uniforms_.find(name);
-	if (iter != uniforms_.end()) {
-		loc = iter->second.loc_;
-	} else {
-		loc = glGetUniformLocation(program_, name);
-		UniformInfo info;
-		info.loc_ = loc;
-		uniforms_[name] = info;
-	}*/
 
 	return loc;
 }
