@@ -153,14 +153,14 @@ std::string Timer::GetTimeElapsedFormatted() const
 // Get current time
 void Timer::IncreaseResolution()
 {
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(USING_WIN_UI)
 	timeBeginPeriod(1);
 #endif
 }
 
 void Timer::RestoreResolution()
 {
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(USING_WIN_UI)
 	timeEndPeriod(1);
 #endif
 }
