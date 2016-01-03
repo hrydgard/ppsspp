@@ -64,31 +64,51 @@ struct layer_properties {
 	std::vector<VkExtensionProperties> extensions;
 };
 
+// This is a bit repetitive...
 class VulkanDeleteList {
 public:
+	void QueueDelete(VkBuffer buffer) { buffers_.push_back(buffer); }
+	void QueueDelete(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
 	void QueueDelete(VkImage image) { images_.push_back(image); }
+	void QueueDelete(VkImageView imageView) { imageViews_.push_back(imageView); }
 	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
 
 	void Ingest(VulkanDeleteList &del) {
-		images_ = del.images_;
-		memory_ = del.memory_;
-		del.images_.clear();
-		del.memory_.clear();
+		buffers_ = std::move(del.buffers_);
+		bufferViews_ = std::move(del.bufferViews_);
+		images_ = std::move(del.images_);
+		imageViews_ = std::move(del.imageViews_);
+		memory_ = std::move(del.memory_);
 	}
 
 	void PerformDeletes(VkDevice device) {
-		for (auto &mem : memory_) {
-			vkFreeMemory(device, mem, nullptr);
+		for (auto &buf : buffers_) {
+			vkDestroyBuffer(device, buf, nullptr);
 		}
-		memory_.clear();
+		buffers_.clear();
+		for (auto &bufView : bufferViews_) {
+			vkDestroyBufferView(device, bufView, nullptr);
+		}
+		bufferViews_.clear();
 		for (auto &image : images_) {
 			vkDestroyImage(device, image, nullptr);
 		}
 		images_.clear();
+		for (auto &imageView : imageViews_) {
+			vkDestroyImageView(device, imageView, nullptr);
+		}
+		imageViews_.clear();
+		for (auto &mem : memory_) {
+			vkFreeMemory(device, mem, nullptr);
+		}
+		memory_.clear();
 	}
 
 private:
+	std::vector<VkBuffer> buffers_;
+	std::vector<VkBufferView> bufferViews_;
 	std::vector<VkImage> images_;
+	std::vector<VkImageView> imageViews_;
 	std::vector<VkDeviceMemory> memory_;
 };
 
