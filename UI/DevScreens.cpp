@@ -429,41 +429,42 @@ void SystemInfoScreen::CreateViews() {
 	oglExtensions->SetSpacing(0);
 	oglExtensionsScroll->Add(oglExtensions);
 
-	tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
 
-	if (!gl_extensions.IsGLES) {
-		oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
-	} else if (gl_extensions.GLES3) {
-		oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
-	} else {
-		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
-	}
-
-	exts.clear();
-	SplitString(g_all_gl_extensions, ' ', exts);
-	std::sort(exts.begin(), exts.end());
-	for (size_t i = 0; i < exts.size(); i++) {
-		oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
-	}
-
-	exts.clear();
-	SplitString(g_all_egl_extensions, ' ', exts);
-	std::sort(exts.begin(), exts.end());
-
-	// If there aren't any EGL extensions, no need to show the tab.
-	if (exts.size() > 0) {
-		ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
-		LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
-		eglExtensions->SetSpacing(0);
-		eglExtensionsScroll->Add(eglExtensions);
-
-		tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
-
-		eglExtensions->Add(new ItemHeader("EGL Extensions"));
-
+		if (!gl_extensions.IsGLES) {
+			oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
+		} else if (gl_extensions.GLES3) {
+			oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
+		} else {
+			oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+		}
+		exts.clear();
+		SplitString(g_all_gl_extensions, ' ', exts);
+		std::sort(exts.begin(), exts.end());
 		for (size_t i = 0; i < exts.size(); i++) {
-			eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		}
+
+		exts.clear();
+		SplitString(g_all_egl_extensions, ' ', exts);
+		std::sort(exts.begin(), exts.end());
+
+		// If there aren't any EGL extensions, no need to show the tab.
+		if (exts.size() > 0) {
+			ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+			eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
+			LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
+			eglExtensions->SetSpacing(0);
+			eglExtensionsScroll->Add(eglExtensions);
+
+			tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
+
+			eglExtensions->Add(new ItemHeader("EGL Extensions"));
+
+			for (size_t i = 0; i < exts.size(); i++) {
+				eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			}
 		}
 	}
 }

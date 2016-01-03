@@ -361,7 +361,7 @@ public:
 	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	const char *GetInfoString(T3DInfo info) const override {
+	std::string GetInfoString(T3DInfo info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
 			case APINAME:

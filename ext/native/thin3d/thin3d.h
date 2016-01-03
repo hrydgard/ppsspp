@@ -282,6 +282,8 @@ class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
 
+	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
+
 	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
@@ -334,7 +336,7 @@ public:
 		targetHeight_ = h;
 	}
 
-	virtual const char *GetInfoString(T3DInfo info) const = 0;
+	virtual std::string GetInfoString(T3DInfo info) const = 0;
 
 protected:
 	void CreatePresets();
