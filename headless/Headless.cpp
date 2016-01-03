@@ -316,6 +316,7 @@ int main(int argc, const char* argv[])
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
+	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";

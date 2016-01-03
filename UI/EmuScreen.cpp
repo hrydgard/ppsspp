@@ -101,6 +101,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
 		coreParam.gpuCore = GPU_DIRECTX9;
 	}
+	// Preserve the existing graphics context.
+	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
