@@ -93,7 +93,7 @@ public:
 			mainWindow->GetDialogDisasm()->SetDebugMode(mode);
 	}
 
-	virtual bool InitGraphics(std::string *error_message) override { return true; }
+	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	virtual void ShutdownGraphics() override {}
 
 	virtual void InitSound() override;

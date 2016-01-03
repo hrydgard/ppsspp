@@ -25,17 +25,25 @@ QTM_USE_NAMESPACE
 #include "gfx/gl_common.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "base/NKCodeFromQt.h"
 
-// Bad: PPSSPP includes from native
+#include "Common/GraphicsContext.h"
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 
 // Input
 void SimulateGamepad(InputState *input);
+
+class QtDummyGraphicsContext : public DummyGraphicsContext {
+public:
+	Thin3DContext *CreateThin3DContext() override {
+		return T3DCreateGLContext();
+	}
+};
 
 //GUI
 class MainUI : public QGLWidget
@@ -62,6 +70,9 @@ public:
 		delete acc;
 #endif
 		NativeShutdownGraphics();
+		graphicsContext->Shutdown();
+		delete graphicsContext;
+		graphicsContext = nullptr;
 	}
 
 public slots:
@@ -183,7 +194,8 @@ protected:
 #ifndef USING_GLES2
 		glewInit();
 #endif
-		NativeInitGraphics();
+		graphicsContext = new QtDummyGraphicsContext();
+		NativeInitGraphics(graphicsContext);
 	}
 
 	void paintGL()
@@ -224,6 +236,7 @@ protected:
 
 private:
 	InputState input_state;
+	QtDummyGraphicsContext *graphicsContext;
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
 	QAccelerometer* acc;
 #endif
