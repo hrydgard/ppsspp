@@ -35,37 +35,13 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
 #define WRITE p+=sprintf
-
-// #define DEBUG_SHADER
-
-// TODO: Which binding number?
-static const char *vulkan_uniform_buffer = R"(
-layout(set=0, binding=3) uniform constants {
-	// Blend function replacement
-	vec3 u_blendFixA;
-	vec3 u_blendFixB;
-
-	// Texture clamp emulation
-	vec4 u_texclamp;
-	vec2 u_texclampoff;
-
-	// Alpha/Color test emulation
-	vec4 u_alphacolorref;
-	ivec4 u_alphacolormask;
-
-	// Stencil replacement
-	float u_stencilReplaceValue;
-	vec3 u_texenv;
-
-	vec3 u_fogcolor;
-)";
-
 
 // Missing: Z depth range
 bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
@@ -116,15 +92,14 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 
 	const char *shading = doFlatShading ? "flat" : "";
 
-	WRITE(p, "%s\n", vulkan_uniform_buffer);
-
+	WRITE(p, "layout (binding = 2) uniform %s\n", ub_baseStr);
 	if (doTexture) {
-		WRITE(p, "layout (binding = 1) uniform sampler2D tex;\n");
+		WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
 	}
 
 	if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 		if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
-			WRITE(p, "layout (binding = 2) uniform sampler2D fbotex;\n");
+			WRITE(p, "layout (binding = 1) uniform sampler2D fbotex;\n");
 		}
 	}
 
@@ -132,13 +107,13 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	if (lmode)
 		WRITE(p, "layout (location = 2) %s in vec3 v_color1;\n", shading);
 	if (enableFog) {
-		WRITE(p, "layout (location = 3) %s float v_fogdepth;\n", highpFog ? "highp" : "mediump");
+		WRITE(p, "layout (location = 3) %s in float v_fogdepth;\n", highpFog ? "highp" : "mediump");
 	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "layout (location = 0) %s vec3 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) %s in vec3 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
 		else
-			WRITE(p, "layout (location = 0) %s vec2 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) %s in vec2 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
 	}
 
 	if (!g_Config.bFragmentTestCache) {

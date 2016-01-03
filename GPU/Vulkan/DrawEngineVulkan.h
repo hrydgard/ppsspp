@@ -17,25 +17,18 @@
 
 #pragma once
 
-#include "GPU/Common/DrawEngineCommon.h"
-// Copyright (c) 2012- PPSSPP Project.
+// The Descriptor Set used for the majority of PSP rendering looks like this:
+//
+// * binding 0: Texture/Sampler (the PSP texture)
+// * binding 1: Secondary texture sampler for shader blending or depal palettes
+// * binding 2: Base Uniform Buffer (includes fragment state)
+// * binding 3: Light uniform buffer
+// * binding 4: Bone uniform buffer
+//
+// All shaders conform to this layout, so they are all compatible with the same descriptor set.
+// The format of the various uniform buffers may vary though - vertex shaders that don't skin
+// won't get any bone data, etc.
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License 2.0 for more details.
-
-// A copy of the GPL 2.0 should have been included with the program.
-// If not, see http://www.gnu.org/licenses/
-
-// Official git repository and contact information can be found at
-// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-
-#pragma once
 
 #include <unordered_map>
 
@@ -66,7 +59,7 @@ typedef u32 ReliableHashType;
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
-	DrawEngineVulkan();
+	DrawEngineVulkan(VulkanContext *vulkan);
 	virtual ~DrawEngineVulkan();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
@@ -143,12 +136,35 @@ public:
 		cmd_ = cmd;
 	}
 
+	VkPipelineLayout GetPipelineLayout() const {
+		return pipelineLayout_;
+	}
+
+	void EndFrame();
+
 private:
 	void DecodeVerts();
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
+	VkDescriptorSet GetDescriptorSet();
+
 	VertexDecoder *GetVertexDecoder(u32 vtype);
+
+	VulkanContext *vulkan_;
+
+	// We use a single descriptor set layout for all PSP draws.
+	VkDescriptorSetLayout descriptorSetLayout_;
+	VkPipelineLayout pipelineLayout_;
+
+	// We alternate between these.
+	struct FrameData {
+		VkDescriptorPool descPool;
+		VulkanPushBuffer *pushData;
+	};
+
+	int curFrame_;
+	FrameData frame_[2];
 
 	// Defer all vertex decoding to a "Flush" (except when software skinning)
 	struct DeferredDrawCall {
@@ -162,6 +178,10 @@ private:
 		u16 indexUpperBound;
 	};
 
+	// This is always set to the current main command buffer of the VulkanContext.
+	// In the future, we may support flushing mid-frame and more fine grained command buffer usage,
+	// but for now, let's just submit a whole frame at a time. This is not compatible with some games
+	// that do mid frame read-backs.
 	VkCommandBuffer cmd_;
 
 	// Vertex collector state
