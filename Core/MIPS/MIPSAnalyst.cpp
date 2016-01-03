@@ -148,6 +148,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
 	{ 0x2965b1ad3ca15cc1, 44, "vtfm_t", },
 	{ 0x299a370587df078f, 116, "strange_copy_routine", },
+	{ 0x2aa9634a9951c7df, 212, "sdgundamggenerationportable_download_frame", }, // SD Gundam G Generation Portable
 	{ 0x2abca53599f09ea7, 608, "dl_write_matrix_3", },
 	{ 0x2adb92e8855c454e, 48, "vtfm_q", },
 	{ 0x2adc229bef7bbc75, 40, "isnan", },
