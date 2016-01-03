@@ -389,7 +389,7 @@ void LogoScreen::Next() {
 void LogoScreen::update(InputState &input_state) {
 	UIScreen::update(input_state);
 	frames_++;
-	if (frames_ > 1800000 || input_state.pointer_down[0]) {
+	if (frames_ > 180 || input_state.pointer_down[0]) {
 		Next();
 	}
 }
@@ -450,7 +450,7 @@ void LogoScreen::render() {
 	}
 
 #ifdef _WIN32
-	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(screenManager()->getThin3DContext()->GetInfoString(T3DInfo::APINAME).c_str(), bounds.centerX(), bounds.y2() - 100, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 #endif
 
 	dc.End();

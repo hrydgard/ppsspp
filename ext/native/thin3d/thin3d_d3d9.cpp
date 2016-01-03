@@ -429,7 +429,7 @@ public:
 	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
-	const char *GetInfoString(T3DInfo info) const override {
+	std::string GetInfoString(T3DInfo info) const override {
 		switch (info) {
 		case APIVERSION: return "DirectX 9.0";
 		case VENDORSTRING: return identifier_.Description;

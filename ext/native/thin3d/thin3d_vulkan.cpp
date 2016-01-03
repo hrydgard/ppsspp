@@ -25,6 +25,7 @@
 
 #include "base/logging.h"
 #include "base/display.h"
+#include "base/stringutil.h"
 #include "image/zim_load.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
@@ -483,22 +484,27 @@ public:
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal);
 	virtual void End();
 
-	const char *GetInfoString(T3DInfo info) const override {
+	std::string GetInfoString(T3DInfo info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
-		case APINAME:
-			return "Vulkan";
-		case VENDORSTRING: return "N/A";
-		case VENDOR: return "N/A";
-		case RENDERER: return "N/A";
+		case APINAME: return "Vulkan";
+		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().deviceName;
+		case VENDOR: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().vendorID);
+		case RENDERER: return StringFromFormat("%08x", vulkan_->GetPhysicalDeviceProperties().driverVersion);
 		case SHADELANGVERSION: return "N/A";;
-		case APIVERSION: return "N/A";
+		case APIVERSION: 
+		{
+			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().apiVersion;
+			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
+		}
 		default: return "?";
 		}
 	}
 
 	VkPipeline GetOrCreatePipeline();
 	VkDescriptorSet GetOrCreateDescriptorSet();
+
+	std::vector<std::string> GetFeatureList() override;
 
 private:
 	void ApplyDynamicState();
@@ -1224,4 +1230,32 @@ void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 
 Thin3DContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
 	return new Thin3DVKContext(vulkan);
+}
+
+void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {
+	char buf[512];
+	snprintf(buf, sizeof(buf), "%s: Available: %d Enabled: %d", name, (int)available, (int)enabled);
+	features.push_back(buf);
+}
+
+std::vector<std::string> Thin3DVKContext::GetFeatureList() {
+	const VkPhysicalDeviceFeatures &available = vulkan_->GetFeaturesAvailable();
+	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetFeaturesEnabled();
+	std::vector<std::string> features;
+	AddFeature(features, "dualSrcBlend", available.dualSrcBlend, enabled.dualSrcBlend);
+	AddFeature(features, "logicOp", available.logicOp, enabled.logicOp);
+	AddFeature(features, "geometryShader", available.geometryShader, enabled.geometryShader);
+	AddFeature(features, "depthBounds", available.depthBounds, enabled.depthBounds);
+	AddFeature(features, "depthClamp", available.depthClamp, enabled.depthClamp);
+	AddFeature(features, "fillModeNonSolid", available.fillModeNonSolid, enabled.fillModeNonSolid);
+	AddFeature(features, "largePoints", available.largePoints, enabled.largePoints);
+	AddFeature(features, "wideLines", available.wideLines, enabled.wideLines);
+	AddFeature(features, "pipelineStatisticsQuery", available.pipelineStatisticsQuery, enabled.pipelineStatisticsQuery);
+	AddFeature(features, "samplerAnisotropy", available.samplerAnisotropy, enabled.samplerAnisotropy);
+	AddFeature(features, "textureCompressionBC", available.textureCompressionBC, enabled.textureCompressionBC);
+	AddFeature(features, "textureCompressionETC2", available.textureCompressionETC2, enabled.textureCompressionETC2);
+	AddFeature(features, "textureCompressionASTC_LDR", available.textureCompressionASTC_LDR, enabled.textureCompressionASTC_LDR);
+	AddFeature(features, "shaderClipDistance", available.shaderClipDistance, enabled.shaderClipDistance);
+	AddFeature(features, "shaderCullDistance", available.shaderCullDistance, enabled.shaderCullDistance);
+	return features;
 }
