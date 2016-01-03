@@ -178,7 +178,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
 	// are present and what parts aren't, but we will not be ultra detailed about it.
 	
-	WRITE(p, "layout (binding=3) uniform base {\n%s\n}\n", ub_vs_transformCommonStr);
+	WRITE(p, "layout (binding=3) uniform base {\n%s\n}\n", ub_baseStr);
 	if (enableLighting)
 		WRITE(p, "layout (binding=4) uniform light {\n%s\n}\n", ub_vs_lightsStr);
 	if (enableBones)

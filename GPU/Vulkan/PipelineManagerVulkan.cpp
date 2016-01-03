@@ -3,6 +3,15 @@
 #include "Common/Log.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
+#include "thin3d/VulkanContext.h"
+
+PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {
+	pipelineCache_ = vulkan->CreatePipelineCache();
+}
+
+PipelineManagerVulkan::~PipelineManagerVulkan() {
+	vkDestroyPipelineCache(vulkan_->GetDevice(), pipelineCache_, nullptr);
+}
 
 struct DeclTypeInfo {
 	VkFormat type;
@@ -87,7 +96,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		blend0.dstAlphaBlendFactor = key.destAlpha;
 	}
 	blend0.colorWriteMask = key.colorWriteMask;
-
+	
 	VkPipelineColorBlendStateCreateInfo cbs;
 	cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	cbs.pNext = nullptr;
@@ -117,17 +126,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		dss.depthWriteEnable = key.depthWriteEnable;
 	}
 
-	VkGraphicsPipelineCreateInfo pipe;
-	pipe.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipe.pNext = nullptr;
-
-	pipe.pColorBlendState = &cbs;
-	if (key.depthTestEnable || key.stencilTestEnable) {
-		pipe.pDepthStencilState = &dss;
-	} else {
-		pipe.pDepthStencilState = nullptr;
-	}
-
 	VkDynamicState dynamicStates[8];
 	int numDyn = 0;
 	if (key.blendEnable) {
@@ -147,8 +145,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ds.pDynamicStates = dynamicStates;
 	ds.dynamicStateCount = numDyn;
 	
-	pipe.pDynamicState = &ds;
-
 	VkPipelineRasterizationStateCreateInfo rs;
 	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rs.pNext = nullptr;
@@ -160,10 +156,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	rs.polygonMode = VK_POLYGON_MODE_FILL;
 	rs.depthClampEnable = false;
 
-	pipe.pRasterizationState = &rs;
-
-	// We will use dynamic viewport state.
-	pipe.pViewportState = nullptr;
+	VkPipelineMultisampleStateCreateInfo ms;
+	memset(&ms, 0, sizeof(ms));
+	ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	ms.pNext = nullptr;
+	ms.pSampleMask = nullptr;
+	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	VkPipelineShaderStageCreateInfo ss[2];
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -180,9 +178,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ss[1].module = fshader;
 	ss[1].pName = "main";
 	ss[1].flags = 0;
-	pipe.stageCount = 2;
-	pipe.pStages = ss;
-	pipe.basePipelineIndex = 0;
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
+	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssembly.pNext = nullptr;
+	inputAssembly.topology = key.topology;
+	inputAssembly.primitiveRestartEnable = false;
 
 	int vertexStride = 0;
 
@@ -207,6 +208,35 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	vis.pVertexBindingDescriptions = &ibd;
 	vis.vertexAttributeDescriptionCount = attributeCount;
 	vis.pVertexAttributeDescriptions = attrs;
+
+	VkPipelineViewportStateCreateInfo vs;
+	vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	vs.pNext = nullptr;
+	vs.viewportCount = 1;
+	vs.scissorCount = 1;
+	vs.pViewports = nullptr;  // dynamic
+	vs.pScissors = nullptr;  // dynamic
+
+	VkGraphicsPipelineCreateInfo pipe;
+	pipe.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipe.pNext = nullptr;
+	pipe.stageCount = 2;
+	pipe.pStages = ss;
+	pipe.basePipelineIndex = 0;
+
+	pipe.pColorBlendState = &cbs;
+	if (key.depthTestEnable || key.stencilTestEnable) {
+		pipe.pDepthStencilState = &dss;
+	} else {
+		pipe.pDepthStencilState = nullptr;
+	}
+	pipe.pRasterizationState = &rs;
+
+	// We will use dynamic viewport state.
+	pipe.pViewportState = &vs;
+	pipe.pDynamicState = &ds;
+	pipe.pInputAssemblyState = &inputAssembly;
+	pipe.pMultisampleState = &ms;
 
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);

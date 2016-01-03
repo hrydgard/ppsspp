@@ -18,6 +18,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cassert>
+
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -59,8 +61,10 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
-DrawEngineVulkan::DrawEngineVulkan()
-	: decodedVerts_(0),
+DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
+	:
+	vulkan_(vulkan), 
+	decodedVerts_(0),
 	prevPrim_(GE_PRIM_INVALID),
 	lastVType_(-1),
 	pipelineManager_(nullptr),
@@ -71,7 +75,8 @@ DrawEngineVulkan::DrawEngineVulkan()
 	decodeCounter_(0),
 	dcid_(0),
 	fboTexNeedBind_(false),
-	fboTexBound_(false) {
+	fboTexBound_(false),
+	curFrame_(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = true;
@@ -88,6 +93,82 @@ DrawEngineVulkan::DrawEngineVulkan()
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	indexGen.Setup(decIndex);
+
+	VkDescriptorSetLayoutBinding bindings[5];
+	bindings[0].descriptorCount = 1;
+	bindings[0].pImmutableSamplers = nullptr;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[0].binding = 1;
+	bindings[1].descriptorCount = 1;
+	bindings[1].pImmutableSamplers = nullptr;
+	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[1].binding = 1;
+	bindings[2].descriptorCount = 1;
+	bindings[2].pImmutableSamplers = nullptr;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	bindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[2].binding = 2;
+	bindings[3].descriptorCount = 1;
+	bindings[3].pImmutableSamplers = nullptr;
+	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[3].binding = 3;
+	bindings[4].descriptorCount = 1;
+	bindings[4].pImmutableSamplers = nullptr;
+	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[4].binding = 3;
+
+	VkDevice device = vulkan_->GetDevice();
+
+	VkDescriptorSetLayoutCreateInfo dsl;
+	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	dsl.pNext = nullptr;
+	dsl.bindingCount = 5;
+	dsl.pBindings = bindings;
+	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+
+	VkDescriptorPoolSize dpTypes[2];
+	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = 200;
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+	VkDescriptorPoolCreateInfo dp;
+	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	dp.pNext = nullptr;
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
+	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+	res = vkCreateDescriptorPool(device, &dp, nullptr, &frame_[0].descPool);
+	assert(VK_SUCCESS == res);
+	res = vkCreateDescriptorPool(device, &dp, nullptr, &frame_[1].descPool);
+	assert(VK_SUCCESS == res);
+
+	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
+	// if creating and updating them turns out to be expensive.
+	for (int i = 0; i < 2; i++) {
+		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
+		assert(VK_SUCCESS == res);
+	}
+
+	VkPipelineLayoutCreateInfo pl;
+	pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pl.pNext = nullptr;
+	pl.pPushConstantRanges = nullptr;
+	pl.pushConstantRangeCount = 0;
+	pl.setLayoutCount = 1;
+	pl.pSetLayouts = &descriptorSetLayout_;
+	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
+
+	assert(VK_SUCCESS == res);
+}
+
+void DrawEngineVulkan::EndFrame() {
+	curFrame_++;
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -282,12 +363,32 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
+/*
+struct DescriptorSetKey {
+	void *texture_;
+	void *secondaryTexture_;
+	
+	bool operator < (const DescriptorSetKey &other) const {
+		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+		if (secondaryTexture_ < other.secondaryTexture_) return true; else if (secondaryTexture_ > other.secondaryTexture_) return false;
+		return false;
+	}
+};
+*/
+
+VkDescriptorSet DrawEngineVulkan::GetDescriptorSet() {
+	return nullptr;
+}
+
 // The inline wrapper in the header checks for numDrawCalls == 0
 void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	gpuStats.numFlushes++;
 
+	FrameData *frame = &frame_[curFrame_ & 1];
+
 	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
+	VkDescriptorSet ds = GetDescriptorSet();
 
 	GEPrimitiveType prim = prevPrim_;
 	// ApplyDrawState(prim);
@@ -296,6 +397,13 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	VulkanFragmentShader *fshader;
 	shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader);
 
+	uint32_t baseUBOOffset = 0;
+	uint32_t lightUBOOffset = 0;
+	uint32_t boneUBOOffset = 0;
+
+	uint32_t ibOffset = 0;
+	uint32_t vbOffset = 0;
+	
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		int maxIndex = 0;
@@ -319,12 +427,20 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
-		VkBuffer buf[1] = {};
-		VkDeviceSize offsets[1] = { 0 };
+		VkBuffer buf[1] = {frame->pushData->GetVkBuffer()};
+		uint32_t dynamicUBOOffsets[3] = {
+			baseUBOOffset, lightUBOOffset, boneUBOOffset,
+		};
+		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
+
+		ibOffset = (uint32_t)(frame->pushData->Push(decIndex, 2 * indexGen.VertexCount()));
+		// vbOffset = frame->pushData->Push(decoded, )
+
+		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
 			// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
-			vkCmdBindIndexBuffer(cmd_, buf[0], 0, VK_INDEX_TYPE_UINT16);
+			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
 			vkCmdDrawIndexed(cmd_, maxIndex + 1, 1, 0, 0, 0);
 		} else {
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
@@ -383,7 +499,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 		} else if (result.action == SW_CLEAR) {
 			// TODO: Support clearing only color and not alpha, or vice versa. This is not supported (probably for good reason) by vkCmdClearColorAttachment
-			// so we will have to simply draw a rectangle instead. Accordingly, 
+			// so we will have to simply draw a rectangle instead.
 
 			int mask = gstate.isClearModeColorMask() ? 1 : 0;
 			if (gstate.isClearModeAlphaMask()) mask |= 2;
