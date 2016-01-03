@@ -226,11 +226,9 @@ void CGEDebugger::UpdatePreviews() {
 	bufferResult = GPU_GetCurrentTexture(texBuffer_, textureLevel_);
 
 	if (bufferResult) {
-		auto fmt = SimpleGLWindow::Format(texBuffer_->GetFormat());
-		texWindow->Draw(texBuffer_->GetData(), texBuffer_->GetStride(), texBuffer_->GetHeight(), texBuffer_->GetFlipped(), fmt);
-
 		if (gpuDebug != NULL) {
-			if (state.isTextureAlphaUsed()) {
+			bool forceOpaque = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
+			if (state.isTextureAlphaUsed() && !forceOpaque) {
 				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
 			} else {
 				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
@@ -242,6 +240,9 @@ void CGEDebugger::UpdatePreviews() {
 		} else {
 			UpdateLastTexture((u32)-1);
 		}
+
+		auto fmt = SimpleGLWindow::Format(texBuffer_->GetFormat());
+		texWindow->Draw(texBuffer_->GetData(), texBuffer_->GetStride(), texBuffer_->GetHeight(), texBuffer_->GetFlipped(), fmt);
 	} else if (texWindow != NULL) {
 		texWindow->Clear();
 		texBuffer_ = nullptr;
@@ -613,6 +614,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			ResumeFromStepping();
 			breakNext = BREAK_NONE;
 			break;
+
+		case IDC_GEDBG_FORCEOPAQUE:
+			if (attached && gpuDebug != NULL) {
+				UpdatePreviews();
+			}
+			break;
+
 		}
 		break;
 
