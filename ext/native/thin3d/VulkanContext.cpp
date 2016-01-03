@@ -1094,23 +1094,25 @@ void VulkanContext::InitCommandPool() {
   assert(res == VK_SUCCESS);
 }
 
-void VulkanTexture::Create(VulkanContext *vulkan, int w, int h) {
+void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format) {
 	tex_width = w;
 	tex_height = h;
+	format_ = format;
 
 	bool U_ASSERT_ONLY pass;
 
 	VkFormatProperties formatProps;
-	vkGetPhysicalDeviceFormatProperties(vulkan->GetPhysicalDevice(), VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+	vkGetPhysicalDeviceFormatProperties(vulkan->GetPhysicalDevice(), format, &formatProps);
 
-	// See if we can use a linear tiled image for a texture, if not, we will need a staging image for the texture data
+	// See if we can use a linear tiled image for a texture, if not, we will need a staging image for the texture data.
+	// Linear tiling is usually only supported for 2D non-array textures.
 	needStaging = (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) ? true : false;
 
 	VkImageCreateInfo image_create_info = {};
 	image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image_create_info.pNext = NULL;
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
-	image_create_info.format = VK_FORMAT_R8G8B8A8_UNORM;
+	image_create_info.format = format;
 	image_create_info.extent.width = tex_width;
 	image_create_info.extent.height = tex_height;
 	image_create_info.extent.depth = 1;
@@ -1186,7 +1188,7 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 		image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		image_create_info.pNext = NULL;
 		image_create_info.imageType = VK_IMAGE_TYPE_2D;
-		image_create_info.format = VK_FORMAT_R8G8B8A8_UNORM;
+		image_create_info.format = format_;
 		image_create_info.extent.width = tex_width;
 		image_create_info.extent.height = tex_height;
 		image_create_info.extent.depth = 1;
@@ -1282,7 +1284,7 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 	view_info.pNext = NULL;
 	view_info.image = VK_NULL_HANDLE;
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	view_info.format = VK_FORMAT_R8G8B8A8_UNORM;
+	view_info.format = format_;
 	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
 	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
 	view_info.components.b = VK_COMPONENT_SWIZZLE_B;

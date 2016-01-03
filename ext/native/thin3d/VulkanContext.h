@@ -165,6 +165,9 @@ public:
 		return graphics_queue_family_index_;
 	}
 
+	const VkPhysicalDeviceProperties &GetPhysicalDeviceProperties() {
+		return gpu_props;
+	}
 
 	VkResult InitGlobalExtensionProperties();
 	VkResult InitLayerExtensionProperties(layer_properties &layer_props);
@@ -178,9 +181,7 @@ private:
 	VkSemaphore acquireSemaphore;
 
 #ifdef _WIN32
-#define APP_NAME_STR_LEN 80
 	HINSTANCE connection;        // hInstance - Windows Instance
-	char name[APP_NAME_STR_LEN]; // Name to put on the window/icon
 	HWND        window;          // hWnd - window handle
 #else  // _WIN32
 	xcb_connection_t *connection;
@@ -291,13 +292,14 @@ public:
 
 	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
 
-	void Create(VulkanContext *vulkan, int w, int h);
+	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
 	uint8_t *Lock(VulkanContext *vulkan, int *rowPitch);
 	void Unlock(VulkanContext *vulkan);
 
 	void Destroy(VulkanContext *vulkan);
 
 private:
+	VkFormat format_;
 	VkImage mappableImage;
 	VkDeviceMemory mappableMemory;
 	VkMemoryRequirements mem_reqs;
