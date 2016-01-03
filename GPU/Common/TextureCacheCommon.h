@@ -39,6 +39,8 @@ enum FramebufferNotification {
 
 struct VirtualFramebuffer;
 
+class CachedTextureVulkan;
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon();
@@ -96,6 +98,7 @@ public:
 		union {
 			u32 textureName;
 			void *texturePtr;
+			CachedTextureVulkan *vkTex;
 		};
 		int invalidHint;
 		u32 fullhash;
