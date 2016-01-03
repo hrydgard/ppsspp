@@ -1034,7 +1034,7 @@ static int Hook_tonyhawkp8_upload_tutorial_frame() {
 	return 0;
 }
 
-static int Hook_sdgundamggenerationportrble_download_frame() {
+static int Hook_sdgundamggenerationportable_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
@@ -1139,7 +1139,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
 	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
-	{ "sdgundamggenerationportrble_download_frame", &Hook_sdgundamggenerationportrble_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
+	{ "sdgundamggenerationportablee_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
 	{}
 };
 
