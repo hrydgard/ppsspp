@@ -63,6 +63,7 @@ struct ViewportAndScissor {
 	float depthRangeMin;
 	float depthRangeMax;
 	bool dirtyProj;
+	bool dirtyDepth;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
 

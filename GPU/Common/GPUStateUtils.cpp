@@ -597,6 +597,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float xOffset = 0.0f;
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
+		float zScale = 1.0f;
+		float zOffset = 0.0f;
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		if (left < 0.0f || right > renderWidth) {
@@ -625,27 +627,53 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			yOffset = drift / (bottom - top);
 		}
 
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		if (scaleChanged || offsetChanged) {
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			out.dirtyProj = true;
-		}
-
 		out.viewportX = left + displayOffsetX;
 		out.viewportY = top + displayOffsetY;
 		out.viewportW = right - left;
 		out.viewportH = bottom - top;
 
-		float zScale = gstate.getViewportZScale();
-		float zCenter = gstate.getViewportZCenter();
-		float depthRangeMin = zCenter - zScale;
-		float depthRangeMax = zCenter + zScale;
-		out.depthRangeMin = depthRangeMin * (1.0f / 65535.0f);
-		out.depthRangeMax = depthRangeMax * (1.0f / 65535.0f);
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
+		float depthRangeMin = vpZCenter - vpZScale;
+		float depthRangeMax = vpZCenter + vpZScale;
+		// Near/far can be inverted.  Let's reverse while dealing with clamping, though.
+		bool inverted = vpZScale < 0.0f;
+		float near = (inverted ? depthRangeMax : depthRangeMin) * (1.0f / 65535.0f);
+		float far = (inverted ? depthRangeMin : depthRangeMax) * (1.0f / 65535.0f);
+
+		if (near < 0.0f || far > 1.0f) {
+			float overageNear = std::max(-near, 0.0f);
+			float overageFar = std::max(far - 1.0f, 0.0f);
+			float drift = overageFar - overageNear;
+
+			near += overageNear;
+			far += overageFar;
+
+			zScale = fabsf(vpZScale * (2.0f / 65535.0f)) / (far - near);
+			zOffset = drift / (far - near);
+		}
+
+		if (inverted) {
+			zScale = -zScale;
+			inverted = false;
+		}
+
+		out.depthRangeMin = inverted ? far : near;
+		out.depthRangeMax = inverted ? near : far;
+
+		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
+		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
+		bool depthChanged = gstate_c.vpDepthScale != zScale || gstate_c.vpZOffset != zOffset;
+		if (scaleChanged || offsetChanged || depthChanged) {
+			gstate_c.vpWidthScale = wScale;
+			gstate_c.vpHeightScale = hScale;
+			gstate_c.vpDepthScale = zScale;
+			gstate_c.vpXOffset = xOffset;
+			gstate_c.vpYOffset = yOffset;
+			gstate_c.vpZOffset = zOffset;
+			out.dirtyProj = true;
+			out.dirtyDepth = depthChanged;
+		}
 
 #ifndef MOBILE_DEVICE
 		float minz = gstate.getDepthRangeMin();

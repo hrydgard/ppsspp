@@ -510,12 +510,13 @@ struct GPUStateCache {
 
 	float vpWidth;
 	float vpHeight;
-	float vpDepth;
 
 	float vpXOffset;
 	float vpYOffset;
+	float vpZOffset;
 	float vpWidthScale;
 	float vpHeightScale;
+	float vpDepthScale;
 
 	KnownVertexBounds vertBounds;
 

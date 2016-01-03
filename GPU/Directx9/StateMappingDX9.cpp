@@ -293,22 +293,12 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	float depthMin = vpAndScissor.depthRangeMin;
 	float depthMax = vpAndScissor.depthRangeMax;
 
-	if (!gstate.isModeThrough()) {
-		// Direct3D can't handle negative depth ranges, so we fix it in the projection matrix.
-		if (gstate_c.vpDepth != depthMax - depthMin) {
-			gstate_c.vpDepth = depthMax - depthMin;
-			vpAndScissor.dirtyProj = true;
-		}
-		if (depthMin > depthMax) {
-			std::swap(depthMin, depthMax);
-		}
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
-	}
-
 	dxstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH, depthMin, depthMax);
 	if (vpAndScissor.dirtyProj) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+	if (vpAndScissor.dirtyDepth) {
+		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 
