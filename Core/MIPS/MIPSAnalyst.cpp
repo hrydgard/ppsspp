@@ -95,6 +95,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x06e2826e02056114, 56, "wcslen", },
 	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force (US)
 	{ 0x075fa9b234b41e9b, 32, "fmodf", },
+	{ 0x09ab0791e1da9647, 180, "atvoffroadfurypro_download_frame", }, // ATV Offroad Fury Pro (US)
 	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
 	{ 0x0a1bed70958935d2, 644, "youkosohitsujimura_download_frame", }, // Youkoso Hitsuji-Mura Portable
 	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },

@@ -1043,6 +1043,14 @@ static int Hook_sdgundamggenerationportable_download_frame() {
 	return 0;
 }
 
+static int Hook_atvoffroadfurypro_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A1];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
 
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
@@ -1141,6 +1149,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
 	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
 	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
+	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, },
 	{}
 };
 
