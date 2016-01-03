@@ -67,14 +67,14 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
 		instance_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		// instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_image");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
 	
 		device_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		// device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
 		device_layer_names.push_back("VK_LAYER_LUNARG_image");
 		device_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
 		device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
@@ -1302,9 +1302,10 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 }
 
 void VulkanTexture::Destroy(VulkanContext *vulkan) {
-	vkDestroyImageView(vulkan->GetDevice(), view, NULL);
-	vkDestroyImage(vulkan->GetDevice(), image, NULL);
-	vkFreeMemory(vulkan->GetDevice(), mem, NULL);
+	vulkan->QueueDelete(view);
+	vulkan->QueueDelete(image);
+	vulkan->QueueDelete(mem);
+
 	view = NULL;
 	image = NULL;
 	mem = NULL;
