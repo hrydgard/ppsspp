@@ -428,6 +428,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xdcdf7e1c1a3dc260, 372, "strncmp", },
 	{ 0xdcfc28e624a81bf1, 5476, "_dtoa_r", },
 	{ 0xddfa5a85937aa581, 32, "vdot_q", },
+	{ 0xdeb6a583659e3948, 1080, "littlebustersce_download_frame", }, // Little Busters! Converted Edition (JP)
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
 	{ 0xe086d5c9ce89148f, 212, "bokunonatsuyasumi4_download_frame", }, // Boku no Natsuyasumi 2 and 4,

@@ -1061,6 +1061,15 @@ static int Hook_atvoffroadfuryblazintrails_download_frame() {
 	return 0;
 }
 
+static int Hook_littlebustersce_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(ARM64)
@@ -1160,6 +1169,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
 	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOKENTER, },
 	{}
 };
 
