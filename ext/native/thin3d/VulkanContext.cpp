@@ -1390,6 +1390,19 @@ void VulkanContext::DestroyDevice() {
 	device_ = NULL;
 }
 
+VkPipelineCache VulkanContext::CreatePipelineCache() {
+	VkPipelineCache cache;
+	VkPipelineCacheCreateInfo pc;
+	pc.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+	pc.pNext = nullptr;
+	pc.pInitialData = nullptr;
+	pc.initialDataSize = 0;
+	pc.flags = 0;
+	VkResult res = vkCreatePipelineCache(device_, &pc, nullptr, &cache);
+	assert(VK_SUCCESS == res);
+	return cache;
+}
+
 void TransitionImageLayout(
 	VkCommandBuffer cmd,
 	VkImage image,

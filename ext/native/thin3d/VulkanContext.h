@@ -26,6 +26,7 @@
 #ifndef UTIL_INIT
 #define UTIL_INIT
 
+#include <cassert>
 #include <string>
 #include <vector>
 
@@ -129,6 +130,9 @@ public:
 	void QueueDelete(T mem) {
 		globalDeleteList_.QueueDelete(mem);
 	}
+
+
+	VkPipelineCache CreatePipelineCache();
 
 	void InitSurfaceAndQueue(HINSTANCE conn, HWND wnd);
 	void InitSwapchain(VkCommandBuffer cmd);
@@ -306,6 +310,7 @@ private:
 
 // Wrapper around what you need to use a texture.
 // Not very optimal - if you have many small textures you should use other strategies.
+// Only supports simple 2D textures for now. Mipmap support will be added later.
 class VulkanTexture {
 public:
 	VkImage image;
@@ -331,6 +336,101 @@ private:
 	VkMemoryRequirements mem_reqs;
 	bool needStaging;
 };
+
+// Use these to push vertex, index and uniform data.
+// TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
+// TODO: Make this dynamically grow by chaining new buffers in the future.
+// Until then, we cap at a maximum size.
+// We'll have two of these that we alternate between on each frame.
+// These will only be used for the "Thin3D" system - the PSP emulation etc will have
+// their own similar buffer solutions.
+class VulkanPushBuffer {
+public:
+	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {
+		VkDevice device = vulkan->GetDevice();
+
+		VkBufferCreateInfo b;
+		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		b.pNext = nullptr;
+		b.size = size;
+		b.flags = 0;
+		b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		b.queueFamilyIndexCount = 0;
+		b.pQueueFamilyIndices = nullptr;
+		VkResult res = vkCreateBuffer(device, &b, nullptr, &buffer_);
+		assert(VK_SUCCESS == res);
+
+		// Okay, that's the buffer. Now let's allocate some memory for it.
+		VkMemoryAllocateInfo alloc;
+		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		alloc.pNext = nullptr;
+		vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
+		alloc.allocationSize = size;
+
+		res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
+		assert(VK_SUCCESS == res);
+		res = vkBindBufferMemory(device, buffer_, deviceMemory_, 0);
+		assert(VK_SUCCESS == res);
+	}
+
+	void Destroy(VulkanContext *vulkan) {
+		vulkan->QueueDelete(buffer_);
+		vulkan->QueueDelete(deviceMemory_);
+	}
+
+	void Reset() { offset_ = 0; }
+
+	void Begin(VkDevice device) {
+		offset_ = 0;
+		VkResult res = vkMapMemory(device, deviceMemory_, 0, size_, 0, (void **)(&writePtr_));
+		assert(VK_SUCCESS == res);
+	}
+
+	void End(VkDevice device) {
+		vkUnmapMemory(device, deviceMemory_);
+		writePtr_ = nullptr;
+	}
+
+
+	size_t Allocate(size_t numBytes) {
+		size_t out = offset_;
+		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+		return out;
+	}
+
+	// TODO: Add alignment support?
+	// Returns the offset that should be used when binding this buffer to get this data.
+	size_t Push(const void *data, size_t size) {
+		size_t off = Allocate(size);
+		memcpy(writePtr_ + off, data, size);
+		return off;
+	}
+
+	size_t PushAligned(const void *data, size_t size, int align) {
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size);
+		memcpy(writePtr_ + off, data, size);
+		return off;
+	}
+
+	// "Zero-copy" variant - you can write the data directly as you compute it.
+	void *Push(size_t size, size_t *bindOffset) {
+		size_t off = Allocate(size);
+		*bindOffset = off;
+		return writePtr_ + off;
+	}
+
+	VkBuffer GetVkBuffer() const { return buffer_; }
+
+private:
+	VkDeviceMemory deviceMemory_;
+	VkBuffer buffer_;
+	size_t offset_;
+	size_t size_;
+	uint8_t *writePtr_;
+};
+
 
 VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
 

@@ -17,22 +17,13 @@
 
 #pragma once
 
+#include <map>
+
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-// The Descriptor Set used for the majority of PSP rendering looks like this:
-//
-// * binding 0: Vertex Data (up to 7 locations as defined in PspAttributeLocation)
-// * binding 1: Texture Sampler (the PSP texture)
-// * binding 2: Secondary texture sampler for shader blending or depal palettes
-// * binding 3: Vertex Uniform Buffer
-// * binding 4: Fragment Uniform Buffer
-//
-// All shaders conform to this layout, so they are all compatible with the same descriptor set.
-// The format of the various uniform buffers may vary though - vertex shaders that don't skin
-// won't get any bone data, etc.
-
+// PSP vertex format.
 enum class PspAttributeLocation {
 	POSITION = 0,
 	TEXCOORD = 1,
@@ -71,10 +62,16 @@ struct VulkanPipelineRasterStateKey {
 	VkStencilOp stencilPassOp : 4;
 	VkStencilOp stencilFailOp : 4;
 	VkStencilOp stencilDepthFailOp : 4;
-	// We'll use dynamic state for writemask, reference and comparemask to start with.
+	// We'll use dynamic state for writemask, reference and comparemask to start with,
+	// and viewport/scissor.
 
 	// Rasterizer
 	VkCullModeFlagBits cullMode : 2;
+	VkPrimitiveTopology topology : 4;
+
+	bool operator < (const VulkanPipelineRasterStateKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
 };
 
 // All the information needed. All PSP rendering (except full screen clears?) will make use of a single
@@ -86,6 +83,16 @@ struct VulkanPipelineKey {
 	uint32_t vertType;
 	ShaderID vShaderId;
 	ShaderID fShaderId;
+
+	bool operator < (const VulkanPipelineKey &other) const {
+		if (raster < other.raster) return true; else if (other.raster < raster) return false;
+		if (prim < other.prim) return true; else if (other.prim < prim) return false;
+		if (pretransformed < other.pretransformed) return true; else if (other.pretransformed < pretransformed) return false;
+		if (vertType < other.vertType) return true; else if (other.vertType < vertType) return false;
+		if (vShaderId < other.vShaderId) return true; else if (other.vShaderId < vShaderId) return false;
+		if (fShaderId < other.fShaderId) return true; else if (other.fShaderId < fShaderId) return false;
+		return false;
+	}
 };
 
 enum {
@@ -102,5 +109,11 @@ struct VulkanPipeline {
 
 class PipelineManagerVulkan {
 public:
+	PipelineManagerVulkan(VulkanContext *ctx);
+	~PipelineManagerVulkan();
 
+private:
+	std::map<VulkanPipelineKey, VkPipeline> pipelines_;
+	VkPipelineCache pipelineCache_;
+	VulkanContext *vulkan_;
 };

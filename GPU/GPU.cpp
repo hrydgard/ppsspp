@@ -59,7 +59,7 @@ bool GPU_Init(GraphicsContext *ctx) {
 #endif
 		break;
 	case GPU_VULKAN:
-		SetGPU(new GPU_Vulkan());
+		SetGPU(new GPU_Vulkan(nullptr));
 		break;
 	}
 
