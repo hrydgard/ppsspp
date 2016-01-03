@@ -1,4 +1,4 @@
-// Copyright (c) 2014- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,13 +17,11 @@
 
 #pragma once
 
-#include "GPU/ge_constants.h"
+#include "Common/CommonTypes.h"
+#include "GPU/Common/TextureScalerCommon.h"
 
-enum ShaderLanguage {
-	GLSL_140,
-	GLSL_300,
-	GLSL_VULKAN,
-	HLSL_DX9,
+class TextureScalerVulkan : public TextureScaler {
+	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
+	int BytesPerPixel(u32 format) override;
+	u32 Get8888Format() override;
 };
-
-void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language);

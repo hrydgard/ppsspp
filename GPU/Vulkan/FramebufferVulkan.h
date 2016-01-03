@@ -20,6 +20,14 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
+// TODO: WTF?
+enum VulkanFBOColorDepth {
+	VK_FBO_8888,
+	VK_FBO_565,
+	VK_FBO_4444,
+	VK_FBO_5551,
+};
+
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	// Subsequent commands will be enqueued on this buffer.
@@ -29,6 +37,7 @@ public:
 	virtual void ClearBuffer(bool keepState = false) override {
 		throw std::logic_error("The method or operation is not implemented.");
 	}
+	VulkanFramebuffer *GetTempFBO(int width, int height, VulkanFBOColorDepth colorDepth);
 
 	virtual void RebindFramebuffer() override {
 		throw std::logic_error("The method or operation is not implemented.");

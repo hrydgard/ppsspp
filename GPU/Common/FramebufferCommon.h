@@ -51,6 +51,8 @@ namespace DX9 {
 	struct FBO_DX9;
 }
 
+class VulkanFramebuffer;
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	int last_frame_attached;
@@ -90,6 +92,7 @@ struct VirtualFramebuffer {
 	union {
 		FBO *fbo;
 		DX9::FBO_DX9 *fbo_dx9;
+		VulkanFramebuffer *fbo_vk;
 	};
 
 	u16 drawnWidth;

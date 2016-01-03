@@ -1672,3 +1672,22 @@ const char *VulkanResultToString(VkResult res) {
 void VulkanAssertImpl(VkResult check, const char *function, const char *file, int line) {
 	const char *error = "(none)";
 }
+
+void VulkanFramebuffer::Create(VulkanContext *vulkan, int w, int h, VkFormat format) {
+
+}
+// void TransitionToImage()
+
+void VulkanFramebuffer::BeginPass(VkCommandBuffer cmd) {
+
+}
+void VulkanFramebuffer::EndPass(VkCommandBuffer cmd) {
+
+}
+void VulkanFramebuffer::TransitionToTexture(VkCommandBuffer cmd) {
+
+}
+
+VkImageView VulkanFramebuffer::GetColorImageView() {
+	return nullptr;
+}
