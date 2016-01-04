@@ -647,7 +647,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			float drift = overageFar - overageNear;
 
 			near += overageNear;
-			far += overageFar;
+			far -= overageFar;
 
 			zScale = fabsf(vpZScale * (2.0f / 65535.0f)) / (far - near);
 			zOffset = drift / (far - near);
