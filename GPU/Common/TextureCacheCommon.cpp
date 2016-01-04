@@ -19,6 +19,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -162,6 +163,46 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		}
 		break;
 	}
+}
+
+void TextureCacheCommon::NotifyConfigChanged() {
+	int scaleFactor;
+
+	// 0 means automatic texture scaling, up to 5x, based on resolution.
+	if (g_Config.iTexScalingLevel == 0) {
+		scaleFactor = g_Config.iInternalResolution;
+		// Automatic resolution too?  Okay.
+		if (scaleFactor == 0) {
+			if (!g_Config.IsPortrait()) {
+				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
+			} else {
+				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+			}
+		}
+
+		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
+		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
+			scaleFactor = std::min(5, scaleFactor);
+		} else {
+			scaleFactor = std::min(3, scaleFactor);
+		}
+	} else {
+		scaleFactor = g_Config.iTexScalingLevel;
+	}
+
+	if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
+		while ((scaleFactor & (scaleFactor - 1)) != 0) {
+			--scaleFactor;
+		}
+	}
+
+	// Just in case, small display with auto resolution or something.
+	if (scaleFactor <= 0) {
+		scaleFactor = 1;
+	}
+
+	standardScaleFactor_ = scaleFactor;
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {

@@ -1230,7 +1230,7 @@ void TextureCache::SetTexture(bool force) {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
@@ -1255,7 +1255,7 @@ void TextureCache::SetTexture(bool force) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1380,27 +1380,7 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
-		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			bool supportNpot = gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT);
-			scaleFactor = std::min(supportNpot ? 5 : 4, scaleFactor);
-			if (!supportNpot && scaleFactor == 3) {
-				scaleFactor = 2;
-			}
-		} else {
-			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
-		}
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {

@@ -45,6 +45,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+	void NotifyConfigChanged();
 
 	int AttachedDrawingHeight();
 
@@ -154,6 +155,7 @@ protected:
 	u32 clutTotalBytes_;
 	u32 clutMaxBytes_;
 	u32 clutRenderAddress_;
+	int standardScaleFactor_;
 };
 
 inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {
