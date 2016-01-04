@@ -840,10 +840,10 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		};
 
 		PosUV verts[4] = {
-			{ { -1 + xoff,  1 + yoff, -1 }, { 0, 0 } },
-			{ {  1 + xoff,  1 + yoff, -1 }, { 1, 0 } },
-			{ {  1 + xoff, -1 + yoff, -1 }, { 1, 1 } },
-			{ { -1 + xoff, -1 + yoff, -1 }, { 0, 1 } },
+			{ { -1 + xoff,  1 + yoff, 0 }, { 0, 0 } },
+			{ {  1 + xoff,  1 + yoff, 0 }, { 1, 0 } },
+			{ {  1 + xoff, -1 + yoff, 0 }, { 1, 1 } },
+			{ { -1 + xoff, -1 + yoff, 0 }, { 0, 1 } },
 		};
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
