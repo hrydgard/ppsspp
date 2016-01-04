@@ -515,7 +515,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			}
 		}
 
-		if (vert.type == AT_MOST && measuredWidth_ < vert.size) {
+		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
 			measuredHeight_ += usedHeight;
 		}
 	}
