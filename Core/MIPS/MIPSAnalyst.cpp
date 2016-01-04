@@ -95,7 +95,6 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x06e2826e02056114, 56, "wcslen", },
 	{ 0x073cf0b61d3b875a, 416, "hexyzforce_monoclome_thread", }, // Hexyz Force (US)
 	{ 0x075fa9b234b41e9b, 32, "fmodf", },
-	{ 0x09ab0791e1da9647, 180, "atvoffroadfurypro_download_frame", }, // ATV Offroad Fury Pro (US)
 	{ 0x0a051019bdd786c3, 184, "strcasecmp", },
 	{ 0x0a1bed70958935d2, 644, "youkosohitsujimura_download_frame", }, // Youkoso Hitsuji-Mura Portable
 	{ 0x0a46dc426054bb9d, 24, "vector_add_t", },
@@ -162,6 +161,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f639673670caa0e, 772, "dl_write_matrix_2", },
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
+	{ 0x3050bfd0e729dfbf, 220, "atvoffroadfuryblazintrails_download_frame", }, // ATV Offroad Fury Blazin' Trails (US)
 	{ 0x30c9c4f420573eb6, 540, "expf", },
 	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana (US)
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
@@ -227,7 +227,6 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x5642a63f3802a792, 456, "orenoimouto_download_frame", }, // Ore no Imouto ga Konnani Kawaii Wake ga Nai
 	{ 0x56c9929e8c8c5768, 24, "fabsf", },
 	{ 0x572b2d9e57e6e363, 788, "memcpy_thingy", },
-	{ 0x573b69fc56d689a7, 216, "atvoffroadfuryblazintrails_download_frame", }, // ATV Offroad Fury Blazin' Trails (US)
 	{ 0x580200b840b47c58, 1856, "_realloc_r", },
 	{ 0x5961f681bbd69035, 28, "vfad_q", },
 	{ 0x598b91c64cf7e036, 2388, "qsort", },
@@ -253,6 +252,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6962da85a6dad937, 60, "strrchr", },
 	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
 	{ 0x6ab54910104ef000, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation World
+	{ 0x6ac2cd44e042592b, 252, "atvoffroadfurypro_download_frame", }, // ATV Offroad Fury Pro (US)
 	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
 	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
 	{ 0x6b4148322c569cb3, 240, "wmemchr", },
