@@ -1451,7 +1451,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 			texByteAlign = 2;
 			if (!swizzled) {
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), texptr, bufw * h, clut);
 				}
@@ -1459,7 +1459,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
 				UnswizzleFromMem(texptr, bufw, h, 0);
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				}
