@@ -879,101 +879,101 @@ void TextureCache::ApplyTexture() {
 	nextTexture_ = nullptr;
 }
 
-void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
-	DepalShader *depal = nullptr;
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
-	}
-	if (depal) {
-		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
-		fbo_bind_as_render_target(depalFBO);
+class TextureShaderApplier {
+public:
+	struct Pos {
+		Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
+		}
+		Pos() {
+		}
 
-		struct Pos {
-			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-			}
-			float x;
-			float y;
-			float z;
-		};
-		struct UV {
-			UV(float u_, float v_) : u(u_), v(v_) {
-			}
-			float u;
-			float v;
-		};
+		float x;
+		float y;
+		float z;
+	};
+	struct UV {
+		UV(float u_, float v_) : u(u_), v(v_) {
+		}
+		UV() {
+		}
 
-		Pos pos[4] = {
+		float u;
+		float v;
+	};
+
+	TextureShaderApplier(DepalShader *shader, float bufferW, float bufferH, int renderW, int renderH)
+		: shader_(shader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
+		static const Pos pos[4] = {
 			{-1, -1, -1},
 			{ 1, -1, -1},
 			{ 1,  1, -1},
 			{-1,  1, -1},
 		};
-		UV uv[4] = {
+		memcpy(pos_, pos, sizeof(pos_));
+
+		static const UV uv[4] = {
 			{0, 0},
 			{1, 0},
 			{1, 1},
 			{0, 1},
 		};
-		static const GLubyte indices[4] = { 0, 1, 3, 2 };
+		memcpy(uv_, uv, sizeof(uv_));
+	}
 
+	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff) {
 		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
-			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
-			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
+		if (bounds.minV < bounds.maxV) {
+			const float invWidth = 1.0f / bufferW_;
+			const float invHeight = 1.0f / bufferH_;
 			// Inverse of half = double.
 			const float invHalfWidth = invWidth * 2.0f;
 			const float invHalfHeight = invHeight * 2.0f;
 
-			const int u1 = gstate_c.vertBounds.minU + gstate_c.curTextureXOffset;
-			const int v1 = gstate_c.vertBounds.minV + gstate_c.curTextureYOffset;
-			const int u2 = gstate_c.vertBounds.maxU + gstate_c.curTextureXOffset;
-			const int v2 = gstate_c.vertBounds.maxV + gstate_c.curTextureYOffset;
+			const int u1 = bounds.minU + uoff;
+			const int v1 = bounds.minV + voff;
+			const int u2 = bounds.maxU + uoff;
+			const int v2 = bounds.maxV + voff;
 
 			const float left = u1 * invHalfWidth - 1.0f;
 			const float right = u2 * invHalfWidth - 1.0f;
 			const float top = v1 * invHalfHeight - 1.0f;
 			const float bottom = v2 * invHalfHeight - 1.0f;
 			// Points are: BL, BR, TR, TL.
-			pos[0] = Pos(left, bottom, -1.0f);
-			pos[1] = Pos(right, bottom, -1.0f);
-			pos[2] = Pos(right, top, -1.0f);
-			pos[3] = Pos(left, top, -1.0f);
+			pos_[0] = Pos(left, bottom, -1.0f);
+			pos_[1] = Pos(right, bottom, -1.0f);
+			pos_[2] = Pos(right, top, -1.0f);
+			pos_[3] = Pos(left, top, -1.0f);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			uv[0] = UV(uvleft, uvbottom);
-			uv[1] = UV(uvright, uvbottom);
-			uv[2] = UV(uvright, uvtop);
-			uv[3] = UV(uvleft, uvtop);
+			uv_[0] = UV(uvleft, uvbottom);
+			uv_[1] = UV(uvright, uvbottom);
+			uv_[2] = UV(uvright, uvtop);
+			uv_[3] = UV(uvleft, uvtop);
 		}
+	}
 
-		shaderManager_->DirtyLastShader();
-
-		glUseProgram(depal->program);
+	void Use(TransformDrawEngine *transformDraw) {
+		glUseProgram(shader_->program);
 
 		// Restore will rebind all of the state below.
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			transformDraw_->BindBuffer(pos, sizeof(pos), uv, sizeof(uv));
-			transformDraw_->BindElementBuffer(indices, sizeof(indices));
+			static const GLubyte indices[4] = { 0, 1, 3, 2 };
+			transformDraw->BindBuffer(pos_, sizeof(pos_), uv_, sizeof(uv_));
+			transformDraw->BindElementBuffer(indices, sizeof(indices));
 		} else {
 			glBindBuffer(GL_ARRAY_BUFFER, 0);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		}
-		glEnableVertexAttribArray(depal->a_position);
-		glEnableVertexAttribArray(depal->a_texcoord0);
+		glEnableVertexAttribArray(shader_->a_position);
+		glEnableVertexAttribArray(shader_->a_texcoord0);
+	}
 
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, clutTexture);
-		glActiveTexture(GL_TEXTURE0);
-
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	void Shade() {
+		static const GLubyte indices[4] = { 0, 1, 3, 2 };
 
 		glstate.blend.force(false);
 		glstate.colorMask.force(true, true, true, true);
@@ -984,22 +984,60 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 #if !defined(USING_GLES2)
 		glstate.colorLogicOp.force(false);
 #endif
-		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
+		glViewport(0, 0, renderW_, renderH_);
 
 		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
+			glVertexAttribPointer(shader_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+			glVertexAttribPointer(shader_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos_));
 			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
 		} else {
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
+			glVertexAttribPointer(shader_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos_);
+			glVertexAttribPointer(shader_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv_);
 			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 		}
-		glDisableVertexAttribArray(depal->a_position);
-		glDisableVertexAttribArray(depal->a_texcoord0);
+		glDisableVertexAttribArray(shader_->a_position);
+		glDisableVertexAttribArray(shader_->a_texcoord0);
+
+		glstate.Restore();
+	}
+
+protected:
+	DepalShader *shader_;
+	Pos pos_[4];
+	UV uv_[4];
+	float bufferW_;
+	float bufferH_;
+	int renderW_;
+	int renderH_;
+};
+
+void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	DepalShader *depal = nullptr;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+		depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
+	}
+	if (depal) {
+		GLuint clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		FBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
+		fbo_bind_as_render_target(depalFBO);
+		shaderManager_->DirtyLastShader();
+
+		TextureShaderApplier shaderApply(depal, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight);
+		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
+		shaderApply.Use(transformDraw_);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, clutTexture);
+		glActiveTexture(GL_TEXTURE0);
+
+		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+		shaderApply.Shade();
 
 		fbo_bind_color_as_texture(depalFBO, 0);
-		glstate.Restore();
 	} else {
 		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 	}
@@ -1230,7 +1268,7 @@ void TextureCache::SetTexture(bool force) {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
@@ -1255,7 +1293,7 @@ void TextureCache::SetTexture(bool force) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1380,27 +1418,7 @@ void TextureCache::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
-		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			bool supportNpot = gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT);
-			scaleFactor = std::min(supportNpot ? 5 : 4, scaleFactor);
-			if (!supportNpot && scaleFactor == 3) {
-				scaleFactor = 2;
-			}
-		} else {
-			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
-		}
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {

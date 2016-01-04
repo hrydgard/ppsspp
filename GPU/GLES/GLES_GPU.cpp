@@ -454,8 +454,9 @@ GLES_GPU::GLES_GPU(GraphicsContext *ctx)
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
-	transformDraw_.RestoreVAO();
 	glstate.Restore();
+	transformDraw_.RestoreVAO();
+	textureCache_.NotifyConfigChanged();
 }
 
 GLES_GPU::~GLES_GPU() {
@@ -715,6 +716,7 @@ void GLES_GPU::BeginFrameInternal() {
 		CheckGPUFeatures();
 		UpdateCmdInfo();
 		transformDraw_.Resized();
+		textureCache_.NotifyConfigChanged();
 	}
 	UpdateVsyncInterval(resized_);
 	resized_ = false;

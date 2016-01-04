@@ -804,6 +804,125 @@ void TextureCacheDX9::ApplyTexture() {
 	nextTexture_ = nullptr;
 }
 
+class TextureShaderApplierDX9 {
+public:
+	struct Pos {
+		Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
+		}
+		Pos() {
+		}
+
+		float x;
+		float y;
+		float z;
+	};
+	struct UV {
+		UV(float u_, float v_) : u(u_), v(v_) {
+		}
+		UV() {
+		}
+
+		float u;
+		float v;
+	};
+
+	struct PosUV {
+		Pos pos;
+		UV uv;
+	};
+
+	TextureShaderApplierDX9(LPDIRECT3DPIXELSHADER9 pshader, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
+		: pshader_(pshader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
+		static const Pos pos[4] = {
+			{-1,  1, 0},
+			{ 1,  1, 0},
+			{ 1, -1, 0},
+			{-1, -1, 0},
+		};
+		static const UV uv[4] = {
+			{0, 0},
+			{1, 0},
+			{1, 1},
+			{0, 1},
+		};
+
+		for (int i = 0; i < 4; ++i) {
+			verts_[i].pos = pos[i];
+			verts_[i].pos.x += xoff;
+			verts_[i].pos.y += yoff;
+			verts_[i].uv = uv[i];
+		}
+	}
+
+	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff, float xoff, float yoff) {
+		// If min is not < max, then we don't have values (wasn't set during decode.)
+		if (bounds.minV < bounds.maxV) {
+			const float invWidth = 1.0f / bufferW_;
+			const float invHeight = 1.0f / bufferH_;
+			// Inverse of half = double.
+			const float invHalfWidth = invWidth * 2.0f;
+			const float invHalfHeight = invHeight * 2.0f;
+
+			const int u1 = bounds.minU + uoff;
+			const int v1 = bounds.minV + voff;
+			const int u2 = bounds.maxU + uoff;
+			const int v2 = bounds.maxV + voff;
+
+			const float left = u1 * invHalfWidth - 1.0f + xoff;
+			const float right = u2 * invHalfWidth - 1.0f + xoff;
+			const float top = v1 * invHalfHeight - 1.0f + yoff;
+			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
+			// Points are: BL, BR, TR, TL.
+			verts_[0].pos = Pos(left, bottom, -1.0f);
+			verts_[1].pos = Pos(right, bottom, -1.0f);
+			verts_[2].pos = Pos(right, top, -1.0f);
+			verts_[3].pos = Pos(left, top, -1.0f);
+
+			// And also the UVs, same order.
+			const float uvleft = u1 * invWidth;
+			const float uvright = u2 * invWidth;
+			const float uvtop = v1 * invHeight;
+			const float uvbottom = v2 * invHeight;
+			verts_[0].uv = UV(uvleft, uvbottom);
+			verts_[1].uv = UV(uvright, uvbottom);
+			verts_[2].uv = UV(uvright, uvtop);
+			verts_[3].uv = UV(uvleft, uvtop);
+		}
+	}
+
+	void Use(LPDIRECT3DVERTEXSHADER9 vshader) {
+		pD3Ddevice->SetPixelShader(pshader_);
+		pD3Ddevice->SetVertexShader(vshader);
+		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
+	}
+
+	void Shade() {
+		pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
+		pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+
+		DXSetViewport(0, 0, renderW_, renderH_);
+		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts_, (3 + 2) * sizeof(float));
+		if (FAILED(hr)) {
+			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
+		}
+
+		dxstate.Restore();
+	}
+
+protected:
+	LPDIRECT3DPIXELSHADER9 pshader_;
+	PosUV verts_[4];
+	float bufferW_;
+	float bufferH_;
+	int renderW_;
+	int renderH_;
+};
+
 void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	LPDIRECT3DPIXELSHADER9 pshader = nullptr;
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
@@ -816,75 +935,15 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 
 		FBO_DX9 *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, FBO_8888);
 		fbo_bind_as_render_target(depalFBO);
+		shaderManager_->DirtyLastShader();
 
 		float xoff = -0.5f / framebuffer->renderWidth;
 		float yoff = 0.5f / framebuffer->renderHeight;
 
-		struct Pos {
-			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
-			}
-			float x;
-			float y;
-			float z;
-		};
-		struct UV {
-			UV(float u_, float v_) : u(u_), v(v_) {
-			}
-			float u;
-			float v;
-		};
+		TextureShaderApplierDX9 shaderApply(pshader, framebuffer->bufferWidth, framebuffer->bufferHeight, framebuffer->renderWidth, framebuffer->renderHeight, xoff, yoff);
+		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
+		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
 
-		struct PosUV {
-			Pos pos;
-			UV uv;
-		};
-
-		PosUV verts[4] = {
-			{ { -1 + xoff,  1 + yoff, -1 }, { 0, 0 } },
-			{ {  1 + xoff,  1 + yoff, -1 }, { 1, 0 } },
-			{ {  1 + xoff, -1 + yoff, -1 }, { 1, 1 } },
-			{ { -1 + xoff, -1 + yoff, -1 }, { 0, 1 } },
-		};
-
-		// If min is not < max, then we don't have values (wasn't set during decode.)
-		if (gstate_c.vertBounds.minV < gstate_c.vertBounds.maxV) {
-			const float invWidth = 1.0f / (float)framebuffer->bufferWidth;
-			const float invHeight = 1.0f / (float)framebuffer->bufferHeight;
-			// Inverse of half = double.
-			const float invHalfWidth = invWidth * 2.0f;
-			const float invHalfHeight = invHeight * 2.0f;
-
-			const int u1 = gstate_c.vertBounds.minU + gstate_c.curTextureXOffset;
-			const int v1 = gstate_c.vertBounds.minV + gstate_c.curTextureYOffset;
-			const int u2 = gstate_c.vertBounds.maxU + gstate_c.curTextureXOffset;
-			const int v2 = gstate_c.vertBounds.maxV + gstate_c.curTextureYOffset;
-
-			const float left = u1 * invHalfWidth - 1.0f + xoff;
-			const float right = u2 * invHalfWidth - 1.0f + xoff;
-			const float top = v1 * invHalfHeight - 1.0f + yoff;
-			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
-			// Points are: BL, BR, TR, TL.
-			verts[0].pos = Pos(left, bottom, -1.0f);
-			verts[1].pos = Pos(right, bottom, -1.0f);
-			verts[2].pos = Pos(right, top, -1.0f);
-			verts[3].pos = Pos(left, top, -1.0f);
-
-			// And also the UVs, same order.
-			const float uvleft = u1 * invWidth;
-			const float uvright = u2 * invWidth;
-			const float uvtop = v1 * invHeight;  // TODO: Seems we should ditch the "1.0f - "
-			const float uvbottom = v2 * invHeight;
-			verts[0].uv = UV(uvleft, uvbottom);
-			verts[1].uv = UV(uvright, uvbottom);
-			verts[2].uv = UV(uvright, uvtop);
-			verts[3].uv = UV(uvleft, uvtop);
-		}
-
-		shaderManager_->DirtyLastShader();
-
-		pD3Ddevice->SetPixelShader(pshader);
-		pD3Ddevice->SetVertexShader(depalShaderCache_->GetDepalettizeVertexShader());
-		pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 		pD3Ddevice->SetTexture(1, clutTexture);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
@@ -895,30 +954,14 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		pD3Ddevice->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
-		pD3Ddevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-		pD3Ddevice->SetRenderState(D3DRS_ZENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_STENCILENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
-		pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		shaderApply.Shade();
 
-		DXSetViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
-		HRESULT hr = pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts, (3 + 2) * sizeof(float));
-		if (FAILED(hr)) {
-			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
-		}
-
-		framebufferManager_->RebindFramebuffer();
 		fbo_bind_color_as_texture(depalFBO, 0);
-		dxstate.Restore();
-		dxstate.viewport.restore();
-
-		framebufferManager_->RebindFramebuffer();
 	} else {
 		framebufferManager_->BindFramebufferColor(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 	}
 
+	framebufferManager_->RebindFramebuffer();
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	lastBoundTexture = INVALID_TEX;
@@ -1145,7 +1188,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
@@ -1172,7 +1215,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1291,21 +1334,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	D3DFORMAT dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-		scaleFactor = std::min(4, scaleFactor);
-		if (scaleFactor == 3) {
-			scaleFactor = 2;
-		}
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {
@@ -1585,7 +1614,7 @@ void *TextureCacheDX9::DecodeTextureLevel(GETextureFormat format, GEPaletteForma
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
+	if (!(standardScaleFactor_ == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
 		int pixelSize;
 		switch (dstFmt) {
 		case D3DFMT_A4R4G4B4:

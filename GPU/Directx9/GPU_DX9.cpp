@@ -444,6 +444,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	dxstate.Restore();
+	textureCache_.NotifyConfigChanged();
 }
 
 void DIRECTX9_GPU::UpdateCmdInfo() {
@@ -537,6 +538,7 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();
 		transformDraw_.Resized();
+		textureCache_.NotifyConfigChanged();
 		resized_ = false;
 	}
 
