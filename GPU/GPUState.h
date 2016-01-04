@@ -453,7 +453,6 @@ enum {
 	GPU_SUPPORTS_UNPACK_SUBIMAGE = FLAG_BIT(3),
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
-	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
 	GPU_SUPPORTS_VAO = FLAG_BIT(18),
 	GPU_SUPPORTS_ANY_COPY_IMAGE = FLAG_BIT(19),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
@@ -511,12 +510,13 @@ struct GPUStateCache {
 
 	float vpWidth;
 	float vpHeight;
-	float vpDepth;
 
 	float vpXOffset;
 	float vpYOffset;
+	float vpZOffset;
 	float vpWidthScale;
 	float vpHeightScale;
+	float vpDepthScale;
 
 	KnownVertexBounds vertBounds;
 

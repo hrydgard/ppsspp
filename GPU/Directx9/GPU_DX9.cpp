@@ -481,11 +481,6 @@ void DIRECTX9_GPU::CheckGPUFeatures() {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
 
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
-	}
-
 	gstate_c.featureFlags = features;
 }
 

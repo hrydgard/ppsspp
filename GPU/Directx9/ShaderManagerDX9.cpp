@@ -248,7 +248,7 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 }
 
 // Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
-static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
+static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY) {
 	// Half pixel offset hack
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
@@ -260,7 +260,9 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 	if (invertedY)
 		yoff = -yoff;
 
-	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
+	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset + 0.5f);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+	in.translateAndScale(trans, scale);
 }
 
 static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
@@ -342,40 +344,7 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
-		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
-		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
-			float zScale = gstate.getViewportZScale() / 65535.0f;
-			float zCenter = gstate.getViewportZCenter() / 65535.0f;
-
-			// if far depth range < 0
-			if (zCenter + zScale < 0.0f) {
-				// if perspective projection
-				if (flippedMatrix[11] < 0.0f) {
-					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
-					float depthMin = gstate.getDepthRangeMin() / 65535.0f;
-
-					float a = flippedMatrix[10];
-					float b = flippedMatrix[14];
-
-					float n = b / (a - 1.0f);
-					float f = b / (a + 1.0f);
-
-					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
-
-					a = (n + f) / (n - f);
-					b = (2.0f * n * f) / (n - f);
-
-					if (!my_isnan(a) && !my_isnan(b)) {
-						flippedMatrix[10] = a;
-						flippedMatrix[14] = b;
-					}
-				}
-			}
-		}
-
-		const bool invertedZ = gstate_c.vpDepth < 0;
-		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY, invertedZ);
+		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}
@@ -513,18 +482,22 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
-
-		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
-		// it afterwards anyway.
-		// It seems that we should adjust for D3D projection matrix. We got squashed up to only 0-1, so we divide
-		// the scale factor by 2, and add an offset. But, this doesn't work! I get near-perfect results not doing it.
-		// viewZScale *= 2.0f;
-
-		// Need to take the possibly inverted proj matrix into account.
-		if (gstate_c.vpDepth < 0.0)
-			viewZScale *= -1.0f;
-		viewZCenter -= 32767.5f;
 		float viewZInvScale;
+
+		// We had to scale and translate Z to account for our clamped Z range.
+		// Therefore, we also need to reverse this to round properly.
+		//
+		// Example: scale = 65535.0, center = 0.0
+		// Resulting range = -65535 to 65535, clamped to [0, 65535]
+		// gstate_c.vpDepthScale = 2.0f
+		// gstate_c.vpZOffset = -1.0f
+		//
+		// The projection already accounts for those, so we need to reverse them.
+		//
+		// Additionally, D3D9 uses a range from [0, 1].  We double and move the center.
+		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 2.0f;
+		viewZCenter -= 65535.0f * gstate_c.vpZOffset + 32768.5f;
+
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {

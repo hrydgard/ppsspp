@@ -254,10 +254,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 	p.Do(vpWidth);
 	p.Do(vpHeight);
-	if (s >= 4) {
-		p.Do(vpDepth);
-	} else {
-		vpDepth = 1.0f;  // any positive value should be fine
+	if (s == 4) {
+		float oldDepth = 1.0f;
+		p.Do(oldDepth);
 	}
 
 	p.Do(curRTWidth);

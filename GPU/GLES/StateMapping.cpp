@@ -371,6 +371,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (vpAndScissor.dirtyProj) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 	}
+	if (vpAndScissor.dirtyDepth) {
+		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
+	}
 }
 
 void TransformDrawEngine::ApplyDrawStateLate() {
