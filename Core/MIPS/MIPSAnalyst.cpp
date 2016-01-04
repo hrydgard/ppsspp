@@ -161,6 +161,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f639673670caa0e, 772, "dl_write_matrix_2", },
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
+	{ 0x3050bfd0e729dfbf, 220, "atvoffroadfuryblazintrails_download_frame", }, // ATV Offroad Fury Blazin' Trails (US)
 	{ 0x30c9c4f420573eb6, 540, "expf", },
 	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana (US)
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
@@ -251,6 +252,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6962da85a6dad937, 60, "strrchr", },
 	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
 	{ 0x6ab54910104ef000, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation World
+	{ 0x6ac2cd44e042592b, 252, "atvoffroadfurypro_download_frame", }, // ATV Offroad Fury Pro (US)
 	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
 	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
 	{ 0x6b4148322c569cb3, 240, "wmemchr", },
@@ -315,6 +317,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
 	{ 0x93d8a275ba288b26, 32, "vdot_t", },
 	{ 0x94c7083b64a946b4, 2028, "powf", },
+	{ 0x94eb1e7dccca76a4, 680, "shinigamitoshoujo_download_frame", }, // Shinigami to Shoujo (JP)
 	{ 0x95a52ce1bc460108, 2036, "_malloc_r", },
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
@@ -426,6 +429,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xdcdf7e1c1a3dc260, 372, "strncmp", },
 	{ 0xdcfc28e624a81bf1, 5476, "_dtoa_r", },
 	{ 0xddfa5a85937aa581, 32, "vdot_q", },
+	{ 0xdeb6a583659e3948, 1080, "littlebustersce_download_frame", }, // Little Busters! Converted Edition (JP)
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
 	{ 0xe086d5c9ce89148f, 212, "bokunonatsuyasumi4_download_frame", }, // Boku no Natsuyasumi 2 and 4,

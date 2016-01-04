@@ -1043,6 +1043,43 @@ static int Hook_sdgundamggenerationportable_download_frame() {
 	return 0;
 }
 
+static int Hook_atvoffroadfurypro_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	const u32 fb_size = (currentMIPS->r[MIPS_REG_S4] >> 3) * currentMIPS->r[MIPS_REG_S3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_atvoffroadfuryblazintrails_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S5];
+	const u32 fb_size = (currentMIPS->r[MIPS_REG_S3] >> 3) * currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_littlebustersce_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_shinigamitoshoujo_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
 
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
@@ -1141,6 +1178,10 @@ static const ReplacementTableEntry entries[] = {
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
 	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
 	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
+	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, 0xA0 },
+	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
+	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "shinigamitoshoujo_download_frame", &Hook_shinigamitoshoujo_download_frame, 0, REPFLAG_HOOKENTER, 0xBC },
 	{}
 };
 
