@@ -120,7 +120,9 @@ private:
 #define __chdir chdir
 #endif
 
-#if defined __GNUC__
+#if !defined(__GNUC__) && (defined(_M_X64) || defined(_M_IX86))
+# define _M_SSE 0x402
+#else
 # if defined __SSE4_2__
 #  define _M_SSE 0x402
 # elif defined __SSE4_1__
@@ -132,8 +134,6 @@ private:
 # elif defined __SSE2__
 #  define _M_SSE 0x200
 # endif
-#elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) && !defined(_XBOX) // Visual Studio 2008
-# define _M_SSE 0x402
 #endif
 
 #include "Swap.h"
