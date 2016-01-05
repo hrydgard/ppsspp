@@ -1,4 +1,3 @@
-#pragma once
 // Copyright (c) 2014- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -16,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include <map>
 
 #include "Common/CommonTypes.h"
 #include "GPU/ge_constants.h"
 
-class DepalShader {
+class DepalShaderVulkan {
 public:
 	/*
 	GLuint program;
@@ -31,11 +32,13 @@ public:
 	*/
 };
 
-class DepalTexture {
+class DepalTextureVulkan {
 public:
 	int  texture;
 	int lastFrame;
 };
+
+class VulkanTexture;
 
 // Caches both shaders and palette textures.
 // Could even avoid bothering with palette texture and just use uniform data...
@@ -45,7 +48,7 @@ public:
 	~DepalShaderCacheVulkan();
 
 	// This also uploads the palette and binds the correct texture.
-	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	DepalShaderVulkan *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
 	VulkanTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
@@ -55,7 +58,7 @@ private:
 	bool CreateVertexShader();
 
 	// GLuint vertexShader_;
-	std::map<u32, DepalShader *> cache_;
-	std::map<u32, DepalTexture *> texCache_;
+	std::map<u32, DepalShaderVulkan *> cache_;
+	std::map<u32, DepalTextureVulkan *> texCache_;
 };
 
