@@ -578,6 +578,11 @@ void GPU_Vulkan::BeginFrameInternal() {
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	framebufferManager_.BeginFrame();
+
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// Draw everything directly to the backbuffer.
+		drawEngine_.SetCmdBuffer(vulkan_->GetSurfaceCommandBuffer());
+	}
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
