@@ -82,24 +82,34 @@ struct UB_VS_TransformCommon {
 	float depthRange[4];
 	float fogCoef[4];
 	float matAmbient[4];
+	// Fragment data
+	float fogColor[4];
+	float texEnvColor[4];
+	float alphaColorRef[4];
+	float colorTestMask[4];
+	float stencilReplace[4];  // only first float used
+	float blendFixA[4];
+	float blendFixB[4];
+	float texClamp[4];
+	float texClampOffset[4];
 };
 
 static const char *ub_baseStr =
-R"(matrix4x4 proj;
-  matrix4x4 view;
-  matrix4x4 world;
-  matrix4x4 tex;
+R"(  mat4 proj_mtx;
+  mat4 view_mtx;
+  mat4 world_mtx;
+  mat4 tex_mtx;
   vec4 uvScaleOffset;
   vec4 depthRange;
   vec2 fogCoef;
   vec4 matAmbient;
-  vec3 blendFixA;  // Blend func replace
+  vec3 blendFixA;
   vec3 blendFixB;
-  vec4 texclamp;   // Texture clamp emu
+  vec4 texclamp;
   vec2 texclampoff;
-  vec4 alphacolorref; // Alpha/Color test
+  vec4 alphacolorref;
   ivec4 alphacolormask;
-  float stencilReplaceValue; // Stencil replacement
+  float stencilReplaceValue;
   vec3 texenv;
   vec3 fogcolor;
 )";
@@ -120,7 +130,7 @@ struct UB_VS_Lights {
 };
 
 static const char *ub_vs_lightsStr =
-R"(vec3 ambientColor;
+R"(  vec3 ambientColor;
 	vec3 materialDiffuse;
   vec4 materialSpecular;
   vec3 materialEmissive;
@@ -139,34 +149,9 @@ struct UB_VS_Bones {
 };
 
 static const char *ub_vs_bonesStr =
-R"(matrix4x4 m[8];
+R"(mat4 m[8];
 )";
 
-// Let's not bother splitting this, we'll just upload the lot for every draw call.
-struct UB_FS_All {
-	float fogColor[4];
-	float texEnvColor[4];
-	float alphaColorRef[4];
-	float colorTestMask[4];
-	float stencilReplace[4];  // only first float used
-	float blendFixA[4];
-	float blendFixB[4];
-	float texClamp[4];
-	float texClampOffset[4];
-};
-
-static const char *ub_fs_allStr =
-R"(
-  vec3 fogColor;
-	vec3 texenv;
-	vec4 alphaColorRef;
-	vec3 colorTestMask;
-	float stencilReplace;
-	vec3 blendFixA;
-	vec3 blendFixB;
-	vec4 texClamp;
-	vec2 texClampOffset;
-)";
 
 class VulkanFragmentShader {
 public:
@@ -244,10 +229,9 @@ private:
 	char *codeBuffer_;
 
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
-	UB_VS_TransformCommon ub_transformCommon;
+	UB_VS_TransformCommon ub_base;
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
-	UB_FS_All ub_fragment;
 
 	typedef std::map<ShaderID, VulkanFragmentShader *> FSCache;
 	FSCache fsCache_;
