@@ -1274,18 +1274,16 @@ bool FramebufferManager::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 }
 
 void FramebufferManager::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	if (gl_extensions.IsGLES) {
-		if (nvfb->fbo) {
-			fbo_bind_as_render_target(nvfb->fbo);
-		}
+	_assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
-		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-		// to it. This broke stuff before, so now it only clears on the first use of an
-		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (nvfb->last_frame_render != gpuStats.numFlips) {
-			ClearBuffer();
-		}
+	// Discard the previous contents of this buffer where possible.
+	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
+		fbo_bind_as_render_target(nvfb->fbo);
+		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_STENCIL_ATTACHMENT, GL_DEPTH_ATTACHMENT };
+		glInvalidateFramebuffer(GL_FRAMEBUFFER, 3, attachments);
+	} else if (gl_extensions.IsGLES) {
+		fbo_bind_as_render_target(nvfb->fbo);
+		ClearBuffer();
 	}
 }
 
