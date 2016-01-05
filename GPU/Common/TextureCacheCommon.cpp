@@ -28,6 +28,10 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 
+#if defined(_M_SSE)
+#include <emmintrin.h>
+#endif
+
 // Ugly.
 extern int g_iNumVideos;
 
