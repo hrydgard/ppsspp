@@ -135,7 +135,6 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO_DX9 *fbo;
@@ -146,7 +145,6 @@ private:
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<u64, TempFBO> tempFBOs_;
 	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 

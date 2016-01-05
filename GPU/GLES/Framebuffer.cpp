@@ -291,7 +291,6 @@ FramebufferManager::FramebufferManager() :
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
 	resized_(false),
-	gameUsesSequentialCopies_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0)
 {
@@ -1217,61 +1216,25 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-
-		// For now we'll keep these on the same struct as the ones that can get displayed
-		// (and blatantly copy work already done above while at it).
-		VirtualFramebuffer *nvfb = 0;
-
-		// We maintain a separate vector of framebuffer objects for blitting.
-		for (size_t i = 0; i < bvfbs_.size(); ++i) {
-			VirtualFramebuffer *v = bvfbs_[i];
-			if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
-				if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
-					nvfb = v;
-					v->fb_stride = vfb->fb_stride;
-					v->width = vfb->width;
-					v->height = vfb->height;
-					break;
-				}
-			}
-		}
+		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
 
 		// Create a new fbo if none was found for the size
-		if (!nvfb) {
-			nvfb = new VirtualFramebuffer();
-			nvfb->fbo = 0;
-			nvfb->fb_address = vfb->fb_address;
-			nvfb->fb_stride = vfb->fb_stride;
-			nvfb->z_address = vfb->z_address;
-			nvfb->z_stride = vfb->z_stride;
-			nvfb->width = vfb->width;
-			nvfb->height = vfb->height;
-			nvfb->renderWidth = vfb->bufferWidth;
-			nvfb->renderHeight = vfb->bufferHeight;
-			nvfb->bufferWidth = vfb->bufferWidth;
-			nvfb->bufferHeight = vfb->bufferHeight;
-			nvfb->format = vfb->format;
-			nvfb->drawnWidth = vfb->drawnWidth;
-			nvfb->drawnHeight = vfb->drawnHeight;
-			nvfb->drawnFormat = vfb->format;
-			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
-			nvfb->dirtyAfterDisplay = true;
-
+		if (!nvfb->fbo) {
 			// When updating VRAM, it need to be exact format.
 			switch (vfb->format) {
-				case GE_FORMAT_4444:
-					nvfb->colorDepth = FBO_4444;
-					break;
-				case GE_FORMAT_5551:
-					nvfb->colorDepth = FBO_5551;
-					break;
-				case GE_FORMAT_565:
-					nvfb->colorDepth = FBO_565;
-					break;
-				case GE_FORMAT_8888:
-				default:
-					nvfb->colorDepth = FBO_8888;
-					break;
+			case GE_FORMAT_4444:
+				nvfb->colorDepth = FBO_4444;
+				break;
+			case GE_FORMAT_5551:
+				nvfb->colorDepth = FBO_5551;
+				break;
+			case GE_FORMAT_565:
+				nvfb->colorDepth = FBO_565;
+				break;
+			case GE_FORMAT_8888:
+			default:
+				nvfb->colorDepth = FBO_8888;
+				break;
 			}
 			if (gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
 				nvfb->colorDepth = vfb->colorDepth;
@@ -1285,16 +1248,12 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				return;
 			}
 
-			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo);
 			ClearBuffer();
 			glDisable(GL_DITHER);
 		} else {
-			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			textureCache_->ForgetLastTexture();
-			nvfb->last_frame_render = gpuStats.numFlips;
-			nvfb->dirtyAfterDisplay = true;
 
 			if (gl_extensions.IsGLES) {
 				if (nvfb->fbo) {
@@ -1311,29 +1270,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			}
 		}
 
-		if (gameUsesSequentialCopies_) {
-			// Ignore the x/y/etc., read the entire thing.
-			x = 0;
-			y = 0;
-			w = vfb->width;
-			h = vfb->height;
-		}
-		if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-			vfb->memoryUpdated = true;
-		} else {
-			const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-			static int frameLastCopy = 0;
-			static u32 bufferLastCopy = 0;
-			static int copiesThisFrame = 0;
-			if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-				frameLastCopy = gpuStats.numFlips;
-				bufferLastCopy = vfb->fb_address;
-				copiesThisFrame = 0;
-			}
-			if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-				gameUsesSequentialCopies_ = true;
-			}
-		}
+		OptimizeDownloadRange(vfb, x, y, w, h);
 		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 		// PackFramebufferSync_() - Synchronous pixel data transfer using glReadPixels

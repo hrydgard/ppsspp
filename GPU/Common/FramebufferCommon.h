@@ -244,6 +244,8 @@ protected:
 
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
+	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
+	void OptimizeDownloadRange(VirtualFramebuffer *vfb, int &x, int &y, int &w, int &h);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
 
@@ -278,9 +280,11 @@ protected:
 	bool postShaderIsUpscalingFilter_;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
+	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 	bool hackForce04154000Download_;
+	bool gameUsesSequentialCopies_;
 
 	// Sampled in BeginFrame for safety.
 	float renderWidth_;

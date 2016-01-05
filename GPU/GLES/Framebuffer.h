@@ -171,14 +171,12 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO *fbo;
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
 
 	// Not used under ES currently.
