@@ -407,5 +407,6 @@
     <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
+    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
   </ItemGroup>
 </Project>
