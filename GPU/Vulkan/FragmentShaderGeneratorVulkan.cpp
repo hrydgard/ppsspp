@@ -168,18 +168,18 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
 
 				if (id.Bit(FS_BIT_CLAMP_S)) {
-					ucoord = "clamp(" + ucoord + ", u_texclamp.z, u_texclamp.x - u_texclamp.z)";
+					ucoord = "clamp(" + ucoord + ", base.texclamp.z, base.texclamp.x - base.texclamp.z)";
 				} else {
-					ucoord = modulo + "(" + ucoord + ", u_texclamp.x)";
+					ucoord = modulo + "(" + ucoord + ", base.texclamp.x)";
 				}
 				if (id.Bit(FS_BIT_CLAMP_T)) {
-					vcoord = "clamp(" + vcoord + ", u_texclamp.w, u_texclamp.y - u_texclamp.w)";
+					vcoord = "clamp(" + vcoord + ", base.texclamp.w, base.texclamp.y - base.texclamp.w)";
 				} else {
-					vcoord = modulo + "(" + vcoord + ", u_texclamp.y)";
+					vcoord = modulo + "(" + vcoord + ", base.texclamp.y)";
 				}
 				if (textureAtOffset) {
-					ucoord = "(" + ucoord + " + u_texclampoff.x)";
-					vcoord = "(" + vcoord + " + u_texclampoff.y)";
+					ucoord = "(" + ucoord + " + base.texclampoff.x)";
+					vcoord = "(" + vcoord + " + base.texclampoff.y)";
 				}
 
 				WRITE(p, "  vec2 fixedcoord = vec2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
@@ -206,7 +206,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 					break;
 
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, base.texenv.rgb, t.rgb), p.a * t.a)%s;\n", secondary);
 					break;
 
 				case GE_TEXFUNC_REPLACE:
@@ -233,7 +233,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 					break;
 
 				case GE_TEXFUNC_BLEND:
-					WRITE(p, "  vec4 v = vec4(mix(p.rgb, u_texenv.rgb, t.rgb), p.a)%s;\n", secondary);
+					WRITE(p, "  vec4 v = vec4(mix(p.rgb, base.texenv.rgb, t.rgb), p.a)%s;\n", secondary);
 					break;
 
 				case GE_TEXFUNC_REPLACE:
@@ -288,7 +288,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s int(base.alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else {
 					// This means NEVER.  See above.
 					WRITE(p, "  discard;\n");
@@ -327,8 +327,8 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					// Apparently GLES3 does not support vector bitwise ops.
 					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-					const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
-					const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
+					const char *maskedFragColor = "ivec3(v_scaled.r & base.alphacolormask.r, v_scaled.g & base.alphacolormask.g, v_scaled.b & base.alphacolormask.b)";
+					const char *maskedColorRef = "ivec3(int(base.alphacolorref.r) & base.alphacolormask.r, int(base.alphacolorref.g) & base.alphacolormask.g, int(base.alphacolorref.b) & base.alphacolormask.b)";
 					WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
 				} else {
 					WRITE(p, "  discard;\n");
@@ -345,7 +345,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
@@ -362,7 +362,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "ERROR"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "ERROR"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "base.blendFixA"; break;
 			}
 
 			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
@@ -385,7 +385,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_SRCBLEND_DOUBLEINVSRCALPHA: srcFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEDSTALPHA:    srcFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_SRCBLEND_DOUBLEINVDSTALPHA: srcFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
-			case GE_SRCBLEND_FIXA:              srcFactor = "u_blendFixA"; break;
+			case GE_SRCBLEND_FIXA:              srcFactor = "base.blendFixA"; break;
 			}
 			switch (replaceBlendFuncB) {
 			case GE_DSTBLEND_SRCCOLOR:          dstFactor = "v.rgb"; break;
@@ -398,7 +398,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			case GE_DSTBLEND_DOUBLEINVSRCALPHA: dstFactor = "vec3(1.0 - v.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEDSTALPHA:    dstFactor = "vec3(destColor.a * 2.0)"; break;
 			case GE_DSTBLEND_DOUBLEINVDSTALPHA: dstFactor = "vec3(1.0 - destColor.a * 2.0)"; break;
-			case GE_DSTBLEND_FIXB:              dstFactor = "u_blendFixB"; break;
+			case GE_DSTBLEND_FIXB:              dstFactor = "base.blendFixB"; break;
 			}
 
 			switch (replaceBlendEq) {
@@ -433,7 +433,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	if (stencilToAlpha != REPLACE_ALPHA_NO) {
 		switch (replaceAlphaWithStencilType) {
 		case STENCIL_VALUE_UNIFORM:
-			replacedAlpha = "u_stencilReplaceValue";
+			replacedAlpha = "base.stencilReplaceValue";
 			break;
 
 		case STENCIL_VALUE_ZERO:
