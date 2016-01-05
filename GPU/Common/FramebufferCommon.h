@@ -57,6 +57,7 @@ struct VirtualFramebuffer {
 	int last_frame_render;
 	int last_frame_displayed;
 	int last_frame_clut;
+	u32 clutUpdatedBytes;
 	bool memoryUpdated;
 	bool depthUpdated;
 
@@ -254,6 +255,7 @@ protected:
 
 	void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
+		dstBuffer->clutUpdatedBytes = 0;
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
 		dstBuffer->drawnHeight = dstBuffer->height;

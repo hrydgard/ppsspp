@@ -870,20 +870,24 @@ namespace DX9 {
 			int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
 			int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
 
-			// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
-			// CLUT framebuffers are often incorrectly estimated in size.
-			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-				vfb->memoryUpdated = true;
+			// No need to download if we already have it.
+			if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
+				// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+				// CLUT framebuffers are often incorrectly estimated in size.
+				if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+					vfb->memoryUpdated = true;
+				}
+				vfb->clutUpdatedBytes = loadBytes;
+
+				// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+				VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+
+				PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+				textureCache_->ForgetLastTexture();
+				RebindFramebuffer();
 			}
-
-			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-			PackFramebufferDirectx9_(nvfb, x, y, w, h);
-
-			textureCache_->ForgetLastTexture();
-			RebindFramebuffer();
 		}
 
 		if (Memory::IsValidAddress(fb_address | 0x04000000)) {
