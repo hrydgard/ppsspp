@@ -29,6 +29,8 @@ public:
 	void SwapBuffers() override;
 	void Resize() override;
 
+	void *GetAPIContext();
+
 	Thin3DContext *CreateThin3DContext() override;
 };
 

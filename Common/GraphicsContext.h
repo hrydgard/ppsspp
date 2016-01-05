@@ -22,6 +22,9 @@ public:
 
 	virtual void Resize() = 0;
 
+	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
+	virtual void *GetAPIContext() { return nullptr; }
+
 	virtual Thin3DContext *CreateThin3DContext() = 0;
 };
 
