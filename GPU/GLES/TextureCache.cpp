@@ -879,6 +879,10 @@ void TextureCache::ApplyTexture() {
 	nextTexture_ = nullptr;
 }
 
+void TextureCache::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
+	framebufferManager_->DownloadFramebufferForClut(clutBufRaw_, clutAddr, bytes);
+}
+
 class TextureShaderApplier {
 public:
 	struct Pos {

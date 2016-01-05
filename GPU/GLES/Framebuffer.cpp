@@ -1241,6 +1241,42 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
+void FramebufferManager::DownloadFramebufferForClut(void *clut, u32 fb_address, u32 loadBytes) {
+	PROFILE_THIS_SCOPE("gpu-readback");
+	// Flush async just in case.
+	PackFramebufferAsync_(nullptr);
+
+	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
+	if (vfb && vfb->fb_stride != 0) {
+		const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+		int x = 0;
+		int y = 0;
+		int pixels = loadBytes / bpp;
+		// The height will be 1 for each stride or part thereof.
+		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
+		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
+
+		// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+		// CLUT framebuffers are often incorrectly estimated in size.
+		if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+			vfb->memoryUpdated = true;
+		}
+
+		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+
+		PackFramebufferSync_(nvfb, x, y, w, h);
+
+		textureCache_->ForgetLastTexture();
+		RebindFramebuffer();
+	}
+
+	if (Memory::IsValidAddress(fb_address | 0x04000000)) {
+		Memory::MemcpyUnchecked(clut, fb_address | 0x04000000, loadBytes);
+	}
+}
+
 bool FramebufferManager::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	// When updating VRAM, it need to be exact format.
 	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
