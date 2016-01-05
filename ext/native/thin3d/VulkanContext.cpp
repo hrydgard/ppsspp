@@ -1403,14 +1403,22 @@ VkPipelineCache VulkanContext::CreatePipelineCache() {
 	return cache;
 }
 
-void TransitionImageLayout(
-	VkCommandBuffer cmd,
-	VkImage image,
-	VkImageAspectFlags aspectMask,
-	VkImageLayout old_image_layout,
-	VkImageLayout new_image_layout) {
-	/* DEPENDS on info.cmd and info.queue initialized */
+bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
+	VkShaderModuleCreateInfo sm;
+	sm.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	sm.pNext = nullptr;
+	sm.pCode = spirv.data();
+	sm.codeSize = spirv.size() * sizeof(uint32_t);
+	sm.flags = 0;
+	VkResult result = vkCreateShaderModule(device_, &sm, NULL, shaderModule);
+	if (result != VK_SUCCESS) {
+		return false;
+	} else {
+		return true;
+	}
+}
 
+void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout) {
 	VkImageMemoryBarrier image_memory_barrier = {};
 	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	image_memory_barrier.pNext = NULL;

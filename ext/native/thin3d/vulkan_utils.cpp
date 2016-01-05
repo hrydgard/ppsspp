@@ -140,18 +140,3 @@ void VulkanImage::ChangeLayout(VkCommandBuffer cmd, VkImageAspectFlags aspectMas
 	VkPipelineStageFlags dest_stages = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	vkCmdPipelineBarrier(cmd, src_stages, dest_stages, false, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
-
-bool CreateShaderModule(VkDevice device, const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
-	VkShaderModuleCreateInfo sm;
-	sm.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	sm.pNext = nullptr;
-	sm.pCode = spirv.data();
-	sm.codeSize = spirv.size() * sizeof(uint32_t);
-	sm.flags = 0;
-	VkResult result = vkCreateShaderModule(device, &sm, NULL, shaderModule);
-	if (result != VK_SUCCESS) {
-		return false;
-	} else {
-		return true;
-	}
-}

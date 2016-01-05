@@ -41,8 +41,8 @@
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 #include "UI/OnScreenDisplay.h"
 
-VulkanFragmentShader::VulkanFragmentShader(VkDevice device, ShaderID id, const char *code, bool useHWTransform)
-	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
+VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform)
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -64,7 +64,7 @@ VulkanFragmentShader::VulkanFragmentShader(VkDevice device, ShaderID id, const c
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
-		success = CreateShaderModule(device_, spirv, &module_);
+		success = vulkan_->CreateShaderModule(spirv, &module_);
 	}
 
 	if (!success) {
@@ -77,7 +77,7 @@ VulkanFragmentShader::VulkanFragmentShader(VkDevice device, ShaderID id, const c
 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
-		vkDestroyShaderModule(device_, module_, nullptr);
+		vulkan_->QueueDelete(module_);
 	}
 }
 
@@ -92,8 +92,8 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
-VulkanVertexShader::VulkanVertexShader(VkDevice device, ShaderID id, const char *code, int vertType, bool useHWTransform) 
-	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
+VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform) 
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -113,7 +113,7 @@ VulkanVertexShader::VulkanVertexShader(VkDevice device, ShaderID id, const char 
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
-		success = CreateShaderModule(device_, spirv, &module_);
+		success = vulkan_->CreateShaderModule(spirv, &module_);
 	}
 
 	if (!success) {
@@ -127,7 +127,7 @@ VulkanVertexShader::VulkanVertexShader(VkDevice device, ShaderID id, const char 
 
 VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
-		vkDestroyShaderModule(device_, module_, nullptr);
+		vulkan_->QueueDelete(module_);
 	}
 }
 
@@ -423,7 +423,8 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-ShaderManagerVulkan::ShaderManagerVulkan(VkDevice device) : device_(device), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan) 
+	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -492,24 +493,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
-		vs = new VulkanVertexShader(device_, VSID, codeBuffer_, vertType, useHWTransform);
-
-		if (vs->Failed()) {
-			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
-			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
-			delete vs;
-
-			ComputeVertexShaderID(&VSID, vertType, false);
-
-			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
-			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
-			// next time and we'll do this over and over...
-
-			// Can still work with software transform.
-			GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
-			vs = new VulkanVertexShader(device_, VSID, codeBuffer_, vertType, false);
-		}
-
+		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, vertType, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;
@@ -521,7 +505,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_);
-		fs = new VulkanFragmentShader(device_, FSID, codeBuffer_, useHWTransform);
+		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;

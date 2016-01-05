@@ -17,8 +17,34 @@
 
 #pragma once
 
+#include "GPU/GPUInterface.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
+
 
 VulkanFramebuffer *FramebufferManagerVulkan::GetTempFBO(int width, int height, VulkanFBOColorDepth colorDepth) {
 	return nullptr;
+}
+
+void FramebufferManagerVulkan::DestroyAllFBOs() {
+
+}
+
+void FramebufferManagerVulkan::Resized() {
+
+}
+
+void FramebufferManagerVulkan::DeviceLost() {
+
+}
+
+void FramebufferManagerVulkan::CopyDisplayToOutput() {
+
+}
+
+void FramebufferManagerVulkan::EndFrame() {
+
+}
+
+std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {
+	return std::vector<FramebufferInfo>();
 }

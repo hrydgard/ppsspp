@@ -18,6 +18,7 @@
 #pragma once
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 // TODO: WTF?
@@ -28,6 +29,8 @@ enum VulkanFBOColorDepth {
 	VK_FBO_5551,
 };
 
+class TextureCacheVulkan;
+
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	// Subsequent commands will be enqueued on this buffer.
@@ -37,6 +40,7 @@ public:
 	virtual void ClearBuffer(bool keepState = false) override {
 		throw std::logic_error("The method or operation is not implemented.");
 	}
+	void SetTextureCache(TextureCacheVulkan *texCache) { texCache_ = texCache; }
 	VulkanFramebuffer *GetTempFBO(int width, int height, VulkanFBOColorDepth colorDepth);
 
 	virtual void RebindFramebuffer() override {
@@ -109,8 +113,18 @@ public:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override {
 
 	}
+	void DestroyAllFBOs();
+	void Resized();
+	void DeviceLost();
+
+	void CopyDisplayToOutput();
+	void EndFrame();
+
+	std::vector<FramebufferInfo> GetFramebufferList();
 
 private:
 	VkInstance inst_;
 	VkCommandBuffer cmd_;
+
+	TextureCacheVulkan *texCache_;
 };

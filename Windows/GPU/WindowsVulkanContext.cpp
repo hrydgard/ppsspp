@@ -171,6 +171,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 }
 
 void WindowsVulkanContext::Shutdown() {
+	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyDevice();
@@ -198,4 +199,8 @@ void WindowsVulkanContext::Resize() {
 }
 
 void WindowsVulkanContext::SwapInterval(int interval) {
+}
+
+void *WindowsVulkanContext::GetAPIContext() {
+	return g_Vulkan;
 }

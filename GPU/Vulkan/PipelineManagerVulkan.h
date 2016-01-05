@@ -112,6 +112,8 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
+	int GetNumPipelines() const { return 0; }
+
 private:
 	std::map<VulkanPipelineKey, VkPipeline> pipelines_;
 	VkPipelineCache pipelineCache_;

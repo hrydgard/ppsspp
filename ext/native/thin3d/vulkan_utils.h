@@ -54,4 +54,3 @@ class Thin3DPipelineCache {
 
 };
 
-bool CreateShaderModule(VkDevice device, const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
