@@ -187,24 +187,23 @@ private:
 // invoke Compile again to recreate the shader then link them together.
 class Thin3DVKShader : public Thin3DShader {
 public:
-	Thin3DVKShader(VulkanContext *vulkan, bool isFragmentShader) : vulkan_(vulkan), module_(nullptr), ok_(false) {
+	Thin3DVKShader(bool isFragmentShader) : module_(nullptr), ok_(false) {
 		stage_ = isFragmentShader ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
 	}
-	bool Compile(VkDevice device, const char *source);
+	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
 	~Thin3DVKShader() {
 	}
 	VkShaderModule Get() const { return module_; }
 
 private:
-	VulkanContext *vulkan_;
 	VkShaderModule module_;
 	VkShaderStageFlagBits stage_;
 	bool ok_;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool Thin3DVKShader::Compile(VkDevice device, const char *source) {
+bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
 	this->source_ = source;
 	std::vector<uint32_t> spirv;
 	if (!GLSLtoSPV(stage_, source, spirv)) {
@@ -220,7 +219,7 @@ bool Thin3DVKShader::Compile(VkDevice device, const char *source) {
 	}
 #endif
 
-	if (CreateShaderModule(device, spirv, &module_)) {
+	if (vulkan->CreateShaderModule(spirv, &module_)) {
 		ok_ = true;
 	} else {
 		ok_ = false;
@@ -987,8 +986,8 @@ void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures
 }
 
 Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(vulkan_, false);
-	if (shader->Compile(device_, vulkan_source)) {
+	Thin3DVKShader *shader = new Thin3DVKShader(false);
+	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
 		shader->Release();
@@ -997,8 +996,8 @@ Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const
 }
 
 Thin3DShader *Thin3DVKContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(vulkan_, true);
-	if (shader->Compile(device_, vulkan_source)) {
+	Thin3DVKShader *shader = new Thin3DVKShader(true);
+	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
 		shader->Release();

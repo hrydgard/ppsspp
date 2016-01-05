@@ -25,13 +25,14 @@
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
+#include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
 class ShaderManager;
 class LinkedShader;
 
 class GPU_Vulkan : public GPUCommon {
 public:
-	GPU_Vulkan(VulkanContext *vulkan);
+	GPU_Vulkan(GraphicsContext *ctx);
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
@@ -81,7 +82,6 @@ public:
 		GPU_Vulkan::CmdFunc func;
 	};
 	
-	/*
 	void Execute_Vaddr(u32 op, u32 diff);
 	void Execute_Iaddr(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
@@ -138,11 +138,13 @@ public:
 	void Execute_BoneMtxNum(u32 op, u32 diff);
 	void Execute_BoneMtxData(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
-	*/
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
+	std::vector<FramebufferInfo> GetFramebufferList();
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
@@ -151,21 +153,41 @@ protected:
 	void FinishDeferred() override;
 
 private:
+	void Flush() {
+		drawEngine_.Flush(nullptr);
+	}
 	void DoBlockTransfer(u32 skipDrawReason);
-
+	void CheckFlushOp(int cmd, u32 diff);
+	void BuildReportingInfo();
+	void InitClearInternal();
+	void BeginFrameInternal();
+	void CopyDisplayToOutputInternal();
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
+	void PerformStencilUploadInternal(u32 dest, int size);
+	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+	void ReinitializeInternal();
+	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 
 	static CommandInfo cmdInfo_[256];
 
+	GraphicsContext *gfxCtx_;
+	VulkanContext *vulkan_;
 	FramebufferManagerVulkan framebufferManager_;
 	TextureCacheVulkan textureCache_;
-	// DepalShaderCache depalShaderCache_;
-	DrawEngineVulkan transformDraw_;
-	// FragmentTestCache fragmentTestCache_;
+	DepalShaderCacheVulkan depalShaderCache_;
+	DrawEngineVulkan drawEngine_;
+
+	// Manages shaders and UBO data
+	ShaderManagerVulkan *shaderManager_;
+
+	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
 	bool resized_;
 	int lastVsync_;
+	VkCommandBuffer curCmd_;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 
 #include "GPU/GPU.h"
@@ -59,7 +60,9 @@ bool GPU_Init(GraphicsContext *ctx) {
 #endif
 		break;
 	case GPU_VULKAN:
-		SetGPU(new GPU_Vulkan(nullptr));
+	{
+		SetGPU(new GPU_Vulkan(ctx));
+	}
 		break;
 	}
 

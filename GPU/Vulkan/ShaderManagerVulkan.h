@@ -178,7 +178,7 @@ R"(
 
 class VulkanFragmentShader {
 public:
-	VulkanFragmentShader(VkDevice device, ShaderID id, const char *code, bool useHWTransform);
+	VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform);
 	~VulkanFragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -191,7 +191,7 @@ public:
 protected:	
 	VkShaderModule module_;
 
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
@@ -200,7 +200,7 @@ protected:
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VkDevice device, ShaderID id, const char *code, int vertType, bool useHWTransform);
+	VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
@@ -213,7 +213,7 @@ public:
 protected:
 	VkShaderModule module_;
 
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
@@ -222,7 +222,7 @@ protected:
 
 class ShaderManagerVulkan {
 public:
-	ShaderManagerVulkan(VkDevice device);
+	ShaderManagerVulkan(VulkanContext *vulkan);
 	~ShaderManagerVulkan();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
@@ -234,8 +234,8 @@ public:
 	}
 	void DirtyLastShader();
 
-	int NumVertexShaders() const { return (int)vsCache_.size(); }
-	int NumFragmentShaders() const { return (int)fsCache_.size(); }
+	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
+	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
@@ -246,7 +246,7 @@ private:
 
 	void Clear();
 
-	VkDevice device_;
+	VulkanContext *vulkan_;
 
 	u32 globalDirty_;
 	char *codeBuffer_;

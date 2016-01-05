@@ -68,6 +68,7 @@ struct layer_properties {
 // This is a bit repetitive...
 class VulkanDeleteList {
 public:
+	void QueueDelete(VkShaderModule module) { modules_.push_back(module); }
 	void QueueDelete(VkBuffer buffer) { buffers_.push_back(buffer); }
 	void QueueDelete(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
 	void QueueDelete(VkImage image) { images_.push_back(image); }
@@ -75,6 +76,7 @@ public:
 	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
 
 	void Ingest(VulkanDeleteList &del) {
+		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
 		bufferViews_ = std::move(del.bufferViews_);
 		images_ = std::move(del.images_);
@@ -83,6 +85,10 @@ public:
 	}
 
 	void PerformDeletes(VkDevice device) {
+		for (auto &module : modules_) {
+			vkDestroyShaderModule(device, module, nullptr);
+		}
+		modules_.clear();
 		for (auto &buf : buffers_) {
 			vkDestroyBuffer(device, buf, nullptr);
 		}
@@ -106,6 +112,7 @@ public:
 	}
 
 private:
+	std::vector<VkShaderModule> modules_;
 	std::vector<VkBuffer> buffers_;
 	std::vector<VkBufferView> bufferViews_;
 	std::vector<VkImage> images_;
@@ -157,6 +164,8 @@ public:
 
 	// Utility functions for shorter code
 	VkFence CreateFence(bool presignalled);
+	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
+
 	void WaitAndResetFence(VkFence fence);
 
 	int GetWidth() { return width; }
