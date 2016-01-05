@@ -73,7 +73,8 @@ public:
 
 	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
@@ -105,6 +106,8 @@ protected:
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
 	void CompileDraw2DProgram();
@@ -135,7 +138,6 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO_DX9 *fbo;
@@ -146,7 +148,6 @@ private:
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<u64, TempFBO> tempFBOs_;
 	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 

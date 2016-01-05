@@ -139,6 +139,8 @@ protected:
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
 	virtual void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) = 0;
 
+	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
+
 	TexCache cache;
 	std::vector<VirtualFramebuffer *> fbCache_;
 
@@ -155,6 +157,7 @@ protected:
 	u32 clutTotalBytes_;
 	u32 clutMaxBytes_;
 	u32 clutRenderAddress_;
+	u32 clutRenderOffset_;
 	int standardScaleFactor_;
 };
 

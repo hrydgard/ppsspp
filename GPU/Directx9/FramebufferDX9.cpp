@@ -92,8 +92,7 @@ namespace DX9 {
 		convBuf(0),
 		stencilUploadPS_(nullptr),
 		stencilUploadVS_(nullptr),
-		stencilUploadFailed_(false),
-		gameUsesSequentialCopies_(false) {
+		stencilUploadFailed_(false) {
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
@@ -847,116 +846,67 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-#if 0
-		if (sync) {
-			PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
-		}
-#endif
-
 		if (vfb) {
 			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			// For now we'll keep these on the same struct as the ones that can get displayed
-			// (and blatantly copy work already done above while at it).
-			VirtualFramebuffer *nvfb = 0;
-
-			// We maintain a separate vector of framebuffer objects for blitting.
-			for (size_t i = 0; i < bvfbs_.size(); ++i) {
-				VirtualFramebuffer *v = bvfbs_[i];
-				if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
-					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
-						nvfb = v;
-						v->fb_stride = vfb->fb_stride;
-						v->width = vfb->width;
-						v->height = vfb->height;
-						break;
-					}
-				}
-			}
-
-			// Create a new fbo if none was found for the size
-			if(!nvfb) {
-				nvfb = new VirtualFramebuffer();
-				nvfb->fbo_dx9 = nullptr;
-				nvfb->fb_address = vfb->fb_address;
-				nvfb->fb_stride = vfb->fb_stride;
-				nvfb->z_address = vfb->z_address;
-				nvfb->z_stride = vfb->z_stride;
-				nvfb->width = vfb->width;
-				nvfb->height = vfb->height;
-				nvfb->renderWidth = vfb->bufferWidth;
-				nvfb->renderHeight = vfb->bufferHeight;
-				nvfb->bufferWidth = vfb->bufferWidth;
-				nvfb->bufferHeight = vfb->bufferHeight;
-				nvfb->format = vfb->format;
-				nvfb->drawnWidth = vfb->drawnWidth;
-				nvfb->drawnHeight = vfb->drawnHeight;
-				nvfb->drawnFormat = vfb->format;
-				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
-				nvfb->dirtyAfterDisplay = true;
-
-				nvfb->colorDepth = FBO_8888;
-
-				textureCache_->ForgetLastTexture();
-				nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
-				if (!(nvfb->fbo_dx9)) {
-					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-					delete nvfb;
-					return;
-				}
-
-				nvfb->last_frame_render = gpuStats.numFlips;
-				bvfbs_.push_back(nvfb);
-				fbo_bind_as_render_target(nvfb->fbo_dx9);
-				ClearBuffer();
-			} else {
-				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-				gstate_c.textureChanged = true;
-				nvfb->last_frame_render = gpuStats.numFlips;
-				nvfb->dirtyAfterDisplay = true;
-
-#if 0
-				if (nvfb->fbo) {
-					fbo_bind_as_render_target(nvfb->fbo);
-				}
-
-				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it. This broke stuff before, so now it only clears on the first use of an
-				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-				if (nvfb->last_frame_render != gpuStats.numFlips)	{
-					ClearBuffer();
-				}
-#endif
-			}
-
-			if (gameUsesSequentialCopies_) {
-				// Ignore the x/y/etc., read the entire thing.
-				x = 0;
-				y = 0;
-				w = vfb->width;
-				h = vfb->height;
-			}
-			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-				vfb->memoryUpdated = true;
-			} else {
-				const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-				static int frameLastCopy = 0;
-				static u32 bufferLastCopy = 0;
-				static int copiesThisFrame = 0;
-				if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-					frameLastCopy = gpuStats.numFlips;
-					bufferLastCopy = vfb->fb_address;
-					copiesThisFrame = 0;
-				}
-				if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-					gameUsesSequentialCopies_ = true;
-				}
-			}
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			OptimizeDownloadRange(vfb, x, y, w, h);
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 			PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+			textureCache_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
+	}
+
+	void FramebufferManagerDX9::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+		VirtualFramebuffer *vfb = GetVFBAt(fb_address);
+		if (vfb && vfb->fb_stride != 0) {
+			const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+			int x = 0;
+			int y = 0;
+			int pixels = loadBytes / bpp;
+			// The height will be 1 for each stride or part thereof.
+			int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
+			int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
+
+			// No need to download if we already have it.
+			if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
+				// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+				// CLUT framebuffers are often incorrectly estimated in size.
+				if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+					vfb->memoryUpdated = true;
+				}
+				vfb->clutUpdatedBytes = loadBytes;
+
+				// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+				VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+
+				PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+				textureCache_->ForgetLastTexture();
+				RebindFramebuffer();
+			}
+		}
+	}
+
+	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		nvfb->colorDepth = FBO_8888;
+
+		nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
+		if (!(nvfb->fbo_dx9)) {
+			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			return false;
+		}
+
+		fbo_bind_as_render_target(nvfb->fbo_dx9);
+		ClearBuffer();
+		return true;
+	}
+
+	void FramebufferManagerDX9::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		// Nothing to do here.
 	}
 
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -1142,10 +1092,6 @@ namespace DX9 {
 			}
 			resized_ = false;
 		}
-#if 0
-		// We flush to memory last requested framebuffer, if any
-		PackFramebufferAsync_(NULL);
-#endif
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {

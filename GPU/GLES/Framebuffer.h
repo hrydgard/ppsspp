@@ -101,7 +101,8 @@ public:
 	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
@@ -135,6 +136,8 @@ protected:
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
@@ -171,14 +174,12 @@ private:
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO *fbo;
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
 
 	// Not used under ES currently.

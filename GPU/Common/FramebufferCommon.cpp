@@ -123,7 +123,8 @@ FramebufferManagerCommon::FramebufferManagerCommon() :
 	usePostShader_(false),
 	postShaderAtOutputResolution_(false),
 	postShaderIsUpscalingFilter_(false),
-	hackForce04154000Download_(false) {
+	hackForce04154000Download_(false),
+	gameUsesSequentialCopies_(false) {
 	UpdateSize();
 }
 
@@ -165,21 +166,18 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
-	VirtualFramebuffer *match = NULL;
+	VirtualFramebuffer *match = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, addr)) {
 			// Could check w too but whatever
-			if (match == NULL || match->last_frame_render < v->last_frame_render) {
+			if (match == nullptr || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
 	}
-	if (match != NULL) {
-		return match;
-	}
 
-	return 0;
+	return match;
 }
 
 bool FramebufferManagerCommon::MaskedEqual(u32 addr1, u32 addr2) {
@@ -727,6 +725,91 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 	if (srcYOffset != (u32)-1) {
 		srcY += srcYOffset;
 		srcX += srcXOffset;
+	}
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFramebuffer *vfb) {
+	// For now we'll keep these on the same struct as the ones that can get displayed
+	// (and blatantly copy work already done above while at it).
+	VirtualFramebuffer *nvfb = 0;
+
+	// We maintain a separate vector of framebuffer objects for blitting.
+	for (size_t i = 0; i < bvfbs_.size(); ++i) {
+		VirtualFramebuffer *v = bvfbs_[i];
+		if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
+			if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
+				nvfb = v;
+				v->fb_stride = vfb->fb_stride;
+				v->width = vfb->width;
+				v->height = vfb->height;
+				break;
+			}
+		}
+	}
+
+	// Create a new fbo if none was found for the size
+	if (!nvfb) {
+		nvfb = new VirtualFramebuffer();
+		nvfb->fbo = nullptr;
+		nvfb->fb_address = vfb->fb_address;
+		nvfb->fb_stride = vfb->fb_stride;
+		nvfb->z_address = vfb->z_address;
+		nvfb->z_stride = vfb->z_stride;
+		nvfb->width = vfb->width;
+		nvfb->height = vfb->height;
+		nvfb->renderWidth = vfb->bufferWidth;
+		nvfb->renderHeight = vfb->bufferHeight;
+		nvfb->bufferWidth = vfb->bufferWidth;
+		nvfb->bufferHeight = vfb->bufferHeight;
+		nvfb->format = vfb->format;
+		nvfb->drawnWidth = vfb->drawnWidth;
+		nvfb->drawnHeight = vfb->drawnHeight;
+		nvfb->drawnFormat = vfb->format;
+		nvfb->colorDepth = vfb->colorDepth;
+
+		if (!CreateDownloadTempBuffer(nvfb)) {
+			delete nvfb;
+			return nullptr;
+		}
+
+		bvfbs_.push_back(nvfb);
+	} else {
+		UpdateDownloadTempBuffer(nvfb);
+	}
+
+	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+	nvfb->last_frame_render = gpuStats.numFlips;
+	nvfb->dirtyAfterDisplay = true;
+
+	return nvfb;
+}
+
+void FramebufferManagerCommon::OptimizeDownloadRange(VirtualFramebuffer * vfb, int & x, int & y, int & w, int & h) {
+	if (gameUsesSequentialCopies_) {
+		// Ignore the x/y/etc., read the entire thing.
+		x = 0;
+		y = 0;
+		w = vfb->width;
+		h = vfb->height;
+	}
+	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+		// Mark it as fully downloaded until next render to it.
+		vfb->memoryUpdated = true;
+	} else {
+		// Let's try to set the flag eventually, if the game copies a lot.
+		// Some games copy subranges very frequently.
+		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
+		static int frameLastCopy = 0;
+		static u32 bufferLastCopy = 0;
+		static int copiesThisFrame = 0;
+		if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
+			frameLastCopy = gpuStats.numFlips;
+			bufferLastCopy = vfb->fb_address;
+			copiesThisFrame = 0;
+		}
+		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
+			gameUsesSequentialCopies_ = true;
+		}
 	}
 }
 

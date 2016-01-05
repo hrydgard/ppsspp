@@ -70,6 +70,7 @@ enum CmdFormatType {
 	CMD_FMT_TEXWRAP,
 	CMD_FMT_TEXFILTER,
 	CMD_FMT_TEXMAPMODE,
+	CMD_FMT_SHADEMODEL,
 };
 
 struct TabStateRow {
@@ -114,8 +115,7 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Material specular",    GE_CMD_MATERIALSPECULAR,        CMD_FMT_HEX },
 	{ L"Mat. specular coef",   GE_CMD_MATERIALSPECULARCOEF,    CMD_FMT_FLOAT24 },
 	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_FLAG },
-	// TODO: Format?
-	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_NUM },
+	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_SHADEMODEL },
 	// TODO: Format?
 	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_NUM, GE_CMD_LIGHTINGENABLE },
 	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE0 },
@@ -457,6 +457,16 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 			} else {
 				swprintf(dest, L"%06x", value);
 			}
+		}
+		break;
+
+	case CMD_FMT_SHADEMODEL:
+		if (value == 0) {
+			swprintf(dest, L"flat");
+		} else if (value == 1) {
+			swprintf(dest, L"gouraud");
+		} else {
+			swprintf(dest, L"%06x", value);
 		}
 		break;
 

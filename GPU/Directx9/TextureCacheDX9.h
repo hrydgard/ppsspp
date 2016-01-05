@@ -72,6 +72,9 @@ public:
 
 	void ApplyTexture();
 
+protected:
+	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
+
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);

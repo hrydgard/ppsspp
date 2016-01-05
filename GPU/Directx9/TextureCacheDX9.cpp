@@ -804,6 +804,10 @@ void TextureCacheDX9::ApplyTexture() {
 	nextTexture_ = nullptr;
 }
 
+void TextureCacheDX9::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
+	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
+}
+
 class TextureShaderApplierDX9 {
 public:
 	struct Pos {
