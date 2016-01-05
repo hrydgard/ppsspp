@@ -849,32 +849,32 @@ namespace DX9 {
 		if (vfb) {
 			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-
-			// Create a new fbo if none was found for the size
-			if (!nvfb->fbo_dx9) {
-				nvfb->colorDepth = FBO_8888;
-
-				textureCache_->ForgetLastTexture();
-				nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
-				if (!(nvfb->fbo_dx9)) {
-					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-					delete nvfb;
-					return;
-				}
-
-				bvfbs_.push_back(nvfb);
-				fbo_bind_as_render_target(nvfb->fbo_dx9);
-				ClearBuffer();
-			} else {
-				textureCache_->ForgetLastTexture();
-			}
-
 			OptimizeDownloadRange(vfb, x, y, w, h);
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 			PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+			textureCache_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
+	}
+
+	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		nvfb->colorDepth = FBO_8888;
+
+		nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
+		if (!(nvfb->fbo_dx9)) {
+			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			return false;
+		}
+
+		fbo_bind_as_render_target(nvfb->fbo_dx9);
+		ClearBuffer();
+		return true;
+	}
+
+	void FramebufferManagerDX9::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		// Nothing to do here.
 	}
 
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {

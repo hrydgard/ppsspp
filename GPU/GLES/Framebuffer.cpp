@@ -1217,59 +1217,6 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	if (vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 		VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-
-		// Create a new fbo if none was found for the size
-		if (!nvfb->fbo) {
-			// When updating VRAM, it need to be exact format.
-			switch (vfb->format) {
-			case GE_FORMAT_4444:
-				nvfb->colorDepth = FBO_4444;
-				break;
-			case GE_FORMAT_5551:
-				nvfb->colorDepth = FBO_5551;
-				break;
-			case GE_FORMAT_565:
-				nvfb->colorDepth = FBO_565;
-				break;
-			case GE_FORMAT_8888:
-			default:
-				nvfb->colorDepth = FBO_8888;
-				break;
-			}
-			if (gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-				nvfb->colorDepth = vfb->colorDepth;
-			}
-
-			textureCache_->ForgetLastTexture();
-			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
-			if (!(nvfb->fbo)) {
-				ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-				delete nvfb;
-				return;
-			}
-
-			bvfbs_.push_back(nvfb);
-			fbo_bind_as_render_target(nvfb->fbo);
-			ClearBuffer();
-			glDisable(GL_DITHER);
-		} else {
-			textureCache_->ForgetLastTexture();
-
-			if (gl_extensions.IsGLES) {
-				if (nvfb->fbo) {
-					fbo_bind_as_render_target(nvfb->fbo);
-				}
-
-				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it. This broke stuff before, so now it only clears on the first use of an
-				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-				if (nvfb->last_frame_render != gpuStats.numFlips) {
-					ClearBuffer();
-				}
-			}
-		}
-
 		OptimizeDownloadRange(vfb, x, y, w, h);
 		BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
@@ -1289,7 +1236,56 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			}
 		}
 
+		textureCache_->ForgetLastTexture();
 		RebindFramebuffer();
+	}
+}
+
+bool FramebufferManager::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+	// When updating VRAM, it need to be exact format.
+	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
+		switch (nvfb->format) {
+		case GE_FORMAT_4444:
+			nvfb->colorDepth = FBO_4444;
+			break;
+		case GE_FORMAT_5551:
+			nvfb->colorDepth = FBO_5551;
+			break;
+		case GE_FORMAT_565:
+			nvfb->colorDepth = FBO_565;
+			break;
+		case GE_FORMAT_8888:
+		default:
+			nvfb->colorDepth = FBO_8888;
+			break;
+		}
+	}
+
+	nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, false, (FBOColorDepth)nvfb->colorDepth);
+	if (!(nvfb->fbo)) {
+		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		return false;
+	}
+
+	fbo_bind_as_render_target(nvfb->fbo);
+	ClearBuffer();
+	glDisable(GL_DITHER);
+	return true;
+}
+
+void FramebufferManager::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+	if (gl_extensions.IsGLES) {
+		if (nvfb->fbo) {
+			fbo_bind_as_render_target(nvfb->fbo);
+		}
+
+		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+		// to it. This broke stuff before, so now it only clears on the first use of an
+		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+		if (nvfb->last_frame_render != gpuStats.numFlips) {
+			ClearBuffer();
+		}
 	}
 }
 

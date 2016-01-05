@@ -245,6 +245,8 @@ protected:
 	bool ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const;
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const;
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
 	void OptimizeDownloadRange(VirtualFramebuffer *vfb, int &x, int &y, int &w, int &h);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);

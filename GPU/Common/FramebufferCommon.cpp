@@ -768,6 +768,16 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		nvfb->drawnWidth = vfb->drawnWidth;
 		nvfb->drawnHeight = vfb->drawnHeight;
 		nvfb->drawnFormat = vfb->format;
+		nvfb->colorDepth = vfb->colorDepth;
+
+		if (!CreateDownloadTempBuffer(nvfb)) {
+			delete nvfb;
+			return nullptr;
+		}
+
+		bvfbs_.push_back(nvfb);
+	} else {
+		UpdateDownloadTempBuffer(nvfb);
 	}
 
 	nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
