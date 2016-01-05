@@ -44,9 +44,6 @@
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform)
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
-#ifdef SHADERLOG
-	OutputDebugString(ConvertUTF8ToWString(code).c_str());
-#endif
 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
@@ -60,11 +57,16 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
-		OutputDebugStringUTF8("Messages:\n");
-		OutputDebugStringUTF8(errorMessage.c_str());
+		OutputDebugStringA("Messages:\n");
+		OutputDebugStringA(errorMessage.c_str());
+		OutputDebugStringA(code);
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
+#ifdef SHADERLOG
+		OutputDebugStringA(code);
+		OutputDebugStringA("OK");
+#endif
 	}
 
 	if (!success) {
@@ -164,23 +166,23 @@ static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
 
 void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
-		Uint8x3ToFloat4(ub_fragment.texEnvColor, gstate.texenvcolor);
+		Uint8x3ToFloat4(ub_base.texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		Uint8x3ToFloat4_Alpha(ub_fragment.alphaColorRef, gstate.getColorTestRef(), (float)gstate.getAlphaTestRef());
+		Uint8x3ToFloat4_Alpha(ub_base.alphaColorRef, gstate.getColorTestRef(), (float)gstate.getAlphaTestRef());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		Uint8x3ToFloat4(ub_fragment.colorTestMask, gstate.colortestmask);
+		Uint8x3ToFloat4(ub_base.colorTestMask, gstate.colortestmask);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
-		Uint8x3ToFloat4(ub_fragment.fogColor, gstate.fogcolor);
+		Uint8x3ToFloat4(ub_base.fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {
-		Uint8x1ToFloat4(ub_fragment.stencilReplace, gstate.getStencilTestRef());
+		Uint8x1ToFloat4(ub_base.stencilReplace, gstate.getStencilTestRef());
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		Uint8x3ToFloat4(ub_fragment.blendFixA, gstate.getFixA());
-		Uint8x3ToFloat4(ub_fragment.blendFixB, gstate.getFixB());
+		Uint8x3ToFloat4(ub_base.blendFixA, gstate.getFixA());
+		Uint8x3ToFloat4(ub_base.blendFixB, gstate.getFixB());
 	}
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
@@ -201,8 +203,8 @@ void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
 			gstate_c.curTextureXOffset * invW,
 			gstate_c.curTextureYOffset * invH,
 		};
-		CopyFloat4(ub_fragment.texClamp, texclamp);
-		CopyFloat2(ub_fragment.texClampOffset, texclampoff);
+		CopyFloat4(ub_base.texClamp, texclamp);
+		CopyFloat2(ub_base.texClampOffset, texclampoff);
 	}
 }
 
@@ -230,24 +232,24 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 		const bool invertedZ = gstate_c.vpDepthScale < 0;
 		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY, invertedZ);
 
-		CopyMatrix4x4(ub_transformCommon.proj, flippedMatrix.getReadPtr());
+		CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
 	}
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
 		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
 		ConvertProjMatrixToVulkanThrough(proj_through);
-		CopyMatrix4x4(ub_transformCommon.proj, proj_through.getReadPtr());
+		CopyMatrix4x4(ub_base.proj, proj_through.getReadPtr());
 	}
 
 	// Transform
 	if (dirtyUniforms & DIRTY_WORLDMATRIX) {
-		ConvertMatrix4x3To4x4(ub_transformCommon.world, gstate.worldMatrix);
+		ConvertMatrix4x3To4x4(ub_base.world, gstate.worldMatrix);
 	}
 	if (dirtyUniforms & DIRTY_VIEWMATRIX) {
-		ConvertMatrix4x3To4x4(ub_transformCommon.view, gstate.viewMatrix);
+		ConvertMatrix4x3To4x4(ub_base.view, gstate.viewMatrix);
 	}
 	if (dirtyUniforms & DIRTY_TEXMATRIX) {
-		ConvertMatrix4x3To4x4(ub_transformCommon.tex, gstate.tgenMatrix);
+		ConvertMatrix4x3To4x4(ub_base.tex, gstate.tgenMatrix);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOEF) {
 		float fogcoef[2] = {
@@ -270,7 +272,7 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
 		}
 #endif
-		CopyFloat2(ub_transformCommon.fogCoef, fogcoef);
+		CopyFloat2(ub_base.fogCoef, fogcoef);
 	}
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
@@ -349,7 +351,7 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 		default:
 			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
 		}
-		CopyFloat4(ub_transformCommon.uvScaleOffset, uvscaleoff);
+		CopyFloat4(ub_base.uvScaleOffset, uvscaleoff);
 	}
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
@@ -374,7 +376,7 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 		}
 
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
-		CopyFloat4(ub_transformCommon.depthRange, data);
+		CopyFloat4(ub_base.depthRange, data);
 	}
 
 	// Lighting
@@ -383,7 +385,7 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	}
 	if (dirtyUniforms & DIRTY_MATAMBIENTALPHA) {
 		// Note - this one is not in lighting but in transformCommon as it has uses beyond lighting
-		Uint8x3ToFloat4_AlphaUint8(ub_transformCommon.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
+		Uint8x3ToFloat4_AlphaUint8(ub_base.matAmbient, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (dirtyUniforms & DIRTY_MATDIFFUSE) {
 		Uint8x3ToFloat4(ub_lights.materialDiffuse, gstate.materialdiffuse);
