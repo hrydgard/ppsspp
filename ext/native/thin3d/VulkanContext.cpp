@@ -184,17 +184,15 @@ VkCommandBuffer VulkanContext::GetInitCommandBuffer() {
 	return frame_[curFrame_].cmdInit;
 }
 
+void VulkanContext::QueueBeforeSurfaceRender(VkCommandBuffer cmd) {
+	cmdQueue_.push_back(cmd);
+}
+
 VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[2]) {
 	FrameData *frame = &frame_[curFrame_];
 
-	// Make sure the command buffer from the frame before the previous has been fully executed.
-	WaitAndResetFence(frame->fence);
-
-	// Process pending deletes.
-	frame->deleteList.PerformDeletes(device_);
-
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-	// Now, I wonder if we should do this early in the frame or late?
+	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
 	VkResult res = fpAcquireNextImageKHR(device_, swap_chain_,
 		UINT64_MAX,
 		acquireSemaphore,
@@ -203,6 +201,12 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
 	assert(res == VK_SUCCESS);
+
+	// Make sure the very last command buffer from the frame before the previous has been fully executed.
+	WaitAndResetFence(frame->fence);
+
+	// Process pending deletes.
+	frame->deleteList.PerformDeletes(device_);
 
 	VkCommandBufferBeginInfo begin;
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -225,29 +229,11 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	rp_begin.clearValueCount = 2;
 	rp_begin.pClearValues = clear_values;
 
+	// We don't really need to record this at this point in time, but hey, at some point we'll start this
+	// pass anyway so might as well do it now (although you can imagine getting away with just a stretchblt and not
+	// even starting a final render pass if there's nothing to overlay... hm. Uncommon though on mobile).
 	vkCmdBeginRenderPass(frame->cmdBuf, &rp_begin, VK_SUBPASS_CONTENTS_INLINE);
 	return frame->cmdBuf;
-}
-
-void VulkanContext::WaitUntilQueueIdle() {
-	// Should almost never be used
-	vkQueueWaitIdle(gfx_queue_);
-}
-
-bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex) {
-	// Search memtypes to find first index with those properties
-	for (uint32_t i = 0; i < 32; i++) {
-		if ((typeBits & 1) == 1) {
-			// Type is available, does it match user properties?
-			if ((memory_properties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
-				*typeIndex = i;
-				return true;
-			}
-		}
-		typeBits >>= 1;
-	}
-	// No memory types matched, return failure
-	return false;
 }
 
 void VulkanContext::EndSurfaceRenderPass() {
@@ -259,23 +245,30 @@ void VulkanContext::EndSurfaceRenderPass() {
 	VkResult res = vkEndCommandBuffer(frame->cmdBuf);
 	assert(res == VK_SUCCESS);
 
-	int numCmdBufs = 0;
-	VkCommandBuffer cmdBufs[2];
+	// So the sequence will be, cmdInit, [cmdQueue_], frame->cmdBuf.
+	// This way we bunch up all the initialization needed for the frame, we render to
+	// other buffers before the back buffer, and then last we render to the backbuffer.
 
+	int numCmdBufs = 0;
+	std::vector<VkCommandBuffer> cmdBufs;
 	if (frame->hasInitCommands) {
 		vkEndCommandBuffer(frame->cmdInit);
-		cmdBufs[numCmdBufs++] = frame->cmdInit;
+		cmdBufs.push_back(frame->cmdInit);
 		frame->hasInitCommands = false;
 	}
-	cmdBufs[numCmdBufs++] = frame->cmdBuf;
+	for (auto cmd : cmdQueue_) {
+		cmdBufs.push_back(cmd);
+	}
+	cmdQueue_.clear();
+	cmdBufs.push_back(frame->cmdBuf);
 
 	VkSubmitInfo submit_info[1] = {};
 	submit_info[0].pNext = NULL;
 	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submit_info[0].waitSemaphoreCount = 1;
 	submit_info[0].pWaitSemaphores = &acquireSemaphore;
-	submit_info[0].commandBufferCount = numCmdBufs;
-	submit_info[0].pCommandBuffers = cmdBufs;
+	submit_info[0].commandBufferCount = (uint32_t)cmdBufs.size();
+	submit_info[0].pCommandBuffers = cmdBufs.data();
 	submit_info[0].signalSemaphoreCount = 0;
 	submit_info[0].pSignalSemaphores = NULL;
 	res = vkQueueSubmit(gfx_queue_, 1, submit_info, frame->fence);
@@ -298,6 +291,27 @@ void VulkanContext::EndSurfaceRenderPass() {
 
 	frame->deleteList.Ingest(globalDeleteList_);
 	curFrame_ ^= 1;
+}
+
+void VulkanContext::WaitUntilQueueIdle() {
+	// Should almost never be used
+	vkQueueWaitIdle(gfx_queue_);
+}
+
+bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex) {
+	// Search memtypes to find first index with those properties
+	for (uint32_t i = 0; i < 32; i++) {
+		if ((typeBits & 1) == 1) {
+			// Type is available, does it match user properties?
+			if ((memory_properties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
+				*typeIndex = i;
+				return true;
+			}
+		}
+		typeBits >>= 1;
+	}
+	// No memory types matched, return failure
+	return false;
 }
 
 void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
