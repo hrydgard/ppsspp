@@ -157,6 +157,7 @@ protected:
 	u32 clutTotalBytes_;
 	u32 clutMaxBytes_;
 	u32 clutRenderAddress_;
+	u32 clutRenderOffset_;
 	int standardScaleFactor_;
 };
 

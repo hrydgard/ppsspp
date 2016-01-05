@@ -859,7 +859,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::DownloadFramebufferForClut(void *clut, u32 fb_address, u32 loadBytes) {
+	void FramebufferManagerDX9::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 		VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 		if (vfb && vfb->fb_stride != 0) {
 			const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
@@ -888,10 +888,6 @@ namespace DX9 {
 				textureCache_->ForgetLastTexture();
 				RebindFramebuffer();
 			}
-		}
-
-		if (Memory::IsValidAddress(fb_address | 0x04000000)) {
-			Memory::MemcpyUnchecked(clut, fb_address | 0x04000000, loadBytes);
 		}
 	}
 

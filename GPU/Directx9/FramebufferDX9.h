@@ -74,7 +74,7 @@ public:
 	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
-	void DownloadFramebufferForClut(void *clut, u32 fb_address, u32 loadBytes) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 

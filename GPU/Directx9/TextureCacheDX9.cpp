@@ -805,7 +805,7 @@ void TextureCacheDX9::ApplyTexture() {
 }
 
 void TextureCacheDX9::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-	framebufferManager_->DownloadFramebufferForClut(clutBufRaw_, clutAddr, bytes);
+	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
 }
 
 class TextureShaderApplierDX9 {

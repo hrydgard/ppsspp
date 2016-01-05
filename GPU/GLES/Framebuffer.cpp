@@ -1241,7 +1241,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 	}
 }
 
-void FramebufferManager::DownloadFramebufferForClut(void *clut, u32 fb_address, u32 loadBytes) {
+void FramebufferManager::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	PROFILE_THIS_SCOPE("gpu-readback");
 	// Flush async just in case.
 	PackFramebufferAsync_(nullptr);
@@ -1274,10 +1274,6 @@ void FramebufferManager::DownloadFramebufferForClut(void *clut, u32 fb_address, 
 			textureCache_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
-	}
-
-	if (Memory::IsValidAddress(fb_address | 0x04000000)) {
-		Memory::MemcpyUnchecked(clut, fb_address | 0x04000000, loadBytes);
 	}
 }
 

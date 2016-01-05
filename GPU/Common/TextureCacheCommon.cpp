@@ -213,13 +213,17 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		if (Memory::IsVRAMAddress(clutAddr)) {
 			// Clear the uncached bit, etc. to match framebuffers.
 			const u32 clutFramebufAddr = clutAddr & 0x3FFFFFFF;
+			const u32 clutFramebufEnd = clutFramebufAddr + loadBytes;
 
 			for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 				auto framebuffer = fbCache_[i];
-				if ((framebuffer->fb_address | 0x04000000) == clutFramebufAddr) {
+				const u32 fb_address = framebuffer->fb_address | 0x04000000;
+				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+				if (fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd) {
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					framebuffer->usageFlags |= FB_USAGE_CLUT;
 					clutRenderAddress_ = framebuffer->fb_address;
+					clutRenderOffset_ = clutFramebufAddr - fb_address;
 				}
 			}
 		}
@@ -227,7 +231,8 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 		// It's possible for a game to (successfully) access outside valid memory.
 		u32 bytes = Memory::ValidSize(clutAddr, loadBytes);
 		if (clutRenderAddress_ != 0xFFFFFFFF && !g_Config.bDisableSlowFramebufEffects) {
-			DownloadFramebufferForClut(clutAddr, bytes);
+			DownloadFramebufferForClut(clutRenderAddress_, clutRenderOffset_ + bytes);
+			Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, bytes);
 			if (bytes < loadBytes) {
 				memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 			}

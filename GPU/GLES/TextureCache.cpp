@@ -880,7 +880,7 @@ void TextureCache::ApplyTexture() {
 }
 
 void TextureCache::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
-	framebufferManager_->DownloadFramebufferForClut(clutBufRaw_, clutAddr, bytes);
+	framebufferManager_->DownloadFramebufferForClut(clutAddr, bytes);
 }
 
 class TextureShaderApplier {
