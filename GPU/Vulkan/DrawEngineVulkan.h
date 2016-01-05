@@ -207,7 +207,6 @@ private:
 	int vertexCountInDrawCalls;
 
 	int decodeCounter_;
-	u32 dcid_;
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
