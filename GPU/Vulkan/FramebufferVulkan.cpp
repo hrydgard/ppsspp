@@ -18,7 +18,10 @@
 #pragma once
 
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/DrawEngineVulkan.h"
+
 
 
 VulkanFramebuffer *FramebufferManagerVulkan::GetTempFBO(int width, int height, VulkanFBOColorDepth colorDepth) {
@@ -41,8 +44,29 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 
 }
 
+void FramebufferManagerVulkan::DecimateFBOs() {
+
+}
+
 void FramebufferManagerVulkan::EndFrame() {
 
+}
+
+void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+	// So: Allocate a temporary texture from a (very small) pool, upload content directly into it, schedule a transition
+	// into the init command buffer, alloc and create an appropriate descriptor set, then bind and draw. no need for uniforms.
+}
+
+
+void FramebufferManagerVulkan::FlushBeforeCopy() {
+	// Flush anything not yet drawn before blitting, downloading, or uploading.
+	// This might be a stalled list, or unflushed before a block transfer, etc.
+
+	// TODO: It's really bad that we are calling SetRenderFramebuffer here with
+	// all the irrelevant state checking it'll use to decide what to do. Should
+	// do something more focused here.
+	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	drawEngine_->Flush(nullptr);
 }
 
 std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {

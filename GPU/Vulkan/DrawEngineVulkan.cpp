@@ -73,7 +73,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
 	decodeCounter_(0),
-	dcid_(0),
 	fboTexNeedBind_(false),
 	fboTexBound_(false),
 	curFrame_(0) {
@@ -230,18 +229,6 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
-
-	u32 dhash = dcid_;
-	dhash ^= (u32)(uintptr_t)verts;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)(uintptr_t)inds;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertType;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertexCount;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)prim;
-	dcid_ = dhash;
 
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
@@ -553,7 +540,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
 	decodeCounter_ = 0;
-	dcid_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);

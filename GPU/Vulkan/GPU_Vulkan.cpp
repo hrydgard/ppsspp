@@ -394,6 +394,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	: vulkan_((VulkanContext *)ctx->GetAPIContext()),
 		drawEngine_(vulkan_),
 		textureCache_(vulkan_),
+		framebufferManager_(vulkan_),
 		resized_(false),
 		gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
@@ -405,6 +406,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	drawEngine_.SetFramebufferManager(&framebufferManager_);
 	framebufferManager_.Init();
 	framebufferManager_.SetTextureCache(&textureCache_);
+	framebufferManager_.SetDrawEngine(&drawEngine_);
 	textureCache_.SetFramebufferManager(&framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
@@ -619,7 +621,6 @@ void GPU_Vulkan::CopyDisplayToOutput() {
 
 void GPU_Vulkan::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
-	framebufferManager_.RebindFramebuffer();
 	drawEngine_.Flush(curCmd_);
 
 	shaderManager_->DirtyLastShader();

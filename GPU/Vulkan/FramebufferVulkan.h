@@ -30,25 +30,26 @@ enum VulkanFBOColorDepth {
 };
 
 class TextureCacheVulkan;
+class DrawEngineVulkan;
+class VulkanContext;
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
+	FramebufferManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
 	// Subsequent commands will be enqueued on this buffer.
-	void SetInstance(VkInstance inst) { inst_ = inst; }
 	void SetCmdBuffer(VkCommandBuffer cmd) { cmd_ = cmd; }
 	
 	virtual void ClearBuffer(bool keepState = false) override {
 		throw std::logic_error("The method or operation is not implemented.");
 	}
 	void SetTextureCache(TextureCacheVulkan *texCache) { texCache_ = texCache; }
+	void SetDrawEngine(DrawEngineVulkan *drawEngine) { drawEngine_ = drawEngine; }
 	VulkanFramebuffer *GetTempFBO(int width, int height, VulkanFBOColorDepth colorDepth);
 
-	virtual void RebindFramebuffer() override {
-		throw std::logic_error("The method or operation is not implemented.");
-	}
+	void RebindFramebuffer() override { }  // This makes little sense with Vulkan's model.
 
-	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override {
-		throw std::logic_error("The method or operation is not implemented.");
+	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override {
+		return false;
 	}
 
 	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override {
@@ -56,28 +57,20 @@ public:
 	}
 
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
-	virtual void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override {
-		throw std::logic_error("The method or operation is not implemented.");
-	}
+	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 
 	virtual void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override {
 		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 	virtual void DisableState() override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
-	virtual void FlushBeforeCopy() override {
-		throw std::logic_error("The method or operation is not implemented.");
-	}
+	virtual void FlushBeforeCopy() override;
 
-	virtual void DecimateFBOs() override {
-		throw std::logic_error("The method or operation is not implemented.");
-	}
+	void DecimateFBOs() override;
 
 	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override {
 		throw std::logic_error("The method or operation is not implemented.");
@@ -88,19 +81,15 @@ public:
 	}
 
 	virtual void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false) override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override {
-		throw std::logic_error("The method or operation is not implemented.");
 	}
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override {
@@ -123,8 +112,9 @@ public:
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 private:
-	VkInstance inst_;
+	VulkanContext *vulkan_;
 	VkCommandBuffer cmd_;
 
 	TextureCacheVulkan *texCache_;
+	DrawEngineVulkan *drawEngine_;
 };
