@@ -1762,6 +1762,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 
 	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
+	const int packWidth = x + w < vfb->width ? x + w : vfb->width;
 
 	if (!convert) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
@@ -1786,11 +1787,11 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		}
 
 		int byteOffset = y * vfb->fb_stride * 4;
-		SafeGLReadPixels(0, y, vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
+		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->fb_stride, vfb->width, h, vfb->format);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
 	}
 
