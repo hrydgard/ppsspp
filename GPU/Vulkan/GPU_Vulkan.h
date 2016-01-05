@@ -146,6 +146,7 @@ public:
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
 
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void ProcessEvent(GPUEvent ev) override;
@@ -169,7 +170,6 @@ private:
 	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
-
 	static CommandInfo cmdInfo_[256];
 
 	GraphicsContext *gfxCtx_;

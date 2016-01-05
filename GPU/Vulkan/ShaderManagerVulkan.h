@@ -89,27 +89,19 @@ R"(matrix4x4 proj;
   matrix4x4 view;
   matrix4x4 world;
   matrix4x4 tex;
-	vec4 uvScaleOffset;
+  vec4 uvScaleOffset;
   vec4 depthRange;
   vec2 fogCoef;
-	vec4 matAmbient;
-	// Blend function replacement
-	vec3 u_blendFixA;
-	vec3 u_blendFixB;
-
-		// Texture clamp emulation
-	vec4 u_texclamp;
-	vec2 u_texclampoff;
-
-		// Alpha/Color test emulation
-	vec4 u_alphacolorref;
-	ivec4 u_alphacolormask;
-
-		// Stencil replacement
-	float u_stencilReplaceValue;
-	vec3 u_texenv;
-
-	vec3 u_fogcolor;
+  vec4 matAmbient;
+  vec3 blendFixA;  // Blend func replace
+  vec3 blendFixB;
+  vec4 texclamp;   // Texture clamp emu
+  vec2 texclampoff;
+  vec4 alphacolorref; // Alpha/Color test
+  ivec4 alphacolormask;
+  float stencilReplaceValue; // Stencil replacement
+  vec3 texenv;
+  vec3 fogcolor;
 )";
 
 struct UB_VS_Lights {
