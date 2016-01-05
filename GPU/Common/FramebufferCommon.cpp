@@ -166,21 +166,18 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
-	VirtualFramebuffer *match = NULL;
+	VirtualFramebuffer *match = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, addr)) {
 			// Could check w too but whatever
-			if (match == NULL || match->last_frame_render < v->last_frame_render) {
+			if (match == nullptr || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
 	}
-	if (match != NULL) {
-		return match;
-	}
 
-	return 0;
+	return match;
 }
 
 bool FramebufferManagerCommon::MaskedEqual(u32 addr1, u32 addr2) {
