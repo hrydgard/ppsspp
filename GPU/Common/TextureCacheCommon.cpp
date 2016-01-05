@@ -214,16 +214,23 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			// Clear the uncached bit, etc. to match framebuffers.
 			const u32 clutFramebufAddr = clutAddr & 0x3FFFFFFF;
 			const u32 clutFramebufEnd = clutFramebufAddr + loadBytes;
+			static const u32 MAX_CLUT_OFFSET = 4096;
 
+			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 				auto framebuffer = fbCache_[i];
 				const u32 fb_address = framebuffer->fb_address | 0x04000000;
 				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
-				if (fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd) {
+				bool match = fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd;
+				u32 offset = clutFramebufAddr - fb_address;
+				if (match && offset < clutRenderOffset_) {
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					framebuffer->usageFlags |= FB_USAGE_CLUT;
 					clutRenderAddress_ = framebuffer->fb_address;
-					clutRenderOffset_ = clutFramebufAddr - fb_address;
+					clutRenderOffset_ = offset;
+					if (offset == 0) {
+						break;
+					}
 				}
 			}
 		}
