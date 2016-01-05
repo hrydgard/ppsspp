@@ -55,14 +55,14 @@
 
 static const char * const boneWeightDecl[9] = {
 	"#ERROR#",
-	"layout(location = 0) in mediump float w1;\n",
-	"layout(location = 0) in mediump vec2 w1;\n",
-	"layout(location = 0) in mediump vec3 w1;\n",
-	"layout(location = 0) in mediump vec4 w1;\n",
-	"layout(location = 0) in mediump vec4 w1;\nin mediump float w2;\n",
-	"layout(location = 0) in mediump vec4 w1;\nin mediump vec2 w2;\n",
-	"layout(location = 0) in mediump vec4 w1;\nin mediump vec3 w2;\n",
-	"layout(location = 0) in mediump vec4 w1, w2;\n",
+	"layout(location = 0) in float w1;\n",
+	"layout(location = 0) in vec2 w1;\n",
+	"layout(location = 0) in vec3 w1;\n",
+	"layout(location = 0) in vec4 w1;\n",
+	"layout(location = 0) in vec4 w1;\nin float w2;\n",
+	"layout(location = 0) in vec4 w1;\nin vec2 w2;\n",
+	"layout(location = 0) in vec4 w1;\nin vec3 w2;\n",
+	"layout(location = 0) in vec4 w1, w2;\n",
 };
 
 enum DoLightComputation {
@@ -101,11 +101,12 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 	// #define USE_FOR_LOOP
 
+	WRITE(p, "#version 140\n");  // GLSL ES
+	WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
+	WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
+
 	bool highpFog = false;
 	bool highpTexcoord = false;
-
-	const char *attribute = "in";
-	const char *varying = "out";
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE) && !isModeThrough;  // TODO: Different expression than in shaderIDgen
@@ -132,6 +133,17 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
+	// The uniforms are passed in as three "clumps" that may or may not be present.
+	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
+	// are present and what parts aren't, but we will not be ultra detailed about it.
+
+	WRITE(p, "\n");
+	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s\n} base;\n", ub_baseStr);
+	if (enableLighting)
+		WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s\n} light;\n", ub_vs_lightsStr);
+	if (enableBones)
+		WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s\n} bone;\n", ub_vs_bonesStr);
+
 	const char *shading = doFlatShading ? "flat " : "";
 
 	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
@@ -157,10 +169,10 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	if (useHWTransform)
 		WRITE(p, "layout (location = %d) in vec3 position;\n", PspAttributeLocation::POSITION);
 	else
-		WRITE(p, "layout (location = %d) vec4 position;\n", PspAttributeLocation::POSITION);  // need to pass the fog coord in w
+		WRITE(p, "layout (location = %d) in vec4 position;\n", PspAttributeLocation::POSITION);  // need to pass the fog coord in w
 
 	if (useHWTransform && hasNormal)
-		WRITE(p, "layout (location = %d) mediump vec3 normal;\n", PspAttributeLocation::NORMAL);
+		WRITE(p, "layout (location = %d) in vec3 normal;\n", PspAttributeLocation::NORMAL);
 
 	if (doTexture && hasTexcoord) {
 		if (!useHWTransform && doTextureProjection && !throughmode)
@@ -169,39 +181,29 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", PspAttributeLocation::TEXCOORD);
 	}
 	if (hasColor) {
-		WRITE(p, "layout (location = %d) lowp vec4 color0;\n", PspAttributeLocation::COLOR0);
+		WRITE(p, "layout (location = %d) in vec4 color0;\n", PspAttributeLocation::COLOR0);
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-			WRITE(p, "layout (location = %d) lowp vec3 color1;\n", PspAttributeLocation::COLOR0);
+			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR0);
 	}
-
-	// The uniforms are passed in as three "clumps" that may or may not be present.
-	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
-	// are present and what parts aren't, but we will not be ultra detailed about it.
-	
-	WRITE(p, "layout (binding=3) uniform base {\n%s\n}\n", ub_baseStr);
-	if (enableLighting)
-		WRITE(p, "layout (binding=4) uniform light {\n%s\n}\n", ub_vs_lightsStr);
-	if (enableBones)
-		WRITE(p, "layout (binding=5) uniform bone {\n%s\n}\n", ub_vs_bonesStr);
 
 	bool prescale = false;
 
-	WRITE(p, "layout (location = 1) %s out lowp vec4 v_color0;\n", shading);
+	WRITE(p, "layout (location = 1) %sout vec4 v_color0;\n", shading);
 	if (lmode) {
-		WRITE(p, "layout (location = 2) %s out lowp vec3 v_color1;\n", shading);
+		WRITE(p, "layout (location = 2) %sout vec3 v_color1;\n", shading);
 	}
 
 	if (doTexture) {
 		if (doTextureProjection) {
-			WRITE(p, "layout (location = 0) %s out vec3 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) out vec3 v_texcoord;\n");
 		} else {
-			WRITE(p, "layout (location = 0) %s out vec2 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) out vec2 v_texcoord;\n");
 		}
 	}
 
 	if (enableFog) {
 		// See the fragment shader generator
-		WRITE(p, "layout (location = 3) %s out float v_fogdepth;\n", highpFog ? "highp" : "mediump");
+		WRITE(p, "layout (location = 3) out float v_fogdepth;\n");
 	}
 
 	// See comment above this function (GenerateVertexShader).
@@ -240,22 +242,22 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  gl_Position = base.proj * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(base.proj * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = base.proj * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  gl_Position = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// No skinning, just standard T&L.
-			WRITE(p, "  vec3 worldpos = (base.world * vec4(position.xyz, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((base.world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
+				WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
 			else
 				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
@@ -291,17 +293,17 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 			// Trying to simplify this results in bugs in LBP...
 			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  vec3 worldpos = (base.world * vec4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  vec3 worldpos = (base.world_mtx * vec4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
 				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
 			} else {
 				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
 			}
-			WRITE(p, "  mediump vec3 worldnormal = normalize((base.world * vec4(skinnednormal, 0.0)).xyz);\n");
+			WRITE(p, "  mediump vec3 worldnormal = normalize((base.world_mtx * vec4(skinnednormal, 0.0)).xyz);\n");
 		}
 
-		WRITE(p, "  vec4 viewPos = base.view * vec4(worldpos, 1.0);\n");
+		WRITE(p, "  vec4 viewPos = base.view_mtx * vec4(worldpos, 1.0);\n");
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -321,7 +323,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  lowp vec4 lightSum0 = light.ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  vec4 lightSum0 = light.ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -336,15 +338,15 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			}
 
 			if (!specularIsZero) {
-				WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
+				WRITE(p, "  vec3 lightSum1 = vec3(0.0);\n");
 			}
 			if (!diffuseIsZero) {
 				WRITE(p, "  vec3 toLight;\n");
-				WRITE(p, "  lowp vec3 diffuse;\n");
+				WRITE(p, "  vec3 diffuse;\n");
 			}
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
-				WRITE(p, "  lowp float lightScale;\n");
+				WRITE(p, "  float lightScale;\n");
 			}
 		}
 
@@ -392,7 +394,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  lowp float angle%i = dot(normalize(light.dir[%i]), toLight);\n", i, i);
+				WRITE(p, "  float angle%i = dot(normalize(light.dir[%i]), toLight);\n", i, i);
 				WRITE(p, "  if (angle[%i] >= light.angle[%i]) {\n", i, i);
 				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle[%i], light.spotCoef[%i]);\n", i, i, i);
 				WRITE(p, "  } else {\n");

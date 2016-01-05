@@ -138,7 +138,6 @@ public:
 		globalDeleteList_.QueueDelete(mem);
 	}
 
-
 	VkPipelineCache CreatePipelineCache();
 
 	void InitSurfaceAndQueue(HINSTANCE conn, HWND wnd);
@@ -150,8 +149,6 @@ public:
 
 	void InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresent);
 	void DestroyObjects();
-
-	VkCommandBuffer GetInitCommandBuffer();
 
 	void DestroySurfaceRenderPass();
 	void DestroyFramebuffers();
@@ -171,11 +168,21 @@ public:
 	int GetWidth() { return width; }
 	int GetHeight() { return height; }
 
-	// The surface render pass is special because it has to acquire the backbuffer, and may thus "block".
-	// Use the returned command buffer to enqueue commands. Might be a good idea to use secondary cmd buffers.
-	VkCommandBuffer BeginSurfaceRenderPass(VkClearValue clear_values[2]);
+	VkCommandBuffer GetInitCommandBuffer();
 
+	// This must only be accessed between BeginSurfaceRenderPass and EndSurfaceRenderPass.
+	VkCommandBuffer GetSurfaceCommandBuffer() {
+		return frame_[curFrame_ & 1].cmdBuf;
+	}
+
+	// The surface render pass is special because it has to acquire the backbuffer, and may thus "block".
+	// Use the returned command buffer to enqueue commands that render to the backbuffer.
+	// To render to other buffers first, you can submit additional commandbuffers using QueueBeforeSurfaceRender(cmd).
+	VkCommandBuffer BeginSurfaceRenderPass(VkClearValue clear_values[2]);
+	// May eventually need the ability to break and resume the backbuffer render pass in a few rare cases.
 	void EndSurfaceRenderPass();
+
+	void QueueBeforeSurfaceRender(VkCommandBuffer cmd);
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
@@ -315,6 +322,8 @@ private:
 
 	VkPhysicalDeviceFeatures featuresAvailable_;
 	VkPhysicalDeviceFeatures featuresEnabled_;
+
+	std::vector<VkCommandBuffer> cmdQueue_;
 };
 
 // Wrapper around what you need to use a texture.
