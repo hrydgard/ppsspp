@@ -89,6 +89,10 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
 }
 
+void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
+
+}
+
 static u32 EstimateTexMemoryUsage(const TextureCacheVulkan::TexCacheEntry *entry) {
 	const u16 dim = entry->dim;
 	const u8 dimW = ((dim >> 0) & 0xf);

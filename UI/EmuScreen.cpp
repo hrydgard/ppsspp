@@ -904,6 +904,7 @@ void EmuScreen::render() {
 	while (coreState == CORE_RUNNING) {
 		PSP_RunLoopFor(blockTicks);
 	}
+
 	// Hopefully coreState is now CORE_NEXTFRAME
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
