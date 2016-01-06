@@ -59,6 +59,9 @@
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
+    <ClInclude Include="Vulkan\SPIRVDisasm.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -104,6 +107,9 @@
     <ClCompile Include="GL\GLInterface\GLInterface.cpp">
       <Filter>GL\GLInterface</Filter>
     </ClCompile>
+    <ClCompile Include="Vulkan\SPIRVDisasm.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
@@ -117,6 +123,9 @@
     </Filter>
     <Filter Include="GL\GLInterface">
       <UniqueIdentifier>{2c723cf4-75b6-406a-90c0-ebb7a13ba476}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Vulkan">
+      <UniqueIdentifier>{c14d66ef-5f7c-4565-975a-72774e7ccfb9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
