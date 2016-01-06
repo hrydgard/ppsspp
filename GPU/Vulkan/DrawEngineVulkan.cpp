@@ -93,12 +93,13 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 
 	indexGen.Setup(decIndex);
 
+	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[5];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[0].binding = 1;
+	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -118,7 +119,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	bindings[4].pImmutableSamplers = nullptr;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = 3;
+	bindings[4].binding = 4;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -152,6 +153,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	for (int i = 0; i < 2; i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
 		assert(VK_SUCCESS == res);
+		frame_[i].pushData = new VulkanPushBuffer(vulkan_, 4 * 1024 * 1024);  // TODO: Do something more dynamic
 	}
 
 	VkPipelineLayoutCreateInfo pl;
@@ -166,6 +168,12 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 }
 
+void DrawEngineVulkan::BeginFrame() {
+	FrameData *frame = &frame_[curFrame_ & 1];
+	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	frame->pushData->Reset();
+}
+
 void DrawEngineVulkan::EndFrame() {
 	curFrame_++;
 }
@@ -176,6 +184,11 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+
+	for (int i = 0; i < 2; i++) {
+		vulkan_->QueueDelete(frame_[i].descPool);
+		delete frame_[i].pushData;
+	}
 }
 
 VertexDecoder *DrawEngineVulkan::GetVertexDecoder(u32 vtype) {
@@ -350,20 +363,11 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-/*
-struct DescriptorSetKey {
-	void *texture_;
-	void *secondaryTexture_;
-	
-	bool operator < (const DescriptorSetKey &other) const {
-		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
-		if (secondaryTexture_ < other.secondaryTexture_) return true; else if (secondaryTexture_ > other.secondaryTexture_) return false;
-		return false;
-	}
-};
-*/
+VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture) {
+	DescriptorSetKey key;
+	key.texture_ = texture;
+	key.secondaryTexture_ = nullptr;
 
-VkDescriptorSet DrawEngineVulkan::GetDescriptorSet() {
 	return nullptr;
 }
 
@@ -373,9 +377,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
+	CachedTextureVulkan *tex = nullptr;
 	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
-	VkDescriptorSet ds = GetDescriptorSet();
+	VkDescriptorSet ds = GetDescriptorSet(tex);
 
 	GEPrimitiveType prim = prevPrim_;
 	// ApplyDrawState(prim);
