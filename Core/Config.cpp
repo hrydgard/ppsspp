@@ -1260,7 +1260,18 @@ bool Config::loadGameConfig(const std::string &pGameId) {
 void Config::unloadGameConfig() {
 	if (bGameSpecific){
 		changeGameSpecific();
-		Load(iniFilename_.c_str(), controllerIniFilename_.c_str());
+
+		IniFile iniFile;
+		iniFile.Load(iniFilename_);
+
+		// Reload game specific settings back to standard.
+		IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+			if (setting->perGame_) {
+				setting->Get(section);
+			}
+		});
+
+		LoadStandardControllerIni();
 	}
 }
 
