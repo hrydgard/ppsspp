@@ -279,17 +279,13 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 	float depthMin = vpAndScissor.depthRangeMin;
 	float depthMax = vpAndScissor.depthRangeMax;
 
-	if (!gstate.isModeThrough()) {
-		// Direct3D can't handle negative depth ranges, so we fix it in the projection matrix.
-		if (gstate_c.vpDepthScale != depthMax - depthMin) {
-			gstate_c.vpDepthScale = depthMax - depthMin;
-			vpAndScissor.dirtyProj = true;
-		}
-		if (depthMin > depthMax) {
-			std::swap(depthMin, depthMax);
-		}
-		if (depthMin < 0.0f) depthMin = 0.0f;
-		if (depthMax > 1.0f) depthMax = 1.0f;
+	if (depthMin < 0.0f) depthMin = 0.0f;
+	if (depthMax > 1.0f) depthMax = 1.0f;
+	if (vpAndScissor.dirtyProj) {
+		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+	if (vpAndScissor.dirtyDepth) {
+		// shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 

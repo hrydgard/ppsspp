@@ -578,6 +578,7 @@ void GPU_Vulkan::BeginFrameInternal() {
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	framebufferManager_.BeginFrame();
+	drawEngine_.BeginFrame();
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		// Draw everything directly to the backbuffer.
@@ -627,11 +628,13 @@ void GPU_Vulkan::CopyDisplayToOutput() {
 void GPU_Vulkan::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
 	drawEngine_.Flush(curCmd_);
+	drawEngine_.EndFrame();
 
 	shaderManager_->DirtyLastShader();
 
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
+
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }

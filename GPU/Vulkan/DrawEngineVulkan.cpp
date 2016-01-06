@@ -171,10 +171,13 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 void DrawEngineVulkan::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	frame->pushData->Begin(vulkan_->GetDevice());
 	frame->pushData->Reset();
 }
 
 void DrawEngineVulkan::EndFrame() {
+	FrameData *frame = &frame_[curFrame_ & 1];
+	frame->pushData->End(vulkan_->GetDevice());
 	curFrame_++;
 }
 
@@ -471,16 +474,20 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
-				// dxstate.stencilFunc.set(D3DCMP_ALWAYS, result.stencilValue, 255);
+				// hey, dynamic state!
+				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
 			}
 
-			VkBuffer buf[1] = {};
-			VkDeviceSize offsets[1] = { 0 };
+			ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
+			vbOffset = (uint32_t)frame->pushData->Push(decoded, numTrans * dec_->GetDecVtxFmt().stride);
+
+			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
+			VkDeviceSize offsets[1] = { vbOffset };
 			if (drawIndexed) {
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
-				vkCmdBindIndexBuffer(cmd_, buf[0], 0, VK_INDEX_TYPE_UINT16);
+				vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
 				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
 				// pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
@@ -497,13 +504,13 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			if (gstate.isClearModeAlphaMask()) mask |= 2;
 			if (gstate.isClearModeDepthMask()) mask |= 4;
 
-			VkClearValue value;
-			value.color.float32[0] = (result.color & 0xFF) * (1.0f / 255.0f);
-			value.color.float32[1] = ((result.color >> 8) & 0xFF) * (1.0f / 255.0f);
-			value.color.float32[2] = ((result.color >> 16) & 0xFF) * (1.0f / 255.0f);
-			value.color.float32[3] = ((result.color >> 24) & 0xFF) * (1.0f / 255.0f);
-			value.depthStencil.depth = result.depth;
-			value.depthStencil.stencil = (result.color >> 24) & 0xFF;
+			VkClearValue colorValue, depthValue;
+			colorValue.color.float32[0] = (result.color & 0xFF) * (1.0f / 255.0f);
+			colorValue.color.float32[1] = ((result.color >> 8) & 0xFF) * (1.0f / 255.0f);
+			colorValue.color.float32[2] = ((result.color >> 16) & 0xFF) * (1.0f / 255.0f);
+			colorValue.color.float32[3] = ((result.color >> 24) & 0xFF) * (1.0f / 255.0f);
+			depthValue.depthStencil.depth = result.depth;
+			depthValue.depthStencil.stencil = (result.color >> 24) & 0xFF;
 
 			VkClearRect rect;
 			rect.baseArrayLayer = 0;
@@ -517,13 +524,13 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			VkClearAttachment attach[2];
 			if (mask & 3) {
 				attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				attach[count].clearValue = value;
+				attach[count].clearValue = colorValue;
 				attach[count].colorAttachment = 0;
 				count++;
 			}
 			if (mask & 4) {
 				attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-				attach[count].clearValue = value;
+				attach[count].clearValue = depthValue;
 				attach[count].colorAttachment = 0;
 			}
 			vkCmdClearAttachments(cmd_, count, attach, 1, &rect);
