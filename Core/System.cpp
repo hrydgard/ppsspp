@@ -90,6 +90,8 @@ volatile CoreState coreState = CORE_STEPPING;
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
+static GPUBackend gpuBackend;
+
 void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
@@ -100,6 +102,14 @@ void UpdateUIState(GlobalUIState newState) {
 
 GlobalUIState GetUIState() {
 	return globalUIState;
+}
+
+void SetGPUBackend(GPUBackend type) {
+	gpuBackend = type;
+}
+
+GPUBackend GetGPUBackend() {
+	return gpuBackend;
 }
 
 bool IsAudioInitialised() {

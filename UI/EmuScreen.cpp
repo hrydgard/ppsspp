@@ -98,7 +98,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		coreParam.gpuCore = GPU_DIRECTX9;
 	}
 	// Preserve the existing graphics context.
@@ -152,7 +152,7 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		const char *renderer = (const char*)glGetString(GL_RENDERER);
 		if (strstr(renderer, "Chainfire3D") != 0) {
 			osm.Show(sc->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
@@ -901,7 +901,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
+	if (useBufferedRendering && GetGPUBackend() == GPUBackend::OPENGL)
 		fbo_unbind();
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {

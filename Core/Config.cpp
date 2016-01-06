@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "base/display.h"
+#include "base/functional.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
@@ -442,7 +443,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
-	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
@@ -754,6 +754,15 @@ static ConfigSectionSettings sections[] = {
 	{"Upgrade", upgradeSettings},
 };
 
+static void IterateSettings(IniFile &iniFile, std::function<void(IniFile::Section *section, ConfigSetting *setting)> func) {
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			func(section, setting);
+		}
+	}
+}
+
 Config::Config() : bGameSpecific(false) { }
 Config::~Config() { }
 
@@ -813,12 +822,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			setting->Get(section);
-		}
-	}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		setting->Get(section);
+	});
 
 	iRunCount++;
 	if (!File::Exists(currentDirectory))
@@ -924,14 +930,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
-	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
-		KeyMap::RestoreDefault();
-	} else {
-		// Continue anyway to initialize the config. It will just restore the defaults.
-		KeyMap::LoadFromIni(controllerIniFile);
-	}
+	LoadStandardControllerIni();
 	
 	//so this is all the way down here to overwrite the controller settings
 	//sadly it won't benefit from all the "version conversion" going on up-above
@@ -942,10 +941,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
-
-#ifdef _WIN32
-	iTempGPUBackend = iGPUBackend;
-#endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)
@@ -980,14 +975,11 @@ void Config::Save() {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-			IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-			for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-				if (!bGameSpecific || !setting->perGame_){
-					setting->Set(section);
-				}
+		IterateSettings(iniFile, [&](IniFile::Section *section, ConfigSetting *setting) {
+			if (!bGameSpecific || !setting->perGame_) {
+				setting->Set(section);
 			}
-		}
+		});
 
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -1173,13 +1165,10 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 }
 
 void Config::RestoreDefaults() {
-	if (bGameSpecific)
-	{
+	if (bGameSpecific) {
 		deleteGameConfig(gameId_);
 		createGameConfig(gameId_);
-	}
-	else
-	{
+	} else {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
 		recentIsos.clear();
@@ -1188,25 +1177,21 @@ void Config::RestoreDefaults() {
 	Load();
 }
 
-bool Config::hasGameConfig(const std::string &pGameId)
-{
+bool Config::hasGameConfig(const std::string &pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 	return File::Exists(fullIniFilePath);
 }
 
-void Config::changeGameSpecific(const std::string &pGameId)
-{
+void Config::changeGameSpecific(const std::string &pGameId) {
 	Save();
 	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }
 
-bool Config::createGameConfig(const std::string &pGameId)
-{
+bool Config::createGameConfig(const std::string &pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
-	if (hasGameConfig(pGameId))
-	{
+	if (hasGameConfig(pGameId)) {
 		return false;
 	}
 
@@ -1215,26 +1200,22 @@ bool Config::createGameConfig(const std::string &pGameId)
 	return true;
 }
 
-bool Config::deleteGameConfig(const std::string& pGameId)
-{
+bool Config::deleteGameConfig(const std::string& pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
 	File::Delete(fullIniFilePath);
 	return true;
 }
 
-std::string Config::getGameConfigFile(const std::string &pGameId)
-{
+std::string Config::getGameConfigFile(const std::string &pGameId) {
 	std::string iniFileName = pGameId + "_ppsspp.ini";
 	std::string iniFileNameFull = FindConfigFile(iniFileName);
 
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId)
-{
-	if (pGameId.empty())
-	{
+bool Config::saveGameConfig(const std::string &pGameId) {
+	if (pGameId.empty()) {
 		return false;
 	}
 
@@ -1242,14 +1223,11 @@ bool Config::saveGameConfig(const std::string &pGameId)
 
 	IniFile iniFile;
 
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			if (setting->perGame_){
-				setting->Set(section);
-			}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		if (setting->perGame_) {
+			setting->Set(section);
 		}
-	}
+	});
 
 	KeyMap::SaveToIni(iniFile);
 	iniFile.Save(fullIniFilePath);
@@ -1257,12 +1235,10 @@ bool Config::saveGameConfig(const std::string &pGameId)
 	return true;
 }
 
-bool Config::loadGameConfig(const std::string &pGameId)
-{
+bool Config::loadGameConfig(const std::string &pGameId) {
 	std::string iniFileNameFull = getGameConfigFile(pGameId);
 
-	if (!hasGameConfig(pGameId))
-	{
+	if (!hasGameConfig(pGameId)) {
 		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
@@ -1271,26 +1247,42 @@ bool Config::loadGameConfig(const std::string &pGameId)
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
 
-
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			if (setting->perGame_){
-				setting->Get(section);
-			}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		if (setting->perGame_) {
+			setting->Get(section);
 		}
-	}
+	});
+
 	KeyMap::LoadFromIni(iniFile);
 	return true;
 }
 
-
-void Config::unloadGameConfig()
-{
-	if (bGameSpecific)
-	{
+void Config::unloadGameConfig() {
+	if (bGameSpecific){
 		changeGameSpecific();
-		Load(iniFilename_.c_str(), controllerIniFilename_.c_str());
+
+		IniFile iniFile;
+		iniFile.Load(iniFilename_);
+
+		// Reload game specific settings back to standard.
+		IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+			if (setting->perGame_) {
+				setting->Get(section);
+			}
+		});
+
+		LoadStandardControllerIni();
+	}
+}
+
+void Config::LoadStandardControllerIni() {
+	IniFile controllerIniFile;
+	if (!controllerIniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
+		KeyMap::RestoreDefault();
+	} else {
+		// Continue anyway to initialize the config. It will just restore the defaults.
+		KeyMap::LoadFromIni(controllerIniFile);
 	}
 }
 

@@ -600,16 +600,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeEndPeriod(1);
 	delete host;
 
-	// Is there a safer place to do this?
-	// Doing this in Config::Save requires knowing if the UI state is UISTATE_EXIT,
-	// but that causes UnitTest to fail linking with 400 errors if System.h is included..
-	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend) {
-		g_Config.iGPUBackend = g_Config.iTempGPUBackend;
-
-		// For now, turn off software rendering too, similar to the command-line.
-		g_Config.bSoftwareRendering = false;
-	}
-
 	g_Config.Save();
 	g_gameInfoCache.Clear();
 	g_gameInfoCache.Shutdown();

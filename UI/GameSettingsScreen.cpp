@@ -135,7 +135,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 #if defined(_WIN32)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D9" };
-	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTempGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #endif
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
@@ -871,13 +871,18 @@ void GlobalSettingsScreen::CreateViews() {
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 #if defined(_WIN32)
-	// If the user ends up deciding not to restart, set the temporary variable back to the current backend
+	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
+		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
+			// TODO: Remove once software renderer supports D3D9.
+			g_Config.bSoftwareRendering = false;
+		}
+
 		g_Config.bRestartRequired = true;
 		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 	} else {
-		g_Config.iTempGPUBackend = g_Config.iGPUBackend;
+		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}
 #endif
 }
@@ -887,7 +892,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
-	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend) {
+	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, placeholder::_1)));
 	}
