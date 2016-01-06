@@ -214,6 +214,11 @@ public:
 	virtual void InitClear() = 0;
 	virtual void Reinitialize() = 0;
 
+	// Frame managment
+	virtual void BeginHostFrame() = 0;
+	virtual void EndHostFrame() = 0;
+
+	// Events
 	virtual void RunEventsUntil(u64 globalticks) = 0;
 	virtual void FinishEventLoop() = 0;
 

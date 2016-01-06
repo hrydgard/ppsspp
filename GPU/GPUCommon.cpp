@@ -40,6 +40,14 @@ GPUCommon::GPUCommon() :
 GPUCommon::~GPUCommon() {
 }
 
+void GPUCommon::BeginHostFrame() {
+	ReapplyGfxState();
+}
+
+void GPUCommon::EndHostFrame() {
+
+}
+
 void GPUCommon::Reinitialize() {
 	easy_guard guard(listLock);
 	memset(dls, 0, sizeof(dls));

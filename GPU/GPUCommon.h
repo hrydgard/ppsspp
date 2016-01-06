@@ -21,6 +21,9 @@ public:
 
 	void Reinitialize() override;
 
+	void BeginHostFrame() override;
+	void EndHostFrame() override;
+
 	void InterruptStart(int listid) override;
 	void InterruptEnd(int listid) override;
 	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) override;

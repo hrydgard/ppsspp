@@ -486,10 +486,15 @@ void PSP_Shutdown() {
 
 void PSP_BeginHostFrame() {
 	// Reapply the graphics state of the PSP
-	gpu->ReapplyGfxState();
+	if (gpu) {
+		gpu->BeginHostFrame();
+	}
 }
 
 void PSP_EndHostFrame() {
+	if (gpu) {
+		gpu->EndHostFrame();
+	}
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
