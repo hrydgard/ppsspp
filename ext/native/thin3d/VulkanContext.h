@@ -68,6 +68,7 @@ struct layer_properties {
 // This is a bit repetitive...
 class VulkanDeleteList {
 public:
+	void QueueDelete(VkDescriptorPool pool) { descPools_.push_back(pool); }
 	void QueueDelete(VkShaderModule module) { modules_.push_back(module); }
 	void QueueDelete(VkBuffer buffer) { buffers_.push_back(buffer); }
 	void QueueDelete(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
@@ -76,6 +77,7 @@ public:
 	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
 
 	void Ingest(VulkanDeleteList &del) {
+		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
 		bufferViews_ = std::move(del.bufferViews_);
@@ -85,8 +87,8 @@ public:
 	}
 
 	void PerformDeletes(VkDevice device) {
-		for (auto &module : modules_) {
-			vkDestroyShaderModule(device, module, nullptr);
+		for (auto &descPool : descPools_) {
+			vkDestroyDescriptorPool(device, descPool, nullptr);
 		}
 		modules_.clear();
 		for (auto &buf : buffers_) {
@@ -112,6 +114,7 @@ public:
 	}
 
 private:
+	std::vector<VkDescriptorPool> descPools_;
 	std::vector<VkShaderModule> modules_;
 	std::vector<VkBuffer> buffers_;
 	std::vector<VkBufferView> bufferViews_;
