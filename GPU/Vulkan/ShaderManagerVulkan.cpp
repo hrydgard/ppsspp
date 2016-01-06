@@ -144,8 +144,7 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 	}
 }
 
-// Depth in ogl is between -1;1 we need between 0;1 and optionally reverse it
-static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY, bool invertedZ) {
+static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY) {
 	// Half pixel offset hack
 	float xoff = 0.5f / gstate_c.curRTRenderWidth;
 	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
@@ -157,7 +156,9 @@ static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invert
 	if (invertedY)
 		yoff = -yoff;
 
-	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(gstate_c.vpWidthScale, gstate_c.vpHeightScale, invertedZ ? -0.5 : 0.5f));
+	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset + 0.5f);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
+	in.translateAndScale(trans, scale);
 }
 
 static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
@@ -228,9 +229,8 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
-		
-		const bool invertedZ = gstate_c.vpDepthScale < 0;
-		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY, invertedZ);
+
+		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
 
 		CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
 	}
@@ -357,18 +357,22 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
-
-		// Given the way we do the rounding, the integer part of the offset is probably mostly irrelevant as we cancel
-		// it afterwards anyway.
-		// It seems that we should adjust for D3D projection matrix. We got squashed up to only 0-1, so we divide
-		// the scale factor by 2, and add an offset. But, this doesn't work! I get near-perfect results not doing it.
-		// viewZScale *= 2.0f;
-
-		// Need to take the possibly inverted proj matrix into account.
-		if (gstate_c.vpDepthScale < 0.0)
-			viewZScale *= -1.0f;
-		viewZCenter -= 32767.5f;
 		float viewZInvScale;
+
+		// We had to scale and translate Z to account for our clamped Z range.
+		// Therefore, we also need to reverse this to round properly.
+		//
+		// Example: scale = 65535.0, center = 0.0
+		// Resulting range = -65535 to 65535, clamped to [0, 65535]
+		// gstate_c.vpDepthScale = 2.0f
+		// gstate_c.vpZOffset = -1.0f
+		//
+		// The projection already accounts for those, so we need to reverse them.
+		//
+		// Additionally, D3D9 uses a range from [0, 1].  We double and move the center.
+		viewZScale *= (1.0f / gstate_c.vpDepthScale) * 2.0f;
+		viewZCenter -= 65535.0f * gstate_c.vpZOffset + 32768.5f;
+
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {

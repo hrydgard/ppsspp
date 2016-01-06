@@ -194,10 +194,8 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
 	VkResult res = fpAcquireNextImageKHR(device_, swap_chain_,
-		UINT64_MAX,
-		acquireSemaphore,
-		NULL,
-		&current_buffer);
+		UINT64_MAX, acquireSemaphore, NULL, &current_buffer);
+
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
 	assert(res == VK_SUCCESS);
@@ -917,26 +915,28 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 
 	VkExtent2D swapChainExtent;
 	// width and height are either both -1, or both not -1.
-	if (surfCapabilities.currentExtent.width == -1)
-	{
+	if (surfCapabilities.currentExtent.width == -1) {
 		// If the surface size is undefined, the size is set to
 		// the size of the images requested.
 		swapChainExtent.width = width;
 		swapChainExtent.height = height;
-	} else
-	{
+	} else {
 		// If the surface size is defined, the swap chain size must match
 		swapChainExtent = surfCapabilities.currentExtent;
 	}
 
 	// If mailbox mode is available, use it, as is the lowest-latency non-
-	// tearing mode.  If not, try IMMEDIATE which will usually be available,
-	// and is fastest (though it tears).  If not, fall back to FIFO which is
-	// always available.
+	// tearing mode.  If not, try FIFO_RELAXED, and if not that, try IMMEDIATE 
+	// which will usually be available, and is fastest (though it tears).
+	// If not, fall back to FIFO which is always available.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 	for (size_t i = 0; i < presentModeCount; i++) {
 		if ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
 			swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+		if ((flags_ & VULKAN_FLAG_PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+			swapchainPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
 			break;
 		}
 		if ((flags_ & VULKAN_FLAG_PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {

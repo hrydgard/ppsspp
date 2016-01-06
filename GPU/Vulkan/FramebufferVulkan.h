@@ -52,9 +52,9 @@ public:
 		return false;
 	}
 
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override {
-		throw std::logic_error("The method or operation is not implemented.");
-	}
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
+
 
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override {
 	}
@@ -92,16 +92,6 @@ public:
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override {
 	}
 
-	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override {
-
-	}
-
-	bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override {
-		return false;
-	}
-	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override {
-
-	}
 	void DestroyAllFBOs();
 	void Resized();
 	void DeviceLost();
@@ -110,6 +100,10 @@ public:
 	void EndFrame();
 
 	std::vector<FramebufferInfo> GetFramebufferList();
+
+protected:
+	bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
 	VulkanContext *vulkan_;

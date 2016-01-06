@@ -72,13 +72,8 @@ public:
 
 	void ApplyTexture(VkImageView &imageView, VkSampler &sampler);
 
-	bool DecodeTexture(u8 *dest, const GPUgstate &state) {
-		return false;
-	}
-
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override {
-
-	}
+protected:
+	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes);
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.

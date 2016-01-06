@@ -57,6 +57,7 @@ enum {
 	VULKAN_FLAG_VALIDATE = 1,
 	VULKAN_FLAG_PRESENT_MAILBOX = 2,
 	VULKAN_FLAG_PRESENT_IMMEDIATE = 4,
+	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
 };
 
 // A layer can expose extensions, keep track of those extensions here.
