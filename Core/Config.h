@@ -451,6 +451,9 @@ public:
 	bool IsPortrait() const {
 		return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
 	}
+
+protected:
+	void LoadStandardControllerIni();
 	
 private:
 	std::string gameId_;
