@@ -50,11 +50,9 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
 				float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
 				// Have to invert Y for GL
-#ifdef _WIN32
-				if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) { offsetY = offsetY * -1.0f; }
-#else
-				offsetY = offsetY * -1.0f;
-#endif
+				if (GetGPUBackend() == GPUBackend::OPENGL) {
+					offsetY = offsetY * -1.0f;
+				}
 				float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
 				float smallDisplayW = origW * customZoom;
 				float smallDisplayH = origH * customZoom;

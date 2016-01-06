@@ -442,7 +442,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
-	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
@@ -942,10 +941,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
-
-#ifdef _WIN32
-	iTempGPUBackend = iGPUBackend;
-#endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)

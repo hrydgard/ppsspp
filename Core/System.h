@@ -48,9 +48,13 @@ enum PSPDirectories {
 };
 
 class GraphicsContext;
+enum class GPUBackend;
 
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
+
+void SetGPUBackend(GPUBackend type);
+GPUBackend GetGPUBackend();
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);

@@ -356,7 +356,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
 	}
 #endif
@@ -378,7 +378,7 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader("Version Information"));
 	std::string apiVersion;
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		if (gl_extensions.IsGLES) {
 			apiVersion = StringFromFormat("v%d.%d.%d ES", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
 		} else {

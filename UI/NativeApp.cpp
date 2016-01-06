@@ -501,7 +501,8 @@ void NativeInit(int argc, const char *argv[],
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_init();
 	}
 }
@@ -689,7 +690,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	// Apply the UIContext bounds as a 2D transformation matrix.
 	Matrix4x4 ortho;
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		Matrix4x4 translation;
 		translation.setTranslation(Vec3(-0.5f, -0.5f, 0.0f));
@@ -718,7 +719,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		graphicsContext->Resize();
 		// TODO: Move this to new GraphicsContext objects for each backend.
 #ifndef _WIN32
-		if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			PSP_CoreParameter().pixelWidth = pixel_xres;
 			PSP_CoreParameter().pixelHeight = pixel_yres;
 			NativeMessageReceived("gpu resized", "");
@@ -757,7 +758,7 @@ void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost();
 	}
 	// Should dirty EVERYTHING
@@ -915,7 +916,7 @@ void NativeResized() {
 }
 
 void NativeShutdown() {
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_shutdown();
 	}
 
