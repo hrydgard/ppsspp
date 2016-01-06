@@ -50,8 +50,8 @@ enum class GPUBackend {
 	DIRECT3D9 = 1,
 };
 enum {
-	GPU_BACKEND_OPENGL = GPUBackend::OPENGL,
-	GPU_BACKEND_DIRECT3D9 = GPUBackend::DIRECT3D9,
+	GPU_BACKEND_OPENGL = (int)GPUBackend::OPENGL,
+	GPU_BACKEND_DIRECT3D9 = (int)GPUBackend::DIRECT3D9,
 };
 
 enum AudioBackendType {
