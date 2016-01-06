@@ -33,11 +33,11 @@ GPUCommon::GPUCommon() :
 	Reinitialize();
 	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
-	InitGfxState();
+	gstate.Reset();
+	gstate_c.Reset();
 }
 
 GPUCommon::~GPUCommon() {
-	ShutdownGfxState();
 }
 
 void GPUCommon::Reinitialize() {

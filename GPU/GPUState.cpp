@@ -74,6 +74,20 @@ static const CmdRange contextCmdRanges[] = {
 	// Skip: {0xFA, 0xFF},
 };
 
+void GPUgstate::Reset() {
+	memset(gstate.cmdmem, 0, sizeof(gstate.cmdmem));
+	for (int i = 0; i < 256; i++) {
+		gstate.cmdmem[i] = i << 24;
+	}
+
+	// Lighting is not enabled by default, matrices are zero initialized.
+	memset(gstate.worldMatrix, 0, sizeof(gstate.worldMatrix));
+	memset(gstate.viewMatrix, 0, sizeof(gstate.viewMatrix));
+	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
+	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
+	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
+}
+
 void GPUgstate::Save(u32_le *ptr) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	ptr[5] = gstate_c.vertexAddr;
@@ -188,6 +202,10 @@ struct GPUStateCache_v0
 	UVScale uv;
 	bool flipTexture;
 };
+
+void GPUStateCache::Reset() {
+	memset(&gstate_c, 0, sizeof(gstate_c));
+}
 
 void GPUStateCache::DoState(PointerWrap &p) {
 	auto s = p.Section("GPUStateCache", 0, 4);

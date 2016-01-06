@@ -484,6 +484,14 @@ void PSP_Shutdown() {
 	g_Config.unloadGameConfig();
 }
 
+void PSP_BeginHostFrame() {
+	// Reapply the graphics state of the PSP
+	gpu->ReapplyGfxState();
+}
+
+void PSP_EndHostFrame() {
+}
+
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
 	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {

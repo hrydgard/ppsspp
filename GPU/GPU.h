@@ -106,4 +106,3 @@ extern GPUDebugInterface *gpuDebug;
 
 bool GPU_Init(GraphicsContext *ctx);
 void GPU_Shutdown();
-void GPU_Reinitialize();

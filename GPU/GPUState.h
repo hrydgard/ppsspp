@@ -415,6 +415,7 @@ struct GPUgstate {
 
 	// Real data in the context ends here
 
+	void Reset();
 	void Save(u32_le *ptr);
 	void Restore(u32_le *ptr);
 };
@@ -528,12 +529,9 @@ struct GPUStateCache {
 	u32 curRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
+	void Reset();
 	void DoState(PointerWrap &p);
 };
-
-void InitGfxState();
-void ShutdownGfxState();
-void ReapplyGfxState();
 
 class GPUInterface;
 class GPUDebugInterface;

@@ -55,6 +55,8 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
+#include "GPU/GPU.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
 #ifdef BLACKBERRY
@@ -1518,7 +1520,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		HLEShutdown();
 		Replacement_Init();
 		HLEInit();
-		GPU_Reinitialize();
+		gpu->Reinitialize();
 	}
 
 	__KernelModuleInit();

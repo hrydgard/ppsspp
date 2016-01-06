@@ -62,6 +62,9 @@ bool PSP_InitUpdate(std::string *error_string);
 bool PSP_IsIniting();
 bool PSP_IsInited();
 void PSP_Shutdown();
+
+void PSP_BeginHostFrame();
+void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 

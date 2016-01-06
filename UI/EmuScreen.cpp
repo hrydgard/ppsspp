@@ -879,9 +879,7 @@ void EmuScreen::render() {
 		thin3d->SetTargetSize(pixel_xres, pixel_yres);
 	}
 
-
-	// Reapply the graphics state of the PSP
-	ReapplyGfxState();
+	PSP_BeginHostFrame();
 
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
@@ -897,6 +895,8 @@ void EmuScreen::render() {
 		coreState = CORE_RUNNING;
 	}
 	checkPowerDown();
+
+	PSP_EndHostFrame();
 
 	if (invalid_)
 		return;
