@@ -29,7 +29,7 @@
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
 // won't get any bone data, etc.
 
-
+#include <map>
 #include <unordered_map>
 
 #include "GPU/Vulkan/VulkanUtil.h"
@@ -48,6 +48,7 @@ class ShaderManagerVulkan;
 class PipelineManagerVulkan;
 class TextureCacheVulkan;
 class FramebufferManagerVulkan;
+class CachedTextureVulkan;
 
 // Avoiding the full include of TextureDecoder.h.
 #if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)
@@ -140,6 +141,7 @@ public:
 		return pipelineLayout_;
 	}
 
+	void BeginFrame();
 	void EndFrame();
 
 private:
@@ -147,7 +149,7 @@ private:
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
-	VkDescriptorSet GetDescriptorSet();
+	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -157,10 +159,23 @@ private:
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;
 
+	struct DescriptorSetKey {
+		void *texture_;
+		void *secondaryTexture_;
+
+		bool operator < (const DescriptorSetKey &other) const {
+			if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+			if (secondaryTexture_ < other.secondaryTexture_) return true; else if (secondaryTexture_ > other.secondaryTexture_) return false;
+			return false;
+		}
+	};
+
 	// We alternate between these.
 	struct FrameData {
 		VkDescriptorPool descPool;
 		VulkanPushBuffer *pushData;
+		// We do rolling allocation and reset instead of caching across frames. That we might do later.
+		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
 	};
 
 	int curFrame_;

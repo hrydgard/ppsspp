@@ -92,7 +92,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 
 	const char *shading = doFlatShading ? "flat" : "";
 
-	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseUBO {\n%s} base;\n", ub_baseStr);
 	if (doTexture) {
 		WRITE(p, "layout (binding = 0) uniform sampler2D tex;\n");
 	}
