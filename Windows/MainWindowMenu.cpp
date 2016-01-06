@@ -270,7 +270,7 @@ namespace MainWindow {
 		TranslateSubMenu(menu, "Window Size", MENU_OPTIONS, SUBMENU_WINDOW_SIZE);
 		// Skip window size 1x-4x..
 		TranslateSubMenu(menu, "Backend", MENU_OPTIONS, SUBMENU_RENDERING_BACKEND);
-		TranslateMenuItem(menu, ID_OPTIONS_DIRECTX);
+		TranslateMenuItem(menu, ID_OPTIONS_DIRECT3D9);
 		TranslateMenuItem(menu, ID_OPTIONS_OPENGL);
 		TranslateSubMenu(menu, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
 		TranslateMenuItem(menu, ID_OPTIONS_NONBUFFEREDRENDERING);
@@ -665,7 +665,7 @@ namespace MainWindow {
 			NativeMessageReceived("gpu clear cache", "");
 			break;
 
-		case ID_OPTIONS_DIRECTX:
+		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
 			// TODO: Remove once software renderer supports D3D9.
 			g_Config.bSoftwareRendering = false;
@@ -1108,13 +1108,13 @@ namespace MainWindow {
 		}
 
 		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
-			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_GRAYED);
-			CheckMenuItem(menu, ID_OPTIONS_DIRECTX, MF_CHECKED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
+			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_CHECKED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
 		} else {
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
-			EnableMenuItem(menu, ID_OPTIONS_DIRECTX, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 		}
 
 		UpdateDynamicMenuCheckmarks(menu);
