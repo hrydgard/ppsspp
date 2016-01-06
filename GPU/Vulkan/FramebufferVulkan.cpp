@@ -69,6 +69,23 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	drawEngine_->Flush(nullptr);
 }
 
+void FramebufferManagerVulkan::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
+
+}
+
+void FramebufferManagerVulkan::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+
+}
+
+bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+	return false;
+}
+
+void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+
+}
+
+
 std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {
 	return std::vector<FramebufferInfo>();
 }
