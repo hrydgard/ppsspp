@@ -21,6 +21,8 @@
 #include <map>
 #include <assert.h>
 
+#include "Common/Vulkan/SPIRVDisasm.h"
+
 #include "base/logging.h"
 #include "base/display.h"
 #include "image/zim_load.h"
@@ -294,7 +296,16 @@ bool Thin3DVKShader::Compile(VkDevice device, const char *source) {
 		return false;
 	}
 
-	if (!CreateShaderModule(device, spirv, &module_)) {
+	// Just for kicks, sanity check the SPIR-V. The disasm isn't perfect
+	// but gives you some idea of what's going on.
+#if 0
+	std::string disasm;
+	if (DisassembleSPIRV(spirv, &disasm)) {
+		OutputDebugStringA(disasm.c_str());
+	}
+#endif
+
+	if (vulkan->CreateShaderModule(spirv, &module_)) {
 		ok_ = true;
 	} else {
 		ok_ = false;
