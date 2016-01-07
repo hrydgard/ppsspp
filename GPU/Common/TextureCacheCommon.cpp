@@ -361,6 +361,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				if (bytes < loadBytes) {
 					memset((u8 *)clutBufRaw_ + bytes, 0x00, loadBytes - bytes);
 				}
+				clutRenderAddress_ = 0xFFFFFFFF;
 			}
 		} else {
 #ifdef _M_SSE
