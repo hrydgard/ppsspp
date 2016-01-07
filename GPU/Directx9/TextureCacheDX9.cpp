@@ -763,6 +763,7 @@ protected:
 
 void TextureCacheDX9::ApplyIndexedTexture(TexCacheEntry *entry) {
 	VirtualFramebuffer *clutVfb = nullptr;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		if (framebuffer->fb_address == clutRenderAddress_) {
@@ -796,7 +797,8 @@ void TextureCacheDX9::ApplyIndexedTexture(TexCacheEntry *entry) {
 	shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 	shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
 
-	float texel_offset = 0.5f / (float)clutVfb->bufferWidth;
+	float render_offset = clutRenderOffset_ / (clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+	float texel_offset = (0.5f + render_offset) / (float)clutVfb->bufferWidth;
 	if (gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888 && (gstate.getClutIndexStartPos() & 0x100) != 0) {
 		// In this case, we truncated the index entries.  Apply the offset here.
 		if (clutVfb->renderWidth > 256) {
@@ -866,11 +868,19 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader());
 
+		float texturePixels = 256.0f;
+		if (clutFormat != GE_CMODE_32BIT_ABGR8888)
+			texturePixels = 512.0f;
+
 		if (clutVfb) {
-			// We scale by the width of the CLUT - to map 0.0 -> 0, 1.0 -> 255.
-			// If the width is 256, 255 is right (with offset.)  We aim for the texel centers.
-			float texel_mult = 255.0f / (float)clutVfb->bufferWidth;
-			const float f[4] = { texel_mult, 0.0f, 0.0f, 0.0f };
+			float render_offset = clutRenderOffset_ / (clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+
+			// Before this multiplier, (texturePixels - 1) would be near 1.0.
+			// If our buffer is actually 320 wide, we need to rescale that.
+			// There's already some accounting for centers.
+			float texel_mult = texturePixels / (float)clutVfb->bufferWidth;
+			float texel_offset = render_offset / (float)clutVfb->bufferWidth;
+			const float f[4] = { texel_mult, texel_offset, 0.0f, 0.0f };
 			pD3Ddevice->SetPixelShaderConstantF(CONST_PS_DEPAL_OFFSET, f, 1);
 		} else {
 			const float f[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
