@@ -27,6 +27,7 @@
 #include "net/resolve.h"
 #include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
@@ -52,6 +53,7 @@ public:
 	void SwapInterval(int interval) override {}
 	void Resize() {}
 	Thin3DContext *CreateThin3DContext() {
+		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
 

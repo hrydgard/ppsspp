@@ -17,6 +17,7 @@
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
 #include "input/keycodes.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
 #include "Common/GraphicsContext.h"
@@ -36,6 +37,7 @@
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
     Thin3DContext *CreateThin3DContext() override {
+        CheckGLExtensions();
         return T3DCreateGLContext();
     }
 };

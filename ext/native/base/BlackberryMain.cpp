@@ -13,6 +13,7 @@
 #include <bps/navigator_invoke.h> // Receive invocation messages
 #include "BlackberryMain.h"
 #include "base/NKCodeFromBlackberry.h"
+#include "gfx_es2/gpu_features.h"
 #include "thin3d/thin3d.h"
 
 #include "Core/System.h"
@@ -26,6 +27,7 @@ static GraphicsContext *graphicsContext;
 class GLDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	Thin3DContext *CreateThin3DContext() override {
+		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
 };

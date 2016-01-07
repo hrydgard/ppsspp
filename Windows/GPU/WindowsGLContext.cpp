@@ -387,9 +387,7 @@ void WindowsGLContext::Resize() {
 }
 
 Thin3DContext *WindowsGLContext::CreateThin3DContext() {
+	CheckGLExtensions();
 	Thin3DContext *ctx = T3DCreateGLContext();
-	if (ctx) {
-		CheckGLExtensions();
-	}
 	return ctx;
 }
