@@ -1896,7 +1896,7 @@ void FramebufferManager::DecimateFBOs() {
 		UpdateFramebufUsage(vfb);
 
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
-			if (age > FBO_OLD_AGE) {
+			if (age > FBO_OLD_AGE && (vfb->usageFlags & FB_USAGE_KEEP) == 0) {
 				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
