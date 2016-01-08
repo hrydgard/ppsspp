@@ -475,6 +475,42 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 }
 
+void GPU_Vulkan::BeginHostFrame() {
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// Draw everything directly to the backbuffer.
+		drawEngine_.SetCmdBuffer(vulkan_->GetSurfaceCommandBuffer());
+	}
+	drawEngine_.BeginFrame();
+
+	if (resized_) {
+		CheckGPUFeatures();
+		UpdateCmdInfo();
+		drawEngine_.Resized();
+	}
+	resized_ = false;
+
+	textureCache_.StartFrame();
+	depalShaderCache_.Decimate();
+
+	if (dumpNextFrame_) {
+		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
+		dumpThisFrame_ = true;
+		dumpNextFrame_ = false;
+	} else if (dumpThisFrame_) {
+		dumpThisFrame_ = false;
+	}
+	shaderManager_->DirtyShader();
+
+	// Not sure if this is really needed.
+	shaderManager_->DirtyUniform(DIRTY_ALL);
+
+	framebufferManager_.BeginFrame();
+}
+
+void GPU_Vulkan::EndHostFrame() {
+	drawEngine_.EndFrame();
+	framebufferManager_.EndFrame();
+}
 
 // Needs to be called on GPU thread, not reporting thread.
 // TODO
@@ -554,36 +590,6 @@ void GPU_Vulkan::ReapplyGfxStateInternal() {
 }
 
 void GPU_Vulkan::BeginFrameInternal() {
-	if (resized_) {
-		CheckGPUFeatures();
-		UpdateCmdInfo();
-		drawEngine_.Resized();
-	}
-	UpdateVsyncInterval(resized_);
-	resized_ = false;
-
-	textureCache_.StartFrame();
-	depalShaderCache_.Decimate();
-
-	if (dumpNextFrame_) {
-		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
-		dumpThisFrame_ = true;
-		dumpNextFrame_ = false;
-	} else if (dumpThisFrame_) {
-		dumpThisFrame_ = false;
-	}
-	shaderManager_->DirtyShader();
-
-	// Not sure if this is really needed.
-	shaderManager_->DirtyUniform(DIRTY_ALL);
-
-	framebufferManager_.BeginFrame();
-	drawEngine_.BeginFrame();
-
-	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		// Draw everything directly to the backbuffer.
-		drawEngine_.SetCmdBuffer(vulkan_->GetSurfaceCommandBuffer());
-	}
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -628,13 +634,10 @@ void GPU_Vulkan::CopyDisplayToOutput() {
 void GPU_Vulkan::CopyDisplayToOutputInternal() {
 	// Flush anything left over.
 	drawEngine_.Flush(curCmd_);
-	drawEngine_.EndFrame();
 
 	shaderManager_->DirtyLastShader();
 
 	framebufferManager_.CopyDisplayToOutput();
-	framebufferManager_.EndFrame();
-
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
