@@ -38,6 +38,10 @@ public:
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures();
 
+	// These are where we can reset command buffers etc.
+	void BeginHostFrame();
+	void EndHostFrame();
+
 	void InitClear() override;
 	void Reinitialize() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
