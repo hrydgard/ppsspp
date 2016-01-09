@@ -178,6 +178,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 void DrawEngineVulkan::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	frame->descSets.clear();
 	frame->pushData->Begin(vulkan_->GetDevice());
 	frame->pushData->Reset();
 }
@@ -376,7 +377,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 
 VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer dynamicUbo) {
 	DescriptorSetKey key;
-	key.imageView_= imageView;
+	key.imageView_ = imageView;
 	key.sampler_ = sampler;
 	key.secondaryImageView_ = nullptr;
 	key.buffer_ = dynamicUbo;
@@ -387,7 +388,8 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 		return iter->second;
 	}
 
-	// Didn't find one in the frame cache, let's make a new one.
+	// Didn't find one in the frame descriptor set cache, let's make a new one.
+	// We wipe the cache on every frame.
 
 	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc;
@@ -396,7 +398,8 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
-	vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
 	VkWriteDescriptorSet writes[4];

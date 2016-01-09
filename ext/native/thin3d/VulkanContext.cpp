@@ -1131,25 +1131,41 @@ void VulkanContext::InitCommandPool() {
   assert(res == VK_SUCCESS);
 }
 
-void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format) {
+VkResult VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format) {
 	tex_width = w;
 	tex_height = h;
 	format_ = format;
-
-	bool U_ASSERT_ONLY pass;
 
 	VkFormatProperties formatProps;
 	vkGetPhysicalDeviceFormatProperties(vulkan->GetPhysicalDevice(), format, &formatProps);
 
 	// See if we can use a linear tiled image for a texture, if not, we will need a staging image for the texture data.
 	// Linear tiling is usually only supported for 2D non-array textures.
-	needStaging = (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) ? true : false;
+	// needStaging = (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)) ? true : false;
+	// Always stage.
+	needStaging = true;
+
+	return VK_SUCCESS;
+}
+
+void VulkanTexture::CreateMappableImage(VulkanContext *vulkan) {
+	// If we already have a mappableImage, forget it.
+	if (mappableImage) {
+		vulkan->QueueDelete(mappableImage);
+		mappableImage = nullptr;
+	}
+	if (mappableMemory) {
+		vulkan->QueueDelete(mappableMemory);
+		mappableMemory = nullptr;
+	}
+
+	bool U_ASSERT_ONLY pass;
 
 	VkImageCreateInfo image_create_info = {};
 	image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image_create_info.pNext = NULL;
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
-	image_create_info.format = format;
+	image_create_info.format = format_;
 	image_create_info.extent.width = tex_width;
 	image_create_info.extent.height = tex_height;
 	image_create_info.extent.depth = 1;
@@ -1169,8 +1185,8 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format)
 	mem_alloc.allocationSize = 0;
 	mem_alloc.memoryTypeIndex = 0;
 
-	/* Create a mappable image.  It will be the texture if linear images are ok to be textures */
-	/* or it will be the staging image if they are not.                                        */
+	// Create a mappable image.  It will be the texture if linear images are ok to be textures
+	// or it will be the staging image if they are not.
 	VkResult res = vkCreateImage(vulkan->GetDevice(), &image_create_info, NULL, &mappableImage);
 	assert(res == VK_SUCCESS);
 
@@ -1179,7 +1195,7 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format)
 
 	mem_alloc.allocationSize = mem_reqs.size;
 
-	/* Find the memory type that is host mappable */
+	// Find the memory type that is host mappable.
 	pass = vulkan->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &mem_alloc.memoryTypeIndex);
 	assert(pass);
 
@@ -1191,6 +1207,8 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format)
 }
 
 uint8_t *VulkanTexture::Lock(VulkanContext *vulkan, int level, int *rowPitch) {
+	CreateMappableImage(vulkan);
+	
 	VkImageSubresource subres = {};
 	subres.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subres.mipLevel = 0;
@@ -1199,10 +1217,9 @@ uint8_t *VulkanTexture::Lock(VulkanContext *vulkan, int level, int *rowPitch) {
 	VkSubresourceLayout layout;
 	void *data;
 
-	/* Get the subresource layout so we know what the row pitch is */
+	// Get the subresource layout so we know what the row pitch is
 	vkGetImageSubresourceLayout(vulkan->GetDevice(), mappableImage, &subres, &layout);
-
-	VkResult res = vkMapMemory(vulkan->GetDevice(), mappableMemory, 0, mem_reqs.size, 0, &data);
+	VkResult res = vkMapMemory(vulkan->GetDevice(), mappableMemory, layout.offset, layout.size, 0, &data);
 	assert(res == VK_SUCCESS);
 
 	*rowPitch = (int)layout.rowPitch;
@@ -1214,6 +1231,15 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 
 	VkCommandBuffer cmd = vulkan->GetInitCommandBuffer();
 
+	// if we already have an image, queue it for destruction and forget it.
+	if (image) {
+		vulkan->QueueDelete(image);
+		image = nullptr;
+	}
+	if (view) {
+		vulkan->QueueDelete(view);
+		view = nullptr;
+	}
 	if (!needStaging) {
 		/* If we can use the linear tiled image as a texture, just do it */
 		image = mappableImage;
@@ -1253,26 +1279,23 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 		mem_alloc.memoryTypeIndex = 0;
 		mem_alloc.allocationSize = mem_reqs.size;
 
-		/* Find memory type - dont specify any mapping requirements */
+		// Find memory type - don't specify any mapping requirements
 		bool pass = vulkan->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
 		assert(pass);
 
-		/* allocate memory */
 		res = vkAllocateMemory(vulkan->GetDevice(), &mem_alloc, NULL, &mem);
 		assert(res == VK_SUCCESS);
 
-		/* bind memory */
 		res = vkBindImageMemory(vulkan->GetDevice(), image, mem, 0);
 		assert(res == VK_SUCCESS);
 
-		/* Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL */
-		/* Side effect is that this will create info.cmd                                       */
+		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
 		TransitionImageLayout(cmd, mappableImage,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-		/* Since we're going to blit to the texture image, set its layout to DESTINATION_OPTIMAL */
+		// Since we're going to blit to the texture image, set its layout to DESTINATION_OPTIMAL
 		TransitionImageLayout(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1305,7 +1328,7 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 
 		assert(res == VK_SUCCESS);
 
-		/* Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY */
+		// Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY
 		imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		TransitionImageLayout(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1314,6 +1337,8 @@ void VulkanTexture::Unlock(VulkanContext *vulkan) {
 
 		vulkan->QueueDelete(mappableMemory);
 		vulkan->QueueDelete(mappableImage);
+		mappableImage = nullptr;
+		mappableMemory = nullptr;
 	}
 
 	VkImageViewCreateInfo view_info = {};
