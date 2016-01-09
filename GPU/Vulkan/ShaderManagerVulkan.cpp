@@ -47,6 +47,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
+#ifdef SHADERLOG
+	OutputDebugStringA(code);
+#endif
 
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
@@ -64,7 +67,6 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
 #ifdef SHADERLOG
-		OutputDebugStringA(code);
 		OutputDebugStringA("OK");
 #endif
 	}
@@ -97,11 +99,11 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform) 
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
-#ifdef SHADERLOG
-	OutputDebugString(ConvertUTF8ToWString(code).c_str());
-#endif
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
+#ifdef SHADERLOG
+	OutputDebugStringA(code);
+#endif
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
 		if (success) {
@@ -116,6 +118,9 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
+#ifdef SHADERLOG
+		OutputDebugStringA("OK");
+#endif
 	}
 
 	if (!success) {
@@ -165,7 +170,37 @@ static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(0.0f, 0.0f, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
+
+ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
+	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
+	codeBuffer_ = new char[16384];
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+}
+
+ShaderManagerVulkan::~ShaderManagerVulkan() {
+	delete[] codeBuffer_;
+}
+
+uint32_t ShaderManagerVulkan::PushBaseBuffer(VulkanPushBuffer *dest) {
+	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
+		BaseUpdateUniforms(globalDirty_);
+	return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_);
+}
+
+uint32_t ShaderManagerVulkan::PushLightBuffer(VulkanPushBuffer *dest) {
+	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
+		BaseUpdateUniforms(globalDirty_);
+	return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_);
+}
+
+// TODO: Only push half the bone buffer if we only have four bones.
+uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest) {
+	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
+		BaseUpdateUniforms(globalDirty_);
+	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_);
+}
+
+void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat4(ub_base.texEnvColor, gstate.texenvcolor);
 	}
@@ -207,38 +242,36 @@ void ShaderManagerVulkan::PSUpdateUniforms(int dirtyUniforms) {
 		CopyFloat4(ub_base.texClamp, texclamp);
 		CopyFloat2(ub_base.texClampOffset, texclampoff);
 	}
-}
 
-void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	// Update any dirty uniforms before we draw
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
-		Matrix4x4 flippedMatrix;
-		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+		if (gstate.isModeThrough()) {
+			Matrix4x4 proj_through;
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
+			ConvertProjMatrixToVulkanThrough(proj_through);
+			CopyMatrix4x4(ub_base.proj, proj_through.getReadPtr());
+		} else {
+			Matrix4x4 flippedMatrix;
+			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = gstate_c.vpHeight < 0;
-		if (!invertedY) {
-			flippedMatrix[1] = -flippedMatrix[1];
-			flippedMatrix[5] = -flippedMatrix[5];
-			flippedMatrix[9] = -flippedMatrix[9];
-			flippedMatrix[13] = -flippedMatrix[13];
+			const bool invertedY = gstate_c.vpHeight < 0;
+			if (!invertedY) {
+				flippedMatrix[1] = -flippedMatrix[1];
+				flippedMatrix[5] = -flippedMatrix[5];
+				flippedMatrix[9] = -flippedMatrix[9];
+				flippedMatrix[13] = -flippedMatrix[13];
+			}
+			const bool invertedX = gstate_c.vpWidth < 0;
+			if (invertedX) {
+				flippedMatrix[0] = -flippedMatrix[0];
+				flippedMatrix[4] = -flippedMatrix[4];
+				flippedMatrix[8] = -flippedMatrix[8];
+				flippedMatrix[12] = -flippedMatrix[12];
+			}
+
+			ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
+			CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
 		}
-		const bool invertedX = gstate_c.vpWidth < 0;
-		if (invertedX) {
-			flippedMatrix[0] = -flippedMatrix[0];
-			flippedMatrix[4] = -flippedMatrix[4];
-			flippedMatrix[8] = -flippedMatrix[8];
-			flippedMatrix[12] = -flippedMatrix[12];
-		}
-
-		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
-
-		CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
-	}
-	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
-		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
-		ConvertProjMatrixToVulkanThrough(proj_through);
-		CopyMatrix4x4(ub_base.proj, proj_through.getReadPtr());
 	}
 
 	// Transform
@@ -274,38 +307,6 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 #endif
 		CopyFloat2(ub_base.fogCoef, fogcoef);
 	}
-	// TODO: Could even set all bones in one go if they're all dirty.
-#ifdef USE_BONE_ARRAY
-	if (u_bone != 0) {
-		float allBones[8 * 16];
-
-		bool allDirty = true;
-		for (int i = 0; i < numBones; i++) {
-			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-				ConvertMatrix4x3To4x4(allBones + 16 * i, gstate.boneMatrix + 12 * i);
-			} else {
-				allDirty = false;
-			}
-		}
-		if (allDirty) {
-			// Set them all with one call
-			//glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
-		} else {
-			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
-			for (int i = 0; i < numBones; i++) {
-				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-					//glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
-				}
-			}
-		}
-	}
-#else
-	for (int i = 0; i < 8; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To4x4(ub_bones.bones[i], gstate.boneMatrix + 12 * i);
-		}
-	}
-#endif
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {
@@ -327,7 +328,7 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			break;
 
-		// These two work the same whether or not we prescale UV.
+			// These two work the same whether or not we prescale UV.
 
 		case GE_TEXMAP_TEXTURE_MATRIX:
 			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
@@ -350,11 +351,11 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
-		}
+	}
 		CopyFloat4(ub_base.uvScaleOffset, uvscaleoff);
 	}
 
-	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
+	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
 		float viewZScale = gstate.getViewportZScale();
 		float viewZCenter = gstate.getViewportZCenter();
 		float viewZInvScale;
@@ -382,7 +383,9 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		CopyFloat4(ub_base.depthRange, data);
 	}
+}
 
+void ShaderManagerVulkan::LightUpdateUniforms(int dirtyUniforms) {
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		Uint8x3ToFloat4_AlphaUint8(ub_lights.ambientColor, gstate.ambientcolor, gstate.getAmbientA());
@@ -429,13 +432,12 @@ void ShaderManagerVulkan::VSUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
-ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan) 
-	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
-	codeBuffer_ = new char[16384];
-}
-
-ShaderManagerVulkan::~ShaderManagerVulkan() {
-	delete [] codeBuffer_;
+void ShaderManagerVulkan::BoneUpdateUniforms(int dirtyUniforms) {
+	for (int i = 0; i < 8; i++) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To4x4(ub_bones.bones[i], gstate.boneMatrix + 12 * i);
+		}
+	}
 }
 
 void ShaderManagerVulkan::Clear() {
@@ -484,8 +486,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
 		if (globalDirty_) {
-			PSUpdateUniforms(globalDirty_);
-			VSUpdateUniforms(globalDirty_);
+			BaseUpdateUniforms(globalDirty_);
+			LightUpdateUniforms(globalDirty_);
+			BoneUpdateUniforms(globalDirty_);
 			globalDirty_ = 0;
 		}
 		*vshader = lastVShader_;
@@ -520,8 +523,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	lastFSID_ = FSID;
 
 	if (globalDirty_) {
-		PSUpdateUniforms(globalDirty_);
-		VSUpdateUniforms(globalDirty_);
+		BaseUpdateUniforms(globalDirty_);
+		LightUpdateUniforms(globalDirty_);
+		BoneUpdateUniforms(globalDirty_);
 		globalDirty_ = 0;
 	}
 	*vshader = vs;

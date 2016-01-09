@@ -76,8 +76,9 @@ public:
 	void QueueDelete(VkImage image) { images_.push_back(image); }
 	void QueueDelete(VkImageView imageView) { imageViews_.push_back(imageView); }
 	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
+	void QueueDelete(VkSampler sampler) { samplers_.push_back(sampler); }
 
-	void Ingest(VulkanDeleteList &del) {
+	void Take(VulkanDeleteList &del) {
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -85,6 +86,7 @@ public:
 		images_ = std::move(del.images_);
 		imageViews_ = std::move(del.imageViews_);
 		memory_ = std::move(del.memory_);
+		samplers_ = std::move(del.samplers_);
 	}
 
 	void PerformDeletes(VkDevice device) {
@@ -112,6 +114,10 @@ public:
 			vkFreeMemory(device, mem, nullptr);
 		}
 		memory_.clear();
+		for (auto &sampler : samplers_) {
+			vkDestroySampler(device, sampler, nullptr);
+		}
+		samplers_.clear();
 	}
 
 private:
@@ -122,6 +128,7 @@ private:
 	std::vector<VkImage> images_;
 	std::vector<VkImageView> imageViews_;
 	std::vector<VkDeviceMemory> memory_;
+	std::vector<VkSampler> samplers_;
 };
 
 // VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.
@@ -447,11 +454,11 @@ public:
 		return off;
 	}
 
-	size_t PushAligned(const void *data, size_t size, int align) {
+	uint32_t PushAligned(const void *data, size_t size, int align) {
 		offset_ = (offset_ + align - 1) & ~(align - 1);
 		size_t off = Allocate(size);
 		memcpy(writePtr_ + off, data, size);
-		return off;
+		return (uint32_t)off;
 	}
 
 	// "Zero-copy" variant - you can write the data directly as you compute it.

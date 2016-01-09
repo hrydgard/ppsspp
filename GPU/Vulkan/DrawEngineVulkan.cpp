@@ -164,7 +164,17 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	pl.setLayoutCount = 1;
 	pl.pSetLayouts = &descriptorSetLayout_;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
+	assert(VK_SUCCESS == res);
 
+	VkSamplerCreateInfo samp = {};
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samp.flags = 0;
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
+	res = vkCreateSampler(device, &samp, nullptr, &depalSampler_);
 	assert(VK_SUCCESS == res);
 }
 
@@ -192,6 +202,7 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 		vulkan_->QueueDelete(frame_[i].descPool);
 		delete frame_[i].pushData;
 	}
+	vulkan_->QueueDelete(depalSampler_);
 }
 
 VertexDecoder *DrawEngineVulkan::GetVertexDecoder(u32 vtype) {
@@ -366,24 +377,48 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture) {
+VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler) {
 	DescriptorSetKey key;
 	key.texture_ = texture;
+	key.sampler_ = sampler;
 	key.secondaryTexture_ = nullptr;
+	FrameData *frame = &frame_[curFrame_ & 1];
 
+	auto iter = frame->descSets.find(key);
+	if (iter != frame->descSets.end()) {
+		return iter->second;
+	}
+
+	// Didn't find one in the frame cache, let's make a new one.
+
+	VkDescriptorSet desc;
+	// We just don't write to the slots we don't care about.
+	VkWriteDescriptorSet writes[2];
+	memset(writes, 0, sizeof(writes));
+	// Main texture
+	VkDescriptorImageInfo tex;
+
+	// tex.imageView = texture->imageView;
+	tex.sampler = sampler;
+	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[0].dstBinding = 0;
+	writes[0].pImageInfo = &tex;
+	
+	vkUpdateDescriptorSets(vulkan_->GetDevice(), 2, writes, 0, nullptr);
+
+	frame->descSets[key] = desc;
 	return nullptr;
 }
 
-// The inline wrapper in the header checks for numDrawCalls == 0
+// The inline wrapper in the header checks for numDrawCalls == 0d
 void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	gpuStats.numFlushes++;
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
-	CachedTextureVulkan *tex = nullptr;
-	// This is not done on every drawcall, we should collect vertex data
-	// until critical state changes. That's when we draw (flush).
-	VkDescriptorSet ds = GetDescriptorSet(tex);
+//	CachedTextureVulkan *tex = textureCache_->ApplyTexture();
+//	VkDescriptorSet ds = GetDescriptorSet(tex);
+	VkDescriptorSet ds;
 
 	GEPrimitiveType prim = prevPrim_;
 	// ApplyDrawState(prim);
@@ -422,6 +457,29 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
 
+		VulkanPipelineRasterStateKey pipelineKey;
+		VulkanDynamicState dynState;
+		ConvertStateToVulkanKey(*framebufferManager_, prim, pipelineKey, dynState);
+		// TODO: Dirty-flag these.
+		vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
+		vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
+		vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
+		vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
+		vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
+		// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), true);
+		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+
+		if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
+			baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushData);
+		}
+		if (pipeline->uniformBlocks & UB_VS_LIGHTS) {
+			lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushData);
+		}
+		if (pipeline->uniformBlocks & UB_VS_BONES) {
+			boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushData);
+		}
+
 		VkBuffer buf[1] = {frame->pushData->GetVkBuffer()};
 		uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
@@ -433,7 +491,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
-			// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
+			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
+			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
 			vkCmdDrawIndexed(cmd_, maxIndex + 1, 1, 0, 0, 0);
@@ -470,13 +529,36 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, 1.0f);
 
-		// ApplyDrawStateLate();
-
 		if (result.action == SW_DRAW_PRIMITIVES) {
+			VulkanPipelineRasterStateKey pipelineKey;
+			VulkanDynamicState dynState;
+			ConvertStateToVulkanKey(*framebufferManager_, prim, pipelineKey, dynState);
+			// TODO: Dirty-flag these.
+			vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
+			vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
+			if (dynState.useStencil) {
+				vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
+				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
+			}
 			if (result.setStencil) {
 				// hey, dynamic state!
 				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
+			} else if (dynState.useStencil) {
+				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 			}
+
+			// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), false);
+			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
+
+			if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
+				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushData);
+			}
+
+			uint32_t dynamicUBOOffsets[3] = {
+				baseUBOOffset, lightUBOOffset, boneUBOOffset,
+			};
+			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 			ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
 			vbOffset = (uint32_t)frame->pushData->Push(decoded, numTrans * dec_->GetDecVtxFmt().stride);
@@ -489,12 +571,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 				vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
 				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
-				// pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 				vkCmdDraw(cmd_, numTrans, 1, 0, 0);
-				// pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
 			// TODO: Support clearing only color and not alpha, or vice versa. This is not supported (probably for good reason) by vkCmdClearColorAttachment

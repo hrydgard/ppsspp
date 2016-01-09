@@ -287,7 +287,7 @@ void VulkanContext::EndSurfaceRenderPass() {
 	// return codes
 	assert(!res);
 
-	frame->deleteList.Ingest(globalDeleteList_);
+	frame->deleteList.Take(globalDeleteList_);
 	curFrame_ ^= 1;
 }
 
