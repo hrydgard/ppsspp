@@ -116,13 +116,11 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "layout (location = 0) %s in vec2 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
 	}
 
-	if (!g_Config.bFragmentTestCache) {
-		if (enableAlphaTest && !alphaTestAgainstZero) {
-			WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
-		}
-		if (enableColorTest && !colorTestAgainstZero) {
-			WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
-		}
+	if (enableAlphaTest && !alphaTestAgainstZero) {
+		WRITE(p, "int roundAndScaleTo255i(in float x) { return int(floor(x * 255.0 + 0.5)); }\n");
+	}
+	if (enableColorTest && !colorTestAgainstZero) {
+		WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
 	}
 
 	WRITE(p, "layout (location = 0) out vec4 fragColor0;\n");
@@ -257,16 +255,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
 		// So we have to scale to account for the difference.
 		std::string alphaTestXCoord = "0";
-		if (g_Config.bFragmentTestCache) {
-			if (enableColorTest && !colorTestAgainstZero) {
-				WRITE(p, "  vec4 vScale256 = v * %f + %f;\n", 255.0 / 256.0, 0.5 / 256.0);
-				alphaTestXCoord = "vScale256.a";
-			} else if (enableAlphaTest && !alphaTestAgainstZero) {
-				char temp[64];
-				snprintf(temp, sizeof(temp), "v.a * %f + %f", 255.0 / 256.0, 0.5 / 256.0);
-				alphaTestXCoord = temp;
-			}
-		}
 
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
@@ -282,9 +270,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
 					WRITE(p, "  discard;\n");
 				}
-			} else if (g_Config.bFragmentTestCache) {
-				WRITE(p, "  float aResult = texture(testtex, vec2(%s, 0)).a;\n", alphaTestXCoord.c_str());
-				WRITE(p, "  if (aResult < 0.5) discard;\n");
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
@@ -309,18 +294,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
 					WRITE(p, "  discard;\n");
-				}
-			} else if (g_Config.bFragmentTestCache) {
-				// texelFetch may make more sense, actually, and we should process colors as integers.
-				WRITE(p, "  float rResult = texture(testtex, vec2(vScale256.r, 0)).r;\n");
-				WRITE(p, "  float gResult = texture(testtex, vec2(vScale256.g, 0)).g;\n");
-				WRITE(p, "  float bResult = texture(testtex, vec2(vScale256.b, 0)).b;\n");
-				if (colorTestFunc == GE_COMP_EQUAL) {
-					// Equal means all parts must be equal.
-					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n");
-				} else {
-					// Not equal means any part must be not equal.
-					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) discard;\n");
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
