@@ -55,14 +55,14 @@
 
 static const char * const boneWeightDecl[9] = {
 	"#ERROR#",
-	"layout(location = 0) in float w1;\n",
-	"layout(location = 0) in vec2 w1;\n",
-	"layout(location = 0) in vec3 w1;\n",
-	"layout(location = 0) in vec4 w1;\n",
-	"layout(location = 0) in vec4 w1;\nin float w2;\n",
-	"layout(location = 0) in vec4 w1;\nin vec2 w2;\n",
-	"layout(location = 0) in vec4 w1;\nin vec3 w2;\n",
-	"layout(location = 0) in vec4 w1, w2;\n",
+	"layout(location = 3) in float w1;\n",
+	"layout(location = 3) in vec2 w1;\n",
+	"layout(location = 3) in vec3 w1;\n",
+	"layout(location = 3) in vec4 w1;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in float w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec2 w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec3 w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
 };
 
 enum DoLightComputation {
@@ -139,7 +139,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 	WRITE(p, "\n");
 	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s\n} base;\n", ub_baseStr);
-	if (enableLighting)
+	if (enableLighting || doShadeMapping)
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform lightVars {\n%s\n} light;\n", ub_vs_lightsStr);
 	if (enableBones)
 		WRITE(p, "layout (std140, set = 0, binding = 4) uniform boneVars {\n%s\n} bone;\n", ub_vs_bonesStr);
@@ -497,7 +497,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (base.texmtx * %s).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+				WRITE(p, "  v_texcoord = (base.tex_mtx * %s).xyz * vec3(base.uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 			}
 			break;
 

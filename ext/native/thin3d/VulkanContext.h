@@ -343,8 +343,8 @@ private:
 class VulkanTexture {
 public:
 	VulkanTexture()
-		: image(nullptr), mem(nullptr), view(nullptr), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(nullptr), mappableMemory(nullptr) {
+		: image(nullptr), imageLayout(VK_IMAGE_LAYOUT_UNDEFINED), mem(nullptr), view(nullptr), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
+		mappableImage(nullptr), mappableMemory(nullptr), needStaging(false) {
 	}
 	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
 	// Can later Lock and Unlock again. This cannot change the format. Create cannot

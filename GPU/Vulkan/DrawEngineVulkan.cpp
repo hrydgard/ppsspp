@@ -19,6 +19,7 @@
 
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "math/dataconv.h"
 
 #include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
@@ -148,7 +149,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	for (int i = 0; i < 2; i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
 		assert(VK_SUCCESS == res);
-		frame_[i].pushData = new VulkanPushBuffer(vulkan_, 4 * 1024 * 1024);  // TODO: Do something more dynamic
+		frame_[i].pushData = new VulkanPushBuffer(vulkan_, 32 * 1024 * 1024);  // TODO: Do something more dynamic
 	}
 
 	VkPipelineLayoutCreateInfo pl;
@@ -175,20 +176,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 }
 
-void DrawEngineVulkan::BeginFrame() {
-	FrameData *frame = &frame_[curFrame_ & 1];
-	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
-	frame->descSets.clear();
-	frame->pushData->Begin(vulkan_->GetDevice());
-	frame->pushData->Reset();
-}
-
-void DrawEngineVulkan::EndFrame() {
-	FrameData *frame = &frame_[curFrame_ & 1];
-	frame->pushData->End(vulkan_->GetDevice());
-	curFrame_++;
-}
-
 DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -201,6 +188,20 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 		delete frame_[i].pushData;
 	}
 	vulkan_->QueueDelete(depalSampler_);
+}
+
+void DrawEngineVulkan::BeginFrame() {
+	FrameData *frame = &frame_[curFrame_ & 1];
+	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	frame->descSets.clear();
+	frame->pushData->Begin(vulkan_->GetDevice());
+	frame->pushData->Reset();
+}
+
+void DrawEngineVulkan::EndFrame() {
+	FrameData *frame = &frame_[curFrame_ & 1];
+	frame->pushData->End(vulkan_->GetDevice());
+	curFrame_++;
 }
 
 VertexDecoder *DrawEngineVulkan::GetVertexDecoder(u32 vtype) {
@@ -402,7 +403,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[4];
+	VkWriteDescriptorSet writes[2];
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
@@ -514,14 +515,16 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		VulkanPipelineRasterStateKey pipelineKey;
 		VulkanDynamicState dynState;
-		ConvertStateToVulkanKey(*framebufferManager_, prim, pipelineKey, dynState);
+		ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
 		// TODO: Dirty-flag these.
 		vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
 		vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
 		vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 		vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 		vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
-		// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+		float bc[4];
+		Uint8x4ToFloat4(bc, dynState.blendColor);
+		vkCmdSetBlendConstants(cmd_, bc);
 		shaderManager_->UpdateUniforms();
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), true);
@@ -589,7 +592,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
-			ConvertStateToVulkanKey(*framebufferManager_, prim, pipelineKey, dynState);
+			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
 			// TODO: Dirty-flag these.
 			vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
 			vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
@@ -604,7 +607,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 			}
 
-			// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+			float bc[4];
+			Uint8x4ToFloat4(bc, dynState.blendColor);
+			vkCmdSetBlendConstants(cmd_, bc);
 			shaderManager_->UpdateUniforms();
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), false);

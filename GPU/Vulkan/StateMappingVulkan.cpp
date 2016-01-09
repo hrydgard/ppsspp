@@ -30,6 +30,7 @@
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
+#include "GPU/Vulkan/ShaderManagerVulkan.h"
 //#include "GPU/Vulkan/PixelShaderGeneratorVulkan.h"
 
 // These tables all fit into u8s.
@@ -110,7 +111,9 @@ void ResetShaderBlending() {
 // TODO: Do this more progressively. No need to compute the entire state if the entire state hasn't changed.
 // In Vulkan, we simply collect all the state together into a "pipeline key" - we don't actually set any state here
 // (the caller is responsible for setting the little dynamic state that is supported, dynState).
-void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
+void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
+	memset(&key, 0, sizeof(key));
+	memset(&dynState, 0, sizeof(dynState));
 	// Unfortunately, this isn't implemented yet.
 	gstate_c.allowShaderBlend = false;
 
@@ -148,7 +151,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 		key.destColor = vkBlendFactorLookup[(size_t)blendState.dstColor];
 		key.destAlpha = vkBlendFactorLookup[(size_t)blendState.dstAlpha];
 		if (blendState.dirtyShaderBlend) {
-			//shaderManager_->DirtyUniform(DIRTY_SHADERBLEND);
+			shaderManager->DirtyUniform(DIRTY_SHADERBLEND);
 		}
 		dynState.useBlendColor = blendState.useBlendColor;
 		if (blendState.useBlendColor) {
@@ -270,7 +273,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 	vp.minDepth = vpAndScissor.depthRangeMin;
 	vp.maxDepth = vpAndScissor.depthRangeMax;
 	if (vpAndScissor.dirtyProj) {
-		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		shaderManager->DirtyUniform(DIRTY_PROJMATRIX);
 	}
 
 	VkRect2D &scissor = dynState.scissor;
@@ -285,10 +288,10 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 	if (depthMin < 0.0f) depthMin = 0.0f;
 	if (depthMax > 1.0f) depthMax = 1.0f;
 	if (vpAndScissor.dirtyProj) {
-		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+		shaderManager->DirtyUniform(DIRTY_PROJMATRIX);
 	}
 	if (vpAndScissor.dirtyDepth) {
-		// shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
+		shaderManager->DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 

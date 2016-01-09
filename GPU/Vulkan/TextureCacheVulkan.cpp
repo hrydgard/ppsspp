@@ -66,7 +66,7 @@
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
 #define VULKAN_4444_FORMAT VK_FORMAT_R4G4B4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
+#define VULKAN_1555_FORMAT VK_FORMAT_R5G5B5A1_UNORM_PACK16   // TODO: Switch to the one that matches the PSP better.
 #define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
@@ -1507,7 +1507,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 	default:
-		return VK_FORMAT_R8G8B8A8_UNORM;
+		return VULKAN_8888_FORMAT;
 	}
 }
 
@@ -1628,7 +1628,7 @@ void *TextureCacheVulkan::DecodeTextureLevel(GETextureFormat format, GEPaletteFo
 	case GE_TFMT_8888:
 		if (!swizzled) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if ((scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
+			if (scaleFactor == 1 || w == bufw) {
 				finalBuf = (void *)texptr;
 			} else {
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
@@ -1715,36 +1715,19 @@ void *TextureCacheVulkan::DecodeTextureLevel(GETextureFormat format, GEPaletteFo
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
-	if (!(scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
-		int pixelSize;
-		switch (dstFmt) {
-		case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
-		case VK_FORMAT_R5G6B5_UNORM_PACK16:
-		case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
-			pixelSize = 2;
-			break;
-		default:
-			pixelSize = 4;
-			break;
-		}
-
-		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
-		finalBuf = RearrangeBuf(finalBuf, bufw * pixelSize, w * pixelSize, h);
-	}
-
 	return finalBuf;
 }
 
 TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
-	case VK_FORMAT_R4G4B4A4_UNORM_PACK16:
+	case VULKAN_4444_FORMAT:
 		res = CheckAlphaABGR4444Basic(pixelData, stride, w, h);
 		break;
-	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
+	case VULKAN_1555_FORMAT:
 		res = CheckAlphaABGR1555Basic(pixelData, stride, w, h);
 		break;
-	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VULKAN_565_FORMAT:
 		// Never has any alpha.
 		res = CHECKALPHA_FULL;
 		break;
@@ -1775,8 +1758,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 		if (finalBuf == NULL) {
 			return;
 		}
-		decPitch = w * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
-		rowBytes = decPitch;
+		decPitch = bufw * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
+		rowBytes = w * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
 		gpuStats.numTexturesDecoded++;
 
 		pixelData = (u32 *)finalBuf;
