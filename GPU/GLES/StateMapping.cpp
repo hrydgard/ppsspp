@@ -152,7 +152,7 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 }
 
 void TransformDrawEngine::ApplyDrawState(int prim) {
-	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
+	// TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();

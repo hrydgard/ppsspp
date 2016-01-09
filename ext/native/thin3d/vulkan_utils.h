@@ -24,8 +24,9 @@
 #include "VulkanContext.h"
 
 class VulkanContext;
+
 // Utility class to handle images without going insane.
-// Allocates its own memory. 
+// Allocates its own memory.
 class VulkanImage {
 public:
 	VulkanImage() : image_(nullptr), memory_(nullptr) {}
@@ -48,9 +49,3 @@ private:
 	int width_;
 	int height_;
 };
-
-
-class Thin3DPipelineCache {
-
-};
-

@@ -74,8 +74,44 @@ public:
 	VkImageView imageView;
 };
 
+SamplerCache::~SamplerCache() {
+	for (auto iter : cache_) {
+		vulkan_->QueueDelete(iter.second);
+	}
+}
 
-TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan) : vulkan_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
+	auto iter = cache_.find(key);
+	if (iter != cache_.end()) {
+		return iter->second;
+	}
+
+	VkSamplerCreateInfo samp;
+	samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samp.pNext = nullptr;
+	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+	samp.compareEnable = false;
+	samp.flags = 0;
+	samp.magFilter = (key.magFilt & 1) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;  // TODO: Aniso
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // key.4) ? ((key.magFilt & 2) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST) : VK_SAMPLER_MIPMAP_MODE_BASE;
+	samp.maxAnisotropy = 1.0f;
+	samp.maxLod = 1000.0f;
+	samp.minLod = 0.0f;
+	samp.unnormalizedCoordinates = false;
+	samp.mipLodBias = 0.0f;
+
+	VkSampler sampler;
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
+
+	cache_[key] = sampler;
+	return sampler;
+}
+
+TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan) : vulkan_(vulkan), samplerCache_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -549,21 +585,6 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_LINEAR
 };
 
-
-struct SamplerCacheKey {
-	bool minFilt : 1;
-	bool mipFilt : 1;
-	bool magFilt : 1;
-	bool sClamp : 1;
-	bool tClamp : 1;
-	int lodBias : 4;
-	int maxLevel : 4;
-
-	bool operator < (const SamplerCacheKey &other) const {
-		return memcmp(this, &other, sizeof(*this)) < 0;
-	}
-};
-
 // This should not have to be done per texture! OpenGL is silly yo
 void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	// TODO: Make GetSamplingParams write SamplerCacheKey directly
@@ -854,6 +875,10 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 		}
 
 		
+		imageView = nextTexture_->vkTex->imageView;
+
+		SamplerCacheKey key;
+		sampler = samplerCache_.GetOrCreateSampler(key);
 		// if (nextTexture_->textureName != lastBoundTexture) {
 			// nextTexture_->vkTex->
 		//   
