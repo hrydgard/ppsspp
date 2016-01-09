@@ -87,10 +87,12 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 		last_yres = yres;
 	}
 	
-	int img = I_BG;
 #ifdef GOLD
-	img = I_BG_GOLD;
+	int img = I_BG_GOLD;
+#else
+	int img = I_BG;
 #endif
+
 	ui_draw2d.DrawImageStretch(img, dc.GetBounds());
 	float t = time_now();
 	for (int i = 0; i < 100; i++) {

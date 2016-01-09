@@ -353,7 +353,7 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 	return result;
 }
 
-void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
+void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
 	FT_Library freetype;
 	CHECK(FT_Init_FreeType(&freetype) == 0);
 

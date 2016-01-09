@@ -814,8 +814,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			bool hasFile = of.file != NULL;
 			p.Do(hasFile);
 			if (hasFile) {
-				std::string path = "";
-				path = EntryFullPath(of.file);
+				std::string path = EntryFullPath(of.file);
 				p.Do(path);
 			}
 		}
