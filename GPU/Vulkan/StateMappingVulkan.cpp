@@ -188,9 +188,6 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
 
-		// TODO: Remove (For debugging)
-		key.cullMode = VK_CULL_MODE_NONE;
-
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			key.depthTestEnable = true;

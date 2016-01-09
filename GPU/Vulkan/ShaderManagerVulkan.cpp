@@ -182,21 +182,15 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 }
 
 uint32_t ShaderManagerVulkan::PushBaseBuffer(VulkanPushBuffer *dest) {
-	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
-		BaseUpdateUniforms(globalDirty_);
 	return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_);
 }
 
 uint32_t ShaderManagerVulkan::PushLightBuffer(VulkanPushBuffer *dest) {
-	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
-		BaseUpdateUniforms(globalDirty_);
 	return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_);
 }
 
 // TODO: Only push half the bone buffer if we only have four bones.
 uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest) {
-	if (globalDirty_ & DIRTY_BASE_UNIFORMS)
-		BaseUpdateUniforms(globalDirty_);
 	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_);
 }
 
@@ -255,7 +249,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
 			const bool invertedY = gstate_c.vpHeight < 0;
-			if (!invertedY) {
+			if (invertedY) {
 				flippedMatrix[1] = -flippedMatrix[1];
 				flippedMatrix[5] = -flippedMatrix[5];
 				flippedMatrix[9] = -flippedMatrix[9];
@@ -401,7 +395,7 @@ void ShaderManagerVulkan::LightUpdateUniforms(int dirtyUniforms) {
 		Uint8x3ToFloat4(ub_lights.materialEmissive, gstate.materialemissive);
 	}
 	if (dirtyUniforms & DIRTY_MATSPECULAR) {
-		Uint8x3ToFloat4_Alpha(ub_lights.materialEmissive, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		Uint8x3ToFloat4_Alpha(ub_lights.materialSpecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -449,10 +443,10 @@ void ShaderManagerVulkan::Clear() {
 	}
 	fsCache_.clear();
 	vsCache_.clear();
-	globalDirty_ = 0xFFFFFFFF;
 	lastFSID_.clear();
 	lastVSID_.clear();
 	DirtyShader();
+	DirtyUniform(0xFFFFFFFF);
 }
 
 void ShaderManagerVulkan::ClearCache(bool deleteThem) {
@@ -466,7 +460,6 @@ void ShaderManagerVulkan::DirtyShader() {
 	lastVSID_.clear();
 	lastVShader_ = nullptr;
 	lastFShader_ = nullptr;
-	globalDirty_ = 0xFFFFFFFF;
 }
 
 void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
@@ -485,8 +478,8 @@ void ShaderManagerVulkan::UpdateUniforms() {
 
 void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform) {
 	ShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 	ShaderID FSID;
+	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.

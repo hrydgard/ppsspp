@@ -544,7 +544,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
-			vkCmdDrawIndexed(cmd_, maxIndex, 1, 0, 0, 0);
+			vkCmdDrawIndexed(cmd_, indexGen.VertexCount(), 1, 0, 0, 0);
 		} else {
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
