@@ -52,16 +52,6 @@ enum {
 	DRAW_BINDING_DYNUBO_BONE = 4,
 };
 
-const VkPrimitiveTopology prim[8] = {
-	VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-	VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
-	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
-	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
-	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,  // Vulkan doesn't do quads. We could do strips with restart-index though. We could also do RECT primitives in the geometry shader.
-};
-
 enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
