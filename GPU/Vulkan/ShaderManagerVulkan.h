@@ -216,9 +216,6 @@ public:
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
 
 	void DirtyShader();
-	void DirtyUniform(u32 what) {
-		globalDirty_ |= what;
-	}
 	void DirtyLastShader();
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
@@ -226,6 +223,12 @@ public:
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+
+	void UpdateUniforms();
+
+	void DirtyUniform(u32 what) {
+		globalDirty_ |= what;
+	}
 
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.
@@ -246,20 +249,20 @@ private:
 
 	VulkanContext *vulkan_;
 
-	uint32_t globalDirty_;
-	uint32_t uboAlignment_;
-	char *codeBuffer_;
-
-	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
-	UB_VS_FS_Base ub_base;
-	UB_VS_Lights ub_lights;
-	UB_VS_Bones ub_bones;
-
 	typedef std::map<ShaderID, VulkanFragmentShader *> FSCache;
 	FSCache fsCache_;
 
 	typedef std::map<ShaderID, VulkanVertexShader *> VSCache;
 	VSCache vsCache_;
+
+	char *codeBuffer_;
+
+	uint32_t globalDirty_;
+	uint32_t uboAlignment_;
+	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
+	UB_VS_FS_Base ub_base;
+	UB_VS_Lights ub_lights;
+	UB_VS_Bones ub_bones;
 
 	VulkanFragmentShader *lastFShader_;
 	VulkanVertexShader *lastVShader_;

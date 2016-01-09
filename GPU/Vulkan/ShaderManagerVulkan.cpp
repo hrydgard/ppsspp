@@ -474,6 +474,14 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 	lastFShader_ = nullptr;
 }
 
+void ShaderManagerVulkan::UpdateUniforms() {
+	if (globalDirty_) {
+		BaseUpdateUniforms(globalDirty_);
+		LightUpdateUniforms(globalDirty_);
+		BoneUpdateUniforms(globalDirty_);
+		globalDirty_ = 0;
+	}
+}
 
 void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform) {
 	ShaderID VSID;
@@ -483,12 +491,6 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastFShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
-		if (globalDirty_) {
-			BaseUpdateUniforms(globalDirty_);
-			LightUpdateUniforms(globalDirty_);
-			BoneUpdateUniforms(globalDirty_);
-			globalDirty_ = 0;
-		}
 		*vshader = lastVShader_;
 		*fshader = lastFShader_;
 		// Already all set, no need to look up in shader maps.
@@ -520,12 +522,6 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	lastFSID_ = FSID;
 
-	if (globalDirty_) {
-		BaseUpdateUniforms(globalDirty_);
-		LightUpdateUniforms(globalDirty_);
-		BoneUpdateUniforms(globalDirty_);
-		globalDirty_ = 0;
-	}
 	*vshader = vs;
 	*fshader = fs;
 }

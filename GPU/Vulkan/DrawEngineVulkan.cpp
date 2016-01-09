@@ -514,6 +514,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 		vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
 		// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+		shaderManager_->UpdateUniforms();
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), true);
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
@@ -596,6 +597,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 
 			// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+			shaderManager_->UpdateUniforms();
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), false);
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
