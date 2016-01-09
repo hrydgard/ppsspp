@@ -34,6 +34,7 @@ void ConvertProjMatrixToVulkan(Matrix4x4 & in);
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
+	// 1 << 1 is free
 	DIRTY_FOGCOLOR = (1 << 2),
 	DIRTY_FOGCOEF = (1 << 3),
 	DIRTY_TEXENV = (1 << 4),
@@ -58,7 +59,7 @@ enum {
 	DIRTY_DEPTHRANGE = (1 << 20),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
-	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
+	DIRTY_VIEWMATRIX = (1 << 22),
 	DIRTY_TEXMATRIX = (1 << 23),
 	DIRTY_BONEMATRIX0 = (1 << 24),
 	DIRTY_BONEMATRIX1 = (1 << 25),
