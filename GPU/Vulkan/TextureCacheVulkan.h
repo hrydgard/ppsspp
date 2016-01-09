@@ -47,12 +47,19 @@ struct SamplerCacheKey {
 	}
 };
 
+// texturePtr points to these.
+class CachedTextureVulkan {
+public:
+	VkImageView imageView;
+	VkImageLayout imageLayout;
+};
 
 class SamplerCache {
 public:
 	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan) {}
 	~SamplerCache();
 	VkSampler GetOrCreateSampler(const SamplerCacheKey &key);
+
 private:
 	VulkanContext *vulkan_;
 	std::map<SamplerCacheKey, VkSampler> cache_;

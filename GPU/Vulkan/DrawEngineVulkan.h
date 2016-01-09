@@ -149,7 +149,7 @@ private:
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
-	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler);
+	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler, VkBuffer dynamicUbo);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -163,6 +163,7 @@ private:
 		void *texture_;
 		void *secondaryTexture_;
 		VkSampler sampler_;
+		VkBuffer buffer_;  // All three UBO slots will be set to this.
 
 		bool operator < (const DescriptorSetKey &other) const {
 			if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;

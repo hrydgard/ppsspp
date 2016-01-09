@@ -384,13 +384,12 @@ private:
 	VkFramebuffer framebuffer_;
 };
 
-// Use these to push vertex, index and uniform data.
+// Use these to push vertex, index and uniform data. Generally you'll have two of these
+// and alternate on each frame.
 // TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
-// TODO: Make this dynamically grow by chaining new buffers in the future.
-// Until then, we cap at a maximum size.
 // We'll have two of these that we alternate between on each frame.
-// These will only be used for the "Thin3D" system - the PSP emulation etc will have
-// their own similar buffer solutions.
+// TODO: Make this auto-grow and shrink. Need to be careful about returning and using the new
+// buffer handle on overflow.
 class VulkanPushBuffer {
 public:
 	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {

@@ -68,12 +68,6 @@
 // Hack!
 extern int g_iNumVideos;
 
-// texturePtr points to these.
-class CachedTextureVulkan {
-public:
-	VkImageView imageView;
-};
-
 SamplerCache::~SamplerCache() {
 	for (auto iter : cache_) {
 		vulkan_->QueueDelete(iter.second);
