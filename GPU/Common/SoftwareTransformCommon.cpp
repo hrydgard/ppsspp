@@ -96,16 +96,14 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
-	u32 matchcolor = transformed[0].color0_32;
-	float matchz = transformed[0].z;
+	// Color and Z are decided by the second vertex, so only need to check those for matching color.
+	u32 matchcolor = transformed[1].color0_32;
+	float matchz = transformed[1].z;
 
 	int bufW = gstate_c.curRTWidth;
 	int bufH = gstate_c.curRTHeight;
 
 	for (int i = 1; i < numVerts; i++) {
-		if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
-			return false;
-
 		if ((i & 1) == 0) {
 			// Top left of a rectangle
 			if (transformed[i].y != 0)
@@ -113,6 +111,8 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 			if (i > 0 && transformed[i].x != transformed[i - 1].x)
 				return false;
 		} else {
+			if ((i & 1) && transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
+				return false;
 			// Bottom right
 			if (transformed[i].y != bufH)
 				return false;
@@ -406,9 +406,9 @@ void SoftwareTransform(
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
-		result->color = transformed[0].color0_32;
+		result->color = transformed[1].color0_32;
 		// Need to rescale from a [0, 1] float.  This is the final transformed value.
-		result->depth = ToScaledDepth((s16)(int)(transformed[0].z * 65535.0f));
+		result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
 		result->action = SW_CLEAR;
 		return;
 	}
@@ -552,7 +552,7 @@ void SoftwareTransform(
 			result->setStencil = true;
 			if (vertexCount > 1) {
 				// Take the bottom right alpha value of the first rect as the stencil value.
-				// Technically, each rect should individually fill its stencil, but most of the
+				// Technically, each rect could individually fill its stencil, but most of the
 				// time they use the same one.
 				result->stencilValue = transformed[indsIn[1]].color0[3];
 			} else {
