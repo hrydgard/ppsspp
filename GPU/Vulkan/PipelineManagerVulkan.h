@@ -52,6 +52,13 @@ struct VulkanPipelineKey {
 		if (fShader < other.fShader) return true; else if (other.fShader < fShader) return false;
 		return false;
 	}
+	void ToString(std::string *str) const {
+		str->resize(sizeof(*this));
+		memcpy(&(*str)[0], this, sizeof(*this));
+	}
+	void FromString(const std::string &str) {
+		memcpy(this, &str[0], sizeof(*this));
+	}
 };
 
 enum {
@@ -66,6 +73,8 @@ struct VulkanPipeline {
 	int uniformBlocks;  // UB_ enum above.
 };
 
+class VulkanContext;
+
 class PipelineManagerVulkan {
 public:
 	PipelineManagerVulkan(VulkanContext *ctx);
@@ -73,6 +82,9 @@ public:
 
 	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform);
 	int GetNumPipelines() const { return 0; }
+
+	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
 private:
 	std::map<VulkanPipelineKey, VulkanPipeline *> pipelines_;
