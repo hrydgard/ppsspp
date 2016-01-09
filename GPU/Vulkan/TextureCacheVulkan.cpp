@@ -65,6 +65,11 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
+#define VULKAN_4444_FORMAT VK_FORMAT_R4G4B4A4_UNORM_PACK16
+#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
+#define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
+#define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+
 // Hack!
 extern int g_iNumVideos;
 
@@ -80,7 +85,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		return iter->second;
 	}
 
-	VkSamplerCreateInfo samp;
+	VkSamplerCreateInfo samp = {};
 	samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	samp.pNext = nullptr;
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -88,6 +93,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 	samp.compareEnable = false;
+	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = (key.magFilt & 1) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;  // TODO: Aniso
@@ -100,7 +106,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 
 	VkSampler sampler;
 	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &sampler);
-
+	assert(res == VK_SUCCESS);
 	cache_[key] = sampler;
 	return sampler;
 }
@@ -561,13 +567,13 @@ void *TextureCacheVulkan::ReadIndexedTex(int level, const u8 *texptr, int bytesP
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
-		return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+		return VULKAN_4444_FORMAT;
 	case GE_CMODE_16BIT_ABGR5551:
-		return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+		return VULKAN_1555_FORMAT;
 	case GE_CMODE_16BIT_BGR5650:
-		return VK_FORMAT_R5G6B5_UNORM_PACK16;
+		return VULKAN_565_FORMAT;
 	case GE_CMODE_32BIT_ABGR8888:
-		return VK_FORMAT_R8G8B8A8_UNORM;
+		return VULKAN_8888_FORMAT;
 	}
 	return VK_FORMAT_UNDEFINED;
 }
@@ -579,8 +585,7 @@ static const VkFilter MagFiltVK[2] = {
 	VK_FILTER_LINEAR
 };
 
-// This should not have to be done per texture! OpenGL is silly yo
-void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
+void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key) {
 	// TODO: Make GetSamplingParams write SamplerCacheKey directly
 	int minFilt;
 	int magFilt;
@@ -588,10 +593,9 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, bool force) 
 	bool tClamp;
 	float lodBias;
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
-
-	SamplerCacheKey key;
 	key.minFilt = minFilt & 1;
-	key.mipFilt = (minFilt >> 2) & 1;
+	key.mipEnable = (minFilt >> 2) & 1;
+	key.mipFilt = (minFilt >> 1) & 1;
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
@@ -650,14 +654,14 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, VkFormat dstFmt, int
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
 	switch (dstFmt) {
-	case VK_FORMAT_B4G4R4A4_UNORM_PACK16:
+	case VULKAN_4444_FORMAT:
 		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 		// Final Fantasy 2 uses this heavily in animated textures.
-	case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
+	case VULKAN_1555_FORMAT:
 		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
 		break;
-	case VK_FORMAT_R5G6B5_UNORM_PACK16:
+	case VULKAN_565_FORMAT:
 		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	default:
@@ -841,6 +845,8 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler) {
 	if (nextTexture_ == nullptr) {
+		imageView = nullptr;
+		sampler = nullptr;
 		return;
 	}
 	VkCommandBuffer cmd = nullptr;
@@ -867,18 +873,14 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 				nextTexture_->maxSeenV = 512;
 			}
 		}
-
 		
-		imageView = nextTexture_->vkTex->imageView;
+		imageView = nextTexture_->vkTex->texture_->GetImageView();
 
 		SamplerCacheKey key;
+		UpdateSamplingParams(*nextTexture_, key);
 		sampler = samplerCache_.GetOrCreateSampler(key);
-		// if (nextTexture_->textureName != lastBoundTexture) {
-			// nextTexture_->vkTex->
-		//   
 
 		lastBoundTexture = nextTexture_->vkTex;
-		UpdateSamplingParams(*nextTexture_, false);
 	}
 
 	nextTexture_ = nullptr;
@@ -1018,6 +1020,12 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	sampler = GetOrCreateSampler(samplerKey);
 	*/
+
+	SamplerCacheKey key;
+	UpdateSamplingParams(*nextTexture_, key);
+	key.mipEnable = false;
+	sampler = samplerCache_.GetOrCreateSampler(key);
+
 	lastBoundTexture = nullptr;
 }
 
@@ -1056,7 +1064,7 @@ bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
-void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView) {
+void TextureCacheVulkan::SetTexture() {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -1075,6 +1083,9 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 	const u16 dim = gstate.getTextureDimension(0);
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
+	if (texaddr == 0x04000000 && w == 2 && h == 2) {
+		// Nonsense bootup texture. Discard.
+	}
 
 	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
@@ -1308,6 +1319,7 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
 		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 		// Proceeding here can cause a crash.
+		nextTexture_ = nullptr;
 		return;
 	}
 
@@ -1338,8 +1350,6 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
-	entry->vkTex = new CachedTextureVulkan();
-
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
@@ -1352,6 +1362,8 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 		entry->lastFrame = gpuStats.numFlips;
 		return;
 	}
+
+	entry->vkTex = new CachedTextureVulkan();
 
 	lastBoundTexture = entry->vkTex;
 
@@ -1430,6 +1442,11 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 		}
 	}
 
+	// Ready or not, here I go...
+	entry->vkTex->texture_ = new VulkanTexture();
+	VulkanTexture *image = entry->vkTex->texture_;
+	image->Create(vulkan_, w, h, dstFmt);
+
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
 	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -1462,13 +1479,8 @@ void TextureCacheVulkan::SetTexture(VkCommandBuffer cmd, VkImageView &imageView)
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
-	// This will rebind it, but that's okay.
+	// TODO: Refactor away nextTexture_. Not needed on Vulkan.
 	nextTexture_ = entry;
-	UpdateSamplingParams(*entry, true);
-
-	// entry->vkTex->imageView = CreateImageView
-
-	imageView = entry->vkTex->imageView;
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
@@ -1479,11 +1491,11 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	case GE_TFMT_CLUT32:
 		return getClutDestFormatVulkan(clutFormat);
 	case GE_TFMT_4444:
-		return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+		return VULKAN_4444_FORMAT;
 	case GE_TFMT_5551:
-		return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+		return VULKAN_1555_FORMAT;
 	case GE_TFMT_5650:
-		return VK_FORMAT_R5G6B5_UNORM_PACK16;
+		return VULKAN_565_FORMAT;
 	case GE_TFMT_8888:
 	case GE_TFMT_DXT1:
 	case GE_TFMT_DXT3:
@@ -1739,9 +1751,12 @@ TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u
 }
 
 void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, VkFormat dstFmt) {
+	CachedTextureVulkan *tex = entry.vkTex;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	u32 *pixelData;
+	int decPitch;
+	int rowBytes;
 	{
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -1754,7 +1769,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 		if (finalBuf == NULL) {
 			return;
 		}
-
+		decPitch = w * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
+		rowBytes = decPitch;
 		gpuStats.numTexturesDecoded++;
 
 		pixelData = (u32 *)finalBuf;
@@ -1772,38 +1788,43 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 		}
 	}
 
-	/*
-	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-
-	GLuint components2 = components;
-
 	if (replaceImages) {
-		PROFILE_THIS_SCOPE("repltex");
-		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
-	} else {
-		PROFILE_THIS_SCOPE("loadtex");
-		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-		if (!lowMemoryMode_) {
-			GLenum err = glGetError();
-			if (err == GL_OUT_OF_MEMORY) {
-				WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-				lowMemoryMode_ = true;
-				decimationCounter_ = 0;
-				Decimate();
-				// Try again, now that we've cleared out textures in lowMemoryMode_.
-				glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-
-				I18NCategory *err = GetI18NCategory("Error");
-				if (scaleFactor > 1) {
-					osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-				} else {
-					osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-				}
-			} else if (err != GL_NO_ERROR) {
-				// We checked the err anyway, might as well log if there is one.
-				WARN_LOG(G3D, "Got an error in texture upload: %08x", err);
-			}
-		}
+		// TODO: No support for texture shadows
+		DebugBreak();
 	}
-	*/
+
+	PROFILE_THIS_SCOPE("loadtex");
+
+	// Upload the texture data. TODO: Decode directly into this buffer.
+	int rowPitch;
+	uint8_t *writePtr = entry.vkTex->texture_->Lock(vulkan_, level, &rowPitch);
+	for (int y = 0; y < h; y++) {
+		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
+	}
+	entry.vkTex->texture_->Unlock(vulkan_);
+
+	/*
+	if (!lowMemoryMode_) {
+		GLenum err = glGetError();
+		if (err == GL_OUT_OF_MEMORY) {
+			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+			lowMemoryMode_ = true;
+			decimationCounter_ = 0;
+			Decimate();
+			// TODO: We need to stall the GPU here and wipe things out of memory.
+
+			// Try again, now that we've cleared out textures in lowMemoryMode_.
+			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
+
+			I18NCategory *err = GetI18NCategory("Error");
+			if (scaleFactor > 1) {
+				osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			} else {
+				osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			}
+		} else if (err != GL_NO_ERROR) {
+			// We checked the err anyway, might as well log if there is one.
+			WARN_LOG(G3D, "Got an error in texture upload: %08x", err);
+		}
+	}*/
 }

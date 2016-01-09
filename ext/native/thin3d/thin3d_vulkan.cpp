@@ -30,7 +30,6 @@
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
 #include "thin3d/thin3d.h"
-#include "thin3d/vulkan_utils.h"
 #include "thin3d/VulkanContext.h"
 
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
@@ -511,7 +510,7 @@ public:
 	void Finalize(int zim_flags) override;
 	void AutoGenMipmaps() {}
 
-	VkImageView GetImageView() { return vkTex_->view; }
+	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
 	void Destroy() {
@@ -922,7 +921,7 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	int bytesPerPixel = bpp / 8;
 	vkTex_->Create(vulkan_, width, height, vulkanFormat);
 	int rowPitch;
-	uint8_t *dstData = vkTex_->Lock(vulkan_, &rowPitch);
+	uint8_t *dstData = vkTex_->Lock(vulkan_, 0, &rowPitch);
 	for (int y = 0; y < height; y++) {
 		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
 	}

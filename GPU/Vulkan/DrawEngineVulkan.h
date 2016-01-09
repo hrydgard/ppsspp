@@ -57,6 +57,9 @@ typedef u64 ReliableHashType;
 typedef u32 ReliableHashType;
 #endif
 
+class VulkanContext;
+class VulkanPushBuffer;
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -149,7 +152,7 @@ private:
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
-	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler, VkBuffer dynamicUbo);
+	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer dynamicUbo);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -160,15 +163,17 @@ private:
 	VkPipelineLayout pipelineLayout_;
 
 	struct DescriptorSetKey {
-		void *texture_;
-		void *secondaryTexture_;
+		VkImageView imageView_;
+		VkImageView secondaryImageView_;
 		VkSampler sampler_;
-		VkBuffer buffer_;  // All three UBO slots will be set to this.
+		VkBuffer buffer_;  // All three UBO slots will be set to this. This will usually be identical
+		// for all draws in a frame, except when the buffer has to grow.
 
 		bool operator < (const DescriptorSetKey &other) const {
-			if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+			if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
 			if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
-			if (secondaryTexture_ < other.secondaryTexture_) return true; else if (secondaryTexture_ > other.secondaryTexture_) return false;
+			if (secondaryImageView_ < other.secondaryImageView_) return true; else if (secondaryImageView_ > other.secondaryImageView_) return false;
+			if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
 			return false;
 		}
 	};
