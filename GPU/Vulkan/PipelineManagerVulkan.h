@@ -37,20 +37,16 @@ enum class PspAttributeLocation {
 	COUNT
 };
 
-// All the information needed. All PSP rendering (except full screen clears?) will make use of a single
-// render pass definition.
 struct VulkanPipelineKey {
-	VulkanPipelineRasterStateKey raster;
-	int prim;
-	bool pretransformed;
+	VulkanPipelineRasterStateKey raster;  // prim is included here
+	bool useHWTransform;
 	const VertexDecoder *vtxDec;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
 
 	bool operator < (const VulkanPipelineKey &other) const {
 		if (raster < other.raster) return true; else if (other.raster < raster) return false;
-		if (prim < other.prim) return true; else if (other.prim < prim) return false;
-		if (pretransformed < other.pretransformed) return true; else if (other.pretransformed < pretransformed) return false;
+		if (useHWTransform < other.useHWTransform) return true; else if (other.useHWTransform < useHWTransform) return false;
 		if (vtxDec < other.vtxDec) return true; else if (other.vtxDec < vtxDec) return false;
 		if (vShader < other.vShader) return true; else if (other.vShader < vShader) return false;
 		if (fShader < other.fShader) return true; else if (other.fShader < fShader) return false;

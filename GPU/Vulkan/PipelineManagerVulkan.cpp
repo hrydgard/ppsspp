@@ -283,6 +283,10 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform) {
 	VulkanPipelineKey key;
 	key.raster = rasterKey;
+	key.useHWTransform = useHwTransform;
+	key.vShader = vShader;
+	key.fShader = fShader;
+	key.vtxDec = vtxDec;
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
 		return iter->second;
