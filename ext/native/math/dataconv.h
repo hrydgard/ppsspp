@@ -46,7 +46,7 @@ inline void Uint8x1ToFloat4(float f[4], uint32_t u) {
 // These are just for readability.
 
 inline void CopyFloat2(float dest[2], const float src[2]) {
-	memcpy(dest, src, sizeof(dest));
+	memcpy(dest, src, sizeof(float) * 2);
 }
 
 inline void CopyFloat1To4(float dest[4], const float src) {
@@ -57,25 +57,25 @@ inline void CopyFloat1To4(float dest[4], const float src) {
 }
 
 inline void CopyFloat2To4(float dest[4], const float src[2]) {
-	memcpy(dest, src, sizeof(src));
+	memcpy(dest, src, sizeof(float) * 2);
 	dest[2] = 0.0f;
 	dest[3] = 0.0f;
 }
 
 inline void CopyFloat3To4(float dest[4], const float src[3]) {
-	memcpy(dest, src, sizeof(src));
+	memcpy(dest, src, sizeof(float) * 3);
 	dest[3] = 0.0f;
 }
 
 inline void CopyFloat4(float dest[4], const float src[4]) {
-	memcpy(dest, src, sizeof(dest));
+	memcpy(dest, src, sizeof(float) * 4);
 }
 
 inline void CopyMatrix4x4(float dest[16], const float src[16]) {
-	memcpy(dest, src, sizeof(dest));
+	memcpy(dest, src, sizeof(float) * 16);
 }
 
 inline void ExpandFloat24x3ToFloat4(float dest[4], uint32_t src[3]) {
 	uint32_t temp[4] = { src[0] << 8, src[1] << 8, src[2] << 8, 0 };
-	memcpy(dest, temp, sizeof(dest));
+	memcpy(dest, temp, sizeof(float) * 4);
 }

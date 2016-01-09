@@ -1,6 +1,3 @@
-#include "GPU/Vulkan/DrawEngineVulkan.h"
-
-
 // Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
@@ -46,6 +43,14 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
+
+enum {
+	DRAW_BINDING_TEXTURE = 0,
+	DRAW_BINDING_2ND_TEXTURE = 1,
+	DRAW_BINDING_DYNUBO_BASE = 2,
+	DRAW_BINDING_DYNUBO_LIGHT = 3,
+	DRAW_BINDING_DYNUBO_BONE = 4,
+};
 
 const VkPrimitiveTopology prim[8] = {
 	VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
@@ -99,27 +104,27 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[0].binding = 0;
+	bindings[0].binding = DRAW_BINDING_TEXTURE;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[1].binding = 1;
+	bindings[1].binding = DRAW_BINDING_2ND_TEXTURE;
 	bindings[2].descriptorCount = 1;
 	bindings[2].pImmutableSamplers = nullptr;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[2].binding = 2;
+	bindings[2].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[3].descriptorCount = 1;
 	bindings[3].pImmutableSamplers = nullptr;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[3].binding = 3;
+	bindings[3].binding = DRAW_BINDING_DYNUBO_LIGHT;
 	bindings[4].descriptorCount = 1;
 	bindings[4].pImmutableSamplers = nullptr;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = 4;
+	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -131,7 +136,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 200;
+	dpTypes[0].descriptorCount = 800;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -139,8 +144,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	VkDescriptorPoolCreateInfo dp;
 	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	dp.pNext = nullptr;
-	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
+	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
+	dp.maxSets = 1000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 	res = vkCreateDescriptorPool(device, &dp, nullptr, &frame_[0].descPool);
@@ -167,6 +172,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 
 	VkSamplerCreateInfo samp = {};
+	samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samp.pNext = nullptr;
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -377,13 +384,14 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler) {
+VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler, VkBuffer dynamicUbo) {
 	DescriptorSetKey key;
 	key.texture_ = texture;
 	key.sampler_ = sampler;
 	key.secondaryTexture_ = nullptr;
-	FrameData *frame = &frame_[curFrame_ & 1];
+	key.buffer_ = dynamicUbo;
 
+	FrameData *frame = &frame_[curFrame_ & 1];
 	auto iter = frame->descSets.find(key);
 	if (iter != frame->descSets.end()) {
 		return iter->second;
@@ -392,22 +400,59 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture,
 	// Didn't find one in the frame cache, let's make a new one.
 
 	VkDescriptorSet desc;
+	VkDescriptorSetAllocateInfo descAlloc;
+	descAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	descAlloc.pNext = nullptr;
+	descAlloc.pSetLayouts = &descriptorSetLayout_;
+	descAlloc.descriptorPool = frame->descPool;
+	descAlloc.descriptorSetCount = 1;
+	vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[2];
+	VkWriteDescriptorSet writes[4];
 	memset(writes, 0, sizeof(writes));
 	// Main texture
-	VkDescriptorImageInfo tex;
+	int n = 0;
+	if (texture) {
+		VkDescriptorImageInfo tex;
+		tex.imageLayout = texture->imageLayout;
+		tex.imageView = texture->imageView;
+		tex.sampler = sampler;
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_TEXTURE;
+		writes[n].pImageInfo = &tex;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writes[n].dstSet = desc;
+		n++;
+	}
 
-	// tex.imageView = texture->imageView;
-	tex.sampler = sampler;
-	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[0].dstBinding = 0;
-	writes[0].pImageInfo = &tex;
-	
-	vkUpdateDescriptorSets(vulkan_->GetDevice(), 2, writes, 0, nullptr);
+  // Skipping 2nd texture for now.
+	// Uniform buffer objects
+	VkDescriptorBufferInfo buf[3];
+	buf[0].buffer = dynamicUbo;
+	buf[0].offset = 0;
+	buf[0].range = sizeof(UB_VS_FS_Base);
+	buf[1].buffer = dynamicUbo;
+	buf[1].offset = 0;
+	buf[1].range = sizeof(UB_VS_Lights);
+	buf[2].buffer = dynamicUbo;
+	buf[2].offset = 0;
+	buf[2].range = sizeof(UB_VS_Bones);
+	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[n].pNext = nullptr;
+	writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE;
+	writes[n].pBufferInfo = &buf[0];
+	writes[n].dstSet = desc;
+	writes[n].descriptorCount = 3;
+	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	n++;
+
+	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
 	frame->descSets[key] = desc;
-	return nullptr;
+	return desc;
 }
 
 // The inline wrapper in the header checks for numDrawCalls == 0d
@@ -416,16 +461,19 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
-//	CachedTextureVulkan *tex = textureCache_->ApplyTexture();
-//	VkDescriptorSet ds = GetDescriptorSet(tex);
-	VkDescriptorSet ds;
+	// Note than when we implement overflow in pushbuffer, we need to make sure to overflow here, not between
+	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
+	// designed the descriptor set.
+
+	//	CachedTextureVulkan *tex = textureCache_->ApplyTexture();
+	VkDescriptorSet ds = GetDescriptorSet(nullptr, nullptr, frame->pushData->GetVkBuffer());
 
 	GEPrimitiveType prim = prevPrim_;
-	// ApplyDrawState(prim);
+
+	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	VulkanVertexShader *vshader;
 	VulkanFragmentShader *fshader;
-	shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader);
 
 	uint32_t baseUBOOffset = 0;
 	uint32_t lightUBOOffset = 0;
@@ -434,7 +482,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	uint32_t ibOffset = 0;
 	uint32_t vbOffset = 0;
 	
-	if (vshader->UseHWTransform()) {
+	if (useHWTransform) {
 		int vertexCount = 0;
 		int maxIndex = 0;
 		bool useElements = true;
@@ -449,7 +497,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 		prim = indexGen.Prim();
 
-		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -467,6 +514,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
 		vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
 		// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), true);
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
@@ -481,21 +529,21 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 
 		VkBuffer buf[1] = {frame->pushData->GetVkBuffer()};
-		uint32_t dynamicUBOOffsets[3] = {
+		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-		ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
 		vbOffset = (uint32_t)frame->pushData->Push(decoded, vertexCount * dec_->GetDecVtxFmt().stride);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
+			ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
 			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
-			vkCmdDrawIndexed(cmd_, maxIndex + 1, 1, 0, 0, 0);
+			vkCmdDrawIndexed(cmd_, maxIndex, 1, 0, 0, 0);
 		} else {
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
@@ -548,6 +596,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 
 			// vkCmdSetBlendConstants(cmd_, dynState.blendColor);
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), false);
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
@@ -555,17 +604,17 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushData);
 			}
 
-			uint32_t dynamicUBOOffsets[3] = {
+			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
 			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-			ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
 			vbOffset = (uint32_t)frame->pushData->Push(decoded, numTrans * dec_->GetDecVtxFmt().stride);
 
 			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
 			VkDeviceSize offsets[1] = { vbOffset };
 			if (drawIndexed) {
+				ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
