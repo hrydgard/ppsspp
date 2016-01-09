@@ -110,7 +110,7 @@ R"(  mat4 proj_mtx;
   mat4 tex_mtx;
   vec4 uvscaleoffset;
   vec4 depthRange;
-  vec2 fogCoef;
+  vec2 fogcoef;
   vec4 matambientalpha;
   vec3 blendFixA;
   vec3 blendFixB;
