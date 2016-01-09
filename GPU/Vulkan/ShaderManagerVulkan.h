@@ -160,6 +160,8 @@ static const char *ub_vs_bonesStr =
 R"(mat4 m[8];
 )";
 
+class VulkanContext;
+class VulkanPushBuffer;
 
 class VulkanFragmentShader {
 public:
@@ -206,6 +208,8 @@ protected:
 	bool useHWTransform_;
 	ShaderID id_;
 };
+
+class VulkanPushBuffer;
 
 class ShaderManagerVulkan {
 public:
