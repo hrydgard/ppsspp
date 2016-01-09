@@ -251,6 +251,7 @@
     <ClInclude Include="Vulkan\GPU_Vulkan.h" />
     <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
+    <ClInclude Include="Vulkan\StateMappingVulkan.h" />
     <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
     <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
     <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />

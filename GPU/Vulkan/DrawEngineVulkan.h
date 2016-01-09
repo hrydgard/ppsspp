@@ -149,7 +149,7 @@ private:
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
-	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture);
+	VkDescriptorSet GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -162,9 +162,11 @@ private:
 	struct DescriptorSetKey {
 		void *texture_;
 		void *secondaryTexture_;
+		VkSampler sampler_;
 
 		bool operator < (const DescriptorSetKey &other) const {
 			if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+			if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
 			if (secondaryTexture_ < other.secondaryTexture_) return true; else if (secondaryTexture_ > other.secondaryTexture_) return false;
 			return false;
 		}
@@ -214,6 +216,8 @@ private:
 	PipelineManagerVulkan *pipelineManager_;
 	TextureCacheVulkan *textureCache_;
 	FramebufferManagerVulkan *framebufferManager_;
+
+	VkSampler depalSampler_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 

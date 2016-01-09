@@ -34,7 +34,6 @@ void ConvertProjMatrixToVulkan(Matrix4x4 & in);
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
-	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR = (1 << 2),
 	DIRTY_FOGCOEF = (1 << 3),
 	DIRTY_TEXENV = (1 << 4),
@@ -70,6 +69,15 @@ enum {
 	DIRTY_BONEMATRIX6 = (1 << 30),
 	DIRTY_BONEMATRIX7 = (1 << 31),
 
+	DIRTY_BASE_UNIFORMS = 
+		DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
+		DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE | 
+		DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA,
+	DIRTY_LIGHT_UNIFORMS =
+		DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
+		DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
+	DIRTY_BONE_UNIFORMS = 0xFF000000,
+
 	DIRTY_ALL = 0xFFFFFFFF
 };
 
@@ -102,7 +110,7 @@ R"(  mat4 proj_mtx;
   vec4 uvScaleOffset;
   vec4 depthRange;
   vec2 fogCoef;
-  vec4 matAmbient;
+  vec4 matambientalpha;
   vec3 blendFixA;
   vec3 blendFixB;
   vec4 texclamp;
@@ -130,18 +138,18 @@ struct UB_VS_Lights {
 };
 
 static const char *ub_vs_lightsStr =
-R"(  vec3 ambientColor;
-	vec3 materialDiffuse;
-  vec4 materialSpecular;
-  vec3 materialEmissive;
-  vec3 lpos[4];
-  vec3 ldir[4];
-  vec3 latt[4];
-	float lightAngle[4];
-  float lightSpotCoef[4];
-	vec3 lightAmbient[4];
-	vec3 lightDiffuse[4];
-	vec3 lightSpecular[4];
+R"(vec4 globalAmbient;
+	vec3 matdiffuse;
+  vec4 matspecular;
+  vec3 matemissive;
+  vec3 pos[4];
+  vec3 dir[4];
+  vec3 att[4];
+	float angle[4];
+  float spotCoef[4];
+	vec3 ambient[4];
+	vec3 diffuse[4];
+	vec3 specular[4];
 )";
 
 struct UB_VS_Bones {
@@ -164,6 +172,7 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
+	VkShaderModule GetModule() const { return module_; }
 
 protected:	
 	VkShaderModule module_;
@@ -186,6 +195,7 @@ public:
 	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
+	VkShaderModule GetModule() const { return module_; }
 
 protected:
 	VkShaderModule module_;
@@ -217,15 +227,27 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
+	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
+	// Applies dirty changes and copies the buffer.
+	bool IsBaseDirty() { return true; }
+	bool IsLightDirty() { return true; }
+	bool IsBoneDirty() { return true; }
+
+	uint32_t PushBaseBuffer(VulkanPushBuffer *dest);
+	uint32_t PushLightBuffer(VulkanPushBuffer *dest);
+	uint32_t PushBoneBuffer(VulkanPushBuffer *dest);
+
 private:
-	void PSUpdateUniforms(int dirtyUniforms);
-	void VSUpdateUniforms(int dirtyUniforms);
+	void BaseUpdateUniforms(int dirtyUniforms);
+	void LightUpdateUniforms(int dirtyUniforms);
+	void BoneUpdateUniforms(int dirtyUniforms);
 
 	void Clear();
 
 	VulkanContext *vulkan_;
 
-	u32 globalDirty_;
+	uint32_t globalDirty_;
+	uint32_t uboAlignment_;
 	char *codeBuffer_;
 
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.

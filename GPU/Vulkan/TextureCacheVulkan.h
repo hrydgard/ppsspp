@@ -32,7 +32,32 @@ class ShaderManagerVulkan;
 class DrawEngineVulkan;
 
 class VulkanContext;
-struct SamplerCacheKey;
+
+struct SamplerCacheKey {
+	bool minFilt : 1;
+	bool mipFilt : 1;
+	bool magFilt : 1;
+	bool sClamp : 1;
+	bool tClamp : 1;
+	int lodBias : 4;
+	int maxLevel : 4;
+
+	bool operator < (const SamplerCacheKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
+};
+
+
+class SamplerCache {
+public:
+	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan) {}
+	~SamplerCache();
+	VkSampler GetOrCreateSampler(const SamplerCacheKey &key);
+private:
+	VulkanContext *vulkan_;
+	std::map<SamplerCacheKey, VkSampler> cache_;
+};
+
 
 class TextureCacheVulkan : public TextureCacheCommon {
 public:
@@ -112,6 +137,8 @@ private:
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
+
+	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;
 
