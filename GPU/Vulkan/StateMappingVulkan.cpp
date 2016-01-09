@@ -88,6 +88,17 @@ static const VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP, // reserved
 };
 
+const VkPrimitiveTopology primToVulkan[8] = {
+	VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
+	VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,  // Vulkan doesn't do quads. We could do strips with restart-index though. We could also do RECT primitives in the geometry shader.
+};
+
+
 bool ApplyShaderBlending() {
 	return false;
 }
@@ -248,6 +259,8 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, int prim, Vulk
 			key.stencilTestEnable = false;
 		}
 	}
+
+	key.topology = primToVulkan[prim];
 
 	VkViewport &vp = dynState.viewport;
 	vp.x = vpAndScissor.viewportX;
