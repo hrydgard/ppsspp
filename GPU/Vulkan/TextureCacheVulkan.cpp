@@ -1281,6 +1281,7 @@ void TextureCacheVulkan::SetTexture() {
 						lastBoundTexture = nullptr;
 					}
 					delete entry->vkTex;
+					entry->vkTex = nullptr;
 				}
 			}
 			// Clear the reliable bit if set.
@@ -1363,10 +1364,6 @@ void TextureCacheVulkan::SetTexture() {
 		return;
 	}
 
-	entry->vkTex = new CachedTextureVulkan();
-
-	lastBoundTexture = entry->vkTex;
-
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
 	for (u32 i = 0; i <= maxLevel; i++) {
@@ -1443,9 +1440,17 @@ void TextureCacheVulkan::SetTexture() {
 	}
 
 	// Ready or not, here I go...
-	entry->vkTex->texture_ = new VulkanTexture();
-	VulkanTexture *image = entry->vkTex->texture_;
-	image->Create(vulkan_, w, h, dstFmt);
+	if (replaceImages) {
+		if (!entry->vkTex) {
+			DebugBreak();
+		}
+	} else {
+		entry->vkTex = new CachedTextureVulkan();
+		entry->vkTex->texture_ = new VulkanTexture();
+		VulkanTexture *image = entry->vkTex->texture_;
+		image->Create(vulkan_, w, h, dstFmt);
+	}
+	lastBoundTexture = entry->vkTex;
 
 	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 	// don't specify mips all the way down. As a result, we either need to manually generate
@@ -1453,6 +1458,7 @@ void TextureCacheVulkan::SetTexture() {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
+	
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 
 	// Mipmapping only enable when texture scaling disable
@@ -1790,7 +1796,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 
 	if (replaceImages) {
 		// TODO: No support for texture shadows
-		DebugBreak();
+		// DebugBreak();
 	}
 
 	PROFILE_THIS_SCOPE("loadtex");
