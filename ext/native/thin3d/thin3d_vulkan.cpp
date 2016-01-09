@@ -516,8 +516,10 @@ public:
 private:
 	void Destroy() {
 		ILOG("texture destroyed: %p", this);
-		vkTex_->Destroy(vulkan_);
-		delete vkTex_;
+		if (vkTex_) {
+			vkTex_->Destroy(vulkan_);
+			delete vkTex_;
+		}
 	}
 
 	VulkanContext *vulkan_;
