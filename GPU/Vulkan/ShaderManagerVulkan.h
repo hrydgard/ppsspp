@@ -81,7 +81,7 @@ enum {
 	DIRTY_ALL = 0xFFFFFFFF
 };
 
-struct UB_VS_TransformCommon {
+struct UB_VS_FS_Base {
 	float proj[16];
 	float view[16];
 	float world[16];
@@ -107,7 +107,7 @@ R"(  mat4 proj_mtx;
   mat4 view_mtx;
   mat4 world_mtx;
   mat4 tex_mtx;
-  vec4 uvScaleOffset;
+  vec4 uvscaleoffset;
   vec4 depthRange;
   vec2 fogCoef;
   vec4 matambientalpha;
@@ -213,7 +213,7 @@ public:
 	~ShaderManagerVulkan();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader);
+	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
 
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
@@ -251,7 +251,7 @@ private:
 	char *codeBuffer_;
 
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
-	UB_VS_TransformCommon ub_base;
+	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
 	UB_VS_Bones ub_bones;
 

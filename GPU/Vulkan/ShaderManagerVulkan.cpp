@@ -351,7 +351,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
-	}
+		}
 		CopyFloat4(ub_base.uvScaleOffset, uvscaleoff);
 	}
 
@@ -475,9 +475,7 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 }
 
 
-void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader) {
-	bool useHWTransform = CanUseHardwareTransform(prim);
-
+void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform) {
 	ShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 	ShaderID FSID;
