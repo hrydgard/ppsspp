@@ -342,15 +342,15 @@ private:
 // Only supports simple 2D textures for now. Mipmap support will be added later.
 class VulkanTexture {
 public:
-	VkImage image;
-	VkImageLayout imageLayout;
-
-	VkDeviceMemory mem;
-	VkImageView view;
-
+	VulkanTexture()
+		: image(nullptr), mem(nullptr), view(nullptr), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
+		mappableImage(nullptr), mappableMemory(nullptr) {
+	}
 	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
+	// Can later Lock and Unlock again. This cannot change the format. Create cannot
+	// be called a second time without recreating the texture object.
 
-	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
+	VkResult Create(VulkanContext *vulkan, int w, int h, VkFormat format);
 	uint8_t *Lock(VulkanContext *vulkan, int level, int *rowPitch);
 	void Unlock(VulkanContext *vulkan);
 
@@ -359,6 +359,12 @@ public:
 	VkImageView GetImageView() const { return view; }
 
 private:
+	void CreateMappableImage(VulkanContext *vulkan);
+
+	VkImage image;
+	VkImageLayout imageLayout;
+	VkDeviceMemory mem;
+	VkImageView view;
 	int32_t tex_width, tex_height;
 	VkFormat format_;
 	VkImage mappableImage;
