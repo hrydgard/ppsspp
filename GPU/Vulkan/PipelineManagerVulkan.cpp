@@ -1,6 +1,7 @@
 #include <cstring>
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 // #include "GPU/Vulkan/"
@@ -297,4 +298,47 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 		rasterKey, vtxDec, vShader, fShader, useHwTransform);
 	pipelines_[key] = pipeline;
 	return pipeline;
+}
+
+std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderType type) {
+	std::string id;
+	std::vector<std::string> ids;
+	switch (type) {
+	case SHADER_TYPE_PIPELINE:
+	{
+		for (auto iter : pipelines_) {
+			iter.first.ToString(&id);
+			ids.push_back(id);
+		}
+	}
+	break;
+	}
+	return ids;
+}
+
+std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	if (type != SHADER_TYPE_PIPELINE)
+		return "N/A";
+
+	VulkanPipelineKey shaderId;
+	shaderId.FromString(id);
+
+	auto iter = pipelines_.find(shaderId);
+	if (iter == pipelines_.end()) {
+		return "";
+	}
+
+	switch (stringType) {
+	case SHADER_STRING_SHORT_DESC:
+	{
+		return StringFromFormat("%p", &iter->second);
+	}
+
+	case SHADER_STRING_SOURCE_CODE:
+	{
+		return "N/A";
+	}
+	default:
+		return "N/A";
+	}
 }

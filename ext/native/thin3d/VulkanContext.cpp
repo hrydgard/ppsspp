@@ -1190,7 +1190,7 @@ void VulkanTexture::Create(VulkanContext *vulkan, int w, int h, VkFormat format)
 	assert(res == VK_SUCCESS);
 }
 
-uint8_t *VulkanTexture::Lock(VulkanContext *vulkan, int *rowPitch) {
+uint8_t *VulkanTexture::Lock(VulkanContext *vulkan, int level, int *rowPitch) {
 	VkImageSubresource subres = {};
 	subres.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subres.mipLevel = 0;

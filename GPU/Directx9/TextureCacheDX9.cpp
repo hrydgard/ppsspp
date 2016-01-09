@@ -1639,6 +1639,7 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 	return (TexCacheEntry::Status)res;
 }
 
+// TODO: xoffset and yoffset are unused - bug?
 static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch, int srcfmt, int fmt, void * pSrc, void * pDst) {
 	int y;
 	switch(fmt) {

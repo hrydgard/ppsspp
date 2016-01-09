@@ -374,11 +374,11 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture, VkSampler sampler, VkBuffer dynamicUbo) {
+VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer dynamicUbo) {
 	DescriptorSetKey key;
-	key.texture_ = texture;
+	key.imageView_= imageView;
 	key.sampler_ = sampler;
-	key.secondaryTexture_ = nullptr;
+	key.secondaryImageView_ = nullptr;
 	key.buffer_ = dynamicUbo;
 
 	FrameData *frame = &frame_[curFrame_ & 1];
@@ -403,10 +403,11 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(CachedTextureVulkan *texture,
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
-	if (texture) {
+	if (imageView) {
 		VkDescriptorImageInfo tex;
-		tex.imageLayout = texture->imageLayout;
-		tex.imageView = texture->imageView;
+		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		tex.imageView = imageView;
 		tex.sampler = sampler;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
@@ -455,8 +456,21 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
 	// designed the descriptor set.
 
-	//	CachedTextureVulkan *tex = textureCache_->ApplyTexture();
-	VkDescriptorSet ds = GetDescriptorSet(nullptr, nullptr, frame->pushData->GetVkBuffer());
+	VkImageView imageView = nullptr;
+	VkSampler sampler = nullptr;
+
+	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+		textureCache_->SetTexture();
+		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
+		if (gstate_c.needShaderTexClamp) {
+			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
+			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
+			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
+		}
+		textureCache_->ApplyTexture(imageView, sampler);
+	}
+
+	VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, frame->pushData->GetVkBuffer());
 
 	GEPrimitiveType prim = prevPrim_;
 

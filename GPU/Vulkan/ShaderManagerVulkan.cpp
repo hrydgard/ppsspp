@@ -26,7 +26,7 @@
 #include "math/math_util.h"
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
-#include "thin3d/vulkan_utils.h"
+#include "thin3d/VulkanContext.h"
 
 #include "Common/Common.h"
 #include "Core/Config.h"

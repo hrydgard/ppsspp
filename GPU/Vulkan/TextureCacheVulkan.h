@@ -22,6 +22,7 @@
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "thin3d/VulkanContext.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
@@ -32,26 +33,39 @@ class ShaderManagerVulkan;
 class DrawEngineVulkan;
 
 class VulkanContext;
+class VulkanImage;
 
 struct SamplerCacheKey {
-	bool minFilt : 1;
-	bool mipFilt : 1;
-	bool magFilt : 1;
-	bool sClamp : 1;
-	bool tClamp : 1;
-	int lodBias : 4;
-	int maxLevel : 4;
+	SamplerCacheKey() : fullKey(0) {}
+
+	union {
+		u32 fullKey;
+		struct {
+			bool mipEnable : 1;
+			bool minFilt : 1;
+			bool mipFilt : 1;
+			bool magFilt : 1;
+			bool sClamp : 1;
+			bool tClamp : 1;
+			int lodBias : 4;
+			int maxLevel : 4;
+		};
+	};
 
 	bool operator < (const SamplerCacheKey &other) const {
-		return memcmp(this, &other, sizeof(*this)) < 0;
+		return fullKey < other.fullKey;
 	}
 };
 
-// texturePtr points to these.
 class CachedTextureVulkan {
 public:
-	VkImageView imageView;
-	VkImageLayout imageLayout;
+	CachedTextureVulkan() : texture_(nullptr) {
+	}
+	~CachedTextureVulkan() {
+		delete texture_;
+	}
+	// TODO: Switch away from VulkanImage to some kind of smart suballocating texture pool.
+	VulkanTexture *texture_;
 };
 
 class SamplerCache {
@@ -71,7 +85,7 @@ public:
 	TextureCacheVulkan(VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
-	void SetTexture(VkCommandBuffer cmd, VkImageView &imageView);
+	void SetTexture();
 	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
@@ -111,7 +125,7 @@ private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
 	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw);
-	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
+	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, VkFormat dstFmt, int scaleFactor, int *bufw = 0);
