@@ -438,10 +438,13 @@ public:
 		writePtr_ = nullptr;
 	}
 
-
 	size_t Allocate(size_t numBytes) {
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+		if (offset_ >= size_) {
+			// For now
+			DebugBreak();
+		}
 		return out;
 	}
 

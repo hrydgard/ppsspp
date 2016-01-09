@@ -475,6 +475,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	VulkanVertexShader *vshader;
 	VulkanFragmentShader *fshader;
 
+	// TODO: Keep these between calls if not dirty.
 	uint32_t baseUBOOffset = 0;
 	uint32_t lightUBOOffset = 0;
 	uint32_t boneUBOOffset = 0;
@@ -616,7 +617,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
 			VkDeviceSize offsets[1] = { vbOffset };
 			if (drawIndexed) {
-				ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
+				ibOffset = (uint32_t)frame->pushData->Push(inds, 2 * numTrans);
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
