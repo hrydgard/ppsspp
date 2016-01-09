@@ -514,6 +514,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	lastFSID_ = FSID;
 
+	lastVShader_ = vs;
+	lastFShader_ = fs;
+
 	*vshader = vs;
 	*fshader = fs;
 }

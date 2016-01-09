@@ -34,7 +34,7 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R32G32B32_SFLOAT, "R32G32B32_SFLOAT " },  // DEC_FLOAT_3,
 	{ VK_FORMAT_R32G32B32A32_SFLOAT, "R32G32B32A32_SFLOAT " },  // DEC_FLOAT_4,
 
-	{ VK_FORMAT_R8G8B8A8_SNORM, "UNDEFINED" }, // DEC_S8_3,
+	{ VK_FORMAT_R8G8B8A8_SNORM, "R8G8B8A8_SNORM" }, // DEC_S8_3,
 	{ VK_FORMAT_R16G16B16A16_SNORM, "R16G16B16A16_SNORM	" },	// DEC_S16_3,
 
 	{ VK_FORMAT_R8G8B8A8_UNORM, "R8G8B8A8_UNORM	" },	// DEC_U8_1,
@@ -46,8 +46,8 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_3,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_4,
 																											// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
-	{ VK_FORMAT_R8G8_UINT, "VK_FORMAT_UNDEFINED" },   // DEC_U8A_2,
-	{ VK_FORMAT_R16G16_UINT, "VK_FORMAT_UNDEFINED" }, // DEC_U16A_2,
+	{ VK_FORMAT_R8G8_UINT, "R8G8_UINT" },   // DEC_U8A_2,
+	{ VK_FORMAT_R16G16_UINT, "R16G16_UINT" }, // DEC_U16A_2,
 };
 
 void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
