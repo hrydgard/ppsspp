@@ -611,7 +611,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			};
 			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-			vbOffset = (uint32_t)frame->pushData->Push(decoded, numTrans * dec_->GetDecVtxFmt().stride);
+			vbOffset = (uint32_t)frame->pushData->Push(drawBuffer, numTrans * sizeof(TransformedVertex));
 
 			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
 			VkDeviceSize offsets[1] = { vbOffset };

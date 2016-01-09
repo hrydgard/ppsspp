@@ -241,7 +241,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		if (gstate.isModeThrough()) {
 			Matrix4x4 proj_through;
-			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 			ConvertProjMatrixToVulkanThrough(proj_through);
 			CopyMatrix4x4(ub_base.proj, proj_through.getReadPtr());
 		} else {
@@ -262,7 +262,6 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 				flippedMatrix[8] = -flippedMatrix[8];
 				flippedMatrix[12] = -flippedMatrix[12];
 			}
-
 			ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
 			CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
 		}
