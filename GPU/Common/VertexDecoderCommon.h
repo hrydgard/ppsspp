@@ -75,7 +75,6 @@ struct DecVtxFormat {
 	short stride;
 };
 
-// This struct too.
 struct TransformedVertex
 {
 	union {
