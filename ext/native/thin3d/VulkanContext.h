@@ -348,17 +348,18 @@ public:
 	VkDeviceMemory mem;
 	VkImageView view;
 
-	int32_t tex_width, tex_height;
-
 	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
 
 	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
-	uint8_t *Lock(VulkanContext *vulkan, int *rowPitch);
+	uint8_t *Lock(VulkanContext *vulkan, int level, int *rowPitch);
 	void Unlock(VulkanContext *vulkan);
 
 	void Destroy(VulkanContext *vulkan);
 
+	VkImageView GetImageView() const { return view; }
+
 private:
+	int32_t tex_width, tex_height;
 	VkFormat format_;
 	VkImage mappableImage;
 	VkDeviceMemory mappableMemory;

@@ -475,6 +475,12 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		gstate_c.featureFlags |= GPU_SUPPORTS_LOGIC_OP;
 	}
+	// Mandatory features on Vulkan, which may be checked in "centralized" code
+	gstate_c.featureFlags |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	gstate_c.featureFlags |= GPU_SUPPORTS_FBO;
+	gstate_c.featureFlags |= GPU_SUPPORTS_BLEND_MINMAX;
+	gstate_c.featureFlags |= GPU_SUPPORTS_ANY_COPY_IMAGE;
+	gstate_c.featureFlags |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 }
 
 void GPU_Vulkan::BeginHostFrame() {
@@ -2192,6 +2198,8 @@ bool GPU_Vulkan::DescribeCodePtr(const u8 *ptr, std::string &name) {
 std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderIDs();
+	} else if (type == SHADER_TYPE_PIPELINE) {
+		return pipelineManager_->DebugGetObjectIDs(type);
 	} else {
 		return shaderManager_->DebugGetShaderIDs(type);
 	}
@@ -2200,6 +2208,8 @@ std::vector<std::string> GPU_Vulkan::DebugGetShaderIDs(DebugShaderType type) {
 std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
 	if (type == SHADER_TYPE_VERTEXLOADER) {
 		return drawEngine_.DebugGetVertexLoaderString(id, stringType);
+	} else if (type == SHADER_TYPE_PIPELINE) {
+		return pipelineManager_->DebugGetObjectString(id, type, stringType);
 	} else {
 		return shaderManager_->DebugGetShaderString(id, type, stringType);
 	}
