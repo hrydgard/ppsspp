@@ -87,17 +87,6 @@ static const VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP, // reserved
 };
 
-struct VulkanDynamicState {
-	VkViewport viewport;
-	VkRect2D scissor;
-	bool useBlendColor;
-	uint32_t blendColor;
-	bool useStencil;
-	uint8_t stencilRef;
-	uint8_t stencilWriteMask;
-	uint8_t stencilCompareMask;
-};
-
 bool ApplyShaderBlending() {
 	return false;
 }

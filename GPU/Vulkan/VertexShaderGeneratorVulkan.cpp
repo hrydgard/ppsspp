@@ -307,9 +307,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(base.proj * viewPos);\n");
+			WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = base.proj * viewPos;\n");
+			WRITE(p, "  gl_Position = base.proj_mtx * viewPos;\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -323,7 +323,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 		bool distanceNeeded = false;
 
 		if (enableLighting) {
-			WRITE(p, "  vec4 lightSum0 = light.ambient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
+			WRITE(p, "  vec4 lightSum0 = light.globalAmbient * %s + vec4(light.matemissive, 0.0);\n", ambientStr);
 
 			for (int i = 0; i < 4; i++) {
 				GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * i, 2));
@@ -378,7 +378,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				WRITE(p, "  if (dot%i == 0.0 && light.matspecular.a == 0.0) {\n", i);
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot[%i], light.matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(dot%i, light.matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -406,11 +406,11 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				break;
 			}
 
-			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * dot[%i];\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * dot%i;\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  dot[%i] = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "  if (dot[%i] > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot[%i], light.matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
+				WRITE(p, "  if (dot%i > 0.0)\n", i);
+				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot%i, light.matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
 			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
@@ -439,8 +439,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			} else {
 				WRITE(p, "  v_color0 = base.matambientalpha;\n");
 			}
-			if (lmode)
+			if (lmode) {
 				WRITE(p, "  v_color1 = vec3(0.0);\n");
+			}
 		}
 
 		// Step 3: UV generation

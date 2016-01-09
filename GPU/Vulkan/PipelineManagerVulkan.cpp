@@ -3,6 +3,7 @@
 #include "Common/Log.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
+// #include "GPU/Vulkan/"
 #include "thin3d/VulkanContext.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {
@@ -10,7 +11,14 @@ PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vu
 }
 
 PipelineManagerVulkan::~PipelineManagerVulkan() {
+	// This should kill off all the shaders at once.
+	// This could also be an opportunity to store the whole cache to disk. Will need to also
+	// store the keys.
 	vkDestroyPipelineCache(vulkan_->GetDevice(), pipelineCache_, nullptr);
+	for (auto iter : pipelines_) {
+		delete iter.second;
+	}
+	pipelines_.clear();
 }
 
 struct DeclTypeInfo {
@@ -84,45 +92,47 @@ int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[]) 
 	return 4;
 }
 
-static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, const VulkanPipelineRasterStateKey &key, const DecVtxFormat &vfmt, VkShaderModule vshader, VkShaderModule fshader, bool useHwTransform) {
+static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key, const VertexDecoder *vtxDec, VkShaderModule vshader, VkShaderModule fshader, bool useHwTransform) {
 	VkPipelineColorBlendAttachmentState blend0;
 	blend0.blendEnable = key.blendEnable;
 	if (key.blendEnable) {
-		blend0.colorBlendOp = key.blendOpColor;
-		blend0.alphaBlendOp = key.blendOpAlpha;
-		blend0.srcColorBlendFactor = key.srcColor;
-		blend0.srcAlphaBlendFactor = key.srcAlpha;
-		blend0.dstColorBlendFactor = key.destColor;
-		blend0.dstAlphaBlendFactor = key.destAlpha;
+		blend0.colorBlendOp = (VkBlendOp)key.blendOpColor;
+		blend0.alphaBlendOp = (VkBlendOp)key.blendOpAlpha;
+		blend0.srcColorBlendFactor = (VkBlendFactor)key.srcColor;
+		blend0.srcAlphaBlendFactor = (VkBlendFactor)key.srcAlpha;
+		blend0.dstColorBlendFactor = (VkBlendFactor)key.destColor;
+		blend0.dstAlphaBlendFactor = (VkBlendFactor)key.destAlpha;
 	}
 	blend0.colorWriteMask = key.colorWriteMask;
 	
 	VkPipelineColorBlendStateCreateInfo cbs;
 	cbs.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	cbs.pNext = nullptr;
+	cbs.flags = 0;
 	cbs.pAttachments = &blend0;
 	cbs.attachmentCount = 1;
 	cbs.logicOpEnable = key.logicOpEnable;
 	if (key.logicOpEnable)
-		cbs.logicOp = key.logicOp;
+		cbs.logicOp = (VkLogicOp)key.logicOp;
 	else
 		cbs.logicOp = VK_LOGIC_OP_COPY;
 
-	VkPipelineDepthStencilStateCreateInfo dss;
+	VkPipelineDepthStencilStateCreateInfo dss = { };
 	dss.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	dss.pNext = nullptr;
 	dss.depthBoundsTestEnable = false;
 	dss.stencilTestEnable = key.stencilTestEnable;
 	if (key.stencilTestEnable) {
-		dss.front.compareOp = key.stencilCompareOp;
-		dss.front.passOp = key.stencilPassOp;
-		dss.front.failOp = key.stencilFailOp;
-		dss.front.depthFailOp = key.stencilDepthFailOp;
+		dss.front.compareOp = (VkCompareOp)key.stencilCompareOp;
+		dss.front.passOp = (VkStencilOp)key.stencilPassOp;
+		dss.front.failOp = (VkStencilOp)key.stencilFailOp;
+		dss.front.depthFailOp = (VkStencilOp)key.stencilDepthFailOp;
 		// Back stencil is always the same as front on PSP.
 		memcpy(&dss.back, &dss.front, sizeof(dss.front));
 	}
 	dss.depthTestEnable = key.depthTestEnable;
 	if (key.depthTestEnable) {
-		dss.depthCompareOp = key.depthCompareOp;
+		dss.depthCompareOp = (VkCompareOp)key.depthCompareOp;
 		dss.depthWriteEnable = key.depthWriteEnable;
 	}
 
@@ -142,12 +152,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipelineDynamicStateCreateInfo ds;
 	ds.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	ds.pNext = nullptr;
+	ds.flags = 0;
 	ds.pDynamicStates = dynamicStates;
 	ds.dynamicStateCount = numDyn;
 	
 	VkPipelineRasterizationStateCreateInfo rs;
 	rs.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rs.pNext = nullptr;
+	rs.flags = 0;
 	rs.depthBiasEnable = false;
 	rs.cullMode = key.cullMode;
 	rs.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
@@ -164,14 +176,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
 	VkPipelineShaderStageCreateInfo ss[2];
-	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[0].pNext = nullptr;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
 	ss[0].module = vshader;
 	ss[0].pName = "main";
 	ss[0].flags = 0;
-	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].pNext = nullptr;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
@@ -182,7 +194,8 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.pNext = nullptr;
-	inputAssembly.topology = key.topology;
+	inputAssembly.flags = 0;
+	inputAssembly.topology = (VkPrimitiveTopology)key.topology;
 	inputAssembly.primitiveRestartEnable = false;
 
 	int vertexStride = 0;
@@ -191,9 +204,11 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkVertexInputAttributeDescription attrs[8];
 	int attributeCount;
 	if (useHwTransform) {
-		attributeCount = SetupVertexAttribs(attrs, vfmt);
+		attributeCount = SetupVertexAttribs(attrs, vtxDec->decFmt);
+		vertexStride = vtxDec->decFmt.stride;
 	} else {
 		attributeCount = SetupVertexAttribsPretransformed(attrs);
+		vertexStride = 36;
 	}
 
 	VkVertexInputBindingDescription ibd;
@@ -204,6 +219,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipelineVertexInputStateCreateInfo vis;
 	vis.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vis.pNext = nullptr;
+	vis.flags = 0;
 	vis.vertexBindingDescriptionCount = 1;
 	vis.pVertexBindingDescriptions = &ibd;
 	vis.vertexAttributeDescriptionCount = attributeCount;
@@ -212,6 +228,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipelineViewportStateCreateInfo vs;
 	vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	vs.pNext = nullptr;
+	vs.flags = 0;
 	vs.viewportCount = 1;
 	vs.scissorCount = 1;
 	vs.pViewports = nullptr;  // dynamic
@@ -220,6 +237,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkGraphicsPipelineCreateInfo pipe;
 	pipe.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipe.pNext = nullptr;
+	pipe.flags = 0;
 	pipe.stageCount = 2;
 	pipe.pStages = ss;
 	pipe.basePipelineIndex = 0;
@@ -233,10 +251,17 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	pipe.pRasterizationState = &rs;
 
 	// We will use dynamic viewport state.
+	pipe.pVertexInputState = &vis;
 	pipe.pViewportState = &vs;
+	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &ds;
 	pipe.pInputAssemblyState = &inputAssembly;
 	pipe.pMultisampleState = &ms;
+	pipe.layout = layout;
+	pipe.basePipelineHandle = nullptr;
+	pipe.basePipelineIndex = 0;
+	pipe.renderPass = renderPass;
+	pipe.subpass = 0;
 
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);
@@ -247,5 +272,25 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
+	vulkanPipeline->uniformBlocks = UB_VS_FS_BASE;
+	if (useHwTransform) {
+		// TODO: Remove BONES and LIGHTS when those aren't used.
+		vulkanPipeline->uniformBlocks |= UB_VS_BONES | UB_VS_LIGHTS;
+	}
 	return vulkanPipeline;
+}
+
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform) {
+	VulkanPipelineKey key;
+	key.raster = rasterKey;
+	auto iter = pipelines_.find(key);
+	if (iter != pipelines_.end()) {
+		return iter->second;
+	}
+	
+	VulkanPipeline *pipeline = CreateVulkanPipeline(
+		vulkan_->GetDevice(), pipelineCache_, layout, vulkan_->GetSurfaceRenderPass(), 
+		rasterKey, vtxDec, vShader, fShader, useHwTransform);
+	pipelines_[key] = pipeline;
+	return pipeline;
 }

@@ -107,7 +107,7 @@ public:
 		u16 maxSeenV;
 
 		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
+		// (OpenGL madness where filter settings are attached to each texture. Unused in Vulkan).
 		u8 magFilt;
 		u8 minFilt;
 		bool sClamp;

@@ -212,6 +212,7 @@
     <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
     <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
     <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
+    <ClInclude Include="Vulkan\StateMappingVulkan.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">

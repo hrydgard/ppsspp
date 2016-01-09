@@ -22,6 +22,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Vulkan/VulkanUtil.h"
+#include "GPU/Vulkan/StateMappingVulkan.h"
 
 // PSP vertex format.
 enum class PspAttributeLocation {
@@ -36,67 +37,29 @@ enum class PspAttributeLocation {
 	COUNT
 };
 
-// Let's pack this tight using bitfields.
-// If an enable flag is set to 0, all the data fields for that section should
-// also be set to 0.
-// ~54 bits.
-struct VulkanPipelineRasterStateKey {
-	// Blend
-	bool blendEnable : 1;
-	VkBlendFactor srcColor : 5;
-	VkBlendFactor destColor : 5;
-	VkBlendFactor srcAlpha : 5;
-	VkBlendFactor destAlpha : 5;
-	VkBlendOp blendOpColor : 3;
-	VkBlendOp blendOpAlpha : 3;
-	bool logicOpEnable : 1;
-	VkLogicOp logicOp : 4;
-	int colorWriteMask : 4;
-
-	// Depth/Stencil
-	bool depthTestEnable : 1;
-	bool depthWriteEnable : 1;
-	VkCompareOp depthCompareOp : 3;
-	bool stencilTestEnable : 1;
-	VkCompareOp stencilCompareOp : 4;
-	VkStencilOp stencilPassOp : 4;
-	VkStencilOp stencilFailOp : 4;
-	VkStencilOp stencilDepthFailOp : 4;
-	// We'll use dynamic state for writemask, reference and comparemask to start with,
-	// and viewport/scissor.
-
-	// Rasterizer
-	VkCullModeFlagBits cullMode : 2;
-	VkPrimitiveTopology topology : 4;
-
-	bool operator < (const VulkanPipelineRasterStateKey &other) const {
-		return memcmp(this, &other, sizeof(*this)) < 0;
-	}
-};
-
 // All the information needed. All PSP rendering (except full screen clears?) will make use of a single
 // render pass definition.
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;
 	int prim;
 	bool pretransformed;
-	uint32_t vertType;
-	ShaderID vShaderId;
-	ShaderID fShaderId;
+	const VertexDecoder *vtxDec;
+	VkShaderModule vShader;
+	VkShaderModule fShader;
 
 	bool operator < (const VulkanPipelineKey &other) const {
 		if (raster < other.raster) return true; else if (other.raster < raster) return false;
 		if (prim < other.prim) return true; else if (other.prim < prim) return false;
 		if (pretransformed < other.pretransformed) return true; else if (other.pretransformed < pretransformed) return false;
-		if (vertType < other.vertType) return true; else if (other.vertType < vertType) return false;
-		if (vShaderId < other.vShaderId) return true; else if (other.vShaderId < vShaderId) return false;
-		if (fShaderId < other.fShaderId) return true; else if (other.fShaderId < fShaderId) return false;
+		if (vtxDec < other.vtxDec) return true; else if (other.vtxDec < vtxDec) return false;
+		if (vShader < other.vShader) return true; else if (other.vShader < vShader) return false;
+		if (fShader < other.fShader) return true; else if (other.fShader < fShader) return false;
 		return false;
 	}
 };
 
 enum {
-	UB_VS_BASICTRANSFORM = (1 << 0),
+	UB_VS_FS_BASE = (1 << 0),
 	UB_VS_BONES = (1 << 1),
 	UB_VS_LIGHTS = (1 << 2),
 };
@@ -112,10 +75,11 @@ public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
+	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform);
 	int GetNumPipelines() const { return 0; }
 
 private:
-	std::map<VulkanPipelineKey, VkPipeline> pipelines_;
+	std::map<VulkanPipelineKey, VulkanPipeline *> pipelines_;
 	VkPipelineCache pipelineCache_;
 	VulkanContext *vulkan_;
 };
