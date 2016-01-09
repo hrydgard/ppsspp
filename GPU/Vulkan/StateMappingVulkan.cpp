@@ -32,6 +32,7 @@
 #include "GPU/Vulkan/FramebufferVulkan.h"
 //#include "GPU/Vulkan/PixelShaderGeneratorVulkan.h"
 
+// These tables all fit into u8s.
 static const VkBlendFactor vkBlendFactorLookup[(size_t)BlendFactor::COUNT] = {
 	VK_BLEND_FACTOR_ZERO,
 	VK_BLEND_FACTOR_ONE,
