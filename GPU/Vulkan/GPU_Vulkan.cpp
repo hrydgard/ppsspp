@@ -501,9 +501,8 @@ void GPU_Vulkan::BeginHostFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-	shaderManager_->DirtyShader();
 
-	// Not sure if this is really needed.
+	shaderManager_->DirtyShader();
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
 	framebufferManager_.BeginFrame();

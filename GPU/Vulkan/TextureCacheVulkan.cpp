@@ -93,7 +93,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;  // TODO: Aniso
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // key.4) ? ((key.magFilt & 2) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST) : VK_SAMPLER_MIPMAP_MODE_BASE;
 	samp.maxAnisotropy = 1.0f;
-	samp.maxLod = 1000.0f;
+	samp.maxLod = 0.0f; // 1000.0f;
 	samp.minLod = 0.0f;
 	samp.unnormalizedCoordinates = false;
 	samp.mipLodBias = 0.0f;
