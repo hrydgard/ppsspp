@@ -225,7 +225,6 @@ protected:
 
 	virtual void DisableState() = 0;
 	virtual void ClearBuffer(bool keepState = false) = 0;
-	virtual void ClearDepthBuffer() = 0;
 	virtual void FlushBeforeCopy() = 0;
 	virtual void DecimateFBOs() = 0;
 

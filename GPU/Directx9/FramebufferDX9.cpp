@@ -68,14 +68,6 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::ClearDepthBuffer() {
-		dxstate.scissorTest.disable();
-		dxstate.depthWrite.set(TRUE);
-		dxstate.colorMask.set(false, false, false, false);
-		dxstate.stencilFunc.set(D3DCMP_NEVER, 0, 0);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
-	}
-
 	void FramebufferManagerDX9::DisableState() {
 		dxstate.blend.disable();
 		dxstate.cullMode.set(false, false);
