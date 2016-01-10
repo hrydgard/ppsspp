@@ -71,21 +71,6 @@ static const char basic_vs[] =
 	"  gl_Position = a_position;\n"
 	"}\n";
 
-static const char color_fs[] =
-#ifdef USING_GLES2
-	"precision mediump float;\n"
-#endif
-	"uniform vec4 u_color;\n"
-	"void main() {\n"
-	"  gl_FragColor.rgba = u_color;\n"
-	"}\n";
-
-static const char color_vs[] =
-	"attribute vec4 a_position;\n"
-	"void main() {\n"
-	"  gl_Position = a_position;\n"
-	"}\n";
-
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void FramebufferManager::ClearBuffer(bool keepState) {
@@ -117,17 +102,6 @@ void FramebufferManager::ClearBuffer(bool keepState) {
 		glstate.stencilFunc.restore();
 		glstate.stencilMask.restore();
 	}
-}
-
-void FramebufferManager::ClearDepthBuffer() {
-	glstate.scissorTest.disable();
-	glstate.depthWrite.set(GL_TRUE);
-#ifdef USING_GLES2
-	glClearDepthf(0.0f);
-#else
-	glClearDepth(0.0);
-#endif
-	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void FramebufferManager::DisableState() {
@@ -171,14 +145,6 @@ void FramebufferManager::CompileDraw2DProgram() {
 		} else {
 			glsl_bind(draw2dprogram_);
 			glUniform1i(draw2dprogram_->sampler0, 0);
-		}
-
-		plainColorProgram_ = glsl_create_source(color_vs, color_fs, &errorString);
-		if (!plainColorProgram_) {
-			ERROR_LOG_REPORT(G3D, "Failed to compile plainColorProgram! This shouldn't happen.\n%s", errorString.c_str());
-		} else {
-			glsl_bind(plainColorProgram_);
-			plainColorLoc_ = glsl_uniform_loc(plainColorProgram_, "u_color");
 		}
 
 		SetNumExtraFBOs(0);
@@ -267,10 +233,6 @@ void FramebufferManager::DestroyDraw2DProgram() {
 		glsl_destroy(draw2dprogram_);
 		draw2dprogram_ = nullptr;
 	}
-	if (plainColorProgram_) {
-		glsl_destroy(plainColorProgram_);
-		plainColorProgram_ = nullptr;
-	}
 	if (postShaderProgram_) {
 		glsl_destroy(postShaderProgram_);
 		postShaderProgram_ = nullptr;
@@ -284,7 +246,6 @@ FramebufferManager::FramebufferManager() :
 	draw2dprogram_(nullptr),
 	postShaderProgram_(nullptr),
 	stencilUploadProgram_(nullptr),
-	plainColorLoc_(-1),
 	timeLoc_(-1),
 	deltaLoc_(-1),
 	pixelDeltaLoc_(-1),
@@ -479,51 +440,6 @@ void FramebufferManager::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFo
 			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
 		}
 	}
-}
-
-void FramebufferManager::DrawPlainColor(u32 color) {
-	// Cannot take advantage of scissor + clear here - this has to be a regular draw so that
-	// stencil can be used and abused, as that's what we're gonna use this for.
-	static const float pos[12] = {
-		-1,-1,-1,
-		1,-1,-1,
-		1,1,-1,
-		-1,1,-1
-	};
-	static const GLubyte indices[4] = {0,1,3,2};
-
-	GLSLProgram *program = 0;
-	if (!draw2dprogram_) {
-		CompileDraw2DProgram();
-	}
-	program = plainColorProgram_;
-
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		((color & 0xFF000000) >> 24) / 255.0f,
-	};
-
-	shaderManager_->DirtyLastShader();
-
-	glsl_bind(program);
-	glUniform4fv(plainColorLoc_, 1, col);
-	glEnableVertexAttribArray(program->a_position);
-	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		transformDraw_->BindBuffer(pos, sizeof(pos));
-		transformDraw_->BindElementBuffer(indices, sizeof(indices));
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
-	} else {
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-	}
-	glDisableVertexAttribArray(program->a_position);
-
-	glsl_unbind();
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
