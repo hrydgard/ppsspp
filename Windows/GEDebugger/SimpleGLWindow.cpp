@@ -334,7 +334,7 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 			fh = (float)h_;
 		}
 	}
-	if ((flags_ & RESIZE_GROW_FIT) != 0) {
+	if ((flags_ & RESIZE_GROW_FIT) != 0 && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		if (wscale > hscale && wscale < 1.0f) {
