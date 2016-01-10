@@ -394,6 +394,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 
 	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc;
+	VkDescriptorImageInfo tex;
 	descAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	descAlloc.pNext = nullptr;
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
@@ -408,7 +409,6 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	// Main texture
 	int n = 0;
 	if (imageView) {
-		VkDescriptorImageInfo tex;
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
 		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		tex.imageView = imageView;
@@ -480,8 +480,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	VulkanVertexShader *vshader;
-	VulkanFragmentShader *fshader;
+	VulkanVertexShader *vshader = nullptr;
+	VulkanFragmentShader *fshader = nullptr;
 
 	// TODO: Keep these between calls if not dirty.
 	uint32_t baseUBOOffset = 0;
