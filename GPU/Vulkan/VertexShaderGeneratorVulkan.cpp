@@ -138,11 +138,11 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	// are present and what parts aren't, but we will not be ultra detailed about it.
 
 	WRITE(p, "\n");
-	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s\n} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform lightVars {\n%s\n} light;\n", ub_vs_lightsStr);
+		WRITE(p, "layout (std140, set = 0, binding = 3) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
 	if (enableBones)
-		WRITE(p, "layout (std140, set = 0, binding = 4) uniform boneVars {\n%s\n} bone;\n", ub_vs_bonesStr);
+		WRITE(p, "layout (std140, set = 0, binding = 4) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
 
 	const char *shading = doFlatShading ? "flat " : "";
 
