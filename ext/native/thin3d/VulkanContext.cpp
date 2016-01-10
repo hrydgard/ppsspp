@@ -905,8 +905,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		surface,
 		&presentModeCount, NULL);
 	assert(res == VK_SUCCESS);
-	VkPresentModeKHR *presentModes =
-		(VkPresentModeKHR *)malloc(presentModeCount * sizeof(VkPresentModeKHR));
+	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
 	assert(presentModes);
 	res = fpGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
 		surface,
@@ -944,7 +943,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 			break;
 		}
 	}
-
+	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
 	// queued for display):
@@ -1650,7 +1649,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	const char *pshader,
 	std::vector<unsigned int> &spirv, std::string *errorMessage) {
 
-	glslang::TProgram& program = *new glslang::TProgram;
+	glslang::TProgram program;
 	const char *shaderStrings[1];
 	TBuiltInResource Resources;
 	init_resources(Resources);
@@ -1659,33 +1658,30 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
 	EShLanguage stage = FindLanguage(shader_type);
-	glslang::TShader* shader = new glslang::TShader(stage);
+	glslang::TShader shader(stage);
 
 	shaderStrings[0] = pshader;
-	shader->setStrings(shaderStrings, 1);
+	shader.setStrings(shaderStrings, 1);
 
-	if (!shader->parse(&Resources, 100, false, messages)) {
-		puts(shader->getInfoLog());
-		puts(shader->getInfoDebugLog());
+	if (!shader.parse(&Resources, 100, false, messages)) {
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
 		if (errorMessage) {
-			*errorMessage = shader->getInfoLog();
-			(*errorMessage) += shader->getInfoDebugLog();
+			*errorMessage = shader.getInfoLog();
+			(*errorMessage) += shader.getInfoDebugLog();
 		}
 		return false; // something didn't work
 	}
 
-	program.addShader(shader);
-
-	//
-	// Program-level processing...
-	//
+	// Note that program does not take ownership of &shader, so this is fine.
+	program.addShader(&shader);
 
 	if (!program.link(messages)) {
-		puts(shader->getInfoLog());
-		puts(shader->getInfoDebugLog());
+		puts(shader.getInfoLog());
+		puts(shader.getInfoDebugLog());
 		if (errorMessage) {
-			*errorMessage = shader->getInfoLog();
-			(*errorMessage) += shader->getInfoDebugLog();
+			*errorMessage = shader.getInfoLog();
+			(*errorMessage) += shader.getInfoDebugLog();
 		}
 		return false;
 	}

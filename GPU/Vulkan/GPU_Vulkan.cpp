@@ -394,7 +394,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	: vulkan_((VulkanContext *)ctx->GetAPIContext()),
 		drawEngine_(vulkan_),
 		textureCache_(vulkan_),
-		framebufferManager_(vulkan_),
 		resized_(false),
 		gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
@@ -402,14 +401,15 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 
 	shaderManager_ = new ShaderManagerVulkan(vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
+	framebufferManager_ = new FramebufferManagerVulkan(vulkan_),
 	drawEngine_.SetTextureCache(&textureCache_);
-	drawEngine_.SetFramebufferManager(&framebufferManager_);
+	drawEngine_.SetFramebufferManager(framebufferManager_);
 	drawEngine_.SetShaderManager(shaderManager_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
-	framebufferManager_.Init();
-	framebufferManager_.SetTextureCache(&textureCache_);
-	framebufferManager_.SetDrawEngine(&drawEngine_);
-	textureCache_.SetFramebufferManager(&framebufferManager_);
+	framebufferManager_->Init();
+	framebufferManager_->SetTextureCache(&textureCache_);
+	framebufferManager_->SetDrawEngine(&drawEngine_);
+	textureCache_.SetFramebufferManager(framebufferManager_);
 	textureCache_.SetDepalShaderCache(&depalShaderCache_);
 	textureCache_.SetShaderManager(shaderManager_);
 	textureCache_.SetTransformDrawEngine(&drawEngine_);
@@ -453,8 +453,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
-	framebufferManager_.DestroyAllFBOs();
-	shaderManager_->ClearCache(true);
+	framebufferManager_->DestroyAllFBOs();
 	depalShaderCache_.Clear();
 	delete shaderManager_;
 	shaderManager_ = nullptr;
@@ -511,12 +510,12 @@ void GPU_Vulkan::BeginHostFrame() {
 	shaderManager_->DirtyShader();
 	shaderManager_->DirtyUniform(DIRTY_ALL);
 
-	framebufferManager_.BeginFrame();
+	framebufferManager_->BeginFrame();
 }
 
 void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
-	framebufferManager_.EndFrame();
+	framebufferManager_->EndFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -542,8 +541,8 @@ void GPU_Vulkan::Reinitialize() {
 void GPU_Vulkan::ReinitializeInternal() {
 	textureCache_.Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManager_.DestroyAllFBOs();
-	framebufferManager_.Resized();
+	framebufferManager_->DestroyAllFBOs();
+	framebufferManager_->Resized();
 }
 
 void GPU_Vulkan::InitClearInternal() {
@@ -601,7 +600,7 @@ void GPU_Vulkan::BeginFrameInternal() {
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	host->GPUNotifyDisplay(framebuf, stride, format);
-	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
+	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
 bool GPU_Vulkan::FramebufferDirty() {
@@ -610,7 +609,7 @@ bool GPU_Vulkan::FramebufferDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->dirtyAfterDisplay;
 		vfb->dirtyAfterDisplay = false;
@@ -625,7 +624,7 @@ bool GPU_Vulkan::FramebufferReallyDirty() {
 		SyncThread();
 	}
 
-	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayVFB();
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
 	if (vfb) {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
@@ -644,7 +643,7 @@ void GPU_Vulkan::CopyDisplayToOutputInternal() {
 
 	shaderManager_->DirtyLastShader();
 
-	framebufferManager_.CopyDisplayToOutput();
+	framebufferManager_->CopyDisplayToOutput();
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
@@ -774,7 +773,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// This also makes skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.
@@ -850,7 +849,7 @@ void GPU_Vulkan::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -893,7 +892,7 @@ void GPU_Vulkan::Execute_Bezier(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_Spline(u32 op, u32 diff) {
 	// This also make skipping drawing very effective.
-	framebufferManager_.SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
 		return;
@@ -1935,7 +1934,7 @@ void GPU_Vulkan::UpdateStats() {
 	gpuStats.numFragmentShaders = shaderManager_->GetNumFragmentShaders();
 	gpuStats.numShaders = pipelineManager_->GetNumPipelines();
 	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
+	gpuStats.numFBOs = (int)framebufferManager_->NumVFBs();
 }
 
 void GPU_Vulkan::DoBlockTransfer(u32 skipDrawReason) {
@@ -1992,7 +1991,7 @@ void GPU_Vulkan::DoBlockTransfer(u32 skipDrawReason) {
 	}
 
 	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_.NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
+	if (!framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
 		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
@@ -2015,7 +2014,7 @@ void GPU_Vulkan::DoBlockTransfer(u32 skipDrawReason) {
 		}
 
 		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_.NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
+		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
 #ifndef MOBILE_DEVICE
@@ -2041,17 +2040,17 @@ void GPU_Vulkan::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType
 	else
 		textureCache_.InvalidateAll(type);
 
-	if (type != GPU_INVALIDATE_ALL && framebufferManager_.MayIntersectFramebuffer(addr)) {
+	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
 		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
 		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
-			framebufferManager_.UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
+			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
 }
 
 void GPU_Vulkan::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
 		// Since they're identical we don't need to copy.
 		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
@@ -2062,18 +2061,18 @@ void GPU_Vulkan::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 }
 
 void GPU_Vulkan::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManager_.NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
 		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	}
 }
 
 void GPU_Vulkan::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_.NotifyStencilUpload(dest, size);
+	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 bool GPU_Vulkan::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManager_.MayIntersectFramebuffer(src) || framebufferManager_.MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (IsOnSeparateCPUThread()) {
 			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
 			ev.fb_memcpy.dst = dest;
@@ -2095,7 +2094,7 @@ bool GPU_Vulkan::PerformMemoryCopy(u32 dest, u32 src, int size) {
 
 bool GPU_Vulkan::PerformMemorySet(u32 dest, u8 v, int size) {
 	// This may indicate a memset, usually to 0, of a framebuffer.
-	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		Memory::Memset(dest, v, size);
 
 		if (IsOnSeparateCPUThread()) {
@@ -2136,7 +2135,7 @@ bool GPU_Vulkan::PerformMemoryUpload(u32 dest, int size) {
 }
 
 bool GPU_Vulkan::PerformStencilUpload(u32 dest, int size) {
-	if (framebufferManager_.MayIntersectFramebuffer(dest)) {
+	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
 		if (IsOnSeparateCPUThread()) {
 			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
 			ev.fb_stencil_upload.dst = dest;
@@ -2156,15 +2155,15 @@ void GPU_Vulkan::ClearCacheNextFrame() {
 
 void GPU_Vulkan::Resized() {
 	resized_ = true;
-	framebufferManager_.Resized();
+	framebufferManager_->Resized();
 }
 
 void GPU_Vulkan::ClearShaderCache() {
-	shaderManager_->ClearCache(true);
+	// TODO
 }
 
 std::vector<FramebufferInfo> GPU_Vulkan::GetFramebufferList() {
-	return framebufferManager_.GetFramebufferList();
+	return framebufferManager_->GetFramebufferList();
 }
 
 void GPU_Vulkan::DoState(PointerWrap &p) {
@@ -2178,8 +2177,9 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 		depalShaderCache_.Clear();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_.DestroyAllFBOs();
-		shaderManager_->ClearCache(true);
+		framebufferManager_->DestroyAllFBOs();
+		shaderManager_->ClearShaders();
+		pipelineManager_->Clear();
 	}
 }
 
