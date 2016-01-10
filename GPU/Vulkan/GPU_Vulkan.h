@@ -21,13 +21,13 @@
 #include <deque>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
-class ShaderManager;
+class FramebufferManagerVulkan;
+class ShaderManagerVulkan;
 class LinkedShader;
 
 class GPU_Vulkan : public GPUCommon {
@@ -178,7 +178,7 @@ private:
 
 	GraphicsContext *gfxCtx_;
 	VulkanContext *vulkan_;
-	FramebufferManagerVulkan framebufferManager_;
+	FramebufferManagerVulkan *framebufferManager_;
 	TextureCacheVulkan textureCache_;
 	DepalShaderCacheVulkan depalShaderCache_;
 	DrawEngineVulkan drawEngine_;
