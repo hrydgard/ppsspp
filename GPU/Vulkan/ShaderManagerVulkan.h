@@ -104,7 +104,7 @@ struct UB_VS_FS_Base {
 };
 
 static const char *ub_baseStr =
-R"(  mat4 proj_mtx;
+R"(	mat4 proj_mtx;
   mat4 view_mtx;
   mat4 world_mtx;
   mat4 tex_mtx;
@@ -139,15 +139,15 @@ struct UB_VS_Lights {
 };
 
 static const char *ub_vs_lightsStr =
-R"(vec4 globalAmbient;
+R"(	vec4 globalAmbient;
 	vec3 matdiffuse;
-  vec4 matspecular;
-  vec3 matemissive;
-  vec3 pos[4];
-  vec3 dir[4];
-  vec3 att[4];
+	vec4 matspecular;
+	vec3 matemissive;
+	vec3 pos[4];
+	vec3 dir[4];
+	vec3 att[4];
 	float angle[4];
-  float spotCoef[4];
+	float spotCoef[4];
 	vec3 ambient[4];
 	vec3 diffuse[4];
 	vec3 specular[4];
@@ -158,7 +158,7 @@ struct UB_VS_Bones {
 };
 
 static const char *ub_vs_bonesStr =
-R"(mat4 m[8];
+R"(	mat4 m[8];
 )";
 
 class VulkanContext;
