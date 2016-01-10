@@ -22,6 +22,13 @@ inline void Uint8x3ToFloat4(float f[4], uint32_t u) {
 	f[3] = 0.0f;
 }
 
+inline void Uint8x3ToInt4(int i[4], uint32_t u) {
+	i[0] = ((u >> 0) & 0xFF);
+	i[1] = ((u >> 8) & 0xFF);
+	i[2] = ((u >> 16) & 0xFF);
+	i[3] = 0;
+}
+
 inline void Uint8x3ToFloat4_Alpha(float f[4], uint32_t u, float alpha) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
