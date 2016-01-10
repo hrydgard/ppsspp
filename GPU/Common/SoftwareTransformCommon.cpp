@@ -552,7 +552,7 @@ void SoftwareTransform(
 			result->setStencil = true;
 			if (vertexCount > 1) {
 				// Take the bottom right alpha value of the first rect as the stencil value.
-				// Technically, each rect should individually fill its stencil, but most of the
+				// Technically, each rect could individually fill its stencil, but most of the
 				// time they use the same one.
 				result->stencilValue = transformed[indsIn[1]].color0[3];
 			} else {
