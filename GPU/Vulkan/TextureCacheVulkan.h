@@ -170,7 +170,6 @@ private:
 	u16 clutAlphaLinearColor_;
 
 	CachedTextureVulkan *lastBoundTexture;
-	float maxAnisotropyLevel;
 
 	int decimationCounter_;
 	int texelsScaledThisFrame_;
