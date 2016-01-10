@@ -194,7 +194,6 @@ private:
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(Gen::X64Reg reg);
-	void WriteExitDestInEAX() { WriteExitDestInReg(Gen::EAX); }
 
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
