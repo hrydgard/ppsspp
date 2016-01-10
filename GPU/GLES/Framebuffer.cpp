@@ -71,21 +71,6 @@ static const char basic_vs[] =
 	"  gl_Position = a_position;\n"
 	"}\n";
 
-static const char color_fs[] =
-#ifdef USING_GLES2
-	"precision mediump float;\n"
-#endif
-	"uniform vec4 u_color;\n"
-	"void main() {\n"
-	"  gl_FragColor.rgba = u_color;\n"
-	"}\n";
-
-static const char color_vs[] =
-	"attribute vec4 a_position;\n"
-	"void main() {\n"
-	"  gl_Position = a_position;\n"
-	"}\n";
-
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void FramebufferManager::ClearBuffer(bool keepState) {
