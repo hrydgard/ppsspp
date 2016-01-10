@@ -74,9 +74,9 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	curFrame_(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = true;
-	decOptions_.expandAllWeightsToFloat = true;
-	decOptions_.expand8BitNormalsToFloat = true;
+	decOptions_.expandAllUVtoFloat = false;
+	decOptions_.expandAllWeightsToFloat = false;
+	decOptions_.expand8BitNormalsToFloat = false;
 
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
@@ -125,6 +125,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	dsl.bindingCount = 5;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 800;
