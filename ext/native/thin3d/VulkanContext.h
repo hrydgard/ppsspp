@@ -345,6 +345,7 @@ public:
 	VulkanTexture(VulkanContext *vulkan)
 		: vulkan_(vulkan), image(nullptr), imageLayout(VK_IMAGE_LAYOUT_UNDEFINED), mem(nullptr), view(nullptr), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
 		mappableImage(nullptr), mappableMemory(nullptr), needStaging(false) {
+		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
 	~VulkanTexture() {
 		Destroy();
@@ -383,7 +384,6 @@ private:
 class VulkanFramebuffer {
 public:
 	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
-	// void TransitionToImage()
 
 	void BeginPass(VkCommandBuffer cmd);
 	void EndPass(VkCommandBuffer cmd);
@@ -407,7 +407,7 @@ public:
 	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {
 		VkDevice device = vulkan->GetDevice();
 
-		VkBufferCreateInfo b;
+		VkBufferCreateInfo b = {};
 		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 		b.pNext = nullptr;
 		b.size = size;
@@ -420,7 +420,7 @@ public:
 		assert(VK_SUCCESS == res);
 
 		// Okay, that's the buffer. Now let's allocate some memory for it.
-		VkMemoryAllocateInfo alloc;
+		VkMemoryAllocateInfo alloc = {};
 		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		alloc.pNext = nullptr;
 		vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
