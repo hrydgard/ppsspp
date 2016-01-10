@@ -2185,6 +2185,10 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	return success;
 }
 
+bool DIRECTX9_GPU::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_.GetCurrentClutBuffer(buffer);
+}
+
 bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	return FramebufferManagerDX9::GetDisplayFramebuffer(buffer);
 }

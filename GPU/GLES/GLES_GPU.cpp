@@ -2401,6 +2401,10 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 #endif
 }
 
+bool GLES_GPU::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_.GetCurrentClutBuffer(buffer);
+}
+
 bool GLES_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
 	return FramebufferManager::GetDisplayFramebuffer(buffer);
 }

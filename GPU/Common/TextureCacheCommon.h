@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -40,6 +41,7 @@ public:
 	virtual ~TextureCacheCommon();
 
 	void LoadClut(u32 clutAddr, u32 loadBytes);
+	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
 
 	virtual bool SetOffsetTexture(u32 offset);
 
