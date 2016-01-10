@@ -279,6 +279,7 @@ public:
 	~Thin3DVKShaderSet() {
 		vshader->Release();
 		fshader->Release();
+		delete[] ubo_;
 	}
 	bool Link();
 
@@ -631,7 +632,9 @@ Thin3DVKContext::~Thin3DVKContext() {
 	vkDestroyCommandPool(device_, cmdPool_, nullptr);
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < 2; i++) {
+		frame_[i].descSets_.clear();
 		vkDestroyDescriptorPool(device_, frame_[i].descriptorPool, nullptr);
+		delete frame_[i].pushBuffer;
 	}
 	vkDestroyDescriptorSetLayout(device_, descriptorSetLayout_, nullptr);
 	vkDestroyPipelineLayout(device_, pipelineLayout_, nullptr);
