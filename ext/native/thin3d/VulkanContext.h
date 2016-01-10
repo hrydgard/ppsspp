@@ -75,8 +75,9 @@ public:
 	void QueueDelete(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
 	void QueueDelete(VkImage image) { images_.push_back(image); }
 	void QueueDelete(VkImageView imageView) { imageViews_.push_back(imageView); }
-	void QueueDelete(VkDeviceMemory deviceMemory) { memory_.push_back(deviceMemory); }
+	void QueueDelete(VkDeviceMemory deviceMemory) { deviceMemory_.push_back(deviceMemory); }
 	void QueueDelete(VkSampler sampler) { samplers_.push_back(sampler); }
+	void QueueDelete(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 
 	void Take(VulkanDeleteList &del) {
 		descPools_ = std::move(del.descPools_);
@@ -85,8 +86,9 @@ public:
 		bufferViews_ = std::move(del.bufferViews_);
 		images_ = std::move(del.images_);
 		imageViews_ = std::move(del.imageViews_);
-		memory_ = std::move(del.memory_);
+		deviceMemory_ = std::move(del.deviceMemory_);
 		samplers_ = std::move(del.samplers_);
+		pipelineCaches_ = std::move(del.pipelineCaches_);
 	}
 
 	void PerformDeletes(VkDevice device) {
@@ -110,14 +112,18 @@ public:
 			vkDestroyImageView(device, imageView, nullptr);
 		}
 		imageViews_.clear();
-		for (auto &mem : memory_) {
+		for (auto &mem : deviceMemory_) {
 			vkFreeMemory(device, mem, nullptr);
 		}
-		memory_.clear();
+		deviceMemory_.clear();
 		for (auto &sampler : samplers_) {
 			vkDestroySampler(device, sampler, nullptr);
 		}
 		samplers_.clear();
+		for (auto &pcache : pipelineCaches_) {
+			vkDestroyPipelineCache(device, pcache, nullptr);
+		}
+		pipelineCaches_.clear();
 	}
 
 private:
@@ -127,8 +133,9 @@ private:
 	std::vector<VkBufferView> bufferViews_;
 	std::vector<VkImage> images_;
 	std::vector<VkImageView> imageViews_;
-	std::vector<VkDeviceMemory> memory_;
+	std::vector<VkDeviceMemory> deviceMemory_;
 	std::vector<VkSampler> samplers_;
+	std::vector<VkPipelineCache> pipelineCaches_;
 };
 
 // VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.
