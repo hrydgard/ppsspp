@@ -713,6 +713,7 @@ void DrawEngineVulkan::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
+	// TODO: We must also wipe pipelines.
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}

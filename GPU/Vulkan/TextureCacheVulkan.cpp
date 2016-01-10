@@ -1750,12 +1750,12 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 	{
 		PROFILE_THIS_SCOPE("decodetex");
 
-		// TODO: only do this once
 		u32 texByteAlign = 1;
 
+		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		int bufw;
-		void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
+		void *finalBuf = DecodeTextureLevel(tfmt, clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
 		if (finalBuf == NULL) {
 			return;
 		}
@@ -1790,6 +1790,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 	uint8_t *writePtr = entry.vkTex->texture_->Lock(level, &rowPitch);
 	for (int y = 0; y < h; y++) {
 		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
+		// uncomment to make all textures white for debugging
+		//memset(writePtr + rowPitch * y, 0xff, rowBytes);
 	}
 	entry.vkTex->texture_->Unlock();
 
