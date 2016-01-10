@@ -30,17 +30,17 @@
 #include "stddef.h"
 #endif
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
-class ArmJit : public ArmGen::ARMXCodeBlock
-{
+class ArmJit : public ArmGen::ARMXCodeBlock {
 public:
 	ArmJit(MIPSState *mips);
 	virtual ~ArmJit();
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself

@@ -678,6 +678,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
+	X64Reg destReg = EAX;
 	if (IsSyscall(delaySlotOp))
 	{
 		// If this is a syscall, write the pc (for thread switching and other good reasons.)
@@ -719,7 +720,11 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 			return;
 		}
 
-		MOV(32, R(EAX), gpr.R(rs));
+		if (gpr.R(rs).IsSimpleReg()) {
+			destReg = gpr.R(rs).GetSimpleReg();
+		} else {
+			MOV(32, R(EAX), gpr.R(rs));
+		}
 		FlushAll();
 	}
 	else
@@ -746,7 +751,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 	}
 
 	CONDITIONAL_LOG_EXIT_EAX();
-	WriteExitDestInEAX();
+	WriteExitDestInReg(destReg);
 	js.compiling = false;
 }
 
