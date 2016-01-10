@@ -323,6 +323,7 @@
 #define ID_EMULATION_ROTATION_H_R        40158
 #define ID_EMULATION_ROTATION_V_R        40159
 #define ID_OPTIONS_DISPLAY_LAYOUT        40160
+#define ID_OPTIONS_VULKAN                40161
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
