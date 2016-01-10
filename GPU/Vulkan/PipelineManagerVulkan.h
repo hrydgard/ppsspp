@@ -81,7 +81,9 @@ public:
 	~PipelineManagerVulkan();
 
 	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform);
-	int GetNumPipelines() const { return 0; }
+	int GetNumPipelines() const { return (int)pipelines_.size(); }
+
+	void Clear();
 
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);

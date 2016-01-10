@@ -217,9 +217,8 @@ public:
 	ShaderManagerVulkan(VulkanContext *vulkan);
 	~ShaderManagerVulkan();
 
-	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
-
+	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader();
 
