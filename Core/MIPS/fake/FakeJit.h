@@ -26,18 +26,18 @@
 #include "stddef.h"
 #endif
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
 typedef int FakeReg;
 
-class FakeJit : public FakeGen::FakeXCodeBlock
-{
+class FakeJit : public FakeGen::FakeXCodeBlock {
 public:
 	FakeJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	void Comp_Generic(MIPSOpcode op);
 

@@ -30,17 +30,17 @@
 #include "stddef.h"
 #endif
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
-class Arm64Jit : public Arm64Gen::ARM64CodeBlock
-{
+class Arm64Jit : public Arm64Gen::ARM64CodeBlock {
 public:
 	Arm64Jit(MIPSState *mips);
 	virtual ~Arm64Jit();
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
