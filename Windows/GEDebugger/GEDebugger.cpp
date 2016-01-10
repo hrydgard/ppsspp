@@ -59,16 +59,16 @@ void CGEDebugger::Init() {
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), frameWindow(nullptr), texWindow(nullptr),
-	  textureLevel_(0), primaryBuffer_(nullptr), texBuffer_(nullptr) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent), primaryWindow(nullptr), secondWindow(nullptr),
+	  textureLevel_(0), showClut_(false), primaryBuffer_(nullptr), secondBuffer_(nullptr) {
 	GPUBreakpoints::Init();
 	Core_ListenShutdown(ForceUnpause);
 
 	// minimum size = a little more than the default
 	RECT windowRect;
-	GetWindowRect(m_hDlg,&windowRect);
-	minWidth = windowRect.right-windowRect.left+10;
-	minHeight = windowRect.bottom-windowRect.top+10;
+	GetWindowRect(m_hDlg, &windowRect);
+	minWidth_ = windowRect.right-windowRect.left + 10;
+	minHeight_ = windowRect.bottom-windowRect.top + 10;
 
 	// it's ugly, but .rc coordinates don't match actual pixels and it screws
 	// up both the size and the aspect ratio
@@ -117,8 +117,8 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	// set window position
 	int x = g_Config.iGEWindowX == -1 ? windowRect.left : g_Config.iGEWindowX;
 	int y = g_Config.iGEWindowY == -1 ? windowRect.top : g_Config.iGEWindowY;
-	int w = g_Config.iGEWindowW == -1 ? minWidth : g_Config.iGEWindowW;
-	int h = g_Config.iGEWindowH == -1 ? minHeight : g_Config.iGEWindowH;
+	int w = g_Config.iGEWindowW == -1 ? minWidth_ : g_Config.iGEWindowW;
+	int h = g_Config.iGEWindowH == -1 ? minHeight_ : g_Config.iGEWindowH;
 	MoveWindow(m_hDlg,x,y,w,h,FALSE);
 
 	UpdateTextureLevel(textureLevel_);
@@ -139,25 +139,31 @@ CGEDebugger::~CGEDebugger() {
 }
 
 void CGEDebugger::SetupPreviews() {
-	if (frameWindow == nullptr) {
-		frameWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
-		frameWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		frameWindow->SetHoverCallback([&] (int x, int y) {
-			PreviewFramebufHover(x, y);
+	if (primaryWindow == nullptr) {
+		primaryWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_FRAME));
+		primaryWindow->Initialize(SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		primaryWindow->SetHoverCallback([&] (int x, int y) {
+			PrimaryPreviewHover(x, y);
 		});
-		frameWindow->Clear();
+		primaryWindow->Clear();
 	}
-	if (texWindow == nullptr) {
-		texWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
-		texWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-		texWindow->SetHoverCallback([&] (int x, int y) {
-			PreviewTextureHover(x, y);
+	if (secondWindow == nullptr) {
+		secondWindow = SimpleGLWindow::GetFrom(GetDlgItem(m_hDlg, IDC_GEDBG_TEX));
+		secondWindow->Initialize(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
+		secondWindow->SetHoverCallback([&] (int x, int y) {
+			SecondPreviewHover(x, y);
 		});
-		texWindow->Clear();
+		secondWindow->Clear();
 	}
 }
 
-void CGEDebugger::DescribeFramebufTab(const GPUgstate &state, wchar_t desc[256]) {
+void CGEDebugger::DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[256]) {
+	if (showClut_) {
+		// In this case, we're showing the texture here.
+		_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+		return;
+	}
+
 	_assert_msg_(MASTER_LOG, primaryBuffer_ != nullptr, "Must have a valid primaryBuffer_");
 
 	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
@@ -175,8 +181,12 @@ void CGEDebugger::DescribeFramebufTab(const GPUgstate &state, wchar_t desc[256])
 	}
 }
 
-void CGEDebugger::DescribeTexture(const GPUgstate &state, wchar_t desc[256]) {
-	_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+void CGEDebugger::DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256]) {
+	if (showClut_) {
+		_snwprintf(desc, 256, L"CLUT: 0x%08x (%d)", state.getClutAddress(), state.getClutPaletteFormat());
+	} else {
+		_snwprintf(desc, 256, L"Texture L%d: 0x%08x (%dx%d)", textureLevel_, state.getTextureAddress(textureLevel_), state.getTextureWidth(textureLevel_), state.getTextureHeight(textureLevel_));
+	}
 }
 
 void CGEDebugger::UpdatePreviews() {
@@ -185,82 +195,22 @@ void CGEDebugger::UpdatePreviews() {
 		return;
 	}
 
-	wchar_t desc[256];
-	bool bufferResult = false;
 	GPUgstate state = {0};
 
-	if (gpuDebug != NULL) {
+	if (gpuDebug != nullptr) {
 		state = gpuDebug->GetGState();
 	}
 
-	primaryBuffer_ = nullptr;
-	switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
-	case PRIMARY_FRAMEBUF:
-		bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer_);
-		break;
-
-	case PRIMARY_DEPTHBUF:
-		bufferResult = GPU_GetCurrentDepthbuffer(primaryBuffer_);
-		break;
-
-	case PRIMARY_STENCILBUF:
-		bufferResult = GPU_GetCurrentStencilbuffer(primaryBuffer_);
-		break;
-	}
-
-	if (bufferResult && primaryBuffer_ != nullptr) {
-		auto fmt = SimpleGLWindow::Format(primaryBuffer_->GetFormat());
-		frameWindow->Draw(primaryBuffer_->GetData(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), primaryBuffer_->GetFlipped(), fmt);
-
-		DescribeFramebufTab(state, desc);
-		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
-	} else if (frameWindow != NULL) {
-		frameWindow->Clear();
-		primaryBuffer_ = nullptr;
-
-		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
-	}
-
-	texBuffer_ = nullptr;
 	UpdateTextureLevel(textureLevel_);
-	bufferResult = GPU_GetCurrentTexture(texBuffer_, textureLevel_);
-
-	if (bufferResult) {
-		if (gpuDebug != NULL) {
-			bool forceOpaque = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
-			if (state.isTextureAlphaUsed() && !forceOpaque) {
-				texWindow->SetFlags(SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_SHRINK_CENTER);
-			} else {
-				texWindow->SetFlags(SimpleGLWindow::RESIZE_SHRINK_CENTER);
-			}
-			DescribeTexture(state, desc);
-			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
-
-			UpdateLastTexture(state.getTextureAddress(textureLevel_));
-		} else {
-			UpdateLastTexture((u32)-1);
-		}
-
-		auto fmt = SimpleGLWindow::Format(texBuffer_->GetFormat());
-		texWindow->Draw(texBuffer_->GetData(), texBuffer_->GetStride(), texBuffer_->GetHeight(), texBuffer_->GetFlipped(), fmt);
-	} else if (texWindow != NULL) {
-		texWindow->Clear();
-		texBuffer_ = nullptr;
-
-		if (gpuDebug == NULL || state.isTextureMapEnabled()) {
-			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
-		} else {
-			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
-		}
-		UpdateLastTexture((u32)-1);
-	}
+	UpdatePrimaryPreview(state);
+	UpdateSecondPreview(state);
 
 	DisplayList list;
-	if (gpuDebug != NULL && gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		const u32 op = Memory::Read_U32(list.pc);
 		const u32 cmd = op >> 24;
 		// TODO: Bezier/spline?
-		if (cmd == GE_CMD_PRIM) {
+		if (cmd == GE_CMD_PRIM && !showClut_) {
 			UpdatePrimPreview(op);
 		}
 
@@ -276,14 +226,107 @@ void CGEDebugger::UpdatePreviews() {
 	lists->Update();
 }
 
-void CGEDebugger::PreviewFramebufHover(int x, int y) {
+u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
+	if (state.isTextureAlphaUsed() && !forceOpaque_) {
+		return SimpleGLWindow::ALPHA_BLEND | SimpleGLWindow::RESIZE_BEST_CENTER;
+	} else {
+		return SimpleGLWindow::RESIZE_BEST_CENTER;
+	}
+}
+
+void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
+	bool bufferResult = false;
+	u32 flags = SimpleGLWindow::ALPHA_IGNORE | SimpleGLWindow::RESIZE_SHRINK_CENTER;
+
+	primaryBuffer_ = nullptr;
+	if (showClut_) {
+		bufferResult = GPU_GetCurrentTexture(primaryBuffer_, textureLevel_);
+		flags = TexturePreviewFlags(state);
+		if (bufferResult) {
+			UpdateLastTexture(state.getTextureAddress(textureLevel_));
+		} else {
+			UpdateLastTexture((u32)-1);
+		}
+	} else {
+		switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
+		case PRIMARY_FRAMEBUF:
+			bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer_);
+			break;
+
+		case PRIMARY_DEPTHBUF:
+			bufferResult = GPU_GetCurrentDepthbuffer(primaryBuffer_);
+			break;
+
+		case PRIMARY_STENCILBUF:
+			bufferResult = GPU_GetCurrentStencilbuffer(primaryBuffer_);
+			break;
+		}
+	}
+
+	if (bufferResult && primaryBuffer_ != nullptr) {
+		auto fmt = SimpleGLWindow::Format(primaryBuffer_->GetFormat());
+		primaryWindow->SetFlags(flags);
+		primaryWindow->Draw(primaryBuffer_->GetData(), primaryBuffer_->GetStride(), primaryBuffer_->GetHeight(), primaryBuffer_->GetFlipped(), fmt);
+
+		wchar_t desc[256];
+		DescribePrimaryPreview(state, desc);
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
+	} else if (primaryWindow != nullptr) {
+		primaryWindow->Clear();
+		primaryBuffer_ = nullptr;
+
+		SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"Failed");
+	}
+}
+
+void CGEDebugger::UpdateSecondPreview(const GPUgstate &state) {
+	bool bufferResult = false;
+
+	secondBuffer_ = nullptr;
+	if (showClut_) {
+		bufferResult = GPU_GetCurrentClut(secondBuffer_);
+	} else {
+		bufferResult = GPU_GetCurrentTexture(secondBuffer_, textureLevel_);
+		if (bufferResult) {
+			UpdateLastTexture(state.getTextureAddress(textureLevel_));
+		} else {
+			UpdateLastTexture((u32)-1);
+		}
+	}
+
+	if (bufferResult) {
+		auto fmt = SimpleGLWindow::Format(secondBuffer_->GetFormat());
+		secondWindow->SetFlags(TexturePreviewFlags(state));
+		if (showClut_) {
+			// Reduce the stride so it's easier to see.
+			secondWindow->Draw(secondBuffer_->GetData(), secondBuffer_->GetStride() / 16, secondBuffer_->GetHeight() * 16, secondBuffer_->GetFlipped(), fmt);
+		} else {
+			secondWindow->Draw(secondBuffer_->GetData(), secondBuffer_->GetStride(), secondBuffer_->GetHeight(), secondBuffer_->GetFlipped(), fmt);
+		}
+
+		wchar_t desc[256];
+		DescribeSecondPreview(state, desc);
+		SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
+	} else if (secondWindow != nullptr) {
+		secondWindow->Clear();
+		secondBuffer_ = nullptr;
+
+		if (gpuDebug == nullptr || state.isTextureMapEnabled()) {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: failed");
+		} else {
+			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"Texture: disabled");
+		}
+	}
+}
+
+void CGEDebugger::PrimaryPreviewHover(int x, int y) {
 	if (primaryBuffer_ == nullptr) {
 		return;
 	}
 
 	wchar_t desc[256] = {0};
 
-	if (!frameWindow->HasTex()) {
+	if (!primaryWindow->HasTex()) {
 		desc[0] = 0;
 	} else if (x < 0 || y < 0) {
 		// This means they left the area.
@@ -291,7 +334,7 @@ void CGEDebugger::PreviewFramebufHover(int x, int y) {
 		if (gpuDebug != nullptr) {
 			state = gpuDebug->GetGState();
 		}
-		DescribeFramebufTab(state, desc);
+		DescribePrimaryPreview(state, desc);
 	} else {
 		// Coordinates are relative to actual framebuffer size.
 		u32 pix = primaryBuffer_->GetRawPixel(x, y);
@@ -299,6 +342,35 @@ void CGEDebugger::PreviewFramebufHover(int x, int y) {
 	}
 
 	SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, desc);
+}
+
+void CGEDebugger::SecondPreviewHover(int x, int y) {
+	if (secondBuffer_ == nullptr) {
+		return;
+	}
+
+	wchar_t desc[256] = {0};
+
+	if (!secondWindow->HasTex()) {
+		desc[0] = 0;
+	} else if (x < 0 || y < 0) {
+		// This means they left the area.
+		GPUgstate state = {0};
+		if (gpuDebug != nullptr) {
+			state = gpuDebug->GetGState();
+		}
+		DescribeSecondPreview(state, desc);
+	} else {
+		u32 pix = secondBuffer_->GetRawPixel(x, y);
+		if (showClut_) {
+			// Show the clut index, rather than coords.
+			DescribePixel(pix, secondBuffer_->GetFormat(), y * 16 + x, 0, desc);
+		} else {
+			DescribePixel(pix, secondBuffer_->GetFormat(), x, y, desc);
+		}
+	}
+
+	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
 }
 
 void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]) {
@@ -413,33 +485,9 @@ void CGEDebugger::DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, in
 	_snwprintf(desc, 256, L"%d,%d: r=%d, g=%d, b=%d, a=%d", x, y, r, g, b, a);
 }
 
-void CGEDebugger::PreviewTextureHover(int x, int y) {
-	if (texBuffer_ == nullptr) {
-		return;
-	}
-
-	wchar_t desc[256] = {0};
-
-	if (!texWindow->HasTex()) {
-		desc[0] = 0;
-	} else if (x < 0 || y < 0) {
-		// This means they left the area.
-		GPUgstate state = {0};
-		if (gpuDebug != nullptr) {
-			state = gpuDebug->GetGState();
-		}
-		DescribeTexture(state, desc);
-	} else {
-		u32 pix = texBuffer_->GetRawPixel(x, y);
-		DescribePixel(pix, texBuffer_->GetFormat(), x, y, desc);
-	}
-
-	SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, desc);
-}
-
 void CGEDebugger::UpdateTextureLevel(int level) {
 	GPUgstate state = {0};
-	if (gpuDebug != NULL) {
+	if (gpuDebug != nullptr) {
 		state = gpuDebug->GetGState();
 	}
 
@@ -496,8 +544,8 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_GETMINMAXINFO:
 		{
 			MINMAXINFO* minmax = (MINMAXINFO*) lParam;
-			minmax->ptMinTrackSize.x = minWidth;
-			minmax->ptMinTrackSize.y = minHeight;
+			minmax->ptMinTrackSize.x = minWidth_;
+			minmax->ptMinTrackSize.y = minHeight_;
 		}
 		return TRUE;
 
@@ -533,13 +581,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 		case IDC_GEDBG_MAINTAB:
 			tabs->HandleNotify(lParam);
-			if (gpuDebug != NULL) {
+			if (gpuDebug != nullptr) {
 				lists->Update();
 			}
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
-			if (attached && gpuDebug != NULL) {
+			if (attached && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
@@ -593,21 +641,21 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_TEXLEVELDOWN:
 			UpdateTextureLevel(textureLevel_ - 1);
-			if (attached && gpuDebug != NULL) {
+			if (attached && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_TEXLEVELUP:
 			UpdateTextureLevel(textureLevel_ + 1);
-			if (attached && gpuDebug != NULL) {
+			if (attached && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_RESUME:
-			frameWindow->Clear();
-			texWindow->Clear();
+			primaryWindow->Clear();
+			secondWindow->Clear();
 			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
 
@@ -616,11 +664,18 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
-			if (attached && gpuDebug != NULL) {
+			if (attached && gpuDebug != nullptr) {
+				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
 			break;
 
+		case IDC_GEDBG_SHOWCLUT:
+			if (attached && gpuDebug != nullptr) {
+				showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
+				UpdatePreviews();
+			}
+			break;
 		}
 		break;
 
