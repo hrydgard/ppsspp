@@ -53,13 +53,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 	WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
 
-	// PowerVR needs highp to do the fog in MHU correctly.
-	// Others don't.
-	bool highpFog = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? true : false;
-	bool highpTexcoord = highpFog;
-
-	WRITE(p, "precision lowp float;\n");
-
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
 	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
@@ -107,13 +100,13 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	if (lmode)
 		WRITE(p, "layout (location = 2) %s in vec3 v_color1;\n", shading);
 	if (enableFog) {
-		WRITE(p, "layout (location = 3) %s in float v_fogdepth;\n", highpFog ? "highp" : "mediump");
+		WRITE(p, "layout (location = 3) in float v_fogdepth;\n");
 	}
 	if (doTexture) {
 		if (doTextureProjection)
-			WRITE(p, "layout (location = 0) %s in vec3 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) in vec3 v_texcoord;\n");
 		else
-			WRITE(p, "layout (location = 0) %s in vec2 v_texcoord;\n", highpTexcoord ? "highp" : "mediump");
+			WRITE(p, "layout (location = 0) in vec2 v_texcoord;\n");
 	}
 
 	if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -134,7 +127,6 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 	}
 
 	WRITE(p, "void main() {\n");
-
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
 		WRITE(p, "  vec4 v = v_color0;\n");

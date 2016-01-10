@@ -202,7 +202,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		Uint8x3ToFloat4_Alpha(ub_base.alphaColorRef, gstate.getColorTestRef(), (float)gstate.getAlphaTestRef());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		Uint8x3ToFloat4(ub_base.colorTestMask, gstate.colortestmask);
+		Uint8x3ToInt4(ub_base.colorTestMask, gstate.colortestmask);
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		Uint8x3ToFloat4(ub_base.fogColor, gstate.fogcolor);

@@ -95,7 +95,7 @@ struct UB_VS_FS_Base {
 	float fogColor[4];
 	float texEnvColor[4];
 	float alphaColorRef[4];
-	float colorTestMask[4];
+	int colorTestMask[4];
 	float stencilReplace[4];  // only first float used
 	float blendFixA[4];
 	float blendFixB[4];
@@ -112,15 +112,15 @@ R"(	mat4 proj_mtx;
   vec4 depthRange;
   vec2 fogcoef;
   vec4 matambientalpha;
+  vec3 fogcolor;
+  vec3 texenv;
+  vec4 alphacolorref;
+  ivec4 alphacolormask;
+  float stencilReplaceValue;
   vec3 blendFixA;
   vec3 blendFixB;
   vec4 texclamp;
   vec2 texclampoff;
-  vec4 alphacolorref;
-  ivec4 alphacolormask;
-  float stencilReplaceValue;
-  vec3 texenv;
-  vec3 fogcolor;
 )";
 
 struct UB_VS_Lights {
