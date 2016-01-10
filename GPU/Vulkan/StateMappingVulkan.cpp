@@ -202,6 +202,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
+		key.cullMode = VK_CULL_MODE_NONE;
 
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
@@ -213,6 +214,8 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 			}
 		} else {
 			key.depthTestEnable = false;
+			key.depthWriteEnable = false;
+			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 		}
 
 		// PSP color/alpha mask is per bit but we can only support per byte.

@@ -548,7 +548,7 @@ public:
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
-		vkTex_ = new VulkanTexture();
+		vkTex_ = new VulkanTexture(vulkan_);
 		// We don't actually do anything here.
 		return true;
 	}
@@ -563,7 +563,7 @@ private:
 	void Destroy() {
 		ILOG("texture destroyed: %p", this);
 		if (vkTex_) {
-			vkTex_->Destroy(vulkan_);
+			vkTex_->Destroy();
 			delete vkTex_;
 		}
 	}
@@ -955,13 +955,13 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	int bpp;
 	VkFormat vulkanFormat = FormatToVulkan(format_, &bpp);
 	int bytesPerPixel = bpp / 8;
-	vkTex_->Create(vulkan_, width, height, vulkanFormat);
+	vkTex_->Create(width, height, vulkanFormat);
 	int rowPitch;
-	uint8_t *dstData = vkTex_->Lock(vulkan_, 0, &rowPitch);
+	uint8_t *dstData = vkTex_->Lock(0, &rowPitch);
 	for (int y = 0; y < height; y++) {
 		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
 	}
-	vkTex_->Unlock(vulkan_);
+	vkTex_->Unlock();
 }
 
 void Thin3DVKTexture::Finalize(int zim_flags) {

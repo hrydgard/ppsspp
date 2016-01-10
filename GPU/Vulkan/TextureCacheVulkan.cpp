@@ -1446,9 +1446,10 @@ void TextureCacheVulkan::SetTexture() {
 		}
 	} else {
 		entry->vkTex = new CachedTextureVulkan();
-		entry->vkTex->texture_ = new VulkanTexture();
+		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		image->Create(vulkan_, w, h, dstFmt);
+		VkResult res = image->Create(w, h, dstFmt);
+		assert(res == VK_SUCCESS);
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -1786,11 +1787,11 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 
 	// Upload the texture data. TODO: Decode directly into this buffer.
 	int rowPitch;
-	uint8_t *writePtr = entry.vkTex->texture_->Lock(vulkan_, level, &rowPitch);
+	uint8_t *writePtr = entry.vkTex->texture_->Lock(level, &rowPitch);
 	for (int y = 0; y < h; y++) {
 		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 	}
-	entry.vkTex->texture_->Unlock(vulkan_);
+	entry.vkTex->texture_->Unlock();
 
 	/*
 	if (!lowMemoryMode_) {
