@@ -626,18 +626,19 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			};
 			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-			vbOffset = (uint32_t)frame->pushData->Push(drawBuffer, numTrans * sizeof(TransformedVertex));
-
 			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
-			VkDeviceSize offsets[1] = { vbOffset };
 			if (drawIndexed) {
-				ibOffset = (uint32_t)frame->pushData->Push(inds, 2 * numTrans);
+				vbOffset = (uint32_t)frame->pushData->PushAligned(drawBuffer, maxIndex * sizeof(TransformedVertex), 16);
+				ibOffset = (uint32_t)frame->pushData->PushAligned(inds, sizeof(short) * numTrans, 16);
+				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 				vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
 				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
 			} else {
+				vbOffset = (uint32_t)frame->pushData->PushAligned(drawBuffer, numTrans * sizeof(TransformedVertex), 16);
+				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 				vkCmdDraw(cmd_, numTrans, 1, 0, 0);
