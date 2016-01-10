@@ -19,7 +19,7 @@ void PipelineManagerVulkan::Clear() {
 	// This should kill off all the shaders at once.
 	// This could also be an opportunity to store the whole cache to disk. Will need to also
 	// store the keys.
-	vkDestroyPipelineCache(vulkan_->GetDevice(), pipelineCache_, nullptr);
+	vulkan_->QueueDelete(pipelineCache_);
 	for (auto iter : pipelines_) {
 		delete iter.second;
 	}
