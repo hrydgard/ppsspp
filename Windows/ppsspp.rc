@@ -481,6 +481,7 @@ BEGIN
         BEGIN
             MENUITEM "Direct3D9" ID_OPTIONS_DIRECT3D9
             MENUITEM "OpenGL" ID_OPTIONS_OPENGL
+           	MENUITEM "Vulkan" ID_OPTIONS_VULKAN
         END
 
         POPUP "Rendering Mode"
