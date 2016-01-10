@@ -181,6 +181,7 @@ ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
+	ClearShaders();
 	delete[] codeBuffer_;
 }
 
@@ -447,14 +448,13 @@ void ShaderManagerVulkan::Clear() {
 	vsCache_.clear();
 	lastFSID_.clear();
 	lastVSID_.clear();
+}
+
+void ShaderManagerVulkan::ClearShaders() {
+	Clear();
 	DirtyShader();
 	DirtyUniform(0xFFFFFFFF);
 }
-
-void ShaderManagerVulkan::ClearCache(bool deleteThem) {
-	Clear();
-}
-
 
 void ShaderManagerVulkan::DirtyShader() {
 	// Forget the last shader ID
