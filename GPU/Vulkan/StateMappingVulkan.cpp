@@ -202,7 +202,6 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
-		key.cullMode = VK_CULL_MODE_NONE;
 
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
@@ -290,9 +289,6 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 
 	if (depthMin < 0.0f) depthMin = 0.0f;
 	if (depthMax > 1.0f) depthMax = 1.0f;
-	if (vpAndScissor.dirtyProj) {
-		shaderManager->DirtyUniform(DIRTY_PROJMATRIX);
-	}
 	if (vpAndScissor.dirtyDepth) {
 		shaderManager->DirtyUniform(DIRTY_DEPTHRANGE);
 	}
