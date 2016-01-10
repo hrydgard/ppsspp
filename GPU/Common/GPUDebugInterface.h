@@ -223,6 +223,10 @@ public:
 		return false;
 	}
 
+	virtual bool GetCurrentClut(GPUDebugBuffer &buffer) {
+		return false;
+	}
+
 	// TODO:
 	// cached framebuffers / textures / vertices?
 	// get content of specific framebuffer / texture?

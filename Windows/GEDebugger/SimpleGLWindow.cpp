@@ -322,7 +322,7 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 	x = 0.0f;
 	y = 0.0f;
 
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
+	if ((flags_ & RESIZE_SHRINK_FIT) != 0 && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -330,6 +330,17 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 			fw = (float)w_;
 			fh /= wscale;
 		} else if (hscale > 1.0f) {
+			fw /= hscale;
+			fh = (float)h_;
+		}
+	}
+	if ((flags_ & RESIZE_GROW_FIT) != 0 && !zoom_) {
+		float wscale = fw / w_, hscale = fh / h_;
+
+		if (wscale > hscale && wscale < 1.0f) {
+			fw = (float)w_;
+			fh /= wscale;
+		} else if (hscale > wscale && hscale < 1.0f) {
 			fw /= hscale;
 			fh = (float)h_;
 		}

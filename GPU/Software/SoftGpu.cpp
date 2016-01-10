@@ -968,6 +968,16 @@ bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	return Rasterizer::GetCurrentTexture(buffer, level);
 }
 
+bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
+{
+	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	const u32 pixels = 1024 / bpp;
+
+	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
+	memcpy(buffer.GetData(), clut, 1024);
+	return true;
+}
+
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)
 {
 	return TransformUnit::GetCurrentSimpleVertices(count, vertices, indices);
