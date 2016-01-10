@@ -1244,8 +1244,6 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 			bufferInfo->first.minWriteBytes = 0;
 		}
 		bufferInfo->first.filePos = atrac->first.size;
-
-		atrac->first.writableBytes = bufferInfo->first.writableBytes;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
 		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
@@ -1591,7 +1589,6 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 				Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
 				atrac->first.fileoffset += bytesWrittenFirstBuf;
 				atrac->first.size += bytesWrittenFirstBuf;
-				atrac->first.writableBytes -= bytesWrittenFirstBuf;
 				atrac->first.offset += bytesWrittenFirstBuf;
 			}
 
