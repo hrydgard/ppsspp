@@ -175,6 +175,9 @@ ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+	memset(&ub_base, 0, sizeof(ub_base));
+	memset(&ub_lights, 0, sizeof(ub_lights));
+	memset(&ub_bones, 0, sizeof(ub_bones));
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {

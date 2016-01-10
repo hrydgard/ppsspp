@@ -95,7 +95,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.compareEnable = false;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
-	samp.magFilter = (key.magFilt & 1) ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;  // TODO: Aniso
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // key.4) ? ((key.magFilt & 2) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST) : VK_SAMPLER_MIPMAP_MODE_BASE;
 	samp.maxAnisotropy = 1.0f;
@@ -111,7 +111,10 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	return sampler;
 }
 
-TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan) : vulkan_(vulkan), samplerCache_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
+	: vulkan_(vulkan), samplerCache_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0),
+	  clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0),
+	  clutAlphaLinear_(false) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
