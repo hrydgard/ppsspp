@@ -1277,6 +1277,12 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 			sampleFileOffset -= atrac->atracBytesPerFrame;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
+
+		if (atrac->second.size != 0) {
+			// TODO: We have a second buffer.  Within it, minWriteBytes should be zero.
+			// The filePos should be after the end of the second buffer (or zero.)
+			// We actually need to ensure we READ from the second buffer before implementing that.
+		}
 	}
 
 	// It seems like this is always the same as the first buffer's pos, weirdly.
@@ -1293,12 +1299,16 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogWarning(ME, ATRAC_ERROR_BAD_ATRACID, "invalid id");
-	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
-	} else if (!bufferInfo.IsValid()) {
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (!bufferInfo.IsValid()) {
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
+	} else if (atrac->bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second.size == 0) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
@@ -1586,10 +1596,14 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 // The game must add sufficient packets to the buffer in order to complete the seek.
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (!atrac->data_buf) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (atrac->bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second.size == 0) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
