@@ -1030,7 +1030,9 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 
 	if (bytesToAdd > 0) {
 		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-		Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+		if (!atrac->ignoreDataBuf) {
+			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+		}
 		atrac->first.fileoffset += addbytes;
 	}
 	atrac->first.size += bytesToAdd;
@@ -1585,8 +1587,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
 			// Okay, it's a valid number of bytes.  Let's set them up.
 			if (bytesWrittenFirstBuf != 0) {
-				// TODO: We should just use the buffer in PSP RAM.
-				Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
+				if (!atrac->ignoreDataBuf) {
+					Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
+				}
 				atrac->first.fileoffset += bytesWrittenFirstBuf;
 				atrac->first.size += bytesWrittenFirstBuf;
 				atrac->first.offset += bytesWrittenFirstBuf;
@@ -1607,8 +1610,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->first.fileoffset = bufferInfo.first.filePos;
 
 			if (bytesWrittenFirstBuf != 0) {
-				// TODO: We should just use the buffer in PSP RAM.
-				Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, bytesWrittenFirstBuf);
+				if (!atrac->ignoreDataBuf) {
+					Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, bytesWrittenFirstBuf);
+				}
 				atrac->first.fileoffset += bytesWrittenFirstBuf;
 			}
 			atrac->first.size = atrac->first.fileoffset;
@@ -1767,8 +1771,10 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		}
 
 		atrac->data_buf = new u8[atrac->first.filesize];
-		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
-		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		if (!atrac->ignoreDataBuf) {
+			u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+			Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		}
 		return __AtracSetContext(atrac);
 
 	} else if (atrac->codecType == PSP_MODE_AT_3_PLUS) {
@@ -1778,8 +1784,10 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 			WARN_LOG(ME, "This is an atrac3+ stereo audio");
 		}
 		atrac->data_buf = new u8[atrac->first.filesize];
-		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
-		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		if (!atrac->ignoreDataBuf) {
+			u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+			Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		}
 		return __AtracSetContext(atrac);
 	} else {
 		// Should not get here, but just in case, force it.
