@@ -230,7 +230,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 7);
+		auto s = p.Section("Atrac", 1, 8);
 		if (!s)
 			return;
 
@@ -299,6 +299,12 @@ struct Atrac {
 			p.Do(ignoreDataBuf);
 		} else {
 			ignoreDataBuf = false;
+		}
+
+		if (s < 8 && bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+			// We didn't actually allow the second buffer to be set this far back.
+			// Pretend it's a regular loop, we'll just try our best.
+			bufferState = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
@@ -1852,15 +1858,27 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): bad atrac ID", atracID, secondBuffer, secondBufferSize);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): no data", atracID, secondBuffer, secondBufferSize);
-		return ATRAC_ERROR_NO_DATA;
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
 
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+	u32 secondFileOffset = atrac->getFileOffsetBySample(atrac->loopEndSample - atrac->firstSampleoffset);
+	u32 desiredSize = atrac->first.filesize - secondFileOffset;
+
+	// 3 seems to be the number of frames required to handle a loop.
+	if (secondBufferSize < desiredSize && secondBufferSize < (u32)atrac->atracBytesPerFrame * 3) {
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small");
+	}
+	if (atrac->bufferState != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+	}
+
+	atrac->second.addr = secondBuffer;
+	atrac->second.size = secondBufferSize;
+	atrac->second.fileoffset = secondFileOffset;
+
 	return 0;
 }
 
