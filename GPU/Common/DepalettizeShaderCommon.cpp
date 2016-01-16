@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 
+#include "gfx_es2/gpu_features.h"
 #include "Common/Log.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
@@ -29,12 +30,18 @@
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat) {
 	char *p = buffer;
+
 	if (gl_extensions.IsGLES) {
 		WRITE(p, "#version 300 es\n");
-		WRITE(p, "precision mediump float;\n");
+		if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+			WRITE(p, "precision highp float;\n");
+		} else {
+			WRITE(p, "precision mediump float;\n");
+		}
 	} else {
 		WRITE(p, "#version 330\n");
 	}
+
 	WRITE(p, "in vec2 v_texcoord0;\n");
 	WRITE(p, "out vec4 fragColor0;\n");
 	WRITE(p, "uniform sampler2D tex;\n");
@@ -117,6 +124,12 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 
 	const int shift = gstate.getClutIndexShift();
 	const int mask = gstate.getClutIndexMask();
+
+	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
+	if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
+		modFunc = "mymod";
+	}
 
 	float index_multiplier = 1.0f;
 	// pixelformat is the format of the texture we are sampling.
@@ -221,7 +234,11 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 	if (lang == GLSL_140) {
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 100\n");
-			WRITE(p, "precision mediump float;\n");
+			if (gl_extensions.gpuVendor == GPU_VENDOR_POWERVR) {
+				WRITE(p, "precision highp float;\n");
+			} else {
+				WRITE(p, "precision mediump float;\n");
+			}
 		} else {
 			WRITE(p, "#version 110\n");
 		}
