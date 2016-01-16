@@ -671,20 +671,17 @@ int Atrac::Analyze() {
 
 	// 72 is about the size of the minimum required data to even be valid.
 	if (first.size < 72) {
-		ERROR_LOG_REPORT(ME, "Atrac buffer very small: %d", first.size);
-		return ATRAC_ERROR_SIZE_TOO_SMALL;
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "buffer too small");
 	}
 
 	if (!Memory::IsValidAddress(first.addr)) {
-		WARN_LOG_REPORT(ME, "Atrac buffer at invalid address: %08x-%08x", first.addr, first.size);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+		return hleReportWarning(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address");
 	}
 
 	// TODO: Validate stuff.
 
 	if (Memory::Read_U32(first.addr) != RIFF_CHUNK_MAGIC) {
-		ERROR_LOG_REPORT(ME, "Atrac buffer invalid RIFF header: %08x", first.addr);
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIF header");
 	}
 
 	u32 offset = 8;
@@ -696,12 +693,10 @@ int Atrac::Analyze() {
 		// Round the chunk size up to the nearest 2.
 		offset += chunk + (chunk & 1);
 		if (offset + 12 > first.size) {
-			ERROR_LOG_REPORT(ME, "Atrac buffer too small without WAVE chunk: %d at %d", first.size, offset);
-			return ATRAC_ERROR_SIZE_TOO_SMALL;
+			return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small for WAVE chunk at %d", offset);
 		}
 		if (Memory::Read_U32(first.addr + offset) != RIFF_CHUNK_MAGIC) {
-			ERROR_LOG_REPORT(ME, "RIFF chunk did not contain WAVE");
-			return ATRAC_ERROR_UNKNOWN_FORMAT;
+			return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "RIFF chunk did not contain WAVE");
 		}
 		offset += 8;
 	}
@@ -735,14 +730,12 @@ int Atrac::Analyze() {
 		case FMT_CHUNK_MAGIC:
 			{
 				if (codecType != 0) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with multiple fmt definitions");
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "multiple fmt definitions");
 				}
 
 				auto at3fmt = PSPPointer<const RIFFFmtChunk>::Create(first.addr + offset);
 				if (chunkSize < 32 || (at3fmt->fmtTag == AT3_PLUS_MAGIC && chunkSize < 52)) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with too small fmt definition %d", chunkSize);
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "fmt definition too small (%d)", chunkSize);
 				}
 
 				if (at3fmt->fmtTag == AT3_MAGIC)
@@ -750,23 +743,19 @@ int Atrac::Analyze() {
 				else if (at3fmt->fmtTag == AT3_PLUS_MAGIC)
 					codecType = PSP_MODE_AT_3_PLUS;
 				else {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid fmt magic: %04x", at3fmt->fmtTag);
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid fmt magic: %04x", at3fmt->fmtTag);
 				}
 				atracChannels = at3fmt->channels;
 				if (atracChannels != 1 && atracChannels != 2) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid channel count: %d", atracChannels);
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid channel count: %d", atracChannels);
 				}
 				if (at3fmt->samplerate != 44100) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with unsupported sample rate: %d", at3fmt->samplerate);
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "unsupported sample rate: %d", at3fmt->samplerate);
 				}
 				atracBitrate = at3fmt->avgBytesPerSec * 8;
 				atracBytesPerFrame = at3fmt->blockAlign;
 				if (atracBytesPerFrame == 0) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid bytes per frame: %d", atracBytesPerFrame);
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid bytes per frame: %d", atracBytesPerFrame);
 				}
 
 				// TODO: There are some format specific bytes here which seem to have fixed values?
@@ -793,13 +782,11 @@ int Atrac::Analyze() {
 		case SMPL_CHUNK_MAGIC:
 			{
 				if (chunkSize < 32) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid smpl chunk size");
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small (%d)", chunkSize);
 				}
 				int checkNumLoops = Memory::Read_U32(first.addr + offset + 28);
 				if (checkNumLoops != 0 && chunkSize < 36 + 20) {
-					ERROR_LOG_REPORT(ME, "Atrac buffer with invalid smpl chunk size after loop");
-					return ATRAC_ERROR_UNKNOWN_FORMAT;
+					return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "smpl chunk too small for loop (%d)", chunkSize);
 				}
 
 				loopinfoNum = checkNumLoops;
@@ -816,8 +803,7 @@ int Atrac::Analyze() {
 					loopinfo[i].playCount = Memory::Read_U32(loopinfoAddr + 20);
 
 					if (loopinfo[i].startSample >= loopinfo[i].endSample) {
-						ERROR_LOG_REPORT(ME, "Atrac buffer with loop starting after it ends");
-						return ATRAC_ERROR_BAD_CODEC_PARAMS;
+						return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop starts after it ends");
 					}
 				}
 			}
@@ -839,13 +825,11 @@ int Atrac::Analyze() {
 	}
 
 	if (codecType == 0) {
-		WARN_LOG_REPORT(ME, "Atrac buffer with unexpected or no magic bytes");
-		return ATRAC_ERROR_UNKNOWN_FORMAT;
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "could not detect codec");
 	}
 
 	if (!bfoundData) {
-		WARN_LOG_REPORT(ME, "Atrac buffer never had data chunk");
-		return ATRAC_ERROR_SIZE_TOO_SMALL;
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "no data chunk");
 	}
 
 	// set the loopStartSample and loopEndSample by loopinfo
@@ -864,8 +848,7 @@ int Atrac::Analyze() {
 	endSample -= 1;
 
 	if (loopEndSample != -1 && loopEndSample > endSample + firstSampleoffset + (int)firstOffsetExtra()) {
-		WARN_LOG_REPORT(ME, "Atrac loop after end of data");
-		return ATRAC_ERROR_BAD_CODEC_PARAMS;
+		return hleReportError(ME, ATRAC_ERROR_BAD_CODEC_PARAMS, "loop after end of data");
 	}
 
 	return 0;
@@ -875,26 +858,26 @@ int Atrac::AnalyzeAA3() {
 	AnalyzeReset();
 
 	if (first.size < 10) {
-		return ATRAC_ERROR_AA3_SIZE_TOO_SMALL;
+		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "buffer too small");
 	}
 
 	// TODO: Make sure this validation is correct, more testing.
 
 	const u8 *buffer = Memory::GetPointer(first.addr);
 	if (buffer[0] != 'e' || buffer[1] != 'a' || buffer[2] != '3') {
-		return ATRAC_ERROR_AA3_INVALID_DATA;
+		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid ea3 magic bytes");
 	}
 
 	// It starts with an id3 header (replaced with ea3.)  This is the size.
 	u32 tagSize = buffer[9] | (buffer[8] << 7) | (buffer[7] << 14) | (buffer[6] << 21);
 	if (first.size < tagSize + 36) {
-		return ATRAC_ERROR_AA3_SIZE_TOO_SMALL;
+		return hleReportError(ME, ATRAC_ERROR_AA3_SIZE_TOO_SMALL, "truncated before id3 end");
 	}
 
 	// EA3 header starts at id3 header (10) + tagSize.
 	buffer = Memory::GetPointer(first.addr + 10 + tagSize);
 	if (buffer[0] != 'E' || buffer[1] != 'A' || buffer[2] != '3') {
-		return ATRAC_ERROR_AA3_INVALID_DATA;
+		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid EA3 magic bytes");
 	}
 
 	// Based on FFmpeg's code.
@@ -918,10 +901,9 @@ int Atrac::AnalyzeAA3() {
 	case 3:
 	case 4:
 	case 5:
-		ERROR_LOG_REPORT(ME, "OMA header contains unsupported codec type: %d", buffer[32]);
-		return ATRAC_ERROR_AA3_INVALID_DATA;
+		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "unsupported codec type %d", buffer[32]);
 	default:
-		return ATRAC_ERROR_AA3_INVALID_DATA;
+		return hleReportError(ME, ATRAC_ERROR_AA3_INVALID_DATA, "invalid codec type %d", buffer[32]);
 	}
 
 	dataOff = 10 + tagSize + 96;
@@ -1855,19 +1837,15 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
-	int ret = 0;
-	if (atrac != NULL) {
-		atrac->first.addr = halfBuffer;
-		atrac->first.size = readSize;
-		ret = atrac->Analyze();
-		if (ret < 0) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBuffer(%i, %08x, %8x, %8x): bad data", atracID, halfBuffer, readSize, halfBufferSize);
-			return ret;
-		}
-		atrac->atracOutputChannels = 2;
-		ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
+	atrac->first.addr = halfBuffer;
+	atrac->first.size = readSize;
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		// Already logged.
+		return ret;
 	}
-	return ret;
+	atrac->atracOutputChannels = 2;
+	return _AtracSetData(atracID, halfBuffer, halfBufferSize);
 }
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
@@ -1904,7 +1882,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		atrac->first.size = bufferSize;
 		int ret = atrac->Analyze();
 		if (ret < 0) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
+			// Already logged.
 		} else if (atrac->codecType != atracIDTypes[atracID]) {
 			ERROR_LOG_REPORT(ME, "sceAtracSetData(%i, %08x, %08x): atracID uses different codec type than data", atracID, buffer, bufferSize);
 			ret = ATRAC_ERROR_WRONG_CODECTYPE;
@@ -1931,7 +1909,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	atrac->first.size = bufferSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetDataAndGetID(%08x, %08x): bad data", buffer, bufferSize);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
@@ -1956,7 +1934,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 ha
 	atrac->first.size = readSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
@@ -2091,26 +2069,23 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 	if (readSize > bufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
-	int ret = 0;
-	if (atrac != NULL) {
-		atrac->first.addr = buffer;
-		atrac->first.size = readSize;
-		ret = atrac->Analyze();
-		if (ret < 0) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): bad data", atracID, buffer, readSize, bufferSize);
-			return ret;
-		}
-		if (atrac->atracChannels != 1) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): not mono data", atracID, buffer, readSize, bufferSize);
-			ret = ATRAC_ERROR_NOT_MONO;
-			// It seems it still sets the data.
-			atrac->atracOutputChannels = 2;
-			_AtracSetData(atrac, buffer, bufferSize);
-			return ret;
-		} else {
-			atrac->atracOutputChannels = 1;
-			ret = _AtracSetData(atracID, buffer, bufferSize);
-		}
+	atrac->first.addr = buffer;
+	atrac->first.size = readSize;
+	int ret = atrac->Analyze();
+	if (ret < 0) {
+		// Already logged.
+		return ret;
+	}
+	if (atrac->atracChannels != 1) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x): not mono data", atracID, buffer, readSize, bufferSize);
+		ret = ATRAC_ERROR_NOT_MONO;
+		// It seems it still sets the data.
+		atrac->atracOutputChannels = 2;
+		_AtracSetData(atrac, buffer, bufferSize);
+		return ret;
+	} else {
+		atrac->atracOutputChannels = 1;
+		ret = _AtracSetData(atracID, buffer, bufferSize);
 	}
 	return ret;
 }
@@ -2125,28 +2100,25 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 	// This doesn't seem to be part of any available libatrac3plus library.
 	WARN_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x)", atracID, buffer, bufferSize);
 
-	// TODO: What is the proper error code here?
 	int ret = 0;
-	if (atrac != NULL) {
-		atrac->first.addr = buffer;
-		atrac->first.size = bufferSize;
-		ret = atrac->Analyze();
-		if (ret < 0) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x): bad data", atracID, buffer, bufferSize);
-			return ret;
-		}
-		if (atrac->atracChannels != 1) {
-			ERROR_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x): not mono data", atracID, buffer, bufferSize);
-			ret = ATRAC_ERROR_NOT_MONO;
-			// It seems it still sets the data.
-			atrac->atracOutputChannels = 2;
-			_AtracSetData(atrac, buffer, bufferSize);
-			// Not sure of the real delay time.
-			return ret;
-		} else {
-			atrac->atracOutputChannels = 1;
-			ret = _AtracSetData(atracID, buffer, bufferSize);
-		}
+	atrac->first.addr = buffer;
+	atrac->first.size = bufferSize;
+	ret = atrac->Analyze();
+	if (ret < 0) {
+		// Already logged.
+		return ret;
+	}
+	if (atrac->atracChannels != 1) {
+		ERROR_LOG_REPORT(ME, "sceAtracSetMOutData(%i, %08x, %08x): not mono data", atracID, buffer, bufferSize);
+		ret = ATRAC_ERROR_NOT_MONO;
+		// It seems it still sets the data.
+		atrac->atracOutputChannels = 2;
+		_AtracSetData(atrac, buffer, bufferSize);
+		// Not sure of the real delay time.
+		return ret;
+	} else {
+		atrac->atracOutputChannels = 1;
+		ret = _AtracSetData(atracID, buffer, bufferSize);
 	}
 	return ret;
 }
@@ -2157,7 +2129,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	atrac->first.size = bufferSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutDataAndGetID(%08x, %08x): bad data", buffer, bufferSize);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
@@ -2188,7 +2160,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u3
 	atrac->first.size = readSize;
 	int ret = atrac->Analyze();
 	if (ret < 0) {
-		ERROR_LOG_REPORT(ME, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
@@ -2215,7 +2187,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	atrac->first.filesize = fileSize;
 	int ret = atrac->AnalyzeAA3();
 	if (ret < 0) {
-		ERROR_LOG(ME, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): bad data", buffer, bufferSize, fileSize, metadataSizeAddr);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
@@ -2508,7 +2480,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32
 	atrac->first.filesize = fileSize;
 	int ret = atrac->AnalyzeAA3();
 	if (ret < 0) {
-		ERROR_LOG(ME, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x, %08x): bad data", halfBuffer, readSize, halfBufferSize, fileSize);
+		// Already logged.
 		delete atrac;
 		return ret;
 	}
