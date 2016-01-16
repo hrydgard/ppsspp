@@ -53,6 +53,8 @@
 // State 6 indicates a second buffer is needed.  This buffer is used to manage looping correctly.
 // To determine how to fill it, the game will call sceAtracGetSecondBufferInfo, then after filling
 // the buffer it will call sceAtracSetSecondBuffer.
+// The second buffer will just contain the data for the end of loop.  The "first" buffer may manage
+// only the looped portion, or some of the part after the loop (depending on second buf size.)
 //
 // Most files will be in RIFF format.  It's also possible to load in an OMA/AA3 format file, but
 // ultimately this will share the same buffer - it's just offset a bit more.
@@ -134,14 +136,17 @@ enum AtracDecodeResult {
 struct InputBuffer {
 	// Address of the buffer.
 	u32 addr;
-	// Size of data valid in the buffer from the start.
+	// Size of data read so far into data_buf (to be removed.)
 	u32 size;
+	// Offset into addr at which new data is added.
 	u32 offset;
+	// Last writableBytes number (to be removed.)
 	u32 writableBytes;
+	// Unused, always 0.
 	u32 neededBytes;
 	// Total size of the entire file data.
 	u32 filesize;
-	// Offset into the file at which the stream data ends.
+	// Offset into the file at which new data is added.
 	u32 fileoffset;
 };
 
@@ -225,7 +230,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 7);
+		auto s = p.Section("Atrac", 1, 8);
 		if (!s)
 			return;
 
@@ -294,6 +299,12 @@ struct Atrac {
 			p.Do(ignoreDataBuf);
 		} else {
 			ignoreDataBuf = false;
+		}
+
+		if (s < 8 && bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+			// We didn't actually allow the second buffer to be set this far back.
+			// Pretend it's a regular loop, we'll just try our best.
+			bufferState = ATRAC_STATUS_STREAMED_LOOP_FROM_END;
 		}
 
 		// Make sure to do this late; it depends on things like atracBytesPerFrame.
@@ -1030,7 +1041,9 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 
 	if (bytesToAdd > 0) {
 		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-		Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+		if (!atrac->ignoreDataBuf) {
+			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
+		}
 		atrac->first.fileoffset += addbytes;
 	}
 	atrac->first.size += bytesToAdd;
@@ -1244,8 +1257,6 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 			bufferInfo->first.minWriteBytes = 0;
 		}
 		bufferInfo->first.filePos = atrac->first.size;
-
-		atrac->first.writableBytes = bufferInfo->first.writableBytes;
 	} else {
 		// This is without the sample offset.  The file offset also includes the previous batch of samples?
 		int sampleFileOffset = atrac->getFileOffsetBySample(sample - atrac->firstSampleoffset - atrac->samplesPerFrame());
@@ -1266,13 +1277,20 @@ static void AtracGetResetBufferInfo(Atrac *atrac, AtracResetBufferInfo *bufferIn
 			sampleFileOffset -= atrac->atracBytesPerFrame;
 		}
 		bufferInfo->first.filePos = sampleFileOffset;
+
+		if (atrac->second.size != 0) {
+			// TODO: We have a second buffer.  Within it, minWriteBytes should be zero.
+			// The filePos should be after the end of the second buffer (or zero.)
+			// We actually need to ensure we READ from the second buffer before implementing that.
+		}
 	}
 
 	// It seems like this is always the same as the first buffer's pos, weirdly.
 	bufferInfo->second.writePosPtr = atrac->first.addr;
-	bufferInfo->second.writableBytes = atrac->second.writableBytes;
-	bufferInfo->second.minWriteBytes = atrac->second.neededBytes;
-	bufferInfo->second.filePos = atrac->second.fileoffset;
+	// Reset never needs a second buffer write, since the loop is in a fixed place.
+	bufferInfo->second.writableBytes = 0;
+	bufferInfo->second.minWriteBytes = 0;
+	bufferInfo->second.filePos = 0;
 }
 
 // Obtains information about what needs to be in the buffer to seek (or "reset")
@@ -1281,12 +1299,16 @@ static u32 sceAtracGetBufferInfoForResetting(int atracID, int sample, u32 buffer
 	auto bufferInfo = PSPPointer<AtracResetBufferInfo>::Create(bufferInfoAddr);
 
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogWarning(ME, ATRAC_ERROR_BAD_ATRACID, "invalid id");
-	} else if (atrac->bufferState == ATRAC_STATUS_NO_DATA) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
-	} else if (!bufferInfo.IsValid()) {
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (!bufferInfo.IsValid()) {
 		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer, should crash");
+	} else if (atrac->bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second.size == 0) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
@@ -1479,23 +1501,33 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 	return 0;
 }
 
-static u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr) {
+static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desiredSizeAddr) {
+	auto fileOffset = PSPPointer<u32>::Create(fileOffsetAddr);
+	auto desiredSize = PSPPointer<u32>::Create(desiredSizeAddr);
+
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): bad atrac ID", atracID, outposAddr, outBytesAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x): no data", atracID, outposAddr, outBytesAddr);
-		return ATRAC_ERROR_NO_DATA;
-	} else {
-		ERROR_LOG(ME, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
-		if (Memory::IsValidAddress(outposAddr) && atrac)
-			Memory::Write_U32(atrac->second.fileoffset, outposAddr);
-		if (Memory::IsValidAddress(outBytesAddr) && atrac)
-			Memory::Write_U32(atrac->second.writableBytes, outBytesAddr);
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
-	// TODO: Maybe don't write the above?
-	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
+
+	if (!fileOffset.IsValid() || !desiredSize.IsValid()) {
+		// Would crash.
+		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
+	}
+
+	if (atrac->bufferState != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		// Writes zeroes in this error case.
+		*fileOffset = 0;
+		*desiredSize = 0;
+		return hleLogWarning(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+	}
+
+	*fileOffset = atrac->getFileOffsetBySample(atrac->loopEndSample - atrac->firstSampleoffset);
+	*desiredSize = atrac->first.filesize - *fileOffset;
+
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr) {
@@ -1564,10 +1596,14 @@ static u32 sceAtracReleaseAtracID(int atracID) {
 // The game must add sufficient packets to the buffer in order to complete the seek.
 static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
-	} else if (!atrac->data_buf) {
-		return hleLogError(ME, ATRAC_ERROR_NO_DATA, "no data");
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	if (atrac->bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && atrac->second.size == 0) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NEEDED, "no second buffer");
 	} else if ((u32)sample + atrac->firstSampleoffset > (u32)atrac->endSample + atrac->firstSampleoffset) {
 		return hleLogWarning(ME, ATRAC_ERROR_BAD_SAMPLE, "invalid sample position");
 	} else {
@@ -1587,11 +1623,11 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 		} else if (atrac->bufferState == ATRAC_STATUS_HALFWAY_BUFFER) {
 			// Okay, it's a valid number of bytes.  Let's set them up.
 			if (bytesWrittenFirstBuf != 0) {
-				// TODO: We should just use the buffer in PSP RAM.
-				Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
+				if (!atrac->ignoreDataBuf) {
+					Memory::Memcpy(atrac->data_buf + atrac->first.size, atrac->first.addr + atrac->first.size, bytesWrittenFirstBuf);
+				}
 				atrac->first.fileoffset += bytesWrittenFirstBuf;
 				atrac->first.size += bytesWrittenFirstBuf;
-				atrac->first.writableBytes -= bytesWrittenFirstBuf;
 				atrac->first.offset += bytesWrittenFirstBuf;
 			}
 
@@ -1610,8 +1646,9 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 			atrac->first.fileoffset = bufferInfo.first.filePos;
 
 			if (bytesWrittenFirstBuf != 0) {
-				// TODO: We should just use the buffer in PSP RAM.
-				Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, bytesWrittenFirstBuf);
+				if (!atrac->ignoreDataBuf) {
+					Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, bytesWrittenFirstBuf);
+				}
 				atrac->first.fileoffset += bytesWrittenFirstBuf;
 			}
 			atrac->first.size = atrac->first.fileoffset;
@@ -1770,8 +1807,10 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 		}
 
 		atrac->data_buf = new u8[atrac->first.filesize];
-		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
-		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		if (!atrac->ignoreDataBuf) {
+			u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+			Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		}
 		return __AtracSetContext(atrac);
 
 	} else if (atrac->codecType == PSP_MODE_AT_3_PLUS) {
@@ -1781,8 +1820,10 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize) {
 			WARN_LOG(ME, "This is an atrac3+ stereo audio");
 		}
 		atrac->data_buf = new u8[atrac->first.filesize];
-		u32 copybytes = std::min(bufferSize, atrac->first.filesize);
-		Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		if (!atrac->ignoreDataBuf) {
+			u32 copybytes = std::min(bufferSize, atrac->first.filesize);
+			Memory::Memcpy(atrac->data_buf, buffer, copybytes);
+		}
 		return __AtracSetContext(atrac);
 	} else {
 		// Should not get here, but just in case, force it.
@@ -1831,15 +1872,27 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u
 
 static u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): bad atrac ID", atracID, secondBuffer, secondBufferSize);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracSetSecondBuffer(%i, %08x, %8x): no data", atracID, secondBuffer, secondBufferSize);
-		return ATRAC_ERROR_NO_DATA;
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
 	}
 
-	ERROR_LOG_REPORT(ME, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+	u32 secondFileOffset = atrac->getFileOffsetBySample(atrac->loopEndSample - atrac->firstSampleoffset);
+	u32 desiredSize = atrac->first.filesize - secondFileOffset;
+
+	// 3 seems to be the number of frames required to handle a loop.
+	if (secondBufferSize < desiredSize && secondBufferSize < (u32)atrac->atracBytesPerFrame * 3) {
+		return hleReportError(ME, ATRAC_ERROR_SIZE_TOO_SMALL, "too small");
+	}
+	if (atrac->bufferState != ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		return hleReportError(ME, ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED, "not needed");
+	}
+
+	atrac->second.addr = secondBuffer;
+	atrac->second.size = secondBufferSize;
+	atrac->second.fileoffset = secondFileOffset;
+
 	return 0;
 }
 
@@ -2016,15 +2069,15 @@ static int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr) {
 
 static int sceAtracIsSecondBufferNeeded(int atracID) {
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): bad atrac ID", atracID);
-		return ATRAC_ERROR_BAD_ATRACID;
-	} else if (!atrac->data_buf) {
-		ERROR_LOG(ME, "sceAtracIsSecondBufferNeeded(%i): no data", atracID);
-		return ATRAC_ERROR_NO_DATA;
-	} 
-	WARN_LOG(ME, "UNIMPL sceAtracIsSecondBufferNeeded(%i)", atracID);
-	return 0;
+	u32 err = AtracValidateManaged(atrac);
+	if (err != 0) {
+		// Already logged.
+		return err;
+	}
+
+	// Note that this returns true whether the buffer is already set or not.
+	int needed = atrac->bufferState == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER ? 1 : 0;
+	return hleLogSuccessI(ME, needed);
 }
 
 static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
@@ -2483,7 +2536,7 @@ const HLEFunction sceAtrac3plus[] = {
 	{0XE23E3A35, &WrapU_IU<sceAtracGetNextDecodePosition>,         "sceAtracGetNextDecodePosition",        'x', "ix"   },
 	{0X36FAABFB, &WrapU_IU<sceAtracGetNextSample>,                 "sceAtracGetNextSample",                'x', "ix"   },
 	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
-	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ixx"  },
+	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ipp"  },
 	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ippp" },
 	{0X5D268707, &WrapU_IUUU<sceAtracGetStreamDataInfo>,           "sceAtracGetStreamDataInfo",            'x', "ippp" },
 	{0X61EB33F5, &WrapU_I<sceAtracReleaseAtracID>,                 "sceAtracReleaseAtracID",               'x', "i"    },
