@@ -378,7 +378,7 @@ static inline void ScaleProjMatrix(Matrix4x4 &in) {
 		// GL upside down is a pain as usual.
 		yOffset = -yOffset;
 	}
-	const Vec3 trans(gstate_c.vpXOffset, yOffset, gstate_c.vpZOffset * 2.0f);
+	const Vec3 trans(gstate_c.vpXOffset, yOffset, gstate_c.vpZOffset);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale);
 	in.translateAndScale(trans, scale);
 }
