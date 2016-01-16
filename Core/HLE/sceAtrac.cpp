@@ -146,7 +146,7 @@ struct InputBuffer {
 	u32 neededBytes;
 	// Total size of the entire file data.
 	u32 filesize;
-	// Offset into the file at which new data is added.
+	// Offset into the file at which new data is read.
 	u32 fileoffset;
 };
 
@@ -632,9 +632,9 @@ static int createAtrac(Atrac *atrac) {
 
 static int deleteAtrac(int atracID) {
 	if (atracID >= 0 && atracID < PSP_NUM_ATRAC_IDS) {
-		if (atracIDs[atracID] != NULL) {
+		if (atracIDs[atracID] != nullptr) {
 			delete atracIDs[atracID];
-			atracIDs[atracID] = NULL;
+			atracIDs[atracID] = nullptr;
 
 			return 0;
 		}
@@ -936,21 +936,18 @@ int Atrac::AnalyzeAA3() {
 
 static u32 sceAtracGetAtracID(int codecType) {
 	if (codecType != PSP_MODE_AT_3 && codecType != PSP_MODE_AT_3_PLUS) {
-		ERROR_LOG_REPORT(ME, "sceAtracGetAtracID(%i): invalid codecType", codecType);
-		return ATRAC_ERROR_INVALID_CODECTYPE;
+		return hleReportError(ME, ATRAC_ERROR_INVALID_CODECTYPE, "invalid codecType");
 	}
 
 	Atrac *atrac = new Atrac();
 	atrac->codecType = codecType;
 	int atracID = createAtrac(atrac);
 	if (atracID < 0) {
-		ERROR_LOG(ME, "sceAtracGetAtracID(%i): no free ID", codecType);
 		delete atrac;
-		return atracID;
+		return hleLogError(ME, atracID, "no free ID");
 	}
 
-	INFO_LOG(ME, "%d=sceAtracGetAtracID(%i)", atracID, codecType);
-	return atracID;
+	return hleLogSuccessInfoI(ME, atracID);
 }
 
 u32 _AtracAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
@@ -1587,8 +1584,11 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 }
 
 static u32 sceAtracReleaseAtracID(int atracID) {
-	INFO_LOG(ME, "sceAtracReleaseAtracID(%i)", atracID);
-	return deleteAtrac(atracID);
+	int result = deleteAtrac(atracID);
+	if (result < 0) {
+		return hleLogError(ME, result, "did not exist");
+	}
+	return hleLogSuccessI(ME, result);
 }
 
 // This is called when a game wants to seek (or "reset") to a specific position in the audio data.
@@ -2271,7 +2271,7 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	*(u32*)(buf + 0xfc) = atrac->atracID;
 }
 
-static int _sceAtracGetContextAddress(int atracID) {
+static u32 _sceAtracGetContextAddress(int atracID) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		ERROR_LOG(ME, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
@@ -2526,15 +2526,15 @@ const HLEFunction sceAtrac3plus[] = {
 	{0X7DB31251, &WrapU_IU<sceAtracAddStreamData>,                 "sceAtracAddStreamData",                'x', "ix"   },
 	{0X6A8C3CD5, &WrapU_IUUUU<sceAtracDecodeData>,                 "sceAtracDecodeData",                   'x', "ixppp"},
 	{0XD5C28CC0, &WrapU_V<sceAtracEndEntry>,                       "sceAtracEndEntry",                     'x', ""     },
-	{0X780F88D1, &WrapU_I<sceAtracGetAtracID>,                     "sceAtracGetAtracID",                   'x', "i"    },
+	{0X780F88D1, &WrapU_I<sceAtracGetAtracID>,                     "sceAtracGetAtracID",                   'i', "x"    },
 	{0XCA3CA3D2, &WrapU_IIU<sceAtracGetBufferInfoForResetting>,    "sceAtracGetBufferInfoForReseting",     'x', "iix"  },
-	{0XA554A158, &WrapU_IU<sceAtracGetBitrate>,                    "sceAtracGetBitrate",                   'x', "ix"   },
-	{0X31668BAA, &WrapU_IU<sceAtracGetChannel>,                    "sceAtracGetChannel",                   'x', "ix"   },
-	{0XFAA4F89B, &WrapU_IUU<sceAtracGetLoopStatus>,                "sceAtracGetLoopStatus",                'x', "ixx"  },
-	{0XE88F759B, &WrapU_IU<sceAtracGetInternalErrorInfo>,          "sceAtracGetInternalErrorInfo",         'x', "ix"   },
-	{0XD6A5F2F7, &WrapU_IU<sceAtracGetMaxSample>,                  "sceAtracGetMaxSample",                 'x', "ix"   },
-	{0XE23E3A35, &WrapU_IU<sceAtracGetNextDecodePosition>,         "sceAtracGetNextDecodePosition",        'x', "ix"   },
-	{0X36FAABFB, &WrapU_IU<sceAtracGetNextSample>,                 "sceAtracGetNextSample",                'x', "ix"   },
+	{0XA554A158, &WrapU_IU<sceAtracGetBitrate>,                    "sceAtracGetBitrate",                   'x', "ip"   },
+	{0X31668BAA, &WrapU_IU<sceAtracGetChannel>,                    "sceAtracGetChannel",                   'x', "ip"   },
+	{0XFAA4F89B, &WrapU_IUU<sceAtracGetLoopStatus>,                "sceAtracGetLoopStatus",                'x', "ipp"  },
+	{0XE88F759B, &WrapU_IU<sceAtracGetInternalErrorInfo>,          "sceAtracGetInternalErrorInfo",         'x', "ip"   },
+	{0XD6A5F2F7, &WrapU_IU<sceAtracGetMaxSample>,                  "sceAtracGetMaxSample",                 'x', "ip"   },
+	{0XE23E3A35, &WrapU_IU<sceAtracGetNextDecodePosition>,         "sceAtracGetNextDecodePosition",        'x', "ip"   },
+	{0X36FAABFB, &WrapU_IU<sceAtracGetNextSample>,                 "sceAtracGetNextSample",                'x', "ip"   },
 	{0X9AE849A7, &WrapU_IU<sceAtracGetRemainFrame>,                "sceAtracGetRemainFrame",               'x', "ip"   },
 	{0X83E85EA0, &WrapU_IUU<sceAtracGetSecondBufferInfo>,          "sceAtracGetSecondBufferInfo",          'x', "ipp"  },
 	{0XA2BBA8BE, &WrapU_IUUU<sceAtracGetSoundSample>,              "sceAtracGetSoundSample",               'x', "ippp" },
@@ -2544,23 +2544,23 @@ const HLEFunction sceAtrac3plus[] = {
 	{0X3F6E26B5, &WrapU_IUUU<sceAtracSetHalfwayBuffer>,            "sceAtracSetHalfwayBuffer",             'x', "ixxx" },
 	{0X83BF7AFD, &WrapU_IUU<sceAtracSetSecondBuffer>,              "sceAtracSetSecondBuffer",              'x', "ixx"  },
 	{0X0E2A73AB, &WrapU_IUU<sceAtracSetData>,                      "sceAtracSetData",                      'x', "ixx"  },
-	{0X7A20E7AF, &WrapI_UI<sceAtracSetDataAndGetID>,               "sceAtracSetDataAndGetID",              'i', "xi"   },
+	{0X7A20E7AF, &WrapI_UI<sceAtracSetDataAndGetID>,               "sceAtracSetDataAndGetID",              'i', "xx"   },
 	{0XD1F59FDB, &WrapU_V<sceAtracStartEntry>,                     "sceAtracStartEntry",                   'x', ""     },
 	{0X868120B5, &WrapU_II<sceAtracSetLoopNum>,                    "sceAtracSetLoopNum",                   'x', "ii"   },
-	{0X132F1ECA, &WrapI_II<sceAtracReinit>,                        "sceAtracReinit",                       'i', "ii"   },
+	{0X132F1ECA, &WrapI_II<sceAtracReinit>,                        "sceAtracReinit",                       'x', "ii"   },
 	{0XECA32A99, &WrapI_I<sceAtracIsSecondBufferNeeded>,           "sceAtracIsSecondBufferNeeded",         'i', "i"    },
 	{0X0FAE370E, &WrapI_UUU<sceAtracSetHalfwayBufferAndGetID>,     "sceAtracSetHalfwayBufferAndGetID",     'i', "xxx"  },
 	{0X2DD3E298, &WrapU_IIU<sceAtracGetBufferInfoForResetting>,    "sceAtracGetBufferInfoForResetting",    'x', "iix"  },
-	{0X5CF9D852, &WrapI_IUUU<sceAtracSetMOutHalfwayBuffer>,        "sceAtracSetMOutHalfwayBuffer",         'i', "ixxx" },
+	{0X5CF9D852, &WrapI_IUUU<sceAtracSetMOutHalfwayBuffer>,        "sceAtracSetMOutHalfwayBuffer",         'x', "ixxx" },
 	{0XF6837A1A, &WrapU_IUU<sceAtracSetMOutData>,                  "sceAtracSetMOutData",                  'x', "ixx"  },
 	{0X472E3825, &WrapI_UU<sceAtracSetMOutDataAndGetID>,           "sceAtracSetMOutDataAndGetID",          'i', "xx"   },
 	{0X9CD7DE03, &WrapI_UUU<sceAtracSetMOutHalfwayBufferAndGetID>, "sceAtracSetMOutHalfwayBufferAndGetID", 'i', "xxx"  },
-	{0XB3B5D042, &WrapI_IU<sceAtracGetOutputChannel>,              "sceAtracGetOutputChannel",             'i', "ix"   },
-	{0X5622B7C1, &WrapI_UUUU<sceAtracSetAA3DataAndGetID>,          "sceAtracSetAA3DataAndGetID",           'i', "xxxx" },
+	{0XB3B5D042, &WrapI_IU<sceAtracGetOutputChannel>,              "sceAtracGetOutputChannel",             'x', "ip"   },
+	{0X5622B7C1, &WrapI_UUUU<sceAtracSetAA3DataAndGetID>,          "sceAtracSetAA3DataAndGetID",           'i', "xxxp" },
 	{0X5DD66588, &WrapI_UUUU<sceAtracSetAA3HalfwayBufferAndGetID>, "sceAtracSetAA3HalfwayBufferAndGetID",  'i', "xxxx" },
-	{0X231FC6B7, &WrapI_I<_sceAtracGetContextAddress>,             "_sceAtracGetContextAddress",           'i', "i"    },
-	{0X1575D64B, &WrapI_IU<sceAtracLowLevelInitDecoder>,           "sceAtracLowLevelInitDecoder",          'i', "ix"   },
-	{0X0C116E1B, &WrapI_IUUUU<sceAtracLowLevelDecode>,             "sceAtracLowLevelDecode",               'i', "ixxxx"},
+	{0X231FC6B7, &WrapU_I<_sceAtracGetContextAddress>,             "_sceAtracGetContextAddress",           'x', "i"    },
+	{0X1575D64B, &WrapI_IU<sceAtracLowLevelInitDecoder>,           "sceAtracLowLevelInitDecoder",          'x', "ix"   },
+	{0X0C116E1B, &WrapI_IUUUU<sceAtracLowLevelDecode>,             "sceAtracLowLevelDecode",               'x', "ixpxp"},
 };
 
 void Register_sceAtrac3plus() {
