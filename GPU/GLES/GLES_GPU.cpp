@@ -557,7 +557,7 @@ void GLES_GPU::CheckGPUFeatures() {
 	if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && PSP_CoreParameter().compat.flags().PixelDepthRounding) {
 		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
 	} else {
-		if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
+		if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}

@@ -45,7 +45,7 @@
 // We already have the Action Replay-based cheat system for such use cases.
 
 struct CompatFlags {
-	bool NoDepthRounding;
+	bool VertexDepthRounding;
 	bool PixelDepthRounding;
 };
 
