@@ -45,7 +45,7 @@ void Compatibility::Clear() {
 }
 
 void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
-	CheckSetting(iniFile, gameID, "NoDepthRounding", flags_.NoDepthRounding);
+	CheckSetting(iniFile, gameID, "VertexDepthRounding", flags_.VertexDepthRounding);
 	CheckSetting(iniFile, gameID, "PixelDepthRounding", flags_.PixelDepthRounding);
 }
 
