@@ -1030,7 +1030,7 @@ void ShaderManager::Save(const std::string &filename) {
 	if (!diskCacheDirty_) {
 		return;
 	}
-	if (!linkedShaderCache_.size()) {
+	if (linkedShaderCache_.empty()) {
 		return;
 	}
 	INFO_LOG(G3D, "Saving the shader cache to '%s'", filename.c_str());

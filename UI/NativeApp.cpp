@@ -309,7 +309,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new AssetsAssetReader());
 #elif defined(BLACKBERRY) || defined(IOS)
 	// Packed assets are included in app
-	VFSRegister("", new DirectoryAssetReader(external_directory));
+	VFSRegister("", new DirectoryAssetReader(external_dir));
 #elif !defined(MOBILE_DEVICE) && !defined(_WIN32)
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
@@ -360,7 +360,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 #ifdef ANDROID
-	// On Android, create a PSP directory tree in the external_directory,
+	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
 	File::CreateDir((g_Config.memStickDirectory + "PSP").c_str());
