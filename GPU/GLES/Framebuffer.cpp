@@ -456,10 +456,11 @@ void FramebufferManager::DrawActiveTexture(GLuint texture, float x, float y, flo
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
 		int rotation = 0;
+		// Vertical and Vertical180 needed swapping after we changed the coordinate system.
 		switch (uvRotation) {
 		case ROTATION_LOCKED_HORIZONTAL180: rotation = 4; break;
-		case ROTATION_LOCKED_VERTICAL: rotation = 2; break;
-		case ROTATION_LOCKED_VERTICAL180: rotation = 6; break;
+		case ROTATION_LOCKED_VERTICAL: rotation = 6; break;
+		case ROTATION_LOCKED_VERTICAL180: rotation = 2; break;
 		}
 		for (int i = 0; i < 8; i++) {
 			temp[i] = texCoords[(i + rotation) & 7];
