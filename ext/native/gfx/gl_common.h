@@ -55,7 +55,7 @@ extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 	GLint srcX0, GLint srcY0, GLint srcX1, GLuint srcY1,
 	GLint dstX0, GLint dstY0, GLint dstX1, GLuint dstY1,
-	GLint mask, GLenum filter);
+	GLbitfield mask, GLenum filter);
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 

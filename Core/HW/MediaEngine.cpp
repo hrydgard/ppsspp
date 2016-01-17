@@ -799,7 +799,8 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		delete [] imgbuf;
 	}
 
-	return videoImageSize;
+	// Account for the y offset as well.
+	return videoImageSize + videoLineSize * ypos;
 #endif // USE_FFMPEG
 	return 0;
 }

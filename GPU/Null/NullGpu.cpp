@@ -687,6 +687,10 @@ void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
 }
 
+void NullGPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	// Nothing to do.
+}
+
 bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
 	// Nothing to update.
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);

@@ -160,6 +160,7 @@ public:
 	virtual void RebindFramebuffer() = 0;
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
+	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size, bool safe);
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) = 0;
 	// Returns true if it's sure this is a direct FBO->FBO transfer and it has already handle it.

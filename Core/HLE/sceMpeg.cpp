@@ -1094,7 +1094,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 			// playing all pmp_queue frames
 			ctx->mediaengine->m_pFrameRGB = pmp_queue.front();
 			int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-			gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
+			gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
 			ctx->avc.avcFrameStatus = 1;
 			ctx->videoFrameCount++;
 			
@@ -1105,7 +1105,7 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	}
 	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
+		gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
 	} else {
@@ -1872,7 +1872,8 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	int height = Memory::Read_U32(rangeAddr + 12);
 	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 
-	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
+	gpu->NotifyVideoUpload(destAddr, destSize, frameWidth, ctx->videoPixelMode);
+
 	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6
 	// https://github.com/hrydgard/ppsspp/issues/5535
