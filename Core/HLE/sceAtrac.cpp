@@ -2344,7 +2344,6 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 				// TODO: What to do, if anything?
 			}
 
-			atrac->firstSampleOffset_ = headersize;
 			atrac->dataOff_ = headersize;
 			atrac->first_.size = headersize;
 			atrac->first_.filesize = headersize + atrac->bytesPerFrame_;
@@ -2372,7 +2371,6 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			memcpy(at3plusHeader, at3plusHeaderTemplate, headersize);
 			initAT3plusDecoder(atrac, at3plusHeader);
 
-			atrac->firstSampleOffset_ = headersize;
 			atrac->dataOff_ = headersize;
 			atrac->first_.size = headersize;
 			atrac->first_.filesize = headersize + atrac->bytesPerFrame_;
@@ -2448,7 +2446,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 		if (atrac->bufferPos_ >= atrac->first_.size) {
 			atrac->first_.writableBytes = atrac->bytesPerFrame_;
-			atrac->first_.size = atrac->firstSampleOffset_;
+			atrac->first_.size = atrac->dataOff_;
 			atrac->ForceSeekToSample(0);
 			atrac->bufferPos_ = atrac->dataOff_;
 		}
