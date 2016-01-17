@@ -1682,8 +1682,6 @@ int __AtracSetContext(Atrac *atrac) {
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 
-	u8* tempbuf = (u8*)av_malloc(atrac->bufferMaxSize_);
-
 	AVCodecID ff_codec;
 	if (atrac->codecType_ == PSP_MODE_AT_3) {
 		ff_codec = AV_CODEC_ID_ATRAC3;
