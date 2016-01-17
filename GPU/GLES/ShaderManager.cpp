@@ -41,7 +41,7 @@
 #include "Framebuffer.h"
 #include "i18n/i18n.h"
 
-Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform, const ShaderID &shaderID)
+Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	  : failed_(false), useHWTransform_(useHWTransform) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
@@ -771,13 +771,13 @@ Shader *ShaderManager::CompileFragmentShader(ShaderID FSID) {
 	if (!GenerateFragmentShader(FSID, codeBuffer_)) {
 		return nullptr;
 	}
-	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false, FSID);
+	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false);
 }
 
 Shader *ShaderManager::CompileVertexShader(ShaderID VSID) {
 	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
 	GenerateVertexShader(VSID, codeBuffer_);
-	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform, VSID);
+	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
 }
 
 Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
@@ -821,7 +821,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID)
 			ShaderID vsidTemp;
 			ComputeVertexShaderID(&vsidTemp, vertType, false);
 			GenerateVertexShader(vsidTemp, codeBuffer_);
-			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false, vsidTemp);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
 		}
 
 		vsCache_[*VSID] = vs;

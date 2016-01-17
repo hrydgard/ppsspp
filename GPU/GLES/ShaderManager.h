@@ -162,7 +162,7 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, const ShaderID &shaderID);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform);
 	~Shader();
 	uint32_t shader;
 
