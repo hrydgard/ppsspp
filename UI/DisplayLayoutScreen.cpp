@@ -168,7 +168,6 @@ void DisplayLayoutScreen::CreateViews() {
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *cw = GetI18NCategory("CwCheats");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -192,7 +191,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
-	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, cw->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, local_dp_xres / 2 - 200, NONE, NONE, 10));
+	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, local_dp_xres / 2 - 200, NONE, NONE, 10));
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
@@ -200,7 +199,9 @@ void DisplayLayoutScreen::CreateViews() {
 	rotation_->SetEnabledPtr(&displayRotEnable_);
 	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bool bRotated = false;
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {	bRotated = true; }
+	if (displayRotEnable_ && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
+		bRotated = true;
+	}
 	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 	displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f; // Visual representation image is just icon size and have to be scaled 8 times to match PSP native resolution which is used as 1.0 for zoom
 	if (g_Config.iSmallDisplayZoomType > 1) { // Scaling
@@ -232,7 +233,7 @@ void DisplayLayoutScreen::CreateViews() {
 			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 74));
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
-			PopupSliderChoiceFloat *zoomlvl_ = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, 1.0f, 10.0f, di->T("Zoom"), 1.0f, screenManager(), "* PSP res", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 134));
+			PopupSliderChoiceFloat *zoomlvl_ = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, 1.0f, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 134));
 			root_->Add(zoomlvl_);
 			mode_->AddChoice(di->T("Move"));
 			mode_->AddChoice(di->T("Resize"));
