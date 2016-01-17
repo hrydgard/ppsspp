@@ -24,6 +24,7 @@
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 #include "UI/OnScreenDisplay.h"
@@ -54,6 +55,9 @@ void WindowsGLContext::Pause() {
 	if (!hRC) {
 		return;
 	}
+	if (Core_IsStepping()) {
+		return;
+	}
 
 	pauseRequested = true;
 	DWORD result = WaitForSingleObject(pauseEvent, INFINITE);
@@ -65,6 +69,9 @@ void WindowsGLContext::Pause() {
 
 void WindowsGLContext::Resume() {
 	if (!hRC) {
+		return;
+	}
+	if (Core_IsStepping() && !resumeRequested) {
 		return;
 	}
 
