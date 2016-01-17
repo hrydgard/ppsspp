@@ -29,6 +29,7 @@
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
 
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
@@ -944,4 +945,109 @@ std::string ShaderManager::DebugGetShaderString(std::string id, DebugShaderType 
 	default:
 		return "N/A";
 	}
+}
+
+// Shader pseudo-cache.
+//
+// We simply store the IDs of the shaders used during gameplay. On next startup of
+// the same game, we simply compile all the shaders from the start, so we don't have to
+// compile them on the fly later. Ideally we would store the actual compiled shaders
+// rather than just their IDs, but OpenGL does not support this, except for a few obscure
+// vendor-specific extensions.
+//
+// If things like GPU supported features have changed since the last time, we discard the cache
+// as sometimes these features might have an effect on the ID bits.
+
+#define CACHE_HEADER_MAGIC 0x83277592
+#define CACHE_VERSION 1
+struct CacheHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t featureFlags;
+	uint32_t reserved;
+	int numVertexShaders;
+	int numFragmentShaders;
+	int numLinkedPrograms;
+};
+
+void ShaderManager::LoadAndPrecompile(const std::string &filename) {
+	FILE *f = File::OpenCFile(filename, "rb");
+	if (!f) {
+		return;
+	}
+	CacheHeader header;
+	if (fread(&header, 1, sizeof(header), f) != sizeof(header)) {
+		fclose(f);
+		return;
+	}
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
+		fclose(f);
+		return;
+	}
+	for (int i = 0; i < header.numVertexShaders; i++) {
+		ShaderID id;
+		fread(&id, 1, sizeof(id), f);
+		vsCache_[id] = CompileVertexShader(id);
+	}
+	for (int i = 0; i < header.numFragmentShaders; i++) {
+		ShaderID id;
+		fread(&id, 1, sizeof(id), f);
+		fsCache_[id] = CompileFragmentShader(id);
+	}
+	for (int i = 0; i < header.numLinkedPrograms; i++) {
+		ShaderID vsid, fsid;
+		fread(&vsid, 1, sizeof(vsid), f);
+		fread(&fsid, 1, sizeof(fsid), f);
+		Shader *vs = vsCache_[vsid];
+		Shader *fs = fsCache_[fsid];
+		LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform());
+		LinkedShaderCacheEntry entry(vs, fs, ls);
+		linkedShaderCache_.push_back(entry);
+	}
+	fclose(f);
+	diskCacheDirty_ = false;
+}
+
+void ShaderManager::Save(const std::string &filename) {
+	if (!diskCacheDirty_) {
+		return;
+	}
+	FILE *f = File::OpenCFile(filename, "wb");
+	if (!f) {
+		// Can't save, give up for now.
+		diskCacheDirty_ = false;
+		return;
+	}
+	CacheHeader header;
+	header.magic = CACHE_HEADER_MAGIC;
+	header.version = CACHE_VERSION;
+	header.reserved = 0;
+	header.featureFlags = gstate_c.featureFlags;
+	header.numVertexShaders = NumVertexShaders();
+	header.numFragmentShaders = NumFragmentShaders();
+	header.numLinkedPrograms = NumPrograms();
+	fwrite(&header, 1, sizeof(header), f);
+	for (auto iter : vsCache_) {
+		ShaderID id = iter.first;
+		fwrite(&id, 1, sizeof(id), f);
+	}
+	for (auto iter : fsCache_) {
+		ShaderID id = iter.first;
+		fwrite(&id, 1, sizeof(id), f);
+	}
+	for (auto iter : linkedShaderCache_) {
+		ShaderID vsid, fsid;
+		for (auto iter2 : vsCache_) {
+			if (iter.vs == iter2.second)
+				vsid = iter2.first;
+		}
+		for (auto iter2 : fsCache_) {
+			if (iter.fs == iter2.second)
+				fsid = iter2.first;
+		}
+		fwrite(&vsid, 1, sizeof(vsid), f);
+		fwrite(&fsid, 1, sizeof(fsid), f);
+	}
+	fclose(f);
+	diskCacheDirty_ = false;
 }

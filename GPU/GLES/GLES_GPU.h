@@ -196,4 +196,5 @@ private:
 	std::string reportingFullInfo_;
 
 	GraphicsContext *gfxCtx_;
+	std::string shaderCachePath_;
 };
