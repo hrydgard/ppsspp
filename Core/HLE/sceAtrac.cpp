@@ -1046,12 +1046,14 @@ static u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd) {
 		return hleLogWarning(ME, ATRAC_ERROR_ALL_DATA_LOADED, "stream entirely loaded");
 	}
 
-	atrac->CalculateStreamInfo(nullptr);
+	u32 readOffset;
+	atrac->CalculateStreamInfo(&readOffset);
 
 	if (bytesToAdd > atrac->first_.writableBytes)
 		return hleLogWarning(ME, ATRAC_ERROR_ADD_DATA_IS_TOO_BIG, "too many bytes");
 
 	if (bytesToAdd > 0) {
+		atrac->first_.fileoffset = readOffset;
 		int addbytes = std::min(bytesToAdd, atrac->first_.filesize - atrac->first_.fileoffset);
 		if (!atrac->ignoreDataBuf_) {
 			Memory::Memcpy(atrac->dataBuf_ + atrac->first_.fileoffset, atrac->first_.addr + atrac->first_.offset, addbytes);
