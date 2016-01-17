@@ -495,18 +495,14 @@ struct Atrac {
 		return true;
 	}
 
-	bool FillLowLevelPacket() {
+	bool FillLowLevelPacket(u8 *ptr) {
 #ifdef USE_FFMPEG
 		av_init_packet(packet_);
 #endif // USE_FFMPEG
-		if (bufferPos_ < (u32)dataOff_) {
-			bufferPos_ = dataOff_;
-		}
 
-		packet_->data = BufferStart() + bufferPos_;
+		packet_->data = ptr;
 		packet_->size = bytesPerFrame_;
-		packet_->pos = bufferPos_;
-		bufferPos_ += bytesPerFrame_;
+		packet_->pos = 0;
 		return true;
 	}
 
@@ -2366,73 +2362,50 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 }
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
+	auto srcp = PSPPointer<u8>::Create(sourceAddr);
+	auto srcConsumed = PSPPointer<u32>::Create(sourceBytesConsumedAddr);
+	auto outp = PSPPointer<u8>::Create(samplesAddr);
+	auto outWritten = PSPPointer<u32>::Create(sampleBytesAddr);
+
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x): bad atrac ID", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
 
-	DEBUG_LOG(ME, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	if (!srcp.IsValid() || !srcConsumed.IsValid() || !outp.IsValid() || !outWritten.IsValid()) {
+		// TODO: Returning zero as code was before.  Needs testing.
+		return hleLogError(ME, 0, "invalid pointers");
+	}
 
-	if (atrac && Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
-  		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
-		u32 sourcebytes = atrac->first_.writableBytes;
-		if (sourcebytes > 0) {
-			Memory::Memcpy(atrac->dataBuf_ + atrac->first_.size, sourceAddr, sourcebytes);
-			if (atrac->bufferPos_ >= atrac->first_.size) {
-				atrac->bufferPos_ = atrac->first_.size;
-			}
-			atrac->first_.size += sourcebytes;
-		}
+	int numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 
-		int numSamples = 0;
-		atrac->ForceSeekToSample(atrac->currentSample_);
+	if (!atrac->failedDecode_) {
+		atrac->FillLowLevelPacket(srcp);
 
-		if (!atrac->failedDecode_) {
-			AtracDecodeResult res;
-			while (atrac->FillLowLevelPacket()) {
-				res = atrac->DecodePacket();
-				if (res == ATDECODE_FAILED) {
-					break;
-				}
-
-				if (res == ATDECODE_GOTFRAME) {
+		AtracDecodeResult res = atrac->DecodePacket();
+		if (res == ATDECODE_GOTFRAME) {
 #ifdef USE_FFMPEG
-					// got a frame
-					u8 *out = Memory::GetPointer(samplesAddr);
-					numSamples = atrac->frame_->nb_samples;
-					int avret = swr_convert(atrac->swrCtx_, &out, numSamples,
-						(const u8**)atrac->frame_->extended_data, numSamples);
-					u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
-					CBreakPoints::ExecMemCheck(samplesAddr, true, outBytes, currentMIPS->pc);
-					if (avret < 0) {
-						ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
-					}
-#endif // USE_FFMPEG
-					break;
-				} else if (res == ATDECODE_BADFRAME) {
-					break;
-				}
+			// got a frame
+			numSamples = atrac->frame_->nb_samples;
+
+			u8 *out = outp;
+			int avret = swr_convert(atrac->swrCtx_, &out, numSamples,
+				(const u8**)atrac->frame_->extended_data, numSamples);
+			u32 outBytes = numSamples * atrac->outputChannels_ * sizeof(s16);
+			CBreakPoints::ExecMemCheck(samplesAddr, true, outBytes, currentMIPS->pc);
+			if (avret < 0) {
+				ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 			}
+#endif // USE_FFMPEG
+		} else {
+			// TODO: Error code otherwise?
 		}
-
-		atrac->currentSample_ += numSamples;
-		numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
-		Memory::Write_U32(numSamples * sizeof(s16) * atrac->outputChannels_, sampleBytesAddr);
-
-		if (atrac->bufferPos_ >= atrac->first_.size) {
-			atrac->first_.writableBytes = atrac->bytesPerFrame_;
-			atrac->first_.size = atrac->dataOff_;
-			atrac->ForceSeekToSample(0);
-			atrac->bufferPos_ = atrac->dataOff_;
-		}
-		else
-			atrac->first_.writableBytes = 0;
-		Memory::Write_U32(atrac->first_.writableBytes, sourceBytesConsumedAddr);
-		return hleDelayResult(0, "low level atrac decode data", atracDecodeDelay);
 	}
 
-	return 0;
+	*outWritten = numSamples * atrac->outputChannels_ * sizeof(s16);
+	*srcConsumed = atrac->bytesPerFrame_;
+
+	return hleLogDebug(ME, hleDelayResult(0, "low level atrac decode data", atracDecodeDelay));
 }
 
 static int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize, u32 fileSize) {
