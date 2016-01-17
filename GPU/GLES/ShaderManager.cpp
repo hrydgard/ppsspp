@@ -987,7 +987,16 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		ShaderID id;
 		fread(&id, 1, sizeof(id), f);
-		vsCache_[id] = CompileVertexShader(id);
+		Shader *vs = CompileVertexShader(id);
+		if (vs->Failed()) {
+			// Give up on using the cache, just bail. We can't safely create the fallback shaders here
+			// without trying to deduce the vertType from the VSID.
+			ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
+			delete vs;
+			fclose(f);
+			return;
+		}
+		vsCache_[id] = vs;
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		ShaderID id;
