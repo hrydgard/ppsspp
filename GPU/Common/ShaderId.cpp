@@ -108,8 +108,9 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 			}
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0 && gstate.isLightingEnabled());
-				if (gstate.isLightChanEnabled(i) || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
+				bool chanEnabled = gstate.isLightChanEnabled(i) != 0 && gstate.isLightingEnabled();
+				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, chanEnabled);
+				if (chanEnabled || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
 					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
 				}

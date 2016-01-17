@@ -870,7 +870,7 @@ LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 
 
 	if (ls == nullptr) {
 		// Check if we can link these.
-		ls = new LinkedShader(VSID, vs, FSID, fs, vs->UseHWTransform());  // This does "use" automatically
+		ls = new LinkedShader(VSID, vs, FSID, fs, vs->UseHWTransform());
 		ls->use(VSID, lastShader_);
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
