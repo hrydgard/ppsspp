@@ -119,6 +119,8 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
+		} else {
+			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);
 		}
 	}
 
@@ -193,7 +195,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
+void ComputeFragmentShaderID(ShaderID *id_out) {
 	ShaderID id;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
