@@ -806,7 +806,7 @@ namespace MainWindow {
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
 			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
-				FILE *fp = File::OpenCFile(fn.c_str(), "wb");
+				FILE *fp = File::OpenCFile(fn, "wb");
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				u8 buffer[4096];
 				while (pspFileSystem.ReadFile(handle, buffer, sizeof(buffer)) > 0) {

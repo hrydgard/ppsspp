@@ -339,7 +339,7 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	// We assume the bitmap is the specified size, not including whatever stride.
 	u32 *reference = (u32 *) calloc(stride * h, sizeof(u32));
 
-	FILE *bmp = File::OpenCFile(screenshotFilename.c_str(), "rb");
+	FILE *bmp = File::OpenCFile(screenshotFilename, "rb");
 	if (bmp)
 	{
 		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
