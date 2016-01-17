@@ -47,7 +47,8 @@ private:
 	// Touch down state for drag to resize etc
 	float startX_;
 	float startY_;
-	float startScale_;
+	float startScale_, scaleUpdate_;
 	float displayRepresentationScale_;
+	int offsetTouchX, offsetTouchY;
 	
 };

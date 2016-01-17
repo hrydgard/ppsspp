@@ -74,47 +74,52 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	if (g_Config.iSmallDisplayZoomType == 2) { mode = -1; }
 
 	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
-
 	if ((touch.flags & TOUCH_MOVE) && picked_ != 0) {
+		int touchX = touch.x - offsetTouchX;
+		int touchY = touch.y - offsetTouchY;
 		if (mode == 0) {
 			const Bounds &bounds = picked_->GetBounds();
 
 			int mintouchX = screen_bounds.w / 4;
-			int maxTouchX = screen_bounds.w - screen_bounds.w / 4;
+			int maxTouchX = screen_bounds.w - mintouchX;
 
 			int minTouchY = screen_bounds.h / 4;
-			int maxTouchY = screen_bounds.h - screen_bounds.h / 4;
+			int maxTouchY = screen_bounds.h - minTouchY;
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
 			// we have to handle x and y separately since even if x is blocked, y may not be.
-			if (touch.x > mintouchX && touch.x < maxTouchX) {
+			if (touchX > mintouchX && touchX < maxTouchX) {
 				// if the leftmost point of the control is ahead of the margin,
 				// move it. Otherwise, don't.
-				newX = touch.x;
+				newX = touchX;
 			}
-			if (touch.y > minTouchY && touch.y < maxTouchY) {
-				newY = touch.y;
+			if (touchY > minTouchY && touchY < maxTouchY) {
+				newY = touchY;
 			}
 			picked_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
-		}
-		else if (mode == 1) {
+		} else if (mode == 1) {
 			// Resize. Vertical = scaling, horizontal = spacing;
 			// Up should be bigger so let's negate in that direction
-			float diffX = (touch.x - startX_);
-			float diffY = -(touch.y - startY_);
+			float diffX = (touchX - startX_);
+			float diffY = -(touchY - startY_);
 
 			float movementScale = 0.5f;
 			float newScale = startScale_ + diffY * movementScale;
 			if (newScale > 100.0f) newScale = 100.0f;
 			if (newScale < 1.0f) newScale = 1.0f;
 			picked_->SetScale(newScale);
+			scaleUpdate_ = picked_->GetScale();
+			g_Config.fSmallDisplayZoomLevel = scaleUpdate_ / 8.0f;
 		}
 	}
 	if ((touch.flags & TOUCH_DOWN) && picked_ == 0) {
 		picked_ = displayRepresentation_;
 		if (picked_) {
-			startX_ = touch.x;
-			startY_ = touch.y;
+			const Bounds &bounds = picked_->GetBounds();
+			startX_ = bounds.centerX();
+			startY_ = bounds.centerY();
+			offsetTouchX = touch.x - startX_;
+			offsetTouchY = touch.y - startY_;
 			startScale_ = picked_->GetScale();
 		}
 	}
@@ -126,7 +131,6 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 		picked_->SaveDisplayPosition();
 		picked_ = 0;
 	}
-	g_Config.fSmallDisplayZoomLevel = startScale_ / 8.0f;
 	return true;
 };
 
@@ -250,6 +254,7 @@ void DisplayLayoutScreen::CreateViews() {
 		float height = local_dp_yres / 2.0f;
 		if (g_Config.iSmallDisplayZoomType == 0) { // Stretched
 			Choice *stretched = new Choice("", "", false, new AnchorLayoutParams(width, height, width - width / 2.0f, NONE, NONE, height - height / 2.0f));
+			stretched->SetEnabled(false);
 			root_->Add(stretched);
 		} else { // Partially stretched
 			float origRatio = !bRotated ? 480.0f / 272.0f : 272.0f / 480.0f;
@@ -262,6 +267,7 @@ void DisplayLayoutScreen::CreateViews() {
 				if (bRotated && g_Config.iSmallDisplayZoomType == 1) { width = (272.0f + height) / 2.0f; }
 			}
 			Choice *stretched = new Choice("", "", false, new AnchorLayoutParams(width, height, local_dp_xres / 2.0f - width / 2.0f, NONE, NONE, local_dp_yres / 2.0f - height / 2.0f));
+			stretched->SetEnabled(false);
 			root_->Add(stretched);
 		}
 	}
