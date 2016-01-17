@@ -641,7 +641,8 @@ void TransformDrawEngine::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_);
+	ShaderID vsid;
+	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
 
 	if (vshader->UseHWTransform()) {
 		GLuint vbo = 0, ebo = 0;
@@ -833,7 +834,7 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 
 		if (useElements) {
@@ -870,7 +871,7 @@ rotateVBO:
 			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, 1.0);
 		ApplyDrawStateLate();
 
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vshader, prim, lastVType_);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {

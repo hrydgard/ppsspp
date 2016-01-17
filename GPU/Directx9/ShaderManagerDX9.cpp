@@ -39,7 +39,7 @@
 
 namespace DX9 {
 
-PSShader::PSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+PSShader::PSShader(ShaderID id, const char *code) : id_(id), shader(nullptr), failed_(false) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -90,7 +90,7 @@ std::string PSShader::GetShaderString(DebugShaderStringType type) const {
 	}
 }
 
-VSShader::VSShader(ShaderID id, const char *code, int vertType, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
+VSShader::VSShader(ShaderID id, const char *code, bool useHWTransform) : id_(id), shader(nullptr), failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(ConvertUTF8ToWString(code).c_str());
@@ -593,14 +593,13 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-
 VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
 	ShaderID VSID;
 	ComputeVertexShaderID(&VSID, vertType, useHWTransform);
 	ShaderID FSID;
-	ComputeFragmentShaderID(&FSID, vertType);
+	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
 	if (lastVShader_ != nullptr && lastPShader_ != nullptr && VSID == lastVSID_ && FSID == lastFSID_) {
@@ -617,7 +616,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShaderDX9(VSID, codeBuffer_);
-		vs = new VSShader(VSID, codeBuffer_, vertType, useHWTransform);
+		vs = new VSShader(VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
 			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
@@ -632,7 +631,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 
 			// Can still work with software transform.
 			GenerateVertexShaderDX9(VSID, codeBuffer_);
-			vs = new VSShader(VSID, codeBuffer_, vertType, false);
+			vs = new VSShader(VSID, codeBuffer_, false);
 		}
 
 		vsCache_[VSID] = vs;
@@ -646,7 +645,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShaderDX9(FSID, codeBuffer_);
-		fs = new PSShader(FSID, codeBuffer_, useHWTransform);
+		fs = new PSShader(FSID, codeBuffer_);
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;

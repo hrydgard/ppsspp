@@ -28,6 +28,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -729,6 +730,7 @@ void GLES_GPU::BeginFrameInternal() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
+
 	shaderManager_->DirtyShader();
 
 	// Not sure if this is really needed.
