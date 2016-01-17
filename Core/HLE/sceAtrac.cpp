@@ -364,16 +364,25 @@ struct Atrac {
 			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		}
 
-		if (currentSample_ >= endSample_ && loopNum_ == 0) {
-			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
-			} else if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_FROM_END || bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
+		u32 currentFileOffset = FileOffsetBySample(currentSample_ - SamplesPerFrame() + FirstOffsetExtra());
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			if (currentFileOffset > first_.fileoffset) {
+				// We've looped in the data we added.
 				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+
+			if (first_.fileoffset >= first_.filesize && loopNum_ == 0) {
+				// We don't need anything more; we're not planning to loop again.
+				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 			}
 		}
 
 		// Since the first frame is shorter by this offset, add to round up at this offset.
-		const int remainingBytes = first_.fileoffset - FileOffsetBySample(currentSample_ - SamplesPerFrame() + FirstOffsetExtra());
+		const int remainingBytes = first_.fileoffset - currentFileOffset;
+		if (remainingBytes < 0) {
+			// Just in case.  Shouldn't happen, but once did by mistake.
+			return 0;
+		}
 		return remainingBytes / bytesPerFrame_;
 	}
 
