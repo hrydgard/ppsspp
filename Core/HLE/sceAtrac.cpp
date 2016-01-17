@@ -2268,7 +2268,6 @@ struct At3HeaderMap {
 	}
 };
 
-static const u8 at3HeaderTemplate[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
 // These should represent all possible supported bitrates (66, 104, and 132 for stereo.)
 static const At3HeaderMap at3HeaderMap[] = {
 	{ 0x00C0, 1, 0 }, // 132/2 (66) kbps mono
@@ -2279,38 +2278,22 @@ static const At3HeaderMap at3HeaderMap[] = {
 	{ 0x00C0, 2, 1 }, // 66 kbps stereo
 };
 
-static const u8 at3plusHeaderTemplate[] = { 0x52, 0x49, 0x46, 0x46, 0x00, 0xb5, 0xff, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74, 0x20, 0x34, 0x00, 0x00, 0x00, 0xfe, 0xff, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00, 0xa0, 0x1f, 0x00, 0x00, 0xe8, 0x02, 0x00, 0x00, 0x22, 0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0xbf, 0xaa, 0x23, 0xe9, 0x58, 0xcb, 0x71, 0x44, 0xa1, 0x19, 0xff, 0xfa, 0x01, 0xe4, 0xce, 0x62, 0x01, 0x00, 0x28, 0x5c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x61, 0x63, 0x74, 0x08, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00, 0x08, 0x00, 0x00, 0x64, 0x61, 0x74, 0x61, 0xa8, 0xb4, 0xff, 0x00 };
-
-static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8) {
+static bool initAT3Decoder(Atrac *atrac) {
 	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
 		if (at3HeaderMap[i].Matches(atrac)) {
-			*(u32 *)(at3Header + 0x04) = dataSize + sizeof(at3HeaderTemplate) - 8;
-			*(u16 *)(at3Header + 0x16) = atrac->channels_;
-			*(u16 *)(at3Header + 0x20) = atrac->bytesPerFrame_;
-			atrac->bitrate_ = ( atrac->bytesPerFrame_ * 352800 ) / 1000;
+			atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
 			atrac->bitrate_ = (atrac->bitrate_ + 511) >> 10;
-			*(u32 *)(at3Header + 0x1c) = atrac->bitrate_ * 1000 / 8;
-			at3Header[0x29] = atrac->channels_ << 3;
-			at3Header[0x2c] = at3HeaderMap[i].jointStereo;
-			at3Header[0x2e] = at3HeaderMap[i].jointStereo;
 			atrac->jointStereo_ = at3HeaderMap[i].jointStereo;
-			*(u32 *)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
 	}
 	return false;
 }
 
-static void initAT3plusDecoder(Atrac *atrac, u8 *at3plusHeader, u32 dataSize = 0xffb4a8) {
-	*(u32 *)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeaderTemplate) - 8;
-	*(u16 *)(at3plusHeader + 0x16) = atrac->channels_;
-	*(u16 *)(at3plusHeader + 0x20) = atrac->bytesPerFrame_;
-	atrac->bitrate_ = ( atrac->bytesPerFrame_ * 352800 ) / 1000;
+static void initAT3plusDecoder(Atrac *atrac) {
+	atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
 	atrac->bitrate_ = ((atrac->bitrate_ >> 11) + 8) & 0xFFFFFFF0;
-	*(u32 *)(at3plusHeader + 0x1c) = atrac->bitrate_ * 1000 / 8;
-	u32 codecParams = ((atrac->bytesPerFrame_ - 7) << 5) | (atrac->channels_ << 2);
-	*(u16 *)(at3plusHeader + 0x3e) = codecParams;
-	*(u32 *)(at3plusHeader + sizeof(at3plusHeaderTemplate) - 4) = dataSize;
+	atrac->jointStereo_ = false;
 }
 
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
@@ -2337,20 +2320,16 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			} else {
 				WARN_LOG(ME, "This is an atrac3 stereo audio (low level)");
 			}
-			const int headersize = sizeof(at3HeaderTemplate);
-			u8 at3Header[headersize];
-			memcpy(at3Header, at3HeaderTemplate, headersize);
-			if (!initAT3Decoder(atrac, at3Header)) {
+			if (!initAT3Decoder(atrac)) {
 				ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->bytesPerFrame_, atrac->channels_);
 				// TODO: What to do, if anything?
 			}
 
-			atrac->dataOff_ = headersize;
-			atrac->first_.size = headersize;
-			atrac->first_.filesize = headersize + atrac->bytesPerFrame_;
+			atrac->dataOff_ = 0;
+			atrac->first_.size = 0;
+			atrac->first_.filesize = atrac->bytesPerFrame_;
 			atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 			atrac->dataBuf_ = new u8[atrac->first_.filesize];
-			memcpy(atrac->dataBuf_, at3Header, headersize);
 			atrac->currentSample_ = 0;
 			// TODO: Check failure?
 			__AtracSetContext(atrac);
@@ -2367,17 +2346,13 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 			} else {
 				WARN_LOG(ME, "This is an atrac3+ stereo audio (low level)");
 			}
-			const int headersize = sizeof(at3plusHeaderTemplate);
-			u8 at3plusHeader[headersize];
-			memcpy(at3plusHeader, at3plusHeaderTemplate, headersize);
-			initAT3plusDecoder(atrac, at3plusHeader);
+			initAT3plusDecoder(atrac);
 
-			atrac->dataOff_ = headersize;
-			atrac->first_.size = headersize;
-			atrac->first_.filesize = headersize + atrac->bytesPerFrame_;
+			atrac->dataOff_ = 0;
+			atrac->first_.size = 0;
+			atrac->first_.filesize = atrac->bytesPerFrame_;
 			atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
 			atrac->dataBuf_ = new u8[atrac->first_.filesize];
-			memcpy(atrac->dataBuf_, at3plusHeader, headersize);
 			atrac->currentSample_ = 0;
 			__AtracSetContext(atrac);
 
