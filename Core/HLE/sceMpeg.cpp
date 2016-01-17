@@ -1320,7 +1320,9 @@ static int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 
 	if (bufferAddr >= 1 && bufferAddr <= (u32)MPEG_DATA_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
-		sceAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
+		// Default to 0, since we stuff the stream id in here.  Technically, we shouldn't.
+		// TODO: Do something better to track the AU data.  This used to be bufferAddr.
+		sceAu.esBuffer = 0;
 		sceAu.esSize = MPEG_AVC_ES_SIZE;
 		sceAu.dts = 0;
 		sceAu.pts = 0;
@@ -1328,7 +1330,9 @@ static int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
-		sceAu.esBuffer = bufferAddr;
+		// Default to 0, since we stuff the stream id in here.  Technically, we shouldn't.
+		// TODO: Do something better to track the AU data.  This used to be bufferAddr.
+		sceAu.esBuffer = 0;
 		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
 		sceAu.pts = 0;
 		sceAu.dts = UNKNOWN_TIMESTAMP;
@@ -1602,12 +1606,18 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ringbuffer->packetsAvail = 0;
+		// TODO: Is this correct?
+		if (!ctx->mediaengine->IsNoAudioData()) {
+			WARN_LOG_REPORT(ME, "Video end without audio end, potentially skipping some audio?");
+		}
 		result = ERROR_MPEG_NO_DATA;
 	}
 
 	if (ctx->atracRegistered && ctx->mediaengine->IsNoAudioData() && !ctx->endOfAudioReached) {
 		WARN_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ctx->endOfAudioReached = true;
+	}
+	if (ctx->mediaengine->IsNoAudioData()) {
 		result = ERROR_MPEG_NO_DATA;
 	}
 
