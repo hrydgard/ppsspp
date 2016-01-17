@@ -2148,6 +2148,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
+	atrac->outputChannels_ = 2;
 	return _AtracSetData(atracID, buffer, bufferSize, bufferSize, true);
 }
 
@@ -2436,6 +2437,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 		return hleLogError(ME, atracID, "no free ID");
 	}
 
+	atrac->outputChannels_ = 2;
 	return _AtracSetData(atracID, buffer, readSize, bufferSize, true);
 }
 
