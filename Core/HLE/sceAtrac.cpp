@@ -1703,7 +1703,7 @@ int __AtracSetContext(Atrac *atrac) {
 		// We don't pull this from the RIFF so that we can support OMA also.
 		// The only thing that changes are the jointStereo_ values.
 		atrac->codecCtx_->extradata[0] = 1;
-		atrac->codecCtx_->extradata[3] = 0x10;
+		atrac->codecCtx_->extradata[3] = atrac->channels_ << 3;
 		atrac->codecCtx_->extradata[6] = atrac->jointStereo_;
 		atrac->codecCtx_->extradata[8] = atrac->jointStereo_;
 		atrac->codecCtx_->extradata[10] = 1;
@@ -2293,6 +2293,7 @@ static bool initAT3Decoder(Atrac *atrac, u8 *at3Header, u32 dataSize = 0xffb4a8)
 			at3Header[0x29] = atrac->channels_ << 3;
 			at3Header[0x2c] = at3HeaderMap[i].jointStereo;
 			at3Header[0x2e] = at3HeaderMap[i].jointStereo;
+			atrac->jointStereo_ = at3HeaderMap[i].jointStereo;
 			*(u32 *)(at3Header + sizeof(at3HeaderTemplate) - 4) = dataSize;
 			return true;
 		}
