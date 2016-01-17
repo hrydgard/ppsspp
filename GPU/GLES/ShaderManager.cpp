@@ -25,6 +25,7 @@
 #include <cstdio>
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
@@ -984,6 +985,9 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 		fclose(f);
 		return;
 	}
+	time_update();
+	double start = time_now_d();
+
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		ShaderID id;
 		fread(&id, 1, sizeof(id), f);
@@ -1014,6 +1018,10 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 		linkedShaderCache_.push_back(entry);
 	}
 	fclose(f);
+	time_update();
+	double end = time_now_d();
+
+	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", header.numLinkedPrograms, header.numVertexShaders, header.numFragmentShaders, 1000 * (end - start));
 	diskCacheDirty_ = false;
 }
 
