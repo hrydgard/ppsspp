@@ -2275,10 +2275,13 @@ static const At3HeaderMap at3HeaderMap[] = {
 };
 
 static bool initAT3Decoder(Atrac *atrac) {
+	atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
+	atrac->bitrate_ = (atrac->bitrate_ + 511) >> 10;
+	atrac->jointStereo_ = false;
+
+	// See if we can match the actual jointStereo value.
 	for (size_t i = 0; i < ARRAY_SIZE(at3HeaderMap); ++i) {
 		if (at3HeaderMap[i].Matches(atrac)) {
-			atrac->bitrate_ = (atrac->bytesPerFrame_ * 352800) / 1000;
-			atrac->bitrate_ = (atrac->bitrate_ + 511) >> 10;
 			atrac->jointStereo_ = at3HeaderMap[i].jointStereo;
 			return true;
 		}
@@ -2295,70 +2298,55 @@ static void initAT3plusDecoder(Atrac *atrac) {
 static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		ERROR_LOG(ME, "sceAtracLowLevelInitDecoder(%i, %08x): bad atrac ID", atracID, paramsAddr);
-		return ATRAC_ERROR_BAD_ATRACID;
+		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "bad atrac ID");
 	}
 
-	INFO_LOG(ME, "sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
-	if (Memory::IsValidAddress(paramsAddr)) {
-		atrac->channels_ = Memory::Read_U32(paramsAddr);
-		atrac->outputChannels_ = Memory::Read_U32(paramsAddr + 4);
-		atrac->bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
-		atrac->bytesPerFrame_ = atrac->bufferMaxSize_;
-		atrac->first_.writableBytes = atrac->bytesPerFrame_;
-		atrac->ResetData();
-		INFO_LOG(ME, "Channels: %i outputChannels: %i bytesperFrame: %x", 
-			atrac->channels_, atrac->outputChannels_, atrac->bytesPerFrame_);
-
-		if (atrac->codecType_ == PSP_MODE_AT_3) {
-			if (atrac->channels_ == 1) {
-				WARN_LOG(ME, "This is an atrac3 mono audio (low level)");
-			} else {
-				WARN_LOG(ME, "This is an atrac3 stereo audio (low level)");
-			}
-			if (!initAT3Decoder(atrac)) {
-				ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->bytesPerFrame_, atrac->channels_);
-				// TODO: What to do, if anything?
-			}
-
-			atrac->dataOff_ = 0;
-			atrac->first_.size = 0;
-			atrac->first_.filesize = atrac->bytesPerFrame_;
-			atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
-			atrac->dataBuf_ = new u8[atrac->first_.filesize];
-			atrac->currentSample_ = 0;
-			// TODO: Check failure?
-			__AtracSetContext(atrac);
-
-			if (atrac->context_.IsValid()) {
-				_AtracGenerateContext(atrac, atrac->context_);
-			}
-			return 0;
-		}
-
-		if (atrac->codecType_ == PSP_MODE_AT_3_PLUS){
-			if (atrac->channels_ == 1) {
-				WARN_LOG(ME, "This is an atrac3+ mono audio (low level)");
-			} else {
-				WARN_LOG(ME, "This is an atrac3+ stereo audio (low level)");
-			}
-			initAT3plusDecoder(atrac);
-
-			atrac->dataOff_ = 0;
-			atrac->first_.size = 0;
-			atrac->first_.filesize = atrac->bytesPerFrame_;
-			atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
-			atrac->dataBuf_ = new u8[atrac->first_.filesize];
-			atrac->currentSample_ = 0;
-			__AtracSetContext(atrac);
-
-			if (atrac->context_.IsValid()) {
-				_AtracGenerateContext(atrac, atrac->context_);
-			}
-			return 0;
-		}
+	if (atrac->codecType_ != PSP_MODE_AT_3 && atrac->codecType_ != PSP_MODE_AT_3_PLUS) {
+		// TODO: Error code?  Was silently 0 before, and just didn't work.  Shouldn't ever happen...
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "bad codec type");
 	}
-	return 0;
+
+	if (!Memory::IsValidAddress(paramsAddr)) {
+		// TODO: Returning zero as code was before.  Needs testing.
+		return hleReportError(ME, 0, "invalid pointers");
+	}
+
+	atrac->channels_ = Memory::Read_U32(paramsAddr);
+	atrac->outputChannels_ = Memory::Read_U32(paramsAddr + 4);
+	atrac->bufferMaxSize_ = Memory::Read_U32(paramsAddr + 8);
+	atrac->bytesPerFrame_ = atrac->bufferMaxSize_;
+	atrac->first_.writableBytes = atrac->bytesPerFrame_;
+	atrac->ResetData();
+
+	const char *codecName = atrac->codecType_ == PSP_MODE_AT_3 ? "atrac3" : "atrac3+";
+	const char *channelName = atrac->channels_ == 1 ? "mono" : "stereo";
+
+	if (atrac->codecType_ == PSP_MODE_AT_3) {
+		if (!initAT3Decoder(atrac)) {
+			ERROR_LOG_REPORT(ME, "AT3 header map lacks entry for bpf: %i  channels: %i", atrac->bytesPerFrame_, atrac->channels_);
+			// TODO: Should we return an error code for these values?
+		}
+	} else if (atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
+		initAT3plusDecoder(atrac);
+	}
+
+	atrac->dataOff_ = 0;
+	atrac->first_.size = 0;
+	atrac->first_.filesize = atrac->bytesPerFrame_;
+	atrac->bufferState_ = ATRAC_STATUS_LOW_LEVEL;
+	atrac->dataBuf_ = new u8[atrac->first_.filesize];
+	atrac->currentSample_ = 0;
+	int ret = __AtracSetContext(atrac);
+
+	if (atrac->context_.IsValid()) {
+		_AtracGenerateContext(atrac, atrac->context_);
+	}
+
+	if (ret < 0) {
+		// Already logged.
+		return ret;
+	}
+	return hleLogSuccessInfoI(ME, ret, "%s %s audio", codecName, channelName);
 }
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
@@ -2374,7 +2362,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	if (!srcp.IsValid() || !srcConsumed.IsValid() || !outp.IsValid() || !outWritten.IsValid()) {
 		// TODO: Returning zero as code was before.  Needs testing.
-		return hleLogError(ME, 0, "invalid pointers");
+		return hleReportError(ME, 0, "invalid pointers");
 	}
 
 	int numSamples = (atrac->codecType_ == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
