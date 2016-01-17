@@ -159,8 +159,8 @@ BEGIN
     CONTROL         "",IDC_BREAKPOINTLIST,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93
     CONTROL         "Custom2",IDC_DEBUGMEMVIEW,"CtrlMemView",WS_BORDER,1,338,513,93
     CONTROL         "",IDC_THREADLIST,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93
-    CONTROL         "",IDC_STACKFRAMES,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93 	
-    CONTROL         "",IDC_MODULELIST,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93 	
+    CONTROL         "",IDC_STACKFRAMES,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93
+    CONTROL         "",IDC_MODULELIST,"SysListView32",LVS_ALIGNLEFT | LVS_SHOWSELALWAYS | LVS_REPORT | WS_BORDER,1,338,513,93
     CONTROL         "",IDC_DEBUG_BOTTOMTABS,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,1,338,513,93
 END
 
@@ -390,17 +390,17 @@ BEGIN
         MENUITEM SEPARATOR
 
         POPUP "Savestate Slot"
-		BEGIN
-			MENUITEM "&1",                                  ID_FILE_SAVESTATE_SLOT_1
-			MENUITEM "&2",                                  ID_FILE_SAVESTATE_SLOT_2
-			MENUITEM "&3",                                  ID_FILE_SAVESTATE_SLOT_3
-			MENUITEM "&4",                                  ID_FILE_SAVESTATE_SLOT_4
-			MENUITEM "&5",                                  ID_FILE_SAVESTATE_SLOT_5
-		END
-		MENUITEM "Load State",                              ID_FILE_QUICKLOADSTATE
-		MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE 
-		MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
-		MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
+        BEGIN
+            MENUITEM "&1",                                  ID_FILE_SAVESTATE_SLOT_1
+            MENUITEM "&2",                                  ID_FILE_SAVESTATE_SLOT_2
+            MENUITEM "&3",                                  ID_FILE_SAVESTATE_SLOT_3
+            MENUITEM "&4",                                  ID_FILE_SAVESTATE_SLOT_4
+            MENUITEM "&5",                                  ID_FILE_SAVESTATE_SLOT_5
+        END
+        MENUITEM "Load State",                              ID_FILE_QUICKLOADSTATE
+        MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE 
+        MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
+        MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
         MENUITEM SEPARATOR
         MENUITEM "Exit",                                    ID_FILE_EXIT
     END
@@ -411,6 +411,13 @@ BEGIN
         MENUITEM "Stop",                                    ID_EMULATION_STOP
         MENUITEM "Reset",                                   ID_EMULATION_RESET
         MENUITEM "Switch UMD",                              ID_EMULATION_SWITCH_UMD
+        POPUP "Display Rotation"
+        BEGIN
+            MENUITEM "Landscape",                           ID_EMULATION_ROTATION_H
+            MENUITEM "Portrait",                            ID_EMULATION_ROTATION_V
+            MENUITEM "Landscape reversed",                  ID_EMULATION_ROTATION_H_R
+            MENUITEM "Portrait reversed",                   ID_EMULATION_ROTATION_V_R
+        END
     END
 
     POPUP "Debug"
@@ -439,12 +446,12 @@ BEGIN
     BEGIN
         MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
         MENUITEM "Pause When Not Focused",                  ID_OPTIONS_PAUSE_FOCUS
-		MENUITEM "Ignore Windows Key",                      ID_OPTIONS_IGNOREWINKEY
+        MENUITEM "Ignore Windows Key",                      ID_OPTIONS_IGNOREWINKEY
         MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
         MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM "Language...",                             ID_OPTIONS_LANGUAGE
         MENUITEM SEPARATOR
-        MENUITEM "Stretch to Display",                      ID_OPTIONS_STRETCHDISPLAY
+        MENUITEM "Display Layout Editor"                    ID_OPTIONS_DISPLAY_LAYOUT
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
         MENUITEM "Postprocessing Shader",                   ID_OPTIONS_FXAA
@@ -470,45 +477,45 @@ BEGIN
             MENUITEM "&4x",                                 ID_OPTIONS_WINDOW4X
         END
 
-		POPUP "Backend"
-		BEGIN
-			MENUITEM "Direct3D9" ID_OPTIONS_DIRECT3D9
-			MENUITEM "OpenGL" ID_OPTIONS_OPENGL
-		END
+        POPUP "Backend"
+        BEGIN
+            MENUITEM "Direct3D9" ID_OPTIONS_DIRECT3D9
+            MENUITEM "OpenGL" ID_OPTIONS_OPENGL
+        END
 
-		POPUP "Rendering Mode"
-		BEGIN
-			MENUITEM "Non-Buffered Rendering",				ID_OPTIONS_NONBUFFEREDRENDERING
-			MENUITEM "Buffered Rendering",					ID_OPTIONS_BUFFEREDRENDERING
-			MENUITEM "Read Framebuffers To Memory (CPU)",	ID_OPTIONS_READFBOTOMEMORYCPU
-			MENUITEM "Read Framebuffers To Memory (GPU)",	ID_OPTIONS_READFBOTOMEMORYGPU
-		END
-		POPUP "Frame Skipping"
-		BEGIN
-			MENUITEM "Auto",						        ID_OPTIONS_FRAMESKIP_AUTO
-			MENUITEM SEPARATOR
-			MENUITEM "Off",								    ID_OPTIONS_FRAMESKIP_0
-			MENUITEM "&1",							        ID_OPTIONS_FRAMESKIP_1
-			MENUITEM "&2",									ID_OPTIONS_FRAMESKIP_2
-			MENUITEM "&3",									ID_OPTIONS_FRAMESKIP_3
-			MENUITEM "&4",									ID_OPTIONS_FRAMESKIP_4
-			MENUITEM "&5",									ID_OPTIONS_FRAMESKIP_5
-			MENUITEM "&6",									ID_OPTIONS_FRAMESKIP_6
-			MENUITEM "&7",									ID_OPTIONS_FRAMESKIP_7
-			MENUITEM "&8",									ID_OPTIONS_FRAMESKIP_8
-		END
-		POPUP "Texture Filtering"
-		BEGIN
-			MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
-			MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
-			MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
-			MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
-		END
-		POPUP "Screen Scaling Filter"
-		BEGIN
-			MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
-			MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
-		END
+        POPUP "Rendering Mode"
+        BEGIN
+            MENUITEM "Non-Buffered Rendering",                    ID_OPTIONS_NONBUFFEREDRENDERING
+            MENUITEM "Buffered Rendering",                        ID_OPTIONS_BUFFEREDRENDERING
+            MENUITEM "Read Framebuffers To Memory (CPU)",         ID_OPTIONS_READFBOTOMEMORYCPU
+            MENUITEM "Read Framebuffers To Memory (GPU)",         ID_OPTIONS_READFBOTOMEMORYGPU
+        END
+        POPUP "Frame Skipping"
+        BEGIN
+            MENUITEM "Auto",                                ID_OPTIONS_FRAMESKIP_AUTO
+            MENUITEM SEPARATOR
+            MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP_0
+            MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP_1
+            MENUITEM "&2",                                  ID_OPTIONS_FRAMESKIP_2
+            MENUITEM "&3",                                  ID_OPTIONS_FRAMESKIP_3
+            MENUITEM "&4",                                  ID_OPTIONS_FRAMESKIP_4
+            MENUITEM "&5",                                  ID_OPTIONS_FRAMESKIP_5
+            MENUITEM "&6",                                  ID_OPTIONS_FRAMESKIP_6
+            MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP_7
+            MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP_8
+        END
+        POPUP "Texture Filtering"
+        BEGIN
+            MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
+            MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
+            MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
+            MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
+        END
+        POPUP "Screen Scaling Filter"
+        BEGIN
+            MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
+            MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
+        END
 
         POPUP "Texture Scaling"
         BEGIN
@@ -517,7 +524,7 @@ BEGIN
             MENUITEM "&2x",                             ID_TEXTURESCALING_2X
             MENUITEM "&3x",                             ID_TEXTURESCALING_3X
             MENUITEM "&4x",                             ID_TEXTURESCALING_4X
-            MENUITEM "&5x",	                            ID_TEXTURESCALING_5X
+            MENUITEM "&5x",                             ID_TEXTURESCALING_5X
             MENUITEM SEPARATOR
             MENUITEM "xBRZ",                            ID_TEXTURESCALING_XBRZ
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
@@ -526,7 +533,7 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
         END
-		MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
+        MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE
         MENUITEM "Show FPS Counter",                    ID_OPTIONS_SHOWFPS
         MENUITEM SEPARATOR
@@ -567,9 +574,9 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Kill Function",              ID_DISASM_ADDHLE
         MENUITEM "Rename Function...",         ID_DISASM_RENAMEFUNCTION
-		MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
-		MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
-		END
+        MENUITEM "Remove Function",            ID_DISASM_REMOVEFUNCTION
+        MENUITEM "Add Function Here",          ID_DISASM_ADDFUNCTION
+    END
     POPUP "funclist"
     BEGIN
         MENUITEM "Kill Function",              ID_FUNCLIST_KILLFUNCTION
@@ -586,24 +593,24 @@ BEGIN
     BEGIN
         MENUITEM "Disable",                    ID_CONTROLS_KEY_DISABLE
     END
-	POPUP "breakpointlist"
-	BEGIN
-		MENUITEM "Enable",                     ID_DISASM_DISABLEBREAKPOINT
-		MENUITEM "Edit",                       ID_DISASM_EDITBREAKPOINT
+    POPUP "breakpointlist"
+    BEGIN
+        MENUITEM "Enable",                     ID_DISASM_DISABLEBREAKPOINT
+        MENUITEM "Edit",                       ID_DISASM_EDITBREAKPOINT
         MENUITEM SEPARATOR
-		MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
-	END
-	POPUP "threadlist"
-	BEGIN
-		MENUITEM "Force Resume",               ID_DISASM_THREAD_FORCERUN
-		MENUITEM "Terminate",                  ID_DISASM_THREAD_KILL
-	END
-	POPUP "newbreakpoint"
-	BEGIN
-		MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
-	END
-	POPUP "displaylistview"
-	BEGIN
+        MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
+    END
+    POPUP "threadlist"
+    BEGIN
+        MENUITEM "Force Resume",               ID_DISASM_THREAD_FORCERUN
+        MENUITEM "Terminate",                  ID_DISASM_THREAD_KILL
+    END
+    POPUP "newbreakpoint"
+    BEGIN
+        MENUITEM "Add New",                    ID_DISASM_ADDNEWBREAKPOINT
+    END
+    POPUP "displaylistview"
+    BEGIN
         MENUITEM "Copy Address",               ID_DISASM_COPYADDRESS
         MENUITEM "Copy Instruction (Hex)",     ID_DISASM_COPYINSTRUCTIONHEX
         MENUITEM "Copy Instruction (Disasm)",  ID_DISASM_COPYINSTRUCTIONDISASM
@@ -616,7 +623,7 @@ BEGIN
         MENUITEM "Go to Displaylist PC",       ID_GEDBG_GOTOPC
         MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
-	END
+    END
 END
 
 #endif    // English (United States) resources

@@ -36,67 +36,61 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	if (g_Config.bStretchToDisplay) {
+	if (g_Config.iSmallDisplayZoomType == 0) { // Stretching
 		outW = frameW;
 		outH = frameH;
 	} else {
-		bool fullScreenZoom = true;
-#ifndef MOBILE_DEVICE
-		// This would turn off small display in window mode. I think it's better to allow it.
-		// fullScreenZoom = g_Config.bFullScreen;
-#endif
-		if (fullScreenZoom) {
-			if (g_Config.iSmallDisplayZoom != 0) {
-				float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
-				float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
-				// Have to invert Y for GL
-				if (GetGPUBackend() == GPUBackend::OPENGL) {
-					offsetY = offsetY * -1.0f;
-				}
-				float customZoom = g_Config.fSmallDisplayCustomZoom / 8.0f;
-				float smallDisplayW = origW * customZoom;
-				float smallDisplayH = origH * customZoom;
-				if (!rotated) {
-					*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
-					*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
-					*w = floorf(smallDisplayW);
-					*h = floorf(smallDisplayH);
-					return;
-				} else {
-					*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
-					*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
-					*w = floorf(smallDisplayH);
-					*h = floorf(smallDisplayW);
-					return;
-				}
+		if (g_Config.iSmallDisplayZoomType == 3) { // Manual Scaling
+			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
+			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
+			// Have to invert Y for GL
+			if (GetGPUBackend() == GPUBackend::OPENGL) {
+				offsetY = offsetY * -1.0f;
+			}
+			float customZoom = g_Config.fSmallDisplayZoomLevel;
+			float smallDisplayW = origW * customZoom;
+			float smallDisplayH = origH * customZoom;
+			if (!rotated) {
+				*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
+				*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
+				*w = floorf(smallDisplayW);
+				*h = floorf(smallDisplayH);
+				return;
 			} else {
-				float pixelCrop = frameH / 270.0f;
-				float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-				if (!rotated && resCommonWidescreen == 0.0f) {
-					*x = 0;
-					*y = floorf(-pixelCrop);
-					*w = floorf(frameW);
-					*h = floorf(pixelCrop * 272.0f);
-					return;
-				}
+				*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
+				*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
+				*w = floorf(smallDisplayH);
+				*h = floorf(smallDisplayW);
+				return;
+			}
+		} else if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
+			float pixelCrop = frameH / 270.0f;
+			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
+			if (!rotated && resCommonWidescreen == 0.0f) {
+				*x = 0;
+				*y = floorf(-pixelCrop);
+				*w = floorf(frameW);
+				*h = floorf(pixelCrop * 272.0f);
+				return;
 			}
 		}
 
-
 		float origRatio = !rotated ? origW / origH : origH / origW;
 		float frameRatio = frameW / frameH;
-
+		
 		if (origRatio > frameRatio) {
 			// Image is wider than frame. Center vertically.
 			outW = frameW;
 			outH = frameW / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.bPartialStretch)
+			if (!rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
 				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frameH * origRatio;
 			outH = frameH;
+			if (rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
+				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}
 

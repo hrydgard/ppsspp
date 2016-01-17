@@ -384,11 +384,15 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static bool DefaultPartialStretch() {
+static int DefaultZoomType() {
 #ifdef BLACKBERRY
-	return pixel_xres < 1.3 * pixel_yres;
+	if (pixel_xres < 1.3 * pixel_yres) {
+		return 1;
+	} else {
+		return 2;
+	}
 #else
-	return false;
+	return 2;
 #endif
 }
 
@@ -465,12 +469,10 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 
 	// TODO: Replace these settings with a list of options
-	ConfigSetting("PartialStretch", &g_Config.bPartialStretch, &DefaultPartialStretch, true, true),
-	ConfigSetting("StretchToDisplay", &g_Config.bStretchToDisplay, false, true, true),
-	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 0, true, true),
+	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
 	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
-	ConfigSetting("SmallDisplayCustomZoom", &g_Config.fSmallDisplayCustomZoom, 8.0f, true, true),
+	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),

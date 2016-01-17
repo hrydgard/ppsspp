@@ -69,6 +69,7 @@
 #include "GPU/GPUInterface.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
+#include "UI/GameSettingsScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -93,6 +94,7 @@ struct VerySleepy_AddrInfo {
 static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern InputState input_state;
+extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -279,6 +281,10 @@ namespace MainWindow
 
 		if (UpdateScreenScale(width, height, IsWindowSmall())) {
 			NativeMessageReceived("gpu resized", "");
+		}
+
+		if (screenManager) {
+			screenManager->RecreateAllViews();
 		}
 
 		// Don't save the window state if fullscreen.

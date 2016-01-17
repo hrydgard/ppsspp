@@ -208,7 +208,6 @@
 #define ID_DEBUG_DUMPNEXTFRAME           40040
 #define ID_OPTIONS_VERTEXCACHE           40041
 #define ID_OPTIONS_SHOWFPS               40042
-#define ID_OPTIONS_STRETCHDISPLAY        40043
 #define ID_OPTIONS_FRAMESKIP             40044
 #define IDC_MEMCHECK                     40045
 #define ID_FILE_MEMSTICK                 40046
@@ -319,6 +318,11 @@
 #define ID_OPTIONS_BUFNEARESTFILTER      40153
 #define ID_OPTIONS_DIRECT3D9             40154
 #define ID_OPTIONS_OPENGL                40155
+#define ID_EMULATION_ROTATION_H          40156
+#define ID_EMULATION_ROTATION_V          40157
+#define ID_EMULATION_ROTATION_H_R        40158
+#define ID_EMULATION_ROTATION_V_R        40159
+#define ID_OPTIONS_DISPLAY_LAYOUT        40160
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -331,7 +335,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40152
+#define _APS_NEXT_COMMAND_VALUE         40161
 #define _APS_NEXT_CONTROL_VALUE         1199
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

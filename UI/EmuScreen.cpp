@@ -61,6 +61,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/DisplayLayoutScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
@@ -231,6 +232,10 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
+	} else if (!strcmp(message, "display layout editor")) {
+		UpdateUIState(UISTATE_MENU);
+		releaseButtons();
+		screenManager()->push(new DisplayLayoutScreen());
 	} else if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();

@@ -80,7 +80,11 @@ namespace MainWindow {
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
+		// Emulation submenus
+		SUBMENU_DISPLAY_ROTATION = 5,
+
 		// Game Settings submenus
+		SUBMENU_DISPLAY_LAYOUT = 7,
 		SUBMENU_CUSTOM_SHADERS = 10,
 		SUBMENU_RENDERING_RESOLUTION = 11,
 		SUBMENU_WINDOW_SIZE = 12,
@@ -235,6 +239,11 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_EMULATION_STOP, L"\tCtrl+W");
 		TranslateMenuItem(menu, ID_EMULATION_RESET, L"\tCtrl+B");
 		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, L"\tCtrl+U", "Switch UMD");
+		TranslateSubMenu(menu, "Display Rotation", MENU_EMULATION, SUBMENU_DISPLAY_ROTATION);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H_R);
+		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V_R);
 
 		// Debug menu
 		TranslateMenuItem(menu, ID_DEBUG_LOADMAPFILE);
@@ -260,7 +269,9 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_IGNOREWINKEY);
 		TranslateMenuItem(menu, ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(menu, ID_OPTIONS_CONTROLS);
-		TranslateMenuItem(menu, ID_OPTIONS_STRETCHDISPLAY);
+		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_LAYOUT);
+
+		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
 		TranslateMenuItem(menu, ID_OPTIONS_VSYNC);
 		TranslateSubMenu(menu, "Postprocessing Shader", MENU_OPTIONS, SUBMENU_CUSTOM_SHADERS);
@@ -385,6 +396,10 @@ namespace MainWindow {
 		}
 	}
 
+	static void setScreenRotation(int rotation) {
+		g_Config.iInternalScreenRotation = rotation;
+	}
+
 	static void SaveStateActionFinished(bool result, void *userdata) {
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
@@ -469,6 +484,10 @@ namespace MainWindow {
 		g_Config.bEnableCheats = cheats;
 	}
 
+	static void setDisplayOptions(int options) {
+		g_Config.iSmallDisplayZoomType = options;
+		NativeMessageReceived("gpu resized", "");
+	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
 		std::string fn;
@@ -533,6 +552,11 @@ namespace MainWindow {
 		case ID_EMULATION_SWITCH_UMD:
 			UmdSwitchAction();
 			break;
+
+		case ID_EMULATION_ROTATION_H:                 setScreenRotation(ROTATION_LOCKED_HORIZONTAL); break;
+		case ID_EMULATION_ROTATION_V:                 setScreenRotation(ROTATION_LOCKED_VERTICAL); break;
+		case ID_EMULATION_ROTATION_H_R:               setScreenRotation(ROTATION_LOCKED_HORIZONTAL180); break;
+		case ID_EMULATION_ROTATION_V_R:               setScreenRotation(ROTATION_LOCKED_VERTICAL180); break;
 
 		case ID_EMULATION_CHEATS:
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
@@ -694,10 +718,10 @@ namespace MainWindow {
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
-		case ID_OPTIONS_STRETCHDISPLAY:
-			g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-			NativeMessageReceived("gpu resized", "");
+		case ID_OPTIONS_DISPLAY_LAYOUT:
+			NativeMessageReceived("display layout editor", "");
 			break;
+
 
 		case ID_OPTIONS_FRAMESKIP_0:    setFrameSkipping(FRAMESKIP_OFF); break;
 		case ID_OPTIONS_FRAMESKIP_1:    setFrameSkipping(FRAMESKIP_1); break;
@@ -919,7 +943,6 @@ namespace MainWindow {
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
-		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
@@ -932,6 +955,22 @@ namespace MainWindow {
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
+
+		static const int displayrotationitems[] = {
+			ID_EMULATION_ROTATION_H,
+			ID_EMULATION_ROTATION_V,
+			ID_EMULATION_ROTATION_H_R,
+			ID_EMULATION_ROTATION_V_R
+		};
+		if (g_Config.iInternalScreenRotation < ROTATION_LOCKED_HORIZONTAL)
+			g_Config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+
+		else if (g_Config.iInternalScreenRotation > ROTATION_LOCKED_VERTICAL180)
+			g_Config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
+
+		for (int i = 0; i < ARRAY_SIZE(displayrotationitems); i++) {
+			CheckMenuItem(menu, displayrotationitems[i], MF_BYCOMMAND | ((i + 1) == g_Config.iInternalScreenRotation ? MF_CHECKED : MF_UNCHECKED));
+		}
 
 		// Disable Vertex Cache when HW T&L is disabled.
 		if (!g_Config.bHardwareTransform) {
