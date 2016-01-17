@@ -487,6 +487,26 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	return vfb;
 }
 
+void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+	// Note: UpdateFromMemory() is still called later.
+	// This is a special case where we have extra information prior to the invalidation.
+
+	// TODO: Could possibly be an offset...
+	VirtualFramebuffer *vfb = GetVFBAt(addr);
+	if (vfb) {
+		if (vfb->format != fmt || vfb->drawnFormat != fmt) {
+			DEBUG_LOG(ME, "Changing format for %08x from %d to %d", addr, vfb->drawnFormat, fmt);
+			vfb->format = fmt;
+			vfb->drawnFormat = fmt;
+
+			// Let's count this as a "render".  This will also force us to use the correct format.
+			vfb->last_frame_render = gpuStats.numFlips;
+		}
+
+		// TODO: Check width?
+	}
+}
+
 void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	addr &= ~0x40000000;
 	// TODO: Could go through all FBOs, but probably not important?
