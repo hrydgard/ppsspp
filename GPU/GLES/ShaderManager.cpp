@@ -1022,6 +1022,7 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 	double end = time_now_d();
 
 	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", header.numLinkedPrograms, header.numVertexShaders, header.numFragmentShaders, 1000 * (end - start));
+	NOTICE_LOG(G3D, "Loaded the shader cache from '%s'", filename.c_str());
 	diskCacheDirty_ = false;
 }
 
@@ -1029,6 +1030,10 @@ void ShaderManager::Save(const std::string &filename) {
 	if (!diskCacheDirty_) {
 		return;
 	}
+	if (!linkedShaderCache_.size()) {
+		return;
+	}
+	INFO_LOG(G3D, "Saving the shader cache to '%s'", filename.c_str());
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f) {
 		// Can't save, give up for now.

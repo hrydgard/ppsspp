@@ -286,8 +286,7 @@ bool CheckFontIsUsable(const wchar_t *fontFace) {
 }
 #endif
 
-void NativeInit(int argc, const char *argv[],
-								const char *savegame_directory, const char *external_directory, bool fs) {
+void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -299,7 +298,7 @@ void NativeInit(int argc, const char *argv[],
 
 	bool skipLogo = false;
 	setlocale( LC_ALL, "C" );
-	std::string user_data_path = savegame_directory;
+	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
 #ifdef IOS
 	user_data_path += "/";
@@ -318,22 +317,22 @@ void NativeInit(int argc, const char *argv[],
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
-	VFSRegister("", new DirectoryAssetReader(savegame_directory));
+	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
 	host = new NativeHost();
 #endif
 
 #if defined(ANDROID)
-	g_Config.internalDataDirectory = savegame_directory;
+	g_Config.internalDataDirectory = savegame_dir;
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
-	g_Config.memStickDirectory = std::string(external_directory) + "/";
-	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
+	g_Config.memStickDirectory = std::string(external_dir) + "/";
+	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
-	g_Config.flash0Directory = std::string(external_directory) + "/flash0/";
+	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -357,7 +356,7 @@ void NativeInit(int argc, const char *argv[],
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.Load();
-	g_Config.externalDirectory = external_directory;
+	g_Config.externalDirectory = external_dir;
 #endif
 
 #ifdef ANDROID
@@ -428,9 +427,9 @@ void NativeInit(int argc, const char *argv[],
 #ifndef _WIN32
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
-		g_Config.currentDirectory = external_directory;
+		g_Config.currentDirectory = external_dir;
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
-		g_Config.currentDirectory = savegame_directory;
+		g_Config.currentDirectory = savegame_dir;
 #else
 		if (getenv("HOME") != NULL)
 			g_Config.currentDirectory = getenv("HOME");
@@ -504,6 +503,11 @@ void NativeInit(int argc, const char *argv[],
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_init();
+	}
+
+	if (cache_dir && strlen(cache_dir)) {
+		DiskCachingFileLoaderCache::SetCacheDir(cache_dir);
+		g_Config.appCacheDirectory = cache_dir;
 	}
 }
 
@@ -731,10 +735,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
-	}
-
-	if (msg == "cacheDir") {
-		DiskCachingFileLoaderCache::SetCacheDir(value);
 	}
 }
 
