@@ -873,6 +873,11 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 	// Nothing to invalidate.
 }
 
+void SoftGPU::NotifyVideoUpload(u32 addr, int size, int width, int format)
+{
+	// Ignore.
+}
+
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
 {
 	// Nothing to update.

@@ -2201,6 +2201,10 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	}
 }
 
+void GLES_GPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
 void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
