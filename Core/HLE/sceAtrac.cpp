@@ -232,7 +232,7 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("Atrac", 1, 8);
+		auto s = p.Section("Atrac", 1, 9);
 		if (!s)
 			return;
 
@@ -269,8 +269,10 @@ struct Atrac {
 		p.Do(second_);
 
 		p.Do(decodePos_);
-		u32 oldDecodeEnd = 0;
-		p.Do(oldDecodeEnd);
+		if (s < 9) {
+			u32 oldDecodeEnd = 0;
+			p.Do(oldDecodeEnd);
+		}
 		if (s >= 4) {
 			p.Do(bufferPos_);
 		} else {
@@ -281,6 +283,10 @@ struct Atrac {
 		p.Do(bytesPerFrame_);
 
 		p.Do(loopinfo_);
+		if (s < 9) {
+			int oldLoopInfoNum = 42;
+			p.Do(oldLoopInfoNum);
+		}
 
 		p.Do(loopStartSample_);
 		p.Do(loopEndSample_);
@@ -303,6 +309,17 @@ struct Atrac {
 			ignoreDataBuf_ = false;
 		}
 
+		if (s >= 9) {
+			p.Do(bufferValidBytes_);
+			p.Do(bufferHeaderSize_);
+		} else {
+			bufferHeaderSize_ = dataOff_;
+			bufferValidBytes_ = std::min(first_.size - dataOff_, StreamBufferEnd() - dataOff_);
+			if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+				bufferPos_ = dataOff_;
+			}
+		}
+
 		if (s < 8 && bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER) {
 			// We didn't actually allow the second buffer to be set this far back.
 			// Pretend it's a regular loop, we'll just try our best.
@@ -314,7 +331,7 @@ struct Atrac {
 			__AtracSetContext(this);
 		}
 		
-		if (s >= 2) {
+		if (s >= 2 && s < 9) {
 			bool oldResetBuffer = false;
 			p.Do(oldResetBuffer);
 		}
