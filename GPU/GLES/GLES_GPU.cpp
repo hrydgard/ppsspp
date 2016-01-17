@@ -458,6 +458,14 @@ GLES_GPU::GLES_GPU(GraphicsContext *ctx)
 	glstate.Restore();
 	transformDraw_.RestoreVAO();
 	textureCache_.NotifyConfigChanged();
+
+	// Load shader cache.
+	std::string discID = g_paramSFO.GetValueString("DISC_ID");
+	if (discID.size()) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + g_paramSFO.GetValueString("DISC_ID") + ".glshadercache";
+		shaderManager_->LoadAndPrecompile(shaderCachePath_);
+	}
 }
 
 GLES_GPU::~GLES_GPU() {
@@ -465,6 +473,9 @@ GLES_GPU::~GLES_GPU() {
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
+	if (!shaderCachePath_.empty()) {
+		shaderManager_->Save(shaderCachePath_);
+	}
 	delete shaderManager_;
 	shaderManager_ = nullptr;
 
@@ -729,6 +740,11 @@ void GLES_GPU::BeginFrameInternal() {
 		dumpNextFrame_ = false;
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
+	}
+
+	// Save the cache from time to time. TODO: How often?
+	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
+		shaderManager_->Save(shaderCachePath_);
 	}
 
 	shaderManager_->DirtyShader();

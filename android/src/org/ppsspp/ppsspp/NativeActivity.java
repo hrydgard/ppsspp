@@ -239,14 +239,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	    String externalStorageDir = sdcard.getAbsolutePath();
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir;
+		String cacheDir = getCacheDir().getAbsolutePath();
 
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, Build.VERSION.SDK_INT);
-
-		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT);
 
 		sendInitialGrants();
 
