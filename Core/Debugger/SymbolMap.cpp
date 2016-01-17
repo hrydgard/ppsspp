@@ -282,7 +282,7 @@ void SymbolMap::SaveNocashSym(const char *filename) const {
 		return;
 	}
 
-	FILE* f = fopen(filename, "w");
+	FILE* f = File::OpenCFile(filename, "w");
 	if (f == NULL)
 		return;
 

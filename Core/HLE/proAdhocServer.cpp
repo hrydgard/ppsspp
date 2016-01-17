@@ -45,6 +45,7 @@ typedef int socklen_t;
 #include <fcntl.h>
 #include <errno.h>
 //#include <sqlite3.h>
+#include "Common/FileUtil.h"
 #include "Core/Core.h"
 #include "Core/HLE/proAdhocServer.h"
 
@@ -1013,7 +1014,7 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 void update_status(void)
 {
 	// Open Logfile
-	FILE * log = fopen(SERVER_STATUS_XMLOUT, "w");
+	FILE * log = File::OpenCFile(SERVER_STATUS_XMLOUT, "w");
 
 	// Opened Logfile
 	if(log != NULL)

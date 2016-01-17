@@ -794,7 +794,7 @@ static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, 
 		}
 	}
 
-	FILE *decryptedEbootFile = fopen(fullPath.c_str(), "wb");
+	FILE *decryptedEbootFile = File::OpenCFile(fullPath, "wb");
 	if (!decryptedEbootFile) {
 		ERROR_LOG(SCEMODULE, "Unable to write decrypted EBOOT.");
 		return;
