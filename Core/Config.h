@@ -411,6 +411,7 @@ public:
 	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
+	std::string appCacheDirectory;
 
 	// Data for upgrade prompt
 	std::string upgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.

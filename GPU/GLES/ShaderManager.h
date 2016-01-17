@@ -203,6 +203,9 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
+	void LoadAndPrecompile(const std::string &filename);
+	void Save(const std::string &filename);
+
 private:
 	void Clear();
 	Shader *CompileFragmentShader(ShaderID id);

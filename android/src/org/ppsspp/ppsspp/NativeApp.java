@@ -13,7 +13,7 @@ public class NativeApp {
 	public final static int DEVICE_TYPE_TV = 1;
 	public final static int DEVICE_TYPE_DESKTOP = 2;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String shortcutParam, int androidVersion);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalDir, String libraryDir, String cacheDir, String shortcutParam, int androidVersion);
 
 	public static native void audioInit();
 	public static native void audioShutdown();

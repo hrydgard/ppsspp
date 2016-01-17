@@ -45,6 +45,7 @@ enum PSPDirectories {
 	DIRECTORY_DUMP,
 	DIRECTORY_SAVESTATE,
 	DIRECTORY_CACHE,
+	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
 };
 
 class GraphicsContext;

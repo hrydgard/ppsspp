@@ -616,9 +616,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef _WIN32
-	NativeInit(argc, (const char **)argv, path, "D:\\");
+	NativeInit(argc, (const char **)argv, path, "D:\\", nullptr);
 #else
-	NativeInit(argc, (const char **)argv, path, "/tmp");
+	NativeInit(argc, (const char **)argv, path, "/tmp", nullptr);
 #endif
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
