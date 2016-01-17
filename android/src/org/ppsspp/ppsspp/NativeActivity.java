@@ -65,7 +65,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	public static String runCommand;
 	public static String commandParameter;
-	public static String installID;
 
 	// Remember settings for best audio latency
 	private int optimalFramesPerBuffer;
@@ -245,7 +244,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, Build.VERSION.SDK_INT);
 
 		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
 
@@ -365,7 +364,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		registerCallbacks();
-    	installID = Installation.id(this);
 
     	updateDisplayMetrics(null);
 

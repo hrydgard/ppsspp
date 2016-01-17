@@ -266,7 +266,7 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 	navigator_request_events(0);
 	dialog_request_events(0);
 	vibration_request_events(0);
-	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "app/native/assets/", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "app/native/assets/");
 	graphicsContext = new GLDummyGraphicsContext();
 	NativeInitGraphics(graphicsContext);
 	audio = new BlackberryAudio();

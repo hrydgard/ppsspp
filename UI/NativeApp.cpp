@@ -287,7 +287,7 @@ bool CheckFontIsUsable(const wchar_t *fontFace) {
 #endif
 
 void NativeInit(int argc, const char *argv[],
-								const char *savegame_directory, const char *external_directory, const char *installID, bool fs) {
+								const char *savegame_directory, const char *external_directory, bool fs) {
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);

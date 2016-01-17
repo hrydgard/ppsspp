@@ -120,7 +120,7 @@ static GraphicsContext *graphicsContext;
 			}
 		}
 		
-		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
+		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String]);
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;

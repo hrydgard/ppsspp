@@ -241,7 +241,7 @@ int main(int argc, char *argv[])
 		if (!strcmp(argv[i],"--fullscreen"))
 			fullscreenCLI=true;
 	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), "BADCOFFEE",fullscreenCLI);
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), assets_dir.c_str(), fullscreenCLI);
 	
 	int ret = mainInternal(a);
 

@@ -276,7 +276,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
   (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jshortcutParam,
-		jstring jinstallID, jint jAndroidVersion) {
+		jint jAndroidVersion) {
 	jniEnvUI = env;
 
 	setCurrentThreadName("androidInit");
@@ -309,7 +309,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
 	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
-	std::string installID = GetJavaString(env, jinstallID);
 
 	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
 	ILOG("NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
@@ -329,11 +328,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	if (shortcut_param.empty()) {
 		const char *argv[2] = {app_name.c_str(), 0};
-		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str());
 	}
 	else {
 		const char *argv[3] = {app_name.c_str(), shortcut_param.c_str(), 0};
-		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
+		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str());
 	}
 
 	ILOG("NativeApp.init() -- end");
