@@ -80,15 +80,15 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 		if (mode == 0) {
 			const Bounds &bounds = picked_->GetBounds();
 
-			int mintouchX = screen_bounds.w / 4;
-			int maxTouchX = screen_bounds.w - mintouchX;
+			int minTouchX = screen_bounds.w / 4;
+			int maxTouchX = screen_bounds.w - minTouchX;
 
 			int minTouchY = screen_bounds.h / 4;
 			int maxTouchY = screen_bounds.h - minTouchY;
 
 			int newX = bounds.centerX(), newY = bounds.centerY();
 			// we have to handle x and y separately since even if x is blocked, y may not be.
-			if (touchX > mintouchX && touchX < maxTouchX) {
+			if (touchX > minTouchX && touchX < maxTouchX) {
 				// if the leftmost point of the control is ahead of the margin,
 				// move it. Otherwise, don't.
 				newX = touchX;
