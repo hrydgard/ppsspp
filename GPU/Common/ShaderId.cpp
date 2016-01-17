@@ -102,17 +102,18 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		// Okay, d[1] coming up. ==============
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
-			if (gstate.isLightingEnabled())
+			if (gstate.isLightingEnabled()) {
+				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 				id.SetBit(VS_BIT_LIGHTING_ENABLE);
+			}
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0);
+				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0 && gstate.isLightingEnabled());
 				if (gstate.isLightChanEnabled(i) || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
 					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
 				}
 			}
-			id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 		}
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
