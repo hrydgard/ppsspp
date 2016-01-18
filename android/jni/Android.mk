@@ -31,6 +31,26 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp
 endif
 
+ifeq ($(TARGET_ARCH_ABI),x86_64)
+ARCH_FILES := \
+  $(SRC)/Common/ABI.cpp \
+  $(SRC)/Common/x64Emitter.cpp \
+  $(SRC)/Common/CPUDetect.cpp \
+  $(SRC)/Common/Thunk.cpp \
+  $(SRC)/Core/MIPS/x86/CompALU.cpp \
+  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
+  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
+  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
+  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
+  $(SRC)/Core/MIPS/x86/Asm.cpp \
+  $(SRC)/Core/MIPS/x86/Jit.cpp \
+  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
+  $(SRC)/Core/MIPS/x86/RegCache.cpp \
+  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
+endif
+
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/GPU/Common/TextureDecoderNEON.cpp.neon \
