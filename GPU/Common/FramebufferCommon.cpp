@@ -497,7 +497,11 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			vfb->last_frame_render = gpuStats.numFlips;
 		}
 
-		// TODO: Check width?
+		if (vfb->fb_stride < width) {
+			INFO_LOG(SCEGE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+			DestroyFramebuf(vfb);
+			vfbs_.erase(std::remove(vfbs_.begin(), vfbs_.end(), vfb), vfbs_.end());
+		}
 	}
 }
 
