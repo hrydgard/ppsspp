@@ -42,6 +42,9 @@ struct SimpleGLWindow {
 		FORMAT_8BIT = 0x12,
 		FORMAT_24BIT_8X = 0x13,
 		FORMAT_24X_8BIT = 0x14,
+
+		FORMAT_FLOAT_DIV_256 = 0x18,
+		FORMAT_24BIT_8X_DIV_256 = 0x1B,
 	};
 
 	enum Flags {

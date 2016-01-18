@@ -1320,6 +1320,9 @@ namespace DX9 {
 
 			if (SUCCEEDED(hr)) {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
+				if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+					fmt = GPU_DBG_FORMAT_24BIT_8X_DIV_256;
+				}
 				int pixelSize = 4;
 
 				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);

@@ -1971,7 +1971,11 @@ bool FramebufferManager::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_add
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, false);
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT_DIV_256, false);
+	} else {
+		buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GPU_DBG_FORMAT_FLOAT, false);
+	}
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
