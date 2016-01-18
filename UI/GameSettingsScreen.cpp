@@ -273,8 +273,7 @@ void GameSettingsScreen::CreateViews() {
 	texFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *bufFilters[] = { "Linear", "Nearest", };
-	PopupMultiChoice *bufFilter = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
-	bufFilter->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
 #ifdef ANDROID
 	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard Settings", "Cardboard Settings")));

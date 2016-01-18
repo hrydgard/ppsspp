@@ -66,7 +66,7 @@ public:
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override {}
 
-	void DeviceLost() override {}
+	void DeviceLost() override;
 	void DumpNextFrame() override {}
 
 	void Resized() override {}

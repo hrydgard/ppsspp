@@ -29,6 +29,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gpu_features.h"
 #include "profiler/profiler.h"
 
@@ -39,10 +40,7 @@
 
 static GLuint temp_texture = 0;
 
-static GLint attr_pos = -1, attr_tex = -1;
-static GLint uni_tex = -1;
-
-static GLuint program;
+static GLSLProgram *program;
 static GLuint vao;
 static GLuint vbuf;
 
@@ -51,73 +49,6 @@ const int FB_HEIGHT = 272;
 FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
-
-
-GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
-{
-	// generate objects
-	GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-	GLuint fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-	GLuint programID = glCreateProgram();
-
-	// compile vertex shader
-	glShaderSource(vertexShaderID, 1, &vertexShader, NULL);
-	glCompileShader(vertexShaderID);
-
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	GLint Result = GL_FALSE;
-	char stringBuffer[1024];
-	GLsizei stringBufferUsage = 0;
-	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderInfoLog(vertexShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result) {
-		// not nice
-	} else {
-		// not nice
-	}
-	bool shader_errors = !Result;
-#endif
-
-	// compile fragment shader
-	glShaderSource(fragmentShaderID, 1, &fragmentShader, NULL);
-	glCompileShader(fragmentShaderID);
-
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderInfoLog(fragmentShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result) {
-		// not nice
-	} else {
-		// not nice
-	}
-	shader_errors |= !Result;
-#endif
-
-	// link them
-	glAttachShader(programID, vertexShaderID);
-	glAttachShader(programID, fragmentShaderID);
-	glLinkProgram(programID);
-
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	glGetProgramiv(programID, GL_LINK_STATUS, &Result);
-	glGetProgramInfoLog(programID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result && !shader_errors) {
-		// not nice
-	}
-#endif
-
-	// cleanup
-	glDeleteShader(vertexShaderID);
-	glDeleteShader(fragmentShaderID);
-
-	return programID;
-}
 
 SoftGPU::SoftGPU()
 {
@@ -130,32 +61,30 @@ SoftGPU::SoftGPU()
 #ifdef USING_GLES2
 		"#version 100\n"
 #endif
-		"varying vec2 TexCoordOut;\n"
-		"uniform sampler2D Texture;\n"
+		"varying vec2 texcoord;\n"
+		"uniform sampler2D sampler0;\n"
 		"void main() {\n"
-		"   vec4 tmpcolor;\n"
-		"   tmpcolor = texture2D(Texture, TexCoordOut);\n"
-		"   gl_FragColor = tmpcolor;\n"
+		"   gl_FragColor = texture2D(sampler0, texcoord);\n"
 		"}\n";
 	static const char *vertShaderText =
 #ifdef USING_GLES2
 		"#version 100\n"
 #endif
-		"attribute vec4 pos;\n"
-		"attribute vec2 TexCoordIn;\n "
-		"varying vec2 TexCoordOut;\n "
+		"attribute vec4 a_position;\n"
+		"attribute vec2 a_texcoord0;\n "
+		"varying vec2 texcoord;\n "
 		"void main() {\n"
-		"   gl_Position = pos;\n"
-		"   TexCoordOut = TexCoordIn;\n"
+		"   gl_Position = a_position;\n"
+		"   texcoord = a_texcoord0;\n"
 		"}\n";
 
-	program = OpenGL_CompileProgram(vertShaderText, fragShaderText);
-
-	glUseProgram(program);
-
-	uni_tex = glGetUniformLocation(program, "Texture");
-	attr_pos = glGetAttribLocation(program, "pos");
-	attr_tex = glGetAttribLocation(program, "TexCoordIn");
+	std::string errorString;
+	program = glsl_create_source(vertShaderText, fragShaderText, &errorString);
+	if (!program) {
+		ERROR_LOG_REPORT(G3D, "Failed to compile softgpu program! This shouldn't happen.\n%s", errorString.c_str());
+	} else {
+		glsl_bind(program);
+	}
 
 	if (gl_extensions.ARB_vertex_array_object) {
 		glGenVertexArrays(1, &vao);
@@ -172,9 +101,20 @@ SoftGPU::SoftGPU()
 	displayFormat_ = GE_FORMAT_8888;
 }
 
+void SoftGPU::DeviceLost() {
+	if (vao != 0) {
+		// These deletes will likely fail, but let's try just in case.
+		glDeleteVertexArrays(1, &vao);
+		glDeleteBuffers(1, &vbuf);
+
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbuf);
+	}
+}
+
 SoftGPU::~SoftGPU()
 {
-	glDeleteProgram(program);
+	glsl_destroy(program);
 	glDeleteTextures(1, &temp_texture);
 	if (vao != 0) {
 		glDeleteVertexArrays(1, &vao);
@@ -251,10 +191,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		delete[] buf;
 	}
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 
-	glUseProgram(program);
+	glsl_bind(program);
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
@@ -292,23 +232,23 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		glBufferSubData(GL_ARRAY_BUFFER, sizeof(verts), sizeof(texverts), texverts);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-		glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, 0);
-		glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, (void *)sizeof(verts));
+		glVertexAttribPointer(program->a_position, 2, GL_FLOAT, GL_FALSE, 0, 0);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 0, (void *)sizeof(verts));
 	} else {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-		glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
+		glVertexAttribPointer(program->a_position, 2, GL_FLOAT, GL_FALSE, 0, verts);
+		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 0, texverts);
 	}
 
-	glEnableVertexAttribArray(attr_pos);
-	glEnableVertexAttribArray(attr_tex);
-	glUniform1i(uni_tex, 0);
+	glEnableVertexAttribArray(program->a_position);
+	glEnableVertexAttribArray(program->a_texcoord0);
 	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(program->sampler0, 0);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	glDisableVertexAttribArray(attr_pos);
-	glDisableVertexAttribArray(attr_tex);
+	glDisableVertexAttribArray(program->a_position);
+	glDisableVertexAttribArray(program->a_texcoord0);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
