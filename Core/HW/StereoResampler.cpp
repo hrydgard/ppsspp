@@ -50,7 +50,7 @@ StereoResampler::StereoResampler()
 }
 
 template<bool useShift>
-inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, u8 volShift) {
+inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) {
 #ifdef _M_SSE
 	// Size will always be 16-byte aligned as the hwBlockSize is.
 	while (size >= 8) {
@@ -74,7 +74,13 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, u8 volShift) 
 }
 
 inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
-	ClampBufferToS16<false>(out, in, size, 0);
+	if (g_Config.iGlobalVolume >= VOLUME_MAX) {
+		ClampBufferToS16<false>(out, in, size, 0);
+	} else if (g_Config.iGlobalVolume <= VOLUME_OFF) {
+		memset(out, 0, size * sizeof(s16));
+	} else {
+		ClampBufferToS16<true>(out, in, size, VOLUME_MAX - (s8)g_Config.iGlobalVolume);
+	}
 }
 
 void StereoResampler::MixerFifo::Clear() {

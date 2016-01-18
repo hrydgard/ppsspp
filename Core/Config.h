@@ -30,6 +30,8 @@ extern const char *PPSSPP_GIT_VERSION;
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
+static const s8 VOLUME_OFF = 0;
+static const s8 VOLUME_MAX = 10;
 
 enum {
 	ROTATION_AUTO = 0,
@@ -200,6 +202,7 @@ public:
 	bool bEnableSound;
 	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iAudioBackend;
+	int iGlobalVolume;
 
 	// Audio Hack
 	bool bSoundSpeedHack;
