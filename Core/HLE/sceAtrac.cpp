@@ -1811,7 +1811,7 @@ int __AtracSetContext(Atrac *atrac) {
 	return 0;
 }
 
-static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize) {
+static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize, int successCode = 0) {
 	atrac->first_.addr = buffer;
 	atrac->first_.size = readSize;
 
@@ -1858,16 +1858,15 @@ static int _AtracSetData(Atrac *atrac, u32 buffer, u32 readSize, u32 bufferSize)
 		// Already logged.
 		return ret;
 	}
-	return hleLogSuccessInfoI(ME, ret, "%s %s audio", codecName, channelName);
+
+	return hleLogSuccessInfoI(ME, successCode, "%s %s audio", codecName, channelName);
 }
 
 static int _AtracSetData(int atracID, u32 buffer, u32 readSize, u32 bufferSize, bool needReturnAtracID = false) {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return hleLogError(ME, ATRAC_ERROR_BAD_ATRACID, "invalid atrac ID");
-	int ret = _AtracSetData(atrac, buffer, readSize, bufferSize);
-	if (needReturnAtracID && ret >= 0)
-		ret = atracID;
+	int ret = _AtracSetData(atrac, buffer, readSize, bufferSize, needReturnAtracID ? atracID : 0);
 	// not sure the real delay time
 	return hleDelayResult(ret, "atrac set data", 100);
 }
