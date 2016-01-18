@@ -84,7 +84,6 @@ SoftGPU::SoftGPU()
 		ERROR_LOG_REPORT(G3D, "Failed to compile softgpu program! This shouldn't happen.\n%s", errorString.c_str());
 	} else {
 		glsl_bind(program);
-		glUniform1i(program->sampler0, 0);
 	}
 
 	if (gl_extensions.ARB_vertex_array_object) {
@@ -100,6 +99,17 @@ SoftGPU::SoftGPU()
 	displayFramebuf_ = 0;
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
+}
+
+void SoftGPU::DeviceLost() {
+	if (vao != 0) {
+		// These deletes will likely fail, but let's try just in case.
+		glDeleteVertexArrays(1, &vao);
+		glDeleteBuffers(1, &vbuf);
+
+		glGenVertexArrays(1, &vao);
+		glGenBuffers(1, &vbuf);
+	}
 }
 
 SoftGPU::~SoftGPU()
@@ -235,6 +245,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(program->sampler0, 0);
 	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
