@@ -1055,6 +1055,55 @@ namespace DX9 {
 		}
 	}
 
+	void FramebufferManagerDX9::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+		if (!vfb->fbo) {
+			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
+			return;
+		}
+
+		// We always read the depth buffer in 24_8 format.
+		const u32 z_address = (0x04000000) | vfb->z_address;
+
+		DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				const int dstByteOffset = y * vfb->fb_stride * sizeof(s16);
+				const u32 *packed = (const u32 *)locked.pBits;
+				u16 *depth = (u16 *)Memory::GetPointer(z_address);
+
+				// TODO: Optimize.
+				for (int yp = 0; yp < h; ++yp) {
+					for (int xp = 0; xp < w; ++xp) {
+						const int offset = (yp + y) & vfb->z_stride + x + xp;
+
+						float scaled = FromScaledDepth((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
+						if (scaled <= 0.0f) {
+							depth[offset] = 0;
+						} else if (scaled >= 65535.0f) {
+							depth[offset] = 65535;
+						} else {
+							depth[offset] = (int)scaled;
+						}
+					}
+				}
+
+				tex->UnlockRect(0);
+			} else {
+				ERROR_LOG_REPORT(G3D, "Unable to lock rect from depth %08x: %d,%d %dx%d of %dx%d", vfb->fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);
+			}
+		} else {
+			ERROR_LOG_REPORT(G3D, "Unable to download render target depth from %08x", vfb->fb_address);
+		}
+	}
+
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();

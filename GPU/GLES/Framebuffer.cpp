@@ -1676,30 +1676,30 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	}
 
 	// Pixel size always 4 here because we always request RGBA8888
-	size_t bufSize = vfb->fb_stride * std::max(vfb->height, (u16)h) * 4;
+	u32 bufSize = vfb->fb_stride * (h - y) * 4;
 	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
 
 	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
-	const int packWidth = x + w < vfb->width ? x + w : vfb->width;
+	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
 
 	if (!convert) {
-		packed = (GLubyte *)Memory::GetPointer(fb_address);
-	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
-		u32 neededSize = (u32)bufSize * sizeof(GLubyte);
-		if (!convBuf_ || convBufSize_ < neededSize) {
+		int byteOffset = y * vfb->fb_stride * 4;
+		packed = (GLubyte *)Memory::GetPointer(fb_address + byteOffset);
+	} else {
+		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+		if (!convBuf_ || convBufSize_ < bufSize) {
 			delete [] convBuf_;
-			convBuf_ = new u8[neededSize];
-			convBufSize_ = neededSize;
+			convBuf_ = new u8[bufSize];
+			convBufSize_ = bufSize;
 		}
 		packed = convBuf_;
 	}
 
 	if (packed) {
-		DEBUG_LOG(SCEGE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
-			(u32)bufSize, packed, fb_address);
+		DEBUG_LOG(SCEGE, "Reading framebuffer to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		GLenum glfmt = GL_RGBA;
@@ -1707,12 +1707,11 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 			glfmt = GL_BGRA_EXT;
 		}
 
-		int byteOffset = y * vfb->fb_stride * 4;
-		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed + byteOffset);
+		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed);
 
 		if (convert) {
 			int dstByteOffset = y * vfb->fb_stride * dstBpp;
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed + byteOffset, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
 	}
 
@@ -1726,6 +1725,49 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 #endif
 		GLenum attachments[3] = { GL_COLOR_ATTACHMENT0, GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
 		glInvalidateFramebuffer(target, 3, attachments);
+	}
+
+	fbo_unbind_read();
+}
+
+void FramebufferManager::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+	if (vfb->fbo) {
+		fbo_bind_for_read(vfb->fbo);
+	} else {
+		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
+		return;
+	}
+
+	// Pixel size always 4 here because we always request float
+	const u32 bufSize = vfb->z_stride * (h - y) * 4;
+	const u32 z_address = (0x04000000) | vfb->z_address;
+	const int packWidth = std::min(vfb->z_stride, std::min(x + w, (int)vfb->width));
+
+	if (!convBuf_ || convBufSize_ < bufSize) {
+		delete [] convBuf_;
+		convBuf_ = new u8[bufSize];
+		convBufSize_ = bufSize;
+	}
+
+	DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->z_stride, h, GL_DEPTH_COMPONENT, GL_FLOAT, convBuf_);
+
+	int dstByteOffset = y * vfb->fb_stride * sizeof(u16);
+	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
+	GLfloat *packed = (GLfloat *)convBuf_;
+
+	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
+	for (int i = 0; i < totalPixels; ++i) {
+		float scaled = FromScaledDepth(packed[i]);
+		if (scaled <= 0.0f) {
+			depth[i] = 0;
+		} else if (scaled >= 65535.0f) {
+			depth[i] = 65535;
+		} else {
+			depth[i] = (int)scaled;
+		}
 	}
 
 	fbo_unbind_read();
