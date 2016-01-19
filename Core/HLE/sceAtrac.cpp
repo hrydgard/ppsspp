@@ -374,9 +374,14 @@ struct Atrac {
 				// No longer looping in this case, outside the loop.
 				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 			}
-			if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK && loopNum_ == 0) {
 				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
 			}
+		}
+
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			// Since we're streaming, the remaining frames are what's valid in the buffer.
+			return bufferValidBytes_ / bytesPerFrame_;
 		}
 
 		// Since the first frame is shorter by this offset, add to round up at this offset.
