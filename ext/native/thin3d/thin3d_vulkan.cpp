@@ -1160,6 +1160,8 @@ std::vector<std::string> Thin3DVKContext::GetFeatureList() {
 	AddFeature(features, "textureCompressionASTC_LDR", available.textureCompressionASTC_LDR, enabled.textureCompressionASTC_LDR);
 	AddFeature(features, "shaderClipDistance", available.shaderClipDistance, enabled.shaderClipDistance);
 	AddFeature(features, "shaderCullDistance", available.shaderCullDistance, enabled.shaderCullDistance);
+	AddFeature(features, "occlusionQueryPrecise", available.occlusionQueryPrecise, enabled.occlusionQueryPrecise);
+	AddFeature(features, "multiDrawIndirect", available.multiDrawIndirect, enabled.multiDrawIndirect);
 
 	// Also list texture formats and their properties.
 	for (int i = VK_FORMAT_BEGIN_RANGE; i <= VK_FORMAT_END_RANGE; i++) {

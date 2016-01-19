@@ -622,6 +622,12 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (featuresAvailable_.logicOp) {
 		featuresEnabled_.logicOp = true;
 	}
+	if (featuresAvailable_.depthClamp) {
+		featuresEnabled_.depthClamp = true;
+	}
+	if (featuresAvailable_.depthBounds) {
+		featuresEnabled_.depthBounds = true;
+	}
 
   VkDeviceCreateInfo device_info = {};
   device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
