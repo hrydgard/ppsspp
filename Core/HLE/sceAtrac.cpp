@@ -563,11 +563,25 @@ struct Atrac {
 
 	void CalculateStreamInfo(u32 *readOffset);
 
-	u32 StreamBufferEnd() {
+	u32 StreamBufferEnd() const {
 		// The buffer is always aligned to a frame in size, not counting an optional header.
 		// The header will only initially exist after the data is first set.
 		u32 framesAfterHeader = (bufferMaxSize_ - bufferHeaderSize_) / bytesPerFrame_;
 		return framesAfterHeader * bytesPerFrame_ + bufferHeaderSize_;
+	}
+
+	void ConsumeFrame() {
+		bufferPos_ += bytesPerFrame_;
+		if (bufferValidBytes_ > bytesPerFrame_) {
+			bufferValidBytes_ -= bytesPerFrame_;
+		} else {
+			bufferValidBytes_ = 0;
+		}
+		if (bufferPos_ >= StreamBufferEnd()) {
+			// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
+			bufferPos_ -= StreamBufferEnd();
+			bufferHeaderSize_ = 0;
+		}
 	}
 
 private:
@@ -1141,6 +1155,12 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				skipSamples = unalignedSamples;
 			}
 
+			if (skipSamples != 0 && atrac->bufferHeaderSize_ == 0) {
+				// Skip the initial frame used to load state for the looped frame.
+				// TODO: We will want to actually read this in.
+				atrac->ConsumeFrame();
+			}
+
 			if (!atrac->failedDecode_ && (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS)) {
 				atrac->SeekToSample(atrac->currentSample_);
 
@@ -1217,17 +1237,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			atrac->currentSample_ += numSamples;
 			atrac->decodePos_ = atrac->DecodePosBySample(atrac->currentSample_);
 
-			atrac->bufferPos_ += atrac->bytesPerFrame_;
-			if (atrac->bufferValidBytes_ > atrac->bytesPerFrame_) {
-				atrac->bufferValidBytes_ -= atrac->bytesPerFrame_;
-			} else {
-				atrac->bufferValidBytes_ = 0;
-			}
-			if (atrac->bufferPos_ >= atrac->StreamBufferEnd()) {
-				// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
-				atrac->bufferPos_ -= atrac->StreamBufferEnd();
-				atrac->bufferHeaderSize_ = 0;
-			}
+			atrac->ConsumeFrame();
 
 			int finishFlag = 0;
 			// TODO: Verify.
