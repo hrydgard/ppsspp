@@ -552,8 +552,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = 0.0f;
-		out.depthRangeMax = 1.0f;
+		out.depthRangeMin = ToScaledDepth(0);
+		out.depthRangeMax = ToScaledDepth(65535);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -634,32 +634,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
-		float depthRangeMin = vpZCenter - vpZScale;
-		float depthRangeMax = vpZCenter + vpZScale;
-		// Near/far can be inverted.  Let's reverse while dealing with clamping, though.
-		bool inverted = vpZScale < 0.0f;
-		float near = (inverted ? depthRangeMax : depthRangeMin) * (1.0f / 65535.0f);
-		float far = (inverted ? depthRangeMin : depthRangeMax) * (1.0f / 65535.0f);
+		// Near/far can be inverted.  We deal with that in the projection/scale.
+		float near = vpZCenter - fabsf(vpZScale);
+		float far = vpZCenter + fabsf(vpZScale);
 
-		if (near < 0.0f || far > 1.0f) {
+		if (near < 0.0f || far > 65535.0f) {
 			float overageNear = std::max(-near, 0.0f);
-			float overageFar = std::max(far - 1.0f, 0.0f);
+			float overageFar = std::max(far - 65535.0f, 0.0f);
 			float drift = overageFar - overageNear;
 
 			near += overageNear;
 			far -= overageFar;
 
-			zScale = fabsf(vpZScale * (2.0f / 65535.0f)) / (far - near);
+			zScale = (vpZScale * 2.0f) / (far - near);
 			zOffset = drift / (far - near);
-		}
-
-		if (inverted) {
+		} else if (vpZScale < 0.0f) {
+			// This flips to match our near/far.
 			zScale = -zScale;
-			inverted = false;
 		}
 
-		out.depthRangeMin = inverted ? far : near;
-		out.depthRangeMax = inverted ? near : far;
+		out.depthRangeMin = near * (1.0f / 65535.0f);
+		out.depthRangeMax = far * (1.0f / 65535.0f);
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
@@ -678,16 +673,19 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 #ifndef MOBILE_DEVICE
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
-		if ((minz > depthRangeMin && minz > depthRangeMax) || (maxz < depthRangeMin && maxz < depthRangeMax)) {
-			WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range in test - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
-		} else if ((gstate.clipEnable & 1) == 0) {
-			// TODO: Need to test whether clipEnable should even affect depth or not.
-			if ((minz < depthRangeMin && minz < depthRangeMax) || (maxz > depthRangeMin && maxz > depthRangeMax)) {
-				WARN_LOG_REPORT_ONCE(znoclip, G3D, "Unsupported depth range in test without clipping - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+		if (minz > near || maxz < far) {
+			if ((gstate.clipEnable & 1) == 0) {
+				WARN_LOG_REPORT_ONCE(minmaxznoclip, G3D, "Unsupported depth range test without clipping - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
+			} else {
+				WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range test - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
 			}
 		}
 #endif
 	}
+}
+
+float ToScaledDepth(u16 z) {
+	return z * (1.0f / 65535.0f);
 }
 
 static const BlendFactor genericALookup[11] = {
