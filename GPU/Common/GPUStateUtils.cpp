@@ -504,6 +504,10 @@ float ToScaledDepth(u16 z) {
 	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
 }
 
+float FromScaledDepth(float z) {
+	return (z - (0.5f / depthSliceFactor)) * depthSliceFactor * 65535.0f;
+}
+
 float ToScaledDepthFromInteger(float z) {
 	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
 }
