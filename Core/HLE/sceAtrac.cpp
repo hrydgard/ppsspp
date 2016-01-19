@@ -1051,7 +1051,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 				first_.offset = 0;
 				first_.writableBytes = 0;
 			} else {
-				readOffset = dataOff_;
+				readOffset = FileOffsetBySample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_ - SamplesPerFrame() * 2);
 			}
 		}
 
@@ -1253,7 +1253,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				}
 				if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
 					// Whatever bytes we have left were added from the loop.
-					atrac->first_.fileoffset = atrac->dataOff_;
+					atrac->first_.fileoffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
 					// Skip the initial frame at the start.
 				}
 			} else if (hitEnd) {
