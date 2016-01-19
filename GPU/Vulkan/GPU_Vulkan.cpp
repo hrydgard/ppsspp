@@ -2116,6 +2116,10 @@ bool GPU_Vulkan::PerformMemorySet(u32 dest, u8 v, int size) {
 	return false;
 }
 
+void GPU_Vulkan::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+
+}
+
 bool GPU_Vulkan::PerformMemoryDownload(u32 dest, int size) {
 	// Cheat a bit to force a download of the framebuffer.
 	// VRAM + 0x00400000 is simply a VRAM mirror.
@@ -2213,8 +2217,4 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 	} else {
 		return shaderManager_->DebugGetShaderString(id, type, stringType);
 	}
-}
-
-void GPU_Vulkan::NotifyVideoUpload(u32 addr, int size, int width, int format) {
-
 }
