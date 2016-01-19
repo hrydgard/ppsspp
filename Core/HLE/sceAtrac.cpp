@@ -1697,7 +1697,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 			atrac->bufferHeaderSize_ = 0;
 			atrac->bufferPos_ = atrac->bytesPerFrame_;
-			atrac->bufferValidBytes_ = bytesWrittenFirstBuf;
+			atrac->bufferValidBytes_ = bytesWrittenFirstBuf - atrac->bufferPos_;
 		}
 
 		if (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
