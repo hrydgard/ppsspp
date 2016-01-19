@@ -589,23 +589,14 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
-		float viewZScale = gstate.getViewportZScale();
-		float viewZCenter = gstate.getViewportZCenter();
-		float viewZInvScale;
+		// Since depth is [-1, 1] mapping to [minz, maxz], this is easy.
+		float minz = gstate.getDepthRangeMin();
+		float maxz = gstate.getDepthRangeMax();
 
-		// We had to scale and translate Z to account for our clamped Z range.
-		// Therefore, we also need to reverse this to round properly.
-		//
-		// Example: scale = 65535.0, center = 0.0
-		// Resulting range = -65535 to 65535, clamped to [0, 65535]
-		// gstate_c.vpDepthScale = 2.0f
-		// gstate_c.vpZOffset = -1.0f
-		//
-		// The projection already accounts for those, so we need to reverse them.
-		//
-		// Additionally, OpenGL uses a range from [-1, 1].  So we multiply by scale and add the center.
-		viewZScale *= 1.0f / gstate_c.vpDepthScale;
-		viewZCenter -= 65535.0f * gstate_c.vpZOffset;
+		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
+		float viewZScale = halfActualZRange;
+		float viewZCenter = minz + halfActualZRange;
+		float viewZInvScale;
 
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;

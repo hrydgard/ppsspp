@@ -597,8 +597,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float xOffset = 0.0f;
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
-		float zScale = 1.0f;
-		float zOffset = 0.0f;
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		if (left < 0.0f || right > renderWidth) {
@@ -632,29 +630,22 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportW = right - left;
 		out.viewportH = bottom - top;
 
+		// The depth viewport parameters are the same, but we handle it a bit differently.
+		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
+		// So, we apply the depth range as minz/maxz, and transform for the viewport.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
-		// Near/far can be inverted.  We deal with that in the projection/scale.
-		float near = vpZCenter - fabsf(vpZScale);
-		float far = vpZCenter + fabsf(vpZScale);
+		float minz = gstate.getDepthRangeMin();
+		float maxz = gstate.getDepthRangeMax();
 
-		if (near < 0.0f || far > 65535.0f) {
-			float overageNear = std::max(-near, 0.0f);
-			float overageFar = std::max(far - 65535.0f, 0.0f);
-			float drift = overageFar - overageNear;
+		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
+		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
+		float zScale = vpZScale / halfActualZRange;
+		// This adjusts the center from halfActualZRange to vpZCenter.
+		float zOffset = (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
-			near += overageNear;
-			far -= overageFar;
-
-			zScale = (vpZScale * 2.0f) / (far - near);
-			zOffset = drift / (far - near);
-		} else if (vpZScale < 0.0f) {
-			// This flips to match our near/far.
-			zScale = -zScale;
-		}
-
-		out.depthRangeMin = near * (1.0f / 65535.0f);
-		out.depthRangeMax = far * (1.0f / 65535.0f);
+		out.depthRangeMin = ToScaledDepth(minz);
+		out.depthRangeMax = ToScaledDepth(maxz);
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
@@ -669,18 +660,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			out.dirtyProj = true;
 			out.dirtyDepth = depthChanged;
 		}
-
-#ifndef MOBILE_DEVICE
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
-		if (minz > near || maxz < far) {
-			if ((gstate.clipEnable & 1) == 0) {
-				WARN_LOG_REPORT_ONCE(minmaxznoclip, G3D, "Unsupported depth range test without clipping - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
-			} else {
-				WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range test - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
-			}
-		}
-#endif
 	}
 }
 
