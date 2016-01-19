@@ -1030,7 +1030,10 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		if (readOffset >= first_.filesize) {
 			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+				// We don't need anything more, so all 0s.
 				readOffset = 0;
+				first_.offset = 0;
+				first_.writableBytes = 0;
 			} else {
 				readOffset = dataOff_;
 			}
