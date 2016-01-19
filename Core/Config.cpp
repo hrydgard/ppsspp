@@ -506,6 +506,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1, true, true),
 	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false, true, true),
 	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
+	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_MAX, true, true),
 
 	ConfigSetting(false),
 };
