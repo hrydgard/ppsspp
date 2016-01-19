@@ -365,15 +365,17 @@ struct Atrac {
 		}
 
 		u32 currentFileOffset = FileOffsetBySample(currentSample_ - SamplesPerFrame() + FirstOffsetExtra());
-		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
-			if (currentFileOffset > first_.fileoffset) {
-				// We've looped in the data we added.
-				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
-			}
-
-			if (first_.fileoffset >= first_.filesize && loopNum_ == 0) {
-				// We don't need anything more; we're not planning to loop again.
+		if (first_.fileoffset >= first_.filesize) {
+			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+			int loopEndAdjusted = loopEndSample_ - FirstOffsetExtra() - firstSampleOffset_;
+			if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && currentSample_ > loopEndAdjusted) {
+				// No longer looping in this case, outside the loop.
+				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+			if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
 			}
 		}
 
@@ -1248,6 +1250,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				if (atrac->bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
 					if (atrac->loopNum_ > 0)
 						atrac->loopNum_--;
+				}
+				if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+					// Whatever bytes we have left were added from the loop.
+					atrac->first_.fileoffset = atrac->dataOff_;
+					// Skip the initial frame at the start.
 				}
 			} else if (hitEnd) {
 				finishFlag = 1;
