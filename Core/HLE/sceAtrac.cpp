@@ -717,7 +717,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	// TODO: Validate stuff.
 
 	if (Memory::Read_U32(first_.addr) != RIFF_CHUNK_MAGIC) {
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIF header");
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
 
 	u32 offset = 8;
@@ -1028,19 +1028,24 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 			first_.writableBytes = bufferPos_ - bufferStartUsed;
 		}
 
-		// If you don't think this should be here, remove it.  It's just a temporary safety check.
-		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
-			first_.offset = 0;
-			first_.writableBytes = bufferMaxSize_;
-		}
-
 		if (readOffset >= first_.filesize) {
 			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 				readOffset = 0;
 			} else {
 				readOffset = dataOff_;
 			}
+		}
+
+		if (readOffset + first_.writableBytes > first_.filesize) {
+			// Never ask for past the end of file, even when the space is free.
+			first_.writableBytes = first_.filesize - readOffset;
+		}
+
+		// If you don't think this should be here, remove it.  It's just a temporary safety check.
+		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
+			ERROR_LOG_REPORT(ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			first_.offset = 0;
+			first_.writableBytes = bufferMaxSize_;
 		}
 	}
 
