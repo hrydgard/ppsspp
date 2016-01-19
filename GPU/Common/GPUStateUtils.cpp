@@ -552,8 +552,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = 0.0f;
-		out.depthRangeMax = 1.0f;
+		out.depthRangeMin = ToScaledDepth(0);
+		out.depthRangeMax = ToScaledDepth(65535);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -682,6 +682,10 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		}
 #endif
 	}
+}
+
+float ToScaledDepth(u16 z) {
+	return z * (1.0f / 65535.0f);
 }
 
 static const BlendFactor genericALookup[11] = {

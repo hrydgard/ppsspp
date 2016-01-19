@@ -89,10 +89,11 @@ void FramebufferManager::ClearBuffer(bool keepState) {
 	}
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClearStencil(0);
+	float clearDepth = ToScaledDepth(0);
 #ifdef USING_GLES2
-	glClearDepthf(0.0f);
+	glClearDepthf(clearDepth);
 #else
-	glClearDepth(0.0);
+	glClearDepth(clearDepth);
 #endif
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	if (keepState) {
