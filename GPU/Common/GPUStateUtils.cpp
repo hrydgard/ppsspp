@@ -500,16 +500,19 @@ LogicOpReplaceType ReplaceLogicOpType() {
 
 static const float depthSliceFactor = 4.0f;
 
+// This is used for float values which might not be integers, but are in the integer scale of 65535.
+static float ToScaledDepthFromInteger(float z) {
+	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+}
+
 float ToScaledDepth(u16 z) {
-	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
+	return ToScaledDepthFromInteger((float)(int)z);
 }
 
 float FromScaledDepth(float z) {
-	return (z - (0.5f / depthSliceFactor)) * depthSliceFactor * 65535.0f;
-}
-
-float ToScaledDepthFromInteger(float z) {
-	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
+	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return (z - offset) * depthSliceFactor * 65535.0f;
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
