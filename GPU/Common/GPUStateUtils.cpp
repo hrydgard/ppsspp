@@ -498,6 +498,15 @@ LogicOpReplaceType ReplaceLogicOpType() {
 	return LOGICOPTYPE_NORMAL;
 }
 
+static const float depthSliceFactor = 4.0f;
+
+float ToScaledDepth(u16 z) {
+	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
+}
+
+float ToScaledDepthFromInteger(float z) {
+	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + (0.5f / depthSliceFactor);
+}
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
@@ -638,14 +647,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
 
+		if (gstate.isClippingEnabled() && (minz == 0 || maxz == 65535)) {
+			// Here, we should "clamp."  But clamping per fragment would be slow.
+			// So, instead, we just increase the available range and hope.
+			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
+			float fullDepthRange = 65535.0f * (depthSliceFactor - 1.0f) * (1.0f / 2.0f);
+			if (minz == 0) {
+				minz -= fullDepthRange;
+			}
+			if (maxz == 65535) {
+				maxz += fullDepthRange;
+			}
+		}
+
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
 		float zScale = vpZScale / halfActualZRange;
 		// This adjusts the center from halfActualZRange to vpZCenter.
 		float zOffset = (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
-		out.depthRangeMin = ToScaledDepth(minz);
-		out.depthRangeMax = ToScaledDepth(maxz);
+		out.depthRangeMin = ToScaledDepthFromInteger(minz);
+		out.depthRangeMax = ToScaledDepthFromInteger(maxz);
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
@@ -661,10 +683,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			out.dirtyDepth = depthChanged;
 		}
 	}
-}
-
-float ToScaledDepth(u16 z) {
-	return z * (1.0f / 65535.0f);
 }
 
 static const BlendFactor genericALookup[11] = {

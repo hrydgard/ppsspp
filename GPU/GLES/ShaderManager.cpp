@@ -589,11 +589,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
-		// Since depth is [-1, 1] mapping to [minz, maxz], this is easy.
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
+		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
 
-		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
+		// These are just the reverse of the formulas in GPUStateUtils.
+		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
 		float viewZInvScale;

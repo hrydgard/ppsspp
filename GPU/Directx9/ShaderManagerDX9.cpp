@@ -481,11 +481,13 @@ void ShaderManagerDX9::VSUpdateUniforms(int dirtyUniforms) {
 
 	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
 		// Depth is [0, 1] mapping to [minz, maxz], not too hard.
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
 
-		float actualZRange = maxz - minz;
-		float viewZScale = actualZRange;
+		// These are just the reverse of the formulas in GPUStateUtils.
+		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
+		float viewZScale = halfActualZRange * 2.0f;
 		float viewZCenter = minz;
 		float viewZInvScale;
 
