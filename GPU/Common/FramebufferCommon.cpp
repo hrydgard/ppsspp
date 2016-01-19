@@ -497,7 +497,14 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			vfb->last_frame_render = gpuStats.numFlips;
 		}
 
-		// TODO: Check width?
+		if (vfb->fb_stride < width) {
+			DEBUG_LOG(ME, "Changing stride for %08x from %d to %d", addr, vfb->fb_stride, width);
+			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+			ResizeFramebufFBO(vfb, width, size / (bpp * width));
+			vfb->fb_stride = width;
+			// This might be a bit wider than necessary, but we'll redetect on next render.
+			vfb->width = vfb->width = width;
+		}
 	}
 }
 

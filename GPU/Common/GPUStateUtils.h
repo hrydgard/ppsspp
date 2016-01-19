@@ -66,6 +66,7 @@ struct ViewportAndScissor {
 	bool dirtyDepth;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
+float ToScaledDepth(u16 z);
 
 // These are common to all modern APIs and can be easily converted with a lookup table.
 enum class BlendFactor : uint8_t {

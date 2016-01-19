@@ -58,7 +58,7 @@ namespace DX9 {
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
 			dxstate.stencilMask.set(0xFF);
 		}
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), ToScaledDepth(0), 0);
 		if (keepState) {
 			dxstate.scissorTest.restore();
 			dxstate.depthWrite.restore();

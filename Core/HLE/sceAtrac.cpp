@@ -365,16 +365,23 @@ struct Atrac {
 		}
 
 		u32 currentFileOffset = FileOffsetBySample(currentSample_ - SamplesPerFrame() + FirstOffsetExtra());
-		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
-			if (currentFileOffset > first_.fileoffset) {
-				// We've looped in the data we added.
-				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
-			}
-
-			if (first_.fileoffset >= first_.filesize && loopNum_ == 0) {
-				// We don't need anything more; we're not planning to loop again.
+		if (first_.fileoffset >= first_.filesize) {
+			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
 				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
 			}
+			int loopEndAdjusted = loopEndSample_ - FirstOffsetExtra() - firstSampleOffset_;
+			if (bufferState_ == ATRAC_STATUS_STREAMED_LOOP_WITH_TRAILER && currentSample_ > loopEndAdjusted) {
+				// No longer looping in this case, outside the loop.
+				return PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+			if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK && loopNum_ == 0) {
+				return PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY;
+			}
+		}
+
+		if ((bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+			// Since we're streaming, the remaining frames are what's valid in the buffer.
+			return bufferValidBytes_ / bytesPerFrame_;
 		}
 
 		// Since the first frame is shorter by this offset, add to round up at this offset.
@@ -563,11 +570,25 @@ struct Atrac {
 
 	void CalculateStreamInfo(u32 *readOffset);
 
-	u32 StreamBufferEnd() {
+	u32 StreamBufferEnd() const {
 		// The buffer is always aligned to a frame in size, not counting an optional header.
 		// The header will only initially exist after the data is first set.
 		u32 framesAfterHeader = (bufferMaxSize_ - bufferHeaderSize_) / bytesPerFrame_;
 		return framesAfterHeader * bytesPerFrame_ + bufferHeaderSize_;
+	}
+
+	void ConsumeFrame() {
+		bufferPos_ += bytesPerFrame_;
+		if (bufferValidBytes_ > bytesPerFrame_) {
+			bufferValidBytes_ -= bytesPerFrame_;
+		} else {
+			bufferValidBytes_ = 0;
+		}
+		if (bufferPos_ >= StreamBufferEnd()) {
+			// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
+			bufferPos_ -= StreamBufferEnd();
+			bufferHeaderSize_ = 0;
+		}
 	}
 
 private:
@@ -717,7 +738,7 @@ int Atrac::Analyze(u32 addr, u32 size) {
 	// TODO: Validate stuff.
 
 	if (Memory::Read_U32(first_.addr) != RIFF_CHUNK_MAGIC) {
-		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIF header");
+		return hleReportError(ME, ATRAC_ERROR_UNKNOWN_FORMAT, "invalid RIFF header");
 	}
 
 	u32 offset = 8;
@@ -1028,19 +1049,27 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 			first_.writableBytes = bufferPos_ - bufferStartUsed;
 		}
 
+		if (readOffset >= first_.filesize) {
+			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
+				// We don't need anything more, so all 0s.
+				readOffset = 0;
+				first_.offset = 0;
+				first_.writableBytes = 0;
+			} else {
+				readOffset = FileOffsetBySample(loopStartSample_ - FirstOffsetExtra() - firstSampleOffset_ - SamplesPerFrame() * 2);
+			}
+		}
+
+		if (readOffset + first_.writableBytes > first_.filesize) {
+			// Never ask for past the end of file, even when the space is free.
+			first_.writableBytes = first_.filesize - readOffset;
+		}
+
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
 			ERROR_LOG_REPORT(ME, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
-		}
-
-		if (readOffset >= first_.filesize) {
-			if (bufferState_ == ATRAC_STATUS_STREAMED_WITHOUT_LOOP) {
-				readOffset = 0;
-			} else {
-				readOffset = dataOff_;
-			}
 		}
 	}
 
@@ -1133,6 +1162,12 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				skipSamples = unalignedSamples;
 			}
 
+			if (skipSamples != 0 && atrac->bufferHeaderSize_ == 0) {
+				// Skip the initial frame used to load state for the looped frame.
+				// TODO: We will want to actually read this in.
+				atrac->ConsumeFrame();
+			}
+
 			if (!atrac->failedDecode_ && (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS)) {
 				atrac->SeekToSample(atrac->currentSample_);
 
@@ -1209,17 +1244,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 			atrac->currentSample_ += numSamples;
 			atrac->decodePos_ = atrac->DecodePosBySample(atrac->currentSample_);
 
-			atrac->bufferPos_ += atrac->bytesPerFrame_;
-			if (atrac->bufferValidBytes_ > atrac->bytesPerFrame_) {
-				atrac->bufferValidBytes_ -= atrac->bytesPerFrame_;
-			} else {
-				atrac->bufferValidBytes_ = 0;
-			}
-			if (atrac->bufferPos_ >= atrac->StreamBufferEnd()) {
-				// Wrap around... theoretically, this should only happen at exactly StreamBufferEnd.
-				atrac->bufferPos_ -= atrac->StreamBufferEnd();
-				atrac->bufferHeaderSize_ = 0;
-			}
+			atrac->ConsumeFrame();
 
 			int finishFlag = 0;
 			// TODO: Verify.
@@ -1230,6 +1255,11 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 				if (atrac->bufferState_ != ATRAC_STATUS_FOR_SCESAS) {
 					if (atrac->loopNum_ > 0)
 						atrac->loopNum_--;
+				}
+				if ((atrac->bufferState_ & ATRAC_STATUS_STREAMED_MASK) == ATRAC_STATUS_STREAMED_MASK) {
+					// Whatever bytes we have left were added from the loop.
+					atrac->first_.fileoffset = atrac->FileOffsetBySample(atrac->loopStartSample_ - atrac->FirstOffsetExtra() - atrac->firstSampleOffset_ - atrac->SamplesPerFrame() * 2);
+					// Skip the initial frame at the start.
 				}
 			} else if (hitEnd) {
 				finishFlag = 1;
@@ -1692,7 +1722,7 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 
 			atrac->bufferHeaderSize_ = 0;
 			atrac->bufferPos_ = atrac->bytesPerFrame_;
-			atrac->bufferValidBytes_ = bytesWrittenFirstBuf;
+			atrac->bufferValidBytes_ = bytesWrittenFirstBuf - atrac->bufferPos_;
 		}
 
 		if (atrac->codecType_ == PSP_MODE_AT_3 || atrac->codecType_ == PSP_MODE_AT_3_PLUS) {
