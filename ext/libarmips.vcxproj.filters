@@ -160,6 +160,9 @@
     <ClCompile Include="armips\Archs\MIPS\MipsParser.cpp">
       <Filter>Archs\MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="armips\Core\ExpressionFunctions.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="armips\Archs\Architecture.h">
@@ -294,6 +297,9 @@
     </ClInclude>
     <ClInclude Include="armips\Archs\MIPS\MipsParser.h">
       <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Core\ExpressionFunctions.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

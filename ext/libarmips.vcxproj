@@ -255,6 +255,7 @@
     <ClCompile Include="armips\Core\ELF\ElfFile.cpp" />
     <ClCompile Include="armips\Core\ELF\ElfRelocator.cpp" />
     <ClCompile Include="armips\Core\Expression.cpp" />
+    <ClCompile Include="armips\Core\ExpressionFunctions.cpp" />
     <ClCompile Include="armips\Core\FileManager.cpp" />
     <ClCompile Include="armips\Core\Misc.cpp" />
     <ClCompile Include="armips\Core\SymbolData.cpp" />
@@ -308,6 +309,7 @@
     <ClInclude Include="armips\Core\ELF\ElfRelocator.h" />
     <ClInclude Include="armips\Core\ELF\ElfTypes.h" />
     <ClInclude Include="armips\Core\Expression.h" />
+    <ClInclude Include="armips\Core\ExpressionFunctions.h" />
     <ClInclude Include="armips\Core\FileManager.h" />
     <ClInclude Include="armips\Core\Misc.h" />
     <ClInclude Include="armips\Core\SymbolData.h" />
