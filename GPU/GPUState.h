@@ -375,6 +375,7 @@ struct GPUgstate {
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
+	bool isClippingEnabled() const { return clipEnable & 1; }
 	float getViewportXScale() const { return getFloat24(viewportxscale); }
 	float getViewportYScale() const { return getFloat24(viewportyscale); }
 	float getViewportZScale() const { return getFloat24(viewportzscale); }

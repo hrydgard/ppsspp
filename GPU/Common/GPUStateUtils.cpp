@@ -498,6 +498,26 @@ LogicOpReplaceType ReplaceLogicOpType() {
 	return LOGICOPTYPE_NORMAL;
 }
 
+static const float depthSliceFactor = 4.0f;
+
+// This is used for float values which might not be integers, but are in the integer scale of 65535.
+static float ToScaledDepthFromInteger(float z) {
+	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+}
+
+float ToScaledDepth(u16 z) {
+	return ToScaledDepthFromInteger((float)(int)z);
+}
+
+float FromScaledDepth(float z) {
+	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return (z - offset) * depthSliceFactor * 65535.0f;
+}
+
+float DepthSliceFactor() {
+	return depthSliceFactor;
+}
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
@@ -597,8 +617,6 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float xOffset = 0.0f;
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
-		float zScale = 1.0f;
-		float zOffset = 0.0f;
 
 		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
 		if (left < 0.0f || right > renderWidth) {
@@ -632,29 +650,35 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportW = right - left;
 		out.viewportH = bottom - top;
 
+		// The depth viewport parameters are the same, but we handle it a bit differently.
+		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
+		// So, we apply the depth range as minz/maxz, and transform for the viewport.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
-		// Near/far can be inverted.  We deal with that in the projection/scale.
-		float near = vpZCenter - fabsf(vpZScale);
-		float far = vpZCenter + fabsf(vpZScale);
+		float minz = gstate.getDepthRangeMin();
+		float maxz = gstate.getDepthRangeMax();
 
-		if (near < 0.0f || far > 65535.0f) {
-			float overageNear = std::max(-near, 0.0f);
-			float overageFar = std::max(far - 65535.0f, 0.0f);
-			float drift = overageFar - overageNear;
-
-			near += overageNear;
-			far -= overageFar;
-
-			zScale = (vpZScale * 2.0f) / (far - near);
-			zOffset = drift / (far - near);
-		} else if (vpZScale < 0.0f) {
-			// This flips to match our near/far.
-			zScale = -zScale;
+		if (gstate.isClippingEnabled() && (minz == 0 || maxz == 65535)) {
+			// Here, we should "clamp."  But clamping per fragment would be slow.
+			// So, instead, we just increase the available range and hope.
+			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
+			float fullDepthRange = 65535.0f * (depthSliceFactor - 1.0f) * (1.0f / 2.0f);
+			if (minz == 0) {
+				minz -= fullDepthRange;
+			}
+			if (maxz == 65535) {
+				maxz += fullDepthRange;
+			}
 		}
 
-		out.depthRangeMin = near * (1.0f / 65535.0f);
-		out.depthRangeMax = far * (1.0f / 65535.0f);
+		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
+		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
+		float zScale = vpZScale / halfActualZRange;
+		// This adjusts the center from halfActualZRange to vpZCenter.
+		float zOffset = (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
+
+		out.depthRangeMin = ToScaledDepthFromInteger(minz);
+		out.depthRangeMax = ToScaledDepthFromInteger(maxz);
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
@@ -669,23 +693,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			out.dirtyProj = true;
 			out.dirtyDepth = depthChanged;
 		}
-
-#ifndef MOBILE_DEVICE
-		float minz = gstate.getDepthRangeMin();
-		float maxz = gstate.getDepthRangeMax();
-		if (minz > near || maxz < far) {
-			if ((gstate.clipEnable & 1) == 0) {
-				WARN_LOG_REPORT_ONCE(minmaxznoclip, G3D, "Unsupported depth range test without clipping - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
-			} else {
-				WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range test - clip: %f-%f, test: %f-%f", near, far, minz, maxz);
-			}
-		}
-#endif
 	}
-}
-
-float ToScaledDepth(u16 z) {
-	return z * (1.0f / 65535.0f);
 }
 
 static const BlendFactor genericALookup[11] = {
