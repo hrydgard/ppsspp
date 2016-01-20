@@ -515,6 +515,10 @@ float FromScaledDepth(float z) {
 	return (z - offset) * depthSliceFactor * 65535.0f;
 }
 
+float DepthSliceFactor() {
+	return depthSliceFactor;
+}
+
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
 	out.dirtyProj = false;
