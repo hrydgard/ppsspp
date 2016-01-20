@@ -18,6 +18,21 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.2.0
+-------------------
+* A major rework of sceAtrac audio decoding, fixing various music hangs and similar issues
+* Many fixes and workarounds to depth and stencil buffer usage, and also FBO management
+* Audio reverb support
+* ARM64 JIT crash bug fixes
+* GLSL shader cache to reduce stuttering ingame
+* Support render-to-CLUT functionality that some games use to change colors of various monsters
+* x86-64 support on Android
+* Auto-hide on-screen controls after a while of no usage
+* Preparations for supporting more graphics APIs
+* Fixes to prescale UV speedhack, now seems reliable
+* Faster ISO RAM cache
+* New UI for moving around the PSP display on larger screens
+
 What's new in 1.1.1
 -------------------
 * Fixed new crash in Persona and other games on ARM64, like Galaxy S6
