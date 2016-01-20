@@ -1147,18 +1147,10 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 }
 
 static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
-	// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
-	if (state.sFail == GE_STENCILOP_DECR)
-		state.sFail = GE_STENCILOP_ZERO;
-	if (state.zFail == GE_STENCILOP_DECR)
-		state.zFail = GE_STENCILOP_ZERO;
-	if (state.zPass == GE_STENCILOP_DECR)
-		state.zPass = GE_STENCILOP_ZERO;
-
 	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
 
 	// Flaws:
-	// - INVERT should convert 1, 5, 0xFF to 0.  Currently it won't.
+	// - INVERT should convert 1, 5, 0xFF to 0.  Currently it won't always.
 	// - INCR twice shouldn't change the value.
 	// - REPLACE should write 0 for 0x00 - 0x7F, and non-zero for 0x80 - 0xFF.
 	// - Write mask may need double checking, but likely only the top bit matters.
@@ -1257,6 +1249,29 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			rewriteFunc(GE_COMP_EQUAL, 0);
 		}
 		break;
+	}
+
+	auto rewriteOps = [&](GEStencilOp from, GEStencilOp to) {
+		if (state.sFail == from)
+			state.sFail = to;
+		if (state.zFail == from)
+			state.zFail = to;
+		if (state.zPass == from)
+			state.zPass = to;
+	};
+
+	// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
+	rewriteOps(GE_STENCILOP_DECR, GE_STENCILOP_ZERO);
+
+	if (state.testFunc == GE_COMP_NOTEQUAL && state.testRef == 0 && state.testMask != 0) {
+		// If it's != 0 (as optimized above), then we can rewrite INVERT to ZERO.
+		// With 1 bit of stencil, INVERT != 0 can only make it 0.
+		rewriteOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
+	}
+	if (state.testFunc == GE_COMP_EQUAL && state.testRef == 0 && state.testMask != 0) {
+		// If it's == 0 (as optimized above), then we can rewrite INCR to INVERT.
+		// Otherwise we get 1, which we mostly handle, but won't INVERT correctly.
+		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
 	}
 }
 
