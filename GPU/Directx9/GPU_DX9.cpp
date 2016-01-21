@@ -480,6 +480,9 @@ void DIRECTX9_GPU::CheckGPUFeatures() {
 
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+		// Assume we always have a 24-bit depth buffer.
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
