@@ -143,6 +143,18 @@ int fbo_check_framebuffer_status(FBO *fbo) {
 	return (int)fbStatus;
 }
 
+int fbo_standard_z_depth() {
+	// This matches the fbo_create() logic.
+	if (gl_extensions.IsGLES) {
+		if (gl_extensions.OES_packed_depth_stencil) {
+			return 24;
+		}
+		return gl_extensions.OES_depth24 ? 24 : 16;
+	} else {
+		return 24;
+	}
+}
+
 FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, FBOColorDepth colorDepth) {
 	CheckGLExtensions();
 
@@ -216,6 +228,7 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 			// 16/24-bit Z, separate 8-bit stencil
 			glGenRenderbuffers(1, &fbo->z_buffer);
 			glBindRenderbuffer(GL_RENDERBUFFER, fbo->z_buffer);
+			// Don't forget to make sure fbo_standard_z_depth() matches.
 			glRenderbufferStorage(GL_RENDERBUFFER, gl_extensions.OES_depth24 ? GL_DEPTH_COMPONENT24 : GL_DEPTH_COMPONENT16, width, height);
 
 			// 8-bit stencil buffer
