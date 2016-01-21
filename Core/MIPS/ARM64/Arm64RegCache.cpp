@@ -682,6 +682,10 @@ void Arm64RegCache::FlushAll() {
 }
 
 void Arm64RegCache::SetImm(MIPSGPReg r, u64 immVal) {
+	if (r == MIPS_REG_HI) {
+		ERROR_LOG_REPORT(JIT, "Cannot set HI imm in Arm64RegCache");
+		return;
+	}
 	if (r == MIPS_REG_ZERO && immVal != 0) {
 		ERROR_LOG_REPORT(JIT, "Trying to set immediate %08x to r0 at %08x", immVal, compilerPC_);
 		return;
