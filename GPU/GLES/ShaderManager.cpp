@@ -965,17 +965,15 @@ struct CacheHeader {
 };
 
 void ShaderManager::LoadAndPrecompile(const std::string &filename) {
-	FILE *f = File::OpenCFile(filename, "rb");
-	if (!f) {
+	File::IOFile f(filename, "rb");
+	if (!f.IsOpen()) {
 		return;
 	}
 	CacheHeader header;
-	if (fread(&header, 1, sizeof(header), f) != sizeof(header)) {
-		fclose(f);
+	if (!f.ReadArray(&header, 1)) {
 		return;
 	}
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
-		fclose(f);
 		return;
 	}
 	time_update();
@@ -983,34 +981,46 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		ShaderID id;
-		fread(&id, 1, sizeof(id), f);
+		if (!f.ReadArray(&id, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
 		Shader *vs = CompileVertexShader(id);
 		if (vs->Failed()) {
 			// Give up on using the cache, just bail. We can't safely create the fallback shaders here
 			// without trying to deduce the vertType from the VSID.
 			ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
 			delete vs;
-			fclose(f);
 			return;
 		}
 		vsCache_[id] = vs;
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		ShaderID id;
-		fread(&id, 1, sizeof(id), f);
+		if (!f.ReadArray(&id, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
 		fsCache_[id] = CompileFragmentShader(id);
 	}
 	for (int i = 0; i < header.numLinkedPrograms; i++) {
 		ShaderID vsid, fsid;
-		fread(&vsid, 1, sizeof(vsid), f);
-		fread(&fsid, 1, sizeof(fsid), f);
-		Shader *vs = vsCache_[vsid];
-		Shader *fs = fsCache_[fsid];
-		LinkedShader *ls = new LinkedShader(vsid, vs, fsid, fs, vs->UseHWTransform());
-		LinkedShaderCacheEntry entry(vs, fs, ls);
-		linkedShaderCache_.push_back(entry);
+		if (!f.ReadArray(&vsid, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		if (!f.ReadArray(&fsid, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		VSCache::iterator vs = vsCache_.find(vsid);
+		FSCache::iterator fs = fsCache_.find(fsid);
+		if (vs != vsCache_.end() && fs != fsCache_.end()) {
+			LinkedShader *ls = new LinkedShader(vsid, vs->second, fsid, fs->second, vs->second->UseHWTransform());
+			LinkedShaderCacheEntry entry(vs->second, fs->second, ls);
+			linkedShaderCache_.push_back(entry);
+		}
 	}
-	fclose(f);
 	time_update();
 	double end = time_now_d();
 
