@@ -965,17 +965,15 @@ struct CacheHeader {
 };
 
 void ShaderManager::LoadAndPrecompile(const std::string &filename) {
-	FILE *f = File::OpenCFile(filename, "rb");
+	auto f = File::SmartCFile(filename, "rb");
 	if (!f) {
 		return;
 	}
 	CacheHeader header;
 	if (fread(&header, 1, sizeof(header), f) != sizeof(header)) {
-		fclose(f);
 		return;
 	}
 	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
-		fclose(f);
 		return;
 	}
 	time_update();
@@ -990,7 +988,6 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 			// without trying to deduce the vertType from the VSID.
 			ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
 			delete vs;
-			fclose(f);
 			return;
 		}
 		vsCache_[id] = vs;
@@ -1010,7 +1007,6 @@ void ShaderManager::LoadAndPrecompile(const std::string &filename) {
 		LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	}
-	fclose(f);
 	time_update();
 	double end = time_now_d();
 

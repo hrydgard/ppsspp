@@ -193,4 +193,27 @@ private:
 	bool m_good;
 };
 
+class SmartCFile {
+public:
+	SmartCFile(const std::string &filename, const char *mode) {
+		f_ = OpenCFile(filename, mode);
+	}
+	~SmartCFile() {
+		if (f_) {
+			fclose(f_);
+		}
+	}
+
+	operator std::FILE *() {
+		return f_;
+	}
+
+	SmartCFile &operator=(nullptr_t) {
+		f_ = nullptr;
+		return *this;
+	}
+
+	std::FILE *f_;
+};
+
 }  // namespace
