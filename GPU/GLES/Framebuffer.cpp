@@ -773,10 +773,11 @@ void FramebufferManager::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBuff
 }
 
 void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (src->z_address == dst->z_address &&
-		src->z_stride != 0 && dst->z_stride != 0 &&
-		src->renderWidth == dst->renderWidth &&
-		src->renderHeight == dst->renderHeight) {
+	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+	bool matchingSize = src->width == dst->width && src->height == dst->height;
+	if (matchingDepthBuffer && matchingSize) {
+		int w = std::min(src->renderWidth, dst->renderWidth);
+		int h = std::min(src->renderHeight, dst->renderHeight);
 
 		if (gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT)) {
 			// Only use NV if ARB isn't supported.
@@ -788,10 +789,10 @@ void FramebufferManager::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFr
 
 			if (useNV) {
 #if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
-				glBlitFramebufferNV(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				glBlitFramebufferNV(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 #endif // defined(USING_GLES2) && defined(ANDROID)
 			} else {
-				glBlitFramebuffer(0, 0, src->renderWidth, src->renderHeight, 0, 0, dst->renderWidth, dst->renderHeight, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+				glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 			}
 			// If we set dst->depthUpdated here, our optimization above would be pointless.
 
