@@ -402,12 +402,30 @@ void CGEDebugger::DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y,
 		_snwprintf(desc, 256, L"%d,%d: %d / %f / %f", x, y, pix & 0x00FFFFFF, (pix & 0x00FFFFFF) * (1.0f / 16777215.0f), FromScaledDepth((pix & 0x00FFFFFF) * (1.0f / 16777215.0f)));
 		break;
 
+	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
+		{
+			// These are only ever going to be depth values, so let's also show scaled to 16 bit.
+			int z24 = pix & 0x00FFFFFF;
+			int z16 = z24 - 0x800000 + 0x8000;
+			_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, z16, z16 * (1.0f / 65535.0f));
+		}
+		break;
+
 	case GPU_DBG_FORMAT_24X_8BIT:
 		_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, (pix >> 24) & 0xFF, ((pix >> 24) & 0xFF) * (1.0f / 255.0f));
 		break;
 
 	case GPU_DBG_FORMAT_FLOAT:
 		_snwprintf(desc, 256, L"%d,%d: %f / %f", x, y, *(float *)&pix, FromScaledDepth(*(float *)&pix));
+		break;
+
+	case GPU_DBG_FORMAT_FLOAT_DIV_256:
+		{
+			double z = *(float *)&pix;
+			int z24 = (int)(z * 16777215.0);
+			int z16 = z24 - 0x800000 + 0x8000;
+			_snwprintf(desc, 256, L"%d,%d: %d / %f", x, y, z16, (z - 0.5 + (1.0 / 512.0)) * 256.0);
+		}
 		break;
 
 	default:

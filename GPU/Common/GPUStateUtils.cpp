@@ -498,10 +498,19 @@ LogicOpReplaceType ReplaceLogicOpType() {
 	return LOGICOPTYPE_NORMAL;
 }
 
-static const float depthSliceFactor = 4.0f;
+static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
+static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
+
+float DepthSliceFactor() {
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		return DEPTH_SLICE_FACTOR_16BIT;
+	}
+	return DEPTH_SLICE_FACTOR_HIGH;
+}
 
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
 static float ToScaledDepthFromInteger(float z) {
+	const float depthSliceFactor = DepthSliceFactor();
 	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
 	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
 }
@@ -511,12 +520,9 @@ float ToScaledDepth(u16 z) {
 }
 
 float FromScaledDepth(float z) {
+	const float depthSliceFactor = DepthSliceFactor();
 	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
 	return (z - offset) * depthSliceFactor * 65535.0f;
-}
-
-float DepthSliceFactor() {
-	return depthSliceFactor;
 }
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
@@ -662,7 +668,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
-			float fullDepthRange = 65535.0f * (depthSliceFactor - 1.0f) * (1.0f / 2.0f);
+			float fullDepthRange = 65535.0f * (DepthSliceFactor() - 1.0f) * (1.0f / 2.0f);
 			if (minz == 0) {
 				minz -= fullDepthRange;
 			}

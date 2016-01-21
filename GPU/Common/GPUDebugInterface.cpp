@@ -57,6 +57,8 @@ u32 GPUDebugBuffer::PixelSize(GPUDebugBufferFormat fmt) const {
 	case GPU_DBG_FORMAT_FLOAT:
 	case GPU_DBG_FORMAT_24BIT_8X:
 	case GPU_DBG_FORMAT_24X_8BIT:
+	case GPU_DBG_FORMAT_FLOAT_DIV_256:
+	case GPU_DBG_FORMAT_24BIT_8X_DIV_256:
 		return 4;
 
 	case GPU_DBG_FORMAT_888_RGB:

@@ -565,11 +565,23 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	// In the future, also disable this when we get a proper 16-bit depth buffer.
-	if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	} else {
-		if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
+	// If we already have a 16-bit depth buffer, we don't need to round.
+	if (fbo_standard_z_depth() > 16) {
+		if (!g_Config.bHighQualityDepth) {
+			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+				// Use fragment rounding on desktop and GLES3, most accurate.
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			} else if (fbo_standard_z_depth() == 24) {
+				// Here we can simulate a 16 bit depth buffer by scaling.
+				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else {
+				// At least do vertex rounding if nothing else.
+				features |= GPU_ROUND_DEPTH_TO_16BIT;
+			}
+		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}

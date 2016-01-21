@@ -115,6 +115,7 @@ private:
 	void SetNumExtraFBOs(int num);
 
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
 	
 	// Used by DrawPixels
