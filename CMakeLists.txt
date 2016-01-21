@@ -780,13 +780,13 @@ endif()
 if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		ext/native/base/NativeApp.h
-		ext/native/android/app-android.cpp
-		ext/native/android/native_audio.cpp
-		ext/native/android/native_audio.h)
+		android/jni/app-android.cpp
+		android/jni/native_audio.cpp
+		android/jni/native_audio.h)
 
 	add_library(native_audio SHARED
-		ext/native/android/native-audio-so.cpp
-		ext/native/android/native-audio-so.h)
+		android/jni/native-audio-so.cpp
+		android/jni/native-audio-so.h)
 	target_link_libraries(native_audio OpenSLES log)
 	# No target
 elseif(IOS)
