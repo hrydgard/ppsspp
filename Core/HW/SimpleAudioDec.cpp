@@ -129,6 +129,21 @@ void SimpleAudio::SetExtraData(u8 *data, int size, int wav_bytes_per_packet) {
 #endif
 }
 
+void SimpleAudio::SetChannels(int channels) {
+	if (channels_ == channels) {
+		// Do nothing, already set.
+		return;
+	}
+
+	if (codecOpen_) {
+		ERROR_LOG(ME, "Codec already open, cannot change channels");
+	} else {
+		channels_ = channels;
+		codecCtx_->channels = channels_;
+		codecCtx_->channel_layout = channels_ == 2 ? AV_CH_LAYOUT_STEREO : AV_CH_LAYOUT_MONO;
+	}
+}
+
 SimpleAudio::~SimpleAudio() {
 #ifdef USE_FFMPEG
 	swr_free(&swrCtx_);
