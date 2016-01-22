@@ -25,6 +25,7 @@ What's new in 1.2.0
 * Audio reverb support
 * Combo keys - custom touch buttons that press multiple PSP buttons
 * 5xBR upscaling on GPU (postprocessing effect)
+* Fix problems with playback of video with mono audio
 * Performance improvements like multithreaded audio mixing
 * ARM64 JIT crash bug fixes
 * GLSL shader cache to reduce stuttering ingame
