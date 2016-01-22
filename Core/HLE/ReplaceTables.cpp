@@ -1227,37 +1227,54 @@ const ReplacementTableEntry *GetReplacementFunc(int i) {
 	return &entries[i];
 }
 
-static void WriteReplaceInstruction(u32 address, int index) {
-	const u32 prevInstr = Memory::Read_U32(address);
+static bool WriteReplaceInstruction(u32 address, int index) {
+	u32 prevInstr = Memory::Read_Instruction(address, false).encoding;
 	if (MIPS_IS_REPLACEMENT(prevInstr)) {
-		return;
+		int prevIndex = prevInstr & MIPS_EMUHACK_VALUE_MASK;
+		if (prevIndex == index) {
+			return false;
+		}
+		WARN_LOG(HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
+		// Make sure we don't save the old replacement.
+		prevInstr = replacedInstructions[address];
 	}
-	if (MIPS_IS_RUNBLOCK(prevInstr)) {
-		// Likely already both replaced and jitted. Ignore.
-		return;
+
+	if (MIPS_IS_RUNBLOCK(Memory::Read_U32(address))) {
+		WARN_LOG(HLE, "Replacing jitted func address %08x", address);
 	}
 	replacedInstructions[address] = prevInstr;
 	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
+	return true;
 }
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	for (int index : indexes) {
+		bool didReplace = false;
 		auto entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
-				const u32 op = Memory::Read_U32(address + offset);
+				const u32 op = Memory::Read_Instruction(address + offset, false).encoding;
 				if (op == MIPS_MAKE_JR_RA()) {
-					WriteReplaceInstruction(address + offset, index);
+					if (WriteReplaceInstruction(address + offset, index)) {
+						didReplace = true;
+					}
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOKENTER) {
-			WriteReplaceInstruction(address + entry->hookOffset, index);
+			if (WriteReplaceInstruction(address + entry->hookOffset, index)) {
+				didReplace = true;
+			}
 		} else {
-			WriteReplaceInstruction(address, index);
+			if (WriteReplaceInstruction(address, index)) {
+				didReplace = true;
+			}
 		}
-		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+
+		if (didReplace) {
+			INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+		}
 	}
 }
 
@@ -1265,8 +1282,10 @@ void RestoreReplacedInstruction(u32 address) {
 	const u32 curInstr = Memory::Read_U32(address);
 	if (MIPS_IS_REPLACEMENT(curInstr)) {
 		Memory::Write_U32(replacedInstructions[address], address);
+		NOTICE_LOG(HLE, "Restored replaced func at %08x", address);
+	} else {
+		NOTICE_LOG(HLE, "Replaced func changed at %08x", address);
 	}
-	INFO_LOG(HLE, "Restored replaced func at %08x", address);
 	replacedInstructions.erase(address);
 }
 
