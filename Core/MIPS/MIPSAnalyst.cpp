@@ -946,32 +946,7 @@ skip:
 		bool decreasedSp = false;
 
 		u32 addr;
-		u32 addrNextSym = 0;
 		for (addr = startAddr; addr <= endAddr; addr += 4) {
-			// Use pre-existing symbol map info if available. May be more reliable.
-			SymbolInfo syminfo;
-			if (addrNextSym <= addr) {
-				addrNextSym = g_symbolMap->FindPossibleFunctionAtAfter(addr);
-			}
-			if (addrNextSym <= addr && g_symbolMap->GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
-				addr = syminfo.address + syminfo.size - 4;
-
-				// We still need to insert the func for hashing purposes.
-				currentFunction.start = syminfo.address;
-				currentFunction.end = syminfo.address + syminfo.size - 4;
-				// Re-add it to the map if the module address is not known yet (only happens from loaded maps.)
-				currentFunction.foundInSymbolMap = syminfo.moduleAddress != 0;
-				functions.push_back(currentFunction);
-				currentFunction.foundInSymbolMap = false;
-				currentFunction.start = addr + 4;
-				furthestBranch = 0;
-				looking = false;
-				end = false;
-				isStraightLeaf = false;
-				decreasedSp = false;
-				continue;
-			}
-
 			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
@@ -1066,14 +1041,32 @@ skip:
 			if (end) {
 				currentFunction.end = addr + 4;
 				currentFunction.isStraightLeaf = isStraightLeaf;
+
+				// Check if we already have symbol info starting here.  If so, skip insertion.
+				// We used to use the symbols to find the functions, but sometimes we'd find
+				// wrong ones due to two modules with the same name.
+				u32 existingSize = g_symbolMap->GetFunctionSize(currentFunction.start);
+				if (existingSize != SymbolMap::INVALID_ADDRESS) {
+					currentFunction.foundInSymbolMap = true;
+
+					// If we run into a func with a different size, skip updating the hash map.
+					// This will prevent us saving incorrectly named funcs with wrong hashes.
+					u32 detectedSize = currentFunction.end - currentFunction.start + 4;
+					if (existingSize != detectedSize) {
+						insertSymbols = false;
+					}
+				}
+
 				functions.push_back(currentFunction);
+
 				furthestBranch = 0;
 				addr += 4;
 				looking = false;
 				end = false;
 				isStraightLeaf = true;
 				decreasedSp = false;
-				currentFunction.start = addr+4;
+				currentFunction.start = addr + 4;
+				currentFunction.foundInSymbolMap = false;
 			}
 		}
 
