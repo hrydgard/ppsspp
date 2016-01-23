@@ -70,9 +70,16 @@ void ViewGroup::Clear() {
 	lock_guard guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
-		views_[i] = 0;
+		views_[i] = nullptr;
 	}
 	views_.clear();
+}
+
+void ViewGroup::PersistData(PersistStatus status, PersistMap &storage) {
+	lock_guard guard(modifyLock_);
+	for (size_t i = 0; i < views_.size(); i++) {
+		views_[i]->PersistData(status, storage);
+	}
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
