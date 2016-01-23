@@ -23,7 +23,7 @@ void UIScreen::DoRecreateViews() {
 		UI::PersistMap persisted;
 		bool persisting = root_ != nullptr;
 		if (persisting) {
-			root_->PersistData(UI::PERSIST_SAVE, persisted);
+			root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
 		}
 
 		delete root_;
@@ -34,8 +34,8 @@ void UIScreen::DoRecreateViews() {
 		}
 		recreateViews_ = false;
 
-		if (persisting) {
-			root_->PersistData(UI::PERSIST_RESTORE, persisted);
+		if (persisting && root_ != nullptr) {
+			root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
 		}
 	}
 }

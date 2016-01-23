@@ -346,7 +346,7 @@ public:
 	virtual std::string Describe() const;
 
 	virtual void FocusChanged(int focusFlags) {}
-	virtual void PersistData(PersistStatus status, PersistMap &storage) {}
+	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 
 	void Move(Bounds bounds) {
 		bounds_ = bounds;
