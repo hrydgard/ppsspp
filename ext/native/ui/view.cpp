@@ -166,7 +166,12 @@ std::string View::Describe() const {
 
 void View::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
 	// Remember if this view was a focused view.
-	const std::string focusedKey = "ViewFocused::" + anonId;
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	const std::string focusedKey = "ViewFocused::" + tag;
 	switch (status) {
 	case UI::PERSIST_SAVE:
 		if (HasFocus()) {
