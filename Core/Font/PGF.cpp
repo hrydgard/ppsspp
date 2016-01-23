@@ -563,7 +563,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	}
 
 	if (glyph.w <= 0 || glyph.h <= 0) {
-		ERROR_LOG_REPORT(SCEFONT, "Glyph with negative size, not rendering");
+		DEBUG_LOG(SCEFONT, "Glyph with negative size, not rendering");
 		return;
 	}
 
