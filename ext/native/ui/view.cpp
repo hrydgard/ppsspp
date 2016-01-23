@@ -658,9 +658,8 @@ void TextView::Draw(UIContext &dc) {
 		clip = false;
 	}
 	if (clip) {
-		Bounds clipRect = bounds_.Expand(10);  // TODO: Remove this hackery
 		dc.Flush();
-		dc.PushScissor(clipRect);
+		dc.PushScissor(bounds_);
 	}
 	// In case it's been made focusable.
 	if (HasFocus()) {

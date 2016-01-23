@@ -35,8 +35,8 @@ bool IsDragCaptured(int id) {
 }
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
-	inner.w = w - (margins.left + margins.right);
-	inner.h = h - (margins.top + margins.bottom);
+	inner.w = w;
+	inner.h = h;
 
 	switch (gravity & G_HORIZMASK) {
 	case G_LEFT: inner.x = outer.x + margins.left; break;
