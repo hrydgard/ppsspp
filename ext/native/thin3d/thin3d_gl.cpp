@@ -501,6 +501,7 @@ Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageForma
 void Thin3DGLTexture::AutoGenMipmaps() {
 	Bind();
 	glGenerateMipmap(target_);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
 }
 
 void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
