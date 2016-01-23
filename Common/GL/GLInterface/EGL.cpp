@@ -6,25 +6,37 @@
 #include <cstdlib>
 
 #include "Common/GL/GLInterface/EGL.h"
+
+#ifdef ANDROID
+// On Android, EGL creation is so early that our regular logging system is not
+// up and running yet. Use Android logging.
+#include "base/logging.h"
+#define EGL_ILOG(...) ILOG(__VA_ARGS__)
+#define EGL_ELOG(...) ELOG(__VA_ARGS__)
+
+#else
+
+#define EGL_ILOG(...) EGL_ILOG(__VA_ARGS__)
+#define EGL_ELOG(...) EGL_ELOG(__VA_ARGS__)
+
+#endif
+
 #include "Common/Log.h"
 
 // Show the current FPS
-void cInterfaceEGL::Swap()
-{
+void cInterfaceEGL::Swap() {
 	eglSwapBuffers(egl_dpy, egl_surf);
 }
-void cInterfaceEGL::SwapInterval(int Interval)
-{
+
+void cInterfaceEGL::SwapInterval(int Interval) {
 	eglSwapInterval(egl_dpy, Interval);
 }
 
-void* cInterfaceEGL::GetFuncAddress(const std::string& name)
-{
+void* cInterfaceEGL::GetFuncAddress(const std::string& name) {
 	return (void*)eglGetProcAddress(name.c_str());
 }
 
-void cInterfaceEGL::DetectMode()
-{
+void cInterfaceEGL::DetectMode() {
 	EGLint num_configs;
 	bool supportsGL = false, supportsGLES2 = false, supportsGLES3 = false;
 	std::array<int, 3> renderable_types = {
@@ -33,8 +45,7 @@ void cInterfaceEGL::DetectMode()
 		EGL_OPENGL_ES2_BIT,
 	};
 
-	for (auto renderable_type : renderable_types)
-	{
+	for (auto renderable_type : renderable_types) {
 		// attributes for a visual in RGBA format with at least
 		// 8 bits per color
 		int attribs[] = {
@@ -52,29 +63,25 @@ void cInterfaceEGL::DetectMode()
 		};
 
 		// Get how many configs there are
-		if (!eglChooseConfig( egl_dpy, attribs, nullptr, 0, &num_configs))
-		{
-			INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
+		if (!eglChooseConfig( egl_dpy, attribs, nullptr, 0, &num_configs)) {
+			EGL_ILOG("DetectMode: couldn't get an EGL visual config with renderable_type=%d", renderable_type);
 			continue;
 		}
 
 		EGLConfig* config = new EGLConfig[num_configs];
 
 		// Get all the configurations
-		if (!eglChooseConfig(egl_dpy, attribs, config, num_configs, &num_configs))
-		{
-			INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
+		if (!eglChooseConfig(egl_dpy, attribs, config, num_configs, &num_configs)) {
+			EGL_ILOG("DetectMode: couldn't choose an EGL visual config\n");
 			delete[] config;
 			continue;
 		}
 
-		for (int i = 0; i < num_configs; ++i)
-		{
+		for (int i = 0; i < num_configs; ++i) {
 			EGLint attribVal;
 			bool ret;
 			ret = eglGetConfigAttrib(egl_dpy, config[i], EGL_RENDERABLE_TYPE, &attribVal);
-			if (ret)
-			{
+			if (ret) {
 				if ((attribVal & EGL_OPENGL_BIT) && s_opengl_mode != GLInterfaceMode::MODE_DETECT_ES)
 					supportsGL = true;
 				if (attribVal & (1 << 6)) /* EGL_OPENGL_ES3_BIT_KHR */
@@ -125,7 +132,7 @@ static void LogEGLConfig(EGLDisplay egl_dpy, EGLConfig config) {
 	for (int i = 0; i < (int)(sizeof(vals)/sizeof(vals[0])); i++) {
 		EGLint value;
 		eglGetConfigAttrib(egl_dpy, config, vals[i].value, &value);
-		INFO_LOG(G3D, "  %s = %d", vals[i].name, value);
+		EGL_ILOG("  %s = %d", vals[i].name, value);
 	}
 }
 
@@ -152,25 +159,22 @@ const char *cInterfaceEGL::EGLGetErrorString(EGLint error) {
 }
 
 // Create rendering window.
-bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
-{
+bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	const char *s;
 	EGLint egl_major, egl_minor;
 
 	egl_dpy = OpenDisplay();
 
-	if (!egl_dpy)
-	{
-		INFO_LOG(G3D, "Error: eglGetDisplay() failed\n");
+	if (!egl_dpy) {
+		EGL_ILOG("Error: eglGetDisplay() failed\n");
 		return false;
 	}
 
-	if (!eglInitialize(egl_dpy, &egl_major, &egl_minor))
-	{
-		INFO_LOG(G3D, "Error: eglInitialize() failed\n");
+	if (!eglInitialize(egl_dpy, &egl_major, &egl_minor)) {
+		EGL_ILOG("Error: eglInitialize() failed\n");
 		return false;
 	}
-	INFO_LOG(G3D, "eglInitialize() succeeded\n");
+	EGL_ILOG("eglInitialize() succeeded (use16bit=%d)\n", (int)use565);
 
 	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
 		DetectMode();
@@ -183,9 +187,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 		EGL_ALPHA_SIZE, 8,
 		EGL_DEPTH_SIZE, 16,
 		EGL_STENCIL_SIZE, 8,
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
 		EGL_TRANSPARENT_TYPE, EGL_NONE,
-		EGL_SAMPLES, 0,
 		EGL_NONE, 0
 	};
 	int attribs16[] = {
@@ -196,14 +198,33 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 		EGL_ALPHA_SIZE, 0,
 		EGL_DEPTH_SIZE, 16,
 		EGL_STENCIL_SIZE, 8,
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
 		EGL_TRANSPARENT_TYPE, EGL_NONE,
-		EGL_SAMPLES, 0,
 		EGL_NONE, 0
 	};
+	int attribsFallback32[] = {
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Keep this first!
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
+		EGL_ALPHA_SIZE, 8,
+		EGL_DEPTH_SIZE, 16,
+		EGL_NONE, 0
+	};
+	int attribsFallback16[] = {
+		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Keep this first!
+		EGL_RED_SIZE, 5,
+		EGL_GREEN_SIZE, 6,
+		EGL_BLUE_SIZE, 5,
+		EGL_ALPHA_SIZE, 0,
+		EGL_DEPTH_SIZE, 16,
+		EGL_NONE, 0
+	};
+
 	int *attribs = attribs32;
-	if (use16bit) {
+	int *attribsFallback = attribsFallback32;
+	if (use565) {
 		attribs = attribs16;
+		attribsFallback = attribsFallback16;
 	}
 
 	EGLint ctx_attribs[] = {
@@ -225,30 +246,36 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 			ctx_attribs[1] = 3;
 		break;
 		default:
-			ERROR_LOG(G3D, "Unknown OpenGL mode set\n");
+			EGL_ELOG("Unknown OpenGL mode set\n");
 			return false;
 		break;
 	}
 
+	EGL_ILOG("Calling eglChooseConfig to get number of configs (use16bit=%d)...", (int)use565);
+
 	EGLConfig *configs;
 	EGLint num_configs;
 	if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
-		INFO_LOG(G3D, "Error: couldn't get a number of configs\n");
-		eglTerminate(egl_dpy);
-		return false;
+		EGL_ILOG("Error: couldn't get a number of configs. Trying with fallback config (no stencil, not specifying transparent:none)\n");
+		attribs = attribsFallback;
+		if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
+			eglTerminate(egl_dpy);
+			return false;
+		}
 	}
 
+	EGL_ILOG("Got %d configs. Now choosing...", num_configs);
 	configs = new EGLConfig[num_configs];
 
 	if (!eglChooseConfig(egl_dpy, attribs, configs, num_configs, &num_configs)) {
-		INFO_LOG(G3D, "Error: couldn't get an EGL visual config\n");
+		EGL_ELOG("Error: couldn't get an EGL visual config (num_configs=%d)! Terminating EGL.\n", num_configs);
 		eglTerminate(egl_dpy);
 		return false;
 	}
 
-	INFO_LOG(G3D, "eglChooseConfig successful: num_configs=%d, choosing config 0", num_configs);
+	EGL_ILOG("eglChooseConfig successful: num_configs=%d, choosing config 0", num_configs);
 	for (int i = 0; i < num_configs; i++) {
-		INFO_LOG(G3D, "Config %d:", i);
+		EGL_ILOG("Config %d:", i);
 		LogEGLConfig(egl_dpy, configs[i]);
 	}
 
@@ -261,20 +288,20 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[0]);
 
 	s = eglQueryString(egl_dpy, EGL_VERSION);
-	INFO_LOG(G3D, "EGL_VERSION = %s\n", s);
+	EGL_ILOG("EGL_VERSION = %s\n", s);
 
 	s = eglQueryString(egl_dpy, EGL_VENDOR);
-	INFO_LOG(G3D, "EGL_VENDOR = %s\n", s);
+	EGL_ILOG("EGL_VENDOR = %s\n", s);
 
 	s = eglQueryString(egl_dpy, EGL_EXTENSIONS);
-	INFO_LOG(G3D, "EGL_EXTENSIONS = %s\n", s);
+	EGL_ILOG("EGL_EXTENSIONS = %s\n", s);
 
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
-	INFO_LOG(G3D, "EGL_CLIENT_APIS = %s\n", s);
+	EGL_ILOG("EGL_CLIENT_APIS = %s\n", s);
 
 	egl_ctx = eglCreateContext(egl_dpy, configs[0], EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_ctx) {
-		INFO_LOG(G3D, "Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
+		EGL_ILOG("Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
 		eglTerminate(egl_dpy);
 		delete[] configs;
 		return false;
@@ -282,7 +309,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 
 	egl_surf = eglCreateWindowSurface(egl_dpy, configs[0], native_window, nullptr);
 	if (!egl_surf) {
-		INFO_LOG(G3D, "Error: eglCreateWindowSurface failed: native_window=%p error=%s ctx_attribs[1]==%d\n", native_window, EGLGetErrorString(eglGetError()), ctx_attribs[1]);
+		EGL_ILOG("Error: eglCreateWindowSurface failed: native_window=%p error=%s ctx_attribs[1]==%d\n", native_window, EGLGetErrorString(eglGetError()), ctx_attribs[1]);
 
 		eglDestroyContext(egl_dpy, egl_ctx);
 		eglTerminate(egl_dpy);
@@ -294,23 +321,20 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use16bit)
 	return true;
 }
 
-bool cInterfaceEGL::MakeCurrent()
-{
+bool cInterfaceEGL::MakeCurrent() {
 	return eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx);
 }
 
-bool cInterfaceEGL::ClearCurrent()
-{
+bool cInterfaceEGL::ClearCurrent() {
 	return eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 }
 
-void cInterfaceEGL::Shutdown()
-{
+void cInterfaceEGL::Shutdown() {
 	ShutdownPlatform();
-	if (egl_ctx && !eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx))
+	if (egl_ctx && !eglMakeCurrent(egl_dpy, egl_surf, egl_surf, egl_ctx)) {
 		NOTICE_LOG(G3D, "Could not release drawing context.");
-	if (egl_ctx)
-	{
+	}
+	if (egl_ctx) {
 		eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		if (!eglDestroyContext(egl_dpy, egl_ctx))
 			NOTICE_LOG(G3D, "Could not destroy drawing context.");

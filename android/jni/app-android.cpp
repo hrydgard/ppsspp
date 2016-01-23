@@ -83,7 +83,7 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 	}
 
 	if (!gl->Create(wnd, false, use565)) {
-		ELOG("EGL creation failed");
+		ELOG("EGL creation failed! (use565=%d)", (int)use565);
 		// TODO: What do we do now?
 		delete gl;
 		return false;
