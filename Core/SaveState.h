@@ -25,8 +25,6 @@ namespace SaveState
 {
 	typedef std::function<void(bool status, void *cbUserData)> Callback;
 
-	// TODO: Better place for this?
-	const int REVISION = 4;
 	const int SAVESTATESLOTS = 5;
 
 	void Init();
@@ -46,6 +44,8 @@ namespace SaveState
 
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
 	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
+
+	std::string GetTitle(const std::string &filename);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.

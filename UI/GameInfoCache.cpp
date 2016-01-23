@@ -35,6 +35,7 @@
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Config.h"
@@ -287,6 +288,11 @@ std::string GameInfo::GetTitle() {
 	return title;
 }
 
+void GameInfo::SetTitle(const std::string &newTitle) {
+	lock_guard guard(lock);
+	title = newTitle;
+}
+
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
@@ -443,9 +449,12 @@ handleELF:
 
 		case FILETYPE_PPSSPP_SAVESTATE:
 		{
+			info_->SetTitle(SaveState::GetTitle(gamePath_));
+
+			lock_guard guard(info_->lock);
+
 			// Let's use the screenshot as an icon, too.
 			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
-			lock_guard guard(info_->lock);
 			if (File::Exists(screenshotPath)) {
 				if (readFileToString(false, screenshotPath.c_str(), info_->iconTextureData)) {
 					info_->iconDataLoaded = true;
