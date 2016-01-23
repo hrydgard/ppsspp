@@ -579,8 +579,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	int x = image->xPos64 >> 6;
 	int y = image->yPos64 >> 6;
-	int xFrac = image->xPos64 & 0x3F;
-	int yFrac = image->yPos64 & 0x3F;
+	u8 xFrac = image->xPos64 & 0x3F;
+	u8 yFrac = image->yPos64 & 0x3F;
 
 	// Negative means don't clip on that side.
 	if (clipX < 0)
@@ -615,7 +615,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				value = consumeBits(4, fontData, bitPtr);
 			}
 
-			decodedPixels[pixelIndex++] = value;
+			decodedPixels[pixelIndex++] = value | (value << 4);
 		}
 	}
 
@@ -644,23 +644,20 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		for (int yy = renderY1; yy < renderY2; ++yy) {
 			for (int xx = renderX1; xx < renderX2; ++xx) {
 				u8 pixelColor = samplePixel(xx, yy);
-				// Expand the value from 4 to 8 bits.
-				pixelColor |= pixelColor << 4;
 				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
 			}
 		}
 	} else {
 		for (int yy = renderY1; yy < renderY2; ++yy) {
 			for (int xx = renderX1; xx < renderX2; ++xx) {
-				// First, blend horizontally.
-				int horiz1 = samplePixel(xx - 1, yy - 1) * xFrac + samplePixel(xx, yy - 1) * (64 - xFrac);
-				int horiz2 = samplePixel(xx - 1, yy + 0) * xFrac + samplePixel(xx, yy + 0) * (64 - xFrac);
+				// First, blend horizontally.  Tests show we blend swizzled to 8 bit.
+				u32 horiz1 = samplePixel(xx - 1, yy - 1) * xFrac + samplePixel(xx, yy - 1) * (64 - xFrac);
+				u32 horiz2 = samplePixel(xx - 1, yy + 0) * xFrac + samplePixel(xx, yy + 0) * (64 - xFrac);
 				// Now blend those together vertically.
-				u16 blended = horiz1 * yFrac + horiz2 * (64 - yFrac);
+				u32 blended = horiz1 * yFrac + horiz2 * (64 - yFrac);
 
-				// We multiplied a 4 bit value by 64 twice, so now we have a 16 bit value.
-				// TODO: Test that it's correct to preserve the extra precision.
-				u8 pixelColor = blended >> 8;
+				// We multiplied an 8 bit value by 64 twice, so now we have a 20 bit value.
+				u8 pixelColor = blended >> 12;
 				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
 			}
 		}
