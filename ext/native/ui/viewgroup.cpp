@@ -746,7 +746,6 @@ void ScrollView::Touch(const TouchInput &input) {
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
-			ClampScrollPos(pos);
 			scrollPos_ = pos;
 			scrollTarget_ = pos;
 			scrollToTarget_ = false;
@@ -842,7 +841,6 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 	case PERSIST_RESTORE:
 		if (buffer.size() == 1) {
 			float pos = *(float *)&buffer[0];
-			ClampScrollPos(pos);
 			scrollPos_ = pos;
 			scrollTarget_ = pos;
 			scrollToTarget_ = false;
@@ -864,13 +862,11 @@ void ScrollView::SetVisibility(Visibility visibility) {
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ScrollRelative(float distance) {
 	scrollTarget_ = scrollPos_ + distance;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ClampScrollPos(float &pos) {
@@ -917,6 +913,8 @@ void ScrollView::Update(const InputState &input_state) {
 	ViewGroup::Update(input_state);
 	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
+		ClampScrollPos(scrollTarget_);
+
 		inertia_ = 0.0f;
 		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
 			scrollPos_ = scrollTarget_;
@@ -929,8 +927,9 @@ void ScrollView::Update(const InputState &input_state) {
 		inertia_ *= friction;
 		if (fabsf(inertia_) < stop_threshold)
 			inertia_ = 0.0f;
-		ClampScrollPos(scrollPos_);
 	}
+
+	ClampScrollPos(scrollPos_);
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
