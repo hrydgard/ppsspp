@@ -9,6 +9,21 @@
 
 #include "Common/GL/GLInterfaceBase.h"
 
+#ifdef ANDROID
+// On Android, EGL creation is so early that our regular logging system is not
+// up and running yet. Use Android logging.
+#include "base/logging.h"
+#define EGL_ILOG(...) ILOG(__VA_ARGS__)
+#define EGL_ELOG(...) ELOG(__VA_ARGS__)
+
+#else
+
+#define EGL_ILOG(...) INFO_LOG(G3D, __VA_ARGS__)
+#define EGL_ELOG(...) INFO_LOG(G3D, __VA_ARGS__)
+
+#endif
+
+
 class cInterfaceEGL : public cInterfaceBase
 {
 protected:

@@ -7,20 +7,6 @@
 
 #include "Common/GL/GLInterface/EGL.h"
 
-#ifdef ANDROID
-// On Android, EGL creation is so early that our regular logging system is not
-// up and running yet. Use Android logging.
-#include "base/logging.h"
-#define EGL_ILOG(...) ILOG(__VA_ARGS__)
-#define EGL_ELOG(...) ELOG(__VA_ARGS__)
-
-#else
-
-#define EGL_ILOG(...) EGL_ILOG(__VA_ARGS__)
-#define EGL_ELOG(...) EGL_ELOG(__VA_ARGS__)
-
-#endif
-
 #include "Common/Log.h"
 
 // Show the current FPS
@@ -234,17 +220,17 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 
 	switch (s_opengl_mode) {
 	case MODE_OPENGL:
-		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_BIT");
+		EGL_ILOG("Setting RENDERABLE_TYPE to EGL_OPENGL_BIT");
 		attribs[1] = EGL_OPENGL_BIT;
 		ctx_attribs[0] = EGL_NONE;
 		break;
 	case MODE_OPENGLES2:
-		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES2_BIT");
+		EGL_ILOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES2_BIT");
 		attribs[1] = EGL_OPENGL_ES2_BIT;
 		ctx_attribs[1] = 2;
 		break;
 	case MODE_OPENGLES3:
-		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES3_BIT_KHR");
+		EGL_ILOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES3_BIT_KHR");
 		attribs[1] = (1 << 6); /* EGL_OPENGL_ES3_BIT_KHR */
 		ctx_attribs[1] = 3;
 		break;

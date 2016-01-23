@@ -12,11 +12,12 @@ EGLDisplay cInterfaceEGLAndroid::OpenDisplay() {
 EGLNativeWindowType cInterfaceEGLAndroid::InitializePlatform(EGLNativeWindowType host_window, EGLConfig config) {
 	EGLint format;
 	if (EGL_FALSE == eglGetConfigAttrib(egl_dpy, config, EGL_NATIVE_VISUAL_ID, &format)) {
-		ERROR_LOG(G3D, "Failed getting EGL_NATIVE_VISUAL_ID: error %s", EGLGetErrorString(eglGetError()));
+		EGL_ELOG("Failed getting EGL_NATIVE_VISUAL_ID: error %s", EGLGetErrorString(eglGetError()));
 		return NULL;
 	}
 
-	ANativeWindow_setBuffersGeometry(host_window, internalWidth_, internalHeight_, format);
+	int32_t result = ANativeWindow_setBuffersGeometry(host_window, internalWidth_, internalHeight_, format);
+	EGL_ILOG("ANativeWindow_setBuffersGeometry returned %d", result);
 
 	const int width = ANativeWindow_getWidth(host_window);
 	const int height = ANativeWindow_getHeight(host_window);
