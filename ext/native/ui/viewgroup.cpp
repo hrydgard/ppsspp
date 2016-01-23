@@ -70,9 +70,16 @@ void ViewGroup::Clear() {
 	lock_guard guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
-		views_[i] = 0;
+		views_[i] = nullptr;
 	}
 	views_.clear();
+}
+
+void ViewGroup::PersistData(PersistStatus status, PersistMap &storage) {
+	lock_guard guard(modifyLock_);
+	for (size_t i = 0; i < views_.size(); i++) {
+		views_[i]->PersistData(status, storage);
+	}
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
@@ -805,6 +812,37 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
+void ScrollView::PersistData(PersistStatus status, PersistMap &storage) {
+	ViewGroup::PersistData(status, storage);
+
+	const std::string &tag = Tag();
+	if (tag.empty()) {
+		return;
+	}
+
+	PersistBuffer &buffer = storage["ScrollView::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		{
+			buffer.resize(1);
+			float pos = scrollToTarget_ ? scrollTarget_ : scrollPos_;
+			// Hmm, ugly... better buffer?
+			buffer[0] = *(int *)&pos;
+		}
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			float pos = *(float *)&buffer[0];
+			ClampScrollPos(pos);
+			scrollPos_ = pos;
+			scrollTarget_ = pos;
+			scrollToTarget_ = false;
+		}
+		break;
+	}
+}
+
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
@@ -1044,6 +1082,29 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 	currentTab_ = e.a;
 	tabs_[currentTab_]->SetVisibility(V_VISIBLE);
 	return EVENT_DONE;
+}
+
+void TabHolder::PersistData(PersistStatus status, PersistMap &storage) {
+	ViewGroup::PersistData(status, storage);
+
+	const std::string &tag = Tag();
+	if (tag.empty()) {
+		return;
+	}
+
+	PersistBuffer &buffer = storage["TabHolder::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		buffer.resize(1);
+		buffer[0] = currentTab_;
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			SetCurrentTab(buffer[0]);
+		}
+		break;
+	}
 }
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)

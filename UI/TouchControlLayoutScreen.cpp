@@ -335,6 +335,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	root_->Add(back);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder->SetTag("TouchControlLayout");
 	root_->Add(tabHolder);
 
 	// this is more for show than anything else. It's used to provide a boundary

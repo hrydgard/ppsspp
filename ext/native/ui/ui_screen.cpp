@@ -1,3 +1,4 @@
+#include <map>
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
@@ -19,13 +20,23 @@ UIScreen::~UIScreen() {
 
 void UIScreen::DoRecreateViews() {
 	if (recreateViews_) {
+		UI::PersistMap persisted;
+		bool persisting = root_ != nullptr;
+		if (persisting) {
+			root_->PersistData(UI::PERSIST_SAVE, persisted);
+		}
+
 		delete root_;
-		root_ = 0;
+		root_ = nullptr;
 		CreateViews();
 		if (root_ && root_->GetDefaultFocusView()) {
 			root_->GetDefaultFocusView()->SetFocus();
 		}
 		recreateViews_ = false;
+
+		if (persisting) {
+			root_->PersistData(UI::PERSIST_RESTORE, persisted);
+		}
 	}
 }
 

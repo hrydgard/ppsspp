@@ -121,12 +121,14 @@ void GameSettingsScreen::CreateViews() {
 		root_->Add(tabHolder);
 		AddStandardBack(root_);
 	}
+	tabHolder->SetTag("GameSettings");
 	root_->SetDefaultFocusView(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.
 
 	// Graphics
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	graphicsSettingsScroll->SetTag("GameSettingsGraphics");
 	LinearLayout *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
 	graphicsSettings->SetSpacing(0);
 	graphicsSettingsScroll->Add(graphicsSettings);
@@ -332,6 +334,7 @@ void GameSettingsScreen::CreateViews() {
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	audioSettingsScroll->SetTag("GameSettingsAudio");
 	LinearLayout *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettings->SetSpacing(0);
 	audioSettingsScroll->Add(audioSettings);
@@ -366,6 +369,7 @@ void GameSettingsScreen::CreateViews() {
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	controlsSettingsScroll->SetTag("GameSettingsControls");
 	LinearLayout *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
 	controlsSettings->SetSpacing(0);
 	controlsSettingsScroll->Add(controlsSettings);
@@ -454,6 +458,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0"));
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	networkingSettingsScroll->SetTag("GameSettingsNetworking");
 	LinearLayout *networkingSettings = new LinearLayout(ORIENT_VERTICAL);
 	networkingSettings->SetSpacing(0);
 	networkingSettingsScroll->Add(networkingSettings);
@@ -474,6 +479,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	toolsScroll->SetTag("GameSettingsTools");
 	LinearLayout *tools = new LinearLayout(ORIENT_VERTICAL);
 	tools->SetSpacing(0);
 	toolsScroll->Add(tools);
@@ -487,6 +493,7 @@ void GameSettingsScreen::CreateViews() {
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	systemSettingsScroll->SetTag("GameSettingsSystem");
 	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettings->SetSpacing(0);
 	systemSettingsScroll->Add(systemSettings);
@@ -1013,6 +1020,7 @@ UI::EventReturn GameSettingsScreen::OnSysInfo(UI::EventParams &e) {
 void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_->SetTag("DevToolsSettings");
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *dev = GetI18NCategory("Developer");

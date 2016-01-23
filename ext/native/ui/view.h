@@ -9,6 +9,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -203,9 +204,15 @@ enum FocusFlags {
 	FF_GOTFOCUS = 2
 };
 
-class ViewGroup;
+enum PersistStatus {
+	PERSIST_SAVE,
+	PERSIST_RESTORE,
+};
 
-void Fill(UIContext &dc, const Bounds &bounds, const Drawable &drawable);
+typedef std::vector<int> PersistBuffer;
+typedef std::map<std::string, UI::PersistBuffer> PersistMap;
+
+class ViewGroup;
 
 struct MeasureSpec {
 	MeasureSpec(MeasureSpecType t, float s = 0.0f) : type(t), size(s) {}
@@ -339,6 +346,7 @@ public:
 	virtual std::string Describe() const;
 
 	virtual void FocusChanged(int focusFlags) {}
+	virtual void PersistData(PersistStatus status, PersistMap &storage) {}
 
 	void Move(Bounds bounds) {
 		bounds_ = bounds;

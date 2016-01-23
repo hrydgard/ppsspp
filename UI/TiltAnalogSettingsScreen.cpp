@@ -27,6 +27,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
+	root_->SetTag("TiltAnalogSettings");
 
 	LinearLayout *settings = new LinearLayout(ORIENT_VERTICAL);
 

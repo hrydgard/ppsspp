@@ -709,11 +709,13 @@ void MainScreen::CreateViews() {
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
+	tabHolder_->SetTag("MainScreenGames");
 
 	leftColumn->SetClip(true);
 
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollRecentGames->SetTag("MainScreenRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
 			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -726,7 +728,9 @@ void MainScreen::CreateViews() {
 
 	if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED) {
 		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollAllGames->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollHomebrew->SetTag("MainScreenHomebrew");
 
 		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 			mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,
@@ -1119,6 +1123,7 @@ void UmdReplaceScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
+	leftColumn->SetTag("UmdReplace");
 	leftColumn->SetClip(true);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
@@ -1128,6 +1133,7 @@ void UmdReplaceScreen::CreateViews() {
 
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
 			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -1137,6 +1143,7 @@ void UmdReplaceScreen::CreateViews() {
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scrollAllGames->SetTag("UmdReplaceAllGames");
 
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
 		mm->T("How to get games"), "http://www.ppsspp.org/getgames.html", 0,

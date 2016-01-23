@@ -220,6 +220,7 @@ void ControlMappingScreen::CreateViews() {
 	AddStandardBack(leftColumn);
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightScroll_->SetTag("ControlMapping");
 	rightScroll_->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->Add(rightColumn);
