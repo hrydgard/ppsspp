@@ -84,7 +84,7 @@ public:
 			root->Add(new TextView(savedata_detail, 0, true, new LinearLayoutParams(Margins(10, 0))));
 			root->Add(new Spacer(3.0));
 		} else {
-			std::string image_path = ReplaceAll(savePath_, "ppst", "jpg");
+			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
 			if (File::Exists(image_path)) {
 				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
@@ -182,6 +182,11 @@ void SavedataButton::Draw(UIContext &dc) {
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
+
+		if (texture->Width() >= w * 2 || texture->Height() >= h * 2) {
+			// Better to use mipmaps, then.  This is probably a large savestate screenshot.
+			texture->AutoGenMipmaps();
+		}
 	}
 
 	int txOffset = down_ ? 4 : 0;

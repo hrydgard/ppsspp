@@ -35,8 +35,8 @@ bool IsDragCaptured(int id) {
 }
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
-	inner.w = w - (margins.left + margins.right);
-	inner.h = h - (margins.top + margins.bottom);
+	inner.w = w;
+	inner.h = h;
 
 	switch (gravity & G_HORIZMASK) {
 	case G_LEFT: inner.x = outer.x + margins.left; break;
@@ -746,7 +746,6 @@ void ScrollView::Touch(const TouchInput &input) {
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
-			ClampScrollPos(pos);
 			scrollPos_ = pos;
 			scrollTarget_ = pos;
 			scrollToTarget_ = false;
@@ -842,7 +841,6 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 	case PERSIST_RESTORE:
 		if (buffer.size() == 1) {
 			float pos = *(float *)&buffer[0];
-			ClampScrollPos(pos);
 			scrollPos_ = pos;
 			scrollTarget_ = pos;
 			scrollToTarget_ = false;
@@ -864,13 +862,11 @@ void ScrollView::SetVisibility(Visibility visibility) {
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ScrollRelative(float distance) {
 	scrollTarget_ = scrollPos_ + distance;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ClampScrollPos(float &pos) {
@@ -917,6 +913,8 @@ void ScrollView::Update(const InputState &input_state) {
 	ViewGroup::Update(input_state);
 	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
+		ClampScrollPos(scrollTarget_);
+
 		inertia_ = 0.0f;
 		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
 			scrollPos_ = scrollTarget_;
@@ -929,8 +927,9 @@ void ScrollView::Update(const InputState &input_state) {
 		inertia_ *= friction;
 		if (fabsf(inertia_) < stop_threshold)
 			inertia_ = 0.0f;
-		ClampScrollPos(scrollPos_);
 	}
+
+	ClampScrollPos(scrollPos_);
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1096,9 +1095,13 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
-	tabs_[currentTab_]->SetVisibility(V_GONE);
-	currentTab_ = e.a;
-	tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	// We have e.b set when it was an explicit click action.
+	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
+	if (currentTab_ != e.a || e.b) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		currentTab_ = e.a;
+		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	}
 	return EVENT_DONE;
 }
 
@@ -1156,7 +1159,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	for (int i = 0; i < (int)views_.size(); i++) {
 		if (views_[i] != e.v) {
-			static_cast<StickyChoice *>(views_[i])->Release();
+			Choice(i)->Release();
 		} else {
 			selected_ = i;
 		}
@@ -1165,27 +1168,36 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	EventParams e2;
 	e2.v = views_[selected_];
 	e2.a = selected_;
+	// Set to 1 to indicate an explicit click.
+	e2.b = 1;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
 	return OnChoice.Dispatch(e2);
 }
 
 void ChoiceStrip::SetSelection(int sel) {
 	int prevSelected = selected_;
-	if (selected_ < (int)views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Release();
+	StickyChoice *prevChoice = Choice(selected_);
+	if (prevChoice)
+		prevChoice->Release();
 	selected_ = sel;
-	if (selected_ < (int)views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Press();
-	if (topTabs_ && prevSelected != selected_) {
-		EventParams e;
-		e.v = views_[selected_];
-		static_cast<StickyChoice *>(views_[selected_])->OnClick.Trigger(e);
+	StickyChoice *newChoice = Choice(selected_);
+	if (newChoice) {
+		newChoice->Press();
+
+		if (topTabs_ && prevSelected != selected_) {
+			EventParams e;
+			e.v = views_[selected_];
+			e.a = selected_;
+			// Set to 0 to indicate a selection change (not a click.)
+			e.b = 0;
+			OnChoice.Trigger(e);
+		}
 	}
 }
 
 void ChoiceStrip::HighlightChoice(unsigned int choice){
 	if (choice < (unsigned int)views_.size()){
-		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
+		Choice(choice)->HighlightChanged(true);
 	}
 };
 
@@ -1211,6 +1223,12 @@ void ChoiceStrip::Draw(UIContext &dc) {
 		else if (orientation_ == ORIENT_VERTICAL)
 			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
 	}
+}
+
+StickyChoice *ChoiceStrip::Choice(int index) {
+	if ((size_t)index < views_.size())
+		return static_cast<StickyChoice *>(views_[index]);
+	return nullptr;
 }
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)

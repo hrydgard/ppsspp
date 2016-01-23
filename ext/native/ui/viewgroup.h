@@ -293,6 +293,7 @@ public:
 	Event OnChoice;
 
 private:
+	StickyChoice *Choice(int index);
 	EventReturn OnChoiceClick(EventParams &e);
 
 	int selected_;
