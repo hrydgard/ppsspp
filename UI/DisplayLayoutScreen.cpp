@@ -172,6 +172,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *gr = GetI18NCategory("Graphics");
+	I18NCategory *co = GetI18NCategory("Controls");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -199,7 +200,7 @@ void DisplayLayoutScreen::CreateViews() {
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, local_dp_xres / 2 - 200, NONE, NONE, local_dp_yres - 64));
+	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, local_dp_xres / 2 - 200, NONE, NONE, local_dp_yres - 64));
 	rotation_->SetEnabledPtr(&displayRotEnable_);
 	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bool bRotated = false;
