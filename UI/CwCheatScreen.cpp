@@ -78,6 +78,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, cw->T("Refresh Rate"), 1, screenManager()));
 
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
+	rightScroll->SetTag("CwCheats");
 	rightScroll->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
 	LayoutParams *layout = new LayoutParams(500, 50, LP_PLAIN);

@@ -346,12 +346,14 @@ void SavedataScreen::CreateViews() {
 	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	tabs->SetTag("Savedata");
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scroll->SetTag("SavedataBrowser");
 	browser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	browser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
 	tabs->AddTab(sa->T("Save Data"), scroll);
 
 	ScrollView *scroll2 = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scroll2->SetTag("SavedataStatesBrowser");
 	SavedataBrowser *browser2 = scroll2->Add(new SavedataBrowser(savestate_dir));
 	browser2->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 	tabs->AddTab(sa->T("Save States"), scroll2);

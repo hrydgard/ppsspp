@@ -330,6 +330,7 @@ void SystemInfoScreen::CreateViews() {
 
 	root_->Add(tabHolder);
 	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	deviceSpecsScroll->SetTag("DevSystemInfoDeviceSpecs");
 	LinearLayout *deviceSpecs = new LinearLayout(ORIENT_VERTICAL);
 	deviceSpecs->SetSpacing(0);
 	deviceSpecsScroll->Add(deviceSpecs);
@@ -408,6 +409,7 @@ void SystemInfoScreen::CreateViews() {
 #endif
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
 	cpuExtensions->SetSpacing(0);
 	cpuExtensionsScroll->Add(cpuExtensions);
@@ -422,6 +424,7 @@ void SystemInfoScreen::CreateViews() {
 	}
 
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	oglExtensionsScroll->SetTag("DevSystemInfoOGLExt");
 	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
 	oglExtensions->SetSpacing(0);
 	oglExtensionsScroll->Add(oglExtensions);
@@ -450,6 +453,7 @@ void SystemInfoScreen::CreateViews() {
 	// If there aren't any EGL extensions, no need to show the tab.
 	if (exts.size() > 0) {
 		ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
 		LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
 		eglExtensions->SetSpacing(0);
 		eglExtensionsScroll->Add(eglExtensions);
@@ -567,10 +571,12 @@ void JitCompareScreen::CreateViews() {
 
 	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
 	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	midColumn->SetTag("JitCompareLeftDisasm");
 	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_->SetSpacing(0.0f);
 
 	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	rightColumnScroll->SetTag("JitCompareRightDisasm");
 	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
@@ -851,6 +857,7 @@ void ShaderViewScreen::CreateViews() {
 	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC)));
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	scroll->SetTag("DevShaderView");
 	layout->Add(scroll);
 
 	LinearLayout *lineLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
