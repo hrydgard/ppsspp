@@ -541,7 +541,7 @@ namespace SaveState
 			{
 			case SAVESTATE_LOAD:
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
+				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
@@ -559,7 +559,7 @@ namespace SaveState
 
 			case SAVESTATE_SAVE:
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
+				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 
 					osm.Show(sc->T("Saved State"), 2.0);

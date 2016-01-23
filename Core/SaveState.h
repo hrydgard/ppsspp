@@ -25,8 +25,6 @@ namespace SaveState
 {
 	typedef std::function<void(bool status, void *cbUserData)> Callback;
 
-	// TODO: Better place for this?
-	const int REVISION = 4;
 	const int SAVESTATESLOTS = 5;
 
 	void Init();
