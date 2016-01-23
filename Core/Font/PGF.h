@@ -281,7 +281,7 @@ private:
 	// Unused
 	int GetCharIndex(int charCode, const std::vector<int> &charmapCompressed);
 
-	void SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) const;
+	void SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, u8 pixelColor, FontPixelFormat pixelformat) const;
 
 	PGFHeaderRev3Extra rev3extra;
 
