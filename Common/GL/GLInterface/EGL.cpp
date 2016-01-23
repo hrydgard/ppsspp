@@ -246,6 +246,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	EGLint num_configs;
 	if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
 		EGL_ILOG("Error: couldn't get a number of configs. Trying with fallback config (no stencil, not specifying transparent:none)\n");
+		attribsFallback[1] = attribs[1];
 		attribs = attribsFallback;
 		if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
 			eglTerminate(egl_dpy);
@@ -262,11 +263,30 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 		return false;
 	}
 
-	EGL_ILOG("eglChooseConfig successful: num_configs=%d, choosing config 0", num_configs);
+	int chosenConfig = -1;
+	// Find our ideal config in the list. If it's there, use it, otherwise pick whatever the device wanted (#0)
+	int wantedAlpha = 8;
+	// Requiring alpha seems to be a problem on older devices. Let's see if this helps...
+	if (attribs[1] == EGL_OPENGL_ES2_BIT)
+		wantedAlpha = 0;
 	for (int i = 0; i < num_configs; i++) {
 		EGL_ILOG("Config %d:", i);
 		LogEGLConfig(egl_dpy, configs[i]);
+		int red, green, blue, alpha, depth, stencil;
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_RED_SIZE, &red);
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_GREEN_SIZE, &green);
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_BLUE_SIZE, &blue);
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_ALPHA_SIZE, &alpha);
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_DEPTH_SIZE, &depth);
+		eglGetConfigAttrib(egl_dpy, configs[i], EGL_STENCIL_SIZE, &stencil);
+		if (chosenConfig == -1 && red == 8 && green == 8 && blue == 8 && alpha == wantedAlpha && depth == 24 && stencil == 8) {
+			chosenConfig = i;
+		}
 	}
+	if (chosenConfig == -1)
+		chosenConfig = 0;
+
+	EGL_ILOG("eglChooseConfig successful: num_configs=%d, choosing config %d", num_configs, chosenConfig);
 
 	if (s_opengl_mode == MODE_OPENGL) {
 		EGL_ILOG("eglBindAPI(OPENGL)");
@@ -277,7 +297,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	}
 
 	EGLNativeWindowType host_window = (EGLNativeWindowType)window_handle;
-	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[0]);
+	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[chosenConfig]);
 
 	s = eglQueryString(egl_dpy, EGL_VERSION);
 	EGL_ILOG("EGL_VERSION = %s\n", s);
@@ -291,7 +311,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
 	EGL_ILOG("EGL_CLIENT_APIS = %s\n", s);
 
-	egl_ctx = eglCreateContext(egl_dpy, configs[0], EGL_NO_CONTEXT, ctx_attribs);
+	egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_ctx) {
 		EGL_ILOG("Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
 		eglTerminate(egl_dpy);
@@ -299,7 +319,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 		return false;
 	}
 
-	egl_surf = eglCreateWindowSurface(egl_dpy, configs[0], native_window, nullptr);
+	egl_surf = eglCreateWindowSurface(egl_dpy, configs[chosenConfig], native_window, nullptr);
 	if (!egl_surf) {
 		EGL_ILOG("Error: eglCreateWindowSurface failed: native_window=%p error=%s ctx_attribs[1]==%d\n", native_window, EGLGetErrorString(eglGetError()), ctx_attribs[1]);
 
