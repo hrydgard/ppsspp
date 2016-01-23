@@ -248,9 +248,13 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 				auto framebuffer = fbCache_[i];
 				const u32 fb_address = framebuffer->fb_address | 0x04000000;
 				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
-				bool match = fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd;
 				u32 offset = clutFramebufAddr - fb_address;
-				if (match && offset < clutRenderOffset_) {
+
+				// Is this inside the framebuffer at all?
+				bool matchRange = fb_address + framebuffer->fb_stride * bpp > clutFramebufAddr && fb_address < clutFramebufEnd;
+				// And is it inside the rendered area?  Sometimes games pack data outside.
+				bool matchRegion = ((offset / bpp) % framebuffer->fb_stride) < framebuffer->width;
+				if (matchRange && matchRegion && offset < clutRenderOffset_) {
 					framebuffer->last_frame_clut = gpuStats.numFlips;
 					framebuffer->usageFlags |= FB_USAGE_CLUT;
 					clutRenderAddress_ = framebuffer->fb_address;
