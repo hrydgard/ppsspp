@@ -812,6 +812,37 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
+void ScrollView::PersistData(PersistStatus status, PersistMap &storage) {
+	ViewGroup::PersistData(status, storage);
+
+	const std::string &tag = Tag();
+	if (tag.empty()) {
+		return;
+	}
+
+	PersistBuffer &buffer = storage["ScrollView::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		{
+			buffer.resize(1);
+			float pos = scrollToTarget_ ? scrollTarget_ : scrollPos_;
+			// Hmm, ugly... better buffer?
+			buffer[0] = *(int *)&pos;
+		}
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			float pos = *(float *)&buffer[0];
+			ClampScrollPos(pos);
+			scrollPos_ = pos;
+			scrollTarget_ = pos;
+			scrollToTarget_ = false;
+		}
+		break;
+	}
+}
+
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
@@ -1054,8 +1085,9 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 }
 
 void TabHolder::PersistData(PersistStatus status, PersistMap &storage) {
-	const std::string &tag = Tag();
+	ViewGroup::PersistData(status, storage);
 
+	const std::string &tag = Tag();
 	if (tag.empty()) {
 		return;
 	}
