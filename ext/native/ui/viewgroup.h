@@ -228,7 +228,7 @@ public:
 		scrollToTarget_(false),
 		inertia_(0),
 		lastViewSize_(0.0f),
-		scrollToTopOnSizeChange_(true) {}
+		scrollToTopOnSizeChange_(false) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
