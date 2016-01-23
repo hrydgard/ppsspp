@@ -798,7 +798,7 @@ void ARMXEmitter::POP(const int num, ...)
 	Write32(condition | (2237 << 16) | RegList);
 }
 
-void ARMXEmitter::WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2)
+void ARMXEmitter::WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, const Operand2 &op2)
 {
 	Write32(condition | (13 << 21) | (SetFlags << 20) | (dest << 12) | op2.Imm5() | (op << 4) | src);
 }
@@ -849,36 +849,36 @@ const char *InstNames[] = { "AND",
                             "MOVT",
                             };
 
-void ARMXEmitter::AND (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm); }
-void ARMXEmitter::ANDS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm, true); }
-void ARMXEmitter::EOR (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(1, Rd, Rn, Rm); }
-void ARMXEmitter::EORS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(1, Rd, Rn, Rm, true); }
-void ARMXEmitter::SUB (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(2, Rd, Rn, Rm); }
-void ARMXEmitter::SUBS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(2, Rd, Rn, Rm, true); }
-void ARMXEmitter::RSB (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(3, Rd, Rn, Rm); }
-void ARMXEmitter::RSBS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(3, Rd, Rn, Rm, true); }
-void ARMXEmitter::ADD (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(4, Rd, Rn, Rm); }
-void ARMXEmitter::ADDS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(4, Rd, Rn, Rm, true); }
-void ARMXEmitter::ADC (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(5, Rd, Rn, Rm); }
-void ARMXEmitter::ADCS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(5, Rd, Rn, Rm, true); }
-void ARMXEmitter::SBC (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(6, Rd, Rn, Rm); }
-void ARMXEmitter::SBCS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(6, Rd, Rn, Rm, true); }
-void ARMXEmitter::RSC (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(7, Rd, Rn, Rm); }
-void ARMXEmitter::RSCS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(7, Rd, Rn, Rm, true); }
-void ARMXEmitter::TST (			  ARMReg Rn, Operand2 Rm) { WriteInstruction(8, R0, Rn, Rm, true); }
-void ARMXEmitter::TEQ (			  ARMReg Rn, Operand2 Rm) { WriteInstruction(9, R0, Rn, Rm, true); }
-void ARMXEmitter::CMP (			  ARMReg Rn, Operand2 Rm) { WriteInstruction(10, R0, Rn, Rm, true); }
-void ARMXEmitter::CMN (			  ARMReg Rn, Operand2 Rm) { WriteInstruction(11, R0, Rn, Rm, true); }
-void ARMXEmitter::ORR (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(12, Rd, Rn, Rm); }
-void ARMXEmitter::ORRS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(12, Rd, Rn, Rm, true); }
-void ARMXEmitter::MOV (ARMReg Rd,			 Operand2 Rm) { WriteInstruction(13, Rd, R0, Rm); }
-void ARMXEmitter::MOVS(ARMReg Rd,			 Operand2 Rm) { WriteInstruction(13, Rd, R0, Rm, true); }
-void ARMXEmitter::BIC (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(14, Rd, Rn, Rm); }
-void ARMXEmitter::BICS(ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(14, Rd, Rn, Rm, true); }
-void ARMXEmitter::MVN (ARMReg Rd,			 Operand2 Rm) { WriteInstruction(15, Rd, R0, Rm); }
-void ARMXEmitter::MVNS(ARMReg Rd,			 Operand2 Rm) { WriteInstruction(15, Rd, R0, Rm, true); }
-void ARMXEmitter::MOVW(ARMReg Rd,			 Operand2 Rm) { WriteInstruction(16, Rd, R0, Rm); }
-void ARMXEmitter::MOVT(ARMReg Rd, Operand2 Rm, bool TopBits) { WriteInstruction(17, Rd, R0, TopBits ? Rm.Value >> 16 : Rm); }
+void ARMXEmitter::AND (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(0, Rd, Rn, Rm); }
+void ARMXEmitter::ANDS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(0, Rd, Rn, Rm, true); }
+void ARMXEmitter::EOR (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(1, Rd, Rn, Rm); }
+void ARMXEmitter::EORS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(1, Rd, Rn, Rm, true); }
+void ARMXEmitter::SUB (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(2, Rd, Rn, Rm); }
+void ARMXEmitter::SUBS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(2, Rd, Rn, Rm, true); }
+void ARMXEmitter::RSB (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(3, Rd, Rn, Rm); }
+void ARMXEmitter::RSBS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(3, Rd, Rn, Rm, true); }
+void ARMXEmitter::ADD (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(4, Rd, Rn, Rm); }
+void ARMXEmitter::ADDS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(4, Rd, Rn, Rm, true); }
+void ARMXEmitter::ADC (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(5, Rd, Rn, Rm); }
+void ARMXEmitter::ADCS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(5, Rd, Rn, Rm, true); }
+void ARMXEmitter::SBC (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(6, Rd, Rn, Rm); }
+void ARMXEmitter::SBCS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(6, Rd, Rn, Rm, true); }
+void ARMXEmitter::RSC (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(7, Rd, Rn, Rm); }
+void ARMXEmitter::RSCS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(7, Rd, Rn, Rm, true); }
+void ARMXEmitter::TST (			  ARMReg Rn, const Operand2 &Rm) { WriteInstruction(8, R0, Rn, Rm, true); }
+void ARMXEmitter::TEQ (			  ARMReg Rn, const Operand2 &Rm) { WriteInstruction(9, R0, Rn, Rm, true); }
+void ARMXEmitter::CMP (			  ARMReg Rn, const Operand2 &Rm) { WriteInstruction(10, R0, Rn, Rm, true); }
+void ARMXEmitter::CMN (			  ARMReg Rn, const Operand2 &Rm) { WriteInstruction(11, R0, Rn, Rm, true); }
+void ARMXEmitter::ORR (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(12, Rd, Rn, Rm); }
+void ARMXEmitter::ORRS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(12, Rd, Rn, Rm, true); }
+void ARMXEmitter::MOV (ARMReg Rd,			 const Operand2 &Rm) { WriteInstruction(13, Rd, R0, Rm); }
+void ARMXEmitter::MOVS(ARMReg Rd,			 const Operand2 &Rm) { WriteInstruction(13, Rd, R0, Rm, true); }
+void ARMXEmitter::BIC (ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(14, Rd, Rn, Rm); }
+void ARMXEmitter::BICS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm) { WriteInstruction(14, Rd, Rn, Rm, true); }
+void ARMXEmitter::MVN (ARMReg Rd,			 const Operand2 &Rm) { WriteInstruction(15, Rd, R0, Rm); }
+void ARMXEmitter::MVNS(ARMReg Rd,			 const Operand2 &Rm) { WriteInstruction(15, Rd, R0, Rm, true); }
+void ARMXEmitter::MOVW(ARMReg Rd,			 const Operand2 &Rm) { WriteInstruction(16, Rd, R0, Rm); }
+void ARMXEmitter::MOVT(ARMReg Rd, const Operand2 &Rm, bool TopBits) { WriteInstruction(17, Rd, R0, TopBits ? Rm.Value >> 16 : Rm); }
 
 void ARMXEmitter::WriteInstruction (u32 Op, ARMReg Rd, ARMReg Rn, Operand2 Rm, bool SetFlags) // This can get renamed later
 {
@@ -920,25 +920,25 @@ void ARMXEmitter::SDIV(ARMReg dest, ARMReg dividend, ARMReg divisor)
 	WriteSignedMultiply(1, 0xF, 0, dest, divisor, dividend);
 }
 
-void ARMXEmitter::LSL (ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(0, false, dest, src, op2);}
-void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, Operand2 op2) { WriteShiftedDataOp(0, true, dest, src, op2);}
+void ARMXEmitter::LSL (ARMReg dest, ARMReg src, const Operand2 &op2) { WriteShiftedDataOp(0, false, dest, src, op2);}
+void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, const Operand2 &op2) { WriteShiftedDataOp(0, true, dest, src, op2);}
 void ARMXEmitter::LSL (ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(1, false, dest, src, op2);} 
 void ARMXEmitter::LSLS(ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(1, true, dest, src, op2);}
-void ARMXEmitter::LSR (ARMReg dest, ARMReg src, Operand2 op2) {
+void ARMXEmitter::LSR (ARMReg dest, ARMReg src, const Operand2 &op2) {
 	_assert_msg_(JIT, op2.GetType() != TYPE_IMM || op2.Imm5() != 0, "LSR must have a non-zero shift (use LSL.)"); 
 	WriteShiftedDataOp(2, false, dest, src, op2);
 }
-void ARMXEmitter::LSRS(ARMReg dest, ARMReg src, Operand2 op2) {
+void ARMXEmitter::LSRS(ARMReg dest, ARMReg src, const Operand2 &op2) {
 	_assert_msg_(JIT, op2.GetType() != TYPE_IMM || op2.Imm5() != 0, "LSRS must have a non-zero shift (use LSLS.)");
 	WriteShiftedDataOp(2, true, dest, src, op2);
 }
 void ARMXEmitter::LSR (ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(3, false, dest, src, op2);}
 void ARMXEmitter::LSRS(ARMReg dest, ARMReg src, ARMReg op2)   { WriteShiftedDataOp(3, true, dest, src, op2);}
-void ARMXEmitter::ASR (ARMReg dest, ARMReg src, Operand2 op2) {
+void ARMXEmitter::ASR (ARMReg dest, ARMReg src, const Operand2 &op2) {
 	_assert_msg_(JIT, op2.GetType() != TYPE_IMM || op2.Imm5() != 0, "ASR must have a non-zero shift (use LSL.)");
 	WriteShiftedDataOp(4, false, dest, src, op2);
 }
-void ARMXEmitter::ASRS(ARMReg dest, ARMReg src, Operand2 op2) {
+void ARMXEmitter::ASRS(ARMReg dest, ARMReg src, const Operand2 &op2) {
 	_assert_msg_(JIT, op2.GetType() != TYPE_IMM || op2.Imm5() != 0, "ASRS must have a non-zero shift (use LSLS.)");
 	WriteShiftedDataOp(4, true, dest, src, op2);
 }
@@ -1046,7 +1046,7 @@ void ARMXEmitter::REV16(ARMReg dest, ARMReg src)
 	Write32(condition | (0x6BF << 16) | (dest << 12) | (0xFB << 4) | src);
 }
 
-void ARMXEmitter::_MSR (bool write_nzcvq, bool write_g,		Operand2 op2)
+void ARMXEmitter::_MSR (bool write_nzcvq, bool write_g,		const Operand2 &op2)
 {
 	Write32(condition | (0x320F << 12) | (write_nzcvq << 19) | (write_g << 18) | op2.Imm12Mod());
 }
@@ -1071,7 +1071,7 @@ void ARMXEmitter::DMB ()
 {
 	Write32(0xF57FF05E);
 }
-void ARMXEmitter::SVC(Operand2 op)
+void ARMXEmitter::SVC(const Operand2 &op)
 {
 	Write32(condition | (0x0F << 24) | op.Imm24());
 }
@@ -1181,14 +1181,14 @@ void ARMXEmitter::WriteStoreOp(u32 Op, ARMReg Rt, ARMReg Rn, Operand2 Rm, bool R
 	Write32(condition | (op << 20) | (Index << 24) | (Add << 23) | (Rn << 16) | (Rt << 12) | Data);
 }
 
-void ARMXEmitter::LDR (ARMReg dest, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(1, dest, base, op2, RegAdd);}
-void ARMXEmitter::LDRB(ARMReg dest, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(3, dest, base, op2, RegAdd);}
-void ARMXEmitter::LDRH(ARMReg dest, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(5, dest, base, op2, RegAdd);}
-void ARMXEmitter::LDRSB(ARMReg dest, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(6, dest, base, op2, RegAdd);}
-void ARMXEmitter::LDRSH(ARMReg dest, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(7, dest, base, op2, RegAdd);}
-void ARMXEmitter::STR  (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(0, result, base, op2, RegAdd);}
-void ARMXEmitter::STRH (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(4, result, base, op2, RegAdd);}
-void ARMXEmitter::STRB (ARMReg result, ARMReg base, Operand2 op2, bool RegAdd) { WriteStoreOp(2, result, base, op2, RegAdd);}
+void ARMXEmitter::LDR (ARMReg dest, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(1, dest, base, op2, RegAdd);}
+void ARMXEmitter::LDRB(ARMReg dest, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(3, dest, base, op2, RegAdd);}
+void ARMXEmitter::LDRH(ARMReg dest, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(5, dest, base, op2, RegAdd);}
+void ARMXEmitter::LDRSB(ARMReg dest, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(6, dest, base, op2, RegAdd);}
+void ARMXEmitter::LDRSH(ARMReg dest, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(7, dest, base, op2, RegAdd);}
+void ARMXEmitter::STR  (ARMReg result, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(0, result, base, op2, RegAdd);}
+void ARMXEmitter::STRH (ARMReg result, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(4, result, base, op2, RegAdd);}
+void ARMXEmitter::STRB (ARMReg result, ARMReg base, const Operand2 &op2, bool RegAdd) { WriteStoreOp(2, result, base, op2, RegAdd);}
 
 #define VA_TO_REGLIST(RegList, Regnum) \
 { \

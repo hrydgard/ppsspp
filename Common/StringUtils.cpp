@@ -29,7 +29,7 @@ void truncate_cpy(char *dest, size_t destSize, const char *src) {
 	}
 }
 
-long parseHexLong(std::string s) {
+long parseHexLong(const std::string &s) {
 	long value = 0;
 
 	if (s.substr(0,2) == "0x") {

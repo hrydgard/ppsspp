@@ -413,7 +413,7 @@ private:
 	void WriteRegStoreOp(u32 op, ARMReg dest, bool WriteBack, u16 RegList);
 	void WriteVRegStoreOp(u32 op, ARMReg dest, bool Double, bool WriteBack, ARMReg firstreg, u8 numregs);
 	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, ARMReg op2);
-	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, Operand2 op2);
+	void WriteShiftedDataOp(u32 op, bool SetFlags, ARMReg dest, ARMReg src, const Operand2 &op2);
 	void WriteSignedMultiply(u32 Op, u32 Op2, u32 Op3, ARMReg dest, ARMReg r1, ARMReg r2);
 
 	void WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm);
@@ -496,52 +496,52 @@ public:
 	void POP(const int num, ...);
 
 	// New Data Ops
-	void AND (ARMReg Rd, ARMReg Rn, Operand2 Rm);
-	void ANDS(ARMReg Rd, ARMReg Rn, Operand2 Rm);
-	void EOR (ARMReg dest, ARMReg src, Operand2 op2);
-	void EORS(ARMReg dest, ARMReg src, Operand2 op2);
-	void SUB (ARMReg dest, ARMReg src, Operand2 op2);
-	void SUBS(ARMReg dest, ARMReg src, Operand2 op2);
-	void RSB (ARMReg dest, ARMReg src, Operand2 op2);
-	void RSBS(ARMReg dest, ARMReg src, Operand2 op2);
-	void ADD (ARMReg dest, ARMReg src, Operand2 op2);
-	void ADDS(ARMReg dest, ARMReg src, Operand2 op2);
-	void ADC (ARMReg dest, ARMReg src, Operand2 op2);
-	void ADCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void LSL (ARMReg dest, ARMReg src, Operand2 op2);
+	void AND (ARMReg Rd, ARMReg Rn, const Operand2 &Rm);
+	void ANDS(ARMReg Rd, ARMReg Rn, const Operand2 &Rm);
+	void EOR (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void EORS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void SUB (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void SUBS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void RSB (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void RSBS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ADD (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ADDS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ADC (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ADCS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void LSL (ARMReg dest, ARMReg src, const Operand2 &op2);
 	void LSL (ARMReg dest, ARMReg src, ARMReg op2);
-	void LSLS(ARMReg dest, ARMReg src, Operand2 op2);
+	void LSLS(ARMReg dest, ARMReg src, const Operand2 &op2);
 	void LSLS(ARMReg dest, ARMReg src, ARMReg op2);
-	void LSR (ARMReg dest, ARMReg src, Operand2 op2);
-	void LSRS(ARMReg dest, ARMReg src, Operand2 op2);
+	void LSR (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void LSRS(ARMReg dest, ARMReg src, const Operand2 &op2);
 	void LSR (ARMReg dest, ARMReg src, ARMReg op2);
 	void LSRS(ARMReg dest, ARMReg src, ARMReg op2);
-	void ASR (ARMReg dest, ARMReg src, Operand2 op2);
-	void ASRS(ARMReg dest, ARMReg src, Operand2 op2);
+	void ASR (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ASRS(ARMReg dest, ARMReg src, const Operand2 &op2);
 	void ASR (ARMReg dest, ARMReg src, ARMReg op2);
 	void ASRS(ARMReg dest, ARMReg src, ARMReg op2);
 
-	void SBC (ARMReg dest, ARMReg src, Operand2 op2);
-	void SBCS(ARMReg dest, ARMReg src, Operand2 op2);
+	void SBC (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void SBCS(ARMReg dest, ARMReg src, const Operand2 &op2);
 	void RBIT(ARMReg dest, ARMReg src);
 	void REV (ARMReg dest, ARMReg src);
 	void REV16 (ARMReg dest, ARMReg src);
-	void RSC (ARMReg dest, ARMReg src, Operand2 op2);
-	void RSCS(ARMReg dest, ARMReg src, Operand2 op2);
-	void TST (             ARMReg src, Operand2 op2);
-	void TEQ (             ARMReg src, Operand2 op2);
-	void CMP (             ARMReg src, Operand2 op2);
-	void CMN (             ARMReg src, Operand2 op2);
-	void ORR (ARMReg dest, ARMReg src, Operand2 op2);
-	void ORRS(ARMReg dest, ARMReg src, Operand2 op2);
-	void MOV (ARMReg dest,             Operand2 op2);
-	void MOVS(ARMReg dest,             Operand2 op2);
-	void BIC (ARMReg dest, ARMReg src, Operand2 op2);   // BIC = ANDN
-	void BICS(ARMReg dest, ARMReg src, Operand2 op2);
-	void MVN (ARMReg dest,             Operand2 op2);
-	void MVNS(ARMReg dest,             Operand2 op2);
-	void MOVW(ARMReg dest,             Operand2 op2);
-	void MOVT(ARMReg dest, Operand2 op2, bool TopBits = false);
+	void RSC (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void RSCS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void TST (             ARMReg src, const Operand2 &op2);
+	void TEQ (             ARMReg src, const Operand2 &op2);
+	void CMP (             ARMReg src, const Operand2 &op2);
+	void CMN (             ARMReg src, const Operand2 &op2);
+	void ORR (ARMReg dest, ARMReg src, const Operand2 &op2);
+	void ORRS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void MOV (ARMReg dest,             const Operand2 &op2);
+	void MOVS(ARMReg dest,             const Operand2 &op2);
+	void BIC (ARMReg dest, ARMReg src, const Operand2 &op2);   // BIC = ANDN
+	void BICS(ARMReg dest, ARMReg src, const Operand2 &op2);
+	void MVN (ARMReg dest,             const Operand2 &op2);
+	void MVNS(ARMReg dest,             const Operand2 &op2);
+	void MOVW(ARMReg dest,             const Operand2 &op2);
+	void MOVT(ARMReg dest, const Operand2 &op2, bool TopBits = false);
 
 	// UDIV and SDIV are only available on CPUs that have 
 	// the idiva hardare capacity
@@ -569,19 +569,19 @@ public:
 
 	// Using just MSR here messes with our defines on the PPC side of stuff (when this code was in dolphin...)
 	// Just need to put an underscore here, bit annoying.
-	void _MSR (bool nzcvq, bool g, Operand2 op2);
+	void _MSR (bool nzcvq, bool g, const Operand2 &op2);
 	void _MSR (bool nzcvq, bool g, ARMReg src);
 	void MRS  (ARMReg dest);
 
 	// Memory load/store operations
-	void LDR  (ARMReg dest, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void LDRB (ARMReg dest, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void LDRH (ARMReg dest, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void LDRSB(ARMReg dest, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void LDRSH(ARMReg dest, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void STR  (ARMReg result, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void STRB (ARMReg result, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
-	void STRH (ARMReg result, ARMReg base, Operand2 op2 = 0, bool RegAdd = true);
+	void LDR  (ARMReg dest, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void LDRB (ARMReg dest, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void LDRH (ARMReg dest, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void LDRSB(ARMReg dest, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void LDRSH(ARMReg dest, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void STR  (ARMReg result, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void STRB (ARMReg result, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
+	void STRH (ARMReg result, ARMReg base, const Operand2 &op2 = 0, bool RegAdd = true);
 
 	void STMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
 	void LDMFD(ARMReg dest, bool WriteBack, const int Regnum, ...);
@@ -597,7 +597,7 @@ public:
 	// result contains the result if the instruction managed to store the value
 	void STREX(ARMReg result, ARMReg base, ARMReg op);
 	void DMB ();
-	void SVC(Operand2 op);
+	void SVC(const Operand2 &op);
 
 	// NEON and ASIMD instructions
 	// None of these will be created with conditional since ARM

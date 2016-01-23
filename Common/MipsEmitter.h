@@ -113,47 +113,47 @@ public:
 	//
 	// This applies to all J*() and B*() functions (except BREAK(), which is not a branch func.)
 
-	FixupBranch J(std::function<void ()> delaySlot = nullptr);
-	void J(const void *func, std::function<void ()> delaySlot = nullptr);
-	FixupBranch JAL(std::function<void ()> delaySlot = nullptr);
-	void JAL(const void *func, std::function<void ()> delaySlot = nullptr);
-	void JR(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
-	void JRRA(std::function<void ()> delaySlot = nullptr) {
+	FixupBranch J(const std::function<void ()> &delaySlot = nullptr);
+	void J(const void *func, const std::function<void ()> &delaySlot = nullptr);
+	FixupBranch JAL(const std::function<void ()> &delaySlot = nullptr);
+	void JAL(const void *func, const std::function<void ()> &delaySlot = nullptr);
+	void JR(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr);
+	void JRRA(const std::function<void ()> &delaySlot = nullptr) {
 		JR(R_RA, delaySlot);
 	}
-	void JALR(MIPSReg rd, MIPSReg rs, std::function<void ()> delaySlot = nullptr);
-	void JALR(MIPSReg rs, std::function<void ()> delaySlot = nullptr) {
+	void JALR(MIPSReg rd, MIPSReg rs, const std::function<void ()> &delaySlot = nullptr);
+	void JALR(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr) {
 		JALR(R_RA, rs, delaySlot);
 	}
 
-	inline FixupBranch B(std::function<void ()> delaySlot = nullptr) {
+	inline FixupBranch B(const std::function<void ()> &delaySlot = nullptr) {
 		return BEQ(R_ZERO, R_ZERO, delaySlot);
 	}
-	inline void B(const void *func, std::function<void ()> delaySlot = nullptr) {
+	inline void B(const void *func, const std::function<void ()> &delaySlot = nullptr) {
 		return BEQ(R_ZERO, R_ZERO, func, delaySlot);
 	}
-	FixupBranch BLTZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
-	void BLTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
-	FixupBranch BEQ(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot = nullptr);
-	void BEQ(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot = nullptr);
-	FixupBranch BNE(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot = nullptr);
-	void BNE(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot = nullptr);
-	inline FixupBranch BEQZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr) {
+	FixupBranch BLTZ(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr);
+	void BLTZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot = nullptr);
+	FixupBranch BEQ(MIPSReg rs, MIPSReg rt, const std::function<void ()> &delaySlot = nullptr);
+	void BEQ(MIPSReg rs, MIPSReg rt, const void *func, const std::function<void ()> &delaySlot = nullptr);
+	FixupBranch BNE(MIPSReg rs, MIPSReg rt, const std::function<void ()> &delaySlot = nullptr);
+	void BNE(MIPSReg rs, MIPSReg rt, const void *func, const std::function<void ()> &delaySlot = nullptr);
+	inline FixupBranch BEQZ(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr) {
 		return BEQ(rs, R_ZERO, delaySlot);
 	}
-	inline void BEQZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr) {
+	inline void BEQZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot = nullptr) {
 		return BEQ(rs, R_ZERO, func, delaySlot);
 	}
-	inline FixupBranch BNEZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr) {
+	inline FixupBranch BNEZ(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr) {
 		return BNE(rs, R_ZERO, delaySlot);
 	}
-	inline void BNEZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr) {
+	inline void BNEZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot = nullptr) {
 		return BNE(rs, R_ZERO, func, delaySlot);
 	}
-	FixupBranch BLEZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
-	void BLEZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
-	FixupBranch BGTZ(MIPSReg rs, std::function<void ()> delaySlot = nullptr);
-	void BGTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot = nullptr);
+	FixupBranch BLEZ(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr);
+	void BLEZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot = nullptr);
+	FixupBranch BGTZ(MIPSReg rs, const std::function<void ()> &delaySlot = nullptr);
+	void BGTZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot = nullptr);
 
 	void SetJumpTarget(const FixupBranch &branch);
 	bool BInRange(const void *func);
@@ -262,7 +262,7 @@ protected:
 	static bool BInRange(const void *src, const void *dst);
 	static bool JInRange(const void *src, const void *dst);
 	FixupBranch MakeFixupBranch(FixupBranchType type);
-	void ApplyDelaySlot(std::function<void ()> delaySlot);
+	void ApplyDelaySlot(const std::function<void ()> &delaySlot);
 
 private:
 	union {

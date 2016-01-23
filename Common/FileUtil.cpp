@@ -501,7 +501,7 @@ std::string GetDir(const std::string &path) {
 	return cutpath;
 }
 
-std::string GetFilename(std::string path) {
+std::string GetFilename(const std::string &path) {
 	size_t off = GetDir(path).size() + 1;
 	if (off < path.size())
 		return path.substr(off);
