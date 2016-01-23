@@ -774,26 +774,7 @@ void TextureCacheDX9::ApplyTexture() {
 	if (nextTexture_->framebuffer) {
 		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
 	} else {
-		// If the texture is >= 512 pixels tall...
-		if (nextTexture_->dim >= 0x900) {
-			// Texture scale/offset and gen modes don't apply in through.
-			// So we can optimize how much of the texture we look at.
-			if (gstate.isModeThrough()) {
-				if (nextTexture_->maxSeenV == 0) {
-					// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-					nextTexture_->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
-				} else if (gstate_c.vertBounds.maxV > nextTexture_->maxSeenV) {
-					// The max height changed higher, so we're better off hashing the entire thing.
-					nextTexture_->maxSeenV = 512;
-					nextTexture_->status |= TexCacheEntry::STATUS_FREE_CHANGE;
-				}
-			} else {
-				// Otherwise, we need to reset to ensure we use the whole thing.
-				// Can't tell how much is used.
-				// TODO: We could tell for texcoord UV gen, and apply scale to max?
-				nextTexture_->maxSeenV = 512;
-			}
-		}
+		UpdateMaxSeenV(gstate.isModeThrough());
 
 		LPDIRECT3DTEXTURE9 texture = DxTex(nextTexture_);
 		pD3Ddevice->SetTexture(0, texture);
