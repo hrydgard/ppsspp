@@ -443,6 +443,14 @@ handleELF:
 
 		case FILETYPE_PPSSPP_SAVESTATE:
 		{
+			// Let's use the screenshot as an icon, too.
+			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
+			lock_guard guard(info_->lock);
+			if (File::Exists(screenshotPath)) {
+				if (readFileToString(false, screenshotPath.c_str(), info_->iconTextureData)) {
+					info_->iconDataLoaded = true;
+				}
+			}
 			break;
 		}
 
@@ -709,7 +717,7 @@ again:
 void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime) {
 	if (textureData.size()) {
 		if (!tex) {
-			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::PNG);
+			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::DETECT);
 			if (tex) {
 				loadTime = time_now_d();
 			}
