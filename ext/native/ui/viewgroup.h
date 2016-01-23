@@ -323,6 +323,8 @@ public:
 	int GetCurrentTab() const { return currentTab_; }
 	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
 
+	void PersistData(PersistStatus status, PersistMap &storage) override;
+
 private:
 	EventReturn OnTabClick(EventParams &e);
 

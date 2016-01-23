@@ -1053,6 +1053,28 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 	return EVENT_DONE;
 }
 
+void TabHolder::PersistData(PersistStatus status, PersistMap &storage) {
+	const std::string &tag = Tag();
+
+	if (tag.empty()) {
+		return;
+	}
+
+	PersistBuffer &buffer = storage["TabHolder::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		buffer.resize(1);
+		buffer[0] = currentTab_;
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			SetCurrentTab(buffer[0]);
+		}
+		break;
+	}
+}
+
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
 		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) {
 	SetSpacing(0.0f);
