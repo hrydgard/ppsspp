@@ -246,8 +246,8 @@ public:
 
 	// Override so that we can scroll to the active one after moving the focus.
 	bool SubviewFocused(View *view) override;
-
 	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
+	void SetVisibility(Visibility visibility) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
@@ -316,9 +316,11 @@ public:
 	}
 
 	void SetCurrentTab(int tab) {
-		tabs_[currentTab_]->SetVisibility(V_GONE);
-		currentTab_ = tab;
-		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		if (tab != currentTab_) {
+			tabs_[currentTab_]->SetVisibility(V_GONE);
+			currentTab_ = tab;
+			tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		}
 		tabStrip_->SetSelection(tab);
 	}
 

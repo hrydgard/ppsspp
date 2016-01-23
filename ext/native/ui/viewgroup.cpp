@@ -851,6 +851,16 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 	}
 }
 
+void ScrollView::SetVisibility(Visibility visibility) {
+	ViewGroup::SetVisibility(visibility);
+
+	if (visibility == V_GONE) {
+		// Since this is no longer shown, forget the scroll position.
+		// For example, this happens when switching tabs.
+		ScrollTo(0.0f);
+	}
+}
+
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
