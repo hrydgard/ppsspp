@@ -233,21 +233,24 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	};
 
 	switch (s_opengl_mode) {
-		case MODE_OPENGL:
-			attribs[1] = EGL_OPENGL_BIT;
-			ctx_attribs[0] = EGL_NONE;
+	case MODE_OPENGL:
+		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_BIT");
+		attribs[1] = EGL_OPENGL_BIT;
+		ctx_attribs[0] = EGL_NONE;
 		break;
-		case MODE_OPENGLES2:
-			attribs[1] = EGL_OPENGL_ES2_BIT;
-			ctx_attribs[1] = 2;
+	case MODE_OPENGLES2:
+		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES2_BIT");
+		attribs[1] = EGL_OPENGL_ES2_BIT;
+		ctx_attribs[1] = 2;
 		break;
-		case MODE_OPENGLES3:
-			attribs[1] = (1 << 6); /* EGL_OPENGL_ES3_BIT_KHR */
-			ctx_attribs[1] = 3;
+	case MODE_OPENGLES3:
+		EGL_ELOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES3_BIT_KHR");
+		attribs[1] = (1 << 6); /* EGL_OPENGL_ES3_BIT_KHR */
+		ctx_attribs[1] = 3;
 		break;
-		default:
-			EGL_ELOG("Unknown OpenGL mode set\n");
-			return false;
+	default:
+		EGL_ELOG("Unknown OpenGL mode set\n");
+		return false;
 		break;
 	}
 
@@ -279,12 +282,15 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 		LogEGLConfig(egl_dpy, configs[i]);
 	}
 
-	if (s_opengl_mode == MODE_OPENGL)
+	if (s_opengl_mode == MODE_OPENGL) {
+		EGL_ILOG("eglBindAPI(OPENGL)");
 		eglBindAPI(EGL_OPENGL_API);
-	else
+	} else {
+		EGL_ILOG("eglBindAPI(OPENGL_ES)");
 		eglBindAPI(EGL_OPENGL_ES_API);
+	}
 
-	EGLNativeWindowType host_window = (EGLNativeWindowType) window_handle;
+	EGLNativeWindowType host_window = (EGLNativeWindowType)window_handle;
 	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[0]);
 
 	s = eglQueryString(egl_dpy, EGL_VERSION);
