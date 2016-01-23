@@ -3,6 +3,7 @@
 #include "base/functional.h"
 #include "base/logging.h"
 #include "base/mutex.h"
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "input/keycodes.h"
 #include "ui/ui_context.h"
@@ -75,10 +76,17 @@ void ViewGroup::Clear() {
 	views_.clear();
 }
 
-void ViewGroup::PersistData(PersistStatus status, PersistMap &storage) {
+void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
 	lock_guard guard(modifyLock_);
+
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	ITOA stringify;
 	for (size_t i = 0; i < views_.size(); i++) {
-		views_[i]->PersistData(status, storage);
+		views_[i]->PersistData(status, tag + "/" + stringify.p((int)i), storage);
 	}
 }
 
@@ -812,12 +820,12 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
-void ScrollView::PersistData(PersistStatus status, PersistMap &storage) {
-	ViewGroup::PersistData(status, storage);
+void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	ViewGroup::PersistData(status, anonId, storage);
 
-	const std::string &tag = Tag();
+	std::string tag = Tag();
 	if (tag.empty()) {
-		return;
+		tag = anonId;
 	}
 
 	PersistBuffer &buffer = storage["ScrollView::" + tag];
@@ -840,6 +848,16 @@ void ScrollView::PersistData(PersistStatus status, PersistMap &storage) {
 			scrollToTarget_ = false;
 		}
 		break;
+	}
+}
+
+void ScrollView::SetVisibility(Visibility visibility) {
+	ViewGroup::SetVisibility(visibility);
+
+	if (visibility == V_GONE) {
+		// Since this is no longer shown, forget the scroll position.
+		// For example, this happens when switching tabs.
+		ScrollTo(0.0f);
 	}
 }
 
@@ -1084,12 +1102,12 @@ EventReturn TabHolder::OnTabClick(EventParams &e) {
 	return EVENT_DONE;
 }
 
-void TabHolder::PersistData(PersistStatus status, PersistMap &storage) {
-	ViewGroup::PersistData(status, storage);
+void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	ViewGroup::PersistData(status, anonId, storage);
 
-	const std::string &tag = Tag();
+	std::string tag = Tag();
 	if (tag.empty()) {
-		return;
+		tag = anonId;
 	}
 
 	PersistBuffer &buffer = storage["TabHolder::" + tag];

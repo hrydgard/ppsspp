@@ -23,7 +23,7 @@ void UIScreen::DoRecreateViews() {
 		UI::PersistMap persisted;
 		bool persisting = root_ != nullptr;
 		if (persisting) {
-			root_->PersistData(UI::PERSIST_SAVE, persisted);
+			root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
 		}
 
 		delete root_;
@@ -34,8 +34,16 @@ void UIScreen::DoRecreateViews() {
 		}
 		recreateViews_ = false;
 
-		if (persisting) {
-			root_->PersistData(UI::PERSIST_RESTORE, persisted);
+		if (persisting && root_ != nullptr) {
+			root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
+
+			// Update layout and refocus so things scroll into view.
+			// This is for resizing down, when focused on something now offscreen.
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+			UI::View *focused = UI::GetFocusedView();
+			if (focused) {
+				root_->SubviewFocused(focused);
+			}
 		}
 	}
 }

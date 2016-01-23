@@ -64,7 +64,7 @@ public:
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
 	virtual void Clear();
-	void PersistData(PersistStatus status, PersistMap &storage) override;
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	View *GetViewByIndex(int index) { return views_[index]; }
 	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
@@ -228,7 +228,7 @@ public:
 		scrollToTarget_(false),
 		inertia_(0),
 		lastViewSize_(0.0f),
-		scrollToTopOnSizeChange_(true) {}
+		scrollToTopOnSizeChange_(false) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -246,8 +246,8 @@ public:
 
 	// Override so that we can scroll to the active one after moving the focus.
 	bool SubviewFocused(View *view) override;
-
-	void PersistData(PersistStatus status, PersistMap &storage) override;
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
+	void SetVisibility(Visibility visibility) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
@@ -316,16 +316,18 @@ public:
 	}
 
 	void SetCurrentTab(int tab) {
-		tabs_[currentTab_]->SetVisibility(V_GONE);
-		currentTab_ = tab;
-		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		if (tab != currentTab_) {
+			tabs_[currentTab_]->SetVisibility(V_GONE);
+			currentTab_ = tab;
+			tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		}
 		tabStrip_->SetSelection(tab);
 	}
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
 
-	void PersistData(PersistStatus status, PersistMap &storage) override;
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
 private:
 	EventReturn OnTabClick(EventParams &e);

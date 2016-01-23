@@ -346,7 +346,7 @@ public:
 	virtual std::string Describe() const;
 
 	virtual void FocusChanged(int focusFlags) {}
-	virtual void PersistData(PersistStatus status, PersistMap &storage) {}
+	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
 
 	void Move(Bounds bounds) {
 		bounds_ = bounds;
@@ -388,7 +388,7 @@ public:
 	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; enabledMeansDisabled_ = false; }
 	void SetDisabledPtr(bool *disabled) { enabledPtr_ = disabled; enabledMeansDisabled_ = true;  }
 
-	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
+	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
 
 	const std::string &Tag() const { return tag_; }
