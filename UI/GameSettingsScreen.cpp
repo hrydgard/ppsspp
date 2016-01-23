@@ -121,6 +121,7 @@ void GameSettingsScreen::CreateViews() {
 		root_->Add(tabHolder);
 		AddStandardBack(root_);
 	}
+	tabHolder->SetTag("GameSettings");
 	root_->SetDefaultFocusView(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.

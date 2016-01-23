@@ -344,6 +344,7 @@ void SavedataScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
 	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	tabs->SetTag("Savedata");
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	browser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	browser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);

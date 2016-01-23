@@ -709,6 +709,7 @@ void MainScreen::CreateViews() {
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
+	tabHolder_->SetTag("MainScreenGames");
 
 	leftColumn->SetClip(true);
 
@@ -1119,6 +1120,7 @@ void UmdReplaceScreen::CreateViews() {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
+	leftColumn->SetTag("UmdReplace");
 	leftColumn->SetClip(true);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
