@@ -115,8 +115,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 	bool highpTexcoord = false;
 
 	if (gl_extensions.IsGLES) {
-		// ES doesn't support dual source alpha :(
-		if (gl_extensions.GLES3) {
+		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
 			WRITE(p, "#version 300 es\n");
 			glslES30 = true;
 		} else {
@@ -132,14 +131,14 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		// TODO: Handle this in VersionGEThan?
 
 #if !defined(FORCE_OPENGL_2_0)
-	if (gl_extensions.VersionGEThan(3, 3, 0)) {
-		glslES30 = true;
-		WRITE(p, "#version 330\n");
-	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-		WRITE(p, "#version 130\n");
-	} else {
-		WRITE(p, "#version 110\n");
-	}
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
+			glslES30 = true;
+			WRITE(p, "#version 330\n");
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			WRITE(p, "#version 130\n");
+		} else {
+			WRITE(p, "#version 110\n");
+		}
 #endif
 
 		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
