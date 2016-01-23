@@ -467,7 +467,7 @@ void GameBrowser::Refresh() {
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
 			Margins pathMargins(5, 0);
-			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(1.0f)));
+			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 #if defined(_WIN32) || defined(USING_QT_UI)
 			topBar->Add(new Choice(mm->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
