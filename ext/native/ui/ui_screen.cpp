@@ -36,6 +36,14 @@ void UIScreen::DoRecreateViews() {
 
 		if (persisting && root_ != nullptr) {
 			root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
+
+			// Update layout and refocus so things scroll into view.
+			// This is for resizing down, when focused on something now offscreen.
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+			UI::View *focused = UI::GetFocusedView();
+			if (focused) {
+				root_->SubviewFocused(focused);
+			}
 		}
 	}
 }
