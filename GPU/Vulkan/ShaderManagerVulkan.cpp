@@ -60,9 +60,11 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
+#ifdef SHADERLOG
 		OutputDebugStringA("Messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
 		OutputDebugStringA(code);
+#endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);

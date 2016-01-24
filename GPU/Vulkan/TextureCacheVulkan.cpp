@@ -1445,7 +1445,7 @@ void TextureCacheVulkan::SetTexture() {
 	// Ready or not, here I go...
 	if (replaceImages) {
 		if (!entry->vkTex) {
-			DebugBreak();
+			Crash();
 		}
 	} else {
 		entry->vkTex = new CachedTextureVulkan();
