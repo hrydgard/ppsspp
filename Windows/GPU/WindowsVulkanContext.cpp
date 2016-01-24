@@ -163,7 +163,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
 	}
-	g_Vulkan->InitObjects(hInst, hWnd, true);
+	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
+	g_Vulkan->InitObjects(true);
 
 	_CrtCheckMemory();
 

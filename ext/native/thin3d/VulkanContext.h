@@ -36,7 +36,10 @@
 #define NOMINMAX              /* Don't let Windows define min() or max() */
 #define APP_NAME_STR_LEN 80
 #include <Windows.h>
-#else  // _WIN32
+#elif defined(ANDROID)  // _WIN32
+#include <android/native_window_jni.h>
+#define VK_USE_PLATFORM_ANDROID_KHR
+#else
 #define VK_USE_PLATFORM_XCB_KHR
 #include <unistd.h>
 #endif // _WIN32
@@ -158,14 +161,22 @@ public:
 
 	VkPipelineCache CreatePipelineCache();
 
-	void InitSurfaceAndQueue(HINSTANCE conn, HWND wnd);
+#ifdef _WIN32
+	void InitSurfaceWin32(HINSTANCE conn, HWND wnd);
+#elif ANDROID
+	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
+#else
+	//void InitSurfaceAndQueueXcb();
+#error Vulkan not supported on this platform
+#endif
+	void InitQueue();
+	void InitObjects(bool depthPresent);
 	void InitSwapchain(VkCommandBuffer cmd);
 	void InitSurfaceRenderPass(bool include_depth, bool clear);
 	void InitFramebuffers(bool include_depth);
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
 	void InitCommandPool();
 
-	void InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresent);
 	void DestroyObjects();
 
 	void DestroySurfaceRenderPass();
@@ -244,7 +255,9 @@ private:
 #ifdef _WIN32
 	HINSTANCE connection;        // hInstance - Windows Instance
 	HWND        window;          // hWnd - window handle
-#else  // _WIN32
+#elif ANDROID  // _WIN32
+	ANativeWindow *native_window;
+#else
 	xcb_connection_t *connection;
 	xcb_screen_t *screen;
 	xcb_window_t window;
@@ -295,7 +308,7 @@ private:
 	// Manages flipping command buffers for the backbuffer render pass.
 	// It is recommended to do the same for other rendering passes.
 	struct FrameData {
-		FrameData() : fence(nullptr), hasInitCommands(false), cmdInit(nullptr), cmdBuf(nullptr) {}
+		FrameData() : hasInitCommands(false), cmdInit(nullptr), cmdBuf(nullptr) {}
 
 		VkFence fence;
 		bool hasInitCommands;
@@ -462,7 +475,9 @@ public:
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 		if (offset_ >= size_) {
 			// For now. 4MB is not enough for God of War but lets start with smaller games :P
+#ifdef _WIN32
 			DebugBreak();
+#endif
 		}
 		return out;
 	}

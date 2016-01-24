@@ -323,8 +323,8 @@ void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanContext::InitObjects(HINSTANCE hInstance, HWND hWnd, bool depthPresent) {
-	InitSurfaceAndQueue(hInstance, hWnd);
+void VulkanContext::InitObjects(bool depthPresent) {
+	InitQueue();
 	InitCommandPool();
 
 	// Create frame data
@@ -793,7 +793,8 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanContext::InitSurfaceAndQueue(HINSTANCE conn, HWND wnd) {
+#ifdef _WIN32
+void VulkanContext::InitSurfaceWin32(HINSTANCE conn, HWND wnd) {
 	connection = conn;
 	window = wnd;
 
@@ -804,20 +805,38 @@ void VulkanContext::InitSurfaceAndQueue(HINSTANCE conn, HWND wnd) {
 
 	VkResult U_ASSERT_ONLY res;
 
-#ifdef _WIN32
 	VkWin32SurfaceCreateInfoKHR win32;
 	win32.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	win32.pNext = nullptr;
 	win32.flags = 0;
 	win32.hwnd = wnd;
 	win32.hinstance = conn;
 	res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface);
 
-#else  // _WIN32
-	res = vkCreateXcbSurfaceKHR(instance_, info.connection, info.window, NULL, &info.surface);
-#endif // _WIN32
-
 	assert(res == VK_SUCCESS);
+}
+#elif defined(ANDROID)
+void VulkanContext::InitSurfaceAndroid(ANativeWindow *native_window, int width, int height) {
+	connection = conn;
+	window = wnd;
 
+	VkResult U_ASSERT_ONLY res;
+
+	VkAndroidSurfaceCreateInfoKHR android;
+	android.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	android.flags = 0;
+	android.window = native_window;
+	android.pNext = nullptr;
+	res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface);
+
+	this->width = width;
+	this->height = height;
+	assert(res == VK_SUCCESS);
+}
+
+#endif
+
+void VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32* supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
@@ -863,7 +882,7 @@ void VulkanContext::InitSurfaceAndQueue(HINSTANCE conn, HWND wnd) {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	res = fpGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
+	VkResult res = fpGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
 		surface,
 		&formatCount, NULL);
 	assert(res == VK_SUCCESS);

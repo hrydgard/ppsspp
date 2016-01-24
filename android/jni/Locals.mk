@@ -8,6 +8,7 @@ LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder -Wno-liter
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
+  $(LOCAL_PATH)/../../ext \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
