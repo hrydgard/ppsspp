@@ -82,15 +82,25 @@ bool GameInfo::Delete() {
 			return true;
 		}
 	case FILETYPE_PSP_ELF:
-	case FILETYPE_PPSSPP_SAVESTATE:
 	case FILETYPE_UNKNOWN_BIN:
 	case FILETYPE_UNKNOWN_ELF:
 	case FILETYPE_ARCHIVE_RAR:
 	case FILETYPE_ARCHIVE_ZIP:
 	case FILETYPE_ARCHIVE_7Z:
 		{
-			const char *fileToRemove = filePath_.c_str();
+			const std::string &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
+			return true;
+		}
+
+	case FILETYPE_PPSSPP_SAVESTATE:
+		{
+			const std::string &ppstPath = filePath_;
+			File::Delete(ppstPath);
+			const std::string screenshotPath = ReplaceAll(filePath_, ".ppst", ".jpg");
+			if (File::Exists(screenshotPath)) {
+				File::Delete(screenshotPath);
+			}
 			return true;
 		}
 
