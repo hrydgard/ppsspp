@@ -31,6 +31,7 @@
 #include "proAdhoc.h" 
 #include "i18n/i18n.h"
 
+uint16_t portOffset = g_Config.iPortOffset;
 uint32_t fakePoolSize                 = 0;
 SceNetAdhocMatchingContext * contexts = NULL;
 int one                               = 1;

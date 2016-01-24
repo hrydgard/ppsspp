@@ -52,6 +52,7 @@ static void __ResetInitNetLib() {
 }
 
 void __NetInit() {
+	portOffset = g_Config.iPortOffset;
 	//net::Init();
 #ifdef _MSC_VER
 	WSADATA data;

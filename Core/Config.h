@@ -363,6 +363,7 @@ public:
 	std::string sNickName;
 	std::string proAdhocServer;
 	std::string sMACAddress;
+	int iPortOffset;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
