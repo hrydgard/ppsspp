@@ -124,9 +124,28 @@ EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
   $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
+# Only build Vulkan on ARM64 for now.
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+VULKAN_FILES := \
+  $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
+  $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
+  $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
+  $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
+  $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
+  $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
+  $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
+  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
+else
+VULKAN_FILES :=
+endif
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
+  $(VULKAN_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -209,8 +228,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCache.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
-  $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
-  $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
