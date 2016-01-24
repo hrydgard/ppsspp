@@ -474,7 +474,7 @@ public:
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 		if (offset_ >= size_) {
-			// For now. 4MB is not enough for God of War but lets start with smaller games :P
+			// TODO: Allocate a second buffer, then combine them on the next frame.
 #ifdef _WIN32
 			DebugBreak();
 #endif
