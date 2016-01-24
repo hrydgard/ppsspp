@@ -1081,6 +1081,16 @@ static int Hook_shinigamitoshoujo_download_frame() {
 	return 0;
 }
 
+static int Hook_atvoffroadfuryprodemo_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S5];
+	const u32 fb_size = ((currentMIPS->r[MIPS_REG_A0] + currentMIPS->r[MIPS_REG_A1]) >> 3) * currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(ARM64)
@@ -1182,6 +1192,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
 	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "shinigamitoshoujo_download_frame", &Hook_shinigamitoshoujo_download_frame, 0, REPFLAG_HOOKENTER, 0xBC },
+	{ "atvoffroadfuryprodemo_download_frame", &Hook_atvoffroadfuryprodemo_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
 	{}
 };
 
