@@ -71,7 +71,7 @@ void cInterfaceEGL::DetectMode() {
 				if ((attribVal & EGL_OPENGL_BIT) && s_opengl_mode != GLInterfaceMode::MODE_DETECT_ES)
 					supportsGL = true;
 				if (attribVal & (1 << 6)) /* EGL_OPENGL_ES3_BIT_KHR */
-					supportsGLES3 = true;
+					supportsGLES3 = true;  // Apparently, this cannot be completely trusted so we implement a fallback to ES 2.0 below.
 				if (attribVal & EGL_OPENGL_ES2_BIT)
 					supportsGLES2 = true;
 			}
@@ -144,27 +144,7 @@ const char *cInterfaceEGL::EGLGetErrorString(EGLint error) {
 	}
 }
 
-// Create rendering window.
-bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
-	const char *s;
-	EGLint egl_major, egl_minor;
-
-	egl_dpy = OpenDisplay();
-
-	if (!egl_dpy) {
-		EGL_ILOG("Error: eglGetDisplay() failed\n");
-		return false;
-	}
-
-	if (!eglInitialize(egl_dpy, &egl_major, &egl_minor)) {
-		EGL_ILOG("Error: eglInitialize() failed\n");
-		return false;
-	}
-	EGL_ILOG("eglInitialize() succeeded (use16bit=%d)\n", (int)use565);
-
-	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
-		DetectMode();
-
+bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565) {
 	int attribs32[] = {
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,  // Keep this first!
 		EGL_RED_SIZE, 8,
@@ -299,7 +279,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	EGLNativeWindowType host_window = (EGLNativeWindowType)window_handle;
 	EGLNativeWindowType native_window = InitializePlatform(host_window, configs[chosenConfig]);
 
-	s = eglQueryString(egl_dpy, EGL_VERSION);
+	const char *s = eglQueryString(egl_dpy, EGL_VERSION);
 	EGL_ILOG("EGL_VERSION = %s\n", s);
 
 	s = eglQueryString(egl_dpy, EGL_VENDOR);
@@ -314,7 +294,6 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
 	if (!egl_ctx) {
 		EGL_ILOG("Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
-		eglTerminate(egl_dpy);
 		delete[] configs;
 		return false;
 	}
@@ -322,14 +301,45 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	egl_surf = eglCreateWindowSurface(egl_dpy, configs[chosenConfig], native_window, nullptr);
 	if (!egl_surf) {
 		EGL_ILOG("Error: eglCreateWindowSurface failed: native_window=%p error=%s ctx_attribs[1]==%d\n", native_window, EGLGetErrorString(eglGetError()), ctx_attribs[1]);
-
 		eglDestroyContext(egl_dpy, egl_ctx);
-		eglTerminate(egl_dpy);
 		delete[] configs;
 		return false;
 	}
 
 	delete[] configs;
+	return true;
+}
+
+// Create rendering window.
+bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
+	EGLint egl_major, egl_minor;
+
+	egl_dpy = OpenDisplay();
+
+	if (!egl_dpy) {
+		EGL_ILOG("Error: eglGetDisplay() failed\n");
+		return false;
+	}
+
+	if (!eglInitialize(egl_dpy, &egl_major, &egl_minor)) {
+		EGL_ILOG("Error: eglInitialize() failed\n");
+		return false;
+	}
+	EGL_ILOG("eglInitialize() succeeded (use16bit=%d)\n", (int)use565);
+
+	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
+		DetectMode();
+
+	if (!ChooseAndCreate(window_handle, core, use565) && s_opengl_mode == MODE_OPENGLES3) {
+		// Fallback to ES 2.0 and try again.
+		s_opengl_mode = MODE_OPENGLES2;
+		if (!ChooseAndCreate(window_handle, core, use565)) {
+			eglTerminate(egl_dpy);
+			egl_dpy = nullptr;
+			return false;
+		}
+	}
+
 	return true;
 }
 

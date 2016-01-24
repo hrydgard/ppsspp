@@ -24,10 +24,18 @@
 #endif
 
 
-class cInterfaceEGL : public cInterfaceBase
-{
+class cInterfaceEGL : public cInterfaceBase {
+public:
+	void SwapInterval(int Interval);
+	void Swap();
+	void SetMode(u32 mode) { s_opengl_mode = mode; }
+	void* GetFuncAddress(const std::string& name);
+	bool Create(void *window_handle, bool core, bool use565) override;
+	bool MakeCurrent();
+	bool ClearCurrent();
+	void Shutdown();
+
 protected:
-	void DetectMode();
 	EGLSurface egl_surf;
 	EGLContext egl_ctx;
 	EGLDisplay egl_dpy;
@@ -38,13 +46,7 @@ protected:
 	virtual void SetInternalResolution(int internalWidth, int internalHeight) {}
 	const char *EGLGetErrorString(EGLint error);
 
-public:
-	void SwapInterval(int Interval);
-	void Swap();
-	void SetMode(u32 mode) { s_opengl_mode = mode; }
-	void* GetFuncAddress(const std::string& name);
-	bool Create(void *window_handle, bool core, bool use16bit) override;
-	bool MakeCurrent();
-	bool ClearCurrent();
-	void Shutdown();
+private:
+	bool ChooseAndCreate(void *window_handle, bool core, bool use565);
+	void DetectMode();
 };
