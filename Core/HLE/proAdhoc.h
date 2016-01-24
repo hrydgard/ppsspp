@@ -795,6 +795,7 @@ extern SceNetAdhocPdpStat * pdp[255];
 extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;
 
+extern uint16_t portOffset;
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
 extern int one;                 
