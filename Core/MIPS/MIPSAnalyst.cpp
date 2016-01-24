@@ -267,6 +267,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
 	{ 0x6f7c9109b5b8fa47, 688, "danganronpa1_2_download_frame", }, // Danganronpa 1
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
+	{ 0x70a6152b265228e8, 296, "unendingbloodycall_download_frame", }, // unENDing Bloody Call
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
 	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
