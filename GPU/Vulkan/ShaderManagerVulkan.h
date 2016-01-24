@@ -34,7 +34,7 @@ void ConvertProjMatrixToVulkan(Matrix4x4 & in);
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
-	// 1 << 1 is free
+	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
 	DIRTY_FOGCOLOR = (1 << 2),
 	DIRTY_FOGCOEF = (1 << 3),
 	DIRTY_TEXENV = (1 << 4),
@@ -82,8 +82,10 @@ enum {
 	DIRTY_ALL = 0xFFFFFFFF
 };
 
+// TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
 struct UB_VS_FS_Base {
 	float proj[16];
+	float proj_through[16];
 	float view[16];
 	float world[16];
 	float tex[16];  // not that common, may want to break out
@@ -104,7 +106,8 @@ struct UB_VS_FS_Base {
 };
 
 static const char *ub_baseStr =
-R"(	mat4 proj_mtx;
+R"(  mat4 proj_mtx;
+	mat4 proj_through_mtx;
   mat4 view_mtx;
   mat4 world_mtx;
   mat4 tex_mtx;

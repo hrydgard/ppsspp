@@ -74,13 +74,15 @@ struct VulkanPipeline {
 };
 
 class VulkanContext;
+class VulkanVertexShader;
+class VulkanFragmentShader;
 
 class PipelineManagerVulkan {
 public:
 	PipelineManagerVulkan(VulkanContext *ctx);
 	~PipelineManagerVulkan();
 
-	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform);
+	VulkanPipeline *GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

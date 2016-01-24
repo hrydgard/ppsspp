@@ -172,13 +172,13 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 		key.depthWriteEnable = gstate.isClearModeDepthMask();
 		if (gstate.isClearModeDepthMask()) {
-			// framebufferManager_->SetDepthUpdated();
+			fbManager.SetDepthUpdated();
 		}
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
-		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_A_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
+		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
 		GenericStencilFuncState stencilState;
 		ConvertStencilFuncState(stencilState);
