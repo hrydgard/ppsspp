@@ -141,10 +141,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	dp.maxSets = 1000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	res = vkCreateDescriptorPool(device, &dp, nullptr, &frame_[0].descPool);
-	assert(VK_SUCCESS == res);
-	res = vkCreateDescriptorPool(device, &dp, nullptr, &frame_[1].descPool);
-	assert(VK_SUCCESS == res);
 
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
@@ -161,6 +157,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	pl.pushConstantRangeCount = 0;
 	pl.setLayoutCount = 1;
 	pl.pSetLayouts = &descriptorSetLayout_;
+	pl.flags = 0;
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
@@ -406,7 +403,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[2];
+	VkWriteDescriptorSet writes[4];
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
@@ -437,14 +434,16 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	buf[2].buffer = dynamicUbo;
 	buf[2].offset = 0;
 	buf[2].range = sizeof(UB_VS_Bones);
-	writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[n].pNext = nullptr;
-	writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE;
-	writes[n].pBufferInfo = &buf[0];
-	writes[n].dstSet = desc;
-	writes[n].descriptorCount = 3;
-	writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	n++;
+	for (int i = 0; i < 3; i++) {
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE + i;
+		writes[n].pBufferInfo = &buf[i];
+		writes[n].dstSet = desc;
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		n++;
+	}
 
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
@@ -550,7 +549,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		};
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, vertexCount * dec_->GetDecVtxFmt().stride, 16);
+		int stride = dec_->GetDecVtxFmt().stride;
+		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, vertexCount * stride, 16);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
