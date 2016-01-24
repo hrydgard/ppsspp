@@ -249,7 +249,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 			Matrix4x4 proj_through;
 			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 			ConvertProjMatrixToVulkanThrough(proj_through);
-			CopyMatrix4x4(ub_base.proj, proj_through.getReadPtr());
+			CopyMatrix4x4(ub_base.proj_through, proj_through.getReadPtr());
 		} else {
 			Matrix4x4 flippedMatrix;
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));

@@ -494,6 +494,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	uint32_t vbOffset = 0;
 	
 	if (useHWTransform) {
+		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
+
 		int vertexCount = 0;
 		int maxIndex = 0;
 		bool useElements = true;
@@ -529,7 +531,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdSetBlendConstants(cmd_, bc);
 		shaderManager_->UpdateUniforms();
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
-		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), true);
+		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 		if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
@@ -548,11 +550,11 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		};
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-		vbOffset = (uint32_t)frame->pushData->Push(decoded, vertexCount * dec_->GetDecVtxFmt().stride);
+		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, vertexCount * dec_->GetDecVtxFmt().stride, 16);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
-			ibOffset = (uint32_t)frame->pushData->Push(decIndex, 2 * indexGen.VertexCount());
+			ibOffset = (uint32_t)frame->pushData->PushAligned(decIndex, 2 * indexGen.VertexCount(), 16);
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
 			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
@@ -591,6 +593,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, 1.0f);
 
+		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
+		// to use a "pre-clear" render pass, for high efficiency on tilers.
+
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
@@ -614,7 +619,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			vkCmdSetBlendConstants(cmd_, bc);
 			shaderManager_->UpdateUniforms();
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader->GetModule(), fshader->GetModule(), false);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 			if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
