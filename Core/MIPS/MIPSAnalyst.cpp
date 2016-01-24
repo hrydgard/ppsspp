@@ -267,6 +267,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
 	{ 0x6f7c9109b5b8fa47, 688, "danganronpa1_2_download_frame", }, // Danganronpa 1
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
+	{ 0x70a6152b265228e8, 296, "unendingbloodycall_download_frame", }, // unENDing Bloody Call
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
 	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
@@ -340,9 +341,11 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
+	{ 0xa615f6bd33195dae, 220, "atvoffroadfuryprodemo_download_frame", }, // ATV Offroad Fury Pro (US) demo
 	{ 0xa662359e30b829e4, 148, "memcmp", },
 	{ 0xa6a03f0487a911b0, 392, "danganronpa1_1_download_frame", }, // Danganronpa 1
 	{ 0xa8390e65fa087c62, 140, "vtfm_t_q", },
+	{ 0xa85e48ee10b2dc50, 432, "omertachinmokunookitethelegacy_download_frame", }, // Omerta Chinmoku No Okite The Legacy
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
