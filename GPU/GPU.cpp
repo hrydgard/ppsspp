@@ -59,6 +59,8 @@ bool GPU_Init(GraphicsContext *ctx) {
 		SetGPU(new DIRECTX9_GPU());
 #endif
 		break;
+	case GPU_DIRECTX11:
+		return nullptr;
 	case GPU_VULKAN:
 		SetGPU(new GPU_Vulkan(ctx));
 		break;
