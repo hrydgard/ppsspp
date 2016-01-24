@@ -637,8 +637,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	int renderX1 = std::max(clipX, x) - x;
 	int renderY1 = std::max(clipY, y) - y;
 	// We can render up to frac beyond the glyph w/h, so add 1px if necessary.
-	int renderX2 = std::min(clipX + clipWidth, glyph.w + (xFrac > 0 ? 1 : 0));
-	int renderY2 = std::min(clipY + clipHeight, glyph.h + (yFrac > 0 ? 1 : 0));
+	int renderX2 = std::min(clipX + clipWidth - x, glyph.w + (xFrac > 0 ? 1 : 0));
+	int renderY2 = std::min(clipY + clipHeight - y, glyph.h + (yFrac > 0 ? 1 : 0));
 
 	if (xFrac == 0 && yFrac == 0) {
 		for (int yy = renderY1; yy < renderY2; ++yy) {
