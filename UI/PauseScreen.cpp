@@ -359,6 +359,9 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 		SaveState::LoadSlot(gamePath_, slot, SaveState::Callback(), 0);
 
 		finishNextFrame_ = true;
+	} else {
+		// There may have been changes to our savestates, so let's recreate.
+		RecreateViews();
 	}
 }
 
