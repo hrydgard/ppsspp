@@ -269,24 +269,11 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 				"w2.x", "w2.y", "w2.z", "w2.w",
 			};
 
-			// To loop through the weights, we unfortunately need to put them in a float array.
-			// GLSL ES sucks - no way to directly initialize an array!
-			switch (numBoneWeights) {
-			case 1: WRITE(p, "  float w[1]; w[0] = w1;\n"); break;
-			case 2: WRITE(p, "  float w[2]; w[0] = w1.x; w[1] = w1.y;\n"); break;
-			case 3: WRITE(p, "  float w[3]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z;\n"); break;
-			case 4: WRITE(p, "  float w[4]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w;\n"); break;
-			case 5: WRITE(p, "  float w[5]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2;\n"); break;
-			case 6: WRITE(p, "  float w[6]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y;\n"); break;
-			case 7: WRITE(p, "  float w[7]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z;\n"); break;
-			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
-			}
-
-			WRITE(p, "  mat4 skinMatrix = w[0] * bone.m[0];\n");
+			WRITE(p, "  mat4 skinMatrix = w1.x * bone.m[0];\n");
 			if (numBoneWeights > 1) {
-				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
-				WRITE(p, "    skinMatrix += w[i] * bone.m[i];\n");
-				WRITE(p, "  }\n");
+				for (int i = 1; i < numBoneWeights; i++) {
+					WRITE(p, "    skinMatrix += %s * bone.m[%i];\n", boneWeightAttr[i], i);
+				}
 			}
 
 			WRITE(p, ";\n");

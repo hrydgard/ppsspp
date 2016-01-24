@@ -722,7 +722,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		screenManager->getUIContext()->Text()->OncePerFrame();
 	}
 
-	DrawDownloadsOverlay(*screenManager->getUIContext());
+	// At this point, the vulkan context has been "ended" already, no more drawing can be done in this frame.
+	// TODO: Integrate the download overlay with the screen system
+	// DrawDownloadsOverlay(*screenManager->getUIContext());
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
