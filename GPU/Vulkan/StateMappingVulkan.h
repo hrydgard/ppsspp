@@ -34,7 +34,7 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int blendOpAlpha : 3;  // VkBlendOp
 	bool logicOpEnable : 1;
 	unsigned int logicOp : 4;  // VkLogicOp
-	int colorWriteMask : 4;
+	unsigned int colorWriteMask : 4;
 
 	// Depth/Stencil
 	bool depthTestEnable : 1;
