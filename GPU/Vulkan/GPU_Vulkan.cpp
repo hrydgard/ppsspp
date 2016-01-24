@@ -320,7 +320,7 @@ static const CommandTableEntry commandTable[] = {
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
 																																					 // Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_PROJMATRIX, &GPU_Vulkan::Execute_VertexType },
+	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPU_Vulkan::Execute_VertexType },
 
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Bezier },
 	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Spline },

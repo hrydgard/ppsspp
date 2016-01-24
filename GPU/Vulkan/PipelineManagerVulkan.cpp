@@ -4,6 +4,7 @@
 #include "Common/StringUtils.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
+#include "GPU/Vulkan/ShaderManagerVulkan.h"
 // #include "GPU/Vulkan/"
 #include "thin3d/VulkanContext.h"
 
@@ -285,12 +286,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VkShaderModule vShader, VkShaderModule fShader, bool useHwTransform) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, const VulkanPipelineRasterStateKey &rasterKey, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VulkanPipelineKey key;
 	key.raster = rasterKey;
 	key.useHWTransform = useHwTransform;
-	key.vShader = vShader;
-	key.fShader = fShader;
+	key.vShader = vs->GetModule();
+	key.fShader = fs->GetModule();
 	key.vtxDec = vtxDec;
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
@@ -299,7 +300,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, vulkan_->GetSurfaceRenderPass(), 
-		rasterKey, vtxDec, vShader, fShader, useHwTransform);
+		rasterKey, vtxDec, key.vShader, key.fShader, useHwTransform);
 	pipelines_[key] = pipeline;
 	return pipeline;
 }

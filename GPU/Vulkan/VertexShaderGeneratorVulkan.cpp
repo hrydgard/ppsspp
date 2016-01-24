@@ -242,7 +242,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  gl_Position = base.proj_mtx * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  gl_Position = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
