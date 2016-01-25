@@ -556,6 +556,11 @@ struct Atrac {
 			// Let's try the next packet.
 			packet_->size = 0;
 			return ATDECODE_BADFRAME;
+		} else if (bytes_read == AVERROR_INVALIDDATA) {
+			ERROR_LOG(ME, "Invalid data detected.  Ignoring.");
+			// Let's try the next packet.
+			packet_->size = 0;
+			return ATDECODE_BADFRAME;
 		} else if (bytes_read < 0) {
 			ERROR_LOG_REPORT(ME, "avcodec_decode_audio4: Error decoding audio %d / %08x", bytes_read, bytes_read);
 			failedDecode_ = true;
