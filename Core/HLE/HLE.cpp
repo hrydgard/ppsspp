@@ -43,6 +43,10 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
+
 enum
 {
 	// Do nothing after the syscall.
@@ -606,7 +610,12 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 
 		case 's':
 			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%s", Memory::GetCharPointer(regval));
+				const char *s = Memory::GetCharPointer(regval);
+				if (strnlen(s, 64) >= 64) {
+					APPEND_FMT("%.64s...", Memory::GetCharPointer(regval));
+				} else {
+					APPEND_FMT("%s", Memory::GetCharPointer(regval));
+				}
 			} else {
 				APPEND_FMT("(invalid)");
 			}
