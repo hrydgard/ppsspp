@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdarg>
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
@@ -146,8 +147,38 @@ const HLEFunction *GetSyscallInfo(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *
 void *GetQuickSyscallFunc(MIPSOpcode op);
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...);
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask);
+void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason);
+
+template <typename T>
+T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
+	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+		return res;
+	}
+
+	char formatted_reason[4096] = {0};
+	if (reason != nullptr) {
+		va_list args;
+		va_start(args, reason);
+		formatted_reason[0] = ':';
+		formatted_reason[1] = ' ';
+		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
+		formatted_reason[sizeof(formatted_reason) - 1] = '\0';
+		va_end(args);
+	}
+
+	hleDoLogInternal(t, level, res, file, line, reportTag, retmask, reason, formatted_reason);
+	return res;
+}
+
+template <typename T>
+T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *file, int line, const char *reportTag, char retmask) {
+	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
+		return res;
+	}
+
+	hleDoLogInternal(t, level, res, file, line, reportTag, retmask, nullptr, "");
+	return res;
+}
 
 // This is just a quick way to force logging to be more visible for one file.
 #ifdef HLE_LOG_FORCE
@@ -163,8 +194,7 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 #define HLE_LOG_LVERBOSE LVERBOSE
 #endif
 
-// Only one side of the ?: is evaluated (per c++ standard), so this should be safe.
-#define hleLogHelper(t, level, res, retmask, ...) (LogTypes::level > MAX_LOGLEVEL ? res : hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__))
+#define hleLogHelper(t, level, res, retmask, ...) hleDoLog(LogTypes::t, LogTypes::level, res, __FILE__, __LINE__, nullptr, retmask, ##__VA_ARGS__)
 #define hleLogError(t, res, ...) hleLogHelper(t, LERROR, res, 'x', ##__VA_ARGS__)
 #define hleLogWarning(t, res, ...) hleLogHelper(t, LWARNING, res, 'x', ##__VA_ARGS__)
 #define hleLogDebug(t, res, ...) hleLogHelper(t, HLE_LOG_LDEBUG, res, 'x', ##__VA_ARGS__)
