@@ -226,7 +226,8 @@ public:
 		scrollStart_(0),
 		scrollTarget_(0),
 		scrollToTarget_(false),
-		inertia_(0),
+		inertia_(0.0f),
+		pull_(0.0f),
 		lastViewSize_(0.0f),
 		scrollToTopOnSizeChange_(false) {}
 
@@ -253,7 +254,7 @@ public:
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
 
 private:
-	void ClampScrollPos(float &pos);
+	float ClampedScrollPos(float pos);
 
 	GestureDetector gesture_;
 	Orientation orientation_;
@@ -262,6 +263,7 @@ private:
 	float scrollTarget_;
 	bool scrollToTarget_;
 	float inertia_;
+	float pull_;
 	float lastViewSize_;
 	bool scrollToTopOnSizeChange_;
 };

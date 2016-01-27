@@ -669,13 +669,15 @@ void ScrollView::Layout() {
 	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
 	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
 
+	float layoutScrollPos = ClampedScrollPos(scrollPos_);
+
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (scrolled.w != lastViewSize_) {
 			ScrollTo(0.0f);
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - scrollPos_;
+		scrolled.x = bounds_.x - layoutScrollPos;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -684,7 +686,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - scrollPos_;
+		scrolled.y = bounds_.y - layoutScrollPos;
 		break;
 	}
 
@@ -781,7 +783,7 @@ void ScrollView::Draw(UIContext &dc) {
 	float bobWidth = 5;
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		float bobHeight = ratio * bounds_.h;
-		float bobOffset = (scrollPos_ / scrollMax) * (bounds_.h - bobHeight);
+		float bobOffset = (ClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bobHeight);
 
 		Bounds bob(bounds_.x2() - bobWidth, bounds_.y + bobOffset, bobWidth, bobHeight);
 		dc.FillRect(Drawable(0x80FFFFFF), bob);
@@ -797,21 +799,22 @@ bool ScrollView::SubviewFocused(View *view) {
 	// Scroll so that the focused view is visible, and a bit more so that headers etc gets visible too, in most cases.
 	const float overscroll = std::min(view->GetBounds().h / 1.5f, GetBounds().h / 4.0f);
 
+	float pos = ClampedScrollPos(scrollPos_);
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (vBounds.x2() > bounds_.x2()) {
-			ScrollTo(scrollPos_ + vBounds.x2() - bounds_.x2() + overscroll);
+			ScrollTo(pos + vBounds.x2() - bounds_.x2() + overscroll);
 		}
 		if (vBounds.x < bounds_.x) {
-			ScrollTo(scrollPos_ + (vBounds.x - bounds_.x) - overscroll);
+			ScrollTo(pos + (vBounds.x - bounds_.x) - overscroll);
 		}
 		break;
 	case ORIENT_VERTICAL:
 		if (vBounds.y2() > bounds_.y2()) {
-			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2() + overscroll);
+			ScrollTo(pos + vBounds.y2() - bounds_.y2() + overscroll);
 		}
 		if (vBounds.y < bounds_.y) {
-			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y) - overscroll);
+			ScrollTo(pos + (vBounds.y - bounds_.y) - overscroll);
 		}
 		break;
 	}
@@ -869,21 +872,37 @@ void ScrollView::ScrollRelative(float distance) {
 	scrollToTarget_ = true;
 }
 
-void ScrollView::ClampScrollPos(float &pos) {
+float ScrollView::ClampedScrollPos(float pos) {
 	if (!views_.size()) {
-		pos = 0.0f;
-		return;
+		return 0.0f;
 	}
 
 	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
 	float scrollMax = std::max(0.0f, childSize - (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w));
 
-	if (pos < 0.0f) {
-		pos = 0.0f;
+	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
+
+	if (gesture_.IsGestureActive(gesture)) {
+		float maxPull = bounds_.h * 0.1f;
+		if (pos < 0.0f) {
+			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
+			pull_ = -(sqrt(dist) * maxPull);
+		} else if (pos > scrollMax) {
+			float dist = std::min((pos - scrollMax) * (1.0f / bounds_.h), 1.0f);
+			pull_ = sqrt(dist) * maxPull;
+		} else {
+			pull_ = 0.0f;
+		}
 	}
-	if (pos > scrollMax) {
-		pos = scrollMax;
+
+	if (pos < 0.0f && pos < pull_) {
+		pos = pull_;
 	}
+	if (pos > scrollMax && pos > scrollMax + pull_) {
+		pos = scrollMax + pull_;
+	}
+
+	return pos;
 }
 
 void ScrollView::ScrollToBottom() {
@@ -911,25 +930,34 @@ void ScrollView::Update(const InputState &input_state) {
 		inertia_ = 0.0f;
 	}
 	ViewGroup::Update(input_state);
+
+	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
-		ClampScrollPos(scrollTarget_);
+		float target = ClampedScrollPos(scrollTarget_);
 
 		inertia_ = 0.0f;
-		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
-			scrollPos_ = scrollTarget_;
+		if (fabsf(target - scrollPos_) < 0.5f) {
+			scrollPos_ = target;
 			scrollToTarget_ = false;
 		} else {
-			scrollPos_ += (scrollTarget_ - scrollPos_) * 0.3f;
+			scrollPos_ += (target - scrollPos_) * 0.3f;
 		}
-	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
+	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(gesture)) {
 		scrollPos_ -= inertia_;
 		inertia_ *= friction;
 		if (fabsf(inertia_) < stop_threshold)
 			inertia_ = 0.0f;
 	}
 
-	ClampScrollPos(scrollPos_);
+	if (!gesture_.IsGestureActive(gesture)) {
+		scrollPos_ = ClampedScrollPos(scrollPos_);
+
+		pull_ *= friction;
+		if (fabsf(pull_) < 0.01f) {
+			pull_ = 0.0f;
+		}
+	}
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
