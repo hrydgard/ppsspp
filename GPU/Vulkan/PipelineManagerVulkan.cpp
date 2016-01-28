@@ -98,7 +98,7 @@ int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[]) 
 	return 4;
 }
 
-static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key, const VertexDecoder *vtxDec, VkShaderModule vshader, VkShaderModule fshader, bool useHwTransform) {
+static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VkPipelineColorBlendAttachmentState blend0;
 	blend0.blendEnable = key.blendEnable;
 	if (key.blendEnable) {
@@ -186,14 +186,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ss[0].pNext = nullptr;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
-	ss[0].module = vshader;
+	ss[0].module = vs->GetModule();
 	ss[0].pName = "main";
 	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	ss[1].pNext = nullptr;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
-	ss[1].module = fshader;
+	ss[1].module = fs->GetModule();
 	ss[1].pName = "main";
 	ss[1].flags = 0;
 
@@ -231,14 +231,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	vis.vertexAttributeDescriptionCount = attributeCount;
 	vis.pVertexAttributeDescriptions = attrs;
 
-	VkPipelineViewportStateCreateInfo vs;
-	vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	vs.pNext = nullptr;
-	vs.flags = 0;
-	vs.viewportCount = 1;
-	vs.scissorCount = 1;
-	vs.pViewports = nullptr;  // dynamic
-	vs.pScissors = nullptr;  // dynamic
+	VkPipelineViewportStateCreateInfo views;
+	views.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	views.pNext = nullptr;
+	views.flags = 0;
+	views.viewportCount = 1;
+	views.scissorCount = 1;
+	views.pViewports = nullptr;  // dynamic
+	views.pScissors = nullptr;  // dynamic
 
 	VkGraphicsPipelineCreateInfo pipe;
 	pipe.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -258,7 +258,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	// We will use dynamic viewport state.
 	pipe.pVertexInputState = &vis;
-	pipe.pViewportState = &vs;
+	pipe.pViewportState = &views;
 	pipe.pTessellationState = nullptr;
 	pipe.pDynamicState = &ds;
 	pipe.pInputAssemblyState = &inputAssembly;
@@ -300,7 +300,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, vulkan_->GetSurfaceRenderPass(), 
-		rasterKey, vtxDec, key.vShader, key.fShader, useHwTransform);
+		rasterKey, vtxDec, vs, fs, useHwTransform);
 	pipelines_[key] = pipeline;
 	return pipeline;
 }
