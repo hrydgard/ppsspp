@@ -29,6 +29,7 @@ extern const struct HDRemaster g_HDRemasters[] = {
 	{ "ULJM05170", 0x04000000, true, "ULJM-05170|55C069C631B22685|0001|G" }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
 	{ "ULJM05277", 0x04C00000, true, "ULJM-05277|0E8D71AFAA4F62D8|0001|G" }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
 	{ "ULJM05353", 0x04C00000, true, "ULJM-05353|0061DA67EBD6B9C6|0001|G" }, // Eiyuu Densetsu: Sora no Kiseki 3rd Kai HD Edition
+	{ "ULUS12345", 0x04000000, false, "ULUS-12345|6E197A8FB304B3DB|0001|G" }, // Saints Row 2 / Undercover - alpha (needs extra ram, not a remaster)
 };
 
 const size_t g_HDRemastersCount = ARRAY_SIZE(g_HDRemasters);
