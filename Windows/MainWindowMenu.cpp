@@ -81,7 +81,7 @@ namespace MainWindow {
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Emulation submenus
-		SUBMENU_DISPLAY_ROTATION = 5,
+		SUBMENU_DISPLAY_ROTATION = 4,
 
 		// Game Settings submenus
 		SUBMENU_DISPLAY_LAYOUT = 7,
