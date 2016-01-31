@@ -433,7 +433,6 @@ namespace DX9 {
 				// If depth wasn't updated, then we're at least "two degrees" away from the data.
 				// This is an optimization: it probably doesn't need to be copied in this case.
 			} else {
-				// TODO: Needs work
 				BlitFramebufferDepth(prevVfb, vfb);
 			}
 		}
@@ -521,16 +520,14 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (src->z_address == dst->z_address &&
-			src->z_stride != 0 && dst->z_stride != 0 &&
-			src->renderWidth == dst->renderWidth &&
-			src->renderHeight == dst->renderHeight) {
-
+		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+		bool matchingSize = src->width == dst->width && src->height == dst->height;
+		if (matchingDepthBuffer && matchingSize) {
 			// Doesn't work.  Use a shader maybe?
-			/*fbo_unbind();
+			fbo_unbind();
 
-			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
-			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
+			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo_dx9);
+			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo_dx9);
 
 			if (srcTex && dstTex) {
 				D3DSURFACE_DESC srcDesc;
@@ -543,12 +540,16 @@ namespace DX9 {
 				HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
 				HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
 				if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-					int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 w = std::min(pitch / 4, std::min(srcDesc.Width, dstDesc.Width));
 					u32 h = std::min(srcDesc.Height, dstDesc.Height);
 					const u8 *srcp = (const u8 *)srcLock.pBits;
 					u8 *dstp = (u8 *)dstLock.pBits;
+					// TODO: Optimize.  But probably don't change the stencil bits.
 					for (u32 y = 0; y < h; ++y) {
-						memcpy(dstp, srcp, pitch);
+						for (u32 x = 0; x < w; ++x) {
+							memcpy(dstp + x * 4, srcp + x * 4, 3);
+						}
 						dstp += dstLock.Pitch;
 						srcp += srcLock.Pitch;
 					}
@@ -561,7 +562,7 @@ namespace DX9 {
 				}
 			}
 
-			RebindFramebuffer();*/
+			RebindFramebuffer();
 		}
 	}
 
