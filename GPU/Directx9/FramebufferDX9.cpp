@@ -39,6 +39,10 @@
 
 #include <algorithm>
 
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
+
 void ShowScreenResolution();
 
 namespace DX9 {
@@ -519,6 +523,31 @@ namespace DX9 {
 		RebindFramebuffer();
 	}
 
+	static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
+		size_t x = 0;
+
+#ifdef _M_SSE
+		size_t sseSize = (c / 4) * 4;
+		const __m128i srcMask = _mm_set1_epi32(0x00FFFFFF);
+		const __m128i dstMask = _mm_set1_epi32(0xFF000000);
+		__m128i *dst = (__m128i *)dstp;
+		const __m128i *src = (const __m128i *)srcp;
+
+		for (; x < sseSize; x += 4) {
+			const __m128i bits24 = _mm_and_si128(_mm_load_si128(src), srcMask);
+			const __m128i bits8 = _mm_and_si128(_mm_load_si128(dst), dstMask);
+			_mm_store_si128(dst, _mm_or_si128(bits24, bits8));
+			dst++;
+			src++;
+		}
+#endif
+
+		// Copy the remaining pixels that didn't fit in SSE.
+		for (; x < c; ++x) {
+			memcpy(dstp + x, srcp + x, 3);
+		}
+	}
+
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
 		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
@@ -545,13 +574,15 @@ namespace DX9 {
 					u32 h = std::min(srcDesc.Height, dstDesc.Height);
 					const u8 *srcp = (const u8 *)srcLock.pBits;
 					u8 *dstp = (u8 *)dstLock.pBits;
-					// TODO: Optimize.  But probably don't change the stencil bits.
-					for (u32 y = 0; y < h; ++y) {
-						for (u32 x = 0; x < w; ++x) {
-							memcpy(dstp + x * 4, srcp + x * 4, 3);
+
+					if (w == pitch / 4 && srcLock.Pitch == dstLock.Pitch) {
+						CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w * h);
+					} else {
+						for (u32 y = 0; y < h; ++y) {
+							CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w);
+							dstp += dstLock.Pitch;
+							srcp += srcLock.Pitch;
 						}
-						dstp += dstLock.Pitch;
-						srcp += srcLock.Pitch;
 					}
 				}
 				if (SUCCEEDED(srcLockRes)) {
