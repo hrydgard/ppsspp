@@ -723,6 +723,9 @@ void SasInstance::DoState(PointerWrap &p) {
 	}
 	p.DoArray(voices, ARRAY_SIZE(voices));
 	p.Do(waveformEffect);
+	if (p.mode == p.MODE_READ) {
+		reverb_.SetPreset(waveformEffect.type);
+	}
 }
 
 void SasVoice::Reset() {
@@ -764,8 +767,7 @@ void SasVoice::ChangedParams(bool changedVag) {
 	// TODO: restart VAG somehow
 }
 
-void SasVoice::DoState(PointerWrap &p)
-{
+void SasVoice::DoState(PointerWrap &p) {
 	auto s = p.Section("SasVoice", 1, 3);
 	if (!s)
 		return;
