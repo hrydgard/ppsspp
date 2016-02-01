@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <limits>
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -679,9 +680,9 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 
 		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
 		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
-		float zScale = vpZScale / halfActualZRange;
+		float zScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
 		// This adjusts the center from halfActualZRange to vpZCenter.
-		float zOffset = (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
+		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
 		out.depthRangeMin = ToScaledDepthFromInteger(minz);
 		out.depthRangeMax = ToScaledDepthFromInteger(maxz);
