@@ -763,6 +763,8 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x0E00, 0x0E5B));
 			break;
 		case 'K':  // Korean (hangul)
+			ranges.push_back(range(0x1100, 0x11FF, hangul1));
+			ranges.push_back(range(0x3130, 0x318F, hangul2));
 			ranges.push_back(range(0xAC00, 0xD7A3, hangul3));
 			break;
 		case 'V':  // Vietnamese (need 'e' too)
