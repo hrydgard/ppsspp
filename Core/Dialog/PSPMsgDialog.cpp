@@ -128,7 +128,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	if (flag & DS_ERRORMSG) {
-		snprintf(msgText, 512, "Error code: %08x", messageDialog.errorNum);
+		snprintf(msgText, 512, "Error code: %08x", (unsigned int)messageDialog.errorNum);
 	} else {
 		strncpy(msgText, messageDialog.string, 512);
 	}

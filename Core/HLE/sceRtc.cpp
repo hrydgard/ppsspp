@@ -954,7 +954,7 @@ static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 	char *out = (char *)Memory::GetPointer(outPtr);
 	char *end = out + 32;
 	out += strftime(out, end - out, "%a, %d %b ", &local);
-	out += snprintf(out, end - out, "%04d", pt.year);
+	out += snprintf(out, end - out, "%04d", (int)pt.year);
 	out += strftime(out, end - out, " %H:%M:%S ", &local);
 	if (tz < 0)
 		out += snprintf(out, end - out, "-%02d%02d", -tz / 60, -tz % 60);
@@ -984,7 +984,7 @@ static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 	char *out = (char *)Memory::GetPointer(outPtr);
 	char *end = out + 32;
-	out += snprintf(out, end - out, "%04d", pt.year);
+	out += snprintf(out, end - out, "%04d", (int)pt.year);
 	out += strftime(out, end - out, "-%m-%dT%H:%M:%S.00", &local);
 	if (tz == 0)
 		out += snprintf(out, end - out, "Z");

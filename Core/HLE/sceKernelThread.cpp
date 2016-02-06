@@ -130,8 +130,8 @@ public:
 	{
 		sprintf(ptr, "thread=%i, argument= %08x",
 			//hackAddress,
-			nc.threadId,
-			nc.commonArgument);
+			(int)nc.threadId,
+			(unsigned int)nc.commonArgument);
 	}
 
 	~Callback()
@@ -381,8 +381,8 @@ public:
 			(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "", 
 			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
 			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
-			nt.waitType,
-			nt.waitID,
+			(int)nt.waitType,
+			(int)nt.waitID,
 			waitInfo.waitValue);
 	}
 
@@ -1391,7 +1391,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 			break;
 
 		default:
-			_dbg_assert_msg_(SCEKERNEL, false, "Unexpected type %d", type);
+			_dbg_assert_msg_(SCEKERNEL, false, "Unexpected type %d", (int)type);
 		}
 
 		for (size_t i = 0; i < threadqueue.size(); i++) {

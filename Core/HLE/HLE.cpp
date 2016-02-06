@@ -626,7 +626,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			break;
 
 		case 'i':
-			APPEND_FMT("%d", regval);
+			APPEND_FMT("%d", (int)regval);
 			break;
 
 		case 'X':

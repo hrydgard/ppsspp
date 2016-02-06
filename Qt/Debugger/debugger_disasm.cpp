@@ -115,7 +115,7 @@ void Debugger_Disasm::UpdateDialog()
 	UpdateCallstack();
 
 	char tempTicks[24];
-	sprintf(tempTicks, "%lld", CoreTiming::GetTicks());
+	sprintf(tempTicks, "%lld", (long long)CoreTiming::GetTicks());
 	ui->debugCount->setText(QString("Ctr : ") + tempTicks);
 
 	if(mainWindow->GetDialogMemory())

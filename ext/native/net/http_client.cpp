@@ -126,7 +126,7 @@ void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *prog
 		if (!line.size())
 			return;
 		int chunkSize;
-		sscanf(line.c_str(), "%x", &chunkSize);
+		sscanf(line.c_str(), "%x", (unsigned int *)&chunkSize);
 		if (chunkSize) {
 			std::string data;
 			inbuffer->Take(chunkSize, &data);

@@ -275,7 +275,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		break;
 
 	case CMD_FMT_NUM:
-		swprintf(dest, L"%d", value);
+		swprintf(dest, L"%d", (int)value);
 		break;
 
 	case CMD_FMT_FLOAT24:
@@ -285,7 +285,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 	case CMD_FMT_PTRWIDTH:
 		value |= (otherValue & 0x00FF0000) << 8;
 		otherValue &= 0xFFFF;
-		swprintf(dest, L"%08x, w=%d", value, otherValue);
+		swprintf(dest, L"%08x, w=%d", value, (int)otherValue);
 		break;
 
 	case CMD_FMT_XY:
@@ -537,7 +537,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_CLEARMODE:
 		if (value == 0) {
-			swprintf(dest, L"%d", value);
+			swprintf(dest, L"%d", (int)value);
 		} else if ((value & ~(GE_CLEARMODE_ALL | 1)) == 0) {
 			const char *clearmodes[] = {
 				"1, write disabled",
@@ -769,7 +769,7 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 
 	case CMD_FMT_FLAG:
 		if ((value & ~1) == 0) {
-			swprintf(dest, L"%d", value);
+			swprintf(dest, L"%d", (int)value);
 		} else {
 			swprintf(dest, L"%06x", value);
 		}

@@ -118,7 +118,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 		if (!started) continue;
 
 		u32 address = -1, size, vaddress = -1;
-		int moduleIndex = 0;
+		unsigned int moduleIndex = 0;
 		int typeInt;
 		SymbolType type;
 		char name[128] = {0};
@@ -255,7 +255,7 @@ bool SymbolMap::LoadNocashSym(const char *filename) {
 				}
 			}
 		} else {				// labels
-			int size = 1;
+			unsigned int size = 1;
 			char* seperator = strchr(value, ',');
 			if (seperator != NULL) {
 				*seperator = 0;

@@ -241,8 +241,8 @@ public:
 		sprintf(ptr, "%sname=%s gp=%08x entry=%08x",
 			isFake ? "faked " : "",
 			nm.name,
-			nm.gp_value,
-			nm.entry_addr);
+			(unsigned int)nm.gp_value,
+			(unsigned int)nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
@@ -1179,7 +1179,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 			}
 
 			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numVars=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x, extra=%08x\n",
-				modulename, entry->version, entry->flags, entry->size, entry->numVars, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
+				modulename, (unsigned int)entry->version, (unsigned int)entry->flags, entry->size, entry->numVars, (int)entry->numFuncs, (unsigned int)entry->nidData, (unsigned int)entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
 			debugInfo += temp;
 		}
 
