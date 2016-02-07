@@ -511,6 +511,10 @@ float DepthSliceFactor() {
 
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
 static float ToScaledDepthFromInteger(float z) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		return z * (1.0f / 65535.0f);
+	}
+
 	const float depthSliceFactor = DepthSliceFactor();
 	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
@@ -690,8 +694,19 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// This adjusts the center from halfActualZRange to vpZCenter.
 		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
-		out.depthRangeMin = ToScaledDepthFromInteger(minz);
-		out.depthRangeMax = ToScaledDepthFromInteger(maxz);
+		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			zScale = 1.0f;
+			zOffset = 0.0f;
+			out.depthRangeMin = ToScaledDepthFromInteger(vpZCenter - vpZScale);
+			out.depthRangeMax = ToScaledDepthFromInteger(vpZCenter + vpZScale);
+		} else {
+			out.depthRangeMin = ToScaledDepthFromInteger(minz);
+			out.depthRangeMax = ToScaledDepthFromInteger(maxz);
+		}
+
+		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
+		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
+		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
 
 		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
 		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;

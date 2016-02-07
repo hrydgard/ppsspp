@@ -598,8 +598,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 		float viewZScale = halfActualZRange;
 		float viewZCenter = minz + halfActualZRange;
-		float viewZInvScale;
 
+		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			viewZScale = vpZScale;
+			viewZCenter = vpZCenter;
+		}
+
+		float viewZInvScale;
 		if (viewZScale != 0.0) {
 			viewZInvScale = 1.0f / viewZScale;
 		} else {
