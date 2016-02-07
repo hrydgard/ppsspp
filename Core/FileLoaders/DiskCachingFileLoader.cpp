@@ -422,6 +422,10 @@ bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t
 	}
 	s64 blockOffset = GetBlockOffset(info.block);
 
+	// Before we read, make sure the buffers are flushed.
+	// We might be trying to read an area we've recently written.
+	fflush(f_);
+
 	bool failed = false;
 #ifdef ANDROID
 	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
@@ -615,11 +619,16 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 	}
 
 	indexCount_ = (filesize_ + blockSize_ - 1) / blockSize_;
+	index_.clear();
 	index_.resize(indexCount_);
 	blockIndexLookup_.resize(maxBlocks_);
 	memset(&blockIndexLookup_[0], INVALID_INDEX, maxBlocks_ * sizeof(blockIndexLookup_[0]));
 
 	if (fwrite(&index_[0], sizeof(BlockInfo), indexCount_, f_) != indexCount_) {
+		CloseFileHandle();
+		return;
+	}
+	if (fflush(f_) != 0) {
 		CloseFileHandle();
 		return;
 	}
