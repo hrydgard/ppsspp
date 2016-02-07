@@ -675,11 +675,15 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 		retmask = latestSyscall->retmask;
 
 	const char *fmt;
-	// TODO: Floats and other types... move to another func (for return type?)  Hmm.
 	if (retmask == 'x') {
 		fmt = "%08llx=%s(%s)%s";
+		// Truncate the high bits of the result (from any sign extension.)
+		res = (u32)res;
 	} else if (retmask == 'i' || retmask == 'I') {
 		fmt = "%lld=%s(%s)%s";
+	} else if (retmask == 'f') {
+		// TODO: For now, floats are just shown as bits.
+		fmt = "%08x=%s(%s)%s";
 	} else {
 		_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
 		fmt = "%08llx=%s(%s)%s";
