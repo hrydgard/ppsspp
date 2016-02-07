@@ -679,12 +679,16 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		const double scale = DepthSliceFactor() * 65535.0;
 
 		WRITE(p, "  highp float z = gl_FragCoord.z;\n");
-		// We center the depth with an offset, but only its fraction matters.
-		// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
-		if (((int)(DepthSliceFactor() - 1.0f) & 1) == 1) {
-			WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
+		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			// We center the depth with an offset, but only its fraction matters.
+			// When (DepthSliceFactor() - 1) is odd, it will be 0.5, otherwise 0.
+			if (((int)(DepthSliceFactor() - 1.0f) & 1) == 1) {
+				WRITE(p, "  z = (floor((z * %f) - (1.0 / 2.0)) + (1.0 / 2.0)) * (1.0 / %f);\n", scale, scale);
+			} else {
+				WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
+			}
 		} else {
-			WRITE(p, "  z = floor(z * %f) * (1.0 / %f);\n", scale, scale);
+			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
 	}
