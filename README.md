@@ -39,7 +39,7 @@ What's new in 1.2.0
 * Assorted stability fixes (ffmpeg crash, etc)
 * Volume setting is back
 * Preparations for supporting more graphics APIs
-* AdHoc port offset (ini-only)
+* AdHoc port offset
 * Support another HD remaster (Sora no Kiseki Kai HD)
 
 What's new in 1.1.1
