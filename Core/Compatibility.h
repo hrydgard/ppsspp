@@ -47,6 +47,7 @@
 struct CompatFlags {
 	bool VertexDepthRounding;
 	bool PixelDepthRounding;
+	bool DepthRangeHack;
 };
 
 class IniFile;
