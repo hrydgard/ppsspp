@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdarg>
+#include <type_traits>
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
@@ -166,7 +167,14 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 		va_end(args);
 	}
 
-	hleDoLogInternal(t, level, res, file, line, reportTag, retmask, reason, formatted_reason);
+	u64 fmtRes = res;
+	if (std::is_floating_point<T>::value) {
+		// We reinterpret as the bits for now, so we can have a common helper.
+		fmtRes = *(const u32 *)&res;
+	} else if (std::is_signed<T>::value) {
+		fmtRes = (s64)res;
+	}
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, reason, formatted_reason);
 	return res;
 }
 
@@ -176,7 +184,14 @@ T hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, T res, const char *
 		return res;
 	}
 
-	hleDoLogInternal(t, level, res, file, line, reportTag, retmask, nullptr, "");
+	u64 fmtRes = res;
+	if (std::is_floating_point<T>::value) {
+		// We reinterpret as the bits for now, so we can have a common helper.
+		fmtRes = *(const u32 *)&res;
+	} else if (std::is_signed<T>::value) {
+		fmtRes = (s64)res;
+	}
+	hleDoLogInternal(t, level, fmtRes, file, line, reportTag, retmask, nullptr, "");
 	return res;
 }
 
