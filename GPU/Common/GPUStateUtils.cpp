@@ -512,8 +512,14 @@ float DepthSliceFactor() {
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
 static float ToScaledDepthFromInteger(float z) {
 	const float depthSliceFactor = DepthSliceFactor();
-	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
-	return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
+		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
+		return (float)((double)z * (1.0 / 16777215.0) + doffset);
+	} else {
+		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+		return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+	}
 }
 
 float ToScaledDepth(u16 z) {
@@ -579,8 +585,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = ToScaledDepth(0);
-		out.depthRangeMax = ToScaledDepth(65535);
+		out.depthRangeMin = ToScaledDepthFromInteger(0);
+		out.depthRangeMax = ToScaledDepthFromInteger(65536);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
