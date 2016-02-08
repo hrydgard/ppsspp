@@ -293,7 +293,9 @@ namespace MIPSInt
 				_dbg_assert_msg_(CPU, 0, "Misaligned lv.q");
 			}
 #ifndef COMMON_BIG_ENDIAN
-			ReadVector(reinterpret_cast<float *>(Memory::GetPointer(addr)), V_Quad, vt);
+			FloatBits mgpr;
+			mgpr._u8 = *Memory::GetPointer(addr);
+			ReadVector(&mgpr, V_Quad, vt);
 #else
 			FloatBits lvqd[4]; //float
 
@@ -340,7 +342,9 @@ namespace MIPSInt
 				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
 			}
 #ifndef COMMON_BIG_ENDIAN
-			ReadVector(reinterpret_cast<float *>(Memory::GetPointer(addr)), V_Quad, vt);
+			FloatBits mgp;
+			mgp._u8 = *Memory::GetPointer(addr);
+			ReadVector(&mgp, V_Quad, vt);
 #else
 			FloatBits svqd[4]; //float
 			ReadVector(svqd, V_Quad, vt);

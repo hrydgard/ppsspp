@@ -83,6 +83,7 @@ union FloatBits {
 	float f;
 	u32 u;
 	int i;
+	u8 _u8;
 };
 
 void ReadMatrix(float *rd, MatrixSize size, int reg);
