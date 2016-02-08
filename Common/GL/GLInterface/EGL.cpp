@@ -358,13 +358,14 @@ void cInterfaceEGL::Shutdown() {
 	}
 	if (egl_ctx) {
 		eglMakeCurrent(egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-		if (!eglDestroyContext(egl_dpy, egl_ctx))
-			NOTICE_LOG(G3D, "Could not destroy drawing context.");
 		if (!eglDestroySurface(egl_dpy, egl_surf))
 			NOTICE_LOG(G3D, "Could not destroy window surface.");
+		if (!eglDestroyContext(egl_dpy, egl_ctx))
+			NOTICE_LOG(G3D, "Could not destroy drawing context.");
 		if (!eglTerminate(egl_dpy))
 			NOTICE_LOG(G3D, "Could not destroy display connection.");
 		egl_ctx = nullptr;
 		egl_dpy = nullptr;
+		egl_surf = nullptr;
 	}
 }
