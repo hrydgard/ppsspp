@@ -624,7 +624,7 @@ namespace MIPSAnalyst {
 
 		if (IsSVQInstr(op)) {
 			int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
-			float rd[4];
+			FloatBits rd[4]; //float
 			ReadVector(rd, V_Quad, vt);
 			return memcmp(rd, Memory::GetPointer(addr), sizeof(float) * 4) != 0;
 		}

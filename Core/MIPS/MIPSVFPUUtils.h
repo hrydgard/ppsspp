@@ -79,8 +79,20 @@ enum MatrixSize {
 	M_Invalid = -1
 };
 
+union FloatBits {
+	float f;
+	u32 u;
+	int i;
+};
+
 void ReadMatrix(float *rd, MatrixSize size, int reg);
 void WriteMatrix(const float *rs, MatrixSize size, int reg);
+
+void WriteVector(const float *rs, VectorSize N, int reg);
+void ReadVector(float *rd, VectorSize N, int reg);
+
+void WriteVector(const FloatBits *rd, VectorSize size, int reg);
+void ReadVector(FloatBits *rd, VectorSize size, int reg);
 
 void WriteVector(const float *rs, VectorSize N, int reg);
 void ReadVector(float *rd, VectorSize N, int reg);
