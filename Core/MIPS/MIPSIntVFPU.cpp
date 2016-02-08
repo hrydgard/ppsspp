@@ -70,10 +70,16 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-union FloatBits {
+union FloatBits4 {
 	float f[4];
 	u32 u[4];
 	int i[4];
+};
+
+union FloatBits2 {
+	float f[2];
+	u32 u[2];
+	int i[2];
 };
 
 // Preserves NaN in first param, takes sign of equal second param.
@@ -622,141 +628,142 @@ namespace MIPSInt
 	}
 
 	void Int_Vf2i(MIPSOpcode op) {
-		float s[4];
-		int d[4];
+		FloatBits4 s; //float
+		FloatBits4 d; //int
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		float mult = (float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
-			if (my_isnan(s[i])) {
-				d[i] = 0x7FFFFFFF;
+			if (my_isnan(s.f[i])) {
+				d.i[i] = 0x7FFFFFFF;
 				continue;
 			}
-			double sv = s[i] * mult; // (float)0x7fffffff == (float)0x80000000
+			double sv = s.f[i] * mult; // (float)0x7fffffff == (float)0x80000000
 			// Cap/floor it to 0x7fffffff / 0x80000000
 			if (sv > (double)0x7fffffff) {
-				d[i] = 0x7fffffff;
+				d.i[i] = 0x7fffffff;
 			} else if (sv <= (double)(int)0x80000000) {
-				d[i] = 0x80000000;
+				d.i[i] = 0x80000000;
 			} else {
 				switch ((op >> 21) & 0x1f)
 				{
-				case 16: d[i] = (int)round_vfpu_n(sv); break; //(floor(sv + 0.5f)); break; //n
-				case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
-				case 18: d[i] = (int)ceil(sv); break; //u
-				case 19: d[i] = (int)floor(sv); break; //d
-				default: d[i] = 0x7FFFFFFF; break;
+				case 16: d.i[i] = (int)round_vfpu_n(sv); break; //(floor(sv + 0.5f)); break; //n
+				case 17: d.i[i] = s.f[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+				case 18: d.i[i] = (int)ceil(sv); break; //u
+				case 19: d.i[i] = (int)floor(sv); break; //d
+				default: d.i[i] = 0x7FFFFFFF; break;
 				}
 			}
 		}
-		ApplyPrefixD(reinterpret_cast<float *>(d), sz, true);
-		WriteVector(reinterpret_cast<float *>(d), sz, vd);
+		ApplyPrefixD(d.f, sz, true);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vi2f(MIPSOpcode op)
 	{
-		int s[4];
-		float d[4];
+		FloatBits4 s; //int
+		FloatBits4 d; //float
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		float mult = 1.0f/(float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
-		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz); //TODO: and the mask to kill everything but swizzle
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
-			d[i] = (float)s[i] * mult;
+			d.f[i] = s.f[i] * mult;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d.f, sz); //TODO: and the mask to kill everything but mask
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vh2f(MIPSOpcode op)
 	{
-		u32 s[4];
-		float d[4];
+		FloatBits4 s; //u32
+		FloatBits4 d; //float
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz);
 		
 		VectorSize outsize = V_Pair;
 		switch (sz) {
 		case V_Single:
 			outsize = V_Pair;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
+			d.f[0] = ExpandHalf(s.u[0] & 0xFFFF);
+			d.f[1] = ExpandHalf(s.u[0] >> 16);
 			break;
 		case V_Pair:
 			outsize = V_Quad;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
-			d[2] = ExpandHalf(s[1] & 0xFFFF);
-			d[3] = ExpandHalf(s[1] >> 16);
+			d.f[0] = ExpandHalf(s.u[0] & 0xFFFF);
+			d.f[1] = ExpandHalf(s.u[0] >> 16);
+			d.f[2] = ExpandHalf(s.u[1] & 0xFFFF);
+			d.f[3] = ExpandHalf(s.u[1] >> 16);
 			break;
 		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
-			memset(d, 0, sizeof(d));
+			memset(d.f, 0, sizeof(d.f));
 			break;
 		}
-		ApplyPrefixD(d, outsize);
-		WriteVector(d, outsize, vd);
+		ApplyPrefixD(d.f, outsize);
+		WriteVector(d.f, outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vf2h(MIPSOpcode op)
 	{
-		float s[4];
-		u32 d[4];
+		FloatBits4 s; //float
+		FloatBits4 d; //u32
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz);
 		
 		VectorSize outsize = V_Single;
 		switch (sz) {
 		case V_Pair:
 			outsize = V_Single;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			d.u[0] = ShrinkToHalf(s.f[0]) | ((u32)ShrinkToHalf(s.f[1]) << 16);
 			break;
 		case V_Quad:
 			outsize = V_Pair;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
-			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
+			d.u[0] = ShrinkToHalf(s.f[0]) | ((u32)ShrinkToHalf(s.f[1]) << 16);
+			d.u[1] = ShrinkToHalf(s.f[2]) | ((u32)ShrinkToHalf(s.f[3]) << 16);
 			break;
 		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
-			d[0] = 0;
-			d[1] = 0;
+			d.u[0] = 0;
+			d.u[1] = 0;
 			break;
 		}
-		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);
-		WriteVector(reinterpret_cast<float *>(d), outsize, vd);
+		ApplyPrefixD(d.f, outsize);
+		WriteVector(d.f, outsize, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vx2i(MIPSOpcode op)
 	{
-		u32 s[4];
-		u32 d[4] = {0};
+		FloatBits4 s; //u32
+		FloatBits4 d; //u32
+		d = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz = sz;
-		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ReadVector(s.f, sz, vs);
 		// ForbidVPFXS
 
 		switch ((op >> 16) & 3) {
@@ -767,10 +774,10 @@ namespace MIPSInt
 			// I guess it's used for fixed-point math, and fills more bits to facilitate
 			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
 			{
-				u32 value = s[0];
+				u32 value = s.u[0];
 				u32 value2 = value / 2;
 				for (int i = 0; i < 4; i++) {
-					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
+					d.u[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
 					value >>= 8;
 				}
 				oz = V_Quad;
@@ -780,11 +787,11 @@ namespace MIPSInt
 		case 1:  // vc2i
 			// Quad is the only option
 			{
-				u32 value = s[0];
-				d[0] = (value & 0xFF) << 24;
-				d[1] = (value & 0xFF00) << 16;
-				d[2] = (value & 0xFF0000) << 8;
-				d[3] = (value & 0xFF000000);
+				u32 value = s.u[0];
+				d.u[0] = (value & 0xFF) << 24;
+				d.u[1] = (value & 0xFF00) << 16;
+				d.u[2] = (value & 0xFF0000) << 8;
+				d.u[3] = (value & 0xFF000000);
 				oz = V_Quad;
 			}
 			break;
@@ -798,9 +805,9 @@ namespace MIPSInt
 				// Intentional fallthrough.
 			case V_Single:
 				for (int i = 0; i < GetNumVectorElements(sz); i++) {
-					u32 value = s[i];
-					d[i * 2] = (value & 0xFFFF) << 15;
-					d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
+					u32 value = s.u[i];
+					d.u[i * 2] = (value & 0xFFFF) << 15;
+					d.u[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
 				}
 				break;
 
@@ -819,9 +826,9 @@ namespace MIPSInt
 				// Intentional fallthrough.
 			case V_Single:
 				for (int i = 0; i < GetNumVectorElements(sz); i++) {
-					u32 value = s[i];
-					d[i * 2] = (value & 0xFFFF) << 16;
-					d[i * 2 + 1] = value & 0xFFFF0000;
+					u32 value = s.u[i];
+					d.u[i * 2] = (value & 0xFFFF) << 16;
+					d.u[i * 2 + 1] = value & 0xFFFF0000;
 				}
 				break;
 
@@ -836,32 +843,33 @@ namespace MIPSInt
 			break;
 		}
 		
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz, true);  // Only write mask
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+		ApplyPrefixD(d.f,oz, true);  // Only write mask
+		WriteVector(d.f,oz,vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vi2x(MIPSOpcode op)
 	{
-		int s[4];
-		u32 d[2] = {0};
+		FloatBits4 s; //int
+		FloatBits2 d; //u32
+		d = {0};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz;
-		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz); //TODO: and the mask to kill everything but swizzle
 		switch ((op >> 16)&3)
 		{
 		case 0: //vi2uc
 			{
 				for (int i = 0; i < 4; i++)
 				{
-					int v = s[i];
+					int v = s.i[i];
 					if (v < 0) v = 0;
 					v >>= 23;
-					d[0] |= ((u32)v & 0xFF) << (i * 8);
+					d.u[0] |= ((u32)v & 0xFF) << (i * 8);
 				}
 				oz = V_Single;
 			}
@@ -871,8 +879,8 @@ namespace MIPSInt
 			{
 				for (int i = 0; i < 4; i++)
 				{
-					u32 v = s[i];
-					d[0] |= (v >> 24) << (i * 8);
+					u32 v = s.i[i];
+					d.u[0] |= (v >> 24) << (i * 8);
 				}
 				oz = V_Single;
 			}
@@ -881,13 +889,13 @@ namespace MIPSInt
 		case 2:  //vi2us
 			{
 				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					int low = s[i * 2];
-					int high = s[i * 2 + 1];
+					int low = s.i[i * 2];
+					int high = s.i[i * 2 + 1];
 					if (low < 0) low = 0;
 					if (high < 0) high = 0;
 					low >>= 15;
 					high >>= 15;
-					d[i] = low | (high << 16);
+					d.u[i] = low | (high << 16);
 				}
 				switch (sz) {
 				case V_Quad: oz = V_Pair; break;
@@ -902,11 +910,11 @@ namespace MIPSInt
 		case 3:  //vi2s
 			{
 				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					u32 low = s[i * 2];
-					u32 high = s[i * 2 + 1];
+					u32 low = s.i[i * 2];
+					u32 high = s.i[i * 2 + 1];
 					low >>= 16;
 					high >>= 16;
-					d[i] = low | (high << 16);
+					d.u[i] = low | (high << 16);
 				}
 				switch (sz) {
 				case V_Quad: oz = V_Pair; break;
@@ -923,8 +931,8 @@ namespace MIPSInt
 			oz = V_Single;
 			break;
 		}
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+		ApplyPrefixD(d.f,oz);
+		WriteVector(d.f,oz,vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -933,13 +941,13 @@ namespace MIPSInt
 	{
 		int vd = _VD;
 		int vs = _VS;
-		u32 s[4];
+		FloatBits4 s; //u32
 		VectorSize sz = V_Quad;
-		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ReadVector(s.f, sz, vs);
 		u16 colors[4];
 		for (int i = 0; i < 4; i++)
 		{
-			u32 in = s[i];
+			u32 in = s.u[i];
 			u16 col = 0;
 			switch ((op >> 16) & 3)
 			{
@@ -972,8 +980,10 @@ namespace MIPSInt
 			}
 			colors[i] = col;
 		}
-		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
-		WriteVector((const float *)ov, V_Pair, vd);
+		FloatBits2 ov; //u32
+		ov.u[0] = (u32)colors[0] | (colors[1] << 16);
+		ov.u[1] = (u32)colors[2] | (colors[3] << 16);
+		WriteVector(ov.f, V_Pair, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1281,7 +1291,7 @@ namespace MIPSInt
 
 	void Int_VrndX(MIPSOpcode op)
 	{
-		FloatBits d;
+		FloatBits4 d;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1546,9 +1556,9 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 
-		FloatBits s;
-		FloatBits t;
-		FloatBits d;
+		FloatBits4 s;
+		FloatBits4 t;
+		FloatBits4 d;
 		ReadVector(s.f, sz, vs);
 		ApplySwizzleS(s.f, sz);
 		ReadVector(t.f, sz, vt);
@@ -1821,8 +1831,8 @@ bad:
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
+		FloatBits4 d;
+		FloatBits4 s;
 		u8 exp = (u8)((op >> 16) & 0xFF);
 
 		ReadVector(s.f, sz, vs);
@@ -1862,8 +1872,8 @@ bad:
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
+		FloatBits4 d;
+		FloatBits4 s;
 		u8 exp = (u8)(127 + VI(vt));
 
 		ReadVector(s.f, sz, vs);
