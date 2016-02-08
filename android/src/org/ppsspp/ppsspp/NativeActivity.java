@@ -59,7 +59,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Graphics and audio interfaces
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
-	private Thread mRenderLoopThread;
+	private Thread mRenderLoopThread = null;
 
 	private String shortcutParam = "";
 
@@ -398,10 +398,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         mSurfaceView.getHolder().addCallback(NativeActivity.this);
         Log.i(TAG, "setcontentview before");
 		setContentView(mSurfaceView);
-        Log.i(TAG, "setcontentview after");
+		Log.i(TAG, "setcontentview after");
 
-		mRenderLoopThread = new Thread(mEmulationRunner);
-		mRenderLoopThread.start();
+		ensureRenderLoop();
     }
 
 	@Override
@@ -417,16 +416,20 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		// Make sure we have fresh display metrics so the computations go right.
 		// This is needed on some very old devices, I guess event order is different or something...
 		Point sz = new Point();
-        updateDisplayMetrics(sz);
-        NativeApp.backbufferResize(width, height, format);
+		updateDisplayMetrics(sz);
+		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
+		ensureRenderLoop();
+	}
+
+	protected void ensureRenderLoop() {
 		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
 			mRenderLoopThread = new Thread(mEmulationRunner);
 			mRenderLoopThread.start();
 		}
 	}
 
-    @Override
+	@Override
 	public void surfaceDestroyed(SurfaceHolder holder)
 	{
 		mSurface = null;
@@ -503,6 +506,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
+
+		// Restart the render loop.
+		ensureRenderLoop();
 	}
 
     @Override
