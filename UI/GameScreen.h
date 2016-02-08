@@ -34,6 +34,8 @@ public:
 
 	virtual void update(InputState &input);
 
+	virtual std::string tag() const { return "game"; }
+
 protected:
 	virtual void CreateViews();
 	void CallbackDeleteConfig(bool yes);
