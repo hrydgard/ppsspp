@@ -402,6 +402,12 @@ GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, 
 	Refresh();
 }
 
+void GameBrowser::FocusGame(std::string gamePath) {
+	focusGamePath_ = gamePath;
+	Refresh();
+	focusGamePath_.clear();
+}
+
 UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
 	*gridStyle_ = e.a == 0 ? true : false;
 	Refresh();
@@ -566,6 +572,10 @@ void GameBrowser::Refresh() {
 		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
+
+		if (!focusGamePath_.empty() && b->GamePath() == focusGamePath_) {
+			b->SetFocus();
+		}
 	}
 
 	// Show a button to toggle pinning at the very end.
@@ -710,6 +720,7 @@ void MainScreen::CreateViews() {
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabHolder_ = leftColumn;
 	tabHolder_->SetTag("MainScreenGames");
+	gameBrowsers_.clear();
 
 	leftColumn->SetClip(true);
 
@@ -720,6 +731,8 @@ void MainScreen::CreateViews() {
 			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
+		gameBrowsers_.push_back(tabRecentGames);
+
 		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 		tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
@@ -746,7 +759,9 @@ void MainScreen::CreateViews() {
 		}
 
 		scrollAllGames->Add(tabAllGames);
+		gameBrowsers_.push_back(tabAllGames);
 		scrollHomebrew->Add(tabHomebrew);
+		gameBrowsers_.push_back(tabHomebrew);
 
 		leftColumn->AddTab(mm->T("Games"), scrollAllGames);
 		leftColumn->AddTab(mm->T("Homebrew & Demos"), scrollHomebrew);
@@ -999,6 +1014,8 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
+	// Restore focus if it was highlighted (e.g. by gamepad.)
+	restoreFocusGamePath_ = highlightedGamePath_;
 	SetBackgroundAudioGame(path);
 	lockBackgroundAudio_ = true;
 	screenManager()->push(new GameScreen(path));
@@ -1014,16 +1031,19 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 	std::string path = e.s;
 #endif
 
-	if (!highlightedGamePath_.empty() || (e.a == FF_LOSTFOCUS && highlightedGamePath_ == path)) {
-		if (prevHighlightedGamePath_.empty() || prevHighlightProgress_ >= 0.75f) {
-			prevHighlightedGamePath_ = highlightedGamePath_;
-			prevHighlightProgress_ = 1.0 - highlightProgress_;
+	// Don't change when re-highlighting what's already highlighted.
+	if (path != highlightedGamePath_ || e.a == FF_LOSTFOCUS) {
+		if (!highlightedGamePath_.empty()) {
+			if (prevHighlightedGamePath_.empty() || prevHighlightProgress_ >= 0.75f) {
+				prevHighlightedGamePath_ = highlightedGamePath_;
+				prevHighlightProgress_ = 1.0 - highlightProgress_;
+			}
+			highlightedGamePath_.clear();
 		}
-		highlightedGamePath_.clear();
-	}
-	if (e.a == FF_GOTFOCUS) {
-		highlightedGamePath_ = path;
-		highlightProgress_ = 0.0f;
+		if (e.a == FF_GOTFOCUS) {
+			highlightedGamePath_ = path;
+			highlightProgress_ = 0.0f;
+		}
 	}
 
 	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_)
@@ -1113,6 +1133,25 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (dialog->tag() == "store") {
 		backFromStore_ = true;
 		RecreateViews();
+	}
+	if (dialog->tag() == "game") {
+		if (!restoreFocusGamePath_.empty()) {
+			// Prevent the background from fading, since we just were displaying it.
+			highlightedGamePath_ = restoreFocusGamePath_;
+			highlightProgress_ = 1.0f;
+
+			// Refocus the game button itself.
+			int tab = tabHolder_->GetCurrentTab();
+			if (tab >= 0 && tab < gameBrowsers_.size()) {
+				gameBrowsers_[tab]->FocusGame(restoreFocusGamePath_);
+			}
+
+			// Don't get confused next time.
+			restoreFocusGamePath_.clear();
+		} else {
+			// Not refocusing, so we need to stop the audio.
+			SetBackgroundAudioGame("");
+		}
 	}
 }
 

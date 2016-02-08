@@ -41,7 +41,6 @@ GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBack
 }
 
 GameScreen::~GameScreen() {
-	SetBackgroundAudioGame("");
 }
 
 void GameScreen::CreateViews() {
