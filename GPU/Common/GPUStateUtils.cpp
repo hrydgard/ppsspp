@@ -531,6 +531,10 @@ float ToScaledDepth(u16 z) {
 }
 
 float FromScaledDepth(float z) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		return z * 65535.0f;
+	}
+
 	const float depthSliceFactor = DepthSliceFactor();
 	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
 	return (z - offset) * depthSliceFactor * 65535.0f;
