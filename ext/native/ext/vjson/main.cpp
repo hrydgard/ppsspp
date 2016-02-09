@@ -25,7 +25,7 @@ void populate_sources(const char *filter, std::vector<std::vector<char> > &sourc
 		}
 	}
 
-	printf("Loaded %d json files\n", (int)sources.size());
+	printf("Loaded %d json files\n", sources.size());
 }
 
 #define IDENT(n) for (int i = 0; i < n; ++i) printf("    ")
