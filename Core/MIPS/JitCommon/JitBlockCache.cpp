@@ -100,6 +100,7 @@ void JitBlockCache::Init() {
 }
 
 void JitBlockCache::Shutdown() {
+	Clear(); // Make sure proxy block links are deleted
 	delete [] blocks_;
 	blocks_ = 0;
 	num_blocks_ = 0;
