@@ -421,8 +421,13 @@ void MainAudio::run()
     output = new QAudioOutput(fmt);
     output->setBufferSize(mixlen);
     feed = output->start();
-    if (feed != NULL)
+    if (feed != NULL) {
+        // buffering has already done in the internal mixed buffer
+        // use a small interval to copy mixed audio stream from
+        // internal buffer to audio output buffer as soon as possible
+        // use 1 instead of 0 to prevent CPU exhausting
         timer = startTimer(1);
+    }
 }
 
 void MainAudio::timerEvent(QTimerEvent *)
