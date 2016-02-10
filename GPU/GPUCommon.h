@@ -77,12 +77,18 @@ public:
 #endif
 	}
 
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 	void *operator new(size_t s) {
 		return AllocateAlignedMemory(s, 16);
 	}
 	void operator delete(void *p) {
 		FreeAlignedMemory(p);
 	}
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
 		return false;

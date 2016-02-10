@@ -371,9 +371,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 #ifdef _DEBUG
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF|_CRTDBG_LEAK_CHECK_DF);
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
-
 	PROFILE_INIT();
 
 #if defined(_M_X64) && defined(_MSC_VER) && _MSC_VER < 1900

@@ -24,7 +24,7 @@ void block_allocator::swap(block_allocator &rhs)
 	std::swap(m_head, rhs.m_head);
 }
 
-void *block_allocator::malloc(size_t size)
+void *block_allocator::Malloc(size_t size)
 {
 	if ((m_head && m_head->used + size > m_head->size) || !m_head)
 	{
@@ -46,7 +46,7 @@ void *block_allocator::malloc(size_t size)
 	return ptr;
 }
 
-void block_allocator::free()
+void block_allocator::Free()
 {
 	block_allocator(0).swap(*this);
 }

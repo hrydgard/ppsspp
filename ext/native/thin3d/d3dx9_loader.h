@@ -4,8 +4,13 @@
 #pragma once
 
 #include <Windows.h>
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 #include <d3dx9.h>
-
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 // Returns the D3DX9 version we got. 0 if none.
 int LoadD3DX9Dynamic(bool debugVersion = false);  // If debugVersion is set, load d3dx9d.dll
 int GetD3DXVersion();

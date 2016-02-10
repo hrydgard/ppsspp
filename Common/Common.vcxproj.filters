@@ -58,6 +58,7 @@
       <Filter>GL</Filter>
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
+    <ClInclude Include="DbgNew.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

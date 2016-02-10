@@ -16,6 +16,8 @@ UIContext::UIContext()
 UIContext::~UIContext() {
 	delete fontStyle_;
 	delete textDrawer_;
+	// Not releasing blend_, it's a preset. Should really make them AddRef, though..
+	depth_->Release();
 }
 
 void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {

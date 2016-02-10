@@ -38,6 +38,9 @@ static void SetGPU(T *obj) {
 	gpuDebug = obj;
 }
 
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 bool GPU_Init(GraphicsContext *ctx) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
@@ -58,6 +61,9 @@ bool GPU_Init(GraphicsContext *ctx) {
 
 	return gpu != NULL;
 }
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 
 void GPU_Shutdown() {
 	delete gpu;

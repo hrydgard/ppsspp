@@ -147,6 +147,7 @@ LogManager::~LogManager() {
 	delete consoleLog_;
 	delete debuggerLog_;
 #endif
+	delete ringLog_;
 }
 
 void LogManager::ChangeFileLog(const char *filename) {

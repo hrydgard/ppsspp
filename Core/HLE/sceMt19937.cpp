@@ -21,6 +21,11 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
+#ifdef USE_CRT_DBG
+#undef new
+#endif
+
+
 static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
 	WARN_LOG(HLE, "sceMt19937Init(%08x, %08x)", mt19937Addr, seed);

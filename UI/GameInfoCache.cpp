@@ -606,7 +606,11 @@ void GameInfoCache::Init() {
 }
 
 void GameInfoCache::Shutdown() {
-	StopProcessingWorkQueue(gameInfoWQ_);
+	if (gameInfoWQ_) {
+		StopProcessingWorkQueue(gameInfoWQ_);
+		delete gameInfoWQ_;
+		gameInfoWQ_ = nullptr;
+	}
 }
 
 void GameInfoCache::Clear() {
@@ -643,6 +647,7 @@ void GameInfoCache::Clear() {
 			iter->second->sndFileData.clear();
 			iter->second->sndDataLoaded = false;
 		}
+		delete iter->second;
 	}
 	info_.clear();
 }
