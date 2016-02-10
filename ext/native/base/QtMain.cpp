@@ -237,9 +237,12 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
     return text;
 }
 
-void MainUI::resizeEvent(QResizeEvent *e)
+void MainUI::resizeGL(int w, int h)
 {
-    UpdateScreenScale(e->size().width(), e->size().height(), false);
+    UpdateScreenScale(w, h, false);
+    xscale = w / this->width();
+    yscale = h / this->height();
+
     PSP_CoreParameter().pixelWidth = pixel_xres;
     PSP_CoreParameter().pixelHeight = pixel_yres;
 }
@@ -274,21 +277,21 @@ bool MainUI::event(QEvent *e)
             case Qt::TouchPointPressed:
             case Qt::TouchPointReleased:
                 input_state.pointer_down[touchPoint.id()] = (touchPoint.state() == Qt::TouchPointPressed);
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale;
+                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
+                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
 
-                input.x = touchPoint.pos().x() * g_dpi_scale;
-                input.y = touchPoint.pos().y() * g_dpi_scale;
+                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
                 input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
                 input.id = touchPoint.id();
                 NativeTouch(input);
                 break;
             case Qt::TouchPointMoved:
-                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale;
-                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale;
+                input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale * xscale;
+                input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale * yscale;
 
-                input.x = touchPoint.pos().x() * g_dpi_scale;
-                input.y = touchPoint.pos().y() * g_dpi_scale;
+                input.x = touchPoint.pos().x() * g_dpi_scale * xscale;
+                input.y = touchPoint.pos().y() * g_dpi_scale * yscale;
                 input.flags = TOUCH_MOVE;
                 input.id = touchPoint.id();
                 NativeTouch(input);
@@ -305,21 +308,21 @@ bool MainUI::event(QEvent *e)
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:
         input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
+        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
+        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
 
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
         input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
         input.id = 0;
         NativeTouch(input);
         break;
     case QEvent::MouseMove:
-        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
-        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
+        input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
+        input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
 
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
+        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale * xscale;
+        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale * yscale;
         input.flags = TOUCH_MOVE;
         input.id = 0;
         NativeTouch(input);
