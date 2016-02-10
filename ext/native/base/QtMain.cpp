@@ -176,7 +176,7 @@ static int mainInternal(QApplication &a)
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
 	fmt.samples = 2048;
-    fmt.callback = &mixaudio;
+	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
 	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
