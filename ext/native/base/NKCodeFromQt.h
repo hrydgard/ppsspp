@@ -83,6 +83,7 @@ static const std::map<int, int> KeyMapRawQttoNative = InitConstMap<int, int>
 	(Qt::Key_Insert, NKCODE_INSERT)
 	(Qt::Key_Period, NKCODE_NUMPAD_DOT)
 	(Qt::Key_Enter, NKCODE_NUMPAD_ENTER)
+	(Qt::Key_QuoteLeft, NKCODE_GRAVE)
 	(Qt::Key_1, NKCODE_1)
 	(Qt::Key_2, NKCODE_2)
 	(Qt::Key_3, NKCODE_3)
