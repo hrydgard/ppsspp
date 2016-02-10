@@ -427,7 +427,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				dat.ox = 0;
 				dat.oy = 0;
 				dat.wx = 0;
-				dot.voffset = 0;
+				dat.voffset = 0;
 				dat.charNum = kar;
 				dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
 				bucket->AddItem(img, dat);
