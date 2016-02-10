@@ -422,7 +422,7 @@ void MainAudio::run()
     output->setBufferSize(mixlen);
     feed = output->start();
     if (feed != NULL)
-        timer = startTimer((1000*AUDIO_SAMPLES) / AUDIO_FREQ);
+        timer = startTimer(1);
 }
 
 void MainAudio::timerEvent(QTimerEvent *)
