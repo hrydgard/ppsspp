@@ -61,12 +61,12 @@ signals:
 	void newFrame();
 
 protected:
-    void resizeEvent(QResizeEvent * e);
     void timerEvent(QTimerEvent *);
     void changeEvent(QEvent *e);
     bool event(QEvent *e);
 
     void initializeGL();
+    void resizeGL(int w, int h);
     void paintGL();
 
     void updateAccelerometer();
@@ -74,6 +74,8 @@ protected:
 private:
 	InputState input_state;
 	QtDummyGraphicsContext *graphicsContext;
+
+    float xscale, yscale;
 #if defined(MOBILE_DEVICE) && !defined(MAEMO)
 	QAccelerometer* acc;
 #endif
