@@ -1690,6 +1690,12 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
 
+	if (y >= h) {
+		ERROR_LOG_REPORT_ONCE(vfbfbooutofrange, SCEGE, "PackFramebufferSync_: region out of range (x,y,w,h: %d,%d,%d,%d)", x,y,w,h);
+		fbo_unbind_read();
+		return;
+	}
+
 	if (!convert) {
 		int byteOffset = y * vfb->fb_stride * 4;
 		packed = (GLubyte *)Memory::GetPointer(fb_address + byteOffset);
