@@ -596,10 +596,10 @@ private:
 };
 
 struct AtracSingleResetBufferInfo {
-	u32 writePosPtr;
-	u32 writableBytes;
-	u32 minWriteBytes;
-	u32 filePos;
+	u32_le writePosPtr;
+	u32_le writableBytes;
+	u32_le minWriteBytes;
+	u32_le filePos;
 };
 
 struct AtracResetBufferInfo {
