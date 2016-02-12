@@ -1680,25 +1680,25 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		return;
 	}
 
-	// Pixel size always 4 here because we always request RGBA8888
-	u32 bufSize = vfb->fb_stride * (h - y) * 4;
-	u32 fb_address = (0x04000000) | vfb->fb_address;
+	int possibleH = std::max(vfb->height - y, 0);
+	if (h > possibleH) {
+		h = possibleH;
+	}
 
-	GLubyte *packed = 0;
+	// Pixel size always 4 here because we always request RGBA8888
+	u32 bufSize = vfb->fb_stride * h * 4;
+	u32 fb_address = 0x04000000 | vfb->fb_address;
 
 	bool convert = vfb->format != GE_FORMAT_8888 || UseBGRA8888();
 	const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 	const int packWidth = std::min(vfb->fb_stride, std::min(x + w, (int)vfb->width));
 
-	if (y >= h) {
-		ERROR_LOG_REPORT_ONCE(vfbfbooutofrange, SCEGE, "PackFramebufferSync_: region out of range (x,y,w,h: %d,%d,%d,%d)", x,y,w,h);
-		fbo_unbind_read();
-		return;
-	}
+	int dstByteOffset = y * vfb->fb_stride * dstBpp;
+	u8 *dst = Memory::GetPointer(fb_address + dstByteOffset);
 
+	GLubyte *packed = nullptr;
 	if (!convert) {
-		int byteOffset = y * vfb->fb_stride * 4;
-		packed = (GLubyte *)Memory::GetPointer(fb_address + byteOffset);
+		packed = (GLubyte *)dst;
 	} else {
 		// End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		if (!convBuf_ || convBufSize_ < bufSize) {
@@ -1721,8 +1721,7 @@ void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb, int x, in
 		SafeGLReadPixels(0, y, h == 1 ? packWidth : vfb->fb_stride, h, glfmt, GL_UNSIGNED_BYTE, packed);
 
 		if (convert) {
-			int dstByteOffset = y * vfb->fb_stride * dstBpp;
-			ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
+			ConvertFromRGBA8888(dst, packed, vfb->fb_stride, vfb->fb_stride, packWidth, h, vfb->format);
 		}
 	}
 
