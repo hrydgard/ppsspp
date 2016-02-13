@@ -588,5 +588,5 @@ void Register_sceNetUpnp() {
 }
 
 void Register_sceNetIfhandle() {
-	RegisterModule("sceNetIfhandle ", ARRAY_SIZE(sceNetIfhandle), sceNetUpnp);
+	RegisterModule("sceNetIfhandle", ARRAY_SIZE(sceNetIfhandle), sceNetUpnp);
 }
