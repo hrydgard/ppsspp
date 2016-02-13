@@ -531,6 +531,11 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 	default:
 		return;
 	}
+	if (level == 0) {
+		width_ = width;
+		height_ = height;
+		depth_ = depth;
+	}
 
 	Bind();
 	switch (target_) {
