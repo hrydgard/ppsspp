@@ -62,6 +62,12 @@ static const D3DPRIMITIVETYPE primToD3D9[] = {
 	D3DPT_TRIANGLELIST,
 };
 
+static const int primCountDivisor[] = {
+	1,
+	2,
+	3,
+};
+
 class Thin3DDX9DepthStencilState : public Thin3DDepthStencilState {
 public:
 	BOOL depthTestEnabled;
@@ -647,7 +653,7 @@ void Thin3DDX9Context::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet
 	fmt->Apply(device_);
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
-	device_->DrawIndexedPrimitive(primToD3D9[prim], 0, 0, vertexCount, 0, vertexCount / 3);
+	device_->DrawIndexedPrimitive(primToD3D9[prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[prim]);
 }
 
 void Thin3DDX9Context::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {

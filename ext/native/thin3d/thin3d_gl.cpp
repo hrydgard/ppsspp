@@ -794,8 +794,8 @@ void Thin3DGLContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	ss->Apply();
 	// Note: ibuf binding is stored in the VAO, so call this after binding the fmt.
 	ibuf->Bind();
-	
-	glDrawElements(primToGL[prim], offset, GL_INT, 0);
+
+	glDrawElements(primToGL[prim], vertexCount, GL_UNSIGNED_INT, (const void *)(size_t)offset);
 	
 	ss->Unapply();
 	fmt->Unapply();
