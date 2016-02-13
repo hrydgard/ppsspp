@@ -691,8 +691,6 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
-			// TODO: Remove once software renderer supports D3D9.
-			g_Config.bSoftwareRendering = false;
 			g_Config.bRestartRequired = true;
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 			break;

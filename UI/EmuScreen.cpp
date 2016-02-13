@@ -98,9 +98,12 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
+	coreParam.gpuCore = GPU_GLES;
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		coreParam.gpuCore = GPU_DIRECTX9;
+	}
+	if (g_Config.bSoftwareRendering) {
+		coreParam.gpuCore = GPU_SOFTWARE;
 	}
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;

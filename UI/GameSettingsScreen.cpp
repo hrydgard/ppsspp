@@ -329,7 +329,7 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (experimental)")));
 	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
 
-	if (PSP_IsInited() || g_Config.iGPUBackend != GPU_BACKEND_OPENGL)
+	if (PSP_IsInited())
 		softwareGPU->SetEnabled(false);
 
 	// Audio
@@ -876,11 +876,6 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
-		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
-			// TODO: Remove once software renderer supports D3D9.
-			g_Config.bSoftwareRendering = false;
-		}
-
 		g_Config.bRestartRequired = true;
 		PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 	} else {
