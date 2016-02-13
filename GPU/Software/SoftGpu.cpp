@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Common/ColorConv.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
@@ -28,21 +28,35 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/glsl_program.h"
-#include "gfx_es2/gpu_features.h"
 #include "profiler/profiler.h"
+#include "thin3d/thin3d.h"
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Common/FramebufferCommon.h"
 
-static GLuint temp_texture = 0;
+// This is horrible, sorry.
+class Matrix4x4 {
+public:
+	union {
+		struct {
+			float xx, xy, xz, xw;
+			float yx, yy, yz, yw;
+			float zx, zy, zz, zw;
+			float wx, wy, wz, ww;
+		};
+		float m[16];
+	};
 
-static GLSLProgram *program;
-static GLuint vao;
-static GLuint vbuf;
+	void setIdentity() {
+		memset(this, 0, 16 * sizeof(float));
+		xx = 1.0f;
+		yy = 1.0f;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
+};
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
@@ -50,47 +64,31 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
+static Thin3DContext *thin3d = nullptr;
+static Thin3DTexture *fbTex = nullptr;
+static Thin3DVertexFormat *vformat = nullptr;
+static Thin3DDepthStencilState *depth = nullptr;
+static Thin3DBuffer *vdata = nullptr;
+static Thin3DBuffer *idata = nullptr;
+static std::vector<u32> fbTexBuffer;
+
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx)
 	: gfxCtx_(gfxCtx)
 {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // 4-byte pixel alignment
-	glGenTextures(1, &temp_texture);
+	thin3d = gfxCtx_->CreateThin3DContext();
+	fbTex = thin3d->CreateTexture(LINEAR2D, RGBA8888, 480, 272, 1, 1);
 
-	// TODO: Use highp for GLES
-	static const char *fragShaderText =
-#ifdef USING_GLES2
-		"#version 100\n"
-#endif
-		"varying vec2 texcoord;\n"
-		"uniform sampler2D sampler0;\n"
-		"void main() {\n"
-		"   gl_FragColor = texture2D(sampler0, texcoord);\n"
-		"}\n";
-	static const char *vertShaderText =
-#ifdef USING_GLES2
-		"#version 100\n"
-#endif
-		"attribute vec4 a_position;\n"
-		"attribute vec2 a_texcoord0;\n "
-		"varying vec2 texcoord;\n "
-		"void main() {\n"
-		"   gl_Position = a_position;\n"
-		"   texcoord = a_texcoord0;\n"
-		"}\n";
+	std::vector<Thin3DVertexComponent> components;
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
 
-	std::string errorString;
-	program = glsl_create_source(vertShaderText, fragShaderText, &errorString);
-	if (!program) {
-		ERROR_LOG_REPORT(G3D, "Failed to compile softgpu program! This shouldn't happen.\n%s", errorString.c_str());
-	} else {
-		glsl_bind(program);
-	}
+	Thin3DShader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
 
-	if (gl_extensions.ARB_vertex_array_object) {
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(1, &vbuf);
-	}
+	vdata = thin3d->CreateBuffer(24 * 4, T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
+	idata = thin3d->CreateBuffer(sizeof(int) * 6, T3DBufferUsage::DYNAMIC | T3DBufferUsage::INDEXDATA);
+	depth = thin3d->CreateDepthStencilState(false, false, T3DComparison::LESS);
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
@@ -103,24 +101,16 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx)
 }
 
 void SoftGPU::DeviceLost() {
-	if (vao != 0) {
-		// These deletes will likely fail, but let's try just in case.
-		glDeleteVertexArrays(1, &vao);
-		glDeleteBuffers(1, &vbuf);
-
-		glGenVertexArrays(1, &vao);
-		glGenBuffers(1, &vbuf);
-	}
+	// Handled by thin3d.
 }
 
-SoftGPU::~SoftGPU()
-{
-	glsl_destroy(program);
-	glDeleteTextures(1, &temp_texture);
-	if (vao != 0) {
-		glDeleteVertexArrays(1, &vao);
-		glDeleteBuffers(1, &vbuf);
-	}
+SoftGPU::~SoftGPU() {
+	vformat->Release();
+	vformat = nullptr;
+	fbTex->Release();
+	fbTex = nullptr;
+	thin3d->Release();
+	thin3d = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -137,48 +127,44 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
-	glDisable(GL_BLEND);
-	glViewport(0, 0, dstwidth, dstheight);
-	glDisable(GL_SCISSOR_TEST);
+	T3DViewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
+	thin3d->SetViewports(1, &viewport);
 
-	glBindTexture(GL_TEXTURE_2D, temp_texture);
+	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_OFF));
+	thin3d->SetDepthStencilState(depth);
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d->SetScissorEnabled(false);
 
-	GLfloat texvert_u;
+	float u0 = 0.0f;
+	float u1;
 	if (displayFramebuf_ == 0) {
-		u32 data[] = {0};
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		texvert_u = 1.0f;
+		u8 data[] = {0, 0, 0, 0};
+		fbTex->SetImageData(0, 0, 0, 1, 1, 1, 0, 4, data);
+		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)displayStride_, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		texvert_u = (float)srcwidth / displayStride_;
+		fbTex->SetImageData(0, 0, 0, displayStride_, srcheight, 1, 0, displayStride_ * 4, data);
+		u1 = (float)srcwidth / displayStride_;
 	} else {
 		// TODO: This should probably be converted in a shader instead..
-		// TODO: Do something less brain damaged to manage this buffer...
-		u32 *buf = new u32[srcwidth * srcheight];
+		fbTexBuffer.resize(srcwidth * srcheight);
 		FormatBuffer displayBuffer;
 		displayBuffer.data = Memory::GetPointer(displayFramebuf_);
 		for (int y = 0; y < srcheight; ++y) {
-			u32 *buf_line = &buf[y * srcwidth];
+			u32 *buf_line = &fbTexBuffer[y * srcwidth];
 			const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
 
 			switch (displayFormat_) {
 			case GE_FORMAT_565:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = RGB565ToRGBA8888(fb_line[x]);
-				}
+				ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_5551:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = RGBA5551ToRGBA8888(fb_line[x]);
-				}
+				ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_4444:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = RGBA4444ToRGBA8888(fb_line[x]);
-				}
+				ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			default:
@@ -186,16 +172,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 			}
 		}
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)srcwidth, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-		texvert_u = 1.0f;
-
-		delete[] buf;
+		fbTex->SetImageData(0, 0, 0, srcwidth, srcheight, 1, 0, srcwidth * 4, (const uint8_t *)&fbTexBuffer[0]);
+		u1 = 1.0f;
 	}
+	fbTex->Finalize(0);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-
-	glsl_bind(program);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
@@ -211,53 +194,32 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	const GLfloat verts[4][2] = {
-		{ x, y }, // Left top
-		{ x, y2}, // left bottom
-		{ x2, y2}, // right bottom
-		{ x2, y}  // right top
+	struct Vertex {
+		float x, y, z;
+		float u, v;
+		uint32_t rgba;
 	};
 
-	const GLfloat texverts[4][2] = {
-		{0, 1},
-		{0, 0},
-		{texvert_u, 0},
-		{texvert_u, 1}
+	float v0 = 1.0f;
+	float v1 = 0.0f;
+
+	const Vertex verts[4] = {
+		{x, y, 0,    u0, v0,  0xFFFFFFFF}, // TL
+		{x, y2, 0,   u0, v1,  0xFFFFFFFF}, // BL
+		{x2, y2, 0,  u1, v1,  0xFFFFFFFF}, // BR
+		{x2, y, 0,   u1, v0,  0xFFFFFFFF}, // TR
 	};
+	vdata->SetData((const uint8_t *)verts, sizeof(verts));
 
-	if (vao != 0) {
-		glBindVertexArray(vao);
-		glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(verts) + sizeof(texverts), nullptr, GL_STREAM_DRAW);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(verts), sizeof(texverts), texverts);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	int indexes[] = {0, 1, 2, 0, 2, 3};
+	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
-		glVertexAttribPointer(program->a_position, 2, GL_FLOAT, GL_FALSE, 0, 0);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 0, (void *)sizeof(verts));
-	} else {
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-		glVertexAttribPointer(program->a_position, 2, GL_FLOAT, GL_FALSE, 0, verts);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 0, texverts);
-	}
-
-	glEnableVertexAttribArray(program->a_position);
-	glEnableVertexAttribArray(program->a_texcoord0);
-	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(program->sampler0, 0);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	glDisableVertexAttribArray(program->a_position);
-	glDisableVertexAttribArray(program->a_texcoord0);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	if (vao != 0) {
-		glBindVertexArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	}
+	thin3d->SetTexture(0, fbTex);
+	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
+	Matrix4x4 identity;
+	identity.setIdentity();
+	texColor->SetMatrix4x4("WorldViewProj", identity);
+	thin3d->DrawIndexed(T3DPrimitive::PRIM_TRIANGLES, texColor, vformat, vdata, idata, 6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()
