@@ -18,6 +18,7 @@
 #include <set>
 
 #include "Common/ChunkFile.h"
+#include "base/NativeApp.h"
 #include "base/logging.h"
 #include "profiler/profiler.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -499,7 +500,11 @@ DIRECTX9_GPU::~DIRECTX9_GPU() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void DIRECTX9_GPU::BuildReportingInfo() {
-	
+	D3DADAPTER_IDENTIFIER9 identifier = {0};
+	pD3D->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &identifier);
+
+	reportingPrimaryInfo_ = identifier.Description;
+	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION);
 }
 
 void DIRECTX9_GPU::DeviceLost() {
