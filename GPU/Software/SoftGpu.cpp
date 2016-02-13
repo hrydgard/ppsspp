@@ -165,6 +165,11 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
 
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+		x += 0.5f;
+		y += 0.5f;
+	}
+
 	x /= 0.5f * dstwidth;
 	y /= 0.5f * dstheight;
 	w /= 0.5f * dstwidth;
