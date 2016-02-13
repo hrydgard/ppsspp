@@ -813,6 +813,8 @@ void Thin3DGLContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 	fmt->Apply(vdata);
 	ss->Apply();
 
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glDrawArrays(primToGL[prim], 0, vertexCount);
 
 	ss->Unapply();
