@@ -36,28 +36,6 @@
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Common/FramebufferCommon.h"
 
-// This is horrible, sorry.
-class Matrix4x4 {
-public:
-	union {
-		struct {
-			float xx, xy, xz, xw;
-			float yx, yy, yz, yw;
-			float zx, zy, zz, zw;
-			float wx, wy, wz, ww;
-		};
-		float m[16];
-	};
-
-	void setIdentity() {
-		memset(this, 0, 16 * sizeof(float));
-		xx = 1.0f;
-		yy = 1.0f;
-		zz = 1.0f;
-		ww = 1.0f;
-	}
-};
-
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
 FormatBuffer fb;
@@ -220,9 +198,14 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 
 	thin3d->SetTexture(0, fbTex);
 	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
-	Matrix4x4 identity;
-	identity.setIdentity();
-	texColor->SetMatrix4x4("WorldViewProj", identity);
+
+	static const float identity4x4[16] = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f,
+	};
+	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
 	thin3d->DrawIndexed(T3DPrimitive::PRIM_TRIANGLES, texColor, vformat, vdata, idata, 6, 0);
 }
 

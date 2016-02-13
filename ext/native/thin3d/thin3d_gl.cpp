@@ -327,7 +327,7 @@ public:
 	int GetUniformLoc(const char *name);
 
 	void SetVector(const char *name, float *value, int n) override;
-	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
+	void SetMatrix4x4(const char *name, const float value[16]) override;
 
 	void GLLost() override {
 		vshader->Compile(vshader->GetSource().c_str());
@@ -835,11 +835,11 @@ void Thin3DGLShaderSet::SetVector(const char *name, float *value, int n) {
 	}
 }
 
-void Thin3DGLShaderSet::SetMatrix4x4(const char *name, const Matrix4x4 &value) {
+void Thin3DGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
-		glUniformMatrix4fv(loc, 1, false, value.getReadPtr());
+		glUniformMatrix4fv(loc, 1, false, value);
 	}
 }
 

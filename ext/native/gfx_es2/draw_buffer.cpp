@@ -80,7 +80,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (count_ == 0)
 		return;
 
-	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_);
+	shaderSet_->SetMatrix4x4("WorldViewProj", drawMatrix_.getReadPtr());
 
 	if (vbuf_) {
 		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);

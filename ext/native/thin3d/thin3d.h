@@ -282,7 +282,7 @@ class Thin3DShaderSet : public Thin3DObject {
 public:
 	// TODO: Make some faster way of doing these. Support uniform buffers (and fake them on GL 2.0?)
 	virtual void SetVector(const char *name, float *value, int n) = 0;
-	virtual void SetMatrix4x4(const char *name, const Matrix4x4 &value) = 0;
+	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
 struct T3DBlendStateDesc {

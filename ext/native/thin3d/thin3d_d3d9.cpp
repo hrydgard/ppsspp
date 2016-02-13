@@ -242,7 +242,7 @@ public:
 		}
 	}
 	void SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n);
-	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const Matrix4x4 &value);
+	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]);
 
 private:
 	bool isPixelShader_;
@@ -258,7 +258,7 @@ public:
 	Thin3DDX9Shader *pshader;
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
-	void SetMatrix4x4(const char *name, const Matrix4x4 &value) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
+	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
 private:
 	LPDIRECT3DDEVICE9 device_;
 };
@@ -792,10 +792,10 @@ void Thin3DDX9Shader::SetVector(LPDIRECT3DDEVICE9 device, const char *name, floa
 	}
 }
 
-void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const Matrix4x4 &value) {
+void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
-		constantTable_->SetFloatArray(device, handle, value.getReadPtr(), 16);
+		constantTable_->SetFloatArray(device, handle, value, 16);
 	}
 }
 
