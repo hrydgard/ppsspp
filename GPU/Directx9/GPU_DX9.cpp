@@ -18,6 +18,7 @@
 #include <set>
 
 #include "Common/ChunkFile.h"
+#include "Common/GraphicsContext.h"
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "profiler/profiler.h"
@@ -391,8 +392,8 @@ static const CommandTableEntry commandTable[] = {
 
 DIRECTX9_GPU::CommandInfo DIRECTX9_GPU::cmdInfo_[256];
 
-DIRECTX9_GPU::DIRECTX9_GPU()
-: resized_(false) {
+DIRECTX9_GPU::DIRECTX9_GPU(GraphicsContext *gfxCtx)
+: resized_(false), gfxCtx_(gfxCtx) {
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
@@ -500,11 +501,12 @@ DIRECTX9_GPU::~DIRECTX9_GPU() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void DIRECTX9_GPU::BuildReportingInfo() {
-	D3DADAPTER_IDENTIFIER9 identifier = {0};
-	pD3D->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &identifier);
+	Thin3DContext *thin3d = gfxCtx_->CreateThin3DContext();
 
-	reportingPrimaryInfo_ = identifier.Description;
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION);
+	reportingPrimaryInfo_ = thin3d->GetInfoString(T3DInfo::VENDORSTRING);
+	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + thin3d->GetInfoString(T3DInfo::SHADELANGVERSION);
+
+	thin3d->Release();
 }
 
 void DIRECTX9_GPU::DeviceLost() {

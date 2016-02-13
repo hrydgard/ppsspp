@@ -50,7 +50,8 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-SoftGPU::SoftGPU()
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx)
+	: gfxCtx_(gfxCtx)
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // 4-byte pixel alignment

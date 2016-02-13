@@ -48,7 +48,7 @@ class ShaderManager;
 
 class SoftGPU : public GPUCommon {
 public:
-	SoftGPU();
+	SoftGPU(GraphicsContext *gfxCtx);
 	~SoftGPU();
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
@@ -100,4 +100,6 @@ private:
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
+
+	GraphicsContext *gfxCtx_;
 };
