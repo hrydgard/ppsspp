@@ -288,14 +288,12 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	{
 	case GE_CMD_BASE:
 		return QString("BASE: %1").arg(data & 0xFFFFFF,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_VADDR:		/// <<8????
 	{
 		u32 baseExtended = ((state.base & 0x0F0000) << 8) | (data & 0xFFFFFF);
 		baseExtended = (state.offsetAddr + baseExtended) & 0x0FFFFFFF;
 		return QString("VADDR: %1").arg(baseExtended,6,16,QChar('0'));
-		break;
 	}
 
 	case GE_CMD_IADDR:
@@ -303,7 +301,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		u32 baseExtended = ((state.base & 0x0F0000) << 8) | (data & 0xFFFFFF);
 		baseExtended = (state.offsetAddr + baseExtended) & 0x0FFFFFFF;
 		return QString("IADDR: %1").arg(baseExtended,6,16,QChar('0'));
-		break;
 	}
 
 	case GE_CMD_PRIM:
@@ -425,16 +422,13 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		// bounding box jump. Let's just not jump, for now.
 		u32 target = (((state.base & 0x00FF0000) << 8) | (op & 0xFFFFFC)) & 0x0FFFFFFF;
 		return QString("BBOX JUMP - %1 to %2").arg(pc,8,16,QChar('0')).arg(target,8,16,QChar('0'));
-		break;
 	}
 	case GE_CMD_BOUNDINGBOX:
 		// bounding box test. Let's do nothing.
 		return QString("BBOX TEST - number : %1").arg(data & 0xFFFF,4,16,QChar('0'));
-		break;
 
 	case GE_CMD_ORIGIN:
 		return QString("Origin: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_VERTEXTYPE:
 	{
@@ -486,11 +480,9 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		retString += QString(", Texture UV Format : %1").arg(format[tcFmt]);
 
 		return retString;
-		break;
 	}
 	case GE_CMD_OFFSETADDR:
 		return QString("OffsetAddr: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_REGION1:
 		{
@@ -511,51 +503,39 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_CLIPENABLE:
 		return QString("Clip Enable: %1").arg(data);
-		break;
 
 	case GE_CMD_CULLFACEENABLE:
 		return QString("CullFace Enable: %1").arg(data);
-		break;
 
 	case GE_CMD_TEXTUREMAPENABLE:
 		return QString("Texture map enable: %1").arg(data);
-		break;
 
 	case GE_CMD_LIGHTINGENABLE:
 		return QString("Lighting enable: %1").arg(data);
-		break;
 
 	case GE_CMD_FOGENABLE:
 		return QString("Fog Enable: %1").arg(data);
-		break;
 
 	case GE_CMD_DITHERENABLE:
 		return QString("Dither Enable: %1").arg(data);
-		break;
 
 	case GE_CMD_OFFSETX:
 		return QString("Offset X: %1").arg(data);
-		break;
 
 	case GE_CMD_OFFSETY:
 		return QString("Offset Y: %1").arg(data);
-		break;
 
 	case GE_CMD_TEXSCALEU:
 		return QString("Texture U Scale: %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_TEXSCALEV:
 		return QString("Texture V Scale: %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_TEXOFFSETU:
 		return QString("Texture U Offset: %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_TEXOFFSETV:
 		return QString("Texture V Offset: %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_SCISSOR1:
 		{
@@ -608,7 +588,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"32-bit ABGR 8888"
 		};
 		return QString("FramebufPixeFormat: %1").arg(fmt[data]);
-		break;
 	}
 	case GE_CMD_TEXADDR0:
 	case GE_CMD_TEXADDR1:
@@ -619,7 +598,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_TEXADDR6:
 	case GE_CMD_TEXADDR7:
 		return QString("Texture address %1: %2").arg(cmd-GE_CMD_TEXADDR0).arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_TEXBUFWIDTH0:
 	case GE_CMD_TEXBUFWIDTH1:
@@ -630,20 +608,16 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	case GE_CMD_TEXBUFWIDTH6:
 	case GE_CMD_TEXBUFWIDTH7:
 		return QString("Texture BUFWIDTHess %1: %2 width : %3").arg(cmd-GE_CMD_TEXBUFWIDTH0).arg(data,6,16,QChar('0')).arg(data & 0xFFFF);
-		break;
 
 	case GE_CMD_CLUTADDR:
 		return QString("CLUT base addr: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_CLUTADDRUPPER:
 		return QString("CLUT addr upper %1").arg(data,8,16,QChar('0'));
-		break;
 
 	case GE_CMD_LOADCLUT:
 		// This could be used to "dirty" textures with clut.
 		return QString("Clut load, numColor : %1").arg(data*8);
-		break;
 
 	case GE_CMD_TEXMAPMODE:
 	{
@@ -661,11 +635,9 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Normal"
 		};
 		return QString("Tex map mode: Map mode : %1, Proj Mode : %2").arg(texMapMode[data & 0x3]).arg(texProjMode[(data >> 8) & 0x3]);
-		break;
 	}
 	case GE_CMD_TEXSHADELS:
 		return QString("Tex shade light sources: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_CLUTFORMAT:
 		{
@@ -692,7 +664,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			u32 xferSrc = state.transfersrc | ((data&0xFF0000)<<8);
 			u32 xferSrcW = state.transfersrcw & 1023;
 			return QString("Block Transfer Src: %1	W: %2").arg(xferSrc,8,16,QChar('0')).arg(xferSrcW);
-			break;
 		}
 
 	case GE_CMD_TRANSFERDST:
@@ -707,7 +678,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			u32 xferDst= state.transferdst | ((data&0xFF0000)<<8);
 			u32 xferDstW = state.transferdstw & 1023;
 			return QString("Block Transfer Dest: %1	W: %2").arg(xferDst,8,16,QChar('0')).arg(xferDstW);
-			break;
 		}
 
 	case GE_CMD_TRANSFERSRCPOS:
@@ -715,7 +685,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
 			return QString("Block Transfer Src Rect TL: %1, %2").arg(x).arg(y);
-			break;
 		}
 
 	case GE_CMD_TRANSFERDSTPOS:
@@ -723,7 +692,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			u32 x = (data & 1023)+1;
 			u32 y = ((data>>10) & 1023)+1;
 			return QString("Block Transfer Dest Rect TL: %1, %2").arg(x).arg(y);
-			break;
 		}
 
 	case GE_CMD_TRANSFERSIZE:
@@ -731,13 +699,11 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			u32 w = (data & 1023)+1;
 			u32 h = ((data>>10) & 1023)+1;
 			return QString("Block Transfer Rect Size: %1 x %2").arg(w).arg(h);
-			break;
 		}
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
 		{
 		return QString("Block Transfer Start : %1").arg(data ? "32-bit texel size" : "16-bit texel size");
-			break;
 		}
 
 	case GE_CMD_TEXSIZE0:
@@ -825,7 +791,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Unknown (diffuse color, affected by specular power)"
 		};
 		return QString("Light %1 type: %2 %3").arg(cmd-GE_CMD_LIGHTTYPE0).arg(lightType[(data) >> 8 & 0x3]).arg(lightComp[data & 0x3]);
-		break;
 	}
 	case GE_CMD_LX0:case GE_CMD_LY0:case GE_CMD_LZ0:
 	case GE_CMD_LX1:case GE_CMD_LY1:case GE_CMD_LZ1:
@@ -914,7 +879,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Counter-clockwise visible"
 		};
 		return QString("cull: %1").arg(cull[data & 0x1]);
-		break;
 	}
 	case GE_CMD_PATCHDIVISION:
 		{
@@ -933,7 +897,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Points"
 		};
 		return QString("Patch Primitive: %1").arg(type[data]);
-		break;
 	}
 	case GE_CMD_PATCHFACING:
 	{
@@ -943,11 +906,9 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Counter-Clockwise"
 		};
 		return QString( "Patch Facing: %1").arg(val[data]);
-		break;
 	}
 	case GE_CMD_REVERSENORMAL:
 		return QString("Reverse normal: %1").arg(data);
-		break;
 
 	case GE_CMD_MATERIALUPDATE:
 	{
@@ -956,7 +917,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		if(data & 2) txt += " Diffuse";
 		if(data & 4) txt += " Specular";
 		return QString("Material Update: %1").arg(txt);
-		break;
 	}
 
 	//////////////////////////////////////////////////////////////////
@@ -977,7 +937,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			""
 		};
 		return QString("Clear mode: %1, enabled : %2").arg(clearMode[(data >> 8) & 0xF]).arg(data & 0x1);
-		break;
 	}
 
 	//////////////////////////////////////////////////////////////////
@@ -985,7 +944,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_ALPHABLENDENABLE:
 		return QString("Alpha blend enable: %1").arg(data);
-		break;
 
 	case GE_CMD_BLENDMODE:
 	{
@@ -1011,19 +969,15 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Absolute Value"
 		};
 		return QString("Blend mode: Src : %1, Dest : %2, Op : %3").arg(func[(data >> 4) & 0xF]).arg(func[(data >> 8) & 0xF]).arg(op[(data) & 0x7]);
-		break;
 	}
 	case GE_CMD_BLENDFIXEDA:
 		return QString("Blend fix A: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_BLENDFIXEDB:
 		return QString("Blend fix B: %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_ALPHATESTENABLE:
 		return QString("Alpha test enable: %1").arg(data);
-		break;
 
 	case GE_CMD_ALPHATEST:
 	{
@@ -1039,15 +993,12 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Pass pixel if greater or equal"
 		};
 		return QString("Alpha test settings, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
-		break;
 	}
 	case GE_CMD_ANTIALIASENABLE:
 		return QString("Antialias enable: %1").arg(data);
-		break;
 
 	case GE_CMD_PATCHCULLENABLE:
 		return QString("Antialias enable: %1").arg(data);
-		break;
 
 	case GE_CMD_COLORTESTENABLE:
 	{
@@ -1059,7 +1010,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Pass pixel if color differs"
 		};
 		return QString("Color Test enable: %1").arg(colorTest[data]);
-		break;
 	}
 	case GE_CMD_LOGICOPENABLE:
 	{
@@ -1083,7 +1033,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Set"
 		};
 		return QString("Logic op enable: %1").arg(logicOp[data]);
-		break;
 	}
 	case GE_CMD_TEXFUNC:
 	{
@@ -1097,7 +1046,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"","",""
 		};
 		return QString("TexFunc %1 / %2 / %3").arg((data&0x100)?"Texture alpha is read":"Texture alpha is ignored").arg((data & 0x10000)?"Fragment color is doubled":"Fragment color is untouched").arg(effect[data & 0x7]);
-		break;
 	}
 	case GE_CMD_TEXFILTER:
 		{
@@ -1120,13 +1068,11 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_TEXENVCOLOR:
 		return QString("TexEnvColor %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_TEXMODE:
 	{
 		u32 maxMipMap = (data >> 16) & 0xF;
 		return QString("TexMode MaxmipMap : %1, Swizzle : %2").arg(maxMipMap).arg(data & 0x1);
-		break;
 	}
 	case GE_CMD_TEXFORMAT:
 	{
@@ -1145,15 +1091,12 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"DXT5"
 		};
 		return QString("TexFormat %1").arg(texFmt[data]);
-		break;
 	}
 	case GE_CMD_TEXFLUSH:
 		return QString("TexFlush");
-		break;
 
 	case GE_CMD_TEXSYNC:
 		return QString("TexSync");
-		break;
 
 	case GE_CMD_TEXWRAP:
 	{
@@ -1163,27 +1106,21 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Clamp"
 		};
 		return QString("TexWrap U : %1, V : %2").arg(wrapMode[data & 0x1]).arg(wrapMode[(data >> 8) & 0x1]);
-		break;
 	}
 	case GE_CMD_TEXLEVEL:
 		return QString("TexWrap Mode: %1 Offset: %2").arg(data&3).arg(data >> 16);
-		break;
 
 	case GE_CMD_FOG1:
 		return QString("Fog1 %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_FOG2:
 		return QString( "Fog2 %1").arg(getFloat24(data));
-		break;
 
 	case GE_CMD_FOGCOLOR:
 		return QString("FogColor %1").arg(data,6,16,QChar('0'));
-		break;
 
 	case GE_CMD_TEXLODSLOPE:
 		return QString( "TexLodSlope %1").arg(data,6,16,QChar('0'));
-		break;
 
 	//////////////////////////////////////////////////////////////////
 	//	Z/STENCIL TESTING
@@ -1191,7 +1128,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_ZTESTENABLE:
 		return QString( "Z test enable: %1").arg(data&1);
-		break;
 
 	case GE_CMD_STENCILOP:
 	{
@@ -1206,7 +1142,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"",""
 		};
 		return QString("Stencil op: ZFail : %1, Fail : %2, Pass : %3").arg(stencilOp[(data >> 16) & 0x7]).arg(stencilOp[(data >> 8) & 0x7]).arg(stencilOp[(data) & 0x7]);
-		break;
 	}
 	case GE_CMD_STENCILTEST:
 	{
@@ -1222,12 +1157,10 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Pass test if greater or equal"
 		};
 		return QString("Stencil test, Mask : %1, Ref : %2, Test : %3").arg((data >> 8) & 0xFF).arg((data >> 16) & 0xFF).arg(testFunc[data & 0x7]);
-		break;
 	}
 
 	case GE_CMD_STENCILTESTENABLE:
 		return QString("Stencil test enable: %1").arg(data);
-		break;
 
 	case GE_CMD_ZTEST:
 	{
@@ -1243,7 +1176,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 			"Pass pixel if greater or equal"
 		};
 		return QString("Z test mode: %1").arg(testFunc[data & 0x7]);
-		break;
 	}
 	case GE_CMD_MORPHWEIGHT0:
 	case GE_CMD_MORPHWEIGHT1:

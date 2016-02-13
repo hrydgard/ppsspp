@@ -78,7 +78,7 @@ void ARMXEmitter::ARMABI_PopAllCalleeSavedRegsAndAdjustStack() {
 const char *conditions[] = {"EQ", "NEQ", "CS", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL" };      
 static void ShowCondition(u32 cond)
 {
-	printf("Condition: %s[%d]\n", conditions[cond], cond);
+	printf("Condition: %s[%d]\n", conditions[cond], (int)cond);
 }
 void ARMXEmitter::ARMABI_ShowConditions()
 {

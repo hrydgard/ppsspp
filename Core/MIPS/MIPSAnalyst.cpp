@@ -1235,7 +1235,7 @@ skip:
 		for (auto it = hashMap.begin(), end = hashMap.end(); it != end; ++it) {
 			const HashMapFunc &mf = *it;
 			if (!mf.hardcoded) {
-				if (fprintf(file, "%016llx:%d = %s\n", mf.hash, mf.size, mf.name) <= 0) {
+				if (fprintf(file, "%016llx:%d = %s\n", mf.hash, (int)mf.size, mf.name) <= 0) {
 					WARN_LOG(LOADER, "Could not store hash map: %s", filename.c_str());
 					break;
 				}
@@ -1293,7 +1293,7 @@ skip:
 		while (!feof(file)) {
 			HashMapFunc mf = { "" };
 			mf.hardcoded = false;
-			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, &mf.size, mf.name) < 3) {
+			if (fscanf(file, "%llx:%d = %63s\n", &mf.hash, (int *)&mf.size, mf.name) < 3) {
 				char temp[1024];
 				if (!fgets(temp, 1024, file)) {
 					WARN_LOG(LOADER, "Could not read from hash map: %s", filename.c_str());

@@ -37,57 +37,57 @@ struct CPUInfo {
 
 	char cpu_string[0x21];
 	char brand_string[0x41];
-	bool OS64bit;
-	bool CPU64bit;
-	bool Mode64bit;
+	bool OS64bit = false;
+	bool CPU64bit = false;
+	bool Mode64bit = false;
 
-	bool HTT;
-	int num_cores;
-	int logical_cpu_count;
+	bool HTT = false;
+	int num_cores = 1;
+	int logical_cpu_count = 1;
 
-	bool bSSE;
-	bool bSSE2;
-	bool bSSE3;
-	bool bSSSE3;
-	bool bPOPCNT;
-	bool bSSE4_1;
-	bool bSSE4_2;
-	bool bLZCNT;
-	bool bSSE4A;
-	bool bAVX;
-	bool bAVX2;
-	bool bFMA;
-	bool bAES;
-	bool bLAHFSAHF64;
-	bool bLongMode;
-	bool bAtom;
-	bool bBMI1;
-	bool bBMI2;
-	bool bMOVBE;
-	bool bFXSR;
+	bool bSSE = false;
+	bool bSSE2 = false;
+	bool bSSE3 = false;
+	bool bSSSE3 = false;
+	bool bPOPCNT = false;
+	bool bSSE4_1 = false;
+	bool bSSE4_2 = false;
+	bool bLZCNT = false;
+	bool bSSE4A = false;
+	bool bAVX = false;
+	bool bAVX2 = false;
+	bool bFMA = false;
+	bool bAES = false;
+	bool bLAHFSAHF64 = false;
+	bool bLongMode = false;
+	bool bAtom = false;
+	bool bBMI1 = false;
+	bool bBMI2 = false;
+	bool bMOVBE = false;
+	bool bFXSR = false;
 
 	// ARM specific CPUInfo
-	bool bSwp;
-	bool bHalf;
-	bool bThumb;
-	bool bFastMult;
-	bool bVFP;
-	bool bEDSP;
-	bool bThumbEE;
-	bool bNEON;
-	bool bVFPv3;
-	bool bTLS;
-	bool bVFPv4;
-	bool bIDIVa;
-	bool bIDIVt;
+	bool bSwp = false;
+	bool bHalf = false;
+	bool bThumb = false;
+	bool bFastMult = false;
+	bool bVFP = false;
+	bool bEDSP = false;
+	bool bThumbEE = false;
+	bool bNEON = false;
+	bool bVFPv3 = false;
+	bool bTLS = false;
+	bool bVFPv4 = false;
+	bool bIDIVa = false;
+	bool bIDIVt = false;
 
 	// ARMv8 specific
-	bool bFP;
-	bool bASIMD;
+	bool bFP = false;
+	bool bASIMD = false;
 
 	// MIPS specific
-	bool bXBurst1;
-	bool bXBurst2;
+	bool bXBurst1 = false;
+	bool bXBurst2 = false;
 
 	// Call Detect()
 	explicit CPUInfo();

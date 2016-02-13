@@ -56,9 +56,9 @@ public:
 	const char *GetTypeName() override { return "EventFlag"; }
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "init=%08x cur=%08x numwait=%i",
-			nef.initPattern,
-			nef.currentPattern,
-			nef.numWaitThreads);
+			(unsigned int)nef.initPattern,
+			(unsigned int)nef.currentPattern,
+			(int)nef.numWaitThreads);
 	}
 
 	static u32 GetMissingErrorCode() {
