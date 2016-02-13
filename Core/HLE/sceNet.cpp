@@ -38,6 +38,8 @@
 static bool netInited;
 static bool netInetInited;
 static bool netApctlInited;
+u32 netDropRate = 0;
+u32 netDropDuration = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
@@ -457,6 +459,22 @@ static int sceNetUpnpGetNatInfo()
 	return 0;
 }
 
+static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr)
+{
+	INFO_LOG(SCENET, "sceNetGetDropRate %08x,%08x", dropRateAddr, dropDurationAddr);
+	Memory::Write_U32(netDropRate, dropRateAddr);
+	Memory::Write_U32(netDropDuration, dropDurationAddr);
+	return 0;
+}
+
+static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
+{
+	INFO_LOG(SCENET, "sceNetSetDropRate dropRate %d, dropDuration %d", dropRate, dropDuration);
+	netDropRate = dropRate;
+	netDropDuration = dropDuration;
+	return 0;
+}
+
 const HLEFunction sceNet[] = {
 	{0X39AF39A6, &WrapU_UUUUU<sceNetInit>,           "sceNetInit",                      'x', "xxxxx"},
 	{0X281928A9, &WrapU_V<sceNetTerm>,               "sceNetTerm",                      'x', ""     },
@@ -548,6 +566,12 @@ const HLEFunction sceNetUpnp[] = {
 	{0XE24220B5, &WrapI_II<sceNetUpnpInit>,          "sceNetUpnpInit",                  'i', "ii"   },
 };
 
+const HLEFunction sceNetIfhandle[] = {
+	{ 0xC80181A2, &WrapI_UU<sceNetGetDropRate>,     "sceNetGetDropRate",                 'i', "ii" },
+	{ 0xFD8585E1, &WrapI_UU<sceNetSetDropRate>,     "sceNetSetDropRate",                 'i', "ii" },
+
+};
+
 void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
 	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
@@ -561,4 +585,8 @@ void Register_sceWlanDrv() {
 
 void Register_sceNetUpnp() {
 	RegisterModule("sceNetUpnp", ARRAY_SIZE(sceNetUpnp), sceNetUpnp);
+}
+
+void Register_sceNetIfhandle() {
+	RegisterModule("sceNetIfhandle", ARRAY_SIZE(sceNetIfhandle), sceNetIfhandle);
 }
