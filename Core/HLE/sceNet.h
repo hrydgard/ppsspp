@@ -93,6 +93,7 @@ class PointerWrap;
 void Register_sceNet();
 void Register_sceWlanDrv();
 void Register_sceNetUpnp();
+void Register_sceNetIfhandle();
 
 void __NetInit();
 void __NetShutdown();
