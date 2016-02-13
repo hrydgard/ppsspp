@@ -66,6 +66,16 @@ enum T3DBlendFactor : int {
 	FIXED_COLOR,
 };
 
+enum T3DTextureWrap : int {
+	REPEAT,
+	CLAMP,
+};
+
+enum T3DTextureFilter : int {
+	NEAREST,
+	LINEAR,
+};
+
 enum T3DBufferUsage : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
@@ -124,6 +134,12 @@ enum T3DBlendStatePreset : int {
 	BS_PREMUL_ALPHA,
 	BS_ADDITIVE,
 	BS_MAX_PRESET,
+};
+
+enum T3DSamplerStatePreset : int {
+	SAMPS_NEAREST,
+	SAMPS_LINEAR,
+	SAMPS_MAX_PRESET,
 };
 
 enum T3DClear : int {
@@ -207,6 +223,10 @@ class Thin3DBlendState : public Thin3DObject {
 public:
 };
 
+class Thin3DSamplerState : public Thin3DObject {
+public:
+};
+
 class Thin3DDepthStencilState : public Thin3DObject {
 public:
 };
@@ -278,12 +298,21 @@ struct T3DBlendStateDesc {
 	// int colorMask;
 };
 
+struct T3DSamplerStateDesc {
+	T3DTextureWrap wrapS;
+	T3DTextureWrap wrapT;
+	T3DTextureFilter magFilt;
+	T3DTextureFilter minFilt;
+	T3DTextureFilter mipFilt;
+};
+
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
 
 	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
+	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
@@ -297,6 +326,7 @@ public:
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
+	Thin3DSamplerState *GetSamplerStatePreset(T3DSamplerStatePreset preset) { return sampsPresets_[preset]; }
 	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
 	Thin3DShader *GetFshaderPreset(T3DFragmentShaderPreset preset) { return vsPresets_[preset]; }
 	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
@@ -307,6 +337,7 @@ public:
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
+	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
 	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
 	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
 
@@ -343,6 +374,7 @@ protected:
 	Thin3DShader *fsPresets_[FS_MAX_PRESET];
 	Thin3DBlendState *bsPresets_[BS_MAX_PRESET];
 	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
+	Thin3DSamplerState *sampsPresets_[SAMPS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;

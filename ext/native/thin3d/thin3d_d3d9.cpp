@@ -56,6 +56,16 @@ static const D3DBLEND blendFactorToD3D9[] = {
 	D3DBLEND_BLENDFACTOR,
 };
 
+static const D3DTEXTUREADDRESS texWrapToD3D9[] = {
+	D3DTADDRESS_WRAP,
+	D3DTADDRESS_CLAMP,
+};
+
+static const D3DTEXTUREFILTERTYPE texFilterToD3D9[] = {
+	D3DTEXF_POINT,
+	D3DTEXF_LINEAR,
+};
+
 static const D3DPRIMITIVETYPE primToD3D9[] = {
 	D3DPT_POINTLIST,
 	D3DPT_LINELIST,
@@ -97,6 +107,20 @@ public:
 		device->SetRenderState(D3DRS_SRCBLENDALPHA, srcAlpha);
 		device->SetRenderState(D3DRS_DESTBLENDALPHA, dstAlpha);
 		// device->SetRenderState(, fixedColor);
+	}
+};
+
+class Thin3DDX9SamplerState : public Thin3DSamplerState {
+public:
+	D3DTEXTUREADDRESS wrapS, wrapT;
+	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
+
+	void Apply(LPDIRECT3DDEVICE9 device, int index) {
+		device->SetSamplerState(index, D3DSAMP_ADDRESSU, wrapS);
+		device->SetSamplerState(index, D3DSAMP_ADDRESSV, wrapT);
+		device->SetSamplerState(index, D3DSAMP_MAGFILTER, magFilt);
+		device->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
+		device->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
 	}
 };
 
@@ -403,6 +427,7 @@ public:
 
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare);
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
+	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
@@ -416,6 +441,12 @@ public:
 	void SetBlendState(Thin3DBlendState *state) {
 		Thin3DDX9BlendState *bs = static_cast<Thin3DDX9BlendState *>(state);
 		bs->Apply(device_);
+	}
+	void SetSamplerStates(int start, int count, Thin3DSamplerState **states) {
+		for (int i = 0; i < count; ++i) {
+			Thin3DDX9SamplerState *s = static_cast<Thin3DDX9SamplerState *>(states[start + i]);
+			s->Apply(device_, start + i);
+		}
 	}
 	void SetDepthStencilState(Thin3DDepthStencilState *state) {
 		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
@@ -528,6 +559,16 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 	return bs;
 }
 
+Thin3DSamplerState *Thin3DDX9Context::CreateSamplerState(const T3DSamplerStateDesc &desc) {
+	Thin3DDX9SamplerState *samps = new Thin3DDX9SamplerState();
+	samps->wrapS = texWrapToD3D9[desc.wrapS];
+	samps->wrapT = texWrapToD3D9[desc.wrapT];
+	samps->magFilt = texFilterToD3D9[desc.magFilt];
+	samps->minFilt = texFilterToD3D9[desc.minFilt];
+	samps->mipFilt = texFilterToD3D9[desc.mipFilt];
+	return samps;
+}
+
 Thin3DTexture *Thin3DDX9Context::CreateTexture() {
 	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_);
 	return tex;
@@ -631,12 +672,6 @@ void Thin3DDX9Context::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
 
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
-
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -659,12 +694,6 @@ void Thin3DDX9Context::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet
 void Thin3DDX9Context::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
-
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);

@@ -131,6 +131,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	thin3d->SetViewports(1, &viewport);
 
 	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_OFF));
+	Thin3DSamplerState *sampler;
+	if (g_Config.iBufFilter == SCALE_NEAREST) {
+		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_NEAREST);
+	} else {
+		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
+	}
+	thin3d->SetSamplerStates(0, 1, &sampler);
 	thin3d->SetDepthStencilState(depth);
 	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
@@ -176,9 +183,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		u1 = 1.0f;
 	}
 	fbTex->Finalize(0);
-
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
