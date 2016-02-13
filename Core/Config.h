@@ -119,6 +119,7 @@ public:
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
+	bool bSavedataCorrectionForyugioh;
 
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
