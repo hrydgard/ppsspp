@@ -77,6 +77,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Vibrator vibrator;
 
 	private boolean isXperiaPlay;
+	private boolean shuttingDown;
 
     // Allow for multiple connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
@@ -362,6 +363,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		shuttingDown = false;
 		registerCallbacks();
 
     	updateDisplayMetrics(null);
@@ -477,6 +479,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		audioFocusChangeListener = null;
 		audioManager = null;
 		unregisterCallbacks();
+
+		if (shuttingDown) {
+			NativeApp.shutdown();
+		}
 	}
 
     @Override
@@ -951,6 +957,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			}
 			return true;
 		} else if (command.equals("finish")) {
+			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
 			updateScreenRotation();

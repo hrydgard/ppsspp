@@ -1119,12 +1119,10 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// However, let's make sure the config was saved, since it may not have been.
 	g_Config.Save();
 
-	// We shouldn't call NativeShutdown here at all, it should be done by the framework.
 #ifdef ANDROID
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif
-	exit(0);
 #endif
 
 	UpdateUIState(UISTATE_EXIT);
@@ -1144,7 +1142,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 
 			// Refocus the game button itself.
 			int tab = tabHolder_->GetCurrentTab();
-			if (tab >= 0 && tab < gameBrowsers_.size()) {
+			if (tab >= 0 && tab < (int)gameBrowsers_.size()) {
 				gameBrowsers_[tab]->FocusGame(restoreFocusGamePath_);
 			}
 
