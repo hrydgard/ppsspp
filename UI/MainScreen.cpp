@@ -1046,8 +1046,10 @@ UI::EventReturn MainScreen::OnGameHighlight(UI::EventParams &e) {
 		}
 	}
 
-	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_)
+	if ((!highlightedGamePath_.empty() || e.a == FF_LOSTFOCUS) && !lockBackgroundAudio_) {
 		SetBackgroundAudioGame(highlightedGamePath_);
+	}
+
 	lockBackgroundAudio_ = false;
 	return UI::EVENT_DONE;
 }
@@ -1135,7 +1137,7 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		RecreateViews();
 	}
 	if (dialog->tag() == "game") {
-		if (!restoreFocusGamePath_.empty()) {
+		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			highlightedGamePath_ = restoreFocusGamePath_;
 			highlightProgress_ = 1.0f;

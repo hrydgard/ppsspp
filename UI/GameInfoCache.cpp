@@ -734,6 +734,7 @@ again:
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
+	info->pending = true;
 	info_[gamePath] = info;
 	return info;
 }
