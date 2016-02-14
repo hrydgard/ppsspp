@@ -48,10 +48,13 @@
 GameInfoCache g_gameInfoCache;
 
 GameInfo::~GameInfo() {
-	delete iconTexture;
-	delete pic0Texture;
-	delete pic1Texture;
-	delete fileLoader;
+	if (iconTexture)
+		iconTexture->Release();
+	if (pic0Texture)
+		pic0Texture->Release();
+	if (pic1Texture)
+		pic1Texture->Release();
+	DisposeFileLoader();
 }
 
 bool GameInfo::Delete() {
@@ -622,27 +625,26 @@ void GameInfoCache::Clear() {
 			iter->second->pic0TextureData.clear();
 			iter->second->pic0DataLoaded = false;
 		}
-		if (iter->second->pic0Texture) {
-			delete iter->second->pic0Texture;
-			iter->second->pic0Texture = 0;
-		}
 		if (!iter->second->pic1TextureData.empty()) {
 			iter->second->pic1TextureData.clear();
 			iter->second->pic1DataLoaded = false;
-		}
-		if (iter->second->pic1Texture) {
-			delete iter->second->pic1Texture;
-			iter->second->pic1Texture = 0;
 		}
 		if (!iter->second->iconTextureData.empty()) {
 			iter->second->iconTextureData.clear();
 			iter->second->iconDataLoaded = false;
 		}
-		if (iter->second->iconTexture) {
-			delete iter->second->iconTexture;
-			iter->second->iconTexture = 0;
+		if (iter->second->pic0Texture) {
+			iter->second->pic0Texture->Release();
+			iter->second->pic0Texture = nullptr;
 		}
-
+		if (iter->second->pic1Texture) {
+			iter->second->pic1Texture->Release();
+			iter->second->pic1Texture = nullptr;
+		}
+		if (iter->second->iconTexture) {
+			iter->second->iconTexture->Release();
+			iter->second->iconTexture = nullptr;
+		}
 		if (!iter->second->sndFileData.empty()) {
 			iter->second->sndFileData.clear();
 			iter->second->sndDataLoaded = false;
@@ -660,7 +662,7 @@ void GameInfoCache::FlushBGs() {
 			iter->second->pic0DataLoaded = false;
 		}
 		if (iter->second->pic0Texture) {
-			delete iter->second->pic0Texture;
+			iter->second->pic0Texture->Release();
 			iter->second->pic0Texture = 0;
 		}
 
@@ -669,7 +671,7 @@ void GameInfoCache::FlushBGs() {
 			iter->second->pic1DataLoaded = false;
 		}
 		if (iter->second->pic1Texture) {
-			delete iter->second->pic1Texture;
+			iter->second->pic1Texture->Release();
 			iter->second->pic1Texture = 0;
 		}
 
@@ -734,6 +736,7 @@ again:
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
+	ILOG("Storing info for %s", gamePath.c_str());
 	info->pending = true;
 	info_[gamePath] = info;
 	return info;

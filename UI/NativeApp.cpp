@@ -606,6 +606,8 @@ void NativeShutdownGraphics() {
 	screenManager->deviceLost();
 
 	g_gameInfoCache.Clear();
+	g_gameInfoCache.Clear();
+	g_gameInfoCache.Clear();
 
 	uiTexture->Release();
 
@@ -755,12 +757,11 @@ void NativeUpdate(InputState &input) {
 }
 
 void NativeDeviceLost() {
-	g_gameInfoCache.Clear();
-	screenManager->deviceLost();
-
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_lost();
+		// gl_lost();
 	}
+	// screenManager->deviceLost();
+	// g_gameInfoCache.Clear();
 	// Should dirty EVERYTHING
 }
 

@@ -136,7 +136,6 @@ public:
 class Thin3DGLBuffer : public Thin3DBuffer, GfxResourceHolder {
 public:
 	Thin3DGLBuffer(size_t size, uint32_t flags) {
-		glGenBuffers(1, &buffer_);
 		target_ = (flags & T3DBufferUsage::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
 		usage_ = 0;
 		if (flags & T3DBufferUsage::DYNAMIC)
@@ -152,12 +151,16 @@ public:
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
+		if (!buffer_)
+			glGenBuffers(1, &buffer_);
 		Bind();
 		glBufferData(target_, size, data, usage_);
 		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
+		if (!buffer_)
+			glGenBuffers(1, &buffer_);
 		Bind();
 		if (size + offset > knownSize_) {
 			// Allocate the buffer.
@@ -171,9 +174,9 @@ public:
 	}
 
 	void GLLost() override {
-		ILOG("Recreating vertex buffer after glLost");
-		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
-		glGenBuffers(1, &buffer_);
+		// Marking our stuff lost
+		buffer_ = 0;
+		knownSize_ = 0;
 	}
 
 private:
@@ -262,8 +265,7 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Fold BlendState into this? Seems likely to be right for DX12 etc.
-// TODO: Add Uniform Buffer support.
+// TODO: Add proper Uniform Buffer support.
 class Thin3DGLShaderSet : public Thin3DShaderSet, GfxResourceHolder {
 public:
 	Thin3DGLShaderSet() {
@@ -287,9 +289,7 @@ public:
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
 
 	void GLLost() override {
-		vshader->Compile(vshader->GetSource().c_str());
-		fshader->Compile(fshader->GetSource().c_str());
-		Link();
+		program_ = 0;
 	}
 
 	Thin3DGLShader *vshader;
@@ -473,17 +473,10 @@ public:
 	}
 
 	void GLLost() override {
-		generatedMips_ = false;
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
+		// We lost our GL context - zero out the tex_.
+		tex_ = 0;
+		// Don't try to restore stuff, that's not what this is for. Lost just means
+		// that all our textures and buffers are invalid.
 	}
 	void Finalize(int zim_flags) override;
 
@@ -586,7 +579,7 @@ void Thin3DGLVertexFormat::Compile() {
 }
 
 void Thin3DGLVertexFormat::GLLost() {
-	Compile();
+	// Compile();
 }
 
 Thin3DDepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
