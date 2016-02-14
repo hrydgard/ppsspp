@@ -54,7 +54,10 @@ GameInfo::~GameInfo() {
 		pic0Texture->Release();
 	if (pic1Texture)
 		pic1Texture->Release();
-	DisposeFileLoader();
+	if (fileLoader) {
+		ELOG("Unusual: Still has fileloader");
+		DisposeFileLoader();
+	}
 }
 
 bool GameInfo::Delete() {
@@ -352,8 +355,10 @@ public:
 	}
 
 	virtual void run() {
-		if (!info_->LoadFromPath(gamePath_))
+		if (!info_->LoadFromPath(gamePath_)) {
+			info_->DisposeFileLoader();
 			return;
+		}
 
 		std::string filename = gamePath_;
 		{
@@ -366,7 +371,7 @@ public:
 		case FILETYPE_PSP_PBP_DIRECTORY:
 			{
 				FileLoader *pbpLoader = info_->GetFileLoader();
-				std::unique_ptr<FileLoader> altLoader;
+				std::unique_ptr<FileLoader> altLoader;  // Only purpose of this is to destruct pbpLoader.
 				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY) {
 					pbpLoader = ConstructFileLoader(pbpLoader->Path() + "/EBOOT.PBP");
 					altLoader.reset(pbpLoader);
@@ -378,6 +383,7 @@ public:
 						goto handleELF;
 					}
 					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->Path().c_str());
+					info_->DisposeFileLoader();
 					return;
 				}
 
@@ -670,7 +676,7 @@ void GameInfoCache::FlushBGs() {
 		}
 		if (iter->second->pic0Texture) {
 			iter->second->pic0Texture->Release();
-			iter->second->pic0Texture = 0;
+			iter->second->pic0Texture = nullptr;
 		}
 
 		if (!iter->second->pic1TextureData.empty()) {
@@ -679,7 +685,7 @@ void GameInfoCache::FlushBGs() {
 		}
 		if (iter->second->pic1Texture) {
 			iter->second->pic1Texture->Release();
-			iter->second->pic1Texture = 0;
+			iter->second->pic1Texture = nullptr;
 		}
 
 		if (!iter->second->sndFileData.empty()) {

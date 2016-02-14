@@ -171,6 +171,9 @@ protected:
 
 	FileLoader *fileLoader;
 	std::string filePath_;
+
+private:
+	DISALLOW_COPY_AND_ASSIGN(GameInfo);
 };
 
 class GameInfoCache {

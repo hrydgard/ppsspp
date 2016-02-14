@@ -608,5 +608,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	CoUninitialize();
 
+	_CrtCheckMemory();
+
 	return 0;
 }

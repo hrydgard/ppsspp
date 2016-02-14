@@ -603,19 +603,24 @@ void NativeShutdownGraphics() {
 	winAudioBackend = NULL;
 #endif
 
+	ILOG("screenman");
 	screenManager->deviceLost();
 
-	delete g_gameInfoCache;
-	g_gameInfoCache = nullptr;
-
+	ILOG("uitexture");
 	uiTexture->Release();
 
+	ILOG("uicontext");
 	delete uiContext;
 	uiContext = NULL;
+
+	ILOG("gameinfocache");
+	delete g_gameInfoCache;
+	g_gameInfoCache = nullptr;
 
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
 
+	ILOG("thin3d");
 	thin3d->Release();
 }
 

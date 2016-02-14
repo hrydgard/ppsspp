@@ -203,7 +203,13 @@ public:
 	}
 
 	virtual void AddRef() { refcount_++; }
-	virtual void Release() { refcount_--; if (!refcount_) delete this; }
+	virtual void Release() { 
+		refcount_--; 
+		if (!refcount_) {
+			WLOG("ref count reached 0 - delete this");
+			delete this;
+		}
+	}
 
 private:
 	int refcount_;

@@ -147,7 +147,9 @@ public:
 	}
 	~Thin3DGLBuffer() override {
 		unregister_gl_resource_holder(this);
-		glDeleteBuffers(1, &buffer_);
+		if (buffer_) {
+			glDeleteBuffers(1, &buffer_);
+		}
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
@@ -189,10 +191,21 @@ private:
 
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class Thin3DGLShader : public Thin3DShader {
+class Thin3DGLShader : public Thin3DShader, GfxResourceHolder {
 public:
 	Thin3DGLShader(bool isFragmentShader) : shader_(0), type_(0) {
 		type_ = isFragmentShader ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
+		register_gl_resource_holder(this);
+	}
+	~Thin3DGLShader() {
+		if (shader_) {
+			glDeleteShader(shader_);
+		}
+		unregister_gl_resource_holder(this);
+	}
+
+	void GLLost() override {
+		shader_ = 0;
 	}
 
 	bool Compile(const char *source);
@@ -200,10 +213,6 @@ public:
 		return shader_;
 	}
 	const std::string &GetSource() const { return source_; }
-
-	~Thin3DGLShader() {
-		glDeleteShader(shader_);
-	}
 
 private:
 	GLuint shader_;
@@ -276,7 +285,10 @@ public:
 		unregister_gl_resource_holder(this);
 		vshader->Release();
 		fshader->Release();
-		glDeleteProgram(program_);
+		if (program_) {
+			ILOG("Deleting program");
+			glDeleteProgram(program_);
+		}
 	}
 	bool Link();
 
@@ -580,7 +592,7 @@ void Thin3DGLVertexFormat::Compile() {
 }
 
 void Thin3DGLVertexFormat::GLLost() {
-	// Compile();
+	id_ = 0;
 }
 
 Thin3DDepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
