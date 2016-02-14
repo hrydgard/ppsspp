@@ -31,6 +31,7 @@
 
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
+#include "UI/GameInfoCache.h"
 
 #include "app-android.h"
 
@@ -736,7 +737,9 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		ProcessFrameCommands(env);
 	}
 
-	// Restore lost device objects. TODO: This feels like the wrong place for this.
+	ILOG("After render loop.");
+	g_gameInfoCache->WorkQueue()->Flush();
+
 	NativeDeviceLost();
 	ILOG("NativeDeviceLost completed.");
 

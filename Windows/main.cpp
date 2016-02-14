@@ -552,7 +552,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		{
 			//hack to enable/disable menu command accelerate keys
 			MainWindow::UpdateCommands();
-
+			 
 			//hack to make it possible to get to main window from floating windows with Esc
 			if (msg.hwnd != hwndMain && msg.wParam == VK_ESCAPE)
 				BringWindowToTop(hwndMain);
@@ -600,8 +600,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	delete host;
 
 	g_Config.Save();
-	g_gameInfoCache.Clear();
-	g_gameInfoCache.Shutdown();
 	LogManager::Shutdown();
 
 	if (g_Config.bRestartRequired) {

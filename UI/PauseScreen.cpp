@@ -181,7 +181,7 @@ SaveSlotView::SaveSlotView(const std::string &gameFilename, int slot, UI::Layout
 	using namespace UI;
 
 	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, "jpg");
-	PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+	PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 	Add(new Spacer(5));
 
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(82 * 2, 47 * 2)));
@@ -409,7 +409,7 @@ UI::EventReturn GamePauseScreen::OnSwitchUMD(UI::EventParams &e) {
 void GamePauseScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes) {
-		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+		GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 		g_Config.unloadGameConfig();
 		g_Config.deleteGameConfig(info->id);
 		info->hasConfig = false;
@@ -423,7 +423,7 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 	g_Config.createGameConfig(gameId);
 	g_Config.changeGameSpecific(gameId);
 	g_Config.saveGameConfig(gameId);
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info) {
 		info->hasConfig = true;
 	}

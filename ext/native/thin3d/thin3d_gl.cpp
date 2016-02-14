@@ -473,17 +473,11 @@ public:
 	}
 
 	void GLLost() override {
+		// We lost our GL context - zero out the tex_.
+		tex_ = 0;
 		generatedMips_ = false;
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
+		// Don't try to restore stuff, that's not what this is for. Lost just means
+		// that all our textures and buffers are invalid.
 	}
 	void Finalize(int zim_flags) override;
 
