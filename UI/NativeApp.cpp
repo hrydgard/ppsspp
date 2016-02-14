@@ -480,8 +480,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
 
-	g_gameInfoCache.Init();
-
 	screenManager = new ScreenManager();
 	if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
@@ -595,6 +593,8 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 	winAudioBackend->Init(MainWindow::GetHWND(), &Win32Mix, 44100);
 #endif
+
+	g_gameInfoCache = new GameInfoCache();
 }
 
 void NativeShutdownGraphics() {
@@ -605,9 +605,8 @@ void NativeShutdownGraphics() {
 
 	screenManager->deviceLost();
 
-	g_gameInfoCache.Clear();
-	g_gameInfoCache.Clear();
-	g_gameInfoCache.Clear();
+	delete g_gameInfoCache;
+	g_gameInfoCache = nullptr;
 
 	uiTexture->Release();
 
@@ -758,10 +757,10 @@ void NativeUpdate(InputState &input) {
 
 void NativeDeviceLost() {
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		// gl_lost();
+		gl_lost();
 	}
-	// screenManager->deviceLost();
-	// g_gameInfoCache.Clear();
+	screenManager->deviceLost();
+	// g_gameInfoCache->Clear();
 	// Should dirty EVERYTHING
 }
 
@@ -924,8 +923,6 @@ void NativeShutdown() {
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
-
-	g_gameInfoCache.Shutdown();
 
 	delete host;
 	host = 0;

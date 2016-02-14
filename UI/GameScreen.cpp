@@ -44,8 +44,8 @@ GameScreen::~GameScreen() {
 }
 
 void GameScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-	g_gameInfoCache.WaitUntilDone(info);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	g_gameInfoCache->WaitUntilDone(info);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
@@ -117,7 +117,7 @@ void GameScreen::CreateViews() {
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
 {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_,0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_,0);
 	g_Config.createGameConfig(info->id);
 	g_Config.saveGameConfig(info->id);
 	info->hasConfig = true;
@@ -130,7 +130,7 @@ void GameScreen::CallbackDeleteConfig(bool yes)
 {
 	if (yes)
 	{
-		GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+		GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 		g_Config.deleteGameConfig(info->id);
 		info->hasConfig = false;
 		screenManager()->RecreateAllViews();
@@ -155,7 +155,7 @@ void GameScreen::update(InputState &input) {
 
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
-	GameInfo *info = g_gameInfoCache.GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_)
 		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
@@ -216,7 +216,7 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
 		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
@@ -227,7 +227,7 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		// Check that there's any savedata to delete
 		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
@@ -243,7 +243,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
@@ -254,7 +254,7 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
 			new PromptScreen(di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
@@ -265,16 +265,16 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
 		info->Delete();
-		g_gameInfoCache.Clear();
+		g_gameInfoCache->Clear();
 		screenManager()->switchScreen(new MainScreen());
 	}
 }
 
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info) {
 		host->CreateDesktopShortcut(gamePath_, info->GetTitle());
 	}

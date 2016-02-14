@@ -175,13 +175,12 @@ protected:
 
 class GameInfoCache {
 public:
-	GameInfoCache() : gameInfoWQ_(0) {}
+	GameInfoCache();
 	~GameInfoCache();
 
 	// This creates a background worker thread!
-	void Init();
-	void Shutdown();
 	void Clear();
+	void ClearTextures();
 	void PurgeType(IdentifiedFileType fileType);
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
@@ -199,6 +198,8 @@ public:
 	}
 
 private:
+	void Init();
+	void Shutdown();
 	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
@@ -209,4 +210,4 @@ private:
 };
 
 // This one can be global, no good reason not to.
-extern GameInfoCache g_gameInfoCache;
+extern GameInfoCache *g_gameInfoCache;

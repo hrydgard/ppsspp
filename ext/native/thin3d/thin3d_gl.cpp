@@ -475,6 +475,7 @@ public:
 	void GLLost() override {
 		// We lost our GL context - zero out the tex_.
 		tex_ = 0;
+		generatedMips_ = false;
 		// Don't try to restore stuff, that's not what this is for. Lost just means
 		// that all our textures and buffers are invalid.
 	}

@@ -740,7 +740,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	}
 
 	ILOG("After render loop.");
-	g_gameInfoCache.WorkQueue()->Flush();
+	g_gameInfoCache->WorkQueue()->Flush();
 
 	NativeDeviceLost();
 	ILOG("NativeDeviceLost completed.");

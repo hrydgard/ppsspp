@@ -45,7 +45,7 @@
 #define unique_ptr auto_ptr
 #endif
 
-GameInfoCache g_gameInfoCache;
+GameInfoCache *g_gameInfoCache;
 
 GameInfo::~GameInfo() {
 	if (iconTexture)
@@ -586,6 +586,7 @@ handleELF:
 		}
 		info_->pending = false;
 		info_->DisposeFileLoader();
+		ILOG("Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
 	virtual float priority() {
@@ -598,9 +599,13 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
 
+GameInfoCache::GameInfoCache() : gameInfoWQ_(nullptr) {
+	Init();
+}
 
 GameInfoCache::~GameInfoCache() {
 	Clear();
+	Shutdown();
 }
 
 void GameInfoCache::Init() {
@@ -617,8 +622,10 @@ void GameInfoCache::Shutdown() {
 }
 
 void GameInfoCache::Clear() {
-	if (gameInfoWQ_)
+	if (gameInfoWQ_) {
 		gameInfoWQ_->Flush();
+		gameInfoWQ_->WaitUntilDone();
+	}
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
