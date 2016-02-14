@@ -77,7 +77,7 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 }
 
 void GameSettingsScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (bEditThenRestore)
 	{

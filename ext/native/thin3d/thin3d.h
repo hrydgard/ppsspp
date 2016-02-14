@@ -11,6 +11,8 @@
 #include <vector>
 #include <string>
 
+#include "base/logging.h"
+
 class Matrix4x4;
 
 enum T3DBlendEquation : int {
@@ -194,10 +196,20 @@ struct T3DViewport {
 class Thin3DObject {
 public:
 	Thin3DObject() : refcount_(1) {}
-	virtual ~Thin3DObject() {}
+	virtual ~Thin3DObject() {
+		if (refcount_ != 0) {
+			WLOG("Deleting object %p but refcount = %d", this, refcount_);
+		}
+	}
 
 	virtual void AddRef() { refcount_++; }
-	virtual void Release() { refcount_--; if (!refcount_) delete this; }
+	virtual void Release() { 
+		refcount_--; 
+		if (!refcount_) {
+			WLOG("ref count reached 0 - delete this");
+			delete this;
+		}
+	}
 
 private:
 	int refcount_;

@@ -23,7 +23,7 @@ private:
 
 class PrioritizedWorkQueue {
 public:
-	PrioritizedWorkQueue() : done_(false) {}
+	PrioritizedWorkQueue() : done_(false), working_(false) {}
 	~PrioritizedWorkQueue();
 	// Takes ownership.
 	void Add(PrioritizedWorkQueueItem *item);
@@ -36,8 +36,13 @@ public:
 	void Stop();
 	void WaitUntilDone();
 
+	bool IsWorking() {
+		return working_;
+	}
+
 private:
 	bool done_;
+	bool working_;
 	recursive_mutex mutex_;
 	condition_variable notEmpty_;
 

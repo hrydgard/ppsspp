@@ -206,7 +206,7 @@ int PlayBackgroundAudio() {
 	// last changed... (to prevent crazy amount of reads when skipping through a list)
 	if (!at3Reader && bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
 		// Grab some audio from the current game and play it.
-		GameInfo *gameInfo = g_gameInfoCache.GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
+		GameInfo *gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
 		if (!gameInfo)
 			return 0;
 

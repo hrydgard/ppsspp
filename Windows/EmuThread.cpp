@@ -193,6 +193,9 @@ unsigned int WINAPI TheThread(void *)
 shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
+	NativeDeviceLost();
+	// ILOG("NativeDeviceLost completed.");
+
 	NativeShutdownGraphics();
 
 	host->ShutdownSound();

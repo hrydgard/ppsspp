@@ -58,7 +58,7 @@ public:
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
-		GameInfo *ginfo = g_gameInfoCache.GetInfo(screenManager()->getThin3DContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+		GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getThin3DContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL);
 		parent->Add(root);
 		if (!ginfo)
@@ -86,7 +86,7 @@ public:
 		} else {
 			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
 			if (File::Exists(image_path)) {
-				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
+				PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
 			} else {
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
@@ -128,7 +128,7 @@ private:
 };
 
 UI::EventReturn SavedataPopupScreen::OnDeleteButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GAMEINFO_WANTSIZE);
 	ginfo->Delete();
 	screenManager()->finishDialog(this, DR_NO);
 	return UI::EVENT_DONE;
@@ -142,7 +142,7 @@ static std::string CleanSaveString(std::string str) {
 }
 
 void SavedataButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), savePath_, GAMEINFO_WANTSIZE);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), savePath_, GAMEINFO_WANTSIZE);
 	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -274,8 +274,8 @@ SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParam
 }
 
 SavedataBrowser::~SavedataBrowser() {
-	g_gameInfoCache.PurgeType(FILETYPE_PPSSPP_SAVESTATE);
-	g_gameInfoCache.PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
+	g_gameInfoCache->PurgeType(FILETYPE_PPSSPP_SAVESTATE);
+	g_gameInfoCache->PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
 }
 
 void SavedataBrowser::Refresh() {
@@ -368,7 +368,7 @@ void SavedataScreen::CreateViews() {
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(screenManager()->getThin3DContext(), e.s, 0);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getThin3DContext(), e.s, 0);
 	screenManager()->push(new SavedataPopupScreen(e.s, ginfo->GetTitle()));
 	// the game path: e.s;
 	return UI::EVENT_DONE;

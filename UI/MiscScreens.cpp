@@ -105,7 +105,7 @@ void DrawBackground(UIContext &dc, float alpha = 1.0f) {
 }
 
 void DrawGameBackground(UIContext &dc, const std::string &gamePath) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 	dc.Flush();
 
 	if (ginfo) {

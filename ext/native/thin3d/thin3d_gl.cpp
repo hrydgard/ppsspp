@@ -136,7 +136,6 @@ public:
 class Thin3DGLBuffer : public Thin3DBuffer, GfxResourceHolder {
 public:
 	Thin3DGLBuffer(size_t size, uint32_t flags) {
-		glGenBuffers(1, &buffer_);
 		target_ = (flags & T3DBufferUsage::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
 		usage_ = 0;
 		if (flags & T3DBufferUsage::DYNAMIC)
@@ -148,16 +147,22 @@ public:
 	}
 	~Thin3DGLBuffer() override {
 		unregister_gl_resource_holder(this);
-		glDeleteBuffers(1, &buffer_);
+		if (buffer_) {
+			glDeleteBuffers(1, &buffer_);
+		}
 	}
 
 	void SetData(const uint8_t *data, size_t size) override {
+		if (!buffer_)
+			glGenBuffers(1, &buffer_);
 		Bind();
 		glBufferData(target_, size, data, usage_);
 		knownSize_ = size;
 	}
 
 	void SubData(const uint8_t *data, size_t offset, size_t size) override {
+		if (!buffer_)
+			glGenBuffers(1, &buffer_);
 		Bind();
 		if (size + offset > knownSize_) {
 			// Allocate the buffer.
@@ -171,9 +176,9 @@ public:
 	}
 
 	void GLLost() override {
-		ILOG("Recreating vertex buffer after glLost");
-		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
-		glGenBuffers(1, &buffer_);
+		// Marking our stuff lost
+		buffer_ = 0;
+		knownSize_ = 0;
 	}
 
 private:
@@ -186,10 +191,21 @@ private:
 
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class Thin3DGLShader : public Thin3DShader {
+class Thin3DGLShader : public Thin3DShader, GfxResourceHolder {
 public:
 	Thin3DGLShader(bool isFragmentShader) : shader_(0), type_(0) {
 		type_ = isFragmentShader ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
+		register_gl_resource_holder(this);
+	}
+	~Thin3DGLShader() {
+		if (shader_) {
+			glDeleteShader(shader_);
+		}
+		unregister_gl_resource_holder(this);
+	}
+
+	void GLLost() override {
+		shader_ = 0;
 	}
 
 	bool Compile(const char *source);
@@ -197,10 +213,6 @@ public:
 		return shader_;
 	}
 	const std::string &GetSource() const { return source_; }
-
-	~Thin3DGLShader() {
-		glDeleteShader(shader_);
-	}
 
 private:
 	GLuint shader_;
@@ -262,8 +274,7 @@ struct UniformInfo {
 	int loc_;
 };
 
-// TODO: Fold BlendState into this? Seems likely to be right for DX12 etc.
-// TODO: Add Uniform Buffer support.
+// TODO: Add proper Uniform Buffer support.
 class Thin3DGLShaderSet : public Thin3DShaderSet, GfxResourceHolder {
 public:
 	Thin3DGLShaderSet() {
@@ -274,7 +285,10 @@ public:
 		unregister_gl_resource_holder(this);
 		vshader->Release();
 		fshader->Release();
-		glDeleteProgram(program_);
+		if (program_) {
+			ILOG("Deleting program");
+			glDeleteProgram(program_);
+		}
 	}
 	bool Link();
 
@@ -287,9 +301,7 @@ public:
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
 
 	void GLLost() override {
-		vshader->Compile(vshader->GetSource().c_str());
-		fshader->Compile(fshader->GetSource().c_str());
-		Link();
+		program_ = 0;
 	}
 
 	Thin3DGLShader *vshader;
@@ -473,17 +485,11 @@ public:
 	}
 
 	void GLLost() override {
+		// We lost our GL context - zero out the tex_.
+		tex_ = 0;
 		generatedMips_ = false;
-		if (!filename_.empty()) {
-			if (LoadFromFile(filename_.c_str())) {
-				ILOG("Reloaded lost texture %s", filename_.c_str());
-			} else {
-				ELOG("Failed to reload lost texture %s", filename_.c_str());
-			}
-		} else {
-			WLOG("Texture %p cannot be restored - has no filename", this);
-			tex_ = 0;
-		}
+		// Don't try to restore stuff, that's not what this is for. Lost just means
+		// that all our textures and buffers are invalid.
 	}
 	void Finalize(int zim_flags) override;
 
@@ -586,7 +592,7 @@ void Thin3DGLVertexFormat::Compile() {
 }
 
 void Thin3DGLVertexFormat::GLLost() {
-	Compile();
+	id_ = 0;
 }
 
 Thin3DDepthStencilState *Thin3DGLContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {

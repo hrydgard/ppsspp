@@ -173,7 +173,7 @@ private:
 };
 
 void GameButton::Draw(UIContext &dc) {
-	GameInfo *ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath_, 0);
+	GameInfo *ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), gamePath_, 0);
 	Thin3DTexture *texture = 0;
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
@@ -976,7 +976,7 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 
 	GameInfo *ginfo = 0;
 	if (!gamePath.empty()) {
-		ginfo = g_gameInfoCache.GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
+		ginfo = g_gameInfoCache->GetInfo(dc.GetThin3DContext(), gamePath, GAMEINFO_WANTBG);
 		// Loading texture data may bind a texture.
 		dc.RebindTexture();
 
@@ -1009,7 +1009,7 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	std::string path = e.s;
 #endif
 	GameInfo *ginfo = 0;
-	ginfo = g_gameInfoCache.GetInfo(nullptr, path, GAMEINFO_WANTBG);
+	ginfo = g_gameInfoCache->GetInfo(nullptr, path, GAMEINFO_WANTBG);
 	if (ginfo && ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
 		return UI::EVENT_DONE;
 	}
