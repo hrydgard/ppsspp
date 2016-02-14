@@ -325,14 +325,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Runnable mEmulationRunner = new Runnable() {
 		@Override
 		public void run() {
-			// Bit of a hack - loop until onSurfaceCreated succeeds.
-			try {
-				while (mSurface == null)
-					Thread.sleep(10);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
@@ -425,15 +417,14 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	}
 
 	protected void ensureRenderLoop() {
-		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
+		if ((mRenderLoopThread == null || !mRenderLoopThread.isAlive()) && mSurface != null) {
 			mRenderLoopThread = new Thread(mEmulationRunner);
 			mRenderLoopThread.start();
 		}
 	}
 
 	@Override
-	public void surfaceDestroyed(SurfaceHolder holder)
-	{
+	public void surfaceDestroyed(SurfaceHolder holder) {
 		mSurface = null;
 		Log.w(TAG, "Surface destroyed.");
 		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
