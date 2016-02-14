@@ -450,8 +450,10 @@ struct Atrac {
 		avcodec_free_context(&codecCtx_);
 #else
 		// Future versions may add other things to free, but avcodec_free_context didn't exist yet here.
-		av_freep(&codecCtx_->extradata);
-		av_freep(&codecCtx_->subtitle_header);
+		// Some old versions crash when we try to free extradata and subtitle_header, so let's not. A minor
+		// leak is better than a segfualt.
+		// av_freep(&codecCtx_->extradata);
+		// av_freep(&codecCtx_->subtitle_header);
 		avcodec_close(codecCtx_);
 		av_freep(&codecCtx_);
 #endif
