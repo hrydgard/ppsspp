@@ -661,6 +661,23 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
+void ProcessFrameCommands(JNIEnv *env) {
+	lock_guard guard(frameCommandLock);
+	while (!frameCommands.empty()) {
+		FrameCommand frameCmd;
+		frameCmd = frameCommands.front();
+		frameCommands.pop();
+
+		WLOG("frameCommand! '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+
+		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+		jstring param = env->NewStringUTF(frameCmd.params.c_str());
+		env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
+		env->DeleteLocalRef(cmd);
+		env->DeleteLocalRef(param);
+	}
+}
+
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
@@ -716,20 +733,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 		graphicsContext->SwapBuffers();
 
-		lock_guard guard(frameCommandLock);
-		while (!frameCommands.empty()) {
-			FrameCommand frameCmd;
-			frameCmd = frameCommands.front();
-			frameCommands.pop();
-
-			WLOG("frameCommand! '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
-
-			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-			jstring param = env->NewStringUTF(frameCmd.params.c_str());
-			env->CallVoidMethod(nativeActivity, postCommand, cmd, param);
-			env->DeleteLocalRef(cmd);
-			env->DeleteLocalRef(param);
-		}
+		ProcessFrameCommands(env);
 	}
 
 	// Restore lost device objects. TODO: This feels like the wrong place for this.
@@ -742,6 +746,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	graphicsContext->Shutdown();
 
 	renderLoopRunning = false;
-	WLOG("Render loop exited;");
+	WLOG("Render loop function exited.");
 	return true;
 }

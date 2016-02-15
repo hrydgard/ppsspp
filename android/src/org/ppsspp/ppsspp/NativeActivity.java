@@ -417,9 +417,32 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	}
 
 	protected void ensureRenderLoop() {
-		if ((mRenderLoopThread == null || !mRenderLoopThread.isAlive()) && mSurface != null) {
+		if (mSurface == null) {
+			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
+			return;
+		}
+
+		if ((mRenderLoopThread == null || !mRenderLoopThread.isAlive())) {
+			Log.w(TAG, "ensureRenderLoop: Starting thread");
 			mRenderLoopThread = new Thread(mEmulationRunner);
 			mRenderLoopThread.start();
+		}
+	}
+
+	private void joinRenderLoopThread() {
+		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
+			// This will wait until the thread has exited.
+			Log.i(TAG, "exitEGLRenderLoop");
+			exitEGLRenderLoop();
+			try {
+				Log.i(TAG, "joining render loop thread...");
+				mRenderLoopThread.join();
+				Log.w(TAG, "Joined render loop thread.");
+				mRenderLoopThread = null;
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -427,16 +450,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		mSurface = null;
 		Log.w(TAG, "Surface destroyed.");
-		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
-			// This will wait until the thread has exited.
-			exitEGLRenderLoop();
-			try {
-				mRenderLoopThread.join();
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+		joinRenderLoopThread();
 	}
 
 
@@ -454,7 +468,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     protected void onStop() {
-    	exitEGLRenderLoop();
     	super.onStop();
     	Log.i(TAG, "onStop - do nothing special");
     }
@@ -478,11 +491,15 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     protected void onPause() {
-        super.onPause();
-    	Log.i(TAG, "onPause");
-    	loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-        NativeApp.pause();
-        mSurfaceView.onPause();
+		super.onPause();
+		Log.i(TAG, "onPause");
+		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		Log.i(TAG, "Pausing surface view");
+		NativeApp.pause();
+		mSurfaceView.onPause();
+		Log.i(TAG, "Joining render thread");
+		joinRenderLoopThread();
+		Log.i(TAG, "onPause completed");
     }
 
 	@Override
@@ -948,6 +965,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			}
 			return true;
 		} else if (command.equals("finish")) {
+			Log.i(TAG, "Setting shuttingDown = true and calling Finish");
 			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
