@@ -13,6 +13,7 @@ bool Version::ParseVersionString(std::string str) {
 		if (2 != sscanf(str.c_str(), "%i.%i", &major, &minor))
 			return false;
 	}
+	return true;
 }
 
 std::string Version::ToString() const {
