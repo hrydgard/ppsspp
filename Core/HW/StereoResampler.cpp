@@ -49,27 +49,38 @@ StereoResampler::StereoResampler()
 	}
 }
 
-
-inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size) {
+template<bool useShift>
+inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, s8 volShift) {
 #ifdef _M_SSE
 	// Size will always be 16-byte aligned as the hwBlockSize is.
 	while (size >= 8) {
 		__m128i in1 = _mm_loadu_si128((__m128i *)in);
 		__m128i in2 = _mm_loadu_si128((__m128i *)(in + 4));
 		__m128i packed = _mm_packs_epi32(in1, in2);
+		if (useShift) {
+			packed = _mm_srai_epi16(packed, volShift);
+		}
 		_mm_storeu_si128((__m128i *)out, packed);
 		out += 8;
 		in += 8;
 		size -= 8;
 	}
-	for (size_t i = 0; i < size; i++) {
-		out[i] = clamp_s16(in[i]);
-	}
-#else
-	for (size_t i = 0; i < size; i++) {
-		out[i] = clamp_s16(in[i]);
-	}
 #endif
+
+	// This does the remainder if SSE was used, otherwise it does it all.
+	for (size_t i = 0; i < size; i++) {
+		out[i] = clamp_s16(useShift ? (in[i] >> volShift) : in[i]);
+	}
+}
+
+inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
+	if (g_Config.iGlobalVolume >= VOLUME_MAX) {
+		ClampBufferToS16<false>(out, in, size, 0);
+	} else if (g_Config.iGlobalVolume <= VOLUME_OFF) {
+		memset(out, 0, size * sizeof(s16));
+	} else {
+		ClampBufferToS16<true>(out, in, size, VOLUME_MAX - (s8)g_Config.iGlobalVolume);
+	}
 }
 
 void StereoResampler::MixerFifo::Clear() {
@@ -93,7 +104,6 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 	// We force on the audio resampler if the output sample rate doesn't match the input.
 	if (!g_Config.bAudioResampler && sample_rate == (int)m_input_sample_rate) {
 		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
-			u32 indexR2 = indexR + 2; //next sample
 			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
 			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 			samples[currentSample] = l1;
@@ -191,10 +201,10 @@ void StereoResampler::MixerFifo::PushSamples(const s32 *samples, unsigned int nu
 
 	int over_bytes = num_samples * 4 - (MAX_SAMPLES * 2 - (indexW & INDEX_MASK)) * sizeof(short);
 	if (over_bytes > 0) {
-		ClampBufferToS16(&m_buffer[indexW & INDEX_MASK], samples, (num_samples * 4 - over_bytes) / 2);
-		ClampBufferToS16(&m_buffer[0], samples + (num_samples * 4 - over_bytes) / sizeof(short), over_bytes / 2);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, (num_samples * 4 - over_bytes) / 2);
+		ClampBufferToS16WithVolume(&m_buffer[0], samples + (num_samples * 4 - over_bytes) / sizeof(short), over_bytes / 2);
 	} else {
-		ClampBufferToS16(&m_buffer[indexW & INDEX_MASK], samples, num_samples * 2);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, num_samples * 2);
 	}
 
 	Common::AtomicAdd(m_indexW, num_samples * 2);

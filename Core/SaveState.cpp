@@ -293,6 +293,48 @@ namespace SaveState
 	static const char *SCREENSHOT_EXTENSION = "jpg";
 	// Slot utilities
 
+	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
+		if (!endsWith(filename, std::string(".") + STATE_EXTENSION)) {
+			return title + " (" + filename + ")";
+		}
+
+		// Usually these are slots, let's check the slot # after the last '_'.
+		size_t slotNumPos = filename.find_last_of('_');
+		if (slotNumPos == filename.npos) {
+			return title + " (" + filename + ")";
+		}
+
+		const size_t extLength = strlen(STATE_EXTENSION) + 1;
+		// If we take out the extension, '_', etc. we should be left with only a single digit.
+		if (slotNumPos + 1 + extLength != filename.length() - 1) {
+			return title + " (" + filename + ")";
+		}
+
+		std::string slot = filename.substr(slotNumPos + 1, 1);
+		if (slot[0] < '0' || slot[0] > '8') {
+			return title + " (" + filename + ")";
+		}
+
+		// Change from zero indexed to human friendly.
+		slot[0]++;
+		return title + " (" + slot + ")";
+	}
+
+	std::string GetTitle(const std::string &filename) {
+		std::string title;
+		if (CChunkFileReader::GetFileTitle(filename, &title) == CChunkFileReader::ERROR_NONE) {
+			if (title.empty()) {
+				return File::GetFilename(filename);
+			}
+
+			return AppendSlotTitle(filename, title);
+		}
+
+		// The file can't be loaded - let's note that.
+		I18NCategory *sy = GetI18NCategory("System");
+		return File::GetFilename(filename) + " " + sy->T("(broken)");
+	}
+
 	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
 	{
 		std::string discId = g_paramSFO.GetValueString("DISC_ID");
@@ -541,7 +583,7 @@ namespace SaveState
 			{
 			case SAVESTATE_LOAD:
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
+				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
@@ -559,7 +601,7 @@ namespace SaveState
 
 			case SAVESTATE_SAVE:
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
+				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 
 					osm.Show(sc->T("Saved State"), 2.0);

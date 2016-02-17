@@ -1025,6 +1025,90 @@ static int Hook_youkosohitsujimura_download_frame() {
 	return 0;
 }
 
+static int Hook_tonyhawkp8_upload_tutorial_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryUpload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_sdgundamggenerationportable_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_atvoffroadfurypro_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	const u32 fb_size = (currentMIPS->r[MIPS_REG_S4] >> 3) * currentMIPS->r[MIPS_REG_S3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_atvoffroadfuryblazintrails_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S5];
+	const u32 fb_size = (currentMIPS->r[MIPS_REG_S3] >> 3) * currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_littlebustersce_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_shinigamitoshoujo_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_atvoffroadfuryprodemo_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_S5];
+	const u32 fb_size = ((currentMIPS->r[MIPS_REG_A0] + currentMIPS->r[MIPS_REG_A1]) >> 3) * currentMIPS->r[MIPS_REG_S2];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, fb_size);
+		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_unendingbloodycall_download_frame() {
+	const u32 fb_address = currentMIPS->r[MIPS_REG_T3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+}
+	return 0;
+}
+
+static int Hook_omertachinmokunookitethelegacy_download_frame() {
+	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_SP] + 4);
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryDownload(fb_address, 0x00044000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+}
+	return 0;
+}
+
 #ifdef ARM
 #define JITFUNC(f) (&MIPSComp::ArmJit::f)
 #elif defined(ARM64)
@@ -1120,6 +1204,15 @@ static const ReplacementTableEntry entries[] = {
 	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
 	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
 	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
+	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
+	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, 0xA0 },
+	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
+	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "shinigamitoshoujo_download_frame", &Hook_shinigamitoshoujo_download_frame, 0, REPFLAG_HOOKENTER, 0xBC },
+	{ "atvoffroadfuryprodemo_download_frame", &Hook_atvoffroadfuryprodemo_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
+	{ "unendingbloodycall_download_frame", &Hook_unendingbloodycall_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
+	{ "omertachinmokunookitethelegacy_download_frame", &Hook_omertachinmokunookitethelegacy_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
 	{}
 };
 
@@ -1165,37 +1258,54 @@ const ReplacementTableEntry *GetReplacementFunc(int i) {
 	return &entries[i];
 }
 
-static void WriteReplaceInstruction(u32 address, int index) {
-	const u32 prevInstr = Memory::Read_U32(address);
+static bool WriteReplaceInstruction(u32 address, int index) {
+	u32 prevInstr = Memory::Read_Instruction(address, false).encoding;
 	if (MIPS_IS_REPLACEMENT(prevInstr)) {
-		return;
+		int prevIndex = prevInstr & MIPS_EMUHACK_VALUE_MASK;
+		if (prevIndex == index) {
+			return false;
+		}
+		WARN_LOG(HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
+		// Make sure we don't save the old replacement.
+		prevInstr = replacedInstructions[address];
 	}
-	if (MIPS_IS_RUNBLOCK(prevInstr)) {
-		// Likely already both replaced and jitted. Ignore.
-		return;
+
+	if (MIPS_IS_RUNBLOCK(Memory::Read_U32(address))) {
+		WARN_LOG(HLE, "Replacing jitted func address %08x", address);
 	}
 	replacedInstructions[address] = prevInstr;
 	Memory::Write_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
+	return true;
 }
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	for (int index : indexes) {
+		bool didReplace = false;
 		auto entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
-				const u32 op = Memory::Read_U32(address + offset);
+				const u32 op = Memory::Read_Instruction(address + offset, false).encoding;
 				if (op == MIPS_MAKE_JR_RA()) {
-					WriteReplaceInstruction(address + offset, index);
+					if (WriteReplaceInstruction(address + offset, index)) {
+						didReplace = true;
+					}
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOKENTER) {
-			WriteReplaceInstruction(address + entry->hookOffset, index);
+			if (WriteReplaceInstruction(address + entry->hookOffset, index)) {
+				didReplace = true;
+			}
 		} else {
-			WriteReplaceInstruction(address, index);
+			if (WriteReplaceInstruction(address, index)) {
+				didReplace = true;
+			}
 		}
-		INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+
+		if (didReplace) {
+			INFO_LOG(HLE, "Replaced %s at %08x with hash %016llx", entries[index].name, address, hash);
+		}
 	}
 }
 
@@ -1203,8 +1313,10 @@ void RestoreReplacedInstruction(u32 address) {
 	const u32 curInstr = Memory::Read_U32(address);
 	if (MIPS_IS_REPLACEMENT(curInstr)) {
 		Memory::Write_U32(replacedInstructions[address], address);
+		NOTICE_LOG(HLE, "Restored replaced func at %08x", address);
+	} else {
+		NOTICE_LOG(HLE, "Replaced func changed at %08x", address);
 	}
-	INFO_LOG(HLE, "Restored replaced func at %08x", address);
 	replacedInstructions.erase(address);
 }
 

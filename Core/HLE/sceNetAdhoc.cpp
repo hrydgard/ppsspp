@@ -82,6 +82,9 @@ void __NetAdhocShutdown() {
 		sceNetAdhocctlTerm();
 	}
 	if (netAdhocInited) {
+		// Should not really call HLE funcs from shutdown.
+		// Prevent attempting to delete the thread, already deleted by shutdown.
+		threadAdhocID = 0;
 		sceNetAdhocTerm();
 	}
 	if (dummyThreadHackAddr) {
@@ -257,8 +260,7 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 				//return ERROR_NET_ADHOC_PORT_IN_USE;
 
 				// Create Internet UDP Socket
-				int usocket = (int)INVALID_SOCKET;
-				usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 				// Valid Socket produced
 				if (usocket != INVALID_SOCKET) {
 					// Change socket buffer size when necessary
@@ -274,7 +276,7 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 					addr.sin_addr.s_addr = INADDR_ANY;
 
 					//if (port < 7) addr.sin_port = htons(port + 1341); else // <= 443
-					addr.sin_port = htons(port); // This not safe in any way...
+					addr.sin_port = htons(port + portOffset ); // This not safe in any way...
 					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?
 
 					// Bound Socket to local Port
@@ -301,7 +303,7 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 								// Fill in Data
 								internal->id = usocket;
 								internal->laddr = *saddr;
-								internal->lport = getLocalPort(usocket); //should use the port given to the socket (in case it's UNUSED_PORT port) isn't?
+								internal->lport = getLocalPort(usocket) - portOffset; //should use the port given to the socket (in case it's UNUSED_PORT port) isn't?
 								internal->rcv_sb_cc = bufferSize;
 
 								// Link Socket to Translator ID
@@ -425,7 +427,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								// Fill in Target Structure
 								sockaddr_in target;
 								target.sin_family = AF_INET;
-								target.sin_port = htons(dport);
+								target.sin_port = htons(dport + portOffset);
 
 								// Get Peer IP
 								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
@@ -493,7 +495,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									sockaddr_in target;
 									target.sin_family = AF_INET;
 									target.sin_addr.s_addr = peer->ip_addr;
-									target.sin_port = htons(dport);
+									target.sin_port = htons(dport + portOffset);
 
 									// Send Data
 									changeBlockingMode(socket->id, flag);
@@ -631,7 +633,7 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 					if (resolveIP(sin.sin_addr.s_addr, &mac)) {
 						// Provide Sender Information
 						*saddr = mac;
-						*sport = ntohs(sin.sin_port);
+						*sport = ntohs(sin.sin_port) - portOffset;
 
 						// Save Length
 						*len = received;
@@ -1637,12 +1639,11 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			}
 			
 			// Valid Ports
-			if (!isPTPPortInUse(sport) && dport != 0) {
+			if (!isPTPPortInUse(sport) /*&& dport != 0*/) {
 				// Valid Arguments
 				if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket
-					int tcpsocket = (int)INVALID_SOCKET;
-					tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+					int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 					
 					// Valid Socket produced
 					if (tcpsocket > 0) {
@@ -1658,14 +1659,14 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						// addr.sin_len = sizeof(addr);
 						addr.sin_family = AF_INET;
 						addr.sin_addr.s_addr = INADDR_ANY;
-						addr.sin_port = htons(sport);
+						addr.sin_port = htons(sport + portOffset);
 						
 						// Bound Socket to local Port
 						if (bind(tcpsocket, (sockaddr *)&addr, sizeof(addr)) == 0) {
-							// Update sport with the port assigned by bind
+							// Update sport with the port assigned binternal->lport = ntohs(local.sin_port)y bind
 							socklen_t len = sizeof(addr);
 							if (getsockname(tcpsocket, (sockaddr *)&addr, &len) == 0) {
-								sport = ntohs(addr.sin_port);
+								sport = ntohs(addr.sin_port) - portOffset;
 							}
 							
 							// Allocate Memory
@@ -1849,11 +1850,11 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 										
 										// Copy Local Address Data to Structure
 										getLocalMac(&internal->laddr);
-										internal->lport = ntohs(local.sin_port);
+										internal->lport = ntohs(local.sin_port) - portOffset;
 										
 										// Copy Peer Address Data to Structure
 										internal->paddr = mac;
-										internal->pport = ntohs(peeraddr.sin_port);
+										internal->pport = ntohs(peeraddr.sin_port) - portOffset;
 										
 										// Set Connected State
 										internal->state = ADHOC_PTP_STATE_ESTABLISHED;
@@ -1941,7 +1942,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				// Setup Target Address
 				// sin.sin_len = sizeof(sin);
 				sin.sin_family = AF_INET;
-				sin.sin_port = htons(socket->pport);
+				sin.sin_port = htons(socket->pport + portOffset);
 				
 				// Grab Peer IP
 				if (resolveMAC(&socket->paddr, (uint32_t *)&sin.sin_addr.s_addr)) {
@@ -2130,7 +2131,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						sockaddr_in addr;
 						addr.sin_family = AF_INET;
 						addr.sin_addr.s_addr = INADDR_ANY;
-						addr.sin_port = htons(sport);
+						addr.sin_port = htons(sport + portOffset);
 						
 						int iResult = 0;
 						// Bound Socket to local Port

@@ -117,6 +117,7 @@ public:
 	std::vector<std::string> GetSaveDataDirectories();
 
 	std::string GetTitle();
+	void SetTitle(const std::string &newTitle);
 
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,

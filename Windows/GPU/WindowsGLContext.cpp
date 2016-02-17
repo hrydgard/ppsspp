@@ -24,6 +24,7 @@
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 #include "UI/OnScreenDisplay.h"
@@ -31,18 +32,8 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/GPU/WindowsGLContext.h"
 
-static HDC hDC;     // Private GDI Device Context
-static HGLRC hRC;   // Permanent Rendering Context
-static HWND hWnd;   // Holds Our Window Handle
-static volatile bool pauseRequested;
-static volatile bool resumeRequested;
-static HANDLE pauseEvent;
-static HANDLE resumeEvent;
-
-static int xres, yres;
-
-void GL_SwapBuffers() {
-	SwapBuffers(hDC);
+void WindowsGLContext::SwapBuffers() {
+	::SwapBuffers(hDC);
 
 	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
@@ -60,8 +51,11 @@ void GL_SwapBuffers() {
 	// glFinish();
 }
 
-void GL_Pause() {
+void WindowsGLContext::Pause() {
 	if (!hRC) {
+		return;
+	}
+	if (Core_IsStepping()) {
 		return;
 	}
 
@@ -73,8 +67,11 @@ void GL_Pause() {
 	// OK, we now know the rendering thread is paused.
 }
 
-void GL_Resume() {
+void WindowsGLContext::Resume() {
 	if (!hRC) {
+		return;
+	}
+	if (Core_IsStepping() && !resumeRequested) {
 		return;
 	}
 
@@ -133,10 +130,27 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
-	NOTICE_LOG(G3D, "GL: %s", finalMessage);
+
+	switch (type) {
+	case GL_DEBUG_TYPE_ERROR_ARB:
+	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
+	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
+		ERROR_LOG(G3D, "GL: %s", finalMessage);
+		break;
+
+	case GL_DEBUG_TYPE_PORTABILITY_ARB:
+	case GL_DEBUG_TYPE_PERFORMANCE_ARB:
+		NOTICE_LOG(G3D, "GL: %s", finalMessage);
+		break;
+
+	case GL_DEBUG_TYPE_OTHER_ARB:
+	default:
+		INFO_LOG(G3D, "GL: %s", finalMessage);
+		break;
+	}
 }
 
-bool GL_Init(HWND window, std::string *error_message) {
+bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
 	*error_message = "ok";
 	hWnd = window;
 	GLuint PixelFormat;
@@ -271,7 +285,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 	};
 
 	HGLRC	m_hrc;
-	if(wglewIsSupported("WGL_ARB_create_context") == 1) {
+	if (wglewIsSupported("WGL_ARB_create_context") == 1) {
 		m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs44);
 		if (!m_hrc)
 			m_hrc = wglCreateContextAttribsARB(hDC, 0, attribs43);
@@ -303,22 +317,35 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	hRC = m_hrc;
 
-	GL_SwapInterval(0);
+	SwapInterval(0);
 
-	// TODO: Also support GL_KHR_debug which might be more widely supported?
-	if (g_Config.bGfxDebugOutput && glewIsSupported("GL_ARB_debug_output")) {
-		glGetError();
-		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
-		if (glGetError()) {
-			ERROR_LOG(G3D, "Failed to register a debug log callback");
-		}
-		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-		if (glGetError()) {
-			ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+	if (g_Config.bGfxDebugOutput) {
+		if (wglewIsSupported("GL_KHR_debug") == 1) {
+			glGetError();
+			glDebugMessageCallback((GLDEBUGPROC)&DebugCallbackARB, nullptr);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to register a debug log callback");
+			}
+			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+			}
+		} else if (glewIsSupported("GL_ARB_debug_output")) {
+			glGetError();
+			glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to register a debug log callback");
+			}
+			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+			if (glGetError()) {
+				ERROR_LOG(G3D, "Failed to enable synchronous debug output");
+			}
+
+			// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
+			// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
 		}
 
-		// For extra verbosity uncomment this (MEDIUM and HIGH are on by default):
-		// glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DEBUG_SEVERITY_LOW_ARB, 0, nullptr, GL_TRUE);
+		glEnable(GL_DEBUG_OUTPUT);
 	}
 
 	pauseRequested = false;
@@ -331,13 +358,13 @@ bool GL_Init(HWND window, std::string *error_message) {
 	return true;												// Success
 }
 
-void GL_SwapInterval(int interval) {
+void WindowsGLContext::SwapInterval(int interval) {
 	// glew loads wglSwapIntervalEXT if available
 	if (wglSwapIntervalEXT)
 		wglSwapIntervalEXT(interval);
 }
 
-void GL_Shutdown() { 
+void WindowsGLContext::Shutdown() {
 	CloseHandle(pauseEvent);
 	CloseHandle(resumeEvent);
 	if (hRC) {
@@ -361,4 +388,13 @@ void GL_Shutdown() {
 		hDC = NULL;
 	}
 	hWnd = NULL;
+}
+
+void WindowsGLContext::Resize() {
+}
+
+Thin3DContext *WindowsGLContext::CreateThin3DContext() {
+	CheckGLExtensions();
+	Thin3DContext *ctx = T3DCreateGLContext();
+	return ctx;
 }

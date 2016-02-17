@@ -375,6 +375,7 @@ struct GPUgstate {
 	int getRegionY2() const { return (region2 >> 10) & 0x3FF; }
 
 	// Note that the X1/Y1/Z1 here does not mean the upper-left corner, but half the dimensions. X2/Y2/Z2 are the center.
+	bool isClippingEnabled() const { return clipEnable & 1; }
 	float getViewportXScale() const { return getFloat24(viewportxscale); }
 	float getViewportYScale() const { return getFloat24(viewportyscale); }
 	float getViewportZScale() const { return getFloat24(viewportzscale); }
@@ -415,6 +416,7 @@ struct GPUgstate {
 
 	// Real data in the context ends here
 
+	void Reset();
 	void Save(u32_le *ptr);
 	void Restore(u32_le *ptr);
 };
@@ -454,9 +456,11 @@ enum {
 	GPU_SUPPORTS_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_SUPPORTS_LOGIC_OP = FLAG_BIT(5),
 	GPU_USE_DEPTH_RANGE_HACK = FLAG_BIT(6),
+	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
 	GPU_SUPPORTS_VAO = FLAG_BIT(18),
 	GPU_SUPPORTS_ANY_COPY_IMAGE = FLAG_BIT(19),
 	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
+	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
@@ -511,12 +515,13 @@ struct GPUStateCache {
 
 	float vpWidth;
 	float vpHeight;
-	float vpDepth;
 
 	float vpXOffset;
 	float vpYOffset;
+	float vpZOffset;
 	float vpWidthScale;
 	float vpHeightScale;
+	float vpDepthScale;
 
 	KnownVertexBounds vertBounds;
 
@@ -528,12 +533,9 @@ struct GPUStateCache {
 	u32 curRTOffsetX;
 
 	u32 getRelativeAddress(u32 data) const;
+	void Reset();
 	void DoState(PointerWrap &p);
 };
-
-void InitGfxState();
-void ShutdownGfxState();
-void ReapplyGfxState();
 
 class GPUInterface;
 class GPUDebugInterface;

@@ -90,6 +90,8 @@ volatile CoreState coreState = CORE_STEPPING;
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
+static GPUBackend gpuBackend;
+
 void UpdateUIState(GlobalUIState newState) {
 	// Never leave the EXIT state.
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
@@ -100,6 +102,14 @@ void UpdateUIState(GlobalUIState newState) {
 
 GlobalUIState GetUIState() {
 	return globalUIState;
+}
+
+void SetGPUBackend(GPUBackend type) {
+	gpuBackend = type;
+}
+
+GPUBackend GetGPUBackend() {
+	return gpuBackend;
 }
 
 bool IsAudioInitialised() {
@@ -184,7 +194,7 @@ void CPU_Init() {
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
-	loadedFile = ConstructFileLoader(filename);
+	loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename));
 #ifdef _M_X64
 	if (g_Config.bCacheFullIsoInRam) {
 		loadedFile = new RamCachingFileLoader(loadedFile);
@@ -206,17 +216,11 @@ void CPU_Init() {
 	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(loadedFile);
 		break;
-	case FILETYPE_PSP_PBP_DIRECTORY: {
-		// TODO: Can we get this lower into LoadFile?
-		std::string ebootFilename = loadedFile->Path() + "/EBOOT.PBP";
-		FileLoader *tempLoader = ConstructFileLoader(ebootFilename);
-		InitMemoryForGamePBP(tempLoader);
-		delete tempLoader;
-		break;
-	}
 	case FILETYPE_PSP_PBP:
 		InitMemoryForGamePBP(loadedFile);
 		break;
+	case FILETYPE_PSP_PBP_DIRECTORY:
+		ERROR_LOG(LOADER, "PBP directory resolution failed.");
 	default:
 		break;
 	}
@@ -366,6 +370,7 @@ void System_Wake() {
 static bool pspIsInited = false;
 static bool pspIsIniting = false;
 static bool pspIsQuiting = false;
+// Ugly!
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	if (pspIsIniting || pspIsQuiting) {
@@ -413,7 +418,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
 	if (success) {
-		success = GPU_Init();
+		success = GPU_Init(coreParameter.graphicsContext);
 		if (!success) {
 			PSP_Shutdown();
 			*error_string = "Unable to initialize rendering engine.";
@@ -477,6 +482,19 @@ void PSP_Shutdown() {
 	pspIsIniting = false;
 	pspIsQuiting = false;
 	g_Config.unloadGameConfig();
+}
+
+void PSP_BeginHostFrame() {
+	// Reapply the graphics state of the PSP
+	if (gpu) {
+		gpu->BeginHostFrame();
+	}
+}
+
+void PSP_EndHostFrame() {
+	if (gpu) {
+		gpu->EndHostFrame();
+	}
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
@@ -560,6 +578,11 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 	case DIRECTORY_SAVESTATE:
 		return g_Config.memStickDirectory + "PSP/PPSSPP_STATE/";
 	case DIRECTORY_CACHE:
+		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
+	case DIRECTORY_APP_CACHE:
+		if (!g_Config.appCacheDirectory.empty()) {
+			return g_Config.appCacheDirectory;
+		}
 		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:

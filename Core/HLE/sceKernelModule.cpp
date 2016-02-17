@@ -55,6 +55,8 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
+#include "GPU/GPU.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
 #ifdef BLACKBERRY
@@ -757,6 +759,9 @@ void Module::Cleanup() {
 			Memory::Write_U32(MIPS_MAKE_BREAK(1), nm.text_addr + i);
 		}
 		Memory::Memset(nm.text_addr + nm.text_size, -1, nm.data_size + nm.bss_size);
+
+		// Let's also invalidate, just to make sure it's cleared out for any future data.
+		currentMIPS->InvalidateICache(memoryBlockAddr, memoryBlockSize);
 	}
 }
 
@@ -789,7 +794,7 @@ static void __SaveDecryptedEbootToStorageMedia(const u8 *decryptedEbootDataPtr, 
 		}
 	}
 
-	FILE *decryptedEbootFile = fopen(fullPath.c_str(), "wb");
+	FILE *decryptedEbootFile = File::OpenCFile(fullPath, "wb");
 	if (!decryptedEbootFile) {
 		ERROR_LOG(SCEMODULE, "Unable to write decrypted EBOOT.");
 		return;
@@ -958,6 +963,8 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 	}
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
+
+	currentMIPS->InvalidateICache(module->memoryBlockAddr, module->memoryBlockSize);
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
 	PspModuleInfo *modinfo;
@@ -1513,7 +1520,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		HLEShutdown();
 		Replacement_Init();
 		HLEInit();
-		GPU_Reinitialize();
+		gpu->Reinitialize();
 	}
 
 	__KernelModuleInit();

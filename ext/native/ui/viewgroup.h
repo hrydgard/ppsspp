@@ -64,6 +64,7 @@ public:
 	virtual void SetBG(const Drawable &bg) { bg_ = bg; }
 
 	virtual void Clear();
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 	View *GetViewByIndex(int index) { return views_[index]; }
 	int GetNumSubviews() const { return (int)views_.size(); }
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
@@ -225,9 +226,10 @@ public:
 		scrollStart_(0),
 		scrollTarget_(0),
 		scrollToTarget_(false),
-		inertia_(0),
+		inertia_(0.0f),
+		pull_(0.0f),
 		lastViewSize_(0.0f),
-		scrollToTopOnSizeChange_(true) {}
+		scrollToTopOnSizeChange_(false) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 	void Layout() override;
@@ -244,13 +246,15 @@ public:
 	void Update(const InputState &input_state) override;
 
 	// Override so that we can scroll to the active one after moving the focus.
-	virtual bool SubviewFocused(View *view) override;
+	bool SubviewFocused(View *view) override;
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
+	void SetVisibility(Visibility visibility) override;
 
 	// Quick hack to prevent scrolling to top in some lists
 	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
 
 private:
-	void ClampScrollPos(float &pos);
+	float ClampedScrollPos(float pos);
 
 	GestureDetector gesture_;
 	Orientation orientation_;
@@ -259,6 +263,7 @@ private:
 	float scrollTarget_;
 	bool scrollToTarget_;
 	float inertia_;
+	float pull_;
 	float lastViewSize_;
 	bool scrollToTopOnSizeChange_;
 };
@@ -290,6 +295,7 @@ public:
 	Event OnChoice;
 
 private:
+	StickyChoice *Choice(int index);
 	EventReturn OnChoiceClick(EventParams &e);
 
 	int selected_;
@@ -313,14 +319,18 @@ public:
 	}
 
 	void SetCurrentTab(int tab) {
-		tabs_[currentTab_]->SetVisibility(V_GONE);
-		currentTab_ = tab;
-		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		if (tab != currentTab_) {
+			tabs_[currentTab_]->SetVisibility(V_GONE);
+			currentTab_ = tab;
+			tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+		}
 		tabStrip_->SetSelection(tab);
 	}
 
 	int GetCurrentTab() const { return currentTab_; }
 	std::string Describe() const override { return "TabHolder: " + View::Describe(); }
+
+	void PersistData(PersistStatus status, std::string anonId, PersistMap &storage) override;
 
 private:
 	EventReturn OnTabClick(EventParams &e);

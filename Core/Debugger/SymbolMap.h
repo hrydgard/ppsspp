@@ -26,8 +26,6 @@
 
 #include "Common/CommonTypes.h"
 
-#include "ext/armips/Core/Assembler.h"
-
 enum SymbolType {
 	ST_NONE     = 0,
 	ST_FUNCTION = 1,
@@ -58,6 +56,8 @@ struct LoadedModuleInfo {
 enum DataType {
 	DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII
 };
+
+struct LabelDefinition;
 
 #ifdef _WIN32
 struct HWND__;

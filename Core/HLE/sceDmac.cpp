@@ -50,6 +50,7 @@ static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	}
 	if (!skip) {
 		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		currentMIPS->InvalidateICache(dst, size);
 	}
 
 	// This number seems strangely reproducible.

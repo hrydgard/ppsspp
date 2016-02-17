@@ -20,6 +20,7 @@
 #include "WindowsHeadlessHost.h"
 #include "Compare.h"
 
+#include "Common/FileUtil.h"
 #include "Common/CommonWindows.h"
 
 #include "Core/CoreParameter.h"
@@ -116,14 +117,14 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	{
 		// Lazy, just read in the original header to output the failed screenshot.
 		u8 header[14 + 40] = {0};
-		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
+		FILE *bmp = File::OpenCFile(comparisonScreenshot, "rb");
 		if (bmp)
 		{
 			fread(&header, sizeof(header), 1, bmp);
 			fclose(bmp);
 		}
 
-		FILE *saved = fopen("__testfailure.bmp", "wb");
+		FILE *saved = File::OpenCFile("__testfailure.bmp", "wb");
 		if (saved)
 		{
 			fwrite(&header, sizeof(header), 1, saved);
@@ -140,7 +141,7 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **graphicsContext)
 {
 	hWnd = CreateHiddenWindow();
 
@@ -169,13 +170,14 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
 	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
 	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
 
-	GL_SwapInterval(0);
+	// GL_SwapInterval(0);
 
 	glewInit();
 	CheckGLExtensions();
 
 	LoadNativeAssets();
 
+	*graphicsContext = new DummyGraphicsContext();
 	return ResizeGL();
 }
 

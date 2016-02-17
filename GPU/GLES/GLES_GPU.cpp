@@ -19,6 +19,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
+#include "Common/GraphicsContext.h"
 
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -27,6 +28,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -209,6 +211,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTZSCALE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
 	{GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_DEPTHRANGE, &GLES_GPU::Execute_ViewportZType},
+	{GE_CMD_CLIPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GLES_GPU::Execute_Region},
@@ -292,7 +295,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LSC3, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, DIRTY_LIGHT3, &GLES_GPU::Execute_Light3Param},
 
 	// Ignored commands
-	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
 	{GE_CMD_TEXSYNC, 0},
@@ -394,8 +396,8 @@ static const CommandTableEntry commandTable[] = {
 
 GLES_GPU::CommandInfo GLES_GPU::cmdInfo_[256];
 
-GLES_GPU::GLES_GPU()
-: resized_(false) {
+GLES_GPU::GLES_GPU(GraphicsContext *ctx)
+: resized_(false), gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -453,8 +455,17 @@ GLES_GPU::GLES_GPU()
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
-	transformDraw_.RestoreVAO();
 	glstate.Restore();
+	transformDraw_.RestoreVAO();
+	textureCache_.NotifyConfigChanged();
+
+	// Load shader cache.
+	std::string discID = g_paramSFO.GetValueString("DISC_ID");
+	if (discID.size()) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + g_paramSFO.GetValueString("DISC_ID") + ".glshadercache";
+		shaderManager_->LoadAndPrecompile(shaderCachePath_);
+	}
 }
 
 GLES_GPU::~GLES_GPU() {
@@ -462,11 +473,14 @@ GLES_GPU::~GLES_GPU() {
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
+	if (!shaderCachePath_.empty()) {
+		shaderManager_->Save(shaderCachePath_);
+	}
 	delete shaderManager_;
 	shaderManager_ = nullptr;
 
 #ifdef _WIN32
-	GL_SwapInterval(0);
+	gfxCtx_->SwapInterval(0);
 #endif
 }
 
@@ -551,17 +565,29 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
-	// In the future, also disable this when we get a proper 16-bit depth buffer.
-	if ((!gl_extensions.IsGLES || gl_extensions.GLES3) && PSP_CoreParameter().compat.flags().PixelDepthRounding) {
-		features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
-	} else {
-		if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
+	// If we already have a 16-bit depth buffer, we don't need to round.
+	if (fbo_standard_z_depth() > 16) {
+		if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+			features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+		} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+				// Use fragment rounding on desktop and GLES3, most accurate.
+				features |= GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT;
+			} else if (fbo_standard_z_depth() == 24 && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {
+				// Here we can simulate a 16 bit depth buffer by scaling.
+				// Note that the depth buffer is fixed point, not floating, so dividing by 256 is pretty good.
+				features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+			} else {
+				// At least do vertex rounding if nothing else.
+				features |= GPU_ROUND_DEPTH_TO_16BIT;
+			}
+		} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 			features |= GPU_ROUND_DEPTH_TO_16BIT;
 		}
 	}
 
 	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
+	if (PSP_CoreParameter().compat.flags().DepthRangeHack && (features & GPU_SUPPORTS_ACCURATE_DEPTH) == 0) {
 		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
@@ -587,7 +613,13 @@ void GLES_GPU::BuildReportingInfo() {
 	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
 	const char *glVersion = GetGLStringAlways(GL_VERSION);
 	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
-	const char *glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+	const char *glExtensions = nullptr;
+
+	if (gl_extensions.VersionGEThan(3, 0)) {
+		glExtensions = g_all_gl_extensions.c_str();
+	} else {
+		glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+	}
 
 	char temp[16384];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
@@ -668,7 +700,7 @@ inline void GLES_GPU::UpdateVsyncInterval(bool force) {
 		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
 		//} else {
-			GL_SwapInterval(desiredVSyncInterval);
+		gfxCtx_->SwapInterval(desiredVSyncInterval);
 		//}
 		lastVsync_ = desiredVSyncInterval;
 	}
@@ -708,6 +740,7 @@ void GLES_GPU::BeginFrameInternal() {
 		CheckGPUFeatures();
 		UpdateCmdInfo();
 		transformDraw_.Resized();
+		textureCache_.NotifyConfigChanged();
 	}
 	UpdateVsyncInterval(resized_);
 	resized_ = false;
@@ -725,6 +758,12 @@ void GLES_GPU::BeginFrameInternal() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
+
+	// Save the cache from time to time. TODO: How often?
+	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
+		shaderManager_->Save(shaderCachePath_);
+	}
+
 	shaderManager_->DirtyShader();
 
 	// Not sure if this is really needed.
@@ -2195,6 +2234,13 @@ void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType t
 	}
 }
 
+void GLES_GPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	if (Memory::IsVRAMAddress(addr)) {
+		framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	}
+	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
 void GLES_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
@@ -2395,6 +2441,10 @@ bool GLES_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 #else
 	return false;
 #endif
+}
+
+bool GLES_GPU::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_.GetCurrentClutBuffer(buffer);
 }
 
 bool GLES_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {

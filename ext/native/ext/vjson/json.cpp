@@ -268,7 +268,7 @@ char *atof(char *first, char *last, float *out)
 
 json_value *json_alloc(block_allocator *allocator)
 {
-	json_value *value = (json_value *)allocator->malloc(sizeof(json_value));
+	json_value *value = (json_value *)allocator->Malloc(sizeof(json_value));
 	memset(value, 0, sizeof(json_value));
 	return value;
 }

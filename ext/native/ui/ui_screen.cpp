@@ -1,3 +1,4 @@
+#include <map>
 #include "base/display.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
@@ -19,13 +20,31 @@ UIScreen::~UIScreen() {
 
 void UIScreen::DoRecreateViews() {
 	if (recreateViews_) {
+		UI::PersistMap persisted;
+		bool persisting = root_ != nullptr;
+		if (persisting) {
+			root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
+		}
+
 		delete root_;
-		root_ = 0;
+		root_ = nullptr;
 		CreateViews();
 		if (root_ && root_->GetDefaultFocusView()) {
 			root_->GetDefaultFocusView()->SetFocus();
 		}
 		recreateViews_ = false;
+
+		if (persisting && root_ != nullptr) {
+			root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
+
+			// Update layout and refocus so things scroll into view.
+			// This is for resizing down, when focused on something now offscreen.
+			UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+			UI::View *focused = UI::GetFocusedView();
+			if (focused) {
+				root_->SubviewFocused(focused);
+			}
+		}
 	}
 }
 

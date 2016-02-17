@@ -89,6 +89,17 @@ void MainWindow::updateMenus()
 		}
 	}
 
+	foreach(QAction * action, displayLayoutGroup->actions()) {
+		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
+
+			if (gpu)
+				gpu->Resized();
+
+			action->setChecked(true);
+			break;
+		}
+	}
+
 	int defaultLevel = LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON);
 	foreach(QAction * action, defaultLogGroup->actions()) {
 		if (defaultLevel == action->data().toInt()) {
@@ -334,13 +345,6 @@ void MainWindow::memviewTexAct()
 		memoryTexWindow->show();
 }
 
-void MainWindow::stretchAct()
-{
-	g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-	if (gpu)
-		gpu->Resized();
-}
-
 void MainWindow::raiseTopMost()
 {
 	
@@ -539,8 +543,10 @@ void MainWindow::createMenus()
 		QList<int>()  << 1    << 2    << 3    << 4,
 		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
 
-	videoMenu->add(new MenuAction(this, SLOT(stretchAct()),       QT_TR_NOOP("&Stretch to Display")))
-		->addEventChecked(&g_Config.bStretchToDisplay);
+	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
+	displayLayoutGroup = new MenuActionGroup(this, displayLayoutMenu, SLOT(displayLayoutGroup_triggered(QAction *)),
+		QStringList() << "Stretched" << "Partialy stretched" << "Auto Scaling" << "Manual Scaling",
+		QList<int>() << 0 << 1 << 2 << 3);
 	videoMenu->addSeparator();
 	videoMenu->add(new MenuAction(this, SLOT(transformAct()),     QT_TR_NOOP("&Hardware Transform"), Qt::Key_F6))
 		->addEventChecked(&g_Config.bHardwareTransform);

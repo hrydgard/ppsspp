@@ -17,8 +17,8 @@
 
 #if defined(SDL)
 #include <SDL_keyboard.h>
-#elif defined(_WIN32) && !defined(_XBOX)
-#include <windows.h>
+#elif defined(USING_WIN_UI)
+#include "CommonWindows.h"
 #endif
 #include <set>
 
@@ -374,7 +374,7 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 				azerty = true;
 			else if (q == 'q' && w == 'w' && y == 'z')
 				qwertz = true;
-#elif defined(_WIN32) && !defined(_XBOX)
+#elif defined(USING_WIN_UI)
 			HKL localeId = GetKeyboardLayout(0);
 			// TODO: Is this list complete enough?
 			switch ((int)(intptr_t)localeId & 0xFFFF) {

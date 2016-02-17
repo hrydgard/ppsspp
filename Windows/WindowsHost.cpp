@@ -63,15 +63,13 @@ static const int numCPUs = 1;
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
 
-static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
-{
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
+WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
+	: gfx_(nullptr), hInstance_(hInstance), mainWindow_(mainWindow), displayWindow_(displayWindow)
 {
-	mainWindow_ = mainWindow;
-	displayWindow_ = displayWindow;
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
@@ -97,33 +95,41 @@ void WindowsHost::SetConsolePosition() {
 void WindowsHost::UpdateConsolePosition() {
 	RECT rc;
 	HWND console = GetConsoleWindow();
-	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console))
-	{
+	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console)) {
 		g_Config.iConsoleWindowX = rc.left;
 		g_Config.iConsoleWindowY = rc.top;
 	}
 }
 
-bool WindowsHost::InitGraphics(std::string *error_message) {
+bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
-		return GL_Init(displayWindow_, error_message);
+		graphicsContext = new WindowsGLContext();
+		break;
 	case GPU_BACKEND_DIRECT3D9:
-		return D3D9_Init(displayWindow_, true, error_message);
+		graphicsContext = new D3D9Context();
+		break;
 	default:
+		return false;
+	}
+
+	if (graphicsContext->Init(hInstance_, displayWindow_, error_message)) {
+		*ctx = graphicsContext;
+		gfx_ = graphicsContext;
+		return true;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		gfx_ = nullptr;
 		return false;
 	}
 }
 
 void WindowsHost::ShutdownGraphics() {
-	switch (g_Config.iGPUBackend) {
-	case GPU_BACKEND_OPENGL:
-		GL_Shutdown();
-		break;
-	case GPU_BACKEND_DIRECT3D9:
-		D3D9_Shutdown();
-		break;
-	}
+	gfx_->Shutdown();
+	delete gfx_;
+	gfx_ = nullptr;
 	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 

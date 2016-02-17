@@ -43,6 +43,10 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
+
 enum
 {
 	// Do nothing after the syscall.
@@ -596,9 +600,22 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 			}
 			break;
 
+		case 'P':
+			if (Memory::IsValidAddress(regval)) {
+				APPEND_FMT("%08x[%016llx]", regval, Memory::Read_U64(regval));
+			} else {
+				APPEND_FMT("%08x[invalid]", regval);
+			}
+			break;
+
 		case 's':
 			if (Memory::IsValidAddress(regval)) {
-				APPEND_FMT("%s", Memory::GetCharPointer(regval));
+				const char *s = Memory::GetCharPointer(regval);
+				if (strnlen(s, 64) >= 64) {
+					APPEND_FMT("%.64s...", Memory::GetCharPointer(regval));
+				} else {
+					APPEND_FMT("%s", Memory::GetCharPointer(regval));
+				}
 			} else {
 				APPEND_FMT("(invalid)");
 			}
@@ -649,22 +666,7 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 	return used;
 }
 
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, ...) {
-	if (level > MAX_LOGLEVEL || !GenericLogEnabled(level, t)) {
-		return res;
-	}
-
-	char formatted_reason[4096] = {0};
-	if (reason != nullptr) {
-		va_list args;
-		va_start(args, reason);
-		formatted_reason[0] = ':';
-		formatted_reason[1] = ' ';
-		vsnprintf(formatted_reason + 2, sizeof(formatted_reason) - 3, reason, args);
-		formatted_reason[sizeof(formatted_reason) - 1] = '\0';
-		va_end(args);
-	}
-
+void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
 	char formatted_args[4096];
 	hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
 
@@ -673,14 +675,18 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 		retmask = latestSyscall->retmask;
 
 	const char *fmt;
-	// TODO: Floats and other types... move to another func (for return type?)  Hmm.
 	if (retmask == 'x') {
+		fmt = "%08llx=%s(%s)%s";
+		// Truncate the high bits of the result (from any sign extension.)
+		res = (u32)res;
+	} else if (retmask == 'i' || retmask == 'I') {
+		fmt = "%lld=%s(%s)%s";
+	} else if (retmask == 'f') {
+		// TODO: For now, floats are just shown as bits.
 		fmt = "%08x=%s(%s)%s";
-	} else if (retmask == 'i') {
-		fmt = "%d=%s(%s)%s";
 	} else {
 		_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
-		fmt = "%08x=%s(%s)%s";
+		fmt = "%08llx=%s(%s)%s";
 	}
 
 	GenericLog(level, t, file, line, fmt, res, latestSyscall->name, formatted_args, formatted_reason);
@@ -698,10 +704,4 @@ u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const ch
 			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
 		}
 	}
-
-	return res;
-}
-
-u32 hleDoLog(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u32 res, const char *file, int line, const char *reportTag, char retmask) {
-	return hleDoLog(t, level, res, file, line, reportTag, retmask, nullptr);
 }

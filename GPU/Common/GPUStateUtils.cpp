@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <limits>
 
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -498,6 +499,46 @@ LogicOpReplaceType ReplaceLogicOpType() {
 	return LOGICOPTYPE_NORMAL;
 }
 
+static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
+static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
+
+float DepthSliceFactor() {
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		return DEPTH_SLICE_FACTOR_16BIT;
+	}
+	return DEPTH_SLICE_FACTOR_HIGH;
+}
+
+// This is used for float values which might not be integers, but are in the integer scale of 65535.
+static float ToScaledDepthFromInteger(float z) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		return z * (1.0f / 65535.0f);
+	}
+
+	const float depthSliceFactor = DepthSliceFactor();
+	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+		const double doffset = 0.5 * (depthSliceFactor - 1.0) * (1.0 / depthSliceFactor);
+		// Use one bit for each value, rather than 1.0 / (25535.0 * 256.0).
+		return (float)((double)z * (1.0 / 16777215.0) + doffset);
+	} else {
+		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+		return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
+	}
+}
+
+float ToScaledDepth(u16 z) {
+	return ToScaledDepthFromInteger((float)(int)z);
+}
+
+float FromScaledDepth(float z) {
+	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+		return z * 65535.0f;
+	}
+
+	const float depthSliceFactor = DepthSliceFactor();
+	const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
+	return (z - offset) * depthSliceFactor * 65535.0f;
+}
 
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
@@ -552,8 +593,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = 0.0f;
-		out.depthRangeMax = 1.0f;
+		out.depthRangeMin = ToScaledDepthFromInteger(0);
+		out.depthRangeMax = ToScaledDepthFromInteger(65536);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -625,40 +666,65 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 			yOffset = drift / (bottom - top);
 		}
 
-		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
-		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
-		if (scaleChanged || offsetChanged) {
-			gstate_c.vpWidthScale = wScale;
-			gstate_c.vpHeightScale = hScale;
-			gstate_c.vpXOffset = xOffset;
-			gstate_c.vpYOffset = yOffset;
-			out.dirtyProj = true;
-		}
-
 		out.viewportX = left + displayOffsetX;
 		out.viewportY = top + displayOffsetY;
 		out.viewportW = right - left;
 		out.viewportH = bottom - top;
 
-		float zScale = gstate.getViewportZScale();
-		float zCenter = gstate.getViewportZCenter();
-		float depthRangeMin = zCenter - zScale;
-		float depthRangeMax = zCenter + zScale;
-		out.depthRangeMin = depthRangeMin * (1.0f / 65535.0f);
-		out.depthRangeMax = depthRangeMax * (1.0f / 65535.0f);
-
-#ifndef MOBILE_DEVICE
+		// The depth viewport parameters are the same, but we handle it a bit differently.
+		// When clipping is enabled, depth is clamped to [0, 65535].  And minz/maxz discard.
+		// So, we apply the depth range as minz/maxz, and transform for the viewport.
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
-		if ((minz > depthRangeMin && minz > depthRangeMax) || (maxz < depthRangeMin && maxz < depthRangeMax)) {
-			WARN_LOG_REPORT_ONCE(minmaxz, G3D, "Unsupported depth range in test - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
-		} else if ((gstate.clipEnable & 1) == 0) {
-			// TODO: Need to test whether clipEnable should even affect depth or not.
-			if ((minz < depthRangeMin && minz < depthRangeMax) || (maxz > depthRangeMin && maxz > depthRangeMax)) {
-				WARN_LOG_REPORT_ONCE(znoclip, G3D, "Unsupported depth range in test without clipping - depth range: %f-%f, test: %f-%f", depthRangeMin, depthRangeMax, minz, maxz);
+
+		if (gstate.isClippingEnabled() && (minz == 0 || maxz == 65535)) {
+			// Here, we should "clamp."  But clamping per fragment would be slow.
+			// So, instead, we just increase the available range and hope.
+			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
+			float fullDepthRange = 65535.0f * (DepthSliceFactor() - 1.0f) * (1.0f / 2.0f);
+			if (minz == 0) {
+				minz -= fullDepthRange;
+			}
+			if (maxz == 65535) {
+				maxz += fullDepthRange;
 			}
 		}
-#endif
+
+		// Okay.  So, in our shader, -1 will map to minz, and +1 will map to maxz.
+		float halfActualZRange = (maxz - minz) * (1.0f / 2.0f);
+		float zScale = halfActualZRange < std::numeric_limits<float>::epsilon() ? 1.0f : vpZScale / halfActualZRange;
+		// This adjusts the center from halfActualZRange to vpZCenter.
+		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
+
+		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			zScale = 1.0f;
+			zOffset = 0.0f;
+			out.depthRangeMin = ToScaledDepthFromInteger(vpZCenter - vpZScale);
+			out.depthRangeMax = ToScaledDepthFromInteger(vpZCenter + vpZScale);
+		} else {
+			out.depthRangeMin = ToScaledDepthFromInteger(minz);
+			out.depthRangeMax = ToScaledDepthFromInteger(maxz);
+		}
+
+		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
+		out.depthRangeMin = std::max(out.depthRangeMin, 0.0f);
+		out.depthRangeMax = std::min(out.depthRangeMax, 1.0f);
+
+		bool scaleChanged = gstate_c.vpWidthScale != wScale || gstate_c.vpHeightScale != hScale;
+		bool offsetChanged = gstate_c.vpXOffset != xOffset || gstate_c.vpYOffset != yOffset;
+		bool depthChanged = gstate_c.vpDepthScale != zScale || gstate_c.vpZOffset != zOffset;
+		if (scaleChanged || offsetChanged || depthChanged) {
+			gstate_c.vpWidthScale = wScale;
+			gstate_c.vpHeightScale = hScale;
+			gstate_c.vpDepthScale = zScale;
+			gstate_c.vpXOffset = xOffset;
+			gstate_c.vpYOffset = yOffset;
+			gstate_c.vpZOffset = zOffset;
+			out.dirtyProj = true;
+			out.dirtyDepth = depthChanged;
+		}
 	}
 }
 
@@ -1117,5 +1183,165 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 		blendState.setEquation(eqLookup[blendFuncEq], alphaEq);
 	} else {
 		blendState.setEquation(eqLookupNoMinMax[blendFuncEq], alphaEq);
+	}
+}
+
+static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
+	state.writeMask = state.writeMask >= 0x80 ? 0xff : 0x00;
+
+	// Flaws:
+	// - INVERT should convert 1, 5, 0xFF to 0.  Currently it won't always.
+	// - INCR twice shouldn't change the value.
+	// - REPLACE should write 0 for 0x00 - 0x7F, and non-zero for 0x80 - 0xFF.
+	// - Write mask may need double checking, but likely only the top bit matters.
+
+	const bool usesRef = state.sFail == GE_STENCILOP_REPLACE || state.zFail == GE_STENCILOP_REPLACE || state.zPass == GE_STENCILOP_REPLACE;
+	const u8 maskedRef = state.testRef & state.testMask;
+	const u8 usedRef = (state.testRef & 0x80) != 0 ? 0xFF : 0x00;
+
+	auto rewriteFunc = [&](GEComparison func, u8 ref, u8 mask = 0xFF) {
+		// We can only safely rewrite if it doesn't use the ref, or if the ref is the same.
+		if (!usesRef || usedRef == ref) {
+			state.testFunc = func;
+			state.testRef = ref;
+			state.testMask = mask;
+		}
+	};
+	auto rewriteRef = [&]() {
+		if (usesRef) {
+			// Rewrite the ref (for REPLACE) to 0x00 or 0xFF (the "best" values) if safe.
+			// This will only be called if the test doesn't need the ref.
+			state.testRef = usedRef;
+		}
+	};
+
+	// For 5551, we treat any non-zero value in the buffer as 255.  Only zero is treated as zero.
+	// See: https://github.com/hrydgard/ppsspp/pull/4150#issuecomment-26211193
+	switch (state.testFunc) {
+	case GE_COMP_NEVER:
+	case GE_COMP_ALWAYS:
+		// Fine as is.
+		rewriteRef();
+		break;
+	case GE_COMP_EQUAL: // maskedRef == maskedBuffer
+		if (maskedRef == 0) {
+			// Remove any mask, we might have bits less than 255 but that should not match.
+			rewriteFunc(GE_COMP_EQUAL, 0);
+		} else if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+			// Equal to 255, for our buffer, means not equal to zero.
+			rewriteFunc(GE_COMP_NOTEQUAL, 0);
+		} else {
+			// This should never pass, regardless of buffer value.  Only 0 and 255 are directly equal.
+			state.testFunc = GE_COMP_NEVER;
+			rewriteRef();
+		}
+		break;
+	case GE_COMP_NOTEQUAL: // maskedRef != maskedBuffer
+		if (maskedRef == 0) {
+			// Remove the mask, since our buffer might not be exactly 255.
+			rewriteFunc(GE_COMP_NOTEQUAL, 0);
+		} else if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+			// The only value != 255 is 0, in our buffer.
+			rewriteFunc(GE_COMP_EQUAL, 0);
+		} else {
+			// Every other value evaluates as not equal, always.
+			state.testFunc = GE_COMP_ALWAYS;
+			rewriteRef();
+		}
+		break;
+	case GE_COMP_LESS: // maskedRef < maskedBuffer
+		if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+			// No possible value is less than 255.
+			state.testFunc = GE_COMP_NEVER;
+			rewriteRef();
+		} else {
+			// "0 < (0 or 255)" and "254 < (0 or 255)" can only work for non zero.
+			rewriteFunc(GE_COMP_NOTEQUAL, 0);
+		}
+		break;
+	case GE_COMP_LEQUAL: // maskedRef <= maskedBuffer
+		if (maskedRef == 0) {
+			// 0 is <= every possible value.
+			state.testFunc = GE_COMP_ALWAYS;
+			rewriteRef();
+		} else {
+			// "1 <= (0 or 255)" and "255 <= (0 or 255)" simply mean, anything but zero.
+			rewriteFunc(GE_COMP_NOTEQUAL, 0);
+		}
+		break;
+	case GE_COMP_GREATER: // maskedRef > maskedBuffer
+		if (maskedRef > 0) {
+			// "1 > (0 or 255)" and "255 > (0 or 255)" can only match 0.
+			rewriteFunc(GE_COMP_EQUAL, 0);
+		} else {
+			// 0 is never greater than any possible value.
+			state.testFunc = GE_COMP_NEVER;
+			rewriteRef();
+		}
+		break;
+	case GE_COMP_GEQUAL: // maskedRef >= maskedBuffer
+		if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
+			// 255 is >= every possible value.
+			state.testFunc = GE_COMP_ALWAYS;
+			rewriteRef();
+		} else {
+			// "0 >= (0 or 255)" and "254 >= "(0 or 255)" are the same, equal to zero.
+			rewriteFunc(GE_COMP_EQUAL, 0);
+		}
+		break;
+	}
+
+	auto rewriteOps = [&](GEStencilOp from, GEStencilOp to) {
+		if (state.sFail == from)
+			state.sFail = to;
+		if (state.zFail == from)
+			state.zFail = to;
+		if (state.zPass == from)
+			state.zPass = to;
+	};
+
+	// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
+	rewriteOps(GE_STENCILOP_DECR, GE_STENCILOP_ZERO);
+
+	if (state.testFunc == GE_COMP_NOTEQUAL && state.testRef == 0 && state.testMask != 0) {
+		// If it's != 0 (as optimized above), then we can rewrite INVERT to ZERO.
+		// With 1 bit of stencil, INVERT != 0 can only make it 0.
+		rewriteOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
+	}
+	if (state.testFunc == GE_COMP_EQUAL && state.testRef == 0 && state.testMask != 0) {
+		// If it's == 0 (as optimized above), then we can rewrite INCR to INVERT.
+		// Otherwise we get 1, which we mostly handle, but won't INVERT correctly.
+		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
+	}
+}
+
+void ConvertStencilFuncState(GenericStencilFuncState &state) {
+	state.enabled = gstate.isStencilTestEnabled() && !g_Config.bDisableStencilTest;
+	if (!state.enabled)
+		return;
+
+	// The PSP's mask is reversed (bits not to write.)
+	state.writeMask = (~(gstate.pmska >> 0)) & 0xFF;
+
+	state.sFail = gstate.getStencilOpSFail();
+	state.zFail = gstate.getStencilOpZFail();
+	state.zPass = gstate.getStencilOpZPass();
+
+	state.testFunc = gstate.getStencilTestFunction();
+	state.testRef = gstate.getStencilTestRef();
+	state.testMask = gstate.getStencilTestMask();
+
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_565:
+		state.writeMask = 0;
+		break;
+
+	case GE_FORMAT_5551:
+		ConvertStencilFunc5551(state);
+		break;
+
+	default:
+		// Hard to do anything useful for 4444, and 8888 is fine.
+		break;
 	}
 }

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <WinNls.h>
 #include <math.h>
 #include <Wbemidl.h>
@@ -332,6 +333,26 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 	}
 }
 
+static std::string GetDefaultLangRegion() {
+	wchar_t lcLangName[256] = {};
+
+	// LOCALE_SNAME is only available in WinVista+
+	if (0 != GetLocaleInfo(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcLangName, ARRAY_SIZE(lcLangName))) {
+		std::string result = ConvertWStringToUTF8(lcLangName);
+		std::replace(result.begin(), result.end(), '-', '_');
+		return result;
+	} else {
+		// This should work on XP, but we may get numbers for some countries.
+		if (0 != GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SISO639LANGNAME, lcLangName, ARRAY_SIZE(lcLangName))) {
+			wchar_t lcRegion[256] = {};
+			if (0 != GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_SISO3166CTRYNAME, lcRegion, ARRAY_SIZE(lcRegion))) {
+				return ConvertWStringToUTF8(lcLangName) + "_" + ConvertWStringToUTF8(lcRegion);
+			}
+		}
+		// Unfortunate default.  We tried.
+		return "en_US";
+	}
+}
 
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
@@ -350,9 +371,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 #ifdef _DEBUG
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF|_CRTDBG_LEAK_CHECK_DF);
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
-
 	PROFILE_INIT();
 
 #if defined(_M_X64) && defined(_MSC_VER) && _MSC_VER < 1900
@@ -365,27 +385,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 #ifndef _DEBUG
 	bool showLog = false;
 #else
-	bool showLog = false;
+	bool showLog = true;
 #endif
 
 	const std::string &exePath = File::GetExeDirectory();
 	VFSRegister("", new DirectoryAssetReader((exePath + "/assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader(exePath.c_str()));
 
-	wchar_t lcCountry[256];
-
-	// LOCALE_SNAME is only available in WinVista+
-	// Really should find a way to do this in XP too :/
-	if (0 != GetLocaleInfo(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcCountry, 256)) {
-		langRegion = ConvertWStringToUTF8(lcCountry);
-		for (size_t i = 0; i < langRegion.size(); i++) {
-			if (langRegion[i] == '-')
-				langRegion[i] = '_';
-		}
-	} else {
-		langRegion = "en_US";
-	}
-
+	langRegion = GetDefaultLangRegion();
 	osName = GetWindowsVersion() + " " + GetWindowsSystemArchitecture();
 
 	char configFilename[MAX_PATH] = { 0 };
@@ -521,7 +528,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	host = new WindowsHost(hwndMain, hwndDisplay);
+	host = new WindowsHost(_hInstance, hwndMain, hwndDisplay);
 	host->SetWindowTitle(0);
 
 	MainWindow::CreateDebugWindows();
@@ -591,16 +598,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
 	delete host;
-
-	// Is there a safer place to do this?
-	// Doing this in Config::Save requires knowing if the UI state is UISTATE_EXIT,
-	// but that causes UnitTest to fail linking with 400 errors if System.h is included..
-	if (g_Config.iTempGPUBackend != g_Config.iGPUBackend) {
-		g_Config.iGPUBackend = g_Config.iTempGPUBackend;
-
-		// For now, turn off software rendering too, similar to the command-line.
-		g_Config.bSoftwareRendering = false;
-	}
 
 	g_Config.Save();
 	g_gameInfoCache.Clear();

@@ -20,18 +20,23 @@
 #include "Core/System.h"
 
 void Compatibility::Load(const std::string &gameID) {
-	IniFile compat;
 	Clear();
 
-	// This loads from assets.
-	if (compat.LoadFromVFS("compat.ini")) {
-		LoadIniSection(compat, gameID);
+	{
+		IniFile compat;
+		// This loads from assets.
+		if (compat.LoadFromVFS("compat.ini")) {
+			CheckSettings(compat, gameID);
+		}
 	}
 
-	// This one is user-editable. Need to load it after the system one.
-	std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
-	if (compat.Load(path)) {
-		LoadIniSection(compat, gameID);
+	{
+		IniFile compat2;
+		// This one is user-editable. Need to load it after the system one.
+		std::string path = GetSysDirectory(DIRECTORY_SYSTEM) + "compat.ini";
+		if (compat2.Load(path)) {
+			CheckSettings(compat2, gameID);
+		}
 	}
 }
 
@@ -39,8 +44,12 @@ void Compatibility::Clear() {
 	memset(&flags_, 0, sizeof(flags_));
 }
 
-void Compatibility::LoadIniSection(IniFile &iniFile, std::string section) {
-	iniFile.Get(section.c_str(), "NoDepthRounding", &flags_.NoDepthRounding, flags_.NoDepthRounding);
-	iniFile.Get(section.c_str(), "PixelDepthRounding", &flags_.PixelDepthRounding, flags_.PixelDepthRounding);
-	iniFile.Get(section.c_str(), "DepthRangeHack", &flags_.DepthRangeHack, flags_.DepthRangeHack);
+void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
+	CheckSetting(iniFile, gameID, "VertexDepthRounding", flags_.VertexDepthRounding);
+	CheckSetting(iniFile, gameID, "PixelDepthRounding", flags_.PixelDepthRounding);
+	CheckSetting(iniFile, gameID, "DepthRangeHack", flags_.DepthRangeHack);
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool &flag) {
+	iniFile.Get(option, gameID.c_str(), &flag, flag);
 }

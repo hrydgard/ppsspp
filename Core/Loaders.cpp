@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "base/stringutil.h"
 #include "file/file_util.h"
 #include "Common/FileUtil.h"
 
@@ -191,19 +192,26 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 	return FILETYPE_UNKNOWN;
 }
 
+FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
+	IdentifiedFileType type = Identify_File(fileLoader);
+	if (type == FILETYPE_PSP_PBP_DIRECTORY && !endsWith(fileLoader->Path(), "/EBOOT.PBP")) {
+		std::string ebootFilename = fileLoader->Path() + "/EBOOT.PBP";
+
+		// Switch fileLoader to the actual EBOOT.
+		delete fileLoader;
+		fileLoader = ConstructFileLoader(ebootFilename);
+	}
+	return fileLoader;
+}
+
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	FileLoader *&fileLoader = *fileLoaderPtr;
 	// Note that this can modify filename!
 	switch (Identify_File(fileLoader)) {
 	case FILETYPE_PSP_PBP_DIRECTORY:
 		{
-			std::string filename = fileLoader->Path();
-			std::string ebootFilename = filename + "/EBOOT.PBP";
-
-			// Switch fileLoader to the EBOOT.
-			delete fileLoader;
-			fileLoader = ConstructFileLoader(ebootFilename);
-
+			// TODO: Perhaps we should/can never get here now?
+			fileLoader = ResolveFileLoaderTarget(fileLoader);
 			if (fileLoader->Exists()) {
 				INFO_LOG(LOADER, "File is a PBP in a directory!");
 				IdentifiedFileType ebootType = Identify_File(fileLoader);
@@ -216,10 +224,14 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
 					return false;
 				}
-				std::string path = filename;
+				std::string path = fileLoader->Path();
 				size_t pos = path.find("/PSP/GAME/");
-				if (pos != std::string::npos)
+				if (pos != std::string::npos) {
+					if (path.rfind("/EBOOT.PBP") != std::string::npos) {
+						path = path.substr(0, path.length() - strlen("/EBOOT.PBP"));
+					}
 					pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
+				}
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
 				*error_string = "No EBOOT.PBP, misidentified game";

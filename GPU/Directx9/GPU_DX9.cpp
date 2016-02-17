@@ -18,6 +18,7 @@
 #include <set>
 
 #include "Common/ChunkFile.h"
+#include "base/NativeApp.h"
 #include "base/logging.h"
 #include "profiler/profiler.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -205,6 +206,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_VIEWPORTXCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTYCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
 	{GE_CMD_VIEWPORTZCENTER, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_ViewportType},
+	{GE_CMD_CLIPENABLE, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Region
 	{GE_CMD_REGION1, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Region},
@@ -288,7 +290,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_LSC3,	FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &DIRECTX9_GPU::Execute_Light3Param},
 
 	// Ignored commands
-	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
 	{GE_CMD_TEXSYNC, 0},
@@ -444,6 +445,7 @@ DIRECTX9_GPU::DIRECTX9_GPU()
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	dxstate.Restore();
+	textureCache_.NotifyConfigChanged();
 }
 
 void DIRECTX9_GPU::UpdateCmdInfo() {
@@ -475,14 +477,16 @@ void DIRECTX9_GPU::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
+	features |= GPU_PREFER_CPU_DOWNLOAD;
+	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
-	if (!PSP_CoreParameter().compat.flags().NoDepthRounding) {
+	if (!g_Config.bHighQualityDepth) {
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {
+		// Assume we always have a 24-bit depth buffer.
+		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
+	} else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
-	}
-
-	// The Phantasy Star hack :(
-	if (PSP_CoreParameter().compat.flags().DepthRangeHack) {
-		features |= GPU_USE_DEPTH_RANGE_HACK;
 	}
 
 	gstate_c.featureFlags = features;
@@ -496,7 +500,11 @@ DIRECTX9_GPU::~DIRECTX9_GPU() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void DIRECTX9_GPU::BuildReportingInfo() {
-	
+	D3DADAPTER_IDENTIFIER9 identifier = {0};
+	pD3D->GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, &identifier);
+
+	reportingPrimaryInfo_ = identifier.Description;
+	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION);
 }
 
 void DIRECTX9_GPU::DeviceLost() {
@@ -537,6 +545,7 @@ void DIRECTX9_GPU::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();
 		transformDraw_.Resized();
+		textureCache_.NotifyConfigChanged();
 		resized_ = false;
 	}
 
@@ -1954,6 +1963,13 @@ void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationTy
 	}
 }
 
+void DIRECTX9_GPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	if (Memory::IsVRAMAddress(addr)) {
+		framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	}
+	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
 void DIRECTX9_GPU::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
 	if (!framebufferManager_.NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
 		// We use a little hack for Download/Upload using a VRAM mirror.
@@ -2185,6 +2201,10 @@ bool DIRECTX9_GPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 	}
 
 	return success;
+}
+
+bool DIRECTX9_GPU::GetCurrentClut(GPUDebugBuffer &buffer) {
+	return textureCache_.GetCurrentClutBuffer(buffer);
 }
 
 bool DIRECTX9_GPU::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {

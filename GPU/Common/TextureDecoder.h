@@ -28,6 +28,7 @@ enum CheckAlphaResult {
 #include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoderNEON.h"
+#include "GPU/GPUState.h"
 
 void SetupTextureDecoder();
 
@@ -200,6 +201,17 @@ inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length
 		u16 index = *indexed16++;
 		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
 		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
+	}
+}
+
+inline void DeIndexTexture4OptimalRev(u16 *dest, const u8 *indexed, int length, u16 color) {
+	const u16_le *indexed16 = (const u16_le *)indexed;
+	const u32 color32 = (color << 16) | color;
+	u32 *dest32 = (u32 *)dest;
+	for (int i = 0; i < length / 2; i += 2) {
+		u16 index = *indexed16++;
+		dest32[i + 0] = color32 | ((index & 0x00f0) << 24) | ((index & 0x000f) << 12);
+		dest32[i + 1] = color32 | ((index & 0xf000) << 16) | ((index & 0x0f00) <<  4);
 	}
 }
 

@@ -83,8 +83,6 @@ public:
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(GLuint texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, GLSLProgram *program, int uvRotation);
 
-	void DrawPlainColor(u32 color);
-
 	void DestroyAllFBOs();
 
 	virtual void Init() override;
@@ -101,7 +99,8 @@ public:
 	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
@@ -125,7 +124,6 @@ public:
 protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer(bool keepState = false) override;
-	virtual void ClearDepthBuffer() override;
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
 
@@ -135,6 +133,8 @@ protected:
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
@@ -145,6 +145,7 @@ private:
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
@@ -166,22 +167,17 @@ private:
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
 	TransformDrawEngine *transformDraw_;
-	bool usePostShader_;
-	bool postShaderAtOutputResolution_;
-	bool postShaderIsUpscalingFilter_;
 
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO *fbo;
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 	std::map<u64, TempFBO> tempFBOs_;
 
 	// Not used under ES currently.

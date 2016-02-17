@@ -1,5 +1,7 @@
 # https://travis-ci.org
 
+sudo: required
+
 language: cpp
 
 os: linux

@@ -294,13 +294,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
 				framebufferManager_->SetDepthUpdated();
 			}
-
-			if (gstate.isModeThrough()) {
-				GEComparison ztest = gstate.getDepthTestFunction();
-				if (ztest == GE_COMP_EQUAL || ztest == GE_COMP_NOTEQUAL || ztest == GE_COMP_LEQUAL || ztest == GE_COMP_GEQUAL) {
-					DEBUG_LOG_REPORT_ONCE(ztestequal, G3D, "Depth test requiring depth equality in throughmode: %d", ztest);
-				}
-			}
 		} else {
 			glstate.depthTest.disable();
 		}
@@ -312,8 +305,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
 #ifndef MOBILE_DEVICE
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
 		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
 		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
 		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
@@ -338,21 +331,15 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 
-		// Stencil Test
-		if (gstate.isStencilTestEnabled() && enableStencilTest) {
-			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
-				gstate.getStencilTestRef(),
-				gstate.getStencilTestMask());
-			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
-				stencilOps[gstate.getStencilOpZFail()],  // depth fail
-				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
 
-			if (gstate.FrameBufFormat() == GE_FORMAT_5551) {
-				glstate.stencilMask.set(abits <= 0x7f ? 0xff : 0x00);
-			} else {
-				glstate.stencilMask.set(~abits);
-			}
+		// Stencil Test
+		if (stencilState.enabled) {
+			glstate.stencilTest.enable();
+			glstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+			glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
+			glstate.stencilMask.set(stencilState.writeMask);
 		} else {
 			glstate.stencilTest.disable();
 		}
@@ -376,6 +363,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	if (vpAndScissor.dirtyProj) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+	}
+	if (vpAndScissor.dirtyDepth) {
+		shaderManager_->DirtyUniform(DIRTY_DEPTHRANGE);
 	}
 }
 

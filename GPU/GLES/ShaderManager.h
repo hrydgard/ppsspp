@@ -43,12 +43,12 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous);
+	LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform);
 	~LinkedShader();
 
-	void use(u32 vertType, LinkedShader *previous);
+	void use(const ShaderID &VSID, LinkedShader *previous);
 	void stop();
-	void UpdateUniforms(u32 vertType);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID);
 
 	Shader *vs_;
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
@@ -162,19 +162,17 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t glShaderType, bool useHWTransform, const ShaderID &shaderID);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform);
 	~Shader();
 	uint32_t shader;
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; }
-	const ShaderID &ID() const { return id_; }
+	bool UseHWTransform() const { return useHWTransform_; } // only relevant for vtx shaders
 
-	std::string GetShaderString(DebugShaderStringType type) const;
+	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 
 private:
 	std::string source_;
-	ShaderID id_;
 	bool failed_;
 	bool useHWTransform_;
 	bool isFragment_;
@@ -189,8 +187,8 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(int prim, u32 vertType);
-	LinkedShader *ApplyFragmentShader(Shader *vs, int prim, u32 vertType);
+	Shader *ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim);
 
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
@@ -205,9 +203,13 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
+	void LoadAndPrecompile(const std::string &filename);
+	void Save(const std::string &filename);
+
 private:
 	void Clear();
-	static bool DebugAreShadersCompatibleForLinking(Shader *vs, Shader *fs);
+	Shader *CompileFragmentShader(ShaderID id);
+	Shader *CompileVertexShader(ShaderID id);
 
 	struct LinkedShaderCacheEntry {
 		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)
@@ -236,4 +238,6 @@ private:
 
 	typedef std::map<ShaderID, Shader *> VSCache;
 	VSCache vsCache_;
+
+	bool diskCacheDirty_;
 };

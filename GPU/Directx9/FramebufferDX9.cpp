@@ -39,6 +39,10 @@
 
 #include <algorithm>
 
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
+
 void ShowScreenResolution();
 
 namespace DX9 {
@@ -58,7 +62,7 @@ namespace DX9 {
 			dxstate.stencilFunc.set(D3DCMP_ALWAYS, 0, 0);
 			dxstate.stencilMask.set(0xFF);
 		}
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), ToScaledDepth(0), 0);
 		if (keepState) {
 			dxstate.scissorTest.restore();
 			dxstate.depthWrite.restore();
@@ -66,14 +70,6 @@ namespace DX9 {
 			dxstate.stencilFunc.restore();
 			dxstate.stencilMask.restore();
 		}
-	}
-
-	void FramebufferManagerDX9::ClearDepthBuffer() {
-		dxstate.scissorTest.disable();
-		dxstate.depthWrite.set(TRUE);
-		dxstate.colorMask.set(false, false, false, false);
-		dxstate.stencilFunc.set(D3DCMP_NEVER, 0, 0);
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_ZBUFFER, D3DCOLOR_ARGB(0, 0, 0, 0), 0, 0);
 	}
 
 	void FramebufferManagerDX9::DisableState() {
@@ -92,8 +88,7 @@ namespace DX9 {
 		convBuf(0),
 		stencilUploadPS_(nullptr),
 		stencilUploadVS_(nullptr),
-		stencilUploadFailed_(false),
-		gameUsesSequentialCopies_(false) {
+		stencilUploadFailed_(false) {
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
@@ -442,7 +437,6 @@ namespace DX9 {
 				// If depth wasn't updated, then we're at least "two degrees" away from the data.
 				// This is an optimization: it probably doesn't need to be copied in this case.
 			} else {
-				// TODO: Needs work
 				BlitFramebufferDepth(prevVfb, vfb);
 			}
 		}
@@ -529,17 +523,44 @@ namespace DX9 {
 		RebindFramebuffer();
 	}
 
+	static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
+		size_t x = 0;
+
+#ifdef _M_SSE
+		size_t sseSize = (c / 4) * 4;
+		const __m128i srcMask = _mm_set1_epi32(0x00FFFFFF);
+		const __m128i dstMask = _mm_set1_epi32(0xFF000000);
+		__m128i *dst = (__m128i *)dstp;
+		const __m128i *src = (const __m128i *)srcp;
+
+		for (; x < sseSize; x += 4) {
+			const __m128i bits24 = _mm_and_si128(_mm_load_si128(src), srcMask);
+			const __m128i bits8 = _mm_and_si128(_mm_load_si128(dst), dstMask);
+			_mm_store_si128(dst, _mm_or_si128(bits24, bits8));
+			dst++;
+			src++;
+		}
+#endif
+
+		// Copy the remaining pixels that didn't fit in SSE.
+		for (; x < c; ++x) {
+			memcpy(dstp + x, srcp + x, 3);
+		}
+	}
+
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (src->z_address == dst->z_address &&
-			src->z_stride != 0 && dst->z_stride != 0 &&
-			src->renderWidth == dst->renderWidth &&
-			src->renderHeight == dst->renderHeight) {
+		if (g_Config.bDisableSlowFramebufEffects) {
+			return;
+		}
 
+		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
+		bool matchingSize = src->width == dst->width && src->height == dst->height;
+		if (matchingDepthBuffer && matchingSize) {
 			// Doesn't work.  Use a shader maybe?
-			/*fbo_unbind();
+			fbo_unbind();
 
-			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo);
-			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo);
+			LPDIRECT3DTEXTURE9 srcTex = fbo_get_depth_texture(src->fbo_dx9);
+			LPDIRECT3DTEXTURE9 dstTex = fbo_get_depth_texture(dst->fbo_dx9);
 
 			if (srcTex && dstTex) {
 				D3DSURFACE_DESC srcDesc;
@@ -552,14 +573,20 @@ namespace DX9 {
 				HRESULT srcLockRes = srcTex->LockRect(0, &srcLock, nullptr, D3DLOCK_READONLY);
 				HRESULT dstLockRes = dstTex->LockRect(0, &dstLock, nullptr, 0);
 				if (SUCCEEDED(srcLockRes) && SUCCEEDED(dstLockRes)) {
-					int pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 pitch = std::min(srcLock.Pitch, dstLock.Pitch);
+					u32 w = std::min(pitch / 4, std::min(srcDesc.Width, dstDesc.Width));
 					u32 h = std::min(srcDesc.Height, dstDesc.Height);
 					const u8 *srcp = (const u8 *)srcLock.pBits;
 					u8 *dstp = (u8 *)dstLock.pBits;
-					for (u32 y = 0; y < h; ++y) {
-						memcpy(dstp, srcp, pitch);
-						dstp += dstLock.Pitch;
-						srcp += srcLock.Pitch;
+
+					if (w == pitch / 4 && srcLock.Pitch == dstLock.Pitch) {
+						CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w * h);
+					} else {
+						for (u32 y = 0; y < h; ++y) {
+							CopyPixelDepthOnly((u32 *)dstp, (const u32 *)srcp, w);
+							dstp += dstLock.Pitch;
+							srcp += srcLock.Pitch;
+						}
 					}
 				}
 				if (SUCCEEDED(srcLockRes)) {
@@ -570,7 +597,7 @@ namespace DX9 {
 				}
 			}
 
-			RebindFramebuffer();*/
+			RebindFramebuffer();
 		}
 	}
 
@@ -587,7 +614,9 @@ namespace DX9 {
 		if (!fbo)
 			return fbo;
 		fbo_bind_as_render_target(fbo);
+		dxstate.viewport.force(0, 0, w, h);
 		ClearBuffer(true);
+		dxstate.viewport.restore();
 		const TempFBO info = {fbo, gpuStats.numFlips};
 		tempFBOs_[key] = info;
 		return fbo;
@@ -678,12 +707,20 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::CopyDisplayToOutput() {
 		fbo_unbind();
+		currentRenderVfb_ = 0;
+
+		if (displayFramebufPtr_ == 0) {
+			DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+			// No framebuffer to display! Clear to black.
+			ClearBuffer();
+			return;
+		}
+
 		if (useBufferedRendering_) {
 			// In buffered, we no longer clear the backbuffer before we start rendering.
 			ClearBuffer();
 			DXSetViewport(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		}
-		currentRenderVfb_ = 0;
 
 		u32 offsetX = 0;
 		u32 offsetY = 0;
@@ -785,7 +822,7 @@ namespace DX9 {
 				const u32 rw = PSP_CoreParameter().pixelWidth;
 				const u32 rh = PSP_CoreParameter().pixelHeight;
 				const RECT srcRect = {(LONG)(u0 * vfb->renderWidth), (LONG)(v0 * vfb->renderHeight), (LONG)(u1 * vfb->renderWidth), (LONG)(v1 * vfb->renderHeight)};
-				const RECT dstRect = {(LONG)(x * rw / w, y * rh / h), (LONG)((x + w) * rw / w, (y + h) * rh / h)};
+				const RECT dstRect = {(LONG)(x * rw / w), (LONG)(y * rh / h), (LONG)((x + w) * rw / w), (LONG)((y + h) * rh / h)};
 				HRESULT hr = fbo_blit_color(vfb->fbo_dx9, &srcRect, nullptr, &dstRect, g_Config.iBufFilter == SCALE_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 				if (FAILED(hr)) {
 					ERROR_LOG_REPORT_ONCE(blit_fail, G3D, "fbo_blit_color failed on display: %08x", hr);
@@ -837,116 +874,70 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) {
-#if 0
-		if (sync) {
-			PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
-		}
-#endif
-
 		if (vfb) {
 			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
-			// For now we'll keep these on the same struct as the ones that can get displayed
-			// (and blatantly copy work already done above while at it).
-			VirtualFramebuffer *nvfb = 0;
-
-			// We maintain a separate vector of framebuffer objects for blitting.
-			for (size_t i = 0; i < bvfbs_.size(); ++i) {
-				VirtualFramebuffer *v = bvfbs_[i];
-				if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
-					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
-						nvfb = v;
-						v->fb_stride = vfb->fb_stride;
-						v->width = vfb->width;
-						v->height = vfb->height;
-						break;
-					}
-				}
-			}
-
-			// Create a new fbo if none was found for the size
-			if(!nvfb) {
-				nvfb = new VirtualFramebuffer();
-				nvfb->fbo_dx9 = nullptr;
-				nvfb->fb_address = vfb->fb_address;
-				nvfb->fb_stride = vfb->fb_stride;
-				nvfb->z_address = vfb->z_address;
-				nvfb->z_stride = vfb->z_stride;
-				nvfb->width = vfb->width;
-				nvfb->height = vfb->height;
-				nvfb->renderWidth = vfb->bufferWidth;
-				nvfb->renderHeight = vfb->bufferHeight;
-				nvfb->bufferWidth = vfb->bufferWidth;
-				nvfb->bufferHeight = vfb->bufferHeight;
-				nvfb->format = vfb->format;
-				nvfb->drawnWidth = vfb->drawnWidth;
-				nvfb->drawnHeight = vfb->drawnHeight;
-				nvfb->drawnFormat = vfb->format;
-				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
-				nvfb->dirtyAfterDisplay = true;
-
-				nvfb->colorDepth = FBO_8888;
-
-				textureCache_->ForgetLastTexture();
-				nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
-				if (!(nvfb->fbo_dx9)) {
-					ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-					delete nvfb;
-					return;
-				}
-
-				nvfb->last_frame_render = gpuStats.numFlips;
-				bvfbs_.push_back(nvfb);
-				fbo_bind_as_render_target(nvfb->fbo_dx9);
-				ClearBuffer();
-			} else {
-				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-				gstate_c.textureChanged = true;
-				nvfb->last_frame_render = gpuStats.numFlips;
-				nvfb->dirtyAfterDisplay = true;
-
-#if 0
-				if (nvfb->fbo) {
-					fbo_bind_as_render_target(nvfb->fbo);
-				}
-
-				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it. This broke stuff before, so now it only clears on the first use of an
-				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-				if (nvfb->last_frame_render != gpuStats.numFlips)	{
-					ClearBuffer();
-				}
-#endif
-			}
-
-			if (gameUsesSequentialCopies_) {
-				// Ignore the x/y/etc., read the entire thing.
-				x = 0;
-				y = 0;
-				w = vfb->width;
-				h = vfb->height;
-			}
-			if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
-				vfb->memoryUpdated = true;
-			} else {
-				const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-				static int frameLastCopy = 0;
-				static u32 bufferLastCopy = 0;
-				static int copiesThisFrame = 0;
-				if (frameLastCopy != gpuStats.numFlips || bufferLastCopy != vfb->fb_address) {
-					frameLastCopy = gpuStats.numFlips;
-					bufferLastCopy = vfb->fb_address;
-					copiesThisFrame = 0;
-				}
-				if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-					gameUsesSequentialCopies_ = true;
-				}
-			}
+			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+			OptimizeDownloadRange(vfb, x, y, w, h);
 			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
 
 			PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+			textureCache_->ForgetLastTexture();
 			RebindFramebuffer();
 		}
+	}
+
+	void FramebufferManagerDX9::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+		VirtualFramebuffer *vfb = GetVFBAt(fb_address);
+		if (vfb && vfb->fb_stride != 0) {
+			const u32 bpp = vfb->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
+			int x = 0;
+			int y = 0;
+			int pixels = loadBytes / bpp;
+			// The height will be 1 for each stride or part thereof.
+			int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
+			int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
+
+			// We might still have a pending draw to the fb in question, flush if so.
+			FlushBeforeCopy();
+
+			// No need to download if we already have it.
+			if (!vfb->memoryUpdated && vfb->clutUpdatedBytes < loadBytes) {
+				// We intentionally don't call OptimizeDownloadRange() here - we don't want to over download.
+				// CLUT framebuffers are often incorrectly estimated in size.
+				if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+					vfb->memoryUpdated = true;
+				}
+				vfb->clutUpdatedBytes = loadBytes;
+
+				// We'll pseudo-blit framebuffers here to get a resized version of vfb.
+				VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+
+				PackFramebufferDirectx9_(nvfb, x, y, w, h);
+
+				textureCache_->ForgetLastTexture();
+				RebindFramebuffer();
+			}
+		}
+	}
+
+	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		nvfb->colorDepth = FBO_8888;
+
+		nvfb->fbo_dx9 = fbo_create(nvfb->width, nvfb->height, 1, true, (FBOColorDepth)nvfb->colorDepth);
+		if (!(nvfb->fbo_dx9)) {
+			ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			return false;
+		}
+
+		fbo_bind_as_render_target(nvfb->fbo_dx9);
+		ClearBuffer();
+		return true;
+	}
+
+	void FramebufferManagerDX9::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+		// Nothing to do here.
 	}
 
 	void FramebufferManagerDX9::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
@@ -1100,6 +1091,55 @@ namespace DX9 {
 		}
 	}
 
+	void FramebufferManagerDX9::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
+		if (!vfb->fbo) {
+			ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
+			return;
+		}
+
+		// We always read the depth buffer in 24_8 format.
+		const u32 z_address = (0x04000000) | vfb->z_address;
+
+		DEBUG_LOG(SCEGE, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
+
+		LPDIRECT3DTEXTURE9 tex = fbo_get_depth_texture(vfb->fbo_dx9);
+		if (tex) {
+			D3DSURFACE_DESC desc;
+			D3DLOCKED_RECT locked;
+			tex->GetLevelDesc(0, &desc);
+			RECT rect = {0, 0, (LONG)desc.Width, (LONG)desc.Height};
+			HRESULT hr = tex->LockRect(0, &locked, &rect, D3DLOCK_READONLY);
+
+			if (SUCCEEDED(hr)) {
+				const int dstByteOffset = y * vfb->fb_stride * sizeof(s16);
+				const u32 *packed = (const u32 *)locked.pBits;
+				u16 *depth = (u16 *)Memory::GetPointer(z_address);
+
+				// TODO: Optimize.
+				for (int yp = 0; yp < h; ++yp) {
+					for (int xp = 0; xp < w; ++xp) {
+						const int offset = (yp + y) & vfb->z_stride + x + xp;
+
+						float scaled = FromScaledDepth((packed[offset] & 0x00FFFFFF) * (1.0f / 16777215.0f));
+						if (scaled <= 0.0f) {
+							depth[offset] = 0;
+						} else if (scaled >= 65535.0f) {
+							depth[offset] = 65535;
+						} else {
+							depth[offset] = (int)scaled;
+						}
+					}
+				}
+
+				tex->UnlockRect(0);
+			} else {
+				ERROR_LOG_REPORT(G3D, "Unable to lock rect from depth %08x: %d,%d %dx%d of %dx%d", vfb->fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);
+			}
+		} else {
+			ERROR_LOG_REPORT(G3D, "Unable to download render target depth from %08x", vfb->fb_address);
+		}
+	}
+
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
 			DestroyAllFBOs();
@@ -1132,10 +1172,6 @@ namespace DX9 {
 			}
 			resized_ = false;
 		}
-#if 0
-		// We flush to memory last requested framebuffer, if any
-		PackFramebufferAsync_(NULL);
-#endif
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {
@@ -1369,6 +1405,9 @@ namespace DX9 {
 
 			if (SUCCEEDED(hr)) {
 				GPUDebugBufferFormat fmt = GPU_DBG_FORMAT_24BIT_8X;
+				if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
+					fmt = GPU_DBG_FORMAT_24BIT_8X_DIV_256;
+				}
 				int pixelSize = 4;
 
 				buffer.Allocate(locked.Pitch / pixelSize, desc.Height, fmt, false);

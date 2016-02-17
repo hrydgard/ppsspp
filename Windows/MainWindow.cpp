@@ -69,6 +69,7 @@
 #include "GPU/GPUInterface.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
+#include "UI/GameSettingsScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
 #define MOUSEEVENTF_MASK_PLUS_PENTOUCH 0xFFFFFF80
@@ -93,6 +94,7 @@ struct VerySleepy_AddrInfo {
 static RECT g_normalRC = {0};
 static std::wstring windowTitle;
 extern InputState input_state;
+extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -281,6 +283,10 @@ namespace MainWindow
 			NativeMessageReceived("gpu resized", "");
 		}
 
+		if (screenManager) {
+			screenManager->RecreateAllViews();
+		}
+
 		// Don't save the window state if fullscreen.
 		if (!g_Config.bFullScreen) {
 			g_WindowState = newSizingType;
@@ -288,12 +294,10 @@ namespace MainWindow
 	}
 
 	void ToggleFullscreen(HWND hWnd, bool goingFullscreen) {
+		GraphicsContext *graphicsContext = PSP_CoreParameter().graphicsContext;
 		// Make sure no rendering is happening during the switch.
-
-		bool isOpenGL = g_Config.iGPUBackend == GPU_BACKEND_OPENGL;
-
-		if (isOpenGL) {
-			GL_Pause();
+		if (graphicsContext) {
+			graphicsContext->Pause();
 		}
 
 		int oldWindowState = g_WindowState;
@@ -355,8 +359,8 @@ namespace MainWindow
 
 		WindowsRawInput::NotifyMenu();
 
-		if (isOpenGL) {
-			GL_Resume();
+		if (graphicsContext) {
+			graphicsContext->Resume();
 		}
 	}
 

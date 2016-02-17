@@ -235,11 +235,19 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Vec3<float> source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+				source = (v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0 + w1 + w2);
 				break;
 
 			case GE_PROJMAP_UV:
 				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				break;
+
+			case GE_PROJMAP_NORMALIZED_NORMAL:
+				source = (v0.normal.Normalized() * w0 + v1.normal.Normalized() * w1 + v2.normal.Normalized() * w2) / (w0 + w1 + w2);
+				break;
+
+			case GE_PROJMAP_NORMAL:
+				source = (v0.normal * w0 + v1.normal * w1 + v2.normal * w2) / (w0 + w1 + w2);
 				break;
 
 			default:

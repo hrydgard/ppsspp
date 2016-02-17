@@ -281,7 +281,7 @@ bool MediaEngine::openContext() {
 		return false;
 
 	setVideoDim();
-	m_audioContext = new SimpleAudio(m_audioType);
+	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
 	m_isVideoEnd = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
@@ -799,7 +799,8 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		delete [] imgbuf;
 	}
 
-	return videoImageSize;
+	// Account for the y offset as well.
+	return videoImageSize + videoLineSize * ypos;
 #endif // USE_FFMPEG
 	return 0;
 }
@@ -861,24 +862,19 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	}
 	int outbytes = 0;
 
-	if (m_audioContext != NULL) {
+	if (m_audioContext != nullptr) {
+		if (headerCode1 == 0x24) {
+			// This means mono audio - tell the decoder to expect it before the first frame.
+			// Note that it will always send us back stereo audio.
+			m_audioContext->SetChannels(1);
+		}
+
 		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 #ifndef MOBILE_DEVICE
 		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
 #endif
-	}
-
-	if (headerCode1 == 0x24) {
-		// it a mono atrac3plus, convert it to stereo
-		s16 *outbuf = (s16*)buffer;
-		s16 *inbuf = (s16*)buffer;
-		for (int i = 0x800 - 1; i >= 0; i--) {
-			s16 sample = inbuf[i];
-			outbuf[i * 2] = sample;
-			outbuf[i * 2 + 1] = sample;
-		}
 	}
 
 	return 0x2000;

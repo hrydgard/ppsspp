@@ -77,7 +77,6 @@ public:
 		drawsUntilNextFullHash = 0;
 		flags = 0;
 	}
-	~VertexArrayInfo();
 
 	enum Status {
 		VAI_NEW,
@@ -203,8 +202,9 @@ private:
 	bool ApplyShaderBlending();
 	void ResetShaderBlending();
 
-	GLuint AllocateBuffer();
+	GLuint AllocateBuffer(size_t sz);
 	void FreeBuffer(GLuint buf);
+	void FreeVertexArray(VertexArrayInfo *vai);
 
 	u32 ComputeMiniHash();
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
@@ -237,8 +237,17 @@ private:
 
 	// Vertex buffer objects
 	// Element buffer objects
+	struct BufferNameInfo {
+		BufferNameInfo() : sz(0), used(false), lastFrame(0) {}
+
+		size_t sz;
+		bool used;
+		int lastFrame;
+	};
 	std::vector<GLuint> bufferNameCache_;
+	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
+	size_t bufferNameCacheSize_;
 	GLuint sharedVao_;
 
 	// Other
@@ -253,6 +262,7 @@ private:
 	int vertexCountInDrawCalls;
 
 	int decimationCounter_;
+	int bufferDecimationCounter_;
 	int decodeCounter_;
 	u32 dcid_;
 

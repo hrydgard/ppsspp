@@ -21,6 +21,9 @@ public:
 
 	void Reinitialize() override;
 
+	void BeginHostFrame() override;
+	void EndHostFrame() override;
+
 	void InterruptStart(int listid) override;
 	void InterruptEnd(int listid) override;
 	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads) override;
@@ -74,12 +77,18 @@ public:
 #endif
 	}
 
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 	void *operator new(size_t s) {
 		return AllocateAlignedMemory(s, 16);
 	}
 	void operator delete(void *p) {
 		FreeAlignedMemory(p);
 	}
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
 		return false;

@@ -710,7 +710,7 @@ FixupBranch ARMXEmitter::B_CC(CCFlags Cond)
 void ARMXEmitter::B_CC(CCFlags Cond, const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "B_CC out of range (%p calls %p)", code, fnptr);
 
 	Write32((Cond << 28) | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -728,16 +728,16 @@ FixupBranch ARMXEmitter::BL_CC(CCFlags Cond)
 void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 {
 	ptrdiff_t distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
 	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
 	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
 	instr |= branch.type == 0 ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
 	*(u32*)branch.ptr = instr;
 }
-void ARMXEmitter::B (const void *fnptr)
+void ARMXEmitter::B(const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "B out of range (%p calls %p)", code, fnptr);
 
 	Write32(condition | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -750,7 +750,7 @@ void ARMXEmitter::B(ARMReg src)
 
 bool ARMXEmitter::BLInRange(const void *fnptr) const {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	if (distance <= -0x2000000 || distance > 0x2000000)
+	if (distance <= -0x2000000 || distance >= 0x2000000)
 		return false;
 	else
 		return true;
@@ -759,7 +759,7 @@ bool ARMXEmitter::BLInRange(const void *fnptr) const {
 void ARMXEmitter::BL(const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "BL out of range (%p calls %p)", code, fnptr);
 	Write32(condition | 0x0B000000 | ((distance >> 2) & 0x00FFFFFF));
 }

@@ -34,8 +34,7 @@
 
 class PointerWrap;
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
 // This is called when Jit hits a breakpoint.  Returns 1 when hit.
 u32 JitBreakpoint();
@@ -46,11 +45,12 @@ struct RegCacheState {
 	FPURegCacheState fpr;
 };
 
-class Jit : public Gen::XCodeBlock
-{
+class Jit : public Gen::XCodeBlock {
 public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
+
+	const JitOptions &GetJitOptions() { return jo; }
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
@@ -194,7 +194,6 @@ private:
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInReg(Gen::X64Reg reg);
-	void WriteExitDestInEAX() { WriteExitDestInReg(Gen::EAX); }
 
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();

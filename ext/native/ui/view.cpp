@@ -164,6 +164,28 @@ std::string View::Describe() const {
 }
 
 
+void View::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	// Remember if this view was a focused view.
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	const std::string focusedKey = "ViewFocused::" + tag;
+	switch (status) {
+	case UI::PERSIST_SAVE:
+		if (HasFocus()) {
+			storage[focusedKey].resize(1);
+		}
+		break;
+	case UI::PERSIST_RESTORE:
+		if (storage.find(focusedKey) != storage.end()) {
+			SetFocus();
+		}
+		break;
+	}
+}
+
 Point View::GetFocusPosition(FocusDirection dir) {
 	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
 	// Distance zero yields strange results otherwise.
@@ -636,9 +658,8 @@ void TextView::Draw(UIContext &dc) {
 		clip = false;
 	}
 	if (clip) {
-		Bounds clipRect = bounds_.Expand(10);  // TODO: Remove this hackery
 		dc.Flush();
-		dc.PushScissor(clipRect);
+		dc.PushScissor(bounds_);
 	}
 	// In case it's been made focusable.
 	if (HasFocus()) {

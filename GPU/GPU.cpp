@@ -38,13 +38,16 @@ static void SetGPU(T *obj) {
 	gpuDebug = obj;
 }
 
-bool GPU_Init() {
+#ifdef USE_CRT_DBG
+#undef new
+#endif
+bool GPU_Init(GraphicsContext *ctx) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
 		break;
 	case GPU_GLES:
-		SetGPU(new GLES_GPU());
+		SetGPU(new GLES_GPU(ctx));
 		break;
 	case GPU_SOFTWARE:
 		SetGPU(new SoftGPU());
@@ -58,41 +61,12 @@ bool GPU_Init() {
 
 	return gpu != NULL;
 }
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 
 void GPU_Shutdown() {
 	delete gpu;
 	gpu = 0;
 	gpuDebug = 0;
-}
-
-void GPU_Reinitialize() {
-	if (gpu) {
-		gpu->Reinitialize();
-	}
-}
-
-void InitGfxState() {
-	memset(&gstate, 0, sizeof(gstate));
-	memset(&gstate_c, 0, sizeof(gstate_c));
-	for (int i = 0; i < 256; i++) {
-		gstate.cmdmem[i] = i << 24;
-	}
-
-	// Lighting is not enabled by default, matrices are zero initialized.
-	memset(gstate.worldMatrix, 0, sizeof(gstate.worldMatrix));
-	memset(gstate.viewMatrix, 0, sizeof(gstate.viewMatrix));
-	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
-	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
-	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
-}
-
-void ShutdownGfxState() {
-}
-
-// When you have changed state outside the psp gfx core,
-// or saved the context and has reloaded it, call this function.
-void ReapplyGfxState() {
-	if (!gpu)
-		return;
-	gpu->ReapplyGfxState();
 }

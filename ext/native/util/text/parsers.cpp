@@ -8,7 +8,12 @@ bool Version::ParseVersionString(std::string str) {
 		return false;
 	if (str[0] == 'v')
 		str = str.substr(1);
-	return 3 == sscanf(str.c_str(), "%i.%i.%i", &major, &minor, &sub);
+	if (3 != sscanf(str.c_str(), "%i.%i.%i", &major, &minor, &sub)) {
+		sub = 0;
+		if (2 != sscanf(str.c_str(), "%i.%i", &major, &minor))
+			return false;
+	}
+	return true;
 }
 
 std::string Version::ToString() const {

@@ -73,7 +73,8 @@ public:
 
 	void BindFramebufferColor(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	virtual void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
+	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
@@ -95,7 +96,6 @@ public:
 protected:
 	virtual void DisableState() override;
 	virtual void ClearBuffer(bool keepState = false) override;
-	virtual void ClearDepthBuffer() override;
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
 
@@ -105,6 +105,8 @@ protected:
 	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
 	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
 	void CompileDraw2DProgram();
@@ -113,6 +115,7 @@ private:
 	void SetNumExtraFBOs(int num);
 
 	void PackFramebufferDirectx9_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	static bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
 	
 	// Used by DrawPixels
@@ -130,14 +133,11 @@ private:
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
 	TransformDrawEngineDX9 *transformDraw_;
-	bool usePostShader_;
-	bool postShaderAtOutputResolution_;
 	
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
-	bool gameUsesSequentialCopies_;
 
 	struct TempFBO {
 		FBO_DX9 *fbo;
@@ -148,7 +148,6 @@ private:
 		int last_frame_used;
 	};
 
-	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	std::map<u64, TempFBO> tempFBOs_;
 	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 

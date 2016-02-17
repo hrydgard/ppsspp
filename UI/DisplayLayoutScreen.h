@@ -27,7 +27,6 @@ class DragDropDisplay;
 class DisplayLayoutScreen : public UIDialogScreenWithBackground {
 public:
 	DisplayLayoutScreen();
-
 	virtual void CreateViews() override;
 	virtual bool touch(const TouchInput &touch) override;
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
@@ -35,16 +34,21 @@ public:
 	
 protected:
 	virtual UI::EventReturn OnCenter(UI::EventParams &e);
-	virtual UI::EventReturn OnZoomChange(UI::EventParams &e);
-	
+	virtual UI::EventReturn OnZoomTypeChange(UI::EventParams &e);
+
 private:
 	DragDropDisplay *picked_;
 	DragDropDisplay *displayRepresentation_;
 	UI::ChoiceStrip *mode_;
 	UI::PopupMultiChoice *zoom_;
+	UI::PopupMultiChoice *rotation_;
+	UI::PopupSliderChoiceFloat *zoomlvl_;
+	bool displayRotEnable_;
 	// Touch down state for drag to resize etc
 	float startX_;
 	float startY_;
-	float startScale_;
+	float startScale_, scaleUpdate_;
+	float displayRepresentationScale_;
+	int offsetTouchX, offsetTouchY;
 	
 };

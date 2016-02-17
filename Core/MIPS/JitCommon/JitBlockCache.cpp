@@ -100,6 +100,7 @@ void JitBlockCache::Init() {
 }
 
 void JitBlockCache::Shutdown() {
+	Clear(); // Make sure proxy block links are deleted
 	delete [] blocks_;
 	blocks_ = 0;
 	num_blocks_ = 0;
@@ -398,26 +399,37 @@ void JitBlockCache::LinkBlockExits(int i) {
 		// This block is dead. Don't relink it.
 		return;
 	}
+	if (b.IsPureProxy()) {
+		// Pure proxies can't link, since they don't have code.
+		return;
+	}
 
 	for (int e = 0; e < MAX_JIT_BLOCK_EXITS; e++) {
 		if (b.exitAddress[e] != INVALID_EXIT && !b.linkStatus[e]) {
-			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
-			if (destinationBlock != -1) 	{
+			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e], true);
+			if (destinationBlock == -1) {
+				continue;
+			}
+
+			JitBlock &eb = blocks_[destinationBlock];
+			// Make sure the destination is not invalid.
+			if (!eb.invalid) {
 #if defined(ARM)
-				//break Yu-Gi-Oh 6 crash with edit card in Android version
-				//const u8 *nextExit = b.exitPtrs[e + 1];
-				//if (!nextExit) {
-				//	nextExit = b.normalEntry + b.codeSize;
-				//}
 				ARMXEmitter emit(b.exitPtrs[e]);
-				emit.B(blocks_[destinationBlock].checkedEntry);
-				//u32 op = *((const u32 *)emit.GetCodePtr());
-				//// Overwrite with nops until the next unconditional branch.
-				//while ((op & 0xFF000000) != 0xEA000000) {
-				//	emit.BKPT(1);
-				//	op = *((const u32 *)emit.GetCodePtr());
-				//}
-				//emit.BKPT(1);
+				u32 op = *((const u32 *)emit.GetCodePtr());
+				bool prelinked = (op & 0xFF000000) == 0xEA000000;
+				// Jump directly to the block, yay.
+				emit.B(eb.checkedEntry);
+
+				if (!prelinked) {
+					do {
+						op = *((const u32 *)emit.GetCodePtr());
+						// Overwrite whatever is here with a breakpoint.
+						emit.BKPT(1);
+						// Stop after overwriting the next unconditional branch or BKPT.
+						// It can be a BKPT if we unlinked, and are now linking a different one.
+					} while ((op & 0xFF000000) != 0xEA000000 && (op & 0xFFF000F0) != 0xE1200070);
+				}
 				emit.FlushIcache();
 				b.linkStatus[e] = true;
 #elif defined(_M_IX86) || defined(_M_X64)
@@ -425,7 +437,7 @@ void JitBlockCache::LinkBlockExits(int i) {
 				// Okay, this is a bit ugly, but we check here if it already has a JMP.
 				// That means it doesn't have a full exit to pad with INT 3.
 				bool prelinked = *emit.GetCodePtr() == 0xE9;
-				emit.JMP(blocks_[destinationBlock].checkedEntry, true);
+				emit.JMP(eb.checkedEntry, true);
 
 				if (!prelinked) {
 					ptrdiff_t actualSize = emit.GetWritableCodePtr() - b.exitPtrs[e];
@@ -437,7 +449,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 				b.linkStatus[e] = true;
 #elif defined(ARM64)
 				ARM64XEmitter emit(b.exitPtrs[e]);
-				emit.B(blocks_[destinationBlock].checkedEntry);
+				emit.B(eb.checkedEntry);
+				// TODO: Write stuff after.
 				emit.FlushIcache();
 				b.linkStatus[e] = true;
 #endif

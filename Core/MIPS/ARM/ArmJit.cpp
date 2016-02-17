@@ -626,7 +626,7 @@ void ArmJit::WriteExit(u32 destination, int exit_num)
 		b->linkStatus[exit_num] = true;
 	} else {
 		gpr.SetRegImm(R0, destination);
-		B((const void *)dispatcherPCInR0);	
+		B((const void *)dispatcherPCInR0);
 	}
 }
 

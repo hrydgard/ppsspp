@@ -118,7 +118,7 @@ LogManager::LogManager() {
 #if !(defined(MOBILE_DEVICE) || defined(_XBOX)) || defined(_DEBUG)
 		log_[i]->AddListener(fileLog_);
 		log_[i]->AddListener(consoleLog_);
-#if defined(_MSC_VER) && !defined(_XBOX)
+#if defined(_MSC_VER) && defined(USING_WIN_UI)
 		if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
 			log_[i]->AddListener(debuggerLog_);
 #endif
@@ -133,7 +133,7 @@ LogManager::~LogManager() {
 		if (fileLog_ != NULL)
 			logManager_->RemoveListener((LogTypes::LOG_TYPE)i, fileLog_);
 		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, consoleLog_);
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && defined(USING_WIN_UI)
 		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, debuggerLog_);
 #endif
 #endif
@@ -147,6 +147,7 @@ LogManager::~LogManager() {
 	delete consoleLog_;
 	delete debuggerLog_;
 #endif
+	delete ringLog_;
 }
 
 void LogManager::ChangeFileLog(const char *filename) {

@@ -204,15 +204,17 @@ void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool like
 	if (jo.immBranches && immBranch && js.numInstructions < jo.continueMaxInstructions) {
 		if (!immBranchTaken) {
 			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (andLink)
+				gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 			if (likely)
 				js.compilerPC += 4;
 			return;
 		}
 
 		// Branch taken.  Always compile the delay slot, and then go to dest.
-		CompileDelaySlot(DELAYSLOT_NICE);
 		if (andLink)
 			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+		CompileDelaySlot(DELAYSLOT_NICE);
 
 		AddContinuedBlock(targetAddr);
 		// Account for the increment in the loop.
@@ -228,7 +230,7 @@ void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool like
 
 	if (immBranch) {
 		// Continuing is handled above, this is just static jumping.
-		if (immBranchTaken && andLink)
+		if (andLink)
 			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 		if (immBranchTaken || !likely)
 			CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -243,6 +245,9 @@ void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool like
 
 		gpr.MapReg(rs);
 		CMP(gpr.R(rs), Operand2(0, TYPE_IMM));
+
+		if (andLink)
+			gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
 
 		ArmGen::FixupBranch ptr;
 		if (!likely)
@@ -261,12 +266,6 @@ void ArmJit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool like
 		}
 
 		// Take the branch
-		if (andLink)
-		{
-			gpr.SetRegImm(SCRATCHREG1, GetCompilerPC() + 8);
-			STR(SCRATCHREG1, CTXREG, MIPS_REG_RA * 4);
-		}
-
 		WriteExit(targetAddr, js.nextExit++);
 
 		SetJumpTarget(ptr);

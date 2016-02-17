@@ -35,6 +35,7 @@
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Config.h"
@@ -81,15 +82,25 @@ bool GameInfo::Delete() {
 			return true;
 		}
 	case FILETYPE_PSP_ELF:
-	case FILETYPE_PPSSPP_SAVESTATE:
 	case FILETYPE_UNKNOWN_BIN:
 	case FILETYPE_UNKNOWN_ELF:
 	case FILETYPE_ARCHIVE_RAR:
 	case FILETYPE_ARCHIVE_ZIP:
 	case FILETYPE_ARCHIVE_7Z:
 		{
-			const char *fileToRemove = filePath_.c_str();
+			const std::string &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
+			return true;
+		}
+
+	case FILETYPE_PPSSPP_SAVESTATE:
+		{
+			const std::string &ppstPath = filePath_;
+			File::Delete(ppstPath);
+			const std::string screenshotPath = ReplaceAll(filePath_, ".ppst", ".jpg");
+			if (File::Exists(screenshotPath)) {
+				File::Delete(screenshotPath);
+			}
 			return true;
 		}
 
@@ -287,6 +298,11 @@ std::string GameInfo::GetTitle() {
 	return title;
 }
 
+void GameInfo::SetTitle(const std::string &newTitle) {
+	lock_guard guard(lock);
+	title = newTitle;
+}
+
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
 	if (!info.exists) {
@@ -443,6 +459,17 @@ handleELF:
 
 		case FILETYPE_PPSSPP_SAVESTATE:
 		{
+			info_->SetTitle(SaveState::GetTitle(gamePath_));
+
+			lock_guard guard(info_->lock);
+
+			// Let's use the screenshot as an icon, too.
+			std::string screenshotPath = ReplaceAll(gamePath_, ".ppst", ".jpg");
+			if (File::Exists(screenshotPath)) {
+				if (readFileToString(false, screenshotPath.c_str(), info_->iconTextureData)) {
+					info_->iconDataLoaded = true;
+				}
+			}
 			break;
 		}
 
@@ -579,43 +606,50 @@ void GameInfoCache::Init() {
 }
 
 void GameInfoCache::Shutdown() {
-	StopProcessingWorkQueue(gameInfoWQ_);
+	if (gameInfoWQ_) {
+		StopProcessingWorkQueue(gameInfoWQ_);
+		delete gameInfoWQ_;
+		gameInfoWQ_ = nullptr;
+	}
 }
 
 void GameInfoCache::Clear() {
 	if (gameInfoWQ_)
 		gameInfoWQ_->Flush();
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		lock_guard lock(iter->second->lock);
-		if (!iter->second->pic0TextureData.empty()) {
-			iter->second->pic0TextureData.clear();
-			iter->second->pic0DataLoaded = false;
-		}
-		if (iter->second->pic0Texture) {
-			delete iter->second->pic0Texture;
-			iter->second->pic0Texture = 0;
-		}
-		if (!iter->second->pic1TextureData.empty()) {
-			iter->second->pic1TextureData.clear();
-			iter->second->pic1DataLoaded = false;
-		}
-		if (iter->second->pic1Texture) {
-			delete iter->second->pic1Texture;
-			iter->second->pic1Texture = 0;
-		}
-		if (!iter->second->iconTextureData.empty()) {
-			iter->second->iconTextureData.clear();
-			iter->second->iconDataLoaded = false;
-		}
-		if (iter->second->iconTexture) {
-			delete iter->second->iconTexture;
-			iter->second->iconTexture = 0;
-		}
+		{
+			lock_guard lock(iter->second->lock);
+			if (!iter->second->pic0TextureData.empty()) {
+				iter->second->pic0TextureData.clear();
+				iter->second->pic0DataLoaded = false;
+			}
+			if (iter->second->pic0Texture) {
+				delete iter->second->pic0Texture;
+				iter->second->pic0Texture = 0;
+			}
+			if (!iter->second->pic1TextureData.empty()) {
+				iter->second->pic1TextureData.clear();
+				iter->second->pic1DataLoaded = false;
+			}
+			if (iter->second->pic1Texture) {
+				delete iter->second->pic1Texture;
+				iter->second->pic1Texture = 0;
+			}
+			if (!iter->second->iconTextureData.empty()) {
+				iter->second->iconTextureData.clear();
+				iter->second->iconDataLoaded = false;
+			}
+			if (iter->second->iconTexture) {
+				delete iter->second->iconTexture;
+				iter->second->iconTexture = 0;
+			}
 
-		if (!iter->second->sndFileData.empty()) {
-			iter->second->sndFileData.clear();
-			iter->second->sndDataLoaded = false;
+			if (!iter->second->sndFileData.empty()) {
+				iter->second->sndFileData.clear();
+				iter->second->sndDataLoaded = false;
+			}
 		}
+		delete iter->second;
 	}
 	info_.clear();
 }
@@ -702,6 +736,7 @@ again:
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
+	info->pending = true;
 	info_[gamePath] = info;
 	return info;
 }
@@ -709,7 +744,7 @@ again:
 void GameInfoCache::SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime) {
 	if (textureData.size()) {
 		if (!tex) {
-			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::PNG);
+			tex = thin3d->CreateTextureFromFileData((const uint8_t *)textureData.data(), (int)textureData.size(), T3DImageType::DETECT);
 			if (tex) {
 				loadTime = time_now_d();
 			}

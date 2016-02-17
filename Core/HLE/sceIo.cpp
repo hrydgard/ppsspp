@@ -25,8 +25,10 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
+#include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
@@ -469,11 +471,12 @@ static void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
-static DirectoryFileSystem *memstickSystem = NULL;
+static DirectoryFileSystem *memstickSystem = nullptr;
+static DirectoryFileSystem *exdataSystem = nullptr;
 #if defined(USING_WIN_UI) || defined(APPLE)
-static DirectoryFileSystem *flash0System = NULL;
+static DirectoryFileSystem *flash0System = nullptr;
 #else
-static VFSFileSystem *flash0System = NULL;
+static VFSFileSystem *flash0System = nullptr;
 #endif
 
 static void __IoManagerThread() {
@@ -506,6 +509,18 @@ void __IoInit() {
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
 	pspFileSystem.Mount("flash0:", flash0System);
+
+	if (g_RemasterMode) {
+		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
+		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
+		if (File::Exists(exdataPath)) {
+			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FILESYSTEM_SIMULATE_FAT32);
+			pspFileSystem.Mount("exdata0:", exdataSystem);
+			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		} else {
+			INFO_LOG(SCEIO, "Did not find exdata/%s/ under memstick for exdata0:/", gameId.c_str());
+		}
+	}
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
@@ -558,10 +573,16 @@ void __IoShutdown() {
 	pspFileSystem.Unmount("pfat0:", memstickSystem);
 	pspFileSystem.Unmount("flash0:", flash0System);
 
+	if (g_RemasterMode && exdataSystem) {
+		pspFileSystem.Unmount("exdata0:", exdataSystem);
+		delete exdataSystem;
+		exdataSystem = nullptr;
+	}
+
 	delete memstickSystem;
-	memstickSystem = NULL;
+	memstickSystem = nullptr;
 	delete flash0System;
-	flash0System = NULL;
+	flash0System = nullptr;
 
 	memStickCallbacks.clear();
 	memStickFatCallbacks.clear();
@@ -799,6 +820,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
+				currentMIPS->InvalidateICache(data_addr, size);
 				return true;
 			}
 
@@ -815,6 +837,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				ev.handle = f->handle;
 				ev.buf = data;
 				ev.bytes = size;
+				ev.invalidateAddr = data_addr;
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
@@ -823,6 +846,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				} else {
 					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
 				}
+				currentMIPS->InvalidateICache(data_addr, size);
 				return true;
 			}
 		} else {
@@ -948,6 +972,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			ev.handle = f->handle;
 			ev.buf = (u8 *) data_ptr;
 			ev.bytes = size;
+			ev.invalidateAddr = 0;
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
@@ -2393,43 +2418,43 @@ KernelObject *__KernelDirListingObject() {
 }
 
 const HLEFunction IoFileMgrForUser[] = {
-	{0XB29DDF9C, &WrapU_C<sceIoDopen>,                  "sceIoDopen",                  'x', "s"     },
-	{0XE3EB004C, &WrapU_IU<sceIoDread>,                 "sceIoDread",                  'x', "ix"    },
-	{0XEB092469, &WrapU_I<sceIoDclose>,                 "sceIoDclose",                 'x', "i"     },
-	{0XE95A012B, &WrapU_UUUUUU<sceIoIoctlAsync>,        "sceIoIoctlAsync",             'x', "xxxxxx"},
-	{0X63632449, &WrapU_UUUUUU<sceIoIoctl>,             "sceIoIoctl",                  'x', "xxxxxx"},
-	{0XACE946E8, &WrapU_CU<sceIoGetstat>,               "sceIoGetstat",                'x', "sx"    },
-	{0XB8A740F4, &WrapU_CUU<sceIoChstat>,               "sceIoChstat",                 'x', "sxx"   },
-	{0X55F4717D, &WrapU_C<sceIoChdir>,                  "sceIoChdir",                  'x', "s"     },
+	{0XB29DDF9C, &WrapU_C<sceIoDopen>,                  "sceIoDopen",                  'i', "s"     },
+	{0XE3EB004C, &WrapU_IU<sceIoDread>,                 "sceIoDread",                  'i', "ix"    },
+	{0XEB092469, &WrapU_I<sceIoDclose>,                 "sceIoDclose",                 'i', "i"     },
+	{0XE95A012B, &WrapU_UUUUUU<sceIoIoctlAsync>,        "sceIoIoctlAsync",             'i', "ixpipi"},
+	{0X63632449, &WrapU_UUUUUU<sceIoIoctl>,             "sceIoIoctl",                  'i', "ixpipi"},
+	{0XACE946E8, &WrapU_CU<sceIoGetstat>,               "sceIoGetstat",                'i', "sx"    },
+	{0XB8A740F4, &WrapU_CUU<sceIoChstat>,               "sceIoChstat",                 'i', "sxx"   },
+	{0X55F4717D, &WrapU_C<sceIoChdir>,                  "sceIoChdir",                  'i', "s"     },
 	{0X08BD7374, &WrapU_I<sceIoGetDevType>,             "sceIoGetDevType",             'x', "i"     },
-	{0XB2A628C1, &WrapU_UUUIUI<sceIoAssign>,            "sceIoAssign",                 'x', "xxxixi"},
-	{0XE8BC6571, &WrapU_I<sceIoCancel>,                 "sceIoCancel",                 'x', "i"     },
-	{0XB293727F, &WrapI_II<sceIoChangeAsyncPriority>,   "sceIoChangeAsyncPriority",    'i', "ii"    },
-	{0X810C4BC3, &WrapU_I<sceIoClose>,                  "sceIoClose",                  'x', "i"     },
+	{0XB2A628C1, &WrapU_UUUIUI<sceIoAssign>,            "sceIoAssign",                 'i', "sssixi"},
+	{0XE8BC6571, &WrapU_I<sceIoCancel>,                 "sceIoCancel",                 'i', "i"     },
+	{0XB293727F, &WrapI_II<sceIoChangeAsyncPriority>,   "sceIoChangeAsyncPriority",    'i', "ix"    },
+	{0X810C4BC3, &WrapU_I<sceIoClose>,                  "sceIoClose",                  'i', "i"     },
 	{0XFF5940B6, &WrapI_I<sceIoCloseAsync>,             "sceIoCloseAsync",             'i', "i"     },
-	{0X54F5FB11, &WrapU_CIUIUI<sceIoDevctl>,            "sceIoDevctl",                 'x', "sixixi"},
-	{0XCB05F8D6, &WrapU_IUU<sceIoGetAsyncStat>,         "sceIoGetAsyncStat",           'x', "ixx"   },
+	{0X54F5FB11, &WrapU_CIUIUI<sceIoDevctl>,            "sceIoDevctl",                 'i', "sxpipi"},
+	{0XCB05F8D6, &WrapU_IUU<sceIoGetAsyncStat>,         "sceIoGetAsyncStat",           'i', "iiP"   },
 	{0X27EB27B8, &WrapI64_II64I<sceIoLseek>,            "sceIoLseek",                  'I', "iIi"   },
-	{0X68963324, &WrapU_III<sceIoLseek32>,              "sceIoLseek32",                'x', "iii"   },
-	{0X1B385D8F, &WrapU_III<sceIoLseek32Async>,         "sceIoLseek32Async",           'x', "iii"   },
-	{0X71B19E77, &WrapU_II64I<sceIoLseekAsync>,         "sceIoLseekAsync",             'x', "iIi"   },
-	{0X109F50BC, &WrapU_CII<sceIoOpen>,                 "sceIoOpen",                   'x', "sii"   },
-	{0X89AA9906, &WrapU_CII<sceIoOpenAsync>,            "sceIoOpenAsync",              'x', "sii"   },
-	{0X06A70004, &WrapU_CI<sceIoMkdir>,                 "sceIoMkdir",                  'x', "si"    },
-	{0X3251EA56, &WrapU_IU<sceIoPollAsync>,             "sceIoPollAsync",              'x', "ix"    },
-	{0X6A638D83, &WrapU_IUI<sceIoRead>,                 "sceIoRead",                   'x', "ixi"   },
-	{0XA0B5A7C2, &WrapU_IUI<sceIoReadAsync>,            "sceIoReadAsync",              'x', "ixi"   },
-	{0XF27A9C51, &WrapU_C<sceIoRemove>,                 "sceIoRemove",                 'x', "s"     },
-	{0X779103A0, &WrapU_CC<sceIoRename>,                "sceIoRename",                 'x', "ss"    },
-	{0X1117C65F, &WrapU_C<sceIoRmdir>,                  "sceIoRmdir",                  'x', "s"     },
-	{0XA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>,     "sceIoSetAsyncCallback",       'x', "ixx"   },
-	{0XAB96437F, &WrapU_CI<sceIoSync>,                  "sceIoSync",                   'x', "si"    },
-	{0X6D08A871, &WrapU_C<sceIoUnassign>,               "sceIoUnassign",               'x', "s"     },
-	{0X42EC03AC, &WrapU_IUI<sceIoWrite>,                "sceIoWrite",                  'x', "ixi"   },
-	{0X0FACAB19, &WrapU_IUI<sceIoWriteAsync>,           "sceIoWriteAsync",             'x', "ixi"   },
-	{0X35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "ix"    },
-	{0XE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "ix"    },
-	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'x', "xix"   },
+	{0X68963324, &WrapU_III<sceIoLseek32>,              "sceIoLseek32",                'i', "iii"   },
+	{0X1B385D8F, &WrapU_III<sceIoLseek32Async>,         "sceIoLseek32Async",           'i', "iii"   },
+	{0X71B19E77, &WrapU_II64I<sceIoLseekAsync>,         "sceIoLseekAsync",             'i', "iIi"   },
+	{0X109F50BC, &WrapU_CII<sceIoOpen>,                 "sceIoOpen",                   'i', "sii"   },
+	{0X89AA9906, &WrapU_CII<sceIoOpenAsync>,            "sceIoOpenAsync",              'i', "sii"   },
+	{0X06A70004, &WrapU_CI<sceIoMkdir>,                 "sceIoMkdir",                  'i', "si"    },
+	{0X3251EA56, &WrapU_IU<sceIoPollAsync>,             "sceIoPollAsync",              'i', "iP"    },
+	{0X6A638D83, &WrapU_IUI<sceIoRead>,                 "sceIoRead",                   'i', "ixi"   },
+	{0XA0B5A7C2, &WrapU_IUI<sceIoReadAsync>,            "sceIoReadAsync",              'i', "ixi"   },
+	{0XF27A9C51, &WrapU_C<sceIoRemove>,                 "sceIoRemove",                 'i', "s"     },
+	{0X779103A0, &WrapU_CC<sceIoRename>,                "sceIoRename",                 'i', "ss"    },
+	{0X1117C65F, &WrapU_C<sceIoRmdir>,                  "sceIoRmdir",                  'i', "s"     },
+	{0XA12A0514, &WrapU_IUU<sceIoSetAsyncCallback>,     "sceIoSetAsyncCallback",       'i', "ixx"   },
+	{0XAB96437F, &WrapU_CI<sceIoSync>,                  "sceIoSync",                   'i', "si"    },
+	{0X6D08A871, &WrapU_C<sceIoUnassign>,               "sceIoUnassign",               'i', "s"     },
+	{0X42EC03AC, &WrapU_IUI<sceIoWrite>,                "sceIoWrite",                  'i', "ixi"   },
+	{0X0FACAB19, &WrapU_IUI<sceIoWriteAsync>,           "sceIoWriteAsync",             'i', "ixi"   },
+	{0X35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "iP"    },
+	{0XE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP"    },
+	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'i', "xip"   },
 };
 
 void Register_IoFileMgrForUser() {
@@ -2438,11 +2463,11 @@ void Register_IoFileMgrForUser() {
 
 
 const HLEFunction StdioForUser[] = {
-	{0X172D316E, &WrapU_V<sceKernelStdin>,              "sceKernelStdin",              'x', ""      },
-	{0XA6BAB2E9, &WrapU_V<sceKernelStdout>,             "sceKernelStdout",             'x', ""      },
-	{0XF78BA90A, &WrapU_V<sceKernelStderr>,             "sceKernelStderr",             'x', ""      },
-	{0X432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe", 'x', "x"     },
-	{0X6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe", 'x', "x"     },
+	{0X172D316E, &WrapU_V<sceKernelStdin>,              "sceKernelStdin",              'i', ""      },
+	{0XA6BAB2E9, &WrapU_V<sceKernelStdout>,             "sceKernelStdout",             'i', ""      },
+	{0XF78BA90A, &WrapU_V<sceKernelStderr>,             "sceKernelStderr",             'i', ""      },
+	{0X432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe", 'i', "x"     },
+	{0X6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe", 'i', "x"     },
 	{0XA46785C9, nullptr,                               "sceKernelStdioSendChar",      '?', ""      },
 	{0X0CBB0571, nullptr,                               "sceKernelStdioLseek",         '?', ""      },
 	{0X3054D478, nullptr,                               "sceKernelStdioRead",          '?', ""      },

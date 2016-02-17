@@ -33,8 +33,6 @@ namespace DX9 {
 class PSShader;
 class VSShader;
 
-void ConvertProjMatrixToD3D(Matrix4x4 & in);
-
 // Pretty much full. Will need more bits for more fine grained dirty tracking for lights.
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
@@ -81,13 +79,12 @@ enum {
 
 class PSShader {
 public:
-	PSShader(ShaderID id, const char *code, bool useHWTransform);
+	PSShader(ShaderID id, const char *code);
 	~PSShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; }
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 
@@ -96,13 +93,12 @@ public:
 protected:	
 	std::string source_;
 	bool failed_;
-	bool useHWTransform_;
 	ShaderID id_;
 };
 
 class VSShader {
 public:
-	VSShader(ShaderID id, const char *code, int vertType, bool useHWTransform);
+	VSShader(ShaderID id, const char *code, bool useHWTransform);
 	~VSShader();
 
 	const std::string &source() const { return source_; }

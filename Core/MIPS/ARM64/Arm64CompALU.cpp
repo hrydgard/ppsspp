@@ -576,7 +576,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 
 	case 17: // HI = R(rs); //mthi
 		if (gpr.IsImm(rs) && gpr.IsImm(MIPS_REG_LO)) {
-			gpr.SetImm(MIPS_REG_HI, (gpr.GetImm(rs) << 32) | (gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL));
+			gpr.SetImm(MIPS_REG_LO, (gpr.GetImm(rs) << 32) | (gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL));
 			break;
 		}
 		gpr.MapDirtyIn(MIPS_REG_LO, rs, false);
@@ -594,7 +594,7 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 
 	case 19: // LO = R(rs); break; //mtlo
 		if (gpr.IsImm(rs) && gpr.IsImm(MIPS_REG_LO)) {
-			gpr.SetImm(MIPS_REG_HI, gpr.GetImm(rs) | (gpr.GetImm(MIPS_REG_LO) & ~0xFFFFFFFFULL));
+			gpr.SetImm(MIPS_REG_LO, gpr.GetImm(rs) | (gpr.GetImm(MIPS_REG_LO) & ~0xFFFFFFFFULL));
 			break;
 		}
 		gpr.MapDirtyIn(MIPS_REG_LO, rs, false);

@@ -79,6 +79,8 @@ public:
 };
 
 FileLoader *ConstructFileLoader(const std::string &filename);
+// Resolve to the target binary, ISO, or other file (e.g. from a directory.)
+FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader);
 
 // This can modify the string, for example for stripping off the "/EBOOT.PBP"
 // for a FILETYPE_PSP_PBP_DIRECTORY.

@@ -59,13 +59,12 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Graphics and audio interfaces
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
-	private Thread mRenderLoopThread;
+	private Thread mRenderLoopThread = null;
 
 	private String shortcutParam = "";
 
 	public static String runCommand;
 	public static String commandParameter;
-	public static String installID;
 
 	// Remember settings for best audio latency
 	private int optimalFramesPerBuffer;
@@ -78,6 +77,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Vibrator vibrator;
 
 	private boolean isXperiaPlay;
+	private boolean shuttingDown;
 
     // Allow for multiple connected gamepads but just consider them the same for now.
     // Actually this is not entirely true, see the code.
@@ -240,14 +240,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	    String externalStorageDir = sdcard.getAbsolutePath();
 	    String dataDir = this.getFilesDir().getAbsolutePath();
 		String apkFilePath = appInfo.sourceDir;
+		String cacheDir = getCacheDir().getAbsolutePath();
 
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, shortcutParam, installID, Build.VERSION.SDK_INT);
-
-		NativeApp.sendMessage("cacheDir", getCacheDir().getAbsolutePath());
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT);
 
 		sendInitialGrants();
 
@@ -326,14 +325,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	private Runnable mEmulationRunner = new Runnable() {
 		@Override
 		public void run() {
-			// Bit of a hack - loop until onSurfaceCreated succeeds.
-			try {
-				while (mSurface == null)
-					Thread.sleep(10);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-
 			Log.i(TAG, "Starting the render loop: " + mSurface);
 			// Start emulation using the provided Surface.
 			if (!runEGLRenderLoop(mSurface)) {
@@ -364,8 +355,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		shuttingDown = false;
 		registerCallbacks();
-    	installID = Installation.id(this);
 
     	updateDisplayMetrics(null);
 
@@ -401,10 +392,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         mSurfaceView.getHolder().addCallback(NativeActivity.this);
         Log.i(TAG, "setcontentview before");
 		setContentView(mSurfaceView);
-        Log.i(TAG, "setcontentview after");
+		Log.i(TAG, "setcontentview after");
 
-		mRenderLoopThread = new Thread(mEmulationRunner);
-		mRenderLoopThread.start();
+		ensureRenderLoop();
     }
 
 	@Override
@@ -420,30 +410,47 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		// Make sure we have fresh display metrics so the computations go right.
 		// This is needed on some very old devices, I guess event order is different or something...
 		Point sz = new Point();
-        updateDisplayMetrics(sz);
-        NativeApp.backbufferResize(width, height, format);
+		updateDisplayMetrics(sz);
+		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
-		if (mRenderLoopThread == null || !mRenderLoopThread.isAlive()) {
+		ensureRenderLoop();
+	}
+
+	protected void ensureRenderLoop() {
+		if (mSurface == null) {
+			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
+			return;
+		}
+
+		if ((mRenderLoopThread == null || !mRenderLoopThread.isAlive())) {
+			Log.w(TAG, "ensureRenderLoop: Starting thread");
 			mRenderLoopThread = new Thread(mEmulationRunner);
 			mRenderLoopThread.start();
 		}
 	}
 
-    @Override
-	public void surfaceDestroyed(SurfaceHolder holder)
-	{
-		mSurface = null;
-		Log.w(TAG, "Surface destroyed.");
+	private void joinRenderLoopThread() {
 		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
 			// This will wait until the thread has exited.
+			Log.i(TAG, "exitEGLRenderLoop");
 			exitEGLRenderLoop();
 			try {
+				Log.i(TAG, "joining render loop thread...");
 				mRenderLoopThread.join();
+				Log.w(TAG, "Joined render loop thread.");
+				mRenderLoopThread = null;
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
+	}
+
+	@Override
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		mSurface = null;
+		Log.w(TAG, "Surface destroyed.");
+		joinRenderLoopThread();
 	}
 
 
@@ -461,7 +468,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     protected void onStop() {
-    	exitEGLRenderLoop();
     	super.onStop();
     	Log.i(TAG, "onStop - do nothing special");
     }
@@ -477,15 +483,23 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		audioFocusChangeListener = null;
 		audioManager = null;
 		unregisterCallbacks();
+
+		if (shuttingDown) {
+			NativeApp.shutdown();
+		}
 	}
 
     @Override
     protected void onPause() {
-        super.onPause();
-    	Log.i(TAG, "onPause");
-    	loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-        NativeApp.pause();
-        mSurfaceView.onPause();
+		super.onPause();
+		Log.i(TAG, "onPause");
+		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		Log.i(TAG, "Pausing surface view");
+		NativeApp.pause();
+		mSurfaceView.onPause();
+		Log.i(TAG, "Joining render thread");
+		joinRenderLoopThread();
+		Log.i(TAG, "onPause completed");
     }
 
 	@Override
@@ -506,6 +520,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
+
+		// Restart the render loop.
+		ensureRenderLoop();
 	}
 
     @Override
@@ -948,6 +965,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			}
 			return true;
 		} else if (command.equals("finish")) {
+			Log.i(TAG, "Setting shuttingDown = true and calling Finish");
+			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
 			updateScreenRotation();

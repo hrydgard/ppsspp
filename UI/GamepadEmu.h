@@ -25,8 +25,7 @@
 
 class GamepadView : public UI::View {
 public:
-	GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), lastFrameTime_(0.0f), secondsWithoutTouch_(0) {
-	}
+	GamepadView(UI::LayoutParams *layoutParams);
 
 	void Touch(const TouchInput &input) override;
 	bool Key(const KeyInput &input) override {

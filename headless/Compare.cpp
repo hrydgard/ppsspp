@@ -19,6 +19,7 @@
 #include "file/file_util.h"
 
 #include "Common/ColorConv.h"
+#include "Common/FileUtil.h"
 #include "Core/Host.h"
 
 #include "GPU/GPUState.h"
@@ -30,6 +31,7 @@
 #include <cstdarg>
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 bool teamCityMode = false;
 std::string teamCityName = "";
@@ -337,7 +339,7 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	// We assume the bitmap is the specified size, not including whatever stride.
 	u32 *reference = (u32 *) calloc(stride * h, sizeof(u32));
 
-	FILE *bmp = fopen(screenshotFilename.c_str(), "rb");
+	FILE *bmp = File::OpenCFile(screenshotFilename, "rb");
 	if (bmp)
 	{
 		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.

@@ -102,23 +102,27 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		// Okay, d[1] coming up. ==============
 		if (gstate.isLightingEnabled() || doShadeMapping) {
 			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
-			if (gstate.isLightingEnabled())
+			if (gstate.isLightingEnabled()) {
+				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 				id.SetBit(VS_BIT_LIGHTING_ENABLE);
+			}
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, gstate.isLightChanEnabled(i) != 0);
-				if (gstate.isLightChanEnabled(i) || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
+				bool chanEnabled = gstate.isLightChanEnabled(i) != 0 && gstate.isLightingEnabled();
+				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, chanEnabled);
+				if (chanEnabled || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
 					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
 				}
 			}
-			id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
 		}
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
+		} else {
+			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);
 		}
 	}
 
@@ -193,7 +197,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
+void ComputeFragmentShaderID(ShaderID *id_out) {
 	ShaderID id;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
@@ -256,11 +260,6 @@ void ComputeFragmentShaderID(ShaderID *id_out, uint32_t vertType) {
 			// 4 bits
 			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
 		}
-
-		if (enableAlphaTest)
-			gpuStats.numAlphaTestedDraws++;
-		else
-			gpuStats.numNonAlphaTestedDraws++;
 
 		// 2 bits.
 		id.SetBits(FS_BIT_REPLACE_LOGIC_OP_TYPE, 2, ReplaceLogicOpType());

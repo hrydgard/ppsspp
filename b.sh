@@ -28,6 +28,7 @@ do
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=ios/ios.toolchain.cmake -GXcode ${CMAKE_ARGS}"
 			TARGET_OS=iOS
 			PACKAGE=1
+			echo !!!!!!!!!!!!!!! The error below is expected. Go into build-ios and open the XCodeProj.
 			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android

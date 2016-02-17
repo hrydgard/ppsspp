@@ -63,8 +63,12 @@ struct ViewportAndScissor {
 	float depthRangeMin;
 	float depthRangeMax;
 	bool dirtyProj;
+	bool dirtyDepth;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
+float ToScaledDepth(u16 z);
+float FromScaledDepth(float z);
+float DepthSliceFactor();
 
 // These are common to all modern APIs and can be easily converted with a lookup table.
 enum class BlendFactor : uint8_t {
@@ -137,3 +141,16 @@ struct GenericBlendState {
 
 void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend);
 void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState);
+
+struct GenericStencilFuncState {
+	bool enabled;
+	GEComparison testFunc;
+	u8 testRef;
+	u8 testMask;
+	u8 writeMask;
+	GEStencilOp sFail;
+	GEStencilOp zFail;
+	GEStencilOp zPass;
+};
+
+void ConvertStencilFuncState(GenericStencilFuncState &stencilFuncState);

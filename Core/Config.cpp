@@ -20,6 +20,7 @@
 #include <algorithm>
 
 #include "base/display.h"
+#include "base/functional.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
@@ -233,11 +234,28 @@ struct ReportedConfigSetting : public ConfigSetting {
 };
 
 const char *DefaultLangRegion() {
+	// Unfortunate default.  There's no need to use bFirstRun, since this is only a default.
 	static std::string defaultLangRegion = "en_US";
-	if (g_Config.bFirstRun) {
-		std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
-		if (i18nrepo.IniExists(langRegion))
-			defaultLangRegion = langRegion;
+	std::string langRegion = System_GetProperty(SYSPROP_LANGREGION);
+	if (i18nrepo.IniExists(langRegion)) {
+		defaultLangRegion = langRegion;
+	} else if (langRegion.length() >= 3) {
+		// Don't give up.  Let's try a fuzzy match - so nl_BE can match nl_NL.
+		IniFile mapping;
+		mapping.LoadFromVFS("langregion.ini");
+		std::vector<std::string> keys;
+		mapping.GetKeys("LangRegionNames", keys);
+
+		for (std::string key : keys) {
+			if (startsWithNoCase(key, langRegion)) {
+				// Exact submatch, or different case.  Let's use it.
+				defaultLangRegion = key;
+				break;
+			} else if (startsWithNoCase(key, langRegion.substr(0, 3))) {
+				// Best so far.
+				defaultLangRegion = key;
+			}
+		}
 	}
 
 	return defaultLangRegion.c_str();
@@ -366,11 +384,15 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static bool DefaultPartialStretch() {
+static int DefaultZoomType() {
 #ifdef BLACKBERRY
-	return pixel_xres < 1.3 * pixel_yres;
+	if (pixel_xres < 1.3 * pixel_yres) {
+		return 1;
+	} else {
+		return 2;
+	}
 #else
-	return false;
+	return 2;
 #endif
 }
 
@@ -420,12 +442,12 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1, true, true),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, true, true),
 	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
+	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, true, true),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ReportedConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
 #ifdef _WIN32
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, false, true, true),
-	ConfigSetting("TemporaryGPUBackend", &g_Config.iTempGPUBackend, -1, false),
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #else
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, true),
@@ -448,12 +470,10 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 
 	// TODO: Replace these settings with a list of options
-	ConfigSetting("PartialStretch", &g_Config.bPartialStretch, &DefaultPartialStretch, true, true),
-	ConfigSetting("StretchToDisplay", &g_Config.bStretchToDisplay, false, true, true),
-	ConfigSetting("SmallDisplayZoom", &g_Config.iSmallDisplayZoom, 0, true, true),
+	ConfigSetting("SmallDisplayZoomType", &g_Config.iSmallDisplayZoomType, &DefaultZoomType, true, true),
 	ConfigSetting("SmallDisplayOffsetX", &g_Config.fSmallDisplayOffsetX, 0.5f, true, true),
 	ConfigSetting("SmallDisplayOffsetY", &g_Config.fSmallDisplayOffsetY, 0.5f, true, true),
-	ConfigSetting("SmallDisplayCustomZoom", &g_Config.fSmallDisplayCustomZoom, 8.0f, true, true),
+	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),
@@ -470,7 +490,6 @@ static ConfigSetting graphicsSettings[] = {
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("TimerHack", &g_Config.bTimerHack, &DefaultTimerHack, true, true),
-	ReportedConfigSetting("AlphaMaskHack", &g_Config.bAlphaMaskHack, false, true, true),
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off", true, true),
 
@@ -488,6 +507,7 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1, true, true),
 	ConfigSetting("SoundSpeedHack", &g_Config.bSoundSpeedHack, false, true, true),
 	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
+	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_MAX, true, true),
 
 	ConfigSetting(false),
 };
@@ -664,6 +684,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "coldbird.net", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, &CreateRandMAC, true, true),
+	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, true, true),
@@ -738,6 +759,15 @@ static ConfigSectionSettings sections[] = {
 	{"Upgrade", upgradeSettings},
 };
 
+static void IterateSettings(IniFile &iniFile, std::function<void(IniFile::Section *section, ConfigSetting *setting)> func) {
+	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
+		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
+		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
+			func(section, setting);
+		}
+	}
+}
+
 Config::Config() : bGameSpecific(false) { }
 Config::~Config() { }
 
@@ -797,12 +827,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		// Continue anyway to initialize the config.
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			setting->Get(section);
-		}
-	}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		setting->Get(section);
+	});
 
 	iRunCount++;
 	if (!File::Exists(currentDirectory))
@@ -897,7 +924,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
-#if !defined(ARMEABI)
+#if !defined(ARMEABI)  // blackberry and stuff? why do we still keep this check?
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
 		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
 			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);
@@ -908,14 +935,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	INFO_LOG(LOADER, "Loading controller config: %s", controllerIniFilename_.c_str());
 	bSaveSettings = true;
 
-	IniFile controllerIniFile;
-	if (!controllerIniFile.Load(controllerIniFilename_)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
-		KeyMap::RestoreDefault();
-	} else {
-		// Continue anyway to initialize the config. It will just restore the defaults.
-		KeyMap::LoadFromIni(controllerIniFile);
-	}
+	LoadStandardControllerIni();
 	
 	//so this is all the way down here to overwrite the controller settings
 	//sadly it won't benefit from all the "version conversion" going on up-above
@@ -926,10 +946,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	CleanRecent();
-
-#ifdef _WIN32
-	iTempGPUBackend = iGPUBackend;
-#endif
 
 	// Fix Wrong MAC address by old version by "Change MAC address"
 	if (sMACAddress.length() != 17)
@@ -964,14 +980,11 @@ void Config::Save() {
 		// Need to do this somewhere...
 		bFirstRun = false;
 
-		for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-			IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-			for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-				if (!bGameSpecific || !setting->perGame_){
-					setting->Set(section);
-				}
+		IterateSettings(iniFile, [&](IniFile::Section *section, ConfigSetting *setting) {
+			if (!bGameSpecific || !setting->perGame_) {
+				setting->Set(section);
 			}
-		}
+		});
 
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
@@ -1157,13 +1170,10 @@ const std::string Config::FindConfigFile(const std::string &baseFilename) {
 }
 
 void Config::RestoreDefaults() {
-	if (bGameSpecific)
-	{
+	if (bGameSpecific) {
 		deleteGameConfig(gameId_);
 		createGameConfig(gameId_);
-	}
-	else
-	{
+	} else {
 		if (File::Exists(iniFilename_))
 			File::Delete(iniFilename_);
 		recentIsos.clear();
@@ -1172,25 +1182,21 @@ void Config::RestoreDefaults() {
 	Load();
 }
 
-bool Config::hasGameConfig(const std::string &pGameId)
-{
+bool Config::hasGameConfig(const std::string &pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 	return File::Exists(fullIniFilePath);
 }
 
-void Config::changeGameSpecific(const std::string &pGameId)
-{
+void Config::changeGameSpecific(const std::string &pGameId) {
 	Save();
 	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }
 
-bool Config::createGameConfig(const std::string &pGameId)
-{
+bool Config::createGameConfig(const std::string &pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
-	if (hasGameConfig(pGameId))
-	{
+	if (hasGameConfig(pGameId)) {
 		return false;
 	}
 
@@ -1199,26 +1205,22 @@ bool Config::createGameConfig(const std::string &pGameId)
 	return true;
 }
 
-bool Config::deleteGameConfig(const std::string& pGameId)
-{
+bool Config::deleteGameConfig(const std::string& pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
 	File::Delete(fullIniFilePath);
 	return true;
 }
 
-std::string Config::getGameConfigFile(const std::string &pGameId)
-{
+std::string Config::getGameConfigFile(const std::string &pGameId) {
 	std::string iniFileName = pGameId + "_ppsspp.ini";
 	std::string iniFileNameFull = FindConfigFile(iniFileName);
 
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId)
-{
-	if (pGameId.empty())
-	{
+bool Config::saveGameConfig(const std::string &pGameId) {
+	if (pGameId.empty()) {
 		return false;
 	}
 
@@ -1226,14 +1228,11 @@ bool Config::saveGameConfig(const std::string &pGameId)
 
 	IniFile iniFile;
 
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			if (setting->perGame_){
-				setting->Set(section);
-			}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		if (setting->perGame_) {
+			setting->Set(section);
 		}
-	}
+	});
 
 	KeyMap::SaveToIni(iniFile);
 	iniFile.Save(fullIniFilePath);
@@ -1241,12 +1240,10 @@ bool Config::saveGameConfig(const std::string &pGameId)
 	return true;
 }
 
-bool Config::loadGameConfig(const std::string &pGameId)
-{
+bool Config::loadGameConfig(const std::string &pGameId) {
 	std::string iniFileNameFull = getGameConfigFile(pGameId);
 
-	if (!hasGameConfig(pGameId))
-	{
+	if (!hasGameConfig(pGameId)) {
 		INFO_LOG(LOADER, "Failed to read %s. No game-specific settings found, using global defaults.", iniFileNameFull.c_str());
 		return false;
 	}
@@ -1255,26 +1252,42 @@ bool Config::loadGameConfig(const std::string &pGameId)
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
 
-
-	for (size_t i = 0; i < ARRAY_SIZE(sections); ++i) {
-		IniFile::Section *section = iniFile.GetOrCreateSection(sections[i].section);
-		for (auto setting = sections[i].settings; setting->HasMore(); ++setting) {
-			if (setting->perGame_){
-				setting->Get(section);
-			}
+	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+		if (setting->perGame_) {
+			setting->Get(section);
 		}
-	}
+	});
+
 	KeyMap::LoadFromIni(iniFile);
 	return true;
 }
 
-
-void Config::unloadGameConfig()
-{
-	if (bGameSpecific)
-	{
+void Config::unloadGameConfig() {
+	if (bGameSpecific){
 		changeGameSpecific();
-		Load(iniFilename_.c_str(), controllerIniFilename_.c_str());
+
+		IniFile iniFile;
+		iniFile.Load(iniFilename_);
+
+		// Reload game specific settings back to standard.
+		IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
+			if (setting->perGame_) {
+				setting->Get(section);
+			}
+		});
+
+		LoadStandardControllerIni();
+	}
+}
+
+void Config::LoadStandardControllerIni() {
+	IniFile controllerIniFile;
+	if (!controllerIniFile.Load(controllerIniFilename_)) {
+		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename_.c_str());
+		KeyMap::RestoreDefault();
+	} else {
+		// Continue anyway to initialize the config. It will just restore the defaults.
+		KeyMap::LoadFromIni(controllerIniFile);
 	}
 }
 

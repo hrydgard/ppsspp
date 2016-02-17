@@ -115,6 +115,10 @@ else ifeq ($(TARGET_ARCH_ABI),x86)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
     math/fast/fast_matrix_sse.c
+else ifeq ($(TARGET_ARCH_ABI),x86_64)
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+    math/fast/fast_matrix_sse.c
 endif
 
 include $(BUILD_STATIC_LIBRARY)

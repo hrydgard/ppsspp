@@ -533,7 +533,7 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 		gstate.Restore((u32_le *)Memory::GetPointer(ctxAddr));
 	}
 
-	ReapplyGfxState();
+	gpu->ReapplyGfxState();
 	return 0;
 }
 

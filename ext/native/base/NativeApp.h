@@ -14,6 +14,8 @@ struct TouchInput;
 struct KeyInput;
 struct AxisInput;
 
+class GraphicsContext;
+
 enum SystemPermission {
 	SYSTEM_PERMISSION_STORAGE,
 };
@@ -44,11 +46,11 @@ bool NativeIsAtTopLevel();
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID, bool fs=false);
+void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir, bool fs=false);
 
 // Runs after NativeInit() at some point. May (and probably should) call OpenGL.
 // Should not initialize anything screen-size-dependent - do that in NativeResized.
-void NativeInitGraphics();
+void NativeInitGraphics(GraphicsContext *graphicsContext);
 
 // Signals that you need to destroy and recreate all buffered OpenGL resources,
 // like textures, vbo etc.
@@ -73,7 +75,7 @@ bool NativeAxis(const AxisInput &axis);
 
 // Called when it's time to render. If the device can keep up, this
 // will also be called sixty times per second. Main thread.
-void NativeRender();
+void NativeRender(GraphicsContext *graphicsContext);
 
 // This should render num_samples 44khz stereo samples.
 // Try not to make too many assumptions on the granularity

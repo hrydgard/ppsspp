@@ -3,6 +3,7 @@
 #include "base/functional.h"
 #include "base/logging.h"
 #include "base/mutex.h"
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "input/keycodes.h"
 #include "ui/ui_context.h"
@@ -34,8 +35,8 @@ bool IsDragCaptured(int id) {
 }
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
-	inner.w = w - (margins.left + margins.right);
-	inner.h = h - (margins.top + margins.bottom);
+	inner.w = w;
+	inner.h = h;
 
 	switch (gravity & G_HORIZMASK) {
 	case G_LEFT: inner.x = outer.x + margins.left; break;
@@ -70,9 +71,23 @@ void ViewGroup::Clear() {
 	lock_guard guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
-		views_[i] = 0;
+		views_[i] = nullptr;
 	}
 	views_.clear();
+}
+
+void ViewGroup::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	lock_guard guard(modifyLock_);
+
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	ITOA stringify;
+	for (size_t i = 0; i < views_.size(); i++) {
+		views_[i]->PersistData(status, tag + "/" + stringify.p((int)i), storage);
+	}
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
@@ -515,7 +530,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			}
 		}
 
-		if (vert.type == AT_MOST && measuredWidth_ < vert.size) {
+		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
 			measuredHeight_ += usedHeight;
 		}
 	}
@@ -654,13 +669,15 @@ void ScrollView::Layout() {
 	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
 	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
 
+	float layoutScrollPos = ClampedScrollPos(scrollPos_);
+
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (scrolled.w != lastViewSize_) {
 			ScrollTo(0.0f);
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - scrollPos_;
+		scrolled.x = bounds_.x - layoutScrollPos;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -669,7 +686,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - scrollPos_;
+		scrolled.y = bounds_.y - layoutScrollPos;
 		break;
 	}
 
@@ -731,7 +748,6 @@ void ScrollView::Touch(const TouchInput &input) {
 		float info[4];
 		if (gesture_.GetGestureInfo(gesture, info) && !(input.flags & TOUCH_DOWN)) {
 			float pos = scrollStart_ - info[0];
-			ClampScrollPos(pos);
 			scrollPos_ = pos;
 			scrollTarget_ = pos;
 			scrollToTarget_ = false;
@@ -767,7 +783,7 @@ void ScrollView::Draw(UIContext &dc) {
 	float bobWidth = 5;
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		float bobHeight = ratio * bounds_.h;
-		float bobOffset = (scrollPos_ / scrollMax) * (bounds_.h - bobHeight);
+		float bobOffset = (ClampedScrollPos(scrollPos_) / scrollMax) * (bounds_.h - bobHeight);
 
 		Bounds bob(bounds_.x2() - bobWidth, bounds_.y + bobOffset, bobWidth, bobHeight);
 		dc.FillRect(Drawable(0x80FFFFFF), bob);
@@ -783,21 +799,22 @@ bool ScrollView::SubviewFocused(View *view) {
 	// Scroll so that the focused view is visible, and a bit more so that headers etc gets visible too, in most cases.
 	const float overscroll = std::min(view->GetBounds().h / 1.5f, GetBounds().h / 4.0f);
 
+	float pos = ClampedScrollPos(scrollPos_);
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		if (vBounds.x2() > bounds_.x2()) {
-			ScrollTo(scrollPos_ + vBounds.x2() - bounds_.x2() + overscroll);
+			ScrollTo(pos + vBounds.x2() - bounds_.x2() + overscroll);
 		}
 		if (vBounds.x < bounds_.x) {
-			ScrollTo(scrollPos_ + (vBounds.x - bounds_.x) - overscroll);
+			ScrollTo(pos + (vBounds.x - bounds_.x) - overscroll);
 		}
 		break;
 	case ORIENT_VERTICAL:
 		if (vBounds.y2() > bounds_.y2()) {
-			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2() + overscroll);
+			ScrollTo(pos + vBounds.y2() - bounds_.y2() + overscroll);
 		}
 		if (vBounds.y < bounds_.y) {
-			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y) - overscroll);
+			ScrollTo(pos + (vBounds.y - bounds_.y) - overscroll);
 		}
 		break;
 	}
@@ -805,33 +822,87 @@ bool ScrollView::SubviewFocused(View *view) {
 	return true;
 }
 
+void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	ViewGroup::PersistData(status, anonId, storage);
+
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	PersistBuffer &buffer = storage["ScrollView::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		{
+			buffer.resize(1);
+			float pos = scrollToTarget_ ? scrollTarget_ : scrollPos_;
+			// Hmm, ugly... better buffer?
+			buffer[0] = *(int *)&pos;
+		}
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			float pos = *(float *)&buffer[0];
+			scrollPos_ = pos;
+			scrollTarget_ = pos;
+			scrollToTarget_ = false;
+		}
+		break;
+	}
+}
+
+void ScrollView::SetVisibility(Visibility visibility) {
+	ViewGroup::SetVisibility(visibility);
+
+	if (visibility == V_GONE) {
+		// Since this is no longer shown, forget the scroll position.
+		// For example, this happens when switching tabs.
+		ScrollTo(0.0f);
+	}
+}
+
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ScrollRelative(float distance) {
 	scrollTarget_ = scrollPos_ + distance;
 	scrollToTarget_ = true;
-	ClampScrollPos(scrollTarget_);
 }
 
-void ScrollView::ClampScrollPos(float &pos) {
+float ScrollView::ClampedScrollPos(float pos) {
 	if (!views_.size()) {
-		pos = 0.0f;
-		return;
+		return 0.0f;
 	}
 
 	float childSize = orientation_ == ORIENT_VERTICAL ? views_[0]->GetBounds().h : views_[0]->GetBounds().w;
 	float scrollMax = std::max(0.0f, childSize - (orientation_ == ORIENT_VERTICAL ? bounds_.h : bounds_.w));
 
-	if (pos < 0.0f) {
-		pos = 0.0f;
+	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
+
+	if (gesture_.IsGestureActive(gesture)) {
+		float maxPull = bounds_.h * 0.1f;
+		if (pos < 0.0f) {
+			float dist = std::min(-pos * (1.0f / bounds_.h), 1.0f);
+			pull_ = -(sqrt(dist) * maxPull);
+		} else if (pos > scrollMax) {
+			float dist = std::min((pos - scrollMax) * (1.0f / bounds_.h), 1.0f);
+			pull_ = sqrt(dist) * maxPull;
+		} else {
+			pull_ = 0.0f;
+		}
 	}
-	if (pos > scrollMax) {
-		pos = scrollMax;
+
+	if (pos < 0.0f && pos < pull_) {
+		pos = pull_;
 	}
+	if (pos > scrollMax && pos > scrollMax + pull_) {
+		pos = scrollMax + pull_;
+	}
+
+	return pos;
 }
 
 void ScrollView::ScrollToBottom() {
@@ -859,21 +930,33 @@ void ScrollView::Update(const InputState &input_state) {
 		inertia_ = 0.0f;
 	}
 	ViewGroup::Update(input_state);
+
+	Gesture gesture = orientation_ == ORIENT_VERTICAL ? GESTURE_DRAG_VERTICAL : GESTURE_DRAG_HORIZONTAL;
 	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
+		float target = ClampedScrollPos(scrollTarget_);
+
 		inertia_ = 0.0f;
-		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
-			scrollPos_ = scrollTarget_;
+		if (fabsf(target - scrollPos_) < 0.5f) {
+			scrollPos_ = target;
 			scrollToTarget_ = false;
 		} else {
-			scrollPos_ += (scrollTarget_ - scrollPos_) * 0.3f;
+			scrollPos_ += (target - scrollPos_) * 0.3f;
 		}
-	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
+	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(gesture)) {
 		scrollPos_ -= inertia_;
 		inertia_ *= friction;
 		if (fabsf(inertia_) < stop_threshold)
 			inertia_ = 0.0f;
-		ClampScrollPos(scrollPos_);
+	}
+
+	if (!gesture_.IsGestureActive(gesture)) {
+		scrollPos_ = ClampedScrollPos(scrollPos_);
+
+		pull_ *= friction;
+		if (fabsf(pull_) < 0.01f) {
+			pull_ = 0.0f;
+		}
 	}
 }
 
@@ -1040,10 +1123,37 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 }
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
-	tabs_[currentTab_]->SetVisibility(V_GONE);
-	currentTab_ = e.a;
-	tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	// We have e.b set when it was an explicit click action.
+	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
+	if (currentTab_ != e.a || e.b) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		currentTab_ = e.a;
+		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	}
 	return EVENT_DONE;
+}
+
+void TabHolder::PersistData(PersistStatus status, std::string anonId, PersistMap &storage) {
+	ViewGroup::PersistData(status, anonId, storage);
+
+	std::string tag = Tag();
+	if (tag.empty()) {
+		tag = anonId;
+	}
+
+	PersistBuffer &buffer = storage["TabHolder::" + tag];
+	switch (status) {
+	case PERSIST_SAVE:
+		buffer.resize(1);
+		buffer[0] = currentTab_;
+		break;
+
+	case PERSIST_RESTORE:
+		if (buffer.size() == 1) {
+			SetCurrentTab(buffer[0]);
+		}
+		break;
+	}
 }
 
 ChoiceStrip::ChoiceStrip(Orientation orientation, LayoutParams *layoutParams)
@@ -1077,7 +1187,7 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	for (int i = 0; i < (int)views_.size(); i++) {
 		if (views_[i] != e.v) {
-			static_cast<StickyChoice *>(views_[i])->Release();
+			Choice(i)->Release();
 		} else {
 			selected_ = i;
 		}
@@ -1086,27 +1196,36 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	EventParams e2;
 	e2.v = views_[selected_];
 	e2.a = selected_;
+	// Set to 1 to indicate an explicit click.
+	e2.b = 1;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
 	return OnChoice.Dispatch(e2);
 }
 
 void ChoiceStrip::SetSelection(int sel) {
 	int prevSelected = selected_;
-	if (selected_ < (int)views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Release();
+	StickyChoice *prevChoice = Choice(selected_);
+	if (prevChoice)
+		prevChoice->Release();
 	selected_ = sel;
-	if (selected_ < (int)views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Press();
-	if (topTabs_ && prevSelected != selected_) {
-		EventParams e;
-		e.v = views_[selected_];
-		static_cast<StickyChoice *>(views_[selected_])->OnClick.Trigger(e);
+	StickyChoice *newChoice = Choice(selected_);
+	if (newChoice) {
+		newChoice->Press();
+
+		if (topTabs_ && prevSelected != selected_) {
+			EventParams e;
+			e.v = views_[selected_];
+			e.a = selected_;
+			// Set to 0 to indicate a selection change (not a click.)
+			e.b = 0;
+			OnChoice.Trigger(e);
+		}
 	}
 }
 
 void ChoiceStrip::HighlightChoice(unsigned int choice){
 	if (choice < (unsigned int)views_.size()){
-		static_cast<StickyChoice *>(views_[choice])->HighlightChanged(true);
+		Choice(choice)->HighlightChanged(true);
 	}
 };
 
@@ -1132,6 +1251,12 @@ void ChoiceStrip::Draw(UIContext &dc) {
 		else if (orientation_ == ORIENT_VERTICAL)
 			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
 	}
+}
+
+StickyChoice *ChoiceStrip::Choice(int index) {
+	if ((size_t)index < views_.size())
+		return static_cast<StickyChoice *>(views_[index]);
+	return nullptr;
 }
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)

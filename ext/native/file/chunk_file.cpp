@@ -8,7 +8,6 @@
 ChunkFile::ChunkFile(const char *filename, bool _read) {
 	data=0;
 	fn = filename;
-	fastMode=false;
 	numLevels=0;
 	read=_read;
 	pos=0;

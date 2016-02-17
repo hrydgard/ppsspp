@@ -22,6 +22,7 @@
 
 class GPUInterface;
 class GPUDebugInterface;
+class GraphicsContext;
 
 enum SkipDrawReasonFlags {
 	SKIPDRAW_SKIPFRAME = 1,
@@ -66,8 +67,6 @@ struct GPUStatistics {
 		numShaderSwitches = 0;
 		numFlushes = 0;
 		numTexturesDecoded = 0;
-		numAlphaTestedDraws = 0;
-		numNonAlphaTestedDraws = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -91,9 +90,6 @@ struct GPUStatistics {
 	int otherGPUCycles;
 	int gpuCommandsAtCallLevel[4];
 
-	int numAlphaTestedDraws;
-	int numNonAlphaTestedDraws;
-
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numVBlanks;
 	int numFlips;
@@ -108,6 +104,5 @@ extern GPUStatistics gpuStats;
 extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
-bool GPU_Init();
+bool GPU_Init(GraphicsContext *ctx);
 void GPU_Shutdown();
-void GPU_Reinitialize();

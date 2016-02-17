@@ -182,8 +182,8 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	float fw, fh;
 	float x, y;
 
-	frameWindow->Begin();
-	frameWindow->GetContentSize(x, y, fw, fh);
+	primaryWindow->Begin();
+	primaryWindow->GetContentSize(x, y, fw, fh);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -249,7 +249,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 	};
 
 	Matrix4x4 ortho;
-	ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (frameWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], frameWindow->TexHeight() * scale[1], 0, -1, 1);
+	ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
 	glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	if (previewVao != 0) {
 		glBindVertexArray(previewVao);
@@ -268,10 +268,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 		glDisableVertexAttribArray(previewProgram->a_position);
 	}
 
-	frameWindow->End();
+	primaryWindow->End();
 
-	texWindow->Begin();
-	texWindow->GetContentSize(x, y, fw, fh);
+	secondWindow->Begin();
+	secondWindow->GetContentSize(x, y, fw, fh);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -326,7 +326,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op) {
 		glDisableVertexAttribArray(previewProgram->a_position);
 	}
 
-	texWindow->End();
+	secondWindow->End();
 }
 
 void CGEDebugger::CleanupPrimPreview() {

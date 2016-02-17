@@ -142,5 +142,5 @@ void ComputeVertexShaderID(ShaderID *id, u32 vertexType, bool useHWTransform);
 // of the current flora of shaders.
 std::string VertexShaderDesc(const ShaderID &id);
 
-void ComputeFragmentShaderID(ShaderID *id, uint32_t vertType);
+void ComputeFragmentShaderID(ShaderID *id);
 std::string FragmentShaderDesc(const ShaderID &id);

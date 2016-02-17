@@ -59,6 +59,9 @@ enum GPUDebugBufferFormat {
 	GPU_DBG_FORMAT_24BIT_8X = 0x13,
 	GPU_DBG_FORMAT_24X_8BIT = 0x14,
 
+	GPU_DBG_FORMAT_FLOAT_DIV_256 = 0x18,
+	GPU_DBG_FORMAT_24BIT_8X_DIV_256 = 0x1B,
+
 	// This is used for screenshots, mainly.
 	GPU_DBG_FORMAT_888_RGB = 0x20,
 };
@@ -220,6 +223,10 @@ public:
 
 	// Similar to GetCurrentFramebuffer(), with texture level specification.
 	virtual bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
+		return false;
+	}
+
+	virtual bool GetCurrentClut(GPUDebugBuffer &buffer) {
 		return false;
 	}
 

@@ -33,8 +33,7 @@ const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
 const int WINDOW_HEIGHT = 272;
 
-HWND DxCreateWindow()
-{
+HWND DxCreateWindow() {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -58,13 +57,12 @@ HWND DxCreateWindow()
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, NULL, NULL);
 }
 
-bool WindowsHeadlessHostDx9::InitGraphics(std::string *error_message)
-{
+bool WindowsHeadlessHostDx9::InitGraphics(std::string *error_message, GraphicsContext **graphicsContext) {
+	*graphicsContext = nullptr;
 	LoadD3DX9Dynamic();
 	hWnd = DxCreateWindow();
 
-	if (WINDOW_VISIBLE)
-	{
+	if (WINDOW_VISIBLE) {
 		ShowWindow(hWnd, TRUE);
 		SetFocus(hWnd);
 	}
@@ -72,15 +70,13 @@ bool WindowsHeadlessHostDx9::InitGraphics(std::string *error_message)
 	DX9::DirectxInit(hWnd);
 
 	LoadNativeAssets();
-
 	
 	DX9::pD3Ddevice->BeginScene();   
 
 	return true;
 }
 
-void WindowsHeadlessHostDx9::ShutdownGraphics()
-{
+void WindowsHeadlessHostDx9::ShutdownGraphics() {
 	DX9::DestroyShaders();
 	DX9::fbo_shutdown();
 	DX9::pD3Ddevice->EndScene();
@@ -89,14 +85,11 @@ void WindowsHeadlessHostDx9::ShutdownGraphics()
 	hWnd = NULL;
 }
 
-bool WindowsHeadlessHostDx9::ResizeGL()
-{
-
+bool WindowsHeadlessHostDx9::ResizeGL() {
 	return true;
 }
 
-void WindowsHeadlessHostDx9::SwapBuffers()
-{	
+void WindowsHeadlessHostDx9::SwapBuffers() {
 	MSG msg;
 	PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
 	TranslateMessage(&msg);

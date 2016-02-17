@@ -250,7 +250,15 @@ void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt
 	} else if (fmt == FORMAT_FLOAT) {
 		glfmt = GL_FLOAT;
 		components = GL_RED;
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
 	} else if (fmt == FORMAT_24BIT_8X) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
 		glfmt = GL_UNSIGNED_INT;
 		components = GL_RED;
 		finalData = Reformat(data, fmt, w * h);
@@ -322,7 +330,7 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 	x = 0.0f;
 	y = 0.0f;
 
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
+	if ((flags_ & RESIZE_SHRINK_FIT) != 0 && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -330,6 +338,17 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 			fw = (float)w_;
 			fh /= wscale;
 		} else if (hscale > 1.0f) {
+			fw /= hscale;
+			fh = (float)h_;
+		}
+	}
+	if ((flags_ & RESIZE_GROW_FIT) != 0 && !zoom_) {
+		float wscale = fw / w_, hscale = fh / h_;
+
+		if (wscale > hscale && wscale < 1.0f) {
+			fw = (float)w_;
+			fh /= wscale;
+		} else if (hscale > wscale && hscale < 1.0f) {
 			fw /= hscale;
 			fh = (float)h_;
 		}
@@ -533,6 +552,19 @@ const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
 	if (fmt == FORMAT_24BIT_8X) {
 		for (u32 i = 0; i < numPixels; ++i) {
 			reformatBuf_[i] = (data32[i] << 8) | ((data32[i] >> 16) & 0xFF);
+		}
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			int z24 = data32[i] & 0x00FFFFFF;
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
+		}
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			double z = *(float *)&data32[i];
+			int z24 = (int)(z * 16777215.0);
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
 		}
 	} else if (fmt == FORMAT_24X_8BIT) {
 		u8 *buf8 = (u8 *)reformatBuf_;

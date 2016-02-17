@@ -11,10 +11,10 @@ public:
 	void swap(block_allocator &rhs);
 
 	// allocate memory
-	void *malloc(size_t size);
+	void *Malloc(size_t size);
 
 	// free all allocated blocks
-	void free();
+	void Free();
 
 private:
 	struct block

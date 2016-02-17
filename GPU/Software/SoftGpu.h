@@ -58,6 +58,7 @@ public:
 	void CopyDisplayToOutput() override;
 	void UpdateStats() override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;
@@ -65,7 +66,7 @@ public:
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override {}
 
-	void DeviceLost() override {}
+	void DeviceLost() override;
 	void DumpNextFrame() override {}
 
 	void Resized() override {}
@@ -84,6 +85,7 @@ public:
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;
+	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 
 protected:

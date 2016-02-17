@@ -105,10 +105,10 @@ public:
 		
 #if !defined(USING_GLES2)
 		if (logicEnabled) {
-			glEnable(GL_LOGIC_OP);
+			glEnable(GL_COLOR_LOGIC_OP);
 			glLogicOp(logicOp);
 		} else {
-			glDisable(GL_LOGIC_OP);
+			glDisable(GL_COLOR_LOGIC_OP);
 		}
 #endif
 	}
@@ -427,6 +427,7 @@ GLuint TypeToTarget(T3DTextureType type) {
 class Thin3DGLTexture : public Thin3DTexture, GfxResourceHolder {
 public:
 	Thin3DGLTexture() : tex_(0), target_(0) {
+		generatedMips_ = false;
 		width_ = 0;
 		height_ = 0;
 		depth_ = 0;
@@ -434,6 +435,7 @@ public:
 		register_gl_resource_holder(this);
 	}
 	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
+		generatedMips_ = false;
 		width_ = width;
 		height_ = height;
 		depth_ = depth;
@@ -446,6 +448,7 @@ public:
 	}
 
 	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
+		generatedMips_ = false;
 		format_ = format;
 		target_ = TypeToTarget(type);
 		mipLevels_ = mipLevels;
@@ -459,6 +462,7 @@ public:
 		if (tex_) {
 			glDeleteTextures(1, &tex_);
 			tex_ = 0;
+			generatedMips_ = false;
 		}
 	}
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
@@ -469,6 +473,7 @@ public:
 	}
 
 	void GLLost() override {
+		generatedMips_ = false;
 		if (!filename_.empty()) {
 			if (LoadFromFile(filename_.c_str())) {
 				ILOG("Reloaded lost texture %s", filename_.c_str());
@@ -488,6 +493,7 @@ private:
 
 	T3DImageFormat format_;
 	int mipLevels_;
+	bool generatedMips_;
 };
 
 Thin3DTexture *Thin3DGLContext::CreateTexture() {
@@ -499,8 +505,12 @@ Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageForma
 }
 
 void Thin3DGLTexture::AutoGenMipmaps() {
-	Bind();
-	glGenerateMipmap(target_);
+	if (!generatedMips_) {
+		Bind();
+		glGenerateMipmap(target_);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+		generatedMips_ = true;
+	}
 }
 
 void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {

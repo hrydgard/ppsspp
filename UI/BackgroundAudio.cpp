@@ -16,8 +16,7 @@
 class AT3PlusReader {
 public:
 	AT3PlusReader(const std::string &data)
-	: file_((const uint8_t *)&data[0],
-		(int32_t)data.size()),
+	: file_((const uint8_t *)&data[0], (int32_t)data.size()),
 		raw_data_(0),
 		raw_data_size_(0),
 		raw_offset_(0),
@@ -96,7 +95,7 @@ public:
 			}
 			file_.ascend();
 		} else {
-			ELOG("Could not descend into RIFF file");
+			ELOG("Could not descend into RIFF file. Data size=%d", (int32_t)data.size());
 			return;
 		}
 		sample_rate = samplesPerSec;

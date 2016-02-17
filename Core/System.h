@@ -45,11 +45,17 @@ enum PSPDirectories {
 	DIRECTORY_DUMP,
 	DIRECTORY_SAVESTATE,
 	DIRECTORY_CACHE,
+	DIRECTORY_APP_CACHE,  // Use the OS app cache if available
 };
 
+class GraphicsContext;
+enum class GPUBackend;
 
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
+
+void SetGPUBackend(GPUBackend type);
+GPUBackend GetGPUBackend();
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
@@ -57,6 +63,9 @@ bool PSP_InitUpdate(std::string *error_string);
 bool PSP_IsIniting();
 bool PSP_IsInited();
 void PSP_Shutdown();
+
+void PSP_BeginHostFrame();
+void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 

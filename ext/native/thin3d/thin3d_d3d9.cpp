@@ -7,7 +7,13 @@
 #endif
 
 #include <d3d9.h>
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 #include <d3dx9.h>
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"

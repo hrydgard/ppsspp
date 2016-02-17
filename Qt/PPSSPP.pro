@@ -42,10 +42,6 @@ macx|equals(PLATFORM_NAME, "linux") {
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl2
-		macx {
-			LIBS += -F/Library/Frameworks -framework SDL
-			INCLUDEPATH += /Library/Frameworks/SDL.framework/Versions/A/Headers
-		}
 	}
 }
 

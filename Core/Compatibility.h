@@ -45,7 +45,7 @@
 // We already have the Action Replay-based cheat system for such use cases.
 
 struct CompatFlags {
-	bool NoDepthRounding;
+	bool VertexDepthRounding;
 	bool PixelDepthRounding;
 	bool DepthRangeHack;
 };
@@ -65,7 +65,8 @@ public:
 
 private:
 	void Clear();
-	void LoadIniSection(IniFile &iniFile, std::string section);
+	void CheckSettings(IniFile &iniFile, const std::string &gameID);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool &flag);
 
 	CompatFlags flags_;
 };

@@ -84,7 +84,7 @@ public:
 			root->Add(new TextView(savedata_detail, 0, true, new LinearLayoutParams(Margins(10, 0))));
 			root->Add(new Spacer(3.0));
 		} else {
-			std::string image_path = ReplaceAll(savePath_, "ppst", "jpg");
+			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
 			if (File::Exists(image_path)) {
 				PrioritizedWorkQueue *wq = g_gameInfoCache.WorkQueue();
 				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
@@ -182,6 +182,11 @@ void SavedataButton::Draw(UIContext &dc) {
 		float nw = h * tw / th;
 		x += (w - nw) / 2.0f;
 		w = nw;
+
+		if (texture->Width() >= w * 2 || texture->Height() >= h * 2) {
+			// Better to use mipmaps, then.  This is probably a large savestate screenshot.
+			texture->AutoGenMipmaps();
+		}
 	}
 
 	int txOffset = down_ ? 4 : 0;
@@ -344,13 +349,16 @@ void SavedataScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
 	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	tabs->SetTag("Savedata");
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scroll->SetTag("SavedataBrowser");
 	browser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	browser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
 	tabs->AddTab(sa->T("Save Data"), scroll);
 
 	ScrollView *scroll2 = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scroll2->SetTag("SavedataStatesBrowser");
 	SavedataBrowser *browser2 = scroll2->Add(new SavedataBrowser(savestate_dir));
 	browser2->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 	tabs->AddTab(sa->T("Save States"), scroll2);

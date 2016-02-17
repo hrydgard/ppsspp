@@ -34,6 +34,10 @@ static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
 }
 
+GamepadView::GamepadView(UI::LayoutParams *layoutParams) : UI::View(layoutParams), secondsWithoutTouch_(0) {
+	lastFrameTime_ = time_now_d();
+}
+
 void GamepadView::Touch(const TouchInput &input) {
 	secondsWithoutTouch_ = 0.0f;
 }

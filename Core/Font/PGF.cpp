@@ -20,6 +20,7 @@
 // Thanks to the JPCSP project! This sceFont implementation is basically a C++ take on JPCSP's font code.
 // Some parts, especially in this file, were simply copied, so I guess this really makes this file GPL3.
 
+#include <algorithm>
 #include "Common/ChunkFile.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -562,12 +563,14 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	}
 
 	if (glyph.w <= 0 || glyph.h <= 0) {
+		DEBUG_LOG(SCEFONT, "Glyph with negative size, not rendering");
 		return;
 	}
 
 	if (((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_H_ROWS) &&
 		((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_V_ROWS)) {
-			return;
+		ERROR_LOG_REPORT(SCEFONT, "Nonsense glyph bitmap direction flag");
+		return;
 	}
 
 	size_t bitPtr = glyph.ptr * 8;
@@ -576,6 +579,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	int x = image->xPos64 >> 6;
 	int y = image->yPos64 >> 6;
+	u8 xFrac = image->xPos64 & 0x3F;
+	u8 yFrac = image->yPos64 & 0x3F;
 
 	// Negative means don't clip on that side.
 	if (clipX < 0)
@@ -586,6 +591,11 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		clipWidth = 8192;
 	if (clipHeight < 0)
 		clipHeight = 8192;
+
+	// Use a buffer so we can apply subpixel rendering.
+	// TODO: Cache this buffer per glyph?  Maybe even transpose it first?
+	std::vector<u8> decodedPixels;
+	decodedPixels.resize(numberPixels);
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
@@ -605,57 +615,58 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				value = consumeBits(4, fontData, bitPtr);
 			}
 
-			int xx, yy;
-			if ((glyph.flags & FONT_PGF_BMP_OVERLAY) == FONT_PGF_BMP_H_ROWS) {
-				xx = pixelIndex % glyph.w;
-				yy = pixelIndex / glyph.w;
-			} else {
-				xx = pixelIndex / glyph.h;
-				yy = pixelIndex % glyph.h;
+			decodedPixels[pixelIndex++] = value | (value << 4);
+		}
+	}
+
+	auto samplePixel = [&](int xx, int yy) -> u8 {
+		if (xx < 0 || yy < 0 || xx >= glyph.w || yy >= glyph.h) {
+			return 0;
+		}
+
+		int index;
+		if ((glyph.flags & FONT_PGF_BMP_OVERLAY) == FONT_PGF_BMP_H_ROWS) {
+			index = yy * glyph.w + xx;
+		} else {
+			index = xx * glyph.h + yy;
+		}
+
+		return decodedPixels[index];
+	};
+
+	int renderX1 = std::max(clipX, x) - x;
+	int renderY1 = std::max(clipY, y) - y;
+	// We can render up to frac beyond the glyph w/h, so add 1px if necessary.
+	int renderX2 = std::min(clipX + clipWidth - x, glyph.w + (xFrac > 0 ? 1 : 0));
+	int renderY2 = std::min(clipY + clipHeight - y, glyph.h + (yFrac > 0 ? 1 : 0));
+
+	if (xFrac == 0 && yFrac == 0) {
+		for (int yy = renderY1; yy < renderY2; ++yy) {
+			for (int xx = renderX1; xx < renderX2; ++xx) {
+				u8 pixelColor = samplePixel(xx, yy);
+				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
 			}
+		}
+	} else {
+		for (int yy = renderY1; yy < renderY2; ++yy) {
+			for (int xx = renderX1; xx < renderX2; ++xx) {
+				// First, blend horizontally.  Tests show we blend swizzled to 8 bit.
+				u32 horiz1 = samplePixel(xx - 1, yy - 1) * xFrac + samplePixel(xx, yy - 1) * (64 - xFrac);
+				u32 horiz2 = samplePixel(xx - 1, yy + 0) * xFrac + samplePixel(xx, yy + 0) * (64 - xFrac);
+				// Now blend those together vertically.
+				u32 blended = horiz1 * yFrac + horiz2 * (64 - yFrac);
 
-			int pixelX = x + xx;
-			int pixelY = y + yy;
-
-			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
-				// 4-bit color value
-				int pixelColor = value;
-				switch ((FontPixelFormat)(u32)image->pixelFormat) {
-				case PSP_FONT_PIXELFORMAT_8:
-					// 8-bit color value
-					pixelColor |= pixelColor << 4;
-					break;
-				case PSP_FONT_PIXELFORMAT_24:
-					// 24-bit color value
-					pixelColor |= pixelColor << 4;
-					pixelColor |= pixelColor << 8;
-					pixelColor |= pixelColor << 8;
-					break;
-				case PSP_FONT_PIXELFORMAT_32:
-					// 32-bit color value
-					pixelColor |= pixelColor << 4;
-					pixelColor |= pixelColor << 8;
-					pixelColor |= pixelColor << 16;
-					break;
-				case PSP_FONT_PIXELFORMAT_4:
-				case PSP_FONT_PIXELFORMAT_4_REV:
-					break;
-				default:
-					ERROR_LOG_REPORT(SCEFONT, "Unhandled font pixel format: %d", (u32)image->pixelFormat);
-					break;
-				}
-
-				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, pixelX, pixelY, pixelColor, image->pixelFormat);
+				// We multiplied an 8 bit value by 64 twice, so now we have a 20 bit value.
+				u8 pixelColor = blended >> 12;
+				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
 			}
-
-			pixelIndex++;
 		}
 	}
 
 	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
 }
 
-void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) const {
+void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, u8 pixelColor, FontPixelFormat pixelformat) const {
 	if (x < 0 || x >= bufWidth || y < 0 || y >= bufHeight) {
 		return;
 	}
@@ -673,55 +684,40 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 	case PSP_FONT_PIXELFORMAT_4:
 	case PSP_FONT_PIXELFORMAT_4_REV:
 		{
+			// We always get a 8-bit value, so take only the top 4 bits.
+			const u8 pix4 = pixelColor >> 4;
+
 			int oldColor = Memory::Read_U8(framebufferAddr);
 			int newColor;
 			if ((x & 1) != pixelformat) {
-				newColor = (pixelColor << 4) | (oldColor & 0xF);
+				newColor = (pix4 << 4) | (oldColor & 0xF);
 			} else {
-				newColor = (oldColor & 0xF0) | pixelColor;
+				newColor = (oldColor & 0xF0) | pix4;
 			}
 			Memory::Write_U8(newColor, framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_8:
 		{
-			Memory::Write_U8((u8)pixelColor, framebufferAddr);
+			Memory::Write_U8(pixelColor, framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_24:
 		{
-			Memory::Write_U8(pixelColor & 0xFF, framebufferAddr + 0);
-			Memory::Write_U8(pixelColor >>  8, framebufferAddr + 1);
-			Memory::Write_U8(pixelColor >> 16, framebufferAddr + 2);
+			// Each channel has the same value.
+			Memory::Write_U8(pixelColor, framebufferAddr + 0);
+			Memory::Write_U8(pixelColor, framebufferAddr + 1);
+			Memory::Write_U8(pixelColor, framebufferAddr + 2);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_32:
 		{
-			Memory::Write_U32(pixelColor, framebufferAddr);
+			// Spread the 8 bits out into one write of 32 bits.
+			u32 pix32 = pixelColor;
+			pix32 |= pix32 << 8;
+			pix32 |= pix32 << 16;
+			Memory::Write_U32(pix32, framebufferAddr);
 			break;
 		}
 	}
-}
-
-u32 GetFontPixelColor(int color, int pixelformat) {
-	switch (pixelformat) {
-	case PSP_FONT_PIXELFORMAT_4:
-	case PSP_FONT_PIXELFORMAT_4_REV:
-		// Use only 4-bit alpha
-		color = (color >> 28) & 0xF;
-		break;
-	case PSP_FONT_PIXELFORMAT_8:
-		// Use only 8-bit alpha
-		color = (color >> 24) & 0xFF;
-		break;
-	case PSP_FONT_PIXELFORMAT_24:
-		// Use RGB with 8-bit values
-		color = color & 0x00FFFFFF;
-		break;
-	case PSP_FONT_PIXELFORMAT_32:
-		// Use RGBA with 8-bit values
-		break;
-	}
-
-	return color;
 }

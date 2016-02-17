@@ -323,7 +323,8 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 		bool result = decompress_string(compressed, &decompressed);
 		if (!result) {
 			ELOG("Error decompressing using zlib");
-			*progress = 0.0f;
+			if (progress)
+				*progress = 0.0f;
 			return -1;
 		}
 		output->Append(decompressed);

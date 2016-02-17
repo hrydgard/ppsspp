@@ -175,7 +175,7 @@ ud_syn_print_imm(struct ud* u, const struct ud_operand *op)
 }
 
 uint64_t
-ud_syn_rip_target(struct ud *u, struct ud_operand *opr) {
+ud_syn_rip_target(struct ud *u, const struct ud_operand *opr) {
   return (u->pc + opr->lval.sdword);
 }
 

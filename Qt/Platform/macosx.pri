@@ -1,4 +1,4 @@
-QMAKE_MAC_SDK=macosx10.9
+QT_CONFIG -= no-pkg-config
 
 !contains(CONFIG, staticlib) {
 	# Executable

@@ -37,6 +37,8 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#include "ext/armips/Core/Assembler.h"
+
 SymbolMap *g_symbolMap;
 
 void SymbolMap::SortSymbols() {
@@ -280,7 +282,7 @@ void SymbolMap::SaveNocashSym(const char *filename) const {
 		return;
 	}
 
-	FILE* f = fopen(filename, "w");
+	FILE* f = File::OpenCFile(filename, "w");
 	if (f == NULL)
 		return;
 

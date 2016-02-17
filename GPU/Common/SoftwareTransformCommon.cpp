@@ -21,11 +21,12 @@
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
-#include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/TransformCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
 
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly without geometry shaders, and may be easier to use for
@@ -406,7 +407,8 @@ void SoftwareTransform(
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		result->color = transformed[0].color0_32;
-		result->depth = transformed[0].z;
+		// Need to rescale from a [0, 1] float.  This is the final transformed value.
+		result->depth = ToScaledDepth((s16)(int)(transformed[0].z * 65535.0f));
 		result->action = SW_CLEAR;
 		return;
 	}

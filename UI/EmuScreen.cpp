@@ -61,6 +61,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/DisplayLayoutScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
@@ -98,9 +99,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = g_Config.bSoftwareRendering ? GPU_SOFTWARE : GPU_GLES;
-	if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		coreParam.gpuCore = GPU_DIRECTX9;
 	}
+	// Preserve the existing graphics context.
+	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
@@ -150,7 +153,7 @@ void EmuScreen::bootComplete() {
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		const char *renderer = (const char*)glGetString(GL_RENDERER);
 		if (strstr(renderer, "Chainfire3D") != 0) {
 			osm.Show(sc->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
@@ -229,6 +232,10 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
+	} else if (!strcmp(message, "display layout editor")) {
+		UpdateUIState(UISTATE_MENU);
+		releaseButtons();
+		screenManager()->push(new DisplayLayoutScreen());
 	} else if (!strcmp(message, "settings")) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
@@ -877,9 +884,7 @@ void EmuScreen::render() {
 		thin3d->SetTargetSize(pixel_xres, pixel_yres);
 	}
 
-
-	// Reapply the graphics state of the PSP
-	ReapplyGfxState();
+	PSP_BeginHostFrame();
 
 	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
 	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
@@ -896,10 +901,12 @@ void EmuScreen::render() {
 	}
 	checkPowerDown();
 
+	PSP_EndHostFrame();
+
 	if (invalid_)
 		return;
 
-	if (useBufferedRendering && g_Config.iGPUBackend == GPU_BACKEND_OPENGL)
+	if (useBufferedRendering && GetGPUBackend() == GPUBackend::OPENGL)
 		fbo_unbind();
 
 	if (!osm.IsEmpty() || g_Config.bShowDebugStats || g_Config.iShowFPSCounter || g_Config.bShowTouchControls || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowFrameProfiler) {

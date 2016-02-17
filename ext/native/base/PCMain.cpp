@@ -41,15 +41,21 @@ SDLJoystick *joystick = NULL;
 #include "util/text/utf8.h"
 #include "math/math_util.h"
 
-#ifdef PPSSPP
-// Bad: PPSSPP includes from native
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Common/GraphicsContext.h"
+
+class GLDummyGraphicsContext : public DummyGraphicsContext {
+public:
+	Thin3DContext *CreateThin3DContext() override {
+		CheckGLExtensions();
+		return T3DCreateGLContext();
+	}
+};
 
 GlobalUIState lastUIState = UISTATE_MENU;
 GlobalUIState GetUIState();
-#endif
 
 static SDL_Window* g_Screen = NULL;
 static bool g_ToggleFullScreenNextFrame = false;
@@ -610,9 +616,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 #ifdef _WIN32
-	NativeInit(argc, (const char **)argv, path, "D:\\", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, path, "D:\\", nullptr);
 #else
-	NativeInit(argc, (const char **)argv, path, "/tmp", "BADCOFFEE");
+	NativeInit(argc, (const char **)argv, path, "/tmp", nullptr);
 #endif
 
 	pixel_in_dps = (float)pixel_xres / dp_xres;
@@ -621,7 +627,9 @@ int main(int argc, char *argv[]) {
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
 
-	NativeInitGraphics();
+	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
+	NativeInitGraphics(graphicsContext);
+
 	NativeResized();
 
 	SDL_AudioSpec fmt, ret_fmt;
@@ -672,42 +680,50 @@ int main(int argc, char *argv[]) {
 			case SDL_QUIT:
 				g_QuitRequested = 1;
 				break;
+
 #if !defined(MOBILE_DEVICE)
 			case SDL_WINDOWEVENT:
-			switch (event.window.event) {
+				switch (event.window.event) {
 				case SDL_WINDOWEVENT_RESIZED:
-					{
-						Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
-						bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
+				{
+					Uint32 window_flags = SDL_GetWindowFlags(g_Screen);
+					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
-						pixel_xres = event.window.data1;
-						pixel_yres = event.window.data2;
-						dp_xres = (float)pixel_xres * dpi_scale;
-						dp_yres = (float)pixel_yres * dpi_scale;
-						NativeResized();
+					pixel_xres = event.window.data1;
+					pixel_yres = event.window.data2;
+					dp_xres = (float)pixel_xres * dpi_scale;
+					dp_yres = (float)pixel_yres * dpi_scale;
+					NativeResized();
 
 #if defined(PPSSPP)
-						// Set variable here in case fullscreen was toggled by hotkey
-						g_Config.bFullScreen = fullscreen;
+					// Set variable here in case fullscreen was toggled by hotkey
+					g_Config.bFullScreen = fullscreen;
 
-						// Hide/Show cursor correctly toggling fullscreen
-						if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
-							SDL_ShowCursor(SDL_DISABLE);
-						} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
-							SDL_ShowCursor(SDL_ENABLE);
-						}
-#endif
-						break;
+					// Hide/Show cursor correctly toggling fullscreen
+					if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
+						SDL_ShowCursor(SDL_DISABLE);
+					} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
+						SDL_ShowCursor(SDL_ENABLE);
 					}
+	#endif
 					break;
 				}
+
+				default:
+					break;
+				}
+				break;
 #endif
 			case SDL_KEYDOWN:
 				{
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_DOWN;
-					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					auto mapped = KeyMapRawSDLtoNative.find(k);
+					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+						break;
+					}
+					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 
@@ -722,7 +738,11 @@ int main(int argc, char *argv[]) {
 					int k = event.key.keysym.sym;
 					KeyInput key;
 					key.flags = KEY_UP;
-					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					auto mapped = KeyMapRawSDLtoNative.find(k);
+					if (mapped == KeyMapRawSDLtoNative.end() || mapped->second == NKCODE_UNKNOWN) {
+						break;
+					}
+					key.keyCode = mapped->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
 					for (int i = 0; i < ARRAY_SIZE(legacyKeyMap); i++) {
@@ -839,12 +859,7 @@ int main(int argc, char *argv[]) {
 		SimulateGamepad(keys, &input_state);
 		input_state.pad_buttons = pad_buttons;
 		UpdateInputState(&input_state, true);
-#ifdef PPSSPP
 		UpdateRunLoop();
-#else
-		NativeUpdate(input_state);
-		NativeRender();
-#endif
 		if (g_QuitRequested)
 			break;
 #if defined(PPSSPP) && !defined(MOBILE_DEVICE)
@@ -864,8 +879,7 @@ int main(int argc, char *argv[]) {
 #ifdef USING_EGL
 		eglSwapBuffers(g_eglDisplay, g_eglSurface);
 #else
-		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0)
-		{
+		if (!keys[SDLK_TAB] || t - lastT >= 1.0/60.0) {
 			SDL_GL_SwapWindow(g_Screen);
 			lastT = t;
 		}
@@ -880,6 +894,8 @@ int main(int argc, char *argv[]) {
 	delete joystick;
 #endif
 	NativeShutdownGraphics();
+	graphicsContext->Shutdown();
+	delete graphicsContext;
 	NativeShutdown();
 	// Faster exit, thanks to the OS. Remove this if you want to debug shutdown
 	// The speed difference is only really noticable on Linux. On Windows you do notice it though

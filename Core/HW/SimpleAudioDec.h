@@ -56,6 +56,8 @@ public:
 	// Not save stated, only used by UI.  Used for ATRAC3 (non+) files.
 	void SetExtraData(u8 *data, int size, int wav_bytes_per_packet);
 
+	void SetChannels(int channels);
+
 	// These two are only here because of save states.
 	int GetAudioType() const { return audioType; }
 	void SetResampleFrequency(int freq) { wanted_resample_freq = freq; }

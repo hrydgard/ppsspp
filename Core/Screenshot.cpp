@@ -125,16 +125,19 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 }
 #endif
 
-static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
+static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
 	// The temp buffer will be freed by the caller if set, and can be the return value.
 	temp = nullptr;
+
+	w = std::min(w, buf.GetStride());
+	h = std::min(h, buf.GetHeight());
 
 	const u8 *buffer = buf.GetData();
 	if (buf.GetFlipped() && buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
 		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
-		temp = new u8[3 * buf.GetStride() * buf.GetHeight()];
-		for (u32 y = 0; y < buf.GetHeight(); y++) {
-			memcpy(temp + y * buf.GetStride() * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, buf.GetStride() * 3);
+		temp = new u8[3 * w * h];
+		for (u32 y = 0; y < h; y++) {
+			memcpy(temp + y * w * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, w * 3);
 		}
 		buffer = temp;
 	} else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
@@ -144,18 +147,18 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 		bool brswap = (buf.GetFormat() & GPU_DBG_FORMAT_BRSWAP_FLAG) != 0;
 		bool flip = buf.GetFlipped();
 
-		temp = new u8[3 * buf.GetStride() * buf.GetHeight()];
+		temp = new u8[3 * w * h];
 
 		// This is pretty inefficient.
 		const u16 *buf16 = (const u16 *)buffer;
 		const u32 *buf32 = (const u32 *)buffer;
-		for (u32 y = 0; y < buf.GetHeight(); y++) {
-			for (u32 x = 0; x < buf.GetStride(); x++) {
+		for (u32 y = 0; y < h; y++) {
+			for (u32 x = 0; x < w; x++) {
 				u8 *dst;
 				if (flip) {
-					dst = &temp[(buf.GetHeight() - y - 1) * buf.GetStride() * 3 + x * 3];
+					dst = &temp[(h - y - 1) * w * 3 + x * 3];
 				} else {
-					dst = &temp[y * buf.GetStride() * 3 + x * 3];
+					dst = &temp[y * w * 3 + x * 3];
 				}
 
 				u8 &r = brswap ? dst[2] : dst[0];
@@ -215,16 +218,22 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp) {
 bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type) {
 	GPUDebugBuffer buf;
 	bool success = false;
+	u32 w = (u32)-1;
+	u32 h = (u32)-1;
 
 	if (type == SCREENSHOT_RENDER) {
 		if (gpuDebug) {
 			success = gpuDebug->GetCurrentFramebuffer(buf);
 		}
+
+		// Only crop to the top left when using a render screenshot.
+		w = PSP_CoreParameter().renderWidth;
+		h = PSP_CoreParameter().renderHeight;
 	} else {
-		if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			success = GLES_GPU::GetDisplayFramebuffer(buf);
 #ifdef _WIN32
-		} else if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		} else if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 			success = DX9::DIRECTX9_GPU::GetDisplayFramebuffer(buf);
 #endif
 		}
@@ -238,16 +247,16 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 #ifdef USING_QT_UI
 	if (success) {
 		u8 *flipbuffer = nullptr;
-		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer);
+		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
 		// TODO: Handle other formats (e.g. Direct3D, raw framebuffers.)
-		QImage image(buffer, buf.GetStride(), buf.GetHeight(), QImage::Format_RGB888);
+		QImage image(buffer, w, h, QImage::Format_RGB888);
 		success = image.save(filename, fmt == SCREENSHOT_PNG ? "PNG" : "JPG");
 		delete [] flipbuffer;
 	}
 #else
 	if (success) {
 		u8 *flipbuffer = nullptr;
-		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer);
+		const u8 *buffer = ConvertBufferTo888RGB(buf, flipbuffer, w, h);
 		if (buffer == nullptr) {
 			success = false;
 		}
@@ -257,9 +266,9 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 			memset(&png, 0, sizeof(png));
 			png.version = PNG_IMAGE_VERSION;
 			png.format = PNG_FORMAT_RGB;
-			png.width = buf.GetStride();
-			png.height = buf.GetHeight();
-			success = WriteScreenshotToPNG(&png, filename, 0, buffer, buf.GetStride() * 3, nullptr);
+			png.width = w;
+			png.height = h;
+			success = WriteScreenshotToPNG(&png, filename, 0, buffer, w * 3, nullptr);
 			png_image_free(&png);
 
 			if (png.warning_or_error >= 2) {
@@ -269,7 +278,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		} else if (success && fmt == SCREENSHOT_JPG) {
 			jpge::params params;
 			params.m_quality = 90;
-			success = WriteScreenshotToJPEG(filename, buf.GetStride(), buf.GetHeight(), 3, buffer, params);
+			success = WriteScreenshotToJPEG(filename, w, h, 3, buffer, params);
 		} else {
 			success = false;
 		}

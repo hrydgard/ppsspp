@@ -791,12 +791,7 @@ IOFile::~IOFile()
 bool IOFile::Open(const std::string& filename, const char openmode[])
 {
 	Close();
-#if defined(_WIN32) && defined(UNICODE)
-	_wfopen_s(&m_file, ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(openmode).c_str());
-#else
-	m_file = fopen(filename.c_str(), openmode);
-#endif
-
+	m_file = File::OpenCFile(filename, openmode);
 	m_good = IsOpen();
 	return m_good;
 }

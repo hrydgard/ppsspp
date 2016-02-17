@@ -36,17 +36,13 @@ struct InputState;
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
-#ifndef _WIN32
-InputState input_state;
-#endif
 
 void UnitTestTerminator() {
 	// Bails out of jit so we can time things.

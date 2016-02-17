@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -26,13 +27,27 @@ enum TextureFiltering {
 	TEX_FILTER_LINEAR_VIDEO = 4,
 };
 
+enum FramebufferNotification {
+	NOTIFY_FB_CREATED,
+	NOTIFY_FB_UPDATED,
+	NOTIFY_FB_DESTROYED,
+};
+
 struct VirtualFramebuffer;
 
 class TextureCacheCommon {
 public:
+	TextureCacheCommon();
 	virtual ~TextureCacheCommon();
 
+	void LoadClut(u32 clutAddr, u32 loadBytes);
+	bool GetCurrentClutBuffer(GPUDebugBuffer &buffer);
+
 	virtual bool SetOffsetTexture(u32 offset);
+
+	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
+	void NotifyConfigChanged();
 
 	int AttachedDrawingHeight();
 
@@ -53,10 +68,11 @@ public:
 			STATUS_ALPHA_SIMPLE = 0x08,    // Like above, but also has 0 alpha (e.g. 5551.)
 			STATUS_ALPHA_MASK = 0x0c,
 
-			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 15 frames in between.)
+			STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 			STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 			STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
 			STATUS_TO_SCALE = 0x80,        // Pending texture scaling in a later frame.
+			STATUS_FREE_CHANGE = 0x100,    // Allow one change before marking "frequent".
 		};
 
 		// Status, but int so we can zero initialize.
@@ -114,9 +130,38 @@ public:
 	};
 
 protected:
+	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
+	typedef std::map<u64, TexCacheEntry> TexCache;
+
+	void *UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
+	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
+
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
+	void UpdateMaxSeenV(bool throughMode);
+
+	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
+	virtual void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) = 0;
+
+	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
+
+	TexCache cache;
+	std::vector<VirtualFramebuffer *> fbCache_;
+
+	SimpleBuf<u32> tmpTexBuf32;
+	SimpleBuf<u16> tmpTexBuf16;
+	SimpleBuf<u32> tmpTexBufRearrange;
 
 	TexCacheEntry *nextTexture_;
+
+	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
+	u32 *clutBufRaw_;
+	u32 *clutBufConverted_;
+	u32 clutLastFormat_;
+	u32 clutTotalBytes_;
+	u32 clutMaxBytes_;
+	u32 clutRenderAddress_;
+	u32 clutRenderOffset_;
+	int standardScaleFactor_;
 };
 
 inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {

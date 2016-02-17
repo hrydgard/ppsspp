@@ -10,9 +10,6 @@
     <Filter Include="Archs\MIPS">
       <UniqueIdentifier>{b14a90ab-ec40-4a91-b169-81f6e36916a8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Archs\Z80">
-      <UniqueIdentifier>{8749652c-eae9-42f5-ad72-86197d31657e}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Commands">
       <UniqueIdentifier>{876c84a8-beac-42b9-8372-a1c7bdca6e50}</UniqueIdentifier>
     </Filter>
@@ -24,6 +21,15 @@
     </Filter>
     <Filter Include="Util">
       <UniqueIdentifier>{b5ae6780-190b-480d-a356-20b3c69e6a7d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{f5bcf5e1-9ad8-4f34-ab14-6c04ef80f1c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\tinyformat">
+      <UniqueIdentifier>{cca034bb-30ca-48d3-9283-e9def7f9b1bb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Parser">
+      <UniqueIdentifier>{d1037c70-bb54-46fc-8b0c-a47c4ea4a252}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -54,9 +60,6 @@
     <ClCompile Include="armips\Archs\MIPS\CMipsInstruction.cpp">
       <Filter>Archs\MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Archs\MIPS\CMipsMacro.cpp">
-      <Filter>Archs\MIPS</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Archs\MIPS\Mips.cpp">
       <Filter>Archs\MIPS</Filter>
     </ClCompile>
@@ -69,20 +72,8 @@
     <ClCompile Include="armips\Archs\MIPS\MipsOpcodes.cpp">
       <Filter>Archs\MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Archs\MIPS\MipsPSP.cpp">
-      <Filter>Archs\MIPS</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Archs\MIPS\PsxRelocator.cpp">
       <Filter>Archs\MIPS</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Archs\Z80\CZ80Instruction.cpp">
-      <Filter>Archs\Z80</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Archs\Z80\z80.cpp">
-      <Filter>Archs\Z80</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Archs\Z80\z80Opcodes.cpp">
-      <Filter>Archs\Z80</Filter>
     </ClCompile>
     <ClCompile Include="armips\Commands\CAssemblerCommand.cpp">
       <Filter>Commands</Filter>
@@ -100,9 +91,6 @@
       <Filter>Commands</Filter>
     </ClCompile>
     <ClCompile Include="armips\Commands\CDirectiveFile.cpp">
-      <Filter>Commands</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Commands\CDirectiveFill.cpp">
       <Filter>Commands</Filter>
     </ClCompile>
     <ClCompile Include="armips\Commands\CDirectiveMessage.cpp">
@@ -123,16 +111,7 @@
     <ClCompile Include="armips\Core\Assembler.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Core\CMacro.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Core\Common.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Core\Directives.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="armips\Core\MathParser.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="armips\Core\ELF\ElfFile.cpp">
@@ -144,9 +123,6 @@
     <ClCompile Include="armips\Util\ByteArray.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Util\CommonClasses.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Util\CRC.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -156,13 +132,37 @@
     <ClCompile Include="armips\Util\FileClasses.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Util\StringFormat.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Util\Util.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="armips\stdafx.cpp" />
+    <ClCompile Include="armips\Core\Expression.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Commands\CommandSequence.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Parser\Tokenizer.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Parser\ExpressionParser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Parser\DirectivesParser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Parser\Parser.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\ARM\ArmParser.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\MIPS\MipsParser.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Core\ExpressionFunctions.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="armips\Archs\Architecture.h">
@@ -192,9 +192,6 @@
     <ClInclude Include="armips\Archs\MIPS\CMipsInstruction.h">
       <Filter>Archs\MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Archs\MIPS\CMipsMacro.h">
-      <Filter>Archs\MIPS</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Archs\MIPS\Mips.h">
       <Filter>Archs\MIPS</Filter>
     </ClInclude>
@@ -207,20 +204,8 @@
     <ClInclude Include="armips\Archs\MIPS\MipsOpcodes.h">
       <Filter>Archs\MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Archs\MIPS\MipsPSP.h">
-      <Filter>Archs\MIPS</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Archs\MIPS\PsxRelocator.h">
       <Filter>Archs\MIPS</Filter>
-    </ClInclude>
-    <ClInclude Include="armips\Archs\Z80\CZ80Instruction.h">
-      <Filter>Archs\Z80</Filter>
-    </ClInclude>
-    <ClInclude Include="armips\Archs\Z80\z80.h">
-      <Filter>Archs\Z80</Filter>
-    </ClInclude>
-    <ClInclude Include="armips\Archs\Z80\z80Opcodes.h">
-      <Filter>Archs\Z80</Filter>
     </ClInclude>
     <ClInclude Include="armips\Commands\CAssemblerCommand.h">
       <Filter>Commands</Filter>
@@ -240,28 +225,16 @@
     <ClInclude Include="armips\Commands\CDirectiveFile.h">
       <Filter>Commands</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Commands\CDirectiveFill.h">
-      <Filter>Commands</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Commands\CDirectiveMessage.h">
       <Filter>Commands</Filter>
     </ClInclude>
     <ClInclude Include="armips\Core\Assembler.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Core\CMacro.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Core\Common.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Core\Directives.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Core\FileManager.h">
-      <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="armips\Core\MathParser.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="armips\Core\Misc.h">
@@ -285,9 +258,6 @@
     <ClInclude Include="armips\Util\ByteArray.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Util\CommonClasses.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Util\CRC.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -297,12 +267,39 @@
     <ClInclude Include="armips\Util\FileClasses.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="armips\Util\StringFormat.h">
-      <Filter>Util</Filter>
-    </ClInclude>
     <ClInclude Include="armips\Util\Util.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="armips\stdafx.h" />
+    <ClInclude Include="armips\Core\Expression.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\ext\tinyformat\tinyformat.h">
+      <Filter>ext\tinyformat</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Commands\CommandSequence.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Parser\Tokenizer.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Parser\ExpressionParser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Parser\DirectivesParser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Parser\Parser.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\ARM\ArmParser.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\MIPS\MipsParser.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Core\ExpressionFunctions.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

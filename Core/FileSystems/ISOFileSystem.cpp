@@ -287,10 +287,13 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 					if (!restrictTree.empty())
 						doRecurse = level < restrictTree.size() && restrictTree[level] == e->name;
 
-					if (doRecurse)
+					if (doRecurse) {
 						ReadDirectory(dir.firstDataSector(), dir.dataLength(), e, level + 1);
-					else
+					} else {
+						// The entry is not kept, must free it.
+						delete e;
 						continue;
+					}
 				}
 			}
 			root->children.push_back(e);
@@ -814,8 +817,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			bool hasFile = of.file != NULL;
 			p.Do(hasFile);
 			if (hasFile) {
-				std::string path = "";
-				path = EntryFullPath(of.file);
+				std::string path = EntryFullPath(of.file);
 				p.Do(path);
 			}
 		}

@@ -207,10 +207,13 @@ void __SasDoState(PointerWrap &p) {
 
 	if (s >= 2) {
 		p.Do(sasMixEvent);
-		CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
 	} else {
 		sasMixEvent = -1;
 		__SasDisableThread();
+	}
+
+	if (sasMixEvent != -1) {
+		CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
 	}
 }
 

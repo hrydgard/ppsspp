@@ -148,6 +148,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2876ed93c5fd1211, 328, "dl_write_matrix_4", },
 	{ 0x2965b1ad3ca15cc1, 44, "vtfm_t", },
 	{ 0x299a370587df078f, 116, "strange_copy_routine", },
+	{ 0x2aa9634a9951c7df, 212, "sdgundamggenerationportable_download_frame", }, // SD Gundam G Generation Portable
 	{ 0x2abca53599f09ea7, 608, "dl_write_matrix_3", },
 	{ 0x2adb92e8855c454e, 48, "vtfm_q", },
 	{ 0x2adc229bef7bbc75, 40, "isnan", },
@@ -160,6 +161,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x2f639673670caa0e, 772, "dl_write_matrix_2", },
 	{ 0x2f718936b371fc44, 40, "vcos_s", },
 	{ 0x3024e961d1811dea, 396, "fmod", },
+	{ 0x3050bfd0e729dfbf, 220, "atvoffroadfuryblazintrails_download_frame", }, // ATV Offroad Fury Blazin' Trails (US)
 	{ 0x30c9c4f420573eb6, 540, "expf", },
 	{ 0x317afeb882ff324a, 212, "memcpy", }, // Mimana (US)
 	{ 0x31ea2e192f5095a1, 52, "vector_add_t", },
@@ -250,6 +252,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6962da85a6dad937, 60, "strrchr", },
 	{ 0x69a3c4f774859404, 64, "vmmul_q_transp2", },
 	{ 0x6ab54910104ef000, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation World
+	{ 0x6ac2cd44e042592b, 252, "atvoffroadfurypro_download_frame", }, // ATV Offroad Fury Pro (US)
 	{ 0x6b022e20ee3fa733, 68, "__negdf2", },
 	{ 0x6b2a6347c0dfcb57, 152, "strcpy", },
 	{ 0x6b4148322c569cb3, 240, "wmemchr", },
@@ -264,6 +267,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x6f4e1a1a84df1da0, 68, "dl_write_texmode", },
 	{ 0x6f7c9109b5b8fa47, 688, "danganronpa1_2_download_frame", }, // Danganronpa 1
 	{ 0x70649c7211f6a8da, 16, "fabsf", },
+	{ 0x70a6152b265228e8, 296, "unendingbloodycall_download_frame", }, // unENDing Bloody Call
 	{ 0x7245b74db370ae72, 64, "vmmul_q_transp3", },
 	{ 0x7259d52b21814a5a, 40, "vtfm_t_transp", },
 	{ 0x7354fd206796d817, 864, "flowers_download_frame", }, // Flowers
@@ -314,6 +318,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x92c7d2de74068c9c, 32, "vcross_t", },
 	{ 0x93d8a275ba288b26, 32, "vdot_t", },
 	{ 0x94c7083b64a946b4, 2028, "powf", },
+	{ 0x94eb1e7dccca76a4, 680, "shinigamitoshoujo_download_frame", }, // Shinigami to Shoujo (JP)
 	{ 0x95a52ce1bc460108, 2036, "_malloc_r", },
 	{ 0x95bd33ac373c019a, 24, "fabsf", },
 	{ 0x9705934b0950d68d, 280, "dl_write_framebuffer_ptr", },
@@ -336,9 +341,11 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa46cc6ea720d5775, 44, "dl_write_cull", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
+	{ 0xa615f6bd33195dae, 220, "atvoffroadfuryprodemo_download_frame", }, // ATV Offroad Fury Pro (US) demo
 	{ 0xa662359e30b829e4, 148, "memcmp", },
 	{ 0xa6a03f0487a911b0, 392, "danganronpa1_1_download_frame", }, // Danganronpa 1
 	{ 0xa8390e65fa087c62, 140, "vtfm_t_q", },
+	{ 0xa85e48ee10b2dc50, 432, "omertachinmokunookitethelegacy_download_frame", }, // Omerta Chinmoku No Okite The Legacy
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
@@ -395,6 +402,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1 (US)
+	{ 0xc7b1113cfdfedab6, 104, "tonyhawkp8_upload_tutorial_frame", }, // Tony Hawk's Project 8 (US)
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
 	{ 0xca7cb2c0b9410618, 680, "kudwafter_download_frame", }, // Kud Wafter
 	{ 0xcb22120018386319, 692, "photokano_download_frame", }, // Photo Kano
@@ -424,6 +432,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xdcdf7e1c1a3dc260, 372, "strncmp", },
 	{ 0xdcfc28e624a81bf1, 5476, "_dtoa_r", },
 	{ 0xddfa5a85937aa581, 32, "vdot_q", },
+	{ 0xdeb6a583659e3948, 1080, "littlebustersce_download_frame", }, // Little Busters! Converted Edition (JP)
 	{ 0xe0214719d8a0aa4e, 104, "strstr", },
 	{ 0xe029f0699ca3a886, 76, "matrix300_transform_by", },
 	{ 0xe086d5c9ce89148f, 212, "bokunonatsuyasumi4_download_frame", }, // Boku no Natsuyasumi 2 and 4,
@@ -503,6 +512,7 @@ namespace MIPSAnalyst {
 	}
 
 	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2) {
+		MIPSInfo branchInfo = MIPSGetInfo(branchOp);
 		MIPSInfo info = MIPSGetInfo(op);
 		if (info & IS_CONDBRANCH) {
 			return false;
@@ -513,6 +523,10 @@ namespace MIPSAnalyst {
 		}
 		if (reg2 != MIPS_REG_ZERO && GetOutGPReg(op) == reg2) {
 			return false;
+		}
+		// If the branch is an "and link" branch, check the delay slot for RA.
+		if ((branchInfo & OUT_RA) != 0) {
+			return GetOutGPReg(op) != MIPS_REG_RA && !ReadsFromGPReg(op, MIPS_REG_RA);
 		}
 		return true;
 	}
@@ -935,32 +949,7 @@ skip:
 		bool decreasedSp = false;
 
 		u32 addr;
-		u32 addrNextSym = 0;
 		for (addr = startAddr; addr <= endAddr; addr += 4) {
-			// Use pre-existing symbol map info if available. May be more reliable.
-			SymbolInfo syminfo;
-			if (addrNextSym <= addr) {
-				addrNextSym = g_symbolMap->FindPossibleFunctionAtAfter(addr);
-			}
-			if (addrNextSym <= addr && g_symbolMap->GetSymbolInfo(&syminfo, addr, ST_FUNCTION)) {
-				addr = syminfo.address + syminfo.size - 4;
-
-				// We still need to insert the func for hashing purposes.
-				currentFunction.start = syminfo.address;
-				currentFunction.end = syminfo.address + syminfo.size - 4;
-				// Re-add it to the map if the module address is not known yet (only happens from loaded maps.)
-				currentFunction.foundInSymbolMap = syminfo.moduleAddress != 0;
-				functions.push_back(currentFunction);
-				currentFunction.foundInSymbolMap = false;
-				currentFunction.start = addr + 4;
-				furthestBranch = 0;
-				looking = false;
-				end = false;
-				isStraightLeaf = false;
-				decreasedSp = false;
-				continue;
-			}
-
 			MIPSOpcode op = Memory::Read_Instruction(addr, true);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
@@ -1055,14 +1044,32 @@ skip:
 			if (end) {
 				currentFunction.end = addr + 4;
 				currentFunction.isStraightLeaf = isStraightLeaf;
+
+				// Check if we already have symbol info starting here.  If so, skip insertion.
+				// We used to use the symbols to find the functions, but sometimes we'd find
+				// wrong ones due to two modules with the same name.
+				u32 existingSize = g_symbolMap->GetFunctionSize(currentFunction.start);
+				if (existingSize != SymbolMap::INVALID_ADDRESS) {
+					currentFunction.foundInSymbolMap = true;
+
+					// If we run into a func with a different size, skip updating the hash map.
+					// This will prevent us saving incorrectly named funcs with wrong hashes.
+					u32 detectedSize = currentFunction.end - currentFunction.start + 4;
+					if (existingSize != detectedSize) {
+						insertSymbols = false;
+					}
+				}
+
 				functions.push_back(currentFunction);
+
 				furthestBranch = 0;
 				addr += 4;
 				looking = false;
 				end = false;
 				isStraightLeaf = true;
 				decreasedSp = false;
-				currentFunction.start = addr+4;
+				currentFunction.start = addr + 4;
+				currentFunction.foundInSymbolMap = false;
 			}
 		}
 

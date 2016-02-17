@@ -37,6 +37,7 @@ struct AsyncIOEvent {
 	u32 handle;
 	u8 *buf;
 	size_t bytes;
+	u32 invalidateAddr;
 
 	operator AsyncIOEventType() const {
 		return type;
@@ -44,27 +45,33 @@ struct AsyncIOEvent {
 };
 
 struct AsyncIOResult {
-	AsyncIOResult() : result(0), finishTicks(0) {
+	AsyncIOResult() : result(0), finishTicks(0), invalidateAddr(0) {
 	}
 
-	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0) {
+	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0), invalidateAddr(0) {
 	}
 
-	AsyncIOResult(s64 r, int usec) : result(r) {
+	AsyncIOResult(s64 r, int usec, u32 addr = 0) : result(r), invalidateAddr(addr) {
 		finishTicks = CoreTiming::GetTicks() + usToCycles(usec);
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("AsyncIOResult", 1);
+		auto s = p.Section("AsyncIOResult", 1, 2);
 		if (!s)
 			return;
 
 		p.Do(result);
 		p.Do(finishTicks);
+		if (s >= 2) {
+			p.Do(invalidateAddr);
+		} else {
+			invalidateAddr = 0;
+		}
 	}
 
 	s64 result;
 	u64 finishTicks;
+	u32 invalidateAddr;
 };
 
 typedef ThreadEventQueue<NoBase, AsyncIOEvent, AsyncIOEventType, IO_EVENT_INVALID, IO_EVENT_SYNC, IO_EVENT_FINISH> IOThreadEventQueue;
@@ -89,7 +96,7 @@ protected:
 	}
 
 private:
-	void Read(u32 handle, u8 *buf, size_t bytes);
+	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
 	void Write(u32 handle, u8 *buf, size_t bytes);
 
 	void EventResult(u32 handle, AsyncIOResult result);

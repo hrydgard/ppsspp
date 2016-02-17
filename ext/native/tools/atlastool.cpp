@@ -353,7 +353,7 @@ inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRang
 	return result;
 }
 
-void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
+void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
 	FT_Library freetype;
 	CHECK(FT_Init_FreeType(&freetype) == 0);
 
@@ -384,6 +384,8 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 
 		totalHeight += font->size->metrics.height;
 	}
+
+	// Wait what - how does this make sense?
 	*metrics_height = totalHeight / (float) fontRefs.size();
 
 	// Convert all characters to bitmaps.
@@ -425,6 +427,7 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 				dat.ox = 0;
 				dat.oy = 0;
 				dat.wx = 0;
+				dat.voffset = 0;
 				dat.charNum = kar;
 				dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
 				bucket->AddItem(img, dat);
