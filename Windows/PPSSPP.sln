@@ -71,6 +71,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UI", "..\UI\UI.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libarmips", "..\ext\libarmips.vcxproj", "{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glslang", "..\ext\glslang.vcxproj", "{EDFA2E87-8AC1-4853-95D4-D7594FF81947}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -213,6 +215,18 @@ Global
 		{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}.Tests|Win32.Build.0 = Tests|Win32
 		{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}.Tests|x64.ActiveCfg = Tests|x64
 		{129E5E2B-39C1-4D84-96FE-DFD22DBB4A25}.Tests|x64.Build.0 = Tests|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Debug|Win32.Build.0 = Debug|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Debug|x64.ActiveCfg = Debug|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Debug|x64.Build.0 = Debug|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Release|Win32.ActiveCfg = Release|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Release|Win32.Build.0 = Release|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Release|x64.ActiveCfg = Release|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Release|x64.Build.0 = Release|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|Win32.ActiveCfg = Release|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|Win32.Build.0 = Release|Win32
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|x64.ActiveCfg = Release|x64
+		{EDFA2E87-8AC1-4853-95D4-D7594FF81947}.Tests|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
