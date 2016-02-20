@@ -1,10 +1,12 @@
 package org.ppsspp.ppsspp;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.Toast;
 
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
@@ -67,8 +69,16 @@ public class PpssppActivity extends NativeActivity {
 
 		// In case app launched from homescreen shortcut, get shortcut parameter
 		// using Intent extra string. Intent extra will be null if launch normal
-		// (from app drawer).
-		super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
+		// (from app drawer or file explorer).
+		Intent intent = getIntent();
+		String action = intent.getAction();
+		if(intent.ACTION_VIEW.equals(action))
+		{ 
+			String path = intent.getData().getPath();
+			super.setShortcutParam(path);
+			Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();	
+		}
+		else super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 
 		super.onCreate(savedInstanceState);
 	}

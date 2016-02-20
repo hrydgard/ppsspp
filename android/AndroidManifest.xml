@@ -47,6 +47,63 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.iso"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.bin"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.cso"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.isz"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.elf"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.ISO"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.BIN"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.CSO"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.ISZ"
+					android:scheme="file" />
+				<data
+					android:host="*"
+					android:mimeType="*/*"
+					android:pathPattern=".*\\.ELF"
+					android:scheme="file" />
+			</intent-filter>
         </activity>
         <meta-data android:name="isGame" android:value="true" />
         <activity
