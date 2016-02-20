@@ -403,6 +403,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		Log.d(TAG, "Surface created.");
 	}
 
+	//
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
 	{
@@ -412,25 +413,33 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		Point sz = new Point();
 		updateDisplayMetrics(sz);
 		NativeApp.backbufferResize(width, height, format);
+
 		mSurface = holder.getSurface();
-		ensureRenderLoop();
+		// If we got a surface, this starts the thread. If not, it doesn't.
+		if (mSurface == null) {
+			joinRenderLoopThread();
+		} else {
+			ensureRenderLoop();
+		}
 	}
 
-	protected void ensureRenderLoop() {
+	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
+	protected synchronized void ensureRenderLoop() {
 		if (mSurface == null) {
 			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
 			return;
 		}
 
-		if ((mRenderLoopThread == null || !mRenderLoopThread.isAlive())) {
+		if (mRenderLoopThread == null) {
 			Log.w(TAG, "ensureRenderLoop: Starting thread");
 			mRenderLoopThread = new Thread(mEmulationRunner);
 			mRenderLoopThread.start();
 		}
 	}
 
-	private void joinRenderLoopThread() {
-		if (mRenderLoopThread != null && mRenderLoopThread.isAlive()) {
+	// Invariants: After this, mRenderLoopThread will be null, and the thread has exited.
+	private synchronized void joinRenderLoopThread() {
+		if (mRenderLoopThread != null) {
 			// This will wait until the thread has exited.
 			Log.i(TAG, "exitEGLRenderLoop");
 			exitEGLRenderLoop();
