@@ -91,7 +91,7 @@ static void __UpdateApctlHandlers(int oldState, int newState, int flag, int erro
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1);
+	auto s = p.Section("sceNet", 1, 2);
 	if (!s)
 		return;
 
@@ -100,6 +100,13 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netApctlInited);
 	p.Do(apctlHandlers);
 	p.Do(netMallocStat);
+	if (s < 2) {
+		netDropRate = 0;
+		netDropDuration = 0;
+	} else {
+		p.Do(netDropRate);
+		p.Do(netDropDuration);
+	}
 }
 
 static u32 sceNetTerm() {
@@ -569,7 +576,6 @@ const HLEFunction sceNetUpnp[] = {
 const HLEFunction sceNetIfhandle[] = {
 	{ 0xC80181A2, &WrapI_UU<sceNetGetDropRate>,     "sceNetGetDropRate",                 'i', "ii" },
 	{ 0xFD8585E1, &WrapI_UU<sceNetSetDropRate>,     "sceNetSetDropRate",                 'i', "ii" },
-
 };
 
 void Register_sceNet() {
