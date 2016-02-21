@@ -33,7 +33,7 @@ void cInterfaceEGL::DetectMode() {
 
 	static const char *renderable_names[3] = {
 		"OpenGL", "OpenGL ES 3", "OpenGL ES 2"
-	}
+	};
 
 	for (int i = 0; i < 3; i++) {
 		int renderable_type = renderable_types[i];
