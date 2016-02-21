@@ -739,9 +739,9 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	if (msg == "inputbox_completed") {
 		SplitString(value, ':', inputboxValue);
-		if (inputboxValue[0] == "IP ")
+		if (inputboxValue[0] == "IP")
 			g_Config.proAdhocServer = inputboxValue[1];
-		if (inputboxValue[0] == "nickname ")
+		if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = inputboxValue[1];
 		inputboxValue.clear();
 	}

@@ -473,7 +473,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #elif defined(ANDROID)
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, sy->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #else
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
@@ -917,7 +917,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 		g_Config.sNickName = name;
 	}
 #elif defined(ANDROID)
-	System_SendMessage("inputbox", ("nickname :" + g_Config.sNickName).c_str());
+	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -937,7 +937,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	else
 		screenManager()->push(new ProAdhocServerScreen);
 #elif defined(ANDROID)
-	System_SendMessage("inputbox", ("IP :" + g_Config.proAdhocServer).c_str());
+	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
 #else
 	screenManager()->push(new ProAdhocServerScreen);
 #endif
