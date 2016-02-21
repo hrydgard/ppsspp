@@ -2,11 +2,10 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
-// #include "GPU/Vulkan/"
-#include "thin3d/VulkanContext.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {
 	pipelineCache_ = vulkan->CreatePipelineCache();

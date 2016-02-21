@@ -22,8 +22,8 @@
 
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
-#include "thin3d/VulkanContext.h"
 
+#include "Common/Vulkan/VulkanContext.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
