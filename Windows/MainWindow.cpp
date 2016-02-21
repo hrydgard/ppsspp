@@ -118,6 +118,7 @@ namespace MainWindow
 	static bool hideCursor = false;
 	static int g_WindowState;
 	static bool g_IgnoreWM_SIZE = false;
+	static bool inResizeMove = false;
 
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
@@ -701,13 +702,22 @@ namespace MainWindow
 			SavePosition();
 			break;
 
+		case WM_ENTERSIZEMOVE:
+			inResizeMove = true;
+			break;
+
+		case WM_EXITSIZEMOVE:
+			inResizeMove = false;
+			HandleSizeChange(SIZE_RESTORED);
+			break;
+
 		case WM_SIZE:
 			switch (wParam) {
 			case SIZE_RESTORED:
 			case SIZE_MAXIMIZED:
 				if (g_IgnoreWM_SIZE) {
 					return DefWindowProc(hWnd, message, wParam, lParam);
-				} else {
+				} else if (!inResizeMove) {
 					HandleSizeChange(wParam);
 				}
 				break;
