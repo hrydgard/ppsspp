@@ -72,4 +72,5 @@ HEADERS += $$P/Common/ChunkFile.h \
 	$$P/Common/Crypto/*.h
 
 INCLUDEPATH += $$P/ext/native
+INCLUDEPATH += $$P/ext
 
