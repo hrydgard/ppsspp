@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "GPU/Vulkan/VulkanUtil.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
