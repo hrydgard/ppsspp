@@ -65,6 +65,9 @@
     <ClInclude Include="Vulkan\VulkanLoader.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="Vulkan\VulkanContext.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -114,6 +117,9 @@
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanLoader.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\VulkanContext.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
   </ItemGroup>

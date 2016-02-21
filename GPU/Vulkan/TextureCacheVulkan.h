@@ -22,7 +22,7 @@
 #include "Globals.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "thin3d/VulkanContext.h"
+#include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
