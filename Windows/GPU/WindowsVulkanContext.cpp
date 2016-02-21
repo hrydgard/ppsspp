@@ -51,7 +51,7 @@
 #include <sstream>
 
 #include "Common/Vulkan/VulkanLoader.h"
-#include "ext/native/thin3d/VulkanContext.h"
+#include "Common/Vulkan/VulkanContext.h"
 
 #include "thin3d/thin3d.h"
 #include "Windows/GPU/WindowsVulkanContext.h"

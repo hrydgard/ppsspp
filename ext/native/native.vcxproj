@@ -266,7 +266,6 @@
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="thin3d\d3dx9_loader.h" />
     <ClInclude Include="thin3d\thin3d.h" />
-    <ClInclude Include="thin3d\VulkanContext.h" />
     <ClInclude Include="thread\executor.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
     <ClInclude Include="thread\thread.h" />
@@ -729,7 +728,6 @@
     <ClCompile Include="thin3d\thin3d_d3d9.cpp" />
     <ClCompile Include="thin3d\thin3d_gl.cpp" />
     <ClCompile Include="thin3d\thin3d_vulkan.cpp" />
-    <ClCompile Include="thin3d\VulkanContext.cpp" />
     <ClCompile Include="thread\executor.cpp" />
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="thread\threadpool.cpp" />

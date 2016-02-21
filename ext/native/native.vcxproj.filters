@@ -308,9 +308,6 @@
     <ClInclude Include="math\dataconv.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="thin3d\VulkanContext.h">
-      <Filter>thin3d</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -746,9 +743,6 @@
       <Filter>file</Filter>
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_vulkan.cpp">
-      <Filter>thin3d</Filter>
-    </ClCompile>
-    <ClCompile Include="thin3d\VulkanContext.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>

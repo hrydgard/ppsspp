@@ -22,7 +22,7 @@
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
-#include "thin3d/VulkanContext.h"
+#include "Common/Vulkan/VulkanContext.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
