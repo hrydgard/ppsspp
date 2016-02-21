@@ -75,7 +75,7 @@ extern int g_iNumVideos;
 
 SamplerCache::~SamplerCache() {
 	for (auto iter : cache_) {
-		vulkan_->QueueDelete(iter.second);
+		vulkan_->Delete().QueueDeleteSampler(iter.second);
 	}
 }
 
@@ -848,8 +848,8 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler) {
 	if (nextTexture_ == nullptr) {
-		imageView = nullptr;
-		sampler = nullptr;
+		imageView = VK_NULL_HANDLE;
+		sampler = VK_NULL_HANDLE;
 		return;
 	}
 	VkCommandBuffer cmd = nullptr;
