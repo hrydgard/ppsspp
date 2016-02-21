@@ -1,4 +1,6 @@
+#define __STDC_LIMIT_MACROS
 #include <cstdlib>
+#include <cstdint>
 #include <assert.h>
 #include <cstring>
 #include <iostream>
@@ -9,73 +11,70 @@
 #undef new
 #endif
 
+#ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable:4996)
-#include "glslang/SPIRV/GlslangToSpv.h"
+#endif
+
+#include "ext/glslang/SPIRV/GlslangToSpv.h"
+
+#ifdef _MSC_VER
 #pragma warning(pop)
+#endif
 
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
 #endif
 
-#define GET_INSTANCE_PROC_ADDR(inst, entrypoint)                         \
-{                                                                        \
-    fp##entrypoint = (PFN_vk##entrypoint) vkGetInstanceProcAddr(inst, "vk"#entrypoint); \
-    if (fp##entrypoint == NULL) {                                   \
-        std::cout << "vkGetDeviceProcAddr failed to find vk"#entrypoint; \
-        exit(-1);                                                        \
-    }                                                                    \
-}
-
-#define GET_DEVICE_PROC_ADDR(dev, entrypoint)                           \
-{                                                                       \
-    fp##entrypoint = (PFN_vk##entrypoint) vkGetDeviceProcAddr(dev, "vk"#entrypoint);   \
-    if (fp##entrypoint == NULL) {                                   \
-        std::cout << "vkGetDeviceProcAddr failed to find vk"#entrypoint; \
-        exit(-1);                                                        \
-    }                                                                    \
-}
-
 using namespace std;
 
 VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	: device_(nullptr),
-	gfx_queue_(nullptr),
+	gfx_queue_(VK_NULL_HANDLE),
+#ifdef _WIN32
 	connection(nullptr),
-	graphics_queue_family_index_(-1),
-	surface(nullptr),
 	window(nullptr),
+#elif defined(ANDROID)
+	native_window(nullptr),
+#endif
+	graphics_queue_family_index_(-1),
+	surface(VK_NULL_HANDLE),
 	prepared(false),
 	use_staging_buffer_(false),
-	instance_(nullptr),
+	instance_(VK_NULL_HANDLE),
 	width(0),
 	height(0),
 	flags_(flags),
 	swapchain_format(VK_FORMAT_UNDEFINED),
 	swapchainImageCount(0),
-	swap_chain_(nullptr),
-	cmd_pool_(nullptr),
-	dbgCreateMsgCallback(nullptr),
-	dbgDestroyMsgCallback(nullptr),
+	swap_chain_(VK_NULL_HANDLE),
+	cmd_pool_(VK_NULL_HANDLE),
 	queue_count(0),
 	curFrame_(0)
 {
+	if (!VulkanLoad()) {
+		// No DLL?
+		return;
+	}
 	// List extensions to try to enable.
 	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+#ifdef _WIN32
 	instance_extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#elif defined(ANDROID)
+	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+#endif
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
-	// DrawState validation is broken, hangs on vkResetDescriptorPool.
 	if (flags & VULKAN_FLAG_VALIDATE) {
 		instance_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		// instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_image");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
 		instance_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
 	
 		device_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		// device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
+		device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
 		device_layer_names.push_back("VK_LAYER_LUNARG_image");
 		device_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
 		device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
@@ -106,10 +105,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	VkResult res = vkCreateInstance(&inst_info, NULL, &instance_);
 	assert(res == VK_SUCCESS);
 
-	GET_INSTANCE_PROC_ADDR(instance_, GetPhysicalDeviceSurfaceSupportKHR);
-	GET_INSTANCE_PROC_ADDR(instance_, GetPhysicalDeviceSurfaceCapabilitiesKHR);
-	GET_INSTANCE_PROC_ADDR(instance_, GetPhysicalDeviceSurfaceFormatsKHR);
-	GET_INSTANCE_PROC_ADDR(instance_, GetPhysicalDeviceSurfacePresentModesKHR);
+	VulkanLoadInstanceFunctions(instance_);
 
 	uint32_t gpu_count = 1;
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, NULL);
@@ -133,6 +129,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 
 VulkanContext::~VulkanContext() {
 	vkDestroyInstance(instance_, NULL);
+	VulkanFree();
 }
 
 void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
@@ -193,8 +190,7 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = fpAcquireNextImageKHR(device_, swap_chain_,
-		UINT64_MAX, acquireSemaphore, NULL, &current_buffer);
+	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore, NULL, &current_buffer);
 
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
@@ -282,7 +278,7 @@ void VulkanContext::EndSurfaceRenderPass() {
 	present.waitSemaphoreCount = 0;
 	present.pResults = NULL;
 
-	res = fpQueuePresentKHR(gfx_queue_, &present);
+	res = vkQueuePresentKHR(gfx_queue_, &present);
 	// TODO: Deal with the VK_SUBOPTIMAL_WSI and VK_ERROR_OUT_OF_DATE_WSI
 	// return codes
 	assert(!res);
@@ -645,11 +641,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
   assert(res == VK_SUCCESS);
 
-	GET_DEVICE_PROC_ADDR(device_, CreateSwapchainKHR);
-	GET_DEVICE_PROC_ADDR(device_, DestroySwapchainKHR);
-	GET_DEVICE_PROC_ADDR(device_, GetSwapchainImagesKHR);
-	GET_DEVICE_PROC_ADDR(device_, AcquireNextImageKHR);
-	GET_DEVICE_PROC_ADDR(device_, QueuePresentKHR);
+	VulkanLoadDeviceFunctions(device_);
 
   return res;
 }
@@ -658,25 +650,13 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	VkResult res;
 	VkDebugReportCallbackEXT msg_callback;
 
-	dbgCreateMsgCallback = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance_, "vkCreateDebugReportCallbackEXT");
-	if (!dbgCreateMsgCallback) {
-		std::cout << "GetInstanceProcAddr: Unable to find vkDbgCreateMsgCallback function." << std::endl;
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
-
-	dbgDestroyMsgCallback = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugReportCallbackEXT");
-	if (!dbgDestroyMsgCallback) {
-		std::cout << "GetInstanceProcAddr: Unable to find vkDbgDestroyMsgCallback function." << std::endl;
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
-
 	VkDebugReportCallbackCreateInfoEXT cb;
 	cb.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	cb.pNext = nullptr;
 	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
 	cb.pUserData = userdata;
-	res = dbgCreateMsgCallback(instance_, &cb, nullptr, &msg_callback);
+	res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
 		msg_callbacks.push_back(msg_callback);
@@ -695,7 +675,7 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 
 void VulkanContext::DestroyDebugMsgCallback() {
   while (msg_callbacks.size() > 0) {
-    dbgDestroyMsgCallback(instance_, msg_callbacks.back(), nullptr);
+		vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
     msg_callbacks.pop_back();
   }
 }
@@ -816,9 +796,8 @@ void VulkanContext::InitSurfaceWin32(HINSTANCE conn, HWND wnd) {
 	assert(res == VK_SUCCESS);
 }
 #elif defined(ANDROID)
-void VulkanContext::InitSurfaceAndroid(ANativeWindow *native_window, int width, int height) {
-	connection = conn;
-	window = wnd;
+void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height) {
+	native_window = wnd;
 
 	VkResult U_ASSERT_ONLY res;
 
@@ -840,7 +819,7 @@ void VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32* supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
-		fpGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface, &supportsPresent[i]);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface, &supportsPresent[i]);
 	}
 
 	// Search for a graphics queue and a present queue in the array of queue
@@ -882,12 +861,12 @@ void VulkanContext::InitQueue() {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	VkResult res = fpGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
+	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
 		surface,
 		&formatCount, NULL);
 	assert(res == VK_SUCCESS);
 	VkSurfaceFormatKHR *surfFormats = new VkSurfaceFormatKHR[formatCount];
-	res = fpGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
 		surface,
 		&formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
@@ -920,26 +899,26 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
-	res = fpGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[0],
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[0],
 		surface,
 		&surfCapabilities);
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
-	res = fpGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
 		surface,
 		&presentModeCount, NULL);
 	assert(res == VK_SUCCESS);
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
 	assert(presentModes);
-	res = fpGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
 		surface,
 		&presentModeCount, presentModes);
 	assert(res == VK_SUCCESS);
 
 	VkExtent2D swapChainExtent;
 	// width and height are either both -1, or both not -1.
-	if (surfCapabilities.currentExtent.width == -1) {
+	if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
 		// If the surface size is undefined, the size is set to
 		// the size of the images requested.
 		swapChainExtent.width = width;
@@ -1006,16 +985,16 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	swap_chain_info.queueFamilyIndexCount = 0;
 	swap_chain_info.pQueueFamilyIndices = NULL;
 
-	res = fpCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swap_chain_);
+	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swap_chain_);
 	assert(res == VK_SUCCESS);
 
-	res = fpGetSwapchainImagesKHR(device_, swap_chain_,
+	res = vkGetSwapchainImagesKHR(device_, swap_chain_,
 		&swapchainImageCount, NULL);
 	assert(res == VK_SUCCESS);
 
 	VkImage* swapchainImages = (VkImage*)malloc(swapchainImageCount * sizeof(VkImage));
 	assert(swapchainImages);
-	res = fpGetSwapchainImagesKHR(device_, swap_chain_, &swapchainImageCount, swapchainImages);
+	res = vkGetSwapchainImagesKHR(device_, swap_chain_, &swapchainImageCount, swapchainImages);
 	assert(res == VK_SUCCESS);
 
 	for (uint32_t i = 0; i < swapchainImageCount; i++) {
@@ -1175,12 +1154,12 @@ VkResult VulkanTexture::Create(int w, int h, VkFormat format) {
 void VulkanTexture::CreateMappableImage() {
 	// If we already have a mappableImage, forget it.
 	if (mappableImage) {
-		vulkan_->QueueDelete(mappableImage);
-		mappableImage = nullptr;
+		vulkan_->Delete().QueueDeleteImage(mappableImage);
+		mappableImage = VK_NULL_HANDLE;
 	}
 	if (mappableMemory) {
-		vulkan_->QueueDelete(mappableMemory);
-		mappableMemory = nullptr;
+		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
+		mappableMemory = VK_NULL_HANDLE;
 	}
 
 	bool U_ASSERT_ONLY pass;
@@ -1257,16 +1236,16 @@ void VulkanTexture::Unlock() {
 
 	// if we already have an image, queue it for destruction and forget it.
 	if (image) {
-		vulkan_->QueueDelete(image);
-		image = nullptr;
+		vulkan_->Delete().QueueDeleteImage(image);
+		image = VK_NULL_HANDLE;
 	}
 	if (view) {
-		vulkan_->QueueDelete(view);
-		view = nullptr;
+		vulkan_->Delete().QueueDeleteImageView(view);
+		view = VK_NULL_HANDLE;
 	}
 	if (mem) {
-		vulkan_->QueueDelete(mem);
-		mem = nullptr;
+		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
+		mem = VK_NULL_HANDLE;
 	}
 	if (!needStaging) {
 		/* If we can use the linear tiled image as a texture, just do it */
@@ -1362,10 +1341,10 @@ void VulkanTexture::Unlock() {
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			imageLayout);
 
-		vulkan_->QueueDelete(mappableMemory);
-		vulkan_->QueueDelete(mappableImage);
-		mappableImage = nullptr;
-		mappableMemory = nullptr;
+		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
+		vulkan_->Delete().QueueDeleteImage(mappableImage);
+		mappableImage = VK_NULL_HANDLE;
+		mappableMemory = VK_NULL_HANDLE;
 	}
 
 	VkImageViewCreateInfo view_info = {};
@@ -1392,24 +1371,24 @@ void VulkanTexture::Unlock() {
 
 void VulkanTexture::Destroy() {
 	if (view) {
-		vulkan_->QueueDelete(view);
+		vulkan_->Delete().QueueDeleteImageView(view);
 	}
 	if (image) {
-		vulkan_->QueueDelete(image);
+		vulkan_->Delete().QueueDeleteImage(image);
 		if (mappableImage == image) {
-			mappableImage = nullptr;
+			mappableImage = VK_NULL_HANDLE;
 		}
 	}
 	if (mem) {
-		vulkan_->QueueDelete(mem);
+		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
 		if (mappableMemory == mem) {
-			mappableMemory = nullptr;
+			mappableMemory = VK_NULL_HANDLE;
 		}
 	}
 
-	view = nullptr;
-	image = nullptr;
-	mem = nullptr;
+	view = VK_NULL_HANDLE;
+	image = VK_NULL_HANDLE;
+	mem = VK_NULL_HANDLE;
 }
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
@@ -1429,24 +1408,24 @@ void VulkanContext::WaitAndResetFence(VkFence fence) {
 
 void VulkanContext::DestroyCommandPool() {
   vkDestroyCommandPool(device_, cmd_pool_, NULL);
-	cmd_pool_ = nullptr;
+	cmd_pool_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::DestroyDepthStencilBuffer() {
 	vkDestroyImageView(device_, depth.view, NULL);
 	vkDestroyImage(device_, depth.image, NULL);
 	vkFreeMemory(device_, depth.mem, NULL);
-	depth.view = NULL;
-	depth.image = NULL;
-	depth.mem = NULL;
+	depth.view = VK_NULL_HANDLE;
+	depth.image = VK_NULL_HANDLE;
+	depth.mem = VK_NULL_HANDLE;
 }
 
 void VulkanContext::DestroySwapChain() {
 	for (uint32_t i = 0; i < swapchainImageCount; i++) {
 		vkDestroyImageView(device_, swapChainBuffers[i].view, NULL);
 	}
-	fpDestroySwapchainKHR(device_, swap_chain_, NULL);
-	swap_chain_ = nullptr;
+	vkDestroySwapchainKHR(device_, swap_chain_, NULL);
+	swap_chain_ = VK_NULL_HANDLE;
 	swapChainBuffers.clear();
 	vkDestroySemaphore(device_, acquireSemaphore, NULL);
 }
@@ -1772,5 +1751,5 @@ void VulkanFramebuffer::TransitionToTexture(VkCommandBuffer cmd) {
 }
 
 VkImageView VulkanFramebuffer::GetColorImageView() {
-	return nullptr;
+	return VK_NULL_HANDLE;
 }

@@ -183,10 +183,10 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	for (int i = 0; i < 2; i++) {
-		vulkan_->QueueDelete(frame_[i].descPool);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descPool);
 		delete frame_[i].pushData;
 	}
-	vulkan_->QueueDelete(depalSampler_);
+	vulkan_->Delete().QueueDeleteSampler(depalSampler_);
 }
 
 void DrawEngineVulkan::BeginFrame() {
@@ -379,7 +379,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
-	key.secondaryImageView_ = nullptr;
+	key.secondaryImageView_ = VK_NULL_HANDLE;
 	key.buffer_ = dynamicUbo;
 
 	FrameData *frame = &frame_[curFrame_ & 1];
@@ -461,8 +461,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
 	// designed the descriptor set.
 
-	VkImageView imageView = nullptr;
-	VkSampler sampler = nullptr;
+	VkImageView imageView = VK_NULL_HANDLE;
+	VkSampler sampler = VK_NULL_HANDLE;
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();

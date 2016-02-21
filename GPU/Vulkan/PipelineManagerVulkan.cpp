@@ -14,7 +14,7 @@ PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vu
 
 PipelineManagerVulkan::~PipelineManagerVulkan() {
 	Clear();
-	vulkan_->QueueDelete(pipelineCache_);
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
 void PipelineManagerVulkan::Clear() {
@@ -29,7 +29,7 @@ void PipelineManagerVulkan::Clear() {
 
 struct DeclTypeInfo {
 	VkFormat type;
-	const char * name;
+	const char *name;
 };
 
 static const DeclTypeInfo VComp[] = {
@@ -264,7 +264,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	pipe.pInputAssemblyState = &inputAssembly;
 	pipe.pMultisampleState = &ms;
 	pipe.layout = layout;
-	pipe.basePipelineHandle = nullptr;
+	pipe.basePipelineHandle = VK_NULL_HANDLE;
 	pipe.basePipelineIndex = 0;
 	pipe.renderPass = renderPass;
 	pipe.subpass = 0;
@@ -317,6 +317,8 @@ std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderTyp
 		}
 	}
 	break;
+	default:
+		break;
 	}
 	return ids;
 }

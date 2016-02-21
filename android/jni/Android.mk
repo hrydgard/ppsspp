@@ -124,9 +124,8 @@ EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
   $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
-# Only build Vulkan on ARM64 for now.
-ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 VULKAN_FILES := \
+  $(SRC)/Common/Vulkan/VulkanLoader.cpp \
   $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
@@ -138,9 +137,7 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
   $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
-else
-VULKAN_FILES :=
-endif
+#endif
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -511,6 +508,7 @@ endif
 
 $(call import-module,libzip)
 $(call import-module,native)
+$(call import-module,glslang)
 
 ifeq ($(ANDROID_NDK_PROFILER),1)
   $(call import-module,android-ndk-profiler)

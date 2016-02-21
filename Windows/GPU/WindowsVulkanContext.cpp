@@ -50,7 +50,7 @@
 #include <crtdbg.h>
 #include <sstream>
 
-#include "ext/vulkan/vulkan.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "ext/native/thin3d/VulkanContext.h"
 
 #include "thin3d/thin3d.h"

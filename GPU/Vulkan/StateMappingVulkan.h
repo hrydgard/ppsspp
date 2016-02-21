@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ext/vulkan/vulkan.h"
+#include "Common/Vulkan/VulkanLoader.h"
 
 #include <cstring>
 

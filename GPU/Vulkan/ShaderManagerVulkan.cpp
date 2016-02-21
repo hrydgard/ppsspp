@@ -42,7 +42,7 @@
 #include "UI/OnScreenDisplay.h"
 
 VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, const char *code, bool useHWTransform)
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
 	source_ = code;
 
 	std::string errorMessage;
@@ -83,7 +83,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 
 VulkanFragmentShader::~VulkanFragmentShader() {
 	if (module_) {
-		vulkan_->QueueDelete(module_);
+		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }
 
@@ -99,7 +99,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 }
 
 VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform) 
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE) {
 	source_ = code;
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
@@ -127,7 +127,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 
 	if (!success) {
 		failed_ = true;
-		module_ = nullptr;
+		module_ = VK_NULL_HANDLE;
 		return;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
@@ -136,7 +136,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 
 VulkanVertexShader::~VulkanVertexShader() {
 	if (module_) {
-		vulkan_->QueueDelete(module_);
+		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }
 
@@ -536,16 +536,18 @@ std::vector<std::string> ShaderManagerVulkan::DebugGetShaderIDs(DebugShaderType 
 			iter.first.ToString(&id);
 			ids.push_back(id);
 		}
+		break;
 	}
-	break;
 	case SHADER_TYPE_FRAGMENT:
 	{
 		for (auto iter : fsCache_) {
 			iter.first.ToString(&id);
 			ids.push_back(id);
 		}
+		break;
 	}
-	break;
+	default:
+		break;
 	}
 	return ids;
 }
