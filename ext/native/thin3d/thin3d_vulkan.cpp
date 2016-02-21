@@ -38,8 +38,7 @@
 //
 // Vertex data lives in a separate namespace (location = 0, 1, etc)
 
-#define VK_PROTOTYPES
-#include "ext/vulkan/vulkan.h"
+#include "Common/Vulkan/VulkanLoader.h"
 
 // This can actually be replaced with a cast as the values are in the right order.
 static const VkCompareOp compToVK[] = {
@@ -186,7 +185,7 @@ private:
 // invoke Compile again to recreate the shader then link them together.
 class Thin3DVKShader : public Thin3DShader {
 public:
-	Thin3DVKShader(bool isFragmentShader) : module_(nullptr), ok_(false) {
+	Thin3DVKShader(bool isFragmentShader) : module_(VK_NULL_HANDLE), ok_(false) {
 		stage_ = isFragmentShader ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
 	}
 	bool Compile(VulkanContext *vulkan, const char *source);
@@ -858,7 +857,7 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline);
 	if (result != VK_SUCCESS) {
 		ELOG("Failed to create graphics pipeline");
-		return nullptr;
+		return VK_NULL_HANDLE;
 	}
 	
 	pipelines_.insert(std::make_pair(key, pipeline));
