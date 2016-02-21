@@ -794,7 +794,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	}
 
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
-	public void inputBox(String title, String defaultText, String defaultAction) {
+	public void inputBox(final String title, String defaultText, String defaultAction) {
     	final FrameLayout fl = new FrameLayout(this);
     	final EditText input = new EditText(this);
     	input.setGravity(Gravity.CENTER);
@@ -824,7 +824,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
     			@Override
 				public void onClick(DialogInterface d, int which) {
-    	    		NativeApp.sendMessage("inputbox_completed", input.getText().toString());
+    	    		NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
     				d.dismiss();
     			}
     		})
