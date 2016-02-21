@@ -468,18 +468,16 @@ static int sceNetUpnpGetNatInfo()
 
 static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr)
 {
-	INFO_LOG(SCENET, "sceNetGetDropRate %08x,%08x", dropRateAddr, dropDurationAddr);
 	Memory::Write_U32(netDropRate, dropRateAddr);
 	Memory::Write_U32(netDropDuration, dropDurationAddr);
-	return 0;
+	return hleLogSuccessInfoI(SCENET, 0);
 }
 
 static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
 {
-	INFO_LOG(SCENET, "sceNetSetDropRate dropRate %d, dropDuration %d", dropRate, dropDuration);
 	netDropRate = dropRate;
 	netDropDuration = dropDuration;
-	return 0;
+	return hleLogSuccessInfoI(SCENET, 0);
 }
 
 const HLEFunction sceNet[] = {
@@ -574,8 +572,8 @@ const HLEFunction sceNetUpnp[] = {
 };
 
 const HLEFunction sceNetIfhandle[] = {
-	{ 0xC80181A2, &WrapI_UU<sceNetGetDropRate>,     "sceNetGetDropRate",                 'i', "ii" },
-	{ 0xFD8585E1, &WrapI_UU<sceNetSetDropRate>,     "sceNetSetDropRate",                 'i', "ii" },
+	{0xC80181A2, &WrapI_UU<sceNetGetDropRate>,     "sceNetGetDropRate",                 'i', "pp" },
+	{0xFD8585E1, &WrapI_UU<sceNetSetDropRate>,     "sceNetSetDropRate",                 'i', "ii" },
 };
 
 void Register_sceNet() {
