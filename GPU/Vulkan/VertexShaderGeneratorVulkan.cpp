@@ -26,6 +26,7 @@
 #endif
 
 #include "base/stringutil.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"

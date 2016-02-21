@@ -44,8 +44,7 @@
 #include <unistd.h>
 #endif // _WIN32
 
-#include "vulkan/vulkan.h"
-#include "vulkan/vk_sdk_platform.h"
+#include "Common/Vulkan/VulkanLoader.h"
 
  /* Amount of time, in nanoseconds, to wait for a command buffer to complete */
 #define FENCE_TIMEOUT 10000000000
@@ -72,15 +71,15 @@ struct layer_properties {
 // This is a bit repetitive...
 class VulkanDeleteList {
 public:
-	void QueueDelete(VkDescriptorPool pool) { descPools_.push_back(pool); }
-	void QueueDelete(VkShaderModule module) { modules_.push_back(module); }
-	void QueueDelete(VkBuffer buffer) { buffers_.push_back(buffer); }
-	void QueueDelete(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
-	void QueueDelete(VkImage image) { images_.push_back(image); }
-	void QueueDelete(VkImageView imageView) { imageViews_.push_back(imageView); }
-	void QueueDelete(VkDeviceMemory deviceMemory) { deviceMemory_.push_back(deviceMemory); }
-	void QueueDelete(VkSampler sampler) { samplers_.push_back(sampler); }
-	void QueueDelete(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
+	void QueueDeleteDescriptorPool(VkDescriptorPool pool) { descPools_.push_back(pool); }
+	void QueueDeleteShaderModule(VkShaderModule module) { modules_.push_back(module); }
+	void QueueDeleteBuffer(VkBuffer buffer) { buffers_.push_back(buffer); }
+	void QueueDeleteBufferView(VkBufferView bufferView) { bufferViews_.push_back(bufferView); }
+	void QueueDeleteImage(VkImage image) { images_.push_back(image); }
+	void QueueDeleteImageView(VkImageView imageView) { imageViews_.push_back(imageView); }
+	void QueueDeleteDeviceMemory(VkDeviceMemory deviceMemory) { deviceMemory_.push_back(deviceMemory); }
+	void QueueDeleteSampler(VkSampler sampler) { samplers_.push_back(sampler); }
+	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 
 	void Take(VulkanDeleteList &del) {
 		descPools_ = std::move(del.descPools_);
@@ -154,10 +153,7 @@ public:
 		return device_;
 	}
 
-	template <class T>
-	void QueueDelete(T mem) {
-		globalDeleteList_.QueueDelete(mem);
-	}
+	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
 	VkPipelineCache CreatePipelineCache();
 
@@ -254,7 +250,7 @@ private:
 
 #ifdef _WIN32
 	HINSTANCE connection;        // hInstance - Windows Instance
-	HWND        window;          // hWnd - window handle
+	HWND window;          // hWnd - window handle
 #elif ANDROID  // _WIN32
 	ANativeWindow *native_window;
 #else
@@ -325,19 +321,6 @@ private:
 	// the next time the frame comes around again.
 	VulkanDeleteList globalDeleteList_;
 
-	// Simple loader for the WSI extension.
-	PFN_vkGetPhysicalDeviceSurfaceSupportKHR fpGetPhysicalDeviceSurfaceSupportKHR;
-	PFN_vkGetPhysicalDeviceSurfaceCapabilitiesKHR fpGetPhysicalDeviceSurfaceCapabilitiesKHR;
-	PFN_vkGetPhysicalDeviceSurfaceFormatsKHR fpGetPhysicalDeviceSurfaceFormatsKHR;
-	PFN_vkGetPhysicalDeviceSurfacePresentModesKHR fpGetPhysicalDeviceSurfacePresentModesKHR;
-	PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
-	PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
-	PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-	PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
-	PFN_vkQueuePresentKHR fpQueuePresentKHR;
-	// And the DEBUG_REPORT extension.
-	PFN_vkCreateDebugReportCallbackEXT dbgCreateMsgCallback;
-	PFN_vkDestroyDebugReportCallbackEXT dbgDestroyMsgCallback;
 	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
 
 	struct {
@@ -363,8 +346,8 @@ private:
 class VulkanTexture {
 public:
 	VulkanTexture(VulkanContext *vulkan)
-		: vulkan_(vulkan), image(nullptr), imageLayout(VK_IMAGE_LAYOUT_UNDEFINED), mem(nullptr), view(nullptr), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(nullptr), mappableMemory(nullptr), needStaging(false) {
+		: vulkan_(vulkan), image(0), imageLayout(VK_IMAGE_LAYOUT_UNDEFINED), mem(0), view(0), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
+		mappableImage(0), mappableMemory(0), needStaging(false) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
 	~VulkanTexture() {
@@ -424,7 +407,7 @@ private:
 // buffer handle on overflow.
 class VulkanPushBuffer {
 public:
-	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(nullptr) {
+	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(0) {
 		VkDevice device = vulkan->GetDevice();
 
 		VkBufferCreateInfo b = {};
@@ -453,8 +436,8 @@ public:
 	}
 
 	void Destroy(VulkanContext *vulkan) {
-		vulkan->QueueDelete(buffer_);
-		vulkan->QueueDelete(deviceMemory_);
+		vulkan->Delete().QueueDeleteBuffer(buffer_);
+		vulkan->Delete().QueueDeleteDeviceMemory(deviceMemory_);
 	}
 
 	void Reset() { offset_ = 0; }
