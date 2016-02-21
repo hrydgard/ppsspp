@@ -25,13 +25,19 @@ void* cInterfaceEGL::GetFuncAddress(const std::string& name) {
 void cInterfaceEGL::DetectMode() {
 	EGLint num_configs;
 	bool supportsGL = false, supportsGLES2 = false, supportsGLES3 = false;
-	std::array<int, 3> renderable_types = {
+	static const int renderable_types[3] = {
 		EGL_OPENGL_BIT,
 		(1 << 6), /* EGL_OPENGL_ES3_BIT_KHR */
 		EGL_OPENGL_ES2_BIT,
 	};
 
-	for (auto renderable_type : renderable_types) {
+	static const char *renderable_names[3] = {
+		"OpenGL", "OpenGL ES 3", "OpenGL ES 2"
+	}
+
+	for (int i = 0; i < 3; i++) {
+		int renderable_type = renderable_types[i];
+		const char *renderable_name = renderable_names[i];
 		// attributes for a visual in RGBA format with at least
 		// 8 bits per color
 		int attribs[] = {
@@ -50,9 +56,10 @@ void cInterfaceEGL::DetectMode() {
 
 		// Get how many configs there are
 		if (!eglChooseConfig( egl_dpy, attribs, nullptr, 0, &num_configs)) {
-			EGL_ILOG("DetectMode: couldn't get an EGL visual config with renderable_type=%d", renderable_type);
+			EGL_ILOG("DetectMode: couldn't get an EGL visual config with renderable_type=%s", renderable_name);
 			continue;
 		}
+		EGL_ILOG("DetectMode: got an EGL visual config with renderable_type=%s", renderable_name);
 
 		EGLConfig* config = new EGLConfig[num_configs];
 
@@ -297,6 +304,7 @@ bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565)
 		delete[] configs;
 		return false;
 	}
+	EGL_ILOG("Successfully created EGL context.\n");
 
 	egl_surf = eglCreateWindowSurface(egl_dpy, configs[chosenConfig], native_window, nullptr);
 	if (!egl_surf) {
@@ -305,6 +313,7 @@ bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565)
 		delete[] configs;
 		return false;
 	}
+	EGL_ILOG("Successfully created EGL window surface (window=%p).\n", native_window);
 
 	delete[] configs;
 	return true;
