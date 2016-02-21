@@ -21,7 +21,9 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/GLES_GPU.h"
+#ifndef NO_VULKAN
 #include "GPU/Vulkan/GPU_Vulkan.h"
+#endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
@@ -61,9 +63,11 @@ bool GPU_Init(GraphicsContext *ctx) {
 		break;
 	case GPU_DIRECTX11:
 		return nullptr;
+#ifndef NO_VULKAN
 	case GPU_VULKAN:
 		SetGPU(new GPU_Vulkan(ctx));
 		break;
+#endif
 	}
 
 	return gpu != NULL;
