@@ -161,9 +161,6 @@ public:
 	void InitSurfaceWin32(HINSTANCE conn, HWND wnd);
 #elif ANDROID
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
-#else
-	//void InitSurfaceAndQueueXcb();
-#error Vulkan not supported on this platform
 #endif
 	void InitQueue();
 	void InitObjects(bool depthPresent);
@@ -253,11 +250,6 @@ private:
 	HWND window;          // hWnd - window handle
 #elif ANDROID  // _WIN32
 	ANativeWindow *native_window;
-#else
-	xcb_connection_t *connection;
-	xcb_screen_t *screen;
-	xcb_window_t window;
-	xcb_intern_atom_reply_t *atom_wm_delete_window;
 #endif // _WIN32
 
 	// TODO: Move to frame data
