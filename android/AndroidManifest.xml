@@ -61,17 +61,7 @@
 				<data
 					android:host="*"
 					android:mimeType="*/*"
-					android:pathPattern=".*\\.bin"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
 					android:pathPattern=".*\\.cso"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.isz"
 					android:scheme="file" />
 				<data
 					android:host="*"
@@ -86,17 +76,7 @@
 				<data
 					android:host="*"
 					android:mimeType="*/*"
-					android:pathPattern=".*\\.BIN"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
 					android:pathPattern=".*\\.CSO"
-					android:scheme="file" />
-				<data
-					android:host="*"
-					android:mimeType="*/*"
-					android:pathPattern=".*\\.ISZ"
 					android:scheme="file" />
 				<data
 					android:host="*"
