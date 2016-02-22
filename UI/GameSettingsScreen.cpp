@@ -472,6 +472,8 @@ void GameSettingsScreen::CreateViews() {
 
 #ifdef _WIN32
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
+#elif defined(ANDROID)
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #else
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
@@ -605,6 +607,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupTextInputChoice(&g_Config.sNickName, sy->T("Change Nickname"), "", 32, screenManager()));
 #elif defined(USING_QT_UI)
 	systemSettings->Add(new Choice(sy->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+#elif defined(ANDROID)
+	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
@@ -912,6 +916,8 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
 		g_Config.sNickName = name;
 	}
+#elif defined(ANDROID)
+	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
 #endif
 	return UI::EVENT_DONE;
 }
@@ -930,6 +936,8 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	}
 	else
 		screenManager()->push(new ProAdhocServerScreen);
+#elif defined(ANDROID)
+	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
 #else
 	screenManager()->push(new ProAdhocServerScreen);
 #endif

@@ -143,6 +143,7 @@ static recursive_mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
 static Thin3DContext *thin3d;
 static UIContext *uiContext;
+static std::vector<std::string> inputboxValue;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -735,6 +736,14 @@ void NativeRender(GraphicsContext *graphicsContext) {
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
+	}
+	if (msg == "inputbox_completed") {
+		SplitString(value, ':', inputboxValue);
+		if (inputboxValue[0] == "IP")
+			g_Config.proAdhocServer = inputboxValue[1];
+		if (inputboxValue[0] == "nickname")
+			g_Config.sNickName = inputboxValue[1];
+		inputboxValue.clear();
 	}
 }
 
