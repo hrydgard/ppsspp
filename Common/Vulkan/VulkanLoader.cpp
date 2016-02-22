@@ -194,13 +194,13 @@ bool VulkanLoad() {
 
 #ifndef _WIN32
   vulkanLibrary = dlopen("libvulkan.sh", RTLD_NOW | RTLD_LOCAL);
-  if (!vulkanLibrary) {
-    return false;
-  }
 #else
   // LoadLibrary etc
 	vulkanLibrary = LoadLibrary(L"vulkan-1.dll");
 #endif
+  if (!vulkanLibrary) {
+    return false;
+  }
 
   vkCreateInstance = (PFN_vkCreateInstance)dlsym(vulkanLibrary, "vkCreateInstance");
   vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)dlsym(vulkanLibrary, "vkGetInstanceProcAddr");
