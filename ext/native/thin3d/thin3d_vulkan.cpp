@@ -1125,7 +1125,7 @@ void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 		vkCmdClearColorAttachment(cmdBuf_, 0, imageLayout_, &col, 1, nullptr);
 		*/
 	}
-	if (mask & T3DClear::DEPTH | T3DClear::STENCIL) {
+	if (mask & (T3DClear::DEPTH | T3DClear::STENCIL)) {
 
 	}
 }
