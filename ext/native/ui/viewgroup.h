@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <set>
 
 #include "base/logging.h"
 #include "base/mutex.h"
@@ -389,7 +390,7 @@ private:
 // In the future, it might be smart and load/unload items as they go, but currently not.
 class ListView : public ScrollView {
 public:
-	ListView(ListAdaptor *a, LayoutParams *layoutParams = 0);
+	ListView(ListAdaptor *a, std::set<int> hidden = std::set<int>(), LayoutParams *layoutParams = 0);
 
 	int GetSelected() { return adaptor_->GetSelected(); }
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
@@ -403,6 +404,7 @@ private:
 	ListAdaptor *adaptor_;
 	LinearLayout *linLayout_;
 	float maxHeight_;
+	std::set<int> hidden_;
 };
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);

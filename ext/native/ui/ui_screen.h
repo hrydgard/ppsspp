@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 #include "ui/screen.h"
 #include "ui/viewgroup.h"
 
@@ -93,8 +95,12 @@ public:
 	std::string GetChoiceString() const {
 		return adaptor_.GetTitle(listView_->GetSelected());
 	}
-	UI::Event OnChoice;
+	void SetHiddenChoices(std::set<int> hidden) {
+		hidden_ = hidden;
+	}
 	virtual std::string tag() const override { return std::string("listpopup"); }
+
+	UI::Event OnChoice;
 
 protected:
 	virtual bool FillVertical() const override { return false; }
@@ -108,6 +114,7 @@ private:
 
 	std::function<void(int)> callback_;
 	bool showButtons_;
+	std::set<int> hidden_;
 };
 
 class MessagePopupScreen : public PopupScreen {
@@ -215,6 +222,10 @@ public:
 	virtual void Draw(UIContext &dc) override;
 	virtual void Update(const InputState &input_state) override;
 
+	void HideChoice(int c) {
+		hidden_.insert(c);
+	}
+
 	UI::Event OnChoice;
 
 private:
@@ -231,6 +242,7 @@ private:
 	ScreenManager *screenManager_;
 	std::string valueText_;
 	bool restoreFocus_;
+	std::set<int> hidden_;
 };
 
 

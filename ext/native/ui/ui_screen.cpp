@@ -288,7 +288,7 @@ UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	listView_ = parent->Add(new ListView(&adaptor_)); //, new LinearLayoutParams(1.0)));
+	listView_ = parent->Add(new ListView(&adaptor_, hidden_)); //, new LinearLayoutParams(1.0)));
 	listView_->SetMaxHeight(screenManager()->getUIContext()->GetBounds().h - 140);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
@@ -315,8 +315,9 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 		choices.push_back(category ? category->T(choices_[i]) : choices_[i]);
 	}
 
-	Screen *popupScreen = new ListPopupScreen(text_, choices, *value_ - minVal_,
+	ListPopupScreen *popupScreen = new ListPopupScreen(text_, choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, placeholder::_1));
+	popupScreen->SetHiddenChoices(hidden_);
 	screenManager_->push(popupScreen);
 	return UI::EVENT_DONE;
 }
