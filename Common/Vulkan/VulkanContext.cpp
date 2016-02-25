@@ -38,7 +38,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	native_window(nullptr),
 #endif
 	graphics_queue_family_index_(-1),
-	surface(VK_NULL_HANDLE),
+	surface_(VK_NULL_HANDLE),
 	prepared(false),
 	use_staging_buffer_(false),
 	instance_(VK_NULL_HANDLE),
@@ -53,6 +53,7 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	curFrame_(0)
 {
 	if (!VulkanLoad()) {
+		ELOG("Failed to load vulkan");
 		// No DLL?
 		return;
 	}
@@ -90,8 +91,12 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	app_info.applicationVersion = 1;
 	app_info.pEngineName = app_name;
 	app_info.engineVersion = 1;
+#ifdef ANDROID
+	// For some strange reason, the Shield TV wants 1.0.2, not 1.0.3.
+	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 2);
+#else
 	app_info.apiVersion = VK_API_VERSION;
-
+#endif
 	VkInstanceCreateInfo inst_info = {};
 	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	inst_info.pNext = NULL;
@@ -103,6 +108,9 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	inst_info.ppEnabledExtensionNames = instance_extension_names.data();
 
 	VkResult res = vkCreateInstance(&inst_info, NULL, &instance_);
+	if (res != VK_SUCCESS) {
+		ELOG("Failed to create instance: %d", res);
+	}
 	assert(res == VK_SUCCESS);
 
 	VulkanLoadInstanceFunctions(instance_);
@@ -118,11 +126,13 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	InitGlobalExtensionProperties();
 
 	if (!CheckLayers(instance_layer_properties, instance_layer_names)) {
+		ELOG("CheckLayers failed");
 		exit(1);
 	}
 
 	InitDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties, device_layer_names)) {
+		ELOG("CheckLayers failed (2)");
 		exit(1);
 	}
 }
@@ -587,7 +597,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   assert(found);
   assert(queue_count >= 1);
 
-  /* This is as good a place as any to do this */
+  // This is as good a place as any to do this
   vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
   vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
 
@@ -596,7 +606,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
   queue_info.pNext = NULL;
   queue_info.queueCount = 1;
   queue_info.pQueuePriorities = queue_priorities;
-
 
 	// Optional features
 	vkGetPhysicalDeviceFeatures(physical_devices_[0], &featuresAvailable_);
@@ -650,7 +659,13 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	VkResult res;
 	VkDebugReportCallbackEXT msg_callback;
 
-	VkDebugReportCallbackCreateInfoEXT cb;
+	if (!(flags_ & VULKAN_FLAG_VALIDATE)) {
+		WLOG("Not registering debug report callback - extension not enabled!");
+		return VK_SUCCESS;
+	}
+	ILOG("Registering debug report callback");
+
+	VkDebugReportCallbackCreateInfoEXT cb = {};
 	cb.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
 	cb.pNext = nullptr;
 	cb.flags = bits;
@@ -662,13 +677,9 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 		msg_callbacks.push_back(msg_callback);
 		break;
 	case VK_ERROR_OUT_OF_HOST_MEMORY:
-		puts("dbgCreateMsgCallback: out of host memory pointer\n");
 		return VK_ERROR_INITIALIZATION_FAILED;
-		break;
 	default:
-		puts("dbgCreateMsgCallback: unknown failure\n");
 		return VK_ERROR_INITIALIZATION_FAILED;
-		break;
 	}
 	return res;
 }
@@ -684,13 +695,14 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
   VkResult U_ASSERT_ONLY res;
   bool U_ASSERT_ONLY pass;
   VkImageCreateInfo image_info = {};
-  const VkFormat depth_format = VK_FORMAT_D16_UNORM;
+	const VkFormat depth_format = VK_FORMAT_D16_UNORM;
+  // const VkFormat depth_format = VK_FORMAT_D24_UNORM_S8_UINT;
   VkFormatProperties props;
 	vkGetPhysicalDeviceFormatProperties(physical_devices_[0], depth_format, &props);
-	if (props.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-		image_info.tiling = VK_IMAGE_TILING_LINEAR;
-	} else if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+	if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
 		image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	} else if (props.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		image_info.tiling = VK_IMAGE_TILING_LINEAR;
 	} else {
 		/* Try other depth formats? */
 		std::cout << "VK_FORMAT_D16_UNORM Unsupported.\n";
@@ -718,23 +730,6 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
   mem_alloc.pNext = NULL;
   mem_alloc.allocationSize = 0;
   mem_alloc.memoryTypeIndex = 0;
-
-  VkImageViewCreateInfo view_info = {};
-  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.pNext = NULL;
-  view_info.image = VK_NULL_HANDLE;
-  view_info.format = depth_format;
-  view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-  view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-  view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-  view_info.components.a = VK_COMPONENT_SWIZZLE_A;
-  view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.flags = 0;
 
   VkMemoryRequirements mem_reqs;
 
@@ -768,7 +763,23 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
   /* Create image view */
+  VkImageViewCreateInfo view_info = {};
+  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  view_info.pNext = NULL;
 	view_info.image = depth.image;
+  view_info.format = depth_format;
+  view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+  view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+  view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+  view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+  view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+  view_info.subresourceRange.baseMipLevel = 0;
+  view_info.subresourceRange.levelCount = 1;
+  view_info.subresourceRange.baseArrayLayer = 0;
+  view_info.subresourceRange.layerCount = 1;
+  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  view_info.flags = 0;
+
 	res = vkCreateImageView(device_, &view_info, NULL, &depth.view);
 	assert(res == VK_SUCCESS);
 }
@@ -791,7 +802,7 @@ void VulkanContext::InitSurfaceWin32(HINSTANCE conn, HWND wnd) {
 	win32.flags = 0;
 	win32.hwnd = wnd;
 	win32.hinstance = conn;
-	res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface);
+	res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
 
 	assert(res == VK_SUCCESS);
 }
@@ -803,14 +814,14 @@ void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height
 
 	VkAndroidSurfaceCreateInfoKHR android;
 	android.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	android.pNext = nullptr;
 	android.flags = 0;
 	android.window = native_window;
-	android.pNext = nullptr;
-	res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface);
+	res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+	assert(res == VK_SUCCESS);
 
 	this->width = width;
 	this->height = height;
-	assert(res == VK_SUCCESS);
 }
 
 #endif
@@ -819,7 +830,7 @@ void VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32* supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
-		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface, &supportsPresent[i]);
+		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface_, &supportsPresent[i]);
 	}
 
 	// Search for a graphics queue and a present queue in the array of queue
@@ -853,7 +864,7 @@ void VulkanContext::InitQueue() {
 
 	// Generate error if could not find both a graphics and a present queue
 	if (graphicsQueueNodeIndex == UINT32_MAX || presentQueueNodeIndex == UINT32_MAX) {
-		std::cout << "Could not find a graphics and a present queue\nCould not find a graphics and a present queue\n";
+		std::cout << "Could not find a graphics and a present queue";
 		exit(-1);
 	}
 
@@ -861,27 +872,26 @@ void VulkanContext::InitQueue() {
 
 	// Get the list of VkFormats that are supported:
 	uint32_t formatCount;
-	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
-		surface,
-		&formatCount, NULL);
+	VkResult res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0], surface_, &formatCount, NULL);
 	assert(res == VK_SUCCESS);
 	VkSurfaceFormatKHR *surfFormats = new VkSurfaceFormatKHR[formatCount];
-	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0],
-		surface,
-		&formatCount, surfFormats);
+	res = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_devices_[0], surface_, &formatCount, surfFormats);
 	assert(res == VK_SUCCESS);
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
 	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+		ILOG("swapchain_format: Falling back to B8G8R8A8_UNORM");
 		swapchain_format = VK_FORMAT_B8G8R8A8_UNORM;
 	} else {
 		assert(formatCount >= 1);
 		swapchain_format = surfFormats[0].format;
+		ILOG("swapchain_format: %d (/%d)", swapchain_format, formatCount);
 	}
 	delete[] surfFormats;
 
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
+	ILOG("gfx_queue_: %p", gfx_queue_);
 
 	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo;
 	acquireSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -899,21 +909,15 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
 	VkSurfaceCapabilitiesKHR surfCapabilities;
 
-	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[0],
-		surface,
-		&surfCapabilities);
+	res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[0], surface_, &surfCapabilities);
 	assert(res == VK_SUCCESS);
 
 	uint32_t presentModeCount;
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
-		surface,
-		&presentModeCount, NULL);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0], surface_, &presentModeCount, NULL);
 	assert(res == VK_SUCCESS);
 	VkPresentModeKHR *presentModes = new VkPresentModeKHR[presentModeCount];
 	assert(presentModes);
-	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0],
-		surface,
-		&presentModeCount, presentModes);
+	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[0], surface_, &presentModeCount, presentModes);
 	assert(res == VK_SUCCESS);
 
 	VkExtent2D swapChainExtent;
@@ -921,6 +925,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
 		// If the surface size is undefined, the size is set to
 		// the size of the images requested.
+		ILOG("initSwapchain: %dx%d", width, height);
 		swapChainExtent.width = width;
 		swapChainExtent.height = height;
 	} else {
@@ -928,12 +933,17 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		swapChainExtent = surfCapabilities.currentExtent;
 	}
 
-	// If mailbox mode is available, use it, as is the lowest-latency non-
-	// tearing mode.  If not, try FIFO_RELAXED, and if not that, try IMMEDIATE 
-	// which will usually be available, and is fastest (though it tears).
-	// If not, fall back to FIFO which is always available.
-	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+	// TODO: Find a better way to specify the prioritized present mode while being able
+	// to fall back in a sensible way.
+	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM;
 	for (size_t i = 0; i < presentModeCount; i++) {
+		ILOG("Supported present mode: %d", presentModes[i]);
+	}
+	for (size_t i = 0; i < presentModeCount; i++) {
+		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM) {
+			// Default to the first present mode from the list.
+			swapchainPresentMode = presentModes[i];
+		}
 		if ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
 			swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
 			break;
@@ -947,11 +957,17 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 			break;
 		}
 	}
+#ifdef ANDROID
+	// HACK
+	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+#endif
+	ILOG("Chosen present mode: %d", swapchainPresentMode);
 	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
 	// queued for display):
 	uint32_t desiredNumberOfSwapChainImages = surfCapabilities.minImageCount + 1;
+	ILOG("numSwapChainImages: %d", desiredNumberOfSwapChainImages);
 	if ((surfCapabilities.maxImageCount > 0) &&
 		(desiredNumberOfSwapChainImages > surfCapabilities.maxImageCount))
 	{
@@ -969,7 +985,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	VkSwapchainCreateInfoKHR swap_chain_info = {};
 	swap_chain_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swap_chain_info.pNext = NULL;
-	swap_chain_info.surface = surface;
+	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchain_format;
 	swap_chain_info.imageExtent.width = swapChainExtent.width;
@@ -1102,6 +1118,7 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
   VkImageView attachments[2];
   attachments[1] = depth.view;
 
+	ILOG("InitFramebuffers: %dx%d", width, height);
   VkFramebufferCreateInfo fb_info = {};
   fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   fb_info.pNext = NULL;
