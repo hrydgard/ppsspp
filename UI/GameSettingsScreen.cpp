@@ -135,10 +135,18 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
-#if defined(_WIN32)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+#if !defined(_WIN32)
+	renderingBackendChoice->HideChoice(1);  // D3D9
+	renderingBackendChoice->HideChoice(2);  // D3D11
+#else
+	renderingBackendChoice->HideChoice(2);  // D3D11
+#endif
+#if !defined(ANDROID) && !defined(_WIN32)
+	// TODO: Add dynamic runtime check for Vulkan support on Android
+	renderingBackendChoice->HideChoice(3);
 #endif
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
