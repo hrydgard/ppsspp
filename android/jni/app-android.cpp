@@ -229,13 +229,27 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_LogOptions.breakOnWarning = true;
 	g_LogOptions.msgBoxOnError = false;
 
-	g_Vulkan = new VulkanContext("PPSSPP", (g_validate_ ? VULKAN_FLAG_VALIDATE : 0) | VULKAN_FLAG_PRESENT_MAILBOX);
+	ILOG("Creating vulkan context");
+	g_Vulkan = new VulkanContext("PPSSPP", VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED);
+	if (!g_Vulkan->GetInstance()) {
+		ELOG("Failed to create vulkan context");
+		return false;
+	}
+
+	ILOG("Creating vulkan device");
 	g_Vulkan->CreateDevice(0);
+	int width = desiredBackbufferSizeX;
+	int height = desiredBackbufferSizeY;
+	if (!width || !height) {
+		width = pixel_xres;
+		height = pixel_yres;
+	}
+	ILOG("InitSurfaceAndroid: width=%d height=%d", width, height);
+	g_Vulkan->InitSurfaceAndroid(wnd, width, height);
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
 	}
-	g_Vulkan->InitSurfaceAndroid(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY);
 	g_Vulkan->InitObjects(true);
 
 	return true;

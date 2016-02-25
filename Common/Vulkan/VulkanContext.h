@@ -26,10 +26,15 @@
 #ifndef UTIL_INIT
 #define UTIL_INIT
 
+#ifdef ANDROID
+#undef NDEBUG   // asserts
+#endif
 #include <cassert>
 #include <string>
 #include <vector>
 #include <utility>
+
+#include "base/logging.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -150,9 +155,8 @@ public:
 
 	VkResult CreateDevice(int physical_device);
 
-	VkDevice GetDevice() {
-		return device_;
-	}
+	VkDevice GetDevice() { return device_; }
+	VkInstance GetInstance() { return instance_; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
@@ -216,8 +220,8 @@ public:
 		return surface_render_pass_;
 	}
 
-	VkPhysicalDevice GetPhysicalDevice() const {
-		return physical_devices_[0];
+	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
+		return physical_devices_[n];
 	}
 
 	VkQueue GetGraphicsQueue() const {
@@ -260,7 +264,7 @@ private:
 	VkDevice device_;
 	VkQueue gfx_queue_;
 
-	VkSurfaceKHR surface;
+	VkSurfaceKHR surface_;
 	bool prepared;
 	bool use_staging_buffer_;
 
