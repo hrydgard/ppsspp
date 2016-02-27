@@ -347,6 +347,11 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.flash0Directory = File::GetExeDirectory() + "/flash0/";
 #endif
 
+	if (cache_dir && strlen(cache_dir)) {
+		DiskCachingFileLoaderCache::SetCacheDir(cache_dir);
+		g_Config.appCacheDirectory = cache_dir;
+	}
+
 #ifndef _WIN32
 	logger = new AndroidLogger();
 
@@ -504,11 +509,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_lost_manager_init();
-	}
-
-	if (cache_dir && strlen(cache_dir)) {
-		DiskCachingFileLoaderCache::SetCacheDir(cache_dir);
-		g_Config.appCacheDirectory = cache_dir;
 	}
 }
 
