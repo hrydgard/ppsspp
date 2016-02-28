@@ -1495,7 +1495,7 @@ static void LogReadPixelsError(GLenum error) {
 #endif
 
 static void SafeGLReadPixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum fmt, GLenum type, void *pixels) {
-	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+	if (!gl_extensions.IsGLES || (gl_extensions.GLES3 && gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA)) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, w);
 	}
