@@ -206,8 +206,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->startsector = desc.root.firstDataSector();
 	treeroot->dirsize = desc.root.dataLength();
 	treeroot->level = 0;
-
-	ReadDirectory(treeroot);
 }
 
 ISOFileSystem::~ISOFileSystem() {
@@ -216,12 +214,13 @@ ISOFileSystem::~ISOFileSystem() {
 }
 
 void ISOFileSystem::ReadDirectory(TreeEntry *root) {
-	const u32 startsector = root->startsector;
-	const u32 dirsize = root->dirsize;
-	size_t level = root->level;
-	for (u32 secnum = startsector, endsector = startsector + dirsize/2048; secnum < endsector; ++secnum) {
+	for (u32 secnum = root->startsector, endsector = root->startsector + root->dirsize /2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
-		blockDevice->ReadBlock(secnum, theSector);
+		if (!blockDevice->ReadBlock(secnum, theSector)) {
+			ERROR_LOG(FILESYS, "Error reading block for directory %s - skipping", root->name.c_str());
+			root->valid = true;  // Prevents re-reading
+			return;
+		}
 		lastReadBlock_ = secnum;
 
 		for (int offset = 0; offset < 2048; ) {
@@ -262,21 +261,19 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->parent = root;
 			entry->startsector = dir.firstDataSector();
 			entry->dirsize = dir.dataLength();
-			entry->level = level + 1;
+			entry->level = root->level + 1;
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 			if (entry->isDirectory && !relative) {
-				if (entry->startsector == startsector) {
+				if (entry->startsector == root->startsector) {
 					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
 				} else {
 					bool doRecurse = true;
 					if (!restrictTree.empty())
-						doRecurse = level < restrictTree.size() && restrictTree[level] == entry->name;
+						doRecurse = root->level < restrictTree.size() && restrictTree[root->level] == entry->name;
 
-					if (doRecurse) {
-						ReadDirectory(entry);
-					} else {
+					if (!doRecurse) {
 						// The entry is not kept, must free it.
 						delete entry;
 						continue;
@@ -286,6 +283,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			root->children.push_back(entry);
 		}
 	}
+	root->valid = true;
 }
 
 ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError) {
@@ -311,6 +309,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 
 	TreeEntry *entry = treeroot;
 	while (true) {
+		if (!entry->valid) {
+			ReadDirectory(entry);
+		}
 		TreeEntry *nextEntry = nullptr;
 		std::string name = "";
 		if (pathLength > pathIndex) {
