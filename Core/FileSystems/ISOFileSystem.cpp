@@ -28,7 +28,6 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-
 const int sectorSize = 2048;
 
 bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize) {
@@ -63,8 +62,7 @@ bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize) {
 
 #pragma pack(push)
 #pragma pack(1)
-struct DirectoryEntry
-{
+struct DirectoryEntry {
 	u8 size;
 	u8 sectorsInExtendedRecord;
 	u32_le firstDataSectorLE;       // LBA
@@ -114,14 +112,13 @@ struct DirectoryEntry
 	}
 #endif
 };
-struct DirectorySector
-{
+
+struct DirectorySector {
 	DirectoryEntry entry;
 	char space[2048-sizeof(DirectoryEntry)];
 };
 
-struct VolDescriptor
-{
+struct VolDescriptor {
 	char type;
 	char cd001[6];
 	char version;
@@ -167,13 +164,10 @@ struct VolDescriptor
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath) 
-{
-	if (!_restrictPath.empty())
-	{
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath) {
+	if (!_restrictPath.empty()) {
 		size_t pos = _restrictPath.find_first_not_of('/');
-		while (pos != _restrictPath.npos)
-		{
+		while (pos != _restrictPath.npos) {
 			size_t endPos = _restrictPath.find_first_of('/', pos);
 			if (endPos == _restrictPath.npos)
 				endPos = _restrictPath.length();
@@ -220,16 +214,13 @@ ISOFileSystem::~ISOFileSystem()
 	delete treeroot;
 }
 
-void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level)
-{
-	for (u32 secnum = startsector, endsector = dirsize/2048 + startsector; secnum < endsector; ++secnum)
-	{
+void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level) {
+	for (u32 secnum = startsector, endsector = startsector + dirsize/2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		blockDevice->ReadBlock(secnum, theSector);
 		lastReadBlock_ = secnum;
 
-		for (int offset = 0; offset < 2048; )
-		{
+		for (int offset = 0; offset < 2048; ) {
 			DirectoryEntry &dir = *(DirectoryEntry *)&theSector[offset];
 			u8 sz = theSector[offset];
 
@@ -238,8 +229,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 				break;
 
 			const int IDENTIFIER_OFFSET = 33;
-			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048)
-			{
+			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
 				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
@@ -249,60 +239,50 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			bool isFile = (dir.flags & 2) ? false : true;
 			bool relative;
 
-			TreeEntry *e = new TreeEntry();
-			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.'))
-			{
-				e->name = ".";
+			TreeEntry *entry = new TreeEntry();
+			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.')) {
+				entry->name = ".";
 				relative = true;
-			}
-			else if (dir.identifierLength == 1 && dir.firstIdChar == '\x01')
-			{
-				e->name = "..";
+			}	else if (dir.identifierLength == 1 && dir.firstIdChar == '\x01')			{
+				entry->name = "..";
 				relative = true;
-			}
-			else
-			{
-				e->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
+			}	else {
+				entry->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
 				relative = false;
 			}
 
-			e->size = dir.dataLength();
-			e->startingPosition = dir.firstDataSector() * 2048;
-			e->isDirectory = !isFile;
-			e->flags = dir.flags;
-			e->parent = root;
+			entry->size = dir.dataLength();
+			entry->startingPosition = dir.firstDataSector() * 2048;
+			entry->isDirectory = !isFile;
+			entry->flags = dir.flags;
+			entry->parent = root;
 
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
-			if (e->isDirectory && !relative)
-			{
-				if (dir.firstDataSector() == startsector)
-				{
+			if (entry->isDirectory && !relative) {
+				if (dir.firstDataSector() == startsector) {
 					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion");
-				}
-				else
-				{
+				} else {
 					bool doRecurse = true;
 					if (!restrictTree.empty())
-						doRecurse = level < restrictTree.size() && restrictTree[level] == e->name;
+						doRecurse = level < restrictTree.size() && restrictTree[level] == entry->name;
 
 					if (doRecurse) {
-						ReadDirectory(dir.firstDataSector(), dir.dataLength(), e, level + 1);
+						ReadDirectory(dir.firstDataSector(), dir.dataLength(), entry, level + 1);
 					} else {
 						// The entry is not kept, must free it.
-						delete e;
+						delete entry;
 						continue;
 					}
 				}
 			}
-			root->children.push_back(e);
+			root->children.push_back(entry);
 		}
 	}
 }
 
-ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError)
-{
+ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bool catchError) {
 	const size_t pathLength = path.length();
 
 	if (pathLength == 0) {
@@ -323,44 +303,36 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 	if (pathLength <= pathIndex)
 		return treeroot;
 
-	TreeEntry *e = treeroot;
-	while (true)
-	{
-		TreeEntry *ne = nullptr;
+	TreeEntry *entry = treeroot;
+	while (true) {
+		TreeEntry *nextEntry = nullptr;
 		std::string name = "";
-		if (pathLength > pathIndex)
-		{
+		if (pathLength > pathIndex) {
 			size_t nextSlashIndex = path.find_first_of('/', pathIndex);
 			if (nextSlashIndex == std::string::npos)
 				nextSlashIndex = pathLength;
 
 			const std::string firstPathComponent = path.substr(pathIndex, nextSlashIndex - pathIndex);
-			for (size_t i = 0; i < e->children.size(); i++)
-			{
-				const std::string &n = e->children[i]->name;
-				
-				if (firstPathComponent == n)
-				{
+			for (size_t i = 0; i < entry->children.size(); i++) {
+				const std::string &n = entry->children[i]->name;
+				if (firstPathComponent == n) {
 					//yay we got it
-					ne = e->children[i];
+					nextEntry = entry->children[i];
 					name = n;
 					break;
 				}
 			}
 		}
 		
-		if (ne)
-		{
-			e = ne;
+		if (nextEntry) {
+			entry = nextEntry;
 			pathIndex += name.length();
 			if (pathIndex < pathLength && path[pathIndex] == '/')
 				++pathIndex;
 
 			if (pathLength <= pathIndex)
-				return e;
-		}
-		else
-		{
+				return entry;
+		} else {
 			if (catchError)
 				ERROR_LOG(FILESYS,"File %s not found", path.c_str());
 
@@ -369,28 +341,15 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 	}
 }
 
-u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
-{
-	// LBN unittest
-	/*
-	u32 a, b;
-	if (parseLBN("/sce_lbn0x307aa_size0xefffe000", &a, &b)) {
-		ERROR_LOG(FILESYS, "lbn: %08x %08x", a, b);
-	} else {
-		ERROR_LOG(FILESYS, "faillbn: %08x %08x", a, b);
-	}*/
-
-
+u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
 	entry.isRawSector = false;
 	entry.isBlockSectorMode = false;
 
-	if (filename.compare(0,8,"/sce_lbn") == 0)
-	{
+	if (filename.compare(0,8,"/sce_lbn") == 0) {
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
-		if (sectorStart > blockDevice->GetNumBlocks())
-		{
+		if (sectorStart > blockDevice->GetNumBlocks()) {
 			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
 			return 0;
 		}
@@ -415,8 +374,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		return newHandle;
 	}
 
-	if (access & FILEACCESS_WRITE)
-	{
+	if (access & FILEACCESS_WRITE) {
 		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
 		return 0;
 	}
@@ -437,24 +395,19 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	return newHandle;
 }
 
-void ISOFileSystem::CloseFile(u32 handle)
-{
+void ISOFileSystem::CloseFile(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		//CloseHandle((*iter).second.hFile);
 		hAlloc->FreeHandle(handle);
 		entries.erase(iter);
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(FILESYS, "Hey, what are you doing? Closing non-open files?");
 	}
 }
 
-bool ISOFileSystem::OwnsHandle(u32 handle)
-{
+bool ISOFileSystem::OwnsHandle(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
 	return (iter != entries.end());
 }
@@ -620,23 +573,19 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 	}
 }
 
-size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
-{
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
 }
 
-size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
-{
+size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
 }
 
-size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
-{
+size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;
 		switch (type)
 		{
@@ -654,19 +603,15 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 			break;
 		}
 		return (size_t)e.seekPos;
-	}
-	else
-	{
+	} else {
 		//This shouldn't happen...
 		ERROR_LOG(FILESYS, "Hey, what are you doing? Seeking in non-open files?");
 		return 0;
 	}
 }
 
-PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) 
-{
-	if (filename.compare(0,8,"/sce_lbn") == 0)
-	{
+PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
+	if (filename.compare(0,8,"/sce_lbn") == 0) {
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 
@@ -682,13 +627,10 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 
 	TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
-	if (!entry)
-	{
+	if (!entry) {
 		x.size = 0;
 		x.exists = false;
-	}
-	else
-	{
+	} else {
 		x.name = entry->name;
 		x.access = FILEACCESS_READ;
 		x.size = entry->size;
@@ -700,8 +642,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename)
 	return x;
 }
 
-std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
-{
+std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);
 	if (! entry)
@@ -710,8 +651,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 	const std::string dot(".");
 	const std::string dotdot("..");
 
-	for (size_t i = 0; i < entry->children.size(); i++)
-	{
+	for (size_t i = 0; i < entry->children.size(); i++) {
 		TreeEntry *e = entry->children[i];
 
 		// do not include the relative entries in the list
@@ -730,15 +670,13 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 	return myVector;
 }
 
-std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
-{
+std::string ISOFileSystem::EntryFullPath(TreeEntry *e) {
 	if (e == &entireISO)
 		return "";
 
 	size_t fullLen = 0;
 	TreeEntry *cur = e;
-	while (cur != NULL && cur != treeroot)
-	{
+	while (cur != NULL && cur != treeroot) {
 		// For the "/".
 		fullLen += 1 + cur->name.size();
 		cur = cur->parent;
@@ -765,8 +703,7 @@ ISOFileSystem::TreeEntry::~TreeEntry() {
 	children.clear();
 }
 
-void ISOFileSystem::DoState(PointerWrap &p)
-{
+void ISOFileSystem::DoState(PointerWrap &p) {
 	auto s = p.Section("ISOFileSystem", 1, 2);
 	if (!s)
 		return;
@@ -774,11 +711,9 @@ void ISOFileSystem::DoState(PointerWrap &p)
 	int n = (int) entries.size();
 	p.Do(n);
 
-	if (p.mode == p.MODE_READ)
-	{
+	if (p.mode == p.MODE_READ) {
 		entries.clear();
-		for (int i = 0; i < n; ++i)
-		{
+		for (int i = 0; i < n; ++i) {
 			u32 fd = 0;
 			OpenFileEntry of;
 
@@ -801,11 +736,8 @@ void ISOFileSystem::DoState(PointerWrap &p)
 
 			entries[fd] = of;
 		}
-	}
-	else
-	{
-		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it)
-		{
+	} else {
+		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it) {
 			OpenFileEntry &of = it->second;
 			p.Do(it->first);
 			p.Do(of.seekPos);
