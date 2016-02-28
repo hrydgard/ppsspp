@@ -196,6 +196,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->size = 0;
 	treeroot->flags = 0;
 	treeroot->parent = NULL;
+	treeroot->valid = false;
 
 	if (memcmp(desc.cd001, "CD001", 5)) {
 		ERROR_LOG(FILESYS, "ISO looks bogus? Giving up...");
@@ -204,8 +205,9 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 
 	treeroot->startsector = desc.root.firstDataSector();
 	treeroot->dirsize = desc.root.dataLength();
+	treeroot->level = 0;
 
-	ReadDirectory(treeroot, 0);
+	ReadDirectory(treeroot);
 }
 
 ISOFileSystem::~ISOFileSystem() {
@@ -213,9 +215,10 @@ ISOFileSystem::~ISOFileSystem() {
 	delete treeroot;
 }
 
-void ISOFileSystem::ReadDirectory(TreeEntry *root, size_t level) {
+void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 	const u32 startsector = root->startsector;
 	const u32 dirsize = root->dirsize;
+	size_t level = root->level;
 	for (u32 secnum = startsector, endsector = startsector + dirsize/2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		blockDevice->ReadBlock(secnum, theSector);
@@ -259,6 +262,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root, size_t level) {
 			entry->parent = root;
 			entry->startsector = dir.firstDataSector();
 			entry->dirsize = dir.dataLength();
+			entry->level = level + 1;
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
@@ -271,7 +275,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root, size_t level) {
 						doRecurse = level < restrictTree.size() && restrictTree[level] == entry->name;
 
 					if (doRecurse) {
-						ReadDirectory(entry, level + 1);
+						ReadDirectory(entry);
 					} else {
 						// The entry is not kept, must free it.
 						delete entry;
@@ -348,7 +352,8 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	entry.isRawSector = false;
 	entry.isBlockSectorMode = false;
 
-	if (filename.compare(0,8,"/sce_lbn") == 0) {
+	if (filename.compare(0, 8, "/sce_lbn") == 0) {
+		// Raw sector read.
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
@@ -369,7 +374,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		entry.openSize = readSize;
 		// when open as "umd1:/sce_lbn0x0_size0x6B49D200", that mean open umd1 as a block device.
 		// the param in sceIoLseek and sceIoRead is lba mode. we must mark it.
-		if(strncmp(devicename, "umd0:", 5)==0 || strncmp(devicename, "umd1:", 5)==0)
+		if (strncmp(devicename, "umd0:", 5)==0 || strncmp(devicename, "umd1:", 5)==0)
 			entry.isBlockSectorMode = true;
 
 		entries[newHandle] = entry;
