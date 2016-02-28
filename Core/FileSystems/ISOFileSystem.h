@@ -56,7 +56,7 @@ public:
 
 private:
 	struct TreeEntry {
-		TreeEntry(){}
+		TreeEntry() : flags(0), valid(false) {}
 		~TreeEntry();
 
 		std::string name;
@@ -65,7 +65,13 @@ private:
 		s64 size;
 		bool isDirectory;
 
+		u32 startsector;
+		u32 dirsize;
+		int level;
+
 		TreeEntry *parent;
+
+		bool valid;
 		std::vector<TreeEntry *> children;
 	};
 
@@ -90,7 +96,7 @@ private:
 	// Don't use this in the emu, not savestated.
 	std::vector<std::string> restrictTree;
 
-	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
+	void ReadDirectory(TreeEntry *root);
 	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
 	std::string EntryFullPath(TreeEntry *e);
 };
