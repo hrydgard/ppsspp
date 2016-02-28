@@ -202,19 +202,20 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 		return;
 	}
 
-	u32 rootSector = desc.root.firstDataSector();
-	u32 rootSize = desc.root.dataLength();
+	treeroot->startsector = desc.root.firstDataSector();
+	treeroot->dirsize = desc.root.dataLength();
 
-	ReadDirectory(rootSector, rootSize, treeroot, 0);
+	ReadDirectory(treeroot, 0);
 }
 
-ISOFileSystem::~ISOFileSystem()
-{
+ISOFileSystem::~ISOFileSystem() {
 	delete blockDevice;
 	delete treeroot;
 }
 
-void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level) {
+void ISOFileSystem::ReadDirectory(TreeEntry *root, size_t level) {
+	const u32 startsector = root->startsector;
+	const u32 dirsize = root->dirsize;
 	for (u32 secnum = startsector, endsector = startsector + dirsize/2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		blockDevice->ReadBlock(secnum, theSector);
@@ -256,20 +257,21 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			entry->isDirectory = !isFile;
 			entry->flags = dir.flags;
 			entry->parent = root;
-
+			entry->startsector = dir.firstDataSector();
+			entry->dirsize = dir.dataLength();
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 			if (entry->isDirectory && !relative) {
-				if (dir.firstDataSector() == startsector) {
-					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion");
+				if (entry->startsector == startsector) {
+					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
 				} else {
 					bool doRecurse = true;
 					if (!restrictTree.empty())
 						doRecurse = level < restrictTree.size() && restrictTree[level] == entry->name;
 
 					if (doRecurse) {
-						ReadDirectory(dir.firstDataSector(), dir.dataLength(), entry, level + 1);
+						ReadDirectory(entry, level + 1);
 					} else {
 						// The entry is not kept, must free it.
 						delete entry;
