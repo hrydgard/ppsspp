@@ -245,6 +245,7 @@ private:
 		int lastFrame;
 	};
 	std::vector<GLuint> bufferNameCache_;
+	std::multimap<size_t, GLuint> freeSizedBuffers_;
 	std::unordered_map<GLuint, BufferNameInfo> bufferNameInfo_;
 	std::vector<GLuint> buffersThisFrame_;
 	size_t bufferNameCacheSize_;
