@@ -180,7 +180,7 @@ private:
 SaveSlotView::SaveSlotView(const std::string &gameFilename, int slot, UI::LayoutParams *layoutParams) : UI::LinearLayout(UI::ORIENT_HORIZONTAL, layoutParams), gamePath_(gameFilename), slot_(slot) {
 	using namespace UI;
 
-	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, "jpg");
+	screenshotFilename_ = SaveState::GenerateSaveSlotFilename(gamePath_, slot, SaveState::SCREENSHOT_EXTENSION);
 	PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
 	Add(new Spacer(5));
 

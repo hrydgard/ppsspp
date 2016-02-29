@@ -289,8 +289,6 @@ namespace SaveState
 		return !rewindStates.Empty();
 	}
 
-	static const char *STATE_EXTENSION = "ppst";
-	static const char *SCREENSHOT_EXTENSION = "jpg";
 	// Slot utilities
 
 	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
@@ -381,7 +379,7 @@ namespace SaveState
 	void NextSlot()
 	{
 		I18NCategory *sy = GetI18NCategory("System");
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
 		NativeMessageReceived("slotchanged", "");
@@ -458,7 +456,7 @@ namespace SaveState
 	int GetNewestSlot(const std::string &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
-		for (int i = 0; i < SAVESTATESLOTS; i++) {
+		for (int i = 0; i < NUM_SLOTS; i++) {
 			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
 				tm time;

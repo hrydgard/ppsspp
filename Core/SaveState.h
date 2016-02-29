@@ -25,7 +25,9 @@ namespace SaveState
 {
 	typedef std::function<void(bool status, void *cbUserData)> Callback;
 
-	const int SAVESTATESLOTS = 5;
+	static const int NUM_SLOTS = 5;
+	static const char *STATE_EXTENSION = "ppst";
+	static const char *SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();
 
