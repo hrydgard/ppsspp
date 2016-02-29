@@ -200,6 +200,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
 		bufferNameCache_.clear();
 		bufferNameInfo_.clear();
+		freeSizedBuffers_.clear();
 		bufferNameCacheSize_ = 0;
 
 		if (sharedVao_ != 0) {
@@ -213,6 +214,7 @@ void TransformDrawEngine::GLLost() {
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();
+	freeSizedBuffers_.clear();
 	bufferNameCacheSize_ = 0;
 	ClearTrackedVertexArrays();
 	InitDeviceObjects();
@@ -579,14 +581,34 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 
 GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
 	GLuint unused = 0;
-	for (GLuint buf : bufferNameCache_) {
-		const BufferNameInfo &info = bufferNameInfo_[buf];
-		if (info.used) {
-			continue;
-		}
-		unused = buf;
-		if (info.sz == sz) {
-			// Let's pick this one, it's exactly the right size.
+
+	auto freeMatch = freeSizedBuffers_.find(sz);
+	if (freeMatch != freeSizedBuffers_.end()) {
+		unused = freeMatch->second;
+		_assert_(!bufferNameInfo_[unused].used);
+
+		freeSizedBuffers_.erase(freeMatch);
+	} else {
+		for (GLuint buf : bufferNameCache_) {
+			const BufferNameInfo &info = bufferNameInfo_[buf];
+			if (info.used) {
+				continue;
+			}
+
+			// Just pick the first unused one, we'll have to resize it.
+			unused = buf;
+
+			// Let's also remove from the free list, if it's there.
+			if (info.sz != 0) {
+				auto range = freeSizedBuffers_.equal_range(info.sz);
+				for (auto it = range.first; it != range.second; ++it) {
+					if (it->second == buf) {
+						// It will only be once, so remove and bail.
+						freeSizedBuffers_.erase(it);
+						break;
+					}
+				}
+			}
 			break;
 		}
 	}
@@ -614,6 +636,10 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	if (it != bufferNameInfo_.end()) {
 		it->second.used = false;
 		it->second.lastFrame = gpuStats.numFlips;
+
+		if (it->second.sz != 0) {
+			freeSizedBuffers_.insert(std::make_pair(it->second.sz, buf));
+		}
 	} else {
 		ERROR_LOG(G3D, "Unexpected buffer freed (%d) but not tracked", buf);
 	}
@@ -1071,9 +1097,11 @@ void TransformDrawEngine::DecimateBuffers() {
 			}
 		}
 
-		bufferNameCache_ = toKeep;
-
 		if (!toFree.empty()) {
+			bufferNameCache_ = toKeep;
+			// TODO: Rebuild?
+			freeSizedBuffers_.clear();
+
 			glstate.arrayBuffer.unbind();
 			glstate.elementArrayBuffer.unbind();
 			glDeleteBuffers((GLsizei)toFree.size(), &toFree[0]);
