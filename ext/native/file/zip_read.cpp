@@ -1,6 +1,7 @@
-#include <stdio.h>
-#include <set>
 #include <algorithm>
+#include <ctype.h>
+#include <set>
+#include <stdio.h>
 
 #ifdef USING_QT_UI
 #include <QFileInfo>
@@ -332,7 +333,9 @@ void VFSShutdown() {
 }
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	if (filename[0] == '/') {
+	bool isUnixLocal = filename[0] == '/';
+	bool isWindowsLocal = isalpha(filename[0]) && filename[1] == ':' && (filename[2] == '/' || filename[2] == '\\');
+	if (isUnixLocal || isWindowsLocal) {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Reading local file.", filename);
 		return ReadLocalFile(filename, size);
