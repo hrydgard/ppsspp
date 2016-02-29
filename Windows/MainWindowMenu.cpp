@@ -1139,8 +1139,8 @@ namespace MainWindow {
 		if (g_Config.iCurrentStateSlot < 0)
 			g_Config.iCurrentStateSlot = 0;
 
-		else if (g_Config.iCurrentStateSlot >= SaveState::SAVESTATESLOTS)
-			g_Config.iCurrentStateSlot = SaveState::SAVESTATESLOTS - 1;
+		else if (g_Config.iCurrentStateSlot >= SaveState::NUM_SLOTS)
+			g_Config.iCurrentStateSlot = SaveState::NUM_SLOTS - 1;
 
 		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));

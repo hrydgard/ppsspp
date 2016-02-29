@@ -266,7 +266,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			int curSlot = SaveState::GetCurrentSlot();
 			std::string fn;
 			if (SaveState::HasSaveInSlot(gamePath_, curSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePath_, curSlot, "jpg");
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_, curSlot, SaveState::SCREENSHOT_EXTENSION);
 			}
 
 			saveStatePreview_->SetFilename(fn);
