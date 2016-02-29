@@ -332,10 +332,18 @@ void VFSShutdown() {
 	num_entries = 0;
 }
 
+static bool IsLocalPath(const char *path) {
+	bool isUnixLocal = path[0] == '/';
+#ifdef _WIN32
+	bool isWindowsLocal = isalpha(path[0]) && path[1] == ':';
+#else
+	bool isWindowsLocal = false;
+#endif
+	return isUnixLocal || isWindowsLocal;
+}
+
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	bool isUnixLocal = filename[0] == '/';
-	bool isWindowsLocal = isalpha(filename[0]) && filename[1] == ':' && (filename[2] == '/' || filename[2] == '\\');
-	if (isUnixLocal || isWindowsLocal) {
+	if (IsLocalPath(filename)) {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Reading local file.", filename);
 		return ReadLocalFile(filename, size);
@@ -364,11 +372,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 }
 
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter) {
-#ifdef _WIN32
-	if (path[1] == ':') {
-#else
-	if (path[0] == '/') {
-#endif
+	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Reading local directory.", path);
 		getFilesInDir(path, listing, filter);
@@ -395,11 +399,7 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 }
 
 bool VFSGetFileInfo(const char *path, FileInfo *info) {
-#ifdef _WIN32
-	if (path[1] == ':') {
-#else
-	if (path[0] == '/') {
-#endif
+	if (IsLocalPath(path)) {
 		// Local path, not VFS.
 		ILOG("Not a VFS path: %s . Getting local file info.", path);
 		return getFileInfo(path, info);
