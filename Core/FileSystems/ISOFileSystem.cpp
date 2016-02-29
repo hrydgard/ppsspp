@@ -164,19 +164,7 @@ struct VolDescriptor {
 
 #pragma pack(pop)
 
-ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath) {
-	if (!_restrictPath.empty()) {
-		size_t pos = _restrictPath.find_first_not_of('/');
-		while (pos != _restrictPath.npos) {
-			size_t endPos = _restrictPath.find_first_of('/', pos);
-			if (endPos == _restrictPath.npos)
-				endPos = _restrictPath.length();
-			if (pos != endPos)
-				restrictTree.push_back(_restrictPath.substr(pos, endPos - pos));
-			pos = _restrictPath.find_first_not_of('/', endPos);
-		}
-	}
-
+ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice) {
 	blockDevice = _blockDevice;
 	hAlloc = _hAlloc;
 
@@ -205,7 +193,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 
 	treeroot->startsector = desc.root.firstDataSector();
 	treeroot->dirsize = desc.root.dataLength();
-	treeroot->level = 0;
 }
 
 ISOFileSystem::~ISOFileSystem() {
@@ -261,23 +248,12 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->parent = root;
 			entry->startsector = dir.firstDataSector();
 			entry->dirsize = dir.dataLength();
-			entry->level = root->level + 1;
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
 					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
-				} else {
-					bool doRecurse = true;
-					if (!restrictTree.empty())
-						doRecurse = root->level < restrictTree.size() && restrictTree[root->level] == entry->name;
-
-					if (!doRecurse) {
-						// The entry is not kept, must free it.
-						delete entry;
-						continue;
-					}
 				}
 			}
 			root->children.push_back(entry);

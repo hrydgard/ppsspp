@@ -513,7 +513,7 @@ handleELF:
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader());
 				if (!bd)
 					return;  // nothing to do here..
-				ISOFileSystem umd(&handles, bd, "/PSP_GAME");
+				ISOFileSystem umd(&handles, bd);
 
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
