@@ -273,11 +273,6 @@ SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParam
 	Refresh();
 }
 
-SavedataBrowser::~SavedataBrowser() {
-	g_gameInfoCache->PurgeType(FILETYPE_PPSSPP_SAVESTATE);
-	g_gameInfoCache->PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
-}
-
 void SavedataBrowser::Refresh() {
 	using namespace UI;
 
@@ -336,6 +331,13 @@ UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
 }
 
 SavedataScreen::SavedataScreen(std::string gamePath) : UIDialogScreenWithGameBackground(gamePath) {
+}
+
+SavedataScreen::~SavedataScreen() {
+	if (g_gameInfoCache) {
+		g_gameInfoCache->PurgeType(FILETYPE_PPSSPP_SAVESTATE);
+		g_gameInfoCache->PurgeType(FILETYPE_PSP_SAVEDATA_DIRECTORY);
+	}
 }
 
 void SavedataScreen::CreateViews() {
