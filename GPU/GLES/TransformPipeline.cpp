@@ -247,7 +247,7 @@ static const GlTypeInfo GLComp[] = {
 };
 
 static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
-	if (attrib != -1 && fmt) {
+	if (fmt) {
 		const GlTypeInfo &type = GLComp[fmt];
 		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
 	}

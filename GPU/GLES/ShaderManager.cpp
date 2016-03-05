@@ -156,6 +156,9 @@ LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs,
 		}
 		// Prevent a buffer overflow.
 		numBones = 0;
+		// Avoid weird attribute enables.
+		attrMask = 0;
+		availableUniforms = 0;
 		return;
 	}
 
