@@ -29,7 +29,6 @@
 class SavedataBrowser : public UI::LinearLayout {
 public:
 	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
-	~SavedataBrowser();
 
 	UI::Event OnChoice;
 
@@ -45,6 +44,7 @@ class SavedataScreen : public UIDialogScreenWithGameBackground {
 public:
 	// gamePath can be empty, in that case this screen will show all savedata in the save directory.
 	SavedataScreen(std::string gamePath);
+	~SavedataScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
