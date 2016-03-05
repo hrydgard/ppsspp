@@ -60,6 +60,8 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool bitwiseOps = false;
 	const char *lastFragData = nullptr;
 
+	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
+
 	if (gl_extensions.IsGLES) {
 		// ES doesn't support dual source alpha :(
 		if (gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) {
@@ -69,6 +71,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			glslES30 = true;
 			bitwiseOps = true;
 			texelFetch = "texelFetch";
+
+			if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
+				WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
+			}
 		} else {
 			WRITE(p, "#version 100\n");  // GLSL ES 1.0
 			if (gl_extensions.EXT_gpu_shader4) {
@@ -79,6 +85,10 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 			if (gl_extensions.EXT_blend_func_extended) {
 				// Oldy moldy GLES, so use the fixed output name.
 				fragColor1 = "gl_SecondaryFragColorEXT";
+
+				if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE && gl_extensions.EXT_blend_func_extended) {
+					WRITE(p, "#extension GL_EXT_blend_func_extended : require\n");
+				}
 			}
 		}
 
@@ -164,7 +174,6 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 	bool textureAtOffset = id.Bit(FS_BIT_TEXTURE_AT_OFFSET);
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
-	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
 
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
 	GEBlendDstFactor replaceBlendFuncB = (GEBlendDstFactor)id.Bits(FS_BIT_BLENDFUNC_B, 4);
