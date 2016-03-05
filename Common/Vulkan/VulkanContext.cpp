@@ -613,7 +613,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 
 	// Enable a few safe ones if they are available.
 	if (featuresAvailable_.dualSrcBlend) {
-		featuresEnabled_.dualSrcBlend = true;
+		// featuresEnabled_.dualSrcBlend = true;
 	}
 	if (featuresAvailable_.largePoints) {
 		featuresEnabled_.largePoints = true;
