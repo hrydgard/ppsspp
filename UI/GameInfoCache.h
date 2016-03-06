@@ -98,7 +98,7 @@ public:
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
 			hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
 		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
-		  gameSize(0), saveDataSize(0), installDataSize(0), pending(true), fileLoader(nullptr) {}
+		  gameSize(0), saveDataSize(0), installDataSize(0), pending(true), working(false), fileLoader(nullptr) {}
 	~GameInfo();
 
 	bool Delete();  // Better be sure what you're doing when calling this.
@@ -120,6 +120,7 @@ public:
 	void SetTitle(const std::string &newTitle);
 
 	bool IsPending();
+	bool IsWorking();
 
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
@@ -166,6 +167,7 @@ public:
 	u64 saveDataSize;
 	u64 installDataSize;
 	bool pending;
+	bool working;
 
 protected:
 	// Note: this can change while loading, use GetTitle().
