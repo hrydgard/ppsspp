@@ -35,6 +35,11 @@
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 
+static const char *vulkan_glsl_preamble =
+"#version 400\n"
+"#extension GL_ARB_separate_shader_objects : enable\n"
+"#extension GL_ARB_shading_language_420pack : enable\n\n";
+
 // "Varying" layout - must match fragment shader
 // color0 = 0
 // color1 = 1
@@ -102,9 +107,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 	// #define USE_FOR_LOOP
 
-	WRITE(p, "#version 140\n");  // GLSL ES
-	WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
-	WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
+	WRITE(p, "%s", vulkan_glsl_preamble);
 
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -184,7 +187,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	if (hasColor) {
 		WRITE(p, "layout (location = %d) in vec4 color0;\n", PspAttributeLocation::COLOR0);
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
-			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR0);
+			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR1);
 	}
 
 	bool prescale = false;
@@ -302,9 +305,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (matUpdate & 1) && hasColor ? "color0" : "base.matambientalpha";
-		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "light.matdiffuse";
-		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "light.matspecular.rgb";
+		const char *ambientStr = ((matUpdate & 1) && hasColor) ? "color0" : "base.matambientalpha";
+		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "light.matdiffuse";
+		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "light.matspecular.rgb";
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
