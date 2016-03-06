@@ -119,6 +119,8 @@ public:
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
 
+	bool IsPending();
+
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer

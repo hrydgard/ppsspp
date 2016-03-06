@@ -298,6 +298,11 @@ std::string GameInfo::GetTitle() {
 	return title;
 }
 
+bool GameInfo::IsPending() {
+	lock_guard guard(lock);
+	return pending;
+}
+
 void GameInfo::SetTitle(const std::string &newTitle) {
 	lock_guard guard(lock);
 	title = newTitle;
@@ -581,8 +586,11 @@ handleELF:
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
-		info_->pending = false;
+
 		info_->DisposeFileLoader();
+
+		lock_guard lock(info_->lock);
+		info_->pending = false;
 		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
@@ -703,8 +711,15 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 }
 
 void GameInfoCache::WaitUntilDone(GameInfo *info) {
-	// Hack - should really wait specifically for that item.
-	gameInfoWQ_->WaitUntilDone();
+	while (info->IsPending()) {
+		if (gameInfoWQ_->WaitUntilDone(false)) {
+			// A true return means everything finished, so bail out.
+			// This way even if something gets stuck, we won't hang.
+			break;
+		}
+
+		// Otherwise, wait again if it's not done...
+	}
 }
 
 
@@ -743,12 +758,12 @@ again:
 	{
 		lock_guard lock(info->lock);
 		info->wantFlags |= wantFlags;
+		info->pending = true;
 	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
-	info->pending = true;
 	info_[gamePath] = info;
 	return info;
 }

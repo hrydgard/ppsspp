@@ -34,17 +34,22 @@ public:
 	void Flush();
 	bool Done() { return done_; }
 	void Stop();
-	void WaitUntilDone();
+	bool WaitUntilDone(bool all = true);
 
 	bool IsWorking() {
 		return working_;
 	}
 
 private:
+	void NotifyDrain();
+	bool AllItemsDone();
+
 	bool done_;
 	bool working_;
 	recursive_mutex mutex_;
+	recursive_mutex drainMutex_;
 	condition_variable notEmpty_;
+	condition_variable drain_;
 
 	std::vector<PrioritizedWorkQueueItem *> queue_;
 
