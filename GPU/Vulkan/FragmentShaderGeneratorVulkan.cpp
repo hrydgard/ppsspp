@@ -41,6 +41,11 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 
+static const char *vulkan_glsl_preamble =
+	"#version 400\n"
+	"#extension GL_ARB_separate_shader_objects : enable\n"
+	"#extension GL_ARB_shading_language_420pack : enable\n\n";
+
 #define WRITE p+=sprintf
 
 // Missing: Z depth range
@@ -49,9 +54,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 
 	const char *lastFragData = nullptr;
 
-	WRITE(p, "#version 140\n");  // GLSL ES
-	WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
-	WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
+	WRITE(p, "%s", vulkan_glsl_preamble);
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
@@ -116,9 +119,9 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "ivec3 roundAndScaleTo255iv(in vec3 x) { return ivec3(floor(x * 255.0 + 0.5)); }\n");
 	}
 
-	WRITE(p, "layout (location = 0) out vec4 fragColor0;\n");
+	WRITE(p, "layout (location = 0, index = 0) out vec4 fragColor0;\n");
 	if (stencilToAlpha == REPLACE_ALPHA_DUALSOURCE) {
-		WRITE(p, "layout (location = 1) out vec4 fragColor1;\n");
+		WRITE(p, "layout (location = 0, index = 1) out vec4 fragColor1;\n");
 	}
 
 	// PowerVR needs a custom modulo function. For some reason, this has far higher precision than the builtin one.
