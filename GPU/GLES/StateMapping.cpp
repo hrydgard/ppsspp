@@ -77,7 +77,7 @@ static const GLushort cullingMode[] = {
 	GL_BACK,
 };
 
-static const GLushort ztests[] = {
+static const GLushort compareOps[] = {
 	GL_NEVER, GL_ALWAYS, GL_EQUAL, GL_NOTEQUAL, 
 	GL_LESS, GL_LEQUAL, GL_GREATER, GL_GEQUAL,
 };
@@ -289,7 +289,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
-			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
+			glstate.depthFunc.set(compareOps[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
 			if (gstate.isDepthWriteEnabled() || alwaysDepthWrite) {
 				framebufferManager_->SetDepthUpdated();
@@ -337,7 +337,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Stencil Test
 		if (stencilState.enabled) {
 			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+			glstate.stencilFunc.set(compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
 			glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
 			glstate.stencilMask.set(stencilState.writeMask);
 		} else {

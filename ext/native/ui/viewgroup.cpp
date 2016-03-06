@@ -1258,9 +1258,8 @@ StickyChoice *ChoiceStrip::Choice(int index) {
 		return static_cast<StickyChoice *>(views_[index]);
 	return nullptr;
 }
-
-ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
-	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0) {
+ListView::ListView(ListAdaptor *a, std::set<int> hidden, LayoutParams *layoutParams)
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a), maxHeight_(0), hidden_(hidden) {
 
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
 	linLayout_->SetSpacing(0.0f);
@@ -1272,8 +1271,10 @@ void ListView::CreateAllItems() {
 	linLayout_->Clear();
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
-		View * v = linLayout_->Add(adaptor_->CreateItemView(i));
-		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+		if (hidden_.find(i) == hidden_.end()) {
+			View * v = linLayout_->Add(adaptor_->CreateItemView(i));
+			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+		}
 	}
 }
 

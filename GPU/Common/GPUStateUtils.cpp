@@ -937,6 +937,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 	blendState.applyShaderBlending = false;
 	blendState.dirtyShaderBlend = false;
 	blendState.useBlendColor = false;
+	blendState.replaceAlphaWithStencil = REPLACE_ALPHA_NO;
 
 	ReplaceBlendType replaceBlend = ReplaceBlendWithShader(allowShaderBlend, gstate.FrameBufFormat());
 	ReplaceAlphaType replaceAlphaWithStencil = ReplaceAlphaWithStencil(replaceBlend);

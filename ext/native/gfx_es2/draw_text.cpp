@@ -186,7 +186,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		for (int y = 0; y < entry->bmHeight; y++) {
 			for (int x = 0; x < entry->bmWidth; x++) {
 				BYTE bAlpha = (BYTE)((ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff) >> 4);
-				bitmapData[entry->bmWidth * y + x] = (bAlpha) | 0xfff0; // ^ rand();
+				bitmapData[entry->bmWidth * y + x] = (bAlpha) | 0xfff0;
 			}
 		}
 		entry->texture->SetImageData(0, 0, 0, entry->bmWidth, entry->bmHeight, 1, 0, entry->bmWidth * 2, (const uint8_t *)bitmapData);

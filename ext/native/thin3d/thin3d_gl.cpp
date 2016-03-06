@@ -5,6 +5,7 @@
 
 #include "base/logging.h"
 #include "image/zim_load.h"
+#include "math/dataconv.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "gfx/gl_common.h"
@@ -73,13 +74,6 @@ static const char *glsl_fragment_prelude =
 "#ifdef GL_ES\n"
 "precision mediump float;\n"
 "#endif\n";
-
-static inline void Uint32ToFloat4(uint32_t u, float f[4]) {
-	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
-	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
-	f[2] = ((u >> 16) & 0xFF) * (1.0f / 255.0f);
-	f[3] = ((u >> 24) & 0xFF) * (1.0f / 255.0f);
-}
 
 class Thin3DGLBlendState : public Thin3DBlendState {
 public:
@@ -361,7 +355,7 @@ public:
 	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	const char *GetInfoString(T3DInfo info) const override {
+	std::string GetInfoString(T3DInfo info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
 			case APINAME:
@@ -810,7 +804,7 @@ void Thin3DGLContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 
 void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	float col[4];
-	Uint32ToFloat4(colorval, col);
+	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
 	if (mask & T3DClear::COLOR) {
 		glClearColor(col[0], col[1], col[2], col[3]);

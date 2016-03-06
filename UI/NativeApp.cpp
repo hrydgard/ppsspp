@@ -356,7 +356,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	logger = new AndroidLogger();
 
 	LogManager::Init();
-	LogManager *logman = LogManager::GetInstance();
 
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
@@ -364,6 +363,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.Load();
 	g_Config.externalDirectory = external_dir;
 #endif
+	LogManager *logman = LogManager::GetInstance();
 
 #ifdef ANDROID
 	// On Android, create a PSP directory tree in the external_dir,
@@ -453,10 +453,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		logman->AddListener(type, logger);
 #endif
 	}
-	// Special hack for G3D as it's very spammy. Need to make a flag for this.
-	if (!gfxLog)
-		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 #endif
+	// Special hack for G3D as it's very spammy. Need to make a flag for this.
+	if (!gfxLog) {
+		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+		logman->SetLogLevel(LogTypes::SCEGE, LogTypes::LERROR);
+	}
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
 	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
