@@ -310,6 +310,8 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 		
 		if (nextEntry) {
 			entry = nextEntry;
+			if (!entry->valid)
+				ReadDirectory(entry);
 			pathIndex += name.length();
 			if (pathIndex < pathLength && path[pathIndex] == '/')
 				++pathIndex;
