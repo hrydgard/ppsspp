@@ -19,6 +19,7 @@
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "thread/prioritizedworkqueue.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"

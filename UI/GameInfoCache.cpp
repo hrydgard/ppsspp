@@ -702,6 +702,11 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 	}
 }
 
+void GameInfoCache::WaitUntilDone(GameInfo *info) {
+	// Hack - should really wait specifically for that item.
+	gameInfoWQ_->WaitUntilDone();
+}
+
 
 // Runs on the main thread.
 GameInfo *GameInfoCache::GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {

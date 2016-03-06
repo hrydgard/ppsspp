@@ -100,7 +100,6 @@ private:
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 
 	UI::EventReturn OnAdhocGuides(UI::EventParams &e);
-	UI::EventReturn OnAudioBackend(UI::EventParams &e);
 
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
@@ -145,7 +144,6 @@ protected:
 private:	
 	std::string tempProAdhocServer;
 	UI::TextView *addrView_;
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
 	UI::EventReturn On1Click(UI::EventParams &e);
 	UI::EventReturn On2Click(UI::EventParams &e);

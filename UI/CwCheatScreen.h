@@ -15,16 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <deque>
-#include "Common/FileUtil.h"
-
 #include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
-#include "../Core/CwCheat.h"
 #include "UI/MiscScreens.h"
-#include "UI/GameSettingsScreen.h"
 
 extern std::string activeCheatFile;
 extern std::string gameTitle;
@@ -37,7 +32,6 @@ public:
 	void processFileOff(std::string deactivatedCheat);
 	const char * name;
 	std::string activatedCheat, deactivatedCheat;
-	UI::EventReturn OnBack(UI::EventParams &params);
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);

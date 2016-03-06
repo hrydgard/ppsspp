@@ -22,12 +22,12 @@
 
 #include "base/mutex.h"
 #include "file/file_util.h"
-#include "thread/prioritizedworkqueue.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
 class Thin3DContext;
 class Thin3DTexture;
+class PrioritizedWorkQueue;
 
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
@@ -180,7 +180,6 @@ public:
 
 	// This creates a background worker thread!
 	void Clear();
-	void ClearTextures();
 	void PurgeType(IdentifiedFileType fileType);
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
@@ -192,10 +191,7 @@ public:
 
 	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
 
-	void WaitUntilDone(GameInfo *info) {
-		// Hack - should really wait specifically for that item.
-		gameInfoWQ_->WaitUntilDone();
-	}
+	void WaitUntilDone(GameInfo *info);
 
 private:
 	void Init();

@@ -15,18 +15,20 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <deque>
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
+#include "Common/FileUtil.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/CwCheat.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
-#include "UI/GamepadEmu.h"
 
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
