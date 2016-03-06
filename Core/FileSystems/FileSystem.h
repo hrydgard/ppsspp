@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <string>
+#include <cstring>
 
 #include "Core/HLE/sceKernel.h"
 
