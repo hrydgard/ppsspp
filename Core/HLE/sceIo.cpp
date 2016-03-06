@@ -60,14 +60,14 @@ extern "C" {
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
 
-const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
-const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
-const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
-const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
-const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
-const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR         = 0x80020323;
+static const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
+static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
+static const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
+static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
+static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
+static const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR         = 0x80020323;
 
-const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
+static const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
 
 /*
 

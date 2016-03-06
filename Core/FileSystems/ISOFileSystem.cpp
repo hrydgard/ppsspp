@@ -208,7 +208,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			root->valid = true;  // Prevents re-reading
 			return;
 		}
-		lastReadBlock_ = secnum;
+		lastReadBlock_ = secnum;  // Hm, this could affect timing... but lazy loading is probably more realistic.
 
 		for (int offset = 0; offset < 2048; ) {
 			DirectoryEntry &dir = *(DirectoryEntry *)&theSector[offset];
@@ -248,6 +248,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->parent = root;
 			entry->startsector = dir.firstDataSector();
 			entry->dirsize = dir.dataLength();
+			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
 			// Let's not excessively spam the log - I commented this line out.
 			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
 
@@ -467,8 +468,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	return ReadFile(handle, pointer, size, ignored);
 }
 
-size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
-{
+size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;
@@ -629,7 +629,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 	std::vector<PSPFileInfo> myVector;
 	TreeEntry *entry = GetFromPath(path);
-	if (! entry)
+	if (!entry)
 		return myVector;
 
 	const std::string dot(".");
@@ -649,6 +649,11 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
+		x.sectorSize = sectorSize;
+		x.numSectors = (e->size + sectorSize - 1) / sectorSize;
+		memset(&x.atime, 0, sizeof(x.atime));
+		memset(&x.mtime, 0, sizeof(x.mtime));
+		memset(&x.ctime, 0, sizeof(x.ctime));
 		myVector.push_back(x);
 	}
 	return myVector;
@@ -670,8 +675,7 @@ std::string ISOFileSystem::EntryFullPath(TreeEntry *e) {
 	path.resize(fullLen);
 
 	cur = e;
-	while (cur != NULL && cur != treeroot)
-	{
+	while (cur != NULL && cur != treeroot) {
 		path.replace(fullLen - cur->name.size(), cur->name.size(), cur->name);
 		path.replace(fullLen - cur->name.size() - 1, 1, "/");
 		fullLen -= 1 + cur->name.size();

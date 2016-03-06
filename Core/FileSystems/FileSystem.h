@@ -76,7 +76,11 @@ private:
 
 struct PSPFileInfo {
 	PSPFileInfo()
-		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0) {}
+		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0), sectorSize(0) {
+		memset(&ctime, 0, sizeof(ctime));
+		memset(&atime, 0, sizeof(atime));
+		memset(&mtime, 0, sizeof(mtime));
+	}
 
 	void DoState(PointerWrap &p);
 

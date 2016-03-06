@@ -227,8 +227,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 		}
 		pspFileSystem.CloseFile(fd);
 	}
-	if (!hasEncrypted)
-	{
+	if (!hasEncrypted) {
 		// try unencrypted BOOT.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
