@@ -724,7 +724,13 @@ void MainScreen::CreateViews() {
 
 	leftColumn->SetClip(true);
 
-	if (g_Config.iMaxRecent > 0) {
+	bool showRecent = g_Config.iMaxRecent > 0;
+	bool hasStorageAccess = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED;
+	if (showRecent && !hasStorageAccess) {
+		showRecent = !g_Config.recentIsos.empty();
+	}
+
+	if (showRecent) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("MainScreenRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
@@ -739,7 +745,7 @@ void MainScreen::CreateViews() {
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	}
 
-	if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) == PERMISSION_STATUS_GRANTED) {
+	if (hasStorageAccess) {
 		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollAllGames->SetTag("MainScreenAllGames");
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -787,7 +793,16 @@ void MainScreen::CreateViews() {
 			showHomebrewTab = false;
 		}
 	} else {
-		leftColumn->Add(new Button(mm->T("Give PPSSPP permission to access storage")))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
+		LinearLayout *buttonHolder = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		buttonHolder->Add(new Button(mm->T("Give PPSSPP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
+		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
+
+		leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		leftColumn->Add(buttonHolder);
+		leftColumn->Add(new Spacer(10.0f));
+		leftColumn->Add(new TextView(mm->T("PPSSPP can't load games or save right now"), ALIGN_HCENTER, false));
+		leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	}
 
 /* if (info) {
