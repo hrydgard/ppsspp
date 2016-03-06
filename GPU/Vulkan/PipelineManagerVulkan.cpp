@@ -89,12 +89,13 @@ int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFo
 	return count;
 }
 
-int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[]) {
-	VertexAttribSetup(&attrs[0], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
-	VertexAttribSetup(&attrs[1], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
-	VertexAttribSetup(&attrs[2], DEC_U8_4, 28, PspAttributeLocation::COLOR0);
-	VertexAttribSetup(&attrs[3], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
-	return 4;
+int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
+	int count = 0;
+	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
+	VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
+	VertexAttribSetup(&attrs[count++], DEC_U8_4, 28, PspAttributeLocation::COLOR0);
+	VertexAttribSetup(&attrs[count++], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
+	return count;
 }
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
@@ -212,7 +213,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		attributeCount = SetupVertexAttribs(attrs, vtxDec->decFmt);
 		vertexStride = vtxDec->decFmt.stride;
 	} else {
-		attributeCount = SetupVertexAttribsPretransformed(attrs);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, vtxDec->decFmt);
 		vertexStride = 36;
 	}
 

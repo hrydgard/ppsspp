@@ -114,11 +114,10 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	} else if (msgFlags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
 		message << "DEBUG: ";
 	}
-	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg;
+	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
 #ifdef _WIN32
 	OutputDebugStringA(message.str().c_str());
-	OutputDebugStringA("\n");
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
 		if (options->breakOnError) {
 			DebugBreak();
@@ -132,7 +131,7 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		}
 	}
 #else
-	std::cout << message << std::endl;
+	std::cout << message;
 #endif
 
 	// false indicates that layer should not bail-out of an

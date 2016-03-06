@@ -1266,6 +1266,8 @@ void TextureCacheVulkan::SetTexture() {
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
+			gstate_c.curTextureWidth = w;
+			gstate_c.curTextureHeight = h;
 			nextTexture_ = entry;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
