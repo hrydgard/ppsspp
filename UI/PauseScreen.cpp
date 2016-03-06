@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
+#include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "ui/ui_context.h"
 #include "ui/ui_screen.h"
 #include "thin3d/thin3d.h"
 
@@ -39,9 +41,6 @@
 #include "UI/CwCheatScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
-
-#include "gfx_es2/draw_buffer.h"
-#include "ui/ui_context.h"
 
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	if (texture_) {

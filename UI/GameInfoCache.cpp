@@ -298,6 +298,16 @@ std::string GameInfo::GetTitle() {
 	return title;
 }
 
+bool GameInfo::IsPending() {
+	lock_guard guard(lock);
+	return pending;
+}
+
+bool GameInfo::IsWorking() {
+	lock_guard guard(lock);
+	return working;
+}
+
 void GameInfo::SetTitle(const std::string &newTitle) {
 	lock_guard guard(lock);
 	title = newTitle;
@@ -355,6 +365,7 @@ public:
 		std::string filename = gamePath_;
 		{
 			lock_guard lock(info_->lock);
+			info_->working = true;
 			info_->fileType = Identify_File(info_->GetFileLoader());
 		}
 
@@ -581,8 +592,12 @@ handleELF:
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
-		info_->pending = false;
+
 		info_->DisposeFileLoader();
+
+		lock_guard lock(info_->lock);
+		info_->pending = false;
+		info_->working = false;
 		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
@@ -702,6 +717,18 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 	}
 }
 
+void GameInfoCache::WaitUntilDone(GameInfo *info) {
+	while (info->IsPending()) {
+		if (gameInfoWQ_->WaitUntilDone(false)) {
+			// A true return means everything finished, so bail out.
+			// This way even if something gets stuck, we won't hang.
+			break;
+		}
+
+		// Otherwise, wait again if it's not done...
+	}
+}
+
 
 // Runs on the main thread.
 GameInfo *GameInfoCache::GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags) {
@@ -735,15 +762,21 @@ again:
 	if (!info) {
 		info = new GameInfo();
 	}
+
 	{
 		lock_guard lock(info->lock);
+		if (info->IsWorking()) {
+			// Uh oh, it's currently in process.  It could mark pending = false with the wrong wantFlags.
+			// Let's wait it out, then queue.
+			WaitUntilDone(info);
+		}
 		info->wantFlags |= wantFlags;
+		info->pending = true;
 	}
 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info);
 	gameInfoWQ_->Add(item);
 
-	info->pending = true;
 	info_[gamePath] = info;
 	return info;
 }

@@ -17,13 +17,12 @@
 
 #pragma once
 
+#include <set>
+#include "base/mutex.h"
+#include "file/ini_file.h"
 #include "Log.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
-#include "file/ini_file.h" 
-
-#include <set>
-#include "StdMutex.h"
 
 #define	MAX_MESSAGES 8000   
 #define MAX_MSGLEN  1024
@@ -51,7 +50,7 @@ public:
 	const char* GetName() const { return "file"; }
 
 private:
-	std::mutex m_log_lock;
+	recursive_mutex m_log_lock;
 	std::ofstream m_logfile;
 	bool m_enable;
 };
@@ -113,7 +112,7 @@ public:
 private:
 	char m_fullName[128];
 	char m_shortName[32];
-	std::mutex m_listeners_lock;
+	recursive_mutex m_listeners_lock;
 	std::set<LogListener*> m_listeners;
 	bool m_hasListeners;
 };
@@ -128,7 +127,7 @@ private:
 	DebuggerLogListener *debuggerLog_;
 	RingbufferLogListener *ringLog_;
 	static LogManager *logManager_;  // Singleton. Ugh.
-	std::mutex log_lock_;
+	recursive_mutex log_lock_;
 
 	LogManager();
 	~LogManager();

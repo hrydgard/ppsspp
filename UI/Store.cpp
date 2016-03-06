@@ -29,6 +29,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/Util/GameManager.h"
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 

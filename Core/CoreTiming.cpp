@@ -20,10 +20,10 @@
 #include <cstdio>
 
 #include "base/logging.h"
+#include "base/mutex.h"
 #include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"
-#include "Common/StdMutex.h"
 #include "Common/Atomics.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
@@ -86,7 +86,7 @@ s64 idledCycles;
 s64 lastGlobalTimeTicks;
 s64 lastGlobalTimeUs;
 
-static std::recursive_mutex externalEventSection;
+static recursive_mutex externalEventSection;
 
 // Warning: not included in save state.
 void (*advanceCallback)(int cyclesExecuted) = NULL;
@@ -228,7 +228,7 @@ void Shutdown()
 		delete ev;
 	}
 
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 	while(eventTsPool)
 	{
 		Event *ev = eventTsPool;
@@ -252,7 +252,7 @@ u64 GetIdleTicks()
 // schedule things to be executed on the main thread.
 void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 	Event *ne = GetNewTsEvent();
 	ne->time = GetTicks() + cyclesIntoFuture;
 	ne->type = event_type;
@@ -273,7 +273,7 @@ void ScheduleEvent_Threadsafe_Immediate(int event_type, u64 userdata)
 {
 	if(false) //Core::IsCPUThread())
 	{
-		std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+		lock_guard lk(externalEventSection);
 		event_types[event_type].callback(userdata, 0);
 	}
 	else
@@ -368,7 +368,7 @@ s64 UnscheduleEvent(int event_type, u64 userdata)
 s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 {
 	s64 result = 0;
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 	if (!tsFirst)
 		return result;
 	while(tsFirst)
@@ -478,7 +478,7 @@ void RemoveEvent(int event_type)
 
 void RemoveThreadsafeEvent(int event_type)
 {
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 	if (!tsFirst)
 	{
 		return;
@@ -552,7 +552,7 @@ void MoveEvents()
 {
 	Common::AtomicStoreRelease(hasTsEvents, 0);
 
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 	// Move events from async queue into main queue
 	while (tsFirst)
 	{
@@ -692,7 +692,7 @@ void Event_DoStateOld(PointerWrap &p, BaseEvent *ev)
 
 void DoState(PointerWrap &p)
 {
-	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
+	lock_guard lk(externalEventSection);
 
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)

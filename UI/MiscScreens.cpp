@@ -27,7 +27,9 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "util/random/rng.h"
 #include "file/vfs.h"
+#include "UI/ui_atlas.h"
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
@@ -35,25 +37,17 @@
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Core/HLE/sceUtility.h"
-#include "Common/CPUDetect.h"
 #include "Common/FileUtil.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/PostShader.h"
 
 #include "ui_atlas.h"
 
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
 #endif
-
-#include "base/timeutil.h"
-#include "base/colorutil.h"
-#include "gfx_es2/draw_buffer.h"
-#include "util/random/rng.h"
-
-#include "UI/ui_atlas.h"
 
 static const int symbols[4] = {
 	I_CROSS,

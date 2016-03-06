@@ -22,7 +22,6 @@
 #include "ui/viewgroup.h"
 #include "net/http_client.h"
 
-#include "Core/Util/GameManager.h"
 #include "UI/MiscScreens.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
@@ -68,7 +67,6 @@ public:
 protected:
 	virtual void CreateViews();
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnCategorySelected(UI::EventParams &e);
 	UI::EventReturn OnRetry(UI::EventParams &e);
 	UI::EventReturn OnGameLaunch(UI::EventParams &e);
 

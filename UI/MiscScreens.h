@@ -24,7 +24,8 @@
 #include "file/file_util.h"
 #include "base/functional.h"
 #include "ui/ui_screen.h"
-#include "GPU/Common/PostShader.h"
+
+struct ShaderInfo;
 
 extern std::string boot_filename;
 

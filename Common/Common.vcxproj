@@ -233,7 +233,6 @@
     <ClInclude Include="MipsEmitter.h" />
     <ClInclude Include="MsgHandler.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="ThreadPools.h" />
