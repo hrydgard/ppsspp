@@ -3,9 +3,9 @@
 #include <string>
 #include <list>
 
+#include "base/mutex.h"
 #include "base/basictypes.h"
 #include "math/geom2d.h"
-#include "Common/StdMutex.h"
 
 #include "ui/view.h"
 
@@ -39,7 +39,7 @@ public:
 private:
 
 	std::list<Message> messages_;
-	std::recursive_mutex mutex_;
+	recursive_mutex mutex_;
 };
 
 class OnScreenMessagesView : public UI::InertView {

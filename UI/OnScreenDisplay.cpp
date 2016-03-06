@@ -55,7 +55,7 @@ restart:
 
 void OnScreenMessages::Show(const std::string &text, float duration_s, uint32_t color, int icon, bool checkUnique, const char *id) {
 	double now = time_now_d();
-	std::lock_guard<std::recursive_mutex> guard(mutex_);
+	lock_guard guard(mutex_);
 	if (checkUnique) {
 		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
 			if (iter->text == text || (id && iter->id && !strcmp(iter->id, id))) {

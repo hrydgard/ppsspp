@@ -19,6 +19,8 @@
 #undef p
 #undef DrawText
 #undef itoa
+#undef min
+#undef max
 
 #else
 #include <pthread.h>
