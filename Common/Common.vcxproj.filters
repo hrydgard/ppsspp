@@ -19,7 +19,6 @@
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
     <ClInclude Include="MsgHandler.h" />
-    <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
