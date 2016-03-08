@@ -763,13 +763,14 @@ again:
 		info = new GameInfo();
 	}
 
+	if (info->IsWorking()) {
+		// Uh oh, it's currently in process.  It could mark pending = false with the wrong wantFlags.
+		// Let's wait it out, then queue.
+		WaitUntilDone(info);
+	}
+
 	{
 		lock_guard lock(info->lock);
-		if (info->IsWorking()) {
-			// Uh oh, it's currently in process.  It could mark pending = false with the wrong wantFlags.
-			// Let's wait it out, then queue.
-			WaitUntilDone(info);
-		}
 		info->wantFlags |= wantFlags;
 		info->pending = true;
 	}
