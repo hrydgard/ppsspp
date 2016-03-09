@@ -220,7 +220,9 @@ void CPU_Init() {
 		InitMemoryForGamePBP(loadedFile);
 		break;
 	case FILETYPE_PSP_PBP_DIRECTORY:
-		ERROR_LOG(LOADER, "PBP directory resolution failed.");
+		// This is normal for homebrew.
+		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
+		break;
 	default:
 		break;
 	}
