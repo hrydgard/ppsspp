@@ -591,11 +591,20 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		SoftwareTransformResult result;
 		memset(&result, 0, sizeof(result));
 
+		SoftwareTransformParams params;
+		memset(&params, 0, sizeof(params));
+		params.decoded = decoded;
+		params.transformed = transformed;
+		params.transformedExpanded = transformedExpanded;
+		params.fbman = framebufferManager_;
+		params.texCache = textureCache_;
+		params.allowSeparateAlphaClear = false;
+
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
-			prim, decoded, indexGen.VertexCount(),
+			prim, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, 1.0f);
+			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
@@ -657,8 +666,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vkCmdDraw(cmd_, numTrans, 1, 0, 0);
 			}
 		} else if (result.action == SW_CLEAR) {
-			// TODO: Support clearing only color and not alpha, or vice versa. This is not supported (probably for good reason) by vkCmdClearColorAttachment
-			// so we will have to simply draw a rectangle instead.
+			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
+			// A rectangle will be used instead.
+			// TODO: If this is the first clear in a frame, translate to a cleared attachment load instead.
 
 			int mask = gstate.isClearModeColorMask() ? 1 : 0;
 			if (gstate.isClearModeAlphaMask()) mask |= 2;
