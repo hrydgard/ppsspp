@@ -92,6 +92,7 @@ bool IsAlphaTestTriviallyTrue() {
 		return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
 			(!gstate.isStencilTestEnabled() &&
 				!gstate.isDepthTestEnabled() &&
+				(!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) &&
 				gstate.getAlphaTestRef() == 0 &&
 				gstate.isAlphaBlendEnabled() &&
 				gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
