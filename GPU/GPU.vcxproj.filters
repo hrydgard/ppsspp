@@ -22,6 +22,9 @@
     <Filter Include="Debugger">
       <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Vulkan">
+      <UniqueIdentifier>{3c621896-140c-4c8b-8e4d-a478bfdeca8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ge_constants.h">
@@ -201,18 +204,42 @@
     <ClInclude Include="Common\ShaderId.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="Vulkan\GPU_Vulkan.h" />
-    <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
-    <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
-    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
-    <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
-    <ClInclude Include="Vulkan\VulkanUtil.h" />
-    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
-    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
-    <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
-    <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
-    <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
-    <ClInclude Include="Vulkan\StateMappingVulkan.h" />
+    <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\DrawEngineVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\FramebufferVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\GPU_Vulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\PipelineManagerVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\ShaderManagerVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\StateMappingVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\TextureCacheVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\TextureScalerVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="Vulkan\VulkanUtil.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -398,16 +425,38 @@
     <ClCompile Include="Common\ShaderId.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
-    <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
-    <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
-    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
-    <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
-    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
-    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
-    <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
-    <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
-    <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
-    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
+    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\DrawEngineVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\FramebufferVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\GPU_Vulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\StateMappingVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\TextureCacheVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\TextureScalerVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
