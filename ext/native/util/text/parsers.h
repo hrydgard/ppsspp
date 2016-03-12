@@ -48,6 +48,7 @@ struct Version {
 	}
 
 	std::string ToString() const;
+	int ToInteger() const;
 private:
 	bool ParseVersionString(std::string str);
 };

@@ -1987,7 +1987,7 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, false, true);
+	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, !useBufferedRendering_, true);
 	if (vfb->fbo)
 		fbo_bind_for_read(vfb->fbo);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
