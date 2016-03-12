@@ -38,5 +38,14 @@ struct SoftwareTransformResult {
 	u8 stencilValue;
 };
 
-void SoftwareTransform(int prim, u8 *decoded, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer,
-	int &numTrans, bool &drawIndexed, SoftwareTransformResult *result, float ySign);
+struct SoftwareTransformParams {
+	u8 *decoded;
+	TransformedVertex *transformed;
+	TransformedVertex *transformedExpanded;
+	FramebufferManagerCommon *fbman;
+	TextureCacheCommon *texCache;
+	bool allowSeparateAlphaClear;
+};
+
+void SoftwareTransform(int prim, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer,
+	int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result);

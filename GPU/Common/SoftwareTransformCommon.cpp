@@ -129,8 +129,14 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 }
 
 void SoftwareTransform(
-	int prim, u8 *decoded, int vertexCount, u32 vertType, u16 *&inds, int indexType,
-	const DecVtxFormat &decVtxFormat, int &maxIndex, FramebufferManagerCommon *fbman, TextureCacheCommon *texCache, TransformedVertex *transformed, TransformedVertex *transformedExpanded, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, SoftwareTransformResult *result, float ySign) {
+	int prim, int vertexCount, u32 vertType, u16 *&inds, int indexType,
+	const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result) {
+	u8 *decoded = params->decoded;
+	FramebufferManagerCommon *fbman = params->fbman;
+	TextureCacheCommon *texCache = params->texCache;
+	TransformedVertex *transformed = params->transformed;
+	TransformedVertex *transformedExpanded = params->transformedExpanded;
+	float ySign = 1.0f;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -406,11 +412,14 @@ void SoftwareTransform(
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
-		result->color = transformed[1].color0_32;
-		// Need to rescale from a [0, 1] float.  This is the final transformed value.
-		result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
-		result->action = SW_CLEAR;
-		return;
+		bool separateAlphaClear = gstate.isClearModeColorMask() != gstate.isClearModeAlphaMask();
+		if (params->allowSeparateAlphaClear || !separateAlphaClear) {
+			result->color = transformed[1].color0_32;
+			// Need to rescale from a [0, 1] float.  This is the final transformed value.
+			result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
+			result->action = SW_CLEAR;
+			return;
+		}
 	}
 
 	// This means we're using a framebuffer (and one that isn't big enough.)
