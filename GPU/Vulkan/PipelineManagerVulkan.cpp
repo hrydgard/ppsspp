@@ -197,6 +197,11 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ss[1].pName = "main";
 	ss[1].flags = 0;
 
+	if (!ss[0].module || !ss[1].module) {
+		ERROR_LOG(G3D, "Failed creating graphics pipeline - bad shaders");
+		return nullptr;
+	}
+
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.pNext = nullptr;

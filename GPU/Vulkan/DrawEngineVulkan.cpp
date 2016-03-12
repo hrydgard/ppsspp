@@ -531,6 +531,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		shaderManager_->UpdateUniforms();
 		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
+		if (!pipeline) {
+			// Already logged, let's bail out.
+			return;
+		}
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 		if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
@@ -620,6 +624,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			shaderManager_->UpdateUniforms();
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
+			if (!pipeline) {
+				// Already logged, let's bail out.
+				return;
+			}
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 			if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
