@@ -230,7 +230,8 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_LogOptions.msgBoxOnError = false;
 
 	ILOG("Creating vulkan context");
-	g_Vulkan = new VulkanContext("PPSSPP", VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED);
+	Version gitVer(PPSSPP_GIT_VERSION);
+	g_Vulkan = new VulkanContext("PPSSPP", gitVer.ToInteger(), VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED);
 	if (!g_Vulkan->GetInstance()) {
 		ELOG("Failed to create vulkan context");
 		return false;

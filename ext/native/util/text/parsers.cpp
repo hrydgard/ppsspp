@@ -22,6 +22,11 @@ std::string Version::ToString() const {
 	return std::string(temp);
 }
 
+int Version::ToInteger() const {
+	// This allows for ~2000 major versions, ~100 minor versions, and ~10000 sub versions.
+	return major * 1000000 + minor * 10000 + sub;
+}
+
 bool ParseMacAddress(std::string str, uint8_t macAddr[6]) {
 	int mac[6];
 	if (6 != sscanf(str.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5])) {
