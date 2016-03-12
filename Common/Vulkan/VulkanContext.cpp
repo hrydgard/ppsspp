@@ -28,7 +28,7 @@
 
 using namespace std;
 
-VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
+VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	: device_(nullptr),
 	gfx_queue_(VK_NULL_HANDLE),
 #ifdef _WIN32
@@ -88,8 +88,9 @@ VulkanContext::VulkanContext(const char *app_name, uint32_t flags)
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.pNext = NULL;
 	app_info.pApplicationName = app_name;
-	app_info.applicationVersion = 1;
+	app_info.applicationVersion = app_ver;
 	app_info.pEngineName = app_name;
+	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 1;
 #ifdef ANDROID
 	// For some strange reason, the Shield TV wants 1.0.2, not 1.0.3.

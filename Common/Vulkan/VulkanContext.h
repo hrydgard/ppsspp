@@ -150,7 +150,7 @@ private:
 // Optionally, it can create a depth buffer for you as well.
 class VulkanContext {
 public:
-	VulkanContext(const char *app_name, uint32_t flags);
+	VulkanContext(const char *app_name, int app_ver, uint32_t flags);
 	~VulkanContext();
 
 	VkResult CreateDevice(int physical_device);
