@@ -38,6 +38,16 @@
 
 static JNIEnv *jniEnvUI;
 
+enum {
+	ANDROID_VERSION_GINGERBREAD = 9,
+	ANDROID_VERSION_ICS = 14,
+	ANDROID_VERSION_JELLYBEAN = 16,
+	ANDROID_VERSION_KITKAT = 19,
+	ANDROID_VERSION_LOLLIPOP = 21,
+	ANDROID_VERSION_MARSHMALLOW = 23,
+	ANDROID_VERSION_N = 24,
+};
+
 struct FrameCommand {
 	FrameCommand() {}
 	FrameCommand(std::string cmd, std::string prm) : command(cmd), params(prm) {}
@@ -49,7 +59,7 @@ struct FrameCommand {
 class AndroidEGLGraphicsContext : public GraphicsContext {
 public:
 	AndroidEGLGraphicsContext() : wnd_(nullptr), gl(nullptr) {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat);
+	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion);
 	void Shutdown() override;
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
@@ -64,7 +74,7 @@ private:
 	cInterfaceBase *gl;
 };
 
-bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, int backbufferHeight, int backbufferFormat) {
+bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, int backbufferHeight, int backbufferFormat, int androidVersion) {
 	wnd_ = wnd;
 	gl = HostGL_CreateGLInterface();
 	if (!gl) {
@@ -78,10 +88,16 @@ bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, in
 	gl->SetMode(MODE_DETECT_ES);
 
 	bool use565 = false;
-	switch (backbufferFormat) {
-	case 4:  // PixelFormat.RGB_565
-		use565 = true;
-		break;
+
+	// This workaround seems only be needed on some really old devices.
+	if (androidVersion < ANDROID_VERSION_ICS) {
+		switch (backbufferFormat) {
+		case 4:  // PixelFormat.RGB_565
+			use565 = true;
+			break;
+		default:
+			break;
+		}
 	}
 
 	if (!gl->Create(wnd, false, use565)) {
@@ -691,7 +707,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	}
 
 	AndroidEGLGraphicsContext *graphicsContext = new AndroidEGLGraphicsContext();
-	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format)) {
+	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
 		delete graphicsContext;
 		return false;

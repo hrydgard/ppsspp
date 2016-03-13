@@ -334,7 +334,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 		EGL_ILOG("Error: eglInitialize() failed\n");
 		return false;
 	}
-	EGL_ILOG("eglInitialize() succeeded (use16bit=%d)\n", (int)use565);
+	EGL_ILOG("eglInitialize() succeeded (use565=%d)\n", (int)use565);
 
 	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
 		DetectMode();
