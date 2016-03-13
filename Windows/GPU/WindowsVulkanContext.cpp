@@ -119,8 +119,9 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	// Getting some bizarre false positive for mapping image memory.
-	if (msgCode == 6)
+	// Getting some bizarre false positives for mapping image memory.
+	// https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/121
+	if (msgCode == 6 && !memcmp(pMsg, "Cannot map", 10))
 		return false;
 
 #ifdef _WIN32
