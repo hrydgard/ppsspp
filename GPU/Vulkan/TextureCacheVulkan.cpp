@@ -1266,8 +1266,6 @@ void TextureCacheVulkan::SetTexture() {
 				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 			}
-			gstate_c.curTextureWidth = w;
-			gstate_c.curTextureHeight = h;
 			nextTexture_ = entry;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
@@ -1458,13 +1456,8 @@ void TextureCacheVulkan::SetTexture() {
 	}
 	lastBoundTexture = entry->vkTex;
 
-	// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
-	// don't specify mips all the way down. As a result, we either need to manually generate
-	// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
-	// be as good quality as the game's own (might even be better in some cases though).
-
-	// Always load base level texture here 
-	
+	// In Vulkan, fortunately, we have full control over mipmapping.
+	// For now, we only load the base texture. More to come.
 	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
 
 	// Mipmapping only enable when texture scaling disable

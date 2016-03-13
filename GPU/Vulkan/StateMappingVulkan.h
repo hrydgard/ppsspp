@@ -29,6 +29,7 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int destColor : 5;  // VkBlendFactor
 	unsigned int srcAlpha : 5;  // VkBlendFactor
 	unsigned int destAlpha : 5;  // VkBlendFactor
+	// bool useBlendConstant : 1;  // sacrifice a bit to cheaply check if we need to update the blend color
 	unsigned int blendOpColor : 3;  // VkBlendOp
 	unsigned int blendOpAlpha : 3;  // VkBlendOp
 	bool logicOpEnable : 1;

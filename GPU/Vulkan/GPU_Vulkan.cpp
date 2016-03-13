@@ -455,12 +455,9 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 GPU_Vulkan::~GPU_Vulkan() {
 	framebufferManager_->DestroyAllFBOs();
 	depalShaderCache_.Clear();
+	delete framebufferManager_;
+	delete pipelineManager_;
 	delete shaderManager_;
-	shaderManager_ = nullptr;
-
-#ifdef _WIN32
-	gfxCtx_->SwapInterval(0);
-#endif
 }
 
 void GPU_Vulkan::CheckGPUFeatures() {
