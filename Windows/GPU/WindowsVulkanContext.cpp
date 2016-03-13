@@ -121,7 +121,7 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 
 	// Getting some bizarre false positives for mapping image memory.
 	// https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/121
-	if (msgCode == 6 && !memcmp(pMsg, "Cannot map", 10))
+	if (msgCode == 6 && (!memcmp(pMsg, "Cannot map", 10) || !memcmp(pMsg, "Cannot sub", 10)))
 		return false;
 
 #ifdef _WIN32
