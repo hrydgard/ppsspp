@@ -75,7 +75,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	curFrame_(0) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = false;
+	decOptions_.expandAllUVtoFloat = false;  // this may be a good idea though.
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 
