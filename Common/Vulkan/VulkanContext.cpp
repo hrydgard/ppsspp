@@ -110,14 +110,18 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 
 	VkResult res = vkCreateInstance(&inst_info, NULL, &instance_);
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to create instance: %d", res);
 		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
+			WLOG("Validation on but layers not available - dropping layers");
 			// Drop the validation layers and try again.
 			instance_layer_names.clear();
 			device_layer_names.clear();
 			inst_info.enabledLayerCount = 0;
 			inst_info.ppEnabledLayerNames = NULL;
 			res = vkCreateInstance(&inst_info, NULL, &instance_);
+			if (res != VK_SUCCESS)
+				ELOG("Failed to create instance even without validation: %d", res);
+		} else {
+			ELOG("Failed to create instance : %d", res);
 		}
 	}
 	assert(res == VK_SUCCESS);
