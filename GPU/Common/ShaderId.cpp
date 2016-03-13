@@ -122,7 +122,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
 			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
 		} else {
-			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);
+			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);  // float - no scaling
 		}
 	}
 
