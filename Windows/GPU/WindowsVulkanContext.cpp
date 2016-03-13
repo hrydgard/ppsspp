@@ -119,6 +119,10 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
+	// Getting some bizarre false positive for mapping image memory.
+	if (msgCode == 6)
+		return false;
+
 #ifdef _WIN32
 	OutputDebugStringA(message.str().c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
