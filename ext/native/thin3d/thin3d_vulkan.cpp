@@ -645,8 +645,10 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 	VkClearValue clearVal[2] = {};
 	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
 
-	if (frameNum_ & 1)
-		clearVal[0].color.float32[2] = 1.0f;
+	// // Debug flicker - used to see if we swap at all. no longer necessary
+	// if (frameNum_ & 1)
+	//	clearVal[0].color.float32[2] = 1.0f;
+
 	clearVal[1].depthStencil.depth = depthVal;
 	clearVal[1].depthStencil.stencil = stencilVal;
 
