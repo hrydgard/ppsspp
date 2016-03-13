@@ -303,7 +303,7 @@ public:
 			return;
 		}
 
-		WARN_LOG(LOADER, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
+		DEBUG_LOG(LOADER, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
 
 		// Add the symbol to the symbol map for debugging.
 		char temp[256];
