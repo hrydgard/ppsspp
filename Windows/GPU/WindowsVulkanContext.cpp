@@ -98,7 +98,7 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	case VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT: return "SurfaceKHR";
 	case VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT: return "SwapChainKHR";
 	case VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT: return "CommandPool";
-		default: return "Unknown";
+		default: return "";
 	}
 }
 

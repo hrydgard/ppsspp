@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 
+#include "base/basictypes.h"
 #include "VulkanContext.h"
 
 #ifdef USE_CRT_DBG
@@ -27,6 +28,18 @@
 #endif
 
 using namespace std;
+
+static const char *validationLayers[] = {
+	"VK_LAYER_LUNARG_standard_validation",
+	/*
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_draw_state",
+	"VK_LAYER_LUNARG_image",
+	"VK_LAYER_LUNARG_mem_tracker",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_param_checker",
+	*/
+};
 
 VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	: device_(nullptr),
@@ -67,20 +80,10 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
-		instance_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_image");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
-		instance_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
-	
-		device_layer_names.push_back("VK_LAYER_LUNARG_threading");
-		device_layer_names.push_back("VK_LAYER_LUNARG_draw_state");
-		device_layer_names.push_back("VK_LAYER_LUNARG_image");
-		device_layer_names.push_back("VK_LAYER_LUNARG_mem_tracker");
-		device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
-		device_layer_names.push_back("VK_LAYER_LUNARG_param_checker");
-
+		for (int i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+			instance_layer_names.push_back(validationLayers[i]);
+			device_layer_names.push_back(validationLayers[i]);
+		}
 		instance_extension_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
@@ -92,7 +95,9 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	app_info.pEngineName = app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 1;
+	// Don't specify the API patch version.
 	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 0);
+
 	VkInstanceCreateInfo inst_info = {};
 	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	inst_info.pNext = NULL;
@@ -101,11 +106,19 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	inst_info.enabledLayerCount = (uint32_t)instance_layer_names.size();
 	inst_info.ppEnabledLayerNames = instance_layer_names.size() ? instance_layer_names.data() : NULL;
 	inst_info.enabledExtensionCount = (uint32_t)instance_extension_names.size();
-	inst_info.ppEnabledExtensionNames = instance_extension_names.data();
+	inst_info.ppEnabledExtensionNames = instance_extension_names.size() ? instance_extension_names.data() : NULL;
 
 	VkResult res = vkCreateInstance(&inst_info, NULL, &instance_);
 	if (res != VK_SUCCESS) {
 		ELOG("Failed to create instance: %d", res);
+		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
+			// Drop the validation layers and try again.
+			instance_layer_names.clear();
+			device_layer_names.clear();
+			inst_info.enabledLayerCount = 0;
+			inst_info.ppEnabledLayerNames = NULL;
+			res = vkCreateInstance(&inst_info, NULL, &instance_);
+		}
 	}
 	assert(res == VK_SUCCESS);
 
@@ -267,6 +280,8 @@ void VulkanContext::EndSurfaceRenderPass() {
 	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submit_info[0].waitSemaphoreCount = 1;
 	submit_info[0].pWaitSemaphores = &acquireSemaphore;
+	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
+	submit_info[0].pWaitDstStageMask = waitStage;
 	submit_info[0].commandBufferCount = (uint32_t)cmdBufs.size();
 	submit_info[0].pCommandBuffers = cmdBufs.data();
 	submit_info[0].signalSemaphoreCount = 0;
@@ -758,7 +773,7 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
   /* Set the image layout to depth stencil optimal */
   TransitionImageLayout(cmd, depth.image,
-                        VK_IMAGE_ASPECT_DEPTH_BIT,
+                        aspectMask,
                         VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
@@ -1000,6 +1015,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
 	swap_chain_info.pQueueFamilyIndices = NULL;
+	swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swap_chain_);
 	assert(res == VK_SUCCESS);
@@ -1198,6 +1214,7 @@ void VulkanTexture::CreateMappableImage() {
 	image_create_info.pQueueFamilyIndices = NULL;
 	image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	image_create_info.flags = 0;
+	image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
 	VkMemoryAllocateInfo mem_alloc = {};
 	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -1219,7 +1236,7 @@ void VulkanTexture::CreateMappableImage() {
 	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &mem_alloc.memoryTypeIndex);
 	assert(pass);
 
-	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &(mappableMemory));
+	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mappableMemory);
 	assert(res == VK_SUCCESS);
 
 	res = vkBindImageMemory(vulkan_->GetDevice(), mappableImage, mappableMemory, 0);
@@ -1265,11 +1282,13 @@ void VulkanTexture::Unlock() {
 		mem = VK_NULL_HANDLE;
 	}
 	if (!needStaging) {
-		/* If we can use the linear tiled image as a texture, just do it */
+		// If we can use the linear tiled image as a texture, just do it
 		image = mappableImage;
 		mem = mappableMemory;
-		imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, imageLayout);
+		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		// Make sure we don't accidentally delete the main image.
+		mappableImage = VK_NULL_HANDLE;
+		mappableMemory = VK_NULL_HANDLE;
 	} else {
 		VkImageCreateInfo image_create_info = {};
 		image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -1315,10 +1334,9 @@ void VulkanTexture::Unlock() {
 		// Since we're going to blit from the mappable image, set its layout to SOURCE_OPTIMAL
 		TransitionImageLayout(cmd, mappableImage,
 			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_PREINITIALIZED,
 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-		// Since we're going to blit to the texture image, set its layout to DESTINATION_OPTIMAL
 		TransitionImageLayout(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_UNDEFINED,
@@ -1352,14 +1370,15 @@ void VulkanTexture::Unlock() {
 		assert(res == VK_SUCCESS);
 
 		// Set the layout for the texture image from DESTINATION_OPTIMAL to SHADER_READ_ONLY
-		imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		TransitionImageLayout(cmd, image,
 			VK_IMAGE_ASPECT_COLOR_BIT,
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			imageLayout);
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
+		// Then drop the temporary mappable image - although should not be necessary...
 		vulkan_->Delete().QueueDeleteImage(mappableImage);
+		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
+
 		mappableImage = VK_NULL_HANDLE;
 		mappableMemory = VK_NULL_HANDLE;
 	}
@@ -1379,8 +1398,6 @@ void VulkanTexture::Unlock() {
 	view_info.subresourceRange.levelCount = 1;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount = 1;
-
-	/* create image view */
 	view_info.image = image;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
 	assert(res == VK_SUCCESS);
@@ -1514,6 +1531,9 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+		if (old_image_layout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+			image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+		}
 		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
 	}
 
