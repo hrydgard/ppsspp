@@ -225,6 +225,10 @@
   <ItemGroup>
     <ClCompile Include="..\ext\native\ext\glew\glew.c" />
     <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
+    <ClCompile Include="..\Windows\GPU\D3D9Context.cpp" />
+    <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp" />
+    <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp" />
+    <ClCompile Include="..\Windows\W32Util\Misc.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="Headless.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -233,7 +237,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="WindowsHeadlessHost.cpp" />
-    <ClCompile Include="WindowsHeadlessHostDx9.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\test.py" />
@@ -267,7 +270,6 @@
     <ClInclude Include="Compare.h" />
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
-    <ClInclude Include="WindowsHeadlessHostDx9.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

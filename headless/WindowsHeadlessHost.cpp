@@ -28,6 +28,8 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
 #include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/WindowsVulkanContext.h"
 
 #include "base/logging.h"
 #include "gfx/gl_common.h"
@@ -141,79 +143,68 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **graphicsContext)
-{
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
 	hWnd = CreateHiddenWindow();
 
-	if (WINDOW_VISIBLE)
-	{
+	if (WINDOW_VISIBLE) {
 		ShowWindow(hWnd, TRUE);
 		SetFocus(hWnd);
 	}
 
-	int pixelFormat;
+	WindowsGraphicsContext *graphicsContext = nullptr;
+	switch (gpuCore_) {
+	case GPU_NULL:
+	case GPU_GLES:
+	case GPU_SOFTWARE:
+		graphicsContext = new WindowsGLContext();
+		break;
 
-	static PIXELFORMATDESCRIPTOR pfd = {0};
-	pfd.nSize = sizeof(pfd);
-	pfd.nVersion = 1;
-	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-	pfd.iPixelType = PFD_TYPE_RGBA;
-	pfd.cColorBits = 32;
-	pfd.cDepthBits = 16;
-	pfd.iLayerType = PFD_MAIN_PLANE;
+	case GPU_DIRECTX9:
+		graphicsContext = new D3D9Context();
+		break;
 
-#define ENFORCE(x, msg) { if (!(x)) { fprintf(stderr, msg); *error_message = msg; return false; } }
+	case GPU_DIRECTX11:
+		return false;
 
-	ENFORCE(hDC = GetDC(hWnd), "Unable to create DC.");
-	ENFORCE(pixelFormat = ChoosePixelFormat(hDC, &pfd), "Unable to match pixel format.");
-	ENFORCE(SetPixelFormat(hDC, pixelFormat, &pfd), "Unable to set pixel format.");
-	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
-	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
+	case GPU_VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
+	}
 
-	// GL_SwapInterval(0);
+	if (graphicsContext->Init(NULL, hWnd, error_message)) {
+		*ctx = graphicsContext;
+		gfx_ = graphicsContext;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		gfx_ = nullptr;
+		return false;
+	}
 
-	glewInit();
-	CheckGLExtensions();
+	if (gpuCore_ == GPU_GLES) {
+		// TODO: Do we need to do this here?
+		CheckGLExtensions();
+	}
 
 	LoadNativeAssets();
 
-	*graphicsContext = new DummyGraphicsContext();
-	return ResizeGL();
+	return true;
 }
 
-void WindowsHeadlessHost::ShutdownGraphics()
-{
-	if (hRC) {
-		wglMakeCurrent(NULL, NULL);
-		wglDeleteContext(hRC);
-		hRC = NULL;
-	}
-
-	if (hDC)
-		ReleaseDC(hWnd, hDC);
-	hDC = NULL;
+void WindowsHeadlessHost::ShutdownGraphics() {
+	gfx_->Shutdown();
+	delete gfx_;
+	gfx_ = nullptr;
 	DestroyWindow(hWnd);
 	hWnd = NULL;
 }
 
-bool WindowsHeadlessHost::ResizeGL()
-{
-	if (!hWnd)
-		return false;
-
-	RECT rc;
-	GetWindowRect(hWnd, &rc);
-
-	glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	return true;
-}
-
-void WindowsHeadlessHost::SwapBuffers()
-{
-	::SwapBuffers(hDC);
+void WindowsHeadlessHost::SwapBuffers() {
+	if (gpuCore_ == GPU_DIRECTX9) {
+		MSG msg;
+		PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	gfx_->SwapBuffers();
 }
