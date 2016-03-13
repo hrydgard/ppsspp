@@ -34,7 +34,6 @@
 #pragma once
 
 #include "vulkan.h"
-#include "vk_lunarg_debug_marker.h"
 #if defined(__GNUC__) && __GNUC__ >= 4
 #define VK_LAYER_EXPORT __attribute__((visibility("default")))
 #elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
@@ -226,6 +225,20 @@ typedef struct VkLayerInstanceDispatchTable_ {
 #ifdef VK_USE_PLATFORM_ANDROID_KHR
     PFN_vkCreateAndroidSurfaceKHR CreateAndroidSurfaceKHR;
 #endif
+    PFN_vkGetPhysicalDeviceDisplayPropertiesKHR
+        GetPhysicalDeviceDisplayPropertiesKHR;
+    PFN_vkGetPhysicalDeviceDisplayPlanePropertiesKHR
+        GetPhysicalDeviceDisplayPlanePropertiesKHR;
+    PFN_vkGetDisplayPlaneSupportedDisplaysKHR
+        GetDisplayPlaneSupportedDisplaysKHR;
+    PFN_vkGetDisplayModePropertiesKHR
+        GetDisplayModePropertiesKHR;
+    PFN_vkCreateDisplayModeKHR
+        CreateDisplayModeKHR;
+    PFN_vkGetDisplayPlaneCapabilitiesKHR
+        GetDisplayPlaneCapabilitiesKHR;
+    PFN_vkCreateDisplayPlaneSurfaceKHR
+        CreateDisplayPlaneSurfaceKHR;
 } VkLayerInstanceDispatchTable;
 
 // LL node for tree of dbg callback functions

@@ -46,9 +46,7 @@
 #define snprintf _snprintf
 #endif
 
-#ifndef strdup
 #define strdup _strdup
-#endif
 
 #endif // _WIN32
 
