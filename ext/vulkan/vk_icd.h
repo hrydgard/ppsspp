@@ -30,7 +30,7 @@
 #ifndef VKICD_H
 #define VKICD_H
 
-#include "vk_platform.h"
+#include "vulkan.h"
 
 /*
  * The ICD must reserve space for a pointer for the loader's dispatch
@@ -65,6 +65,7 @@ typedef enum _VkIcdWsiPlatform {
     VK_ICD_WSI_PLATFORM_WIN32,
     VK_ICD_WSI_PLATFORM_XCB,
     VK_ICD_WSI_PLATFORM_XLIB,
+    VK_ICD_WSI_PLATFORM_DISPLAY
 } VkIcdWsiPlatform;
 
 typedef struct _VkIcdSurfaceBase {
@@ -111,4 +112,14 @@ typedef struct _VkIcdSurfaceXlib {
 } VkIcdSurfaceXlib;
 #endif // VK_USE_PLATFORM_XLIB_KHR
 
+typedef struct _VkIcdSurfaceDisplay {
+    VkIcdSurfaceBase base;
+    VkDisplayModeKHR displayMode;
+    uint32_t planeIndex;
+    uint32_t planeStackIndex;
+    VkSurfaceTransformFlagBitsKHR transform;
+    float globalAlpha;
+    VkDisplayPlaneAlphaFlagBitsKHR alphaMode;
+    VkExtent2D imageExtent;
+} VkIcdSurfaceDisplay;
 #endif // VKICD_H
