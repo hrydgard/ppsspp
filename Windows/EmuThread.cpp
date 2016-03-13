@@ -128,6 +128,7 @@ unsigned int WINAPI TheThread(void *)
 		I18NCategory *err = GetI18NCategory("Error");
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 
+		const char *defaultErrorVulkan = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *genericError;
@@ -136,6 +137,10 @@ unsigned int WINAPI TheThread(void *)
 		case GPU_BACKEND_DIRECT3D9:
 			nextBackend = GPU_BACKEND_OPENGL;
 			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
+			break;
+		case GPU_BACKEND_VULKAN:
+			nextBackend = GPU_BACKEND_OPENGL;
+			genericError = err->T("GenericVulkanError", defaultErrorDirect3D9);
 			break;
 		case GPU_BACKEND_OPENGL:
 		default:

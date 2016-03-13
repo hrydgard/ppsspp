@@ -155,6 +155,8 @@ public:
 
 	VkResult CreateDevice(int physical_device);
 
+	const std::string &InitError() { return init_error_; }
+
 	VkDevice GetDevice() { return device_; }
 	VkInstance GetInstance() { return instance_; }
 
@@ -268,6 +270,7 @@ private:
 	bool prepared;
 	bool use_staging_buffer_;
 
+	std::string init_error_;
 	std::vector<const char *> instance_layer_names;
 	std::vector<const char *> instance_extension_names;
 	std::vector<layer_properties> instance_layer_properties;

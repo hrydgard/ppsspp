@@ -166,7 +166,10 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 	g_Vulkan = new VulkanContext("PPSSPP", gitVer.ToInteger(), (g_validate_ ? VULKAN_FLAG_VALIDATE : 0) | VULKAN_FLAG_PRESENT_MAILBOX);
-	g_Vulkan->CreateDevice(0);
+	if (g_Vulkan->CreateDevice(0) != VK_SUCCESS) {
+		*error_message = g_Vulkan->InitError();
+		return false;
+	}
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
