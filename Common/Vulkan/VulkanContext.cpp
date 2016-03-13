@@ -92,12 +92,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	app_info.pEngineName = app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 1;
-#ifdef ANDROID
-	// For some strange reason, the Shield TV wants 1.0.2, not 1.0.3.
-	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 2);
-#else
-	app_info.apiVersion = VK_API_VERSION;
-#endif
+	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 	VkInstanceCreateInfo inst_info = {};
 	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	inst_info.pNext = NULL;
