@@ -38,14 +38,14 @@
 #endif
 static int hint_location;
 #ifdef __APPLE__
-#define PAGE_MASK (4096-1)
+#define MEM_PAGE_MASK (4096-1)
 #elif defined(_WIN32)
 static SYSTEM_INFO sys_info;
-#define PAGE_MASK (uintptr_t)(sys_info.dwPageSize - 1)
+#define MEM_PAGE_MASK (uintptr_t)(sys_info.dwPageSize - 1)
 #else
-#define PAGE_MASK     (getpagesize() - 1)
+#define MEM_PAGE_MASK     (getpagesize() - 1)
 #endif
-#define round_page(x) ((((uintptr_t)(x)) + PAGE_MASK) & ~(PAGE_MASK))
+#define round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
 #endif
 
 #ifdef __SYMBIAN32__

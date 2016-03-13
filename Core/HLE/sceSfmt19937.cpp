@@ -17,6 +17,7 @@
 
 // Mersenne Twister random number generator module.
 
+#define SFMT_MEXP 19937
 #include "ext/sfmt19937/SFMT.h"
 
 #include "Common/Log.h"

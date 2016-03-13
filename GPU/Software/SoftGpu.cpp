@@ -401,13 +401,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = NULL;
+			// void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 					ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
+				// indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {

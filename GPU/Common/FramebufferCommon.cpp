@@ -505,7 +505,7 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			ResizeFramebufFBO(vfb, width, size / (bpp * width));
 			vfb->fb_stride = width;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
-			vfb->width = vfb->width = width;
+			vfb->width = width;
 		}
 	}
 }

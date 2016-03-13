@@ -121,7 +121,9 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 			int blockh = height/4;
 			*data_size = blockw * blockh * 8;
 			*data = new uint8_t[*data_size];
+#ifndef ANDROID
 #pragma omp parallel for 
+#endif
 			for (int y = 0; y < blockh; y++) {
 				for (int x = 0; x < blockw; x++) {
 					uint32_t block[16];

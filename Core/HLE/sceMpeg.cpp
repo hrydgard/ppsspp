@@ -124,9 +124,12 @@ void SceMpegAu::write(u32 addr) {
 	Memory::WriteStruct(addr, this);
 }
 
+/*
+// Currently unused
 static int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
+*/
 
 const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
 	0x10,0xc8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -720,25 +723,6 @@ static int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 		ctx->esBuffers[esBuf - 1] = false;
 	}
 	return 0;
-}
-
-// this function is used for dumping a video frame into a file.
-// you can use it when you want to output the decoded frame. 
-static void SaveFrame(AVFrame *pFrame, int width, int height)
-{
-	FILE *pFile;
-	char szFilename[] = "frame.ppm";
-	int y;
-
-	pFile = fopen(szFilename, "wb");
-	if (!pFile)
-		return;
-	// width * 4 is for 32-bit RGBA format. 
-	// You could change to your desired format as width*(4:32-bit,3:24-bit, 2:16-bit,1:8-bit) 
-	for (y = 0; y < height; y++)
-		fwrite(pFrame->data[0] + y * pFrame->linesize[0], 1, width * 4, pFile);
-
-	fclose(pFile);
 }
 
 // check the existence of pmp media context 

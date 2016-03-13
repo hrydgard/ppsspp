@@ -38,7 +38,6 @@
 
 // Hopefully this ABI will never change...
 
-
 #define ASHMEM_DEVICE	"/dev/ashmem"
 
 /*
@@ -48,8 +47,7 @@
  * `name' is an optional label to give the region (visible in /proc/pid/maps)
  * `size' is the size of the region, in page-aligned bytes
  */
-int ashmem_create_region(const char *name, size_t size)
-{
+int ashmem_create_region(const char *name, size_t size) {
 	int fd, ret;
 
 	fd = open(ASHMEM_DEVICE, O_RDWR);
@@ -58,7 +56,6 @@ int ashmem_create_region(const char *name, size_t size)
 
 	if (name) {
 		char buf[ASHMEM_NAME_LEN];
-
 		strncpy(buf, name, sizeof(buf));
 		ret = ioctl(fd, ASHMEM_SET_NAME, buf);
 		if (ret < 0)
@@ -77,20 +74,18 @@ error:
 	return ret;
 }
 
-int ashmem_set_prot_region(int fd, int prot)
-{
+int ashmem_set_prot_region(int fd, int prot) {
 	return ioctl(fd, ASHMEM_SET_PROT_MASK, prot);
 }
 
-int ashmem_pin_region(int fd, size_t offset, size_t len)
-{
-	struct ashmem_pin pin = { offset, len };
+int ashmem_pin_region(int fd, size_t offset, size_t len) {
+	// Even on 64-bit, it seems these arguments are 32-bit and thus need a cast to avoid warnings.
+	struct ashmem_pin pin = { (uint32_t)offset, (uint32_t)len };
 	return ioctl(fd, ASHMEM_PIN, &pin);
 }
 
-int ashmem_unpin_region(int fd, size_t offset, size_t len)
-{
-	struct ashmem_pin pin = { offset, len };
+int ashmem_unpin_region(int fd, size_t offset, size_t len) {
+	struct ashmem_pin pin = { (uint32_t)offset, (uint32_t)len };
 	return ioctl(fd, ASHMEM_UNPIN, &pin);
 }
 #endif  // Android

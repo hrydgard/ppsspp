@@ -1125,7 +1125,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, LayoutParams *lay
 EventReturn TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
-	if (currentTab_ != e.a || e.b) {
+	if (currentTab_ != (int)e.a || e.b != 0) {
 		tabs_[currentTab_]->SetVisibility(V_GONE);
 		currentTab_ = e.a;
 		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
