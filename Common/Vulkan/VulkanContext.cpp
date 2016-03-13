@@ -67,7 +67,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	curFrame_(0)
 {
 	if (!VulkanLoad()) {
-		ELOG("Failed to load vulkan");
+		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
 		return;
 	}
@@ -125,7 +125,10 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 			ELOG("Failed to create instance : %d", res);
 		}
 	}
-	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		init_error_ = "Failed to create Vulkan instance";
+		return;
+	}
 
 	VulkanLoadInstanceFunctions(instance_);
 
@@ -134,20 +137,25 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	assert(gpu_count);
 	physical_devices_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
-	assert(!res);
+	if (res != VK_SUCCESS) {
+		init_error_ = "Failed to enumerate physical devices";
+		return;
+	}
 
 	InitGlobalLayerProperties();
 	InitGlobalExtensionProperties();
 
 	if (!CheckLayers(instance_layer_properties, instance_layer_names)) {
 		ELOG("CheckLayers failed");
-		exit(1);
+		init_error_ = "Failed to validate instance layers";
+		return;
 	}
 
 	InitDeviceLayerProperties();
 	if (!CheckLayers(device_layer_properties, device_layer_names)) {
 		ELOG("CheckLayers failed (2)");
-		exit(1);
+		init_error_ = "Failed to validate device layers";
+		return;
 	}
 }
 
@@ -592,36 +600,41 @@ VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std
 }
 
 VkResult VulkanContext::CreateDevice(int physical_device) {
-  VkResult res;
-  VkDeviceQueueCreateInfo queue_info = {};
+	VkResult res;
+	VkDeviceQueueCreateInfo queue_info = {};
 
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, NULL);
-  assert(queue_count >= 1);
+	if (!init_error_.empty()) {
+	  ELOG("Vulkan init failed: %s", init_error_.c_str());
+	  return VK_ERROR_INITIALIZATION_FAILED;
+	}
 
-  queue_props.resize(queue_count);
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, queue_props.data());
-  assert(queue_count >= 1);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, nullptr);
+	assert(queue_count >= 1);
 
-  bool found = false;
-  for (int i = 0; i < (int)queue_count; i++) {
+	queue_props.resize(queue_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, queue_props.data());
+	assert(queue_count >= 1);
+
+	bool found = false;
+	for (int i = 0; i < (int)queue_count; i++) {
 		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			queue_info.queueFamilyIndex = i;
 			found = true;
 			break;
 		}
-  }
-  assert(found);
-  assert(queue_count >= 1);
+	}
+	assert(found);
+	assert(queue_count >= 1);
 
-  // This is as good a place as any to do this
-  vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
-  vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
+	// This is as good a place as any to do this
+	vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
+	vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
 
-  float queue_priorities[1] = { 0.0 };
-  queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queue_info.pNext = NULL;
-  queue_info.queueCount = 1;
-  queue_info.pQueuePriorities = queue_priorities;
+	float queue_priorities[1] = { 0.0 };
+	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queue_info.pNext = nullptr;
+	queue_info.queueCount = 1;
+	queue_info.pQueuePriorities = queue_priorities;
 
 	// Optional features
 	vkGetPhysicalDeviceFeatures(physical_devices_[0], &featuresAvailable_);
@@ -650,25 +663,28 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		featuresEnabled_.depthBounds = true;
 	}
 
-  VkDeviceCreateInfo device_info = {};
-  device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  device_info.pNext = NULL;
-  device_info.queueCreateInfoCount = 1;
-  device_info.pQueueCreateInfos = &queue_info;
-  device_info.enabledLayerCount = (uint32_t)device_layer_names.size();
-  device_info.ppEnabledLayerNames =
+	VkDeviceCreateInfo device_info = {};
+	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	device_info.pNext = NULL;
+	device_info.queueCreateInfoCount = 1;
+	device_info.pQueueCreateInfos = &queue_info;
+	device_info.enabledLayerCount = (uint32_t)device_layer_names.size();
+	device_info.ppEnabledLayerNames =
           device_info.enabledLayerCount ? device_layer_names.data() : NULL;
-  device_info.enabledExtensionCount = (uint32_t)device_extension_names.size();
-  device_info.ppEnabledExtensionNames =
+	device_info.enabledExtensionCount = (uint32_t)device_extension_names.size();
+	device_info.ppEnabledExtensionNames =
           device_info.enabledExtensionCount ? device_extension_names.data() : NULL;
 	device_info.pEnabledFeatures = &featuresEnabled_;
 
-  res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
-  assert(res == VK_SUCCESS);
+	res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
+	if (res != VK_SUCCESS) {
+		init_error_ = "Unable to create Vulkan device";
+		ELOG("Unable to create Vulkan device");
+	} else {
+		VulkanLoadDeviceFunctions(device_);
+	}
 
-	VulkanLoadDeviceFunctions(device_);
-
-  return res;
+	return res;
 }
 
 VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata) {

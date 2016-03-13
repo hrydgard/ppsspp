@@ -238,7 +238,9 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	}
 
 	ILOG("Creating vulkan device");
-	g_Vulkan->CreateDevice(0);
+	if (g_Vulkan->CreateDevice(0) != VK_SUCCESS) {
+		return false;
+	}
 	int width = desiredBackbufferSizeX;
 	int height = desiredBackbufferSizeY;
 	if (!width || !height) {
