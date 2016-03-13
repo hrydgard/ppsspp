@@ -102,7 +102,6 @@ void GenerateVertexShaderDX9(const ShaderID &id, char *buffer) {
 	if (enableBones) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 	}
-	int texFmtScale = id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2);
 
 	WRITE(p, "#pragma warning( disable : 3571 )\n");
 

@@ -242,34 +242,33 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		CopyFloat2(ub_base.texClampOffset, texclampoff);
 	}
 
-	// Update any dirty uniforms before we draw
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
-		if (gstate.isModeThrough()) {
-			Matrix4x4 proj_through;
-			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-			ConvertProjMatrixToVulkanThrough(proj_through);
-			CopyMatrix4x4(ub_base.proj_through, proj_through.getReadPtr());
-		} else {
-			Matrix4x4 flippedMatrix;
-			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+		Matrix4x4 flippedMatrix;
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-			const bool invertedY = gstate_c.vpHeight < 0;
-			if (invertedY) {
-				flippedMatrix[1] = -flippedMatrix[1];
-				flippedMatrix[5] = -flippedMatrix[5];
-				flippedMatrix[9] = -flippedMatrix[9];
-				flippedMatrix[13] = -flippedMatrix[13];
-			}
-			const bool invertedX = gstate_c.vpWidth < 0;
-			if (invertedX) {
-				flippedMatrix[0] = -flippedMatrix[0];
-				flippedMatrix[4] = -flippedMatrix[4];
-				flippedMatrix[8] = -flippedMatrix[8];
-				flippedMatrix[12] = -flippedMatrix[12];
-			}
-			ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
-			CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
+		const bool invertedY = gstate_c.vpHeight < 0;
+		if (invertedY) {
+			flippedMatrix[1] = -flippedMatrix[1];
+			flippedMatrix[5] = -flippedMatrix[5];
+			flippedMatrix[9] = -flippedMatrix[9];
+			flippedMatrix[13] = -flippedMatrix[13];
 		}
+		const bool invertedX = gstate_c.vpWidth < 0;
+		if (invertedX) {
+			flippedMatrix[0] = -flippedMatrix[0];
+			flippedMatrix[4] = -flippedMatrix[4];
+			flippedMatrix[8] = -flippedMatrix[8];
+			flippedMatrix[12] = -flippedMatrix[12];
+		}
+		ConvertProjMatrixToVulkan(flippedMatrix, invertedX, invertedY);
+		CopyMatrix4x4(ub_base.proj, flippedMatrix.getReadPtr());
+	}
+
+	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
+		Matrix4x4 proj_through;
+		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
+		ConvertProjMatrixToVulkanThrough(proj_through);
+		CopyMatrix4x4(ub_base.proj_through, proj_through.getReadPtr());
 	}
 
 	// Transform
@@ -315,13 +314,17 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
 
+		static const float rescale[4] = { 1.0f, 2 * 127.5f / 128.f, 2 * 32767.5f / 32768.f, 1.0f };
+		const float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+
 		float uvscaleoff[4];
+
 		switch (gstate.getUVGenMode()) {
 		case GE_TEXMAP_TEXTURE_COORDS:
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 		case GE_TEXMAP_UNKNOWN:
-			uvscaleoff[0] = gstate_c.uv.uScale * widthFactor;
-			uvscaleoff[1] = gstate_c.uv.vScale * heightFactor;
+			uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
+			uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 			uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
 			uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
 			break;
