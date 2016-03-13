@@ -343,8 +343,9 @@ private:
 class VulkanTexture {
 public:
 	VulkanTexture(VulkanContext *vulkan)
-		: vulkan_(vulkan), image(0), imageLayout(VK_IMAGE_LAYOUT_UNDEFINED), mem(0), view(0), tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(0), mappableMemory(0), needStaging(false) {
+		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
+		  tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
+		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
 	~VulkanTexture() {
@@ -368,7 +369,6 @@ private:
 
 	VulkanContext *vulkan_;
 	VkImage image;
-	VkImageLayout imageLayout;
 	VkDeviceMemory mem;
 	VkImageView view;
 	int32_t tex_width, tex_height;
