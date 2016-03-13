@@ -389,7 +389,9 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	
 	GraphicsContext *temp = coreParameter.graphicsContext;
 	coreParameter = coreParam;
-	coreParameter.graphicsContext = temp;
+	if (coreParameter.graphicsContext == nullptr) {
+		coreParameter.graphicsContext = temp;
+	}
 	coreParameter.errorString = "";
 	pspIsIniting = true;
 
