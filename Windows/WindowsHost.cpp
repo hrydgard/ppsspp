@@ -114,8 +114,8 @@ bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx
 		graphicsContext = new D3D9Context();
 		break;
 	case GPU_BACKEND_VULKAN:
-    graphicsContext = new WindowsVulkanContext();
-    break;
+		graphicsContext = new WindowsVulkanContext();
+		break;
 	default:
 		return false;
 	}
