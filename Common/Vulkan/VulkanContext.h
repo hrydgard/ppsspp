@@ -484,6 +484,10 @@ public:
 		return (uint32_t)off;
 	}
 
+	size_t GetOffset() const {
+		return offset_;
+	}
+
 	// "Zero-copy" variant - you can write the data directly as you compute it.
 	void *Push(size_t size, size_t *bindOffset) {
 		size_t off = Allocate(size);

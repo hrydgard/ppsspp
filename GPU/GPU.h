@@ -89,6 +89,7 @@ struct GPUStatistics {
 	int vertexGPUCycles;
 	int otherGPUCycles;
 	int gpuCommandsAtCallLevel[4];
+	int pushSpaceUsed;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numVBlanks;
