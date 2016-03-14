@@ -479,6 +479,7 @@ void DIRECTX9_GPU::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
 
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
