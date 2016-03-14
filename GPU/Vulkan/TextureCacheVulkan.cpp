@@ -87,23 +87,28 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 		return iter->second;
 	}
 
-	VkSamplerCreateInfo samp = {};
-	samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samp.pNext = nullptr;
+	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = key.sClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeV = key.tClamp ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	samp.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-	samp.compareEnable = false;
 	samp.compareOp = VK_COMPARE_OP_ALWAYS;
 	samp.flags = 0;
 	samp.magFilter = key.magFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;  // TODO: Aniso
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // key.4) ? ((key.magFilt & 2) ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST) : VK_SAMPLER_MIPMAP_MODE_BASE;
+	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+	// TODO: Need to check for device support before enabling aniso
+	/*
+	if (g_Config.iAnisotropyLevel > 1) {
+		samp.maxAnisotropy = g_Config.iAnisotropyLevel;
+		samp.anisotropyEnable = true;
+	}
+	*/
 	samp.maxAnisotropy = 1.0f;
-	samp.maxLod = 0.0f; // 1000.0f;
+	samp.anisotropyEnable = false;
+	samp.maxLod = key.maxLevel;
 	samp.minLod = 0.0f;
-	samp.unnormalizedCoordinates = false;
 	samp.mipLodBias = 0.0f;
 
 	VkSampler sampler;
@@ -604,6 +609,7 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
+	key.maxLevel = entry.vkTex->texture_->GetNumMips() - 1;
 	/*
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
@@ -1390,9 +1396,12 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	}
 
 	// In addition, simply don't load more than level 0 if g_Config.bMipMap is false.
-	if (!g_Config.bMipMap) {
+	if (!g_Config.bMipMap || badMipSizes) {
 		maxLevel = 0;
 	}
+
+	// Disable mipmapping. Something is wrong.
+	// maxLevel = 0;
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
@@ -1453,47 +1462,26 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		image->CreateDirect(w, h, 1, dstFmt);
+		image->CreateDirect(w, h, maxLevel + 1, dstFmt);
 	}
 	lastBoundTexture = entry->vkTex;
 
-	// In Vulkan, fortunately, we have full control over mipmapping.
-	// For now, we only load the base texture. More to come.
-
 	// Upload the texture data.
-	int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
-	int stride = (w * bpp + 15) & ~15;
-	int size = stride * h;
-	size_t bufferOffset;
-	void *data = uploadBuffer->Push(size, &bufferOffset);
-	LoadTextureLevel(*entry, (uint8_t *)data, stride, 0, replaceImages, scaleFactor, dstFmt);
-	entry->vkTex->texture_->UploadMip(0, uploadBuffer->GetVkBuffer(), bufferOffset, stride / bpp);
-
-	// Mipmapping only enable when texture scaling disable
-	/*
-	if (maxLevel > 0 && scaleFactor == 1) {
-		if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-			if (badMipSizes) {
-				// WARN_LOG(G3D, "Bad mipmap for texture sized %dx%dx%d - autogenerating", w, h, (int)format);
-				glGenerateMipmap(GL_TEXTURE_2D);
-			} else {
-				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
-				}
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-			}
-		} else {
-			glGenerateMipmap(GL_TEXTURE_2D);
-		}
-	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	for (int i = 0; i <= maxLevel; i++) {
+		int mipWidth = gstate.getTextureWidth(i);
+		int mipHeight = gstate.getTextureHeight(i);
+		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+		int stride = (mipWidth * bpp + 15) & ~15;
+		int size = stride * mipHeight;
+		size_t bufferOffset;
+		void *data = uploadBuffer->Push(size, &bufferOffset);
+		LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);
+		entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, uploadBuffer->GetVkBuffer(), bufferOffset, stride / bpp);
 	}
-	*/
+
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
-	// TODO: Refactor away nextTexture_. Not needed on Vulkan.
 	nextTexture_ = entry;
 }
 
