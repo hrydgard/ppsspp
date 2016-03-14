@@ -194,11 +194,11 @@ void DrawEngineVulkan::BeginFrame() {
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 	frame->descSets.clear();
 	frame->pushData->Begin(vulkan_->GetDevice());
-	frame->pushData->Reset();
 }
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
+	gpuStats.pushSpaceUsed = frame->pushData->GetOffset();
 	frame->pushData->End(vulkan_->GetDevice());
 	curFrame_++;
 }
