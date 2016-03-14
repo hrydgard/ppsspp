@@ -162,7 +162,7 @@ static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invert
 	if (invertedY)
 		yoff = -yoff;
 
-	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset + 0.5f);
+	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
