@@ -556,7 +556,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
-		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, vertexCount * stride, 16);
+		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, indexGen.MaxIndex() * stride, 16);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
@@ -565,7 +565,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
-			vkCmdDrawIndexed(cmd_, indexGen.VertexCount(), 1, 0, 0, 0);
+			vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, 0, 0);
 		} else {
 			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
