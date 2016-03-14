@@ -347,7 +347,7 @@ class VulkanTexture {
 public:
 	VulkanTexture(VulkanContext *vulkan)
 		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
-		  tex_width(0), tex_height(0), format_(VK_FORMAT_UNDEFINED),
+		  tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
 		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
@@ -366,9 +366,9 @@ public:
 
 	// Fast uploads from buffer. Mipmaps supported.
 	void CreateDirect(int w, int h, int numMips, VkFormat format);
-	void UploadMip(int mip, VkBuffer buffer, size_t offset, size_t rowLength);  // rowLength is in pixels
+	void UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, size_t offset, size_t rowLength);  // rowLength is in pixels
 	void EndCreate();
-
+	int GetNumMips() const { return numMips_; }
 	void Destroy();
 
 	VkImageView GetImageView() const { return view; }
