@@ -1455,9 +1455,7 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format) {
 	assert(res == VK_SUCCESS);
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
-	VkMemoryAllocateInfo mem_alloc = {};
-	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	mem_alloc.pNext = NULL;
+	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	mem_alloc.memoryTypeIndex = 0;
 	mem_alloc.allocationSize = mem_reqs.size;
 
@@ -1498,13 +1496,13 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format) {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanTexture::UploadMip(int mip, VkBuffer buffer, size_t offset, size_t rowLength) {
+void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, size_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region = {};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
-	copy_region.bufferImageHeight = tex_height;
-	copy_region.imageExtent.width = tex_width;
-	copy_region.imageExtent.height = tex_height;
+	copy_region.bufferImageHeight = 0;  // 2D
+	copy_region.imageExtent.width = mipWidth;
+	copy_region.imageExtent.height = mipHeight;
 	copy_region.imageExtent.depth = 1;
 	copy_region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	copy_region.imageSubresource.mipLevel = mip;
