@@ -366,7 +366,7 @@ public:
 
 	// Fast uploads from buffer. Mipmaps supported.
 	void CreateDirect(int w, int h, int numMips, VkFormat format);
-	void UploadMip(int mip, VkBuffer buffer, size_t offset, size_t stride);
+	void UploadMip(int mip, VkBuffer buffer, size_t offset, size_t rowLength);  // rowLength is in pixels
 	void EndCreate();
 
 	void Destroy();
@@ -416,12 +416,10 @@ public:
 	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(0) {
 		VkDevice device = vulkan->GetDevice();
 
-		VkBufferCreateInfo b = {};
-		b.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		b.pNext = nullptr;
+		VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 		b.size = size;
 		b.flags = 0;
-		b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		b.queueFamilyIndexCount = 0;
 		b.pQueueFamilyIndices = nullptr;

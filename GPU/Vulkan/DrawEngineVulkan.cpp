@@ -467,7 +467,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	// TODO: The descriptor set seems to be unbinding the texture when not specified.  Cache it or the imageView instead?
 	// TODO: Add this back when fixed: gstate_c.textureChanged != TEXCHANGE_UNCHANGED &&
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
+		textureCache_->SetTexture(frame->pushData);
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.

@@ -1069,7 +1069,7 @@ bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
-void TextureCacheVulkan::SetTexture() {
+void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -1453,14 +1453,21 @@ void TextureCacheVulkan::SetTexture() {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		VkResult res = image->Create(w, h, dstFmt);
-		assert(res == VK_SUCCESS);
+		image->CreateDirect(w, h, 1, dstFmt);
 	}
 	lastBoundTexture = entry->vkTex;
 
 	// In Vulkan, fortunately, we have full control over mipmapping.
 	// For now, we only load the base texture. More to come.
-	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
+
+	// Upload the texture data.
+	int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+	int stride = (w * bpp + 15) & ~15;
+	int size = stride * h;
+	size_t bufferOffset;
+	void *data = uploadBuffer->Push(size, &bufferOffset);
+	LoadTextureLevel(*entry, (uint8_t *)data, stride, 0, replaceImages, scaleFactor, dstFmt);
+	entry->vkTex->texture_->UploadMip(0, uploadBuffer->GetVkBuffer(), bufferOffset, stride / bpp);
 
 	// Mipmapping only enable when texture scaling disable
 	/*
@@ -1740,7 +1747,7 @@ TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u
 	return (TexCacheEntry::Status)res;
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, VkFormat dstFmt) {
+void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, bool replaceImages, int scaleFactor, VkFormat dstFmt) {
 	CachedTextureVulkan *tex = entry.vkTex;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
@@ -1751,7 +1758,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 		PROFILE_THIS_SCOPE("decodetex");
 
 		u32 texByteAlign = 1;
-
 		GETextureFormat tfmt = (GETextureFormat)entry.format;
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		int bufw;
@@ -1784,16 +1790,11 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, int level, bool 
 	}
 
 	PROFILE_THIS_SCOPE("loadtex");
-
-	// Upload the texture data. TODO: Decode directly into this buffer.
-	int rowPitch;
-	uint8_t *writePtr = entry.vkTex->texture_->Lock(level, &rowPitch);
 	for (int y = 0; y < h; y++) {
 		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 		// uncomment to make all textures white for debugging
 		//memset(writePtr + rowPitch * y, 0xff, rowBytes);
 	}
-	entry.vkTex->texture_->Unlock();
 
 	/*
 	if (!lowMemoryMode_) {
