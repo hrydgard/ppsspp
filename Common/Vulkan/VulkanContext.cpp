@@ -1436,6 +1436,7 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format) {
 	tex_width = w;
 	tex_height = h;
 	numMips_ = numMips;
+	format_ = format;
 
 	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
@@ -1497,10 +1498,10 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format) {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanTexture::UploadMip(int mip, VkBuffer buffer, size_t offset, size_t stride) {
+void VulkanTexture::UploadMip(int mip, VkBuffer buffer, size_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region = {};
 	copy_region.bufferOffset = offset;
-	copy_region.bufferRowLength = (uint32_t)stride;
+	copy_region.bufferRowLength = (uint32_t)rowLength;
 	copy_region.bufferImageHeight = tex_height;
 	copy_region.imageExtent.width = tex_width;
 	copy_region.imageExtent.height = tex_height;
