@@ -354,14 +354,20 @@ public:
 	~VulkanTexture() {
 		Destroy();
 	}
+
+	// Simple usage - no cleverness, no mipmaps.
 	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
 	// Can later Lock and Unlock again. This cannot change the format. Create cannot
 	// be called a second time without recreating the texture object until Destroy has
 	// been called.
-
 	VkResult Create(int w, int h, VkFormat format);
 	uint8_t *Lock(int level, int *rowPitch);
 	void Unlock();
+
+	// Fast uploads from buffer. Mipmaps supported.
+	void CreateDirect(int w, int h, int numMips, VkFormat format);
+	void UploadMip(int mip, VkBuffer buffer, size_t offset, size_t stride);
+	void EndCreate();
 
 	void Destroy();
 
@@ -369,12 +375,12 @@ public:
 
 private:
 	void CreateMappableImage();
-
+	void Wipe();
 	VulkanContext *vulkan_;
 	VkImage image;
 	VkDeviceMemory mem;
 	VkImageView view;
-	int32_t tex_width, tex_height;
+	int32_t tex_width, tex_height, numMips_;
 	VkFormat format_;
 	VkImage mappableImage;
 	VkDeviceMemory mappableMemory;

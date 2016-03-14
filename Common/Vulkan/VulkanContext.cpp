@@ -1290,18 +1290,7 @@ void VulkanTexture::Unlock() {
 	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
 
 	// if we already have an image, queue it for destruction and forget it.
-	if (image) {
-		vulkan_->Delete().QueueDeleteImage(image);
-		image = VK_NULL_HANDLE;
-	}
-	if (view) {
-		vulkan_->Delete().QueueDeleteImageView(view);
-		view = VK_NULL_HANDLE;
-	}
-	if (mem) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
-		mem = VK_NULL_HANDLE;
-	}
+	Wipe();
 	if (!needStaging) {
 		// If we can use the linear tiled image as a texture, just do it
 		image = mappableImage;
@@ -1422,6 +1411,115 @@ void VulkanTexture::Unlock() {
 	view_info.image = image;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
 	assert(res == VK_SUCCESS);
+}
+
+void VulkanTexture::Wipe() {
+	if (image) {
+		vulkan_->Delete().QueueDeleteImage(image);
+		image = VK_NULL_HANDLE;
+	}
+	if (view) {
+		vulkan_->Delete().QueueDeleteImageView(view);
+		view = VK_NULL_HANDLE;
+	}
+	if (mem) {
+		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
+		mem = VK_NULL_HANDLE;
+	}
+}
+
+void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format) {
+	Wipe();
+
+	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+
+	tex_width = w;
+	tex_height = h;
+	numMips_ = numMips;
+
+	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+	image_create_info.imageType = VK_IMAGE_TYPE_2D;
+	image_create_info.format = format_;
+	image_create_info.extent.width = tex_width;
+	image_create_info.extent.height = tex_height;
+	image_create_info.extent.depth = 1;
+	image_create_info.mipLevels = numMips;
+	image_create_info.arrayLayers = 1;
+	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	image_create_info.flags = 0;
+	image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	VkResult res = vkCreateImage(vulkan_->GetDevice(), &image_create_info, NULL, &image);
+	assert(res == VK_SUCCESS);
+
+	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
+	VkMemoryAllocateInfo mem_alloc = {};
+	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	mem_alloc.pNext = NULL;
+	mem_alloc.memoryTypeIndex = 0;
+	mem_alloc.allocationSize = mem_reqs.size;
+
+	// Find memory type - don't specify any mapping requirements
+	bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
+	assert(pass);
+
+	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
+	assert(res == VK_SUCCESS);
+
+	res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, 0);
+	assert(res == VK_SUCCESS);
+
+	// Since we're going to blit to the target, set its layout to TRANSFER_DST
+	TransitionImageLayout(cmd, image,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	// Create the view while we're at it.
+	VkImageViewCreateInfo view_info = {};
+	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	view_info.pNext = NULL;
+	view_info.image = VK_NULL_HANDLE;
+	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.format = format_;
+	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	view_info.subresourceRange.baseMipLevel = 0;
+	view_info.subresourceRange.levelCount = numMips;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount = 1;
+	view_info.image = image;
+	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
+	assert(res == VK_SUCCESS);
+}
+
+void VulkanTexture::UploadMip(int mip, VkBuffer buffer, size_t offset, size_t stride) {
+	VkBufferImageCopy copy_region = {};
+	copy_region.bufferOffset = offset;
+	copy_region.bufferRowLength = (uint32_t)stride;
+	copy_region.bufferImageHeight = tex_height;
+	copy_region.imageExtent.width = tex_width;
+	copy_region.imageExtent.height = tex_height;
+	copy_region.imageExtent.depth = 1;
+	copy_region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	copy_region.imageSubresource.mipLevel = mip;
+	copy_region.imageSubresource.baseArrayLayer = 0;
+	copy_region.imageSubresource.layerCount = 1;
+
+	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+	vkCmdCopyBufferToImage(cmd, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region);
+}
+
+void VulkanTexture::EndCreate() {
+	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
+	TransitionImageLayout(cmd, image,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void VulkanTexture::Destroy() {

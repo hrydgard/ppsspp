@@ -65,8 +65,10 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
+// TODO: Except for color swizzle, exact matches are available.
+// So we can get rid of the conversion functions entirely.
 #define VULKAN_4444_FORMAT VK_FORMAT_R4G4B4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_R5G5B5A1_UNORM_PACK16   // TODO: Switch to the one that matches the PSP better.
+#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16   // TODO: Switch to the one that matches the PSP better.
 #define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
 
