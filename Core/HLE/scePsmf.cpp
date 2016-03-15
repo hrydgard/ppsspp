@@ -28,6 +28,7 @@
 #include "Core/HW/MediaEngine.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "Core/Config.h"
 
 #include <map>
 #include <algorithm>
@@ -1029,6 +1030,7 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
+	g_Config.bVideoisNotplaying = false;
 	return hleDelayResult(0, "player create", 20000);
 }
 
@@ -1401,6 +1403,7 @@ static int scePsmfPlayerDelete(u32 psmfPlayer)
 	delete psmfplayer;
 	psmfPlayerMap.erase(Memory::Read_U32(psmfPlayer));
 	Memory::Write_U32(0, psmfPlayer);
+	g_Config.bVideoisNotplaying = true;
 
 	return hleDelayResult(0, "psmfplayer deleted", 20000);
 }

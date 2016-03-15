@@ -184,7 +184,7 @@ void TextureCache::Decimate() {
 		VERBOSE_LOG(G3D, "Decimated texture cache, saved %d estimated bytes - now %d bytes", had - cacheSizeEstimate_, cacheSizeEstimate_);
 	}
 
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
+	if (g_Config.bTextureSecondaryCache && g_Config.bVideoisNotplaying && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
