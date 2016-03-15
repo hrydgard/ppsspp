@@ -312,7 +312,7 @@ static ConfigSetting generalSettings[] = {
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false, true, true),
-	ConfigSetting("Videoisplaying", &g_Config.bVideoisNotplaying, true, true, true),
+	ConfigSetting("VideoisNotplaying", &g_Config.bVideoisNotplaying, true, true, true),
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
 
