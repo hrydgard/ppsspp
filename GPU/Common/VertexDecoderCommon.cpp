@@ -1118,7 +1118,7 @@ int VertexDecoder::ToString(char *output) const {
 	if (tc)
 		output += sprintf(output, "T: %s ", tcnames[tc]);
 	if (weighttype)
-		output += sprintf(output, "W: %s (%ix)", weightnames[weighttype], nweights);
+		output += sprintf(output, "W: %s (%ix) ", weightnames[weighttype], nweights);
 	if (idx)
 		output += sprintf(output, "I: %s ", idxnames[idx]);
 	if (morphcount > 1)

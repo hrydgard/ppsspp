@@ -477,6 +477,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	gstate_c.featureFlags |= GPU_SUPPORTS_BLEND_MINMAX;
 	gstate_c.featureFlags |= GPU_SUPPORTS_ANY_COPY_IMAGE;
 	gstate_c.featureFlags |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+	gstate_c.featureFlags |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 }
 
 void GPU_Vulkan::BeginHostFrame() {

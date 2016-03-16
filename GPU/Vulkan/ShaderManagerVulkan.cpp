@@ -151,18 +151,7 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 }
 
 static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invertedY) {
-	// Half pixel offset hack
-	float xoff = 0.5f / gstate_c.curRTRenderWidth;
-	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = 0.5f / gstate_c.curRTRenderHeight;
-	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
-
-	if (invertedX)
-		xoff = -xoff;
-	if (invertedY)
-		yoff = -yoff;
-
-	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
+	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
 	in.translateAndScale(trans, scale);
 }
