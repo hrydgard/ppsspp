@@ -216,6 +216,9 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 			key.depthCompareOp = VK_COMPARE_OP_ALWAYS;
 		}
 
+		// Clipping for depth means that it's actually clamped.
+		key.depthClampEnable = gstate.isClippingEnabled();
+
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
