@@ -51,7 +51,7 @@ namespace DX9 {
 	struct FBO_DX9;
 }
 
-class VulkanFramebuffer;
+class VulkanFBO;
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -87,12 +87,13 @@ struct VirtualFramebuffer {
 	int lastFrameNewSize;
 
 	GEBufferFormat format;  // virtual, right now they are all RGBA8888
+
 	// TODO: Handle fbo and colorDepth better.
 	u8 colorDepth;
 	union {
 		FBO *fbo;
 		DX9::FBO_DX9 *fbo_dx9;
-		VulkanFramebuffer *fbo_vk;
+		VulkanFBO *fbo_vk;
 	};
 
 	u16 drawnWidth;

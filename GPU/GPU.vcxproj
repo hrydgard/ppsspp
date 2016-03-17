@@ -345,6 +345,7 @@
     <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
     <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
     <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\VulkanUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

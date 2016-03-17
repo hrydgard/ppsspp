@@ -127,6 +127,7 @@ EGL_FILES := \
 VULKAN_FILES := \
   $(SRC)/Common/Vulkan/VulkanLoader.cpp \
   $(SRC)/Common/Vulkan/VulkanContext.cpp \
+  $(SRC)/Common/Vulkan/VulkanImage.cpp \
   $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
   $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
   $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
@@ -137,7 +138,8 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
-  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp
+  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp \
+  $(SRC)/GPU/Vulkan/VulkanUtil.cpp
 #endif
 
 EXEC_AND_LIB_FILES := \

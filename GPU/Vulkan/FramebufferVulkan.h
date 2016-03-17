@@ -36,13 +36,13 @@ class DrawEngineVulkan;
 class VulkanContext;
 class ShaderManagerVulkan;
 class VulkanTexture;
-class VulkanFramebuffer;
 
 struct PostShaderUniforms {
 	float texelDelta[2]; float pad[2];
 	float pixelDelta[2]; float pad0[2];
 	float time[4];
 };
+
 // Simple struct for asynchronous PBO readbacks
 // TODO: Probably will need a complete redesign.
 struct AsyncPBOVulkan {
@@ -122,7 +122,7 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	VulkanFramebuffer *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
+	VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
 
 	// Cardboard Settings Calculator
 	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
@@ -182,7 +182,7 @@ private:
 	bool resized_;
 
 	struct TempFBO {
-		VulkanFramebuffer *fbo_vk;
+		VulkanFBO *fbo_vk;
 		int last_frame_used;
 	};
 

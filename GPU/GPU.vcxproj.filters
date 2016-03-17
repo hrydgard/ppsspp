@@ -458,5 +458,6 @@
     <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="Vulkan\VulkanUtil.cpp" />
   </ItemGroup>
 </Project>

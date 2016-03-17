@@ -340,71 +340,6 @@ private:
 	std::vector<VkCommandBuffer> cmdQueue_;
 };
 
-// Wrapper around what you need to use a texture.
-// Not very optimal - if you have many small textures you should use other strategies.
-// Only supports simple 2D textures for now. Mipmap support will be added later.
-class VulkanTexture {
-public:
-	VulkanTexture(VulkanContext *vulkan)
-		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
-		  tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false) {
-		memset(&mem_reqs, 0, sizeof(mem_reqs));
-	}
-	~VulkanTexture() {
-		Destroy();
-	}
-
-	// Simple usage - no cleverness, no mipmaps.
-	// Always call Create, Lock, Unlock. Unlock performs the upload if necessary.
-	// Can later Lock and Unlock again. This cannot change the format. Create cannot
-	// be called a second time without recreating the texture object until Destroy has
-	// been called.
-	VkResult Create(int w, int h, VkFormat format);
-	uint8_t *Lock(int level, int *rowPitch);
-	void Unlock();
-
-	// Fast uploads from buffer. Mipmaps supported.
-	void CreateDirect(int w, int h, int numMips, VkFormat format);
-	void UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, size_t offset, size_t rowLength);  // rowLength is in pixels
-	void EndCreate();
-	int GetNumMips() const { return numMips_; }
-	void Destroy();
-
-	VkImageView GetImageView() const { return view; }
-
-private:
-	void CreateMappableImage();
-	void Wipe();
-	VulkanContext *vulkan_;
-	VkImage image;
-	VkDeviceMemory mem;
-	VkImageView view;
-	int32_t tex_width, tex_height, numMips_;
-	VkFormat format_;
-	VkImage mappableImage;
-	VkDeviceMemory mappableMemory;
-	VkMemoryRequirements mem_reqs;
-	bool needStaging;
-};
-
-// Placeholder
-
-class VulkanFramebuffer {
-public:
-	void Create(VulkanContext *vulkan, int w, int h, VkFormat format);
-
-	void BeginPass(VkCommandBuffer cmd);
-	void EndPass(VkCommandBuffer cmd);
-	void TransitionToTexture(VkCommandBuffer cmd);
-
-	VkImageView GetColorImageView();
-
-private:
-	VkImage image_;
-	VkFramebuffer framebuffer_;
-};
-
 // Use these to push vertex, index and uniform data. Generally you'll have two of these
 // and alternate on each frame.
 // TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
@@ -505,22 +440,19 @@ private:
 	uint8_t *writePtr_;
 };
 
-
-VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
-
+// Stand-alone utility functions
 void VulkanBeginCommandBuffer(VkCommandBuffer cmd);
-
-void init_glslang();
-void finalize_glslang();
-
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
-
 void TransitionImageLayout(
 	VkCommandBuffer cmd,
 	VkImage image,
 	VkImageAspectFlags aspectMask,
 	VkImageLayout old_image_layout,
 	VkImageLayout new_image_layout);
+
+// GLSL compiler
+void init_glslang();
+void finalize_glslang();
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
 
 #endif // UTIL_INIT
 
