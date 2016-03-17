@@ -22,13 +22,16 @@
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "profiler/profiler.h"
-#include "Common/Vulkan/VulkanContext.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanImage.h"
+
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
@@ -79,6 +82,10 @@ SamplerCache::~SamplerCache() {
 	for (auto iter : cache_) {
 		vulkan_->Delete().QueueDeleteSampler(iter.second);
 	}
+}
+
+CachedTextureVulkan::~CachedTextureVulkan() {
+	delete texture_;
 }
 
 VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
@@ -905,9 +912,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	}
 	if (depal) {
 		// VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		VulkanFramebuffer *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
+		VulkanFBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
 
-		depalFBO->BeginPass(cmd);
+		//depalFBO->BeginPass(cmd);
 
 		struct Pos {
 			Pos(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {
@@ -1018,9 +1025,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 		glDisableVertexAttribArray(depal->a_position);
 		glDisableVertexAttribArray(depal->a_texcoord0);
 		*/
-		depalFBO->EndPass(cmd);
-		depalFBO->TransitionToTexture(cmd);
-		imageView = depalFBO->GetColorImageView();
+		//depalFBO->EndPass(cmd);
+		//depalFBO->TransitionToTexture(cmd);
+		//imageView = depalFBO->GetColorImageView();
 	}
 
 	/*

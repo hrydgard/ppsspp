@@ -33,7 +33,7 @@ class ShaderManagerVulkan;
 class DrawEngineVulkan;
 
 class VulkanContext;
-class VulkanImage;
+class VulkanTexture;
 
 struct SamplerCacheKey {
 	SamplerCacheKey() : fullKey(0) {}
@@ -61,9 +61,8 @@ class CachedTextureVulkan {
 public:
 	CachedTextureVulkan() : texture_(nullptr) {
 	}
-	~CachedTextureVulkan() {
-		delete texture_;
-	}
+	~CachedTextureVulkan();
+
 	// TODO: Switch away from VulkanImage to some kind of smart suballocating texture pool.
 	VulkanTexture *texture_;
 };

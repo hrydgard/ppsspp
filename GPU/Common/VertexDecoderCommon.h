@@ -106,8 +106,7 @@ inline int RoundUp4(int x) {
 }
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
-class VertexReader
-{
+class VertexReader {
 public:
 	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 

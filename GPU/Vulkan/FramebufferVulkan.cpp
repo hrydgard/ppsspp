@@ -41,10 +41,12 @@
 
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
+#include "Common/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 
 #include "UI/OnScreenDisplay.h"
 
@@ -599,7 +601,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		return;
 	}
 
-	vfb->fbo_vk = new VulkanFramebuffer(); 
+	vfb->fbo_vk = new VulkanFBO();
 	// bo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
 	if (old.fbo_vk) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
@@ -777,7 +779,7 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}*/
 }
 
-VulkanFramebuffer *FramebufferManagerVulkan::GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth) {
+VulkanFBO *FramebufferManagerVulkan::GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth) {
 	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
@@ -787,7 +789,7 @@ VulkanFramebuffer *FramebufferManagerVulkan::GetTempFBO(u16 w, u16 h, VulkanFBOC
 
 	textureCache_->ForgetLastTexture();
 	// FBO *fbo_vk = fbo_create(w, h, 1, false, depth);
-	VulkanFramebuffer *fbo_vk = new VulkanFramebuffer();
+	VulkanFBO *fbo_vk = new VulkanFBO();
 	if (!fbo_vk)
 		return nullptr;
 	//	 fbo_bind_as_render_target(fbo_vk);
