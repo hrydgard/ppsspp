@@ -96,7 +96,7 @@ struct UB_VS_FS_Base {
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
-	float alphaColorRef[4];
+	int alphaColorRef[4];
 	int colorTestMask[4];
 	float stencilReplace[4];  // only first float used
 	float blendFixA[4];
@@ -117,7 +117,7 @@ R"(  mat4 proj_mtx;
   vec4 matambientalpha;
   vec3 fogcolor;
   vec3 texenv;
-  vec4 alphacolorref;
+  ivec4 alphacolorref;
   ivec4 alphacolormask;
   float stencilReplaceValue;
   vec3 blendFixA;

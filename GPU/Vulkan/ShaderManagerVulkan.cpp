@@ -193,10 +193,10 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		Uint8x3ToFloat4(ub_base.texEnvColor, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		Uint8x3ToFloat4_AlphaUint8(ub_base.alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		Uint8x3ToInt4_Alpha(ub_base.alphaColorRef, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		Uint8x3ToInt4(ub_base.colorTestMask, gstate.colortestmask);
+		Uint8x3ToInt4_Alpha(ub_base.colorTestMask, gstate.getColorTestMask(), gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		Uint8x3ToFloat4(ub_base.fogColor, gstate.fogcolor);
