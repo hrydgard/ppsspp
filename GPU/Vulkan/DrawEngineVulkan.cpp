@@ -198,7 +198,7 @@ void DrawEngineVulkan::BeginFrame() {
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
-	gpuStats.pushSpaceUsed = frame->pushData->GetOffset();
+	gpuStats.pushSpaceUsed = (int)frame->pushData->GetOffset();
 	frame->pushData->End(vulkan_->GetDevice());
 	curFrame_++;
 }
