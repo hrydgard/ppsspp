@@ -550,8 +550,8 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
 
-	float scaledX = javaGL ? x : x * dp_xscale;
-	float scaledY = javaGL ? y : y * dp_yscale;
+	float scaledX = x * dp_xscale;
+	float scaledY = y * dp_yscale;
 
 	TouchInput touch;
 	touch.id = pointerId;

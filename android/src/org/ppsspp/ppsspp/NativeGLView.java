@@ -75,8 +75,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
 		int numTouchesHandled = 0;
-		float scaleX = (float)mActivity.getRenderer().getDpiScaleX();
-		float scaleY = (float)mActivity.getRenderer().getDpiScaleY();
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -108,7 +106,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 					code |= tool << 10;  // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
-				numTouchesHandled += NativeApp.touch(scaleX * ev.getX(i), scaleY * ev.getY(i), code, pid) ? 1 : 0;
+				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
 			}
 		}
 		return numTouchesHandled > 0;
