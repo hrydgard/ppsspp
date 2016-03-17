@@ -4,6 +4,7 @@ import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLDisplay;
 
+import android.graphics.PixelFormat;
 import android.opengl.GLSurfaceView.EGLConfigChooser;
 import android.util.Log;
 
@@ -11,6 +12,9 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 	private static final String TAG = "NativeEGLConfigChooser";
 
 	private static final int EGL_OPENGL_ES2_BIT = 4;
+
+	NativeEGLConfigChooser() {
+	}
 
 	private class ConfigAttribs {
 		EGLConfig config;
@@ -60,6 +64,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		return attr;
 	}
 
+	@Override
 	public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
 		// The absolute minimum. We will do our best to choose a better config though.
 		int[] configSpec = {
@@ -70,6 +75,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			EGL10.EGL_STENCIL_SIZE, 0,
 			EGL10.EGL_SURFACE_TYPE, EGL10.EGL_WINDOW_BIT,
 			EGL10.EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+			// EGL10.EGL_TRANSPARENT_TYPE, EGL10.EGL_NONE
 			EGL10.EGL_NONE
 		};
 
@@ -98,8 +104,10 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 			configs[i].Log();
 		}
 
+
 		// We now ignore destination alpha as a workaround for the Mali issue
 		// where we get badly composited if we use it.
+		// Though, that may be possible to fix by using EGL10.EGL_TRANSPARENT_TYPE, EGL10.EGL_NONE.
 
 		// First, find our ideal configuration. Prefer depth.
 		for (int i = 0; i < configs.length; i++) {
