@@ -411,7 +411,7 @@ static int DefaultAndroidHwScale() {
 	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
 	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);
 
-	if (xres < 960) {
+	if (xres <= 960) {
 		// Smaller than the PSP*2, let's go native.
 		return 0;
 	} else if (xres <= 480 * 3) {  // 720p xres

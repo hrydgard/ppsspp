@@ -766,12 +766,13 @@ void NativeUpdate(InputState &input) {
 	screenManager->update(input);
 }
 
-void NativeDeviceLost() {
-	// g_gameInfoCache.Clear();
+void NativeDeviceRestore() {
+	if (g_gameInfoCache)
+		g_gameInfoCache->Clear();
 	screenManager->deviceLost();
 
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		gl_lost();
+		gl_restore();
 	}
 }
 

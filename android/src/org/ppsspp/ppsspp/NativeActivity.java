@@ -9,6 +9,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.app.UiModeManager;
 import android.content.Context;
@@ -16,9 +17,11 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
+import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
@@ -38,6 +41,7 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnSystemUiVisibilityChangeListener;
 import android.view.Window;
@@ -56,10 +60,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// Graphics and audio interfaces
+	// Change this to false to switch to C++ EGL.
+	private static boolean javaGL = true;
+
+	// Graphics and audio interfaces for EGL (javaGL = false)
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
 	private Thread mRenderLoopThread = null;
+
+	// Graphics and audio interfaces for Java EGL (javaGL = true)
+	private NativeGLView mGLSurfaceView;
+	protected NativeRenderer nativeRenderer;
 
 	private String shortcutParam = "";
 
@@ -94,6 +105,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     public boolean useLowProfileButtons() {
     	return true;
     }
+
+	NativeRenderer getRenderer() {
+		return nativeRenderer;
+	}
 
 	@TargetApi(17)
 	private void detectOptimalAudioSettings() {
@@ -207,8 +222,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         	detectOptimalAudioSettings();
         }
 
-        // Get system information
+        // isLandscape is used to trigger GetAppInfo currently, we
+        boolean landscape = NativeApp.isLandscape();
+        Log.d(TAG, "Landscape: " + landscape);
+
+    	// Get system information
 		ApplicationInfo appInfo = null;
+
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
 		try {
@@ -246,9 +266,27 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, javaGL);
 
 		sendInitialGrants();
+
+		// OK, config should be initialized, we can query for screen rotation.
+		if (Build.VERSION.SDK_INT >= 9) {
+			updateScreenRotation();
+		}
+
+	    // Detect OpenGL support.
+	    // We don't currently use this detection for anything but good to have in the log.
+        if (!detectOpenGLES20()) {
+        	Log.i(TAG, "OpenGL ES 2.0 NOT detected. Things will likely go badly.");
+        } else {
+        	if (detectOpenGLES30()) {
+            	Log.i(TAG, "OpenGL ES 3.0 detected.");
+        	}
+        	else {
+            	Log.i(TAG, "OpenGL ES 2.0 detected.");
+        	}
+        }
 
         vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
         if (Build.VERSION.SDK_INT >= 11) {
@@ -352,6 +390,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		NativeApp.setDisplayParameters(outSize.x, outSize.y, metrics.densityDpi, refreshRate);
 	}
 
+	public void getDesiredBackbufferSize(Point sz) {
+		NativeApp.computeDesiredBackbufferDimensions();
+		sz.x = NativeApp.getDesiredBackbufferWidth();
+		sz.y = NativeApp.getDesiredBackbufferHeight();
+	}
+
+    @SuppressWarnings("deprecation")
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -376,37 +421,78 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-			updateSystemUiVisibility();
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-				setupSystemUiCallback();
-			}
-		}
     	updateDisplayMetrics(null);
+	    if (javaGL) {
+	        mGLSurfaceView = new NativeGLView(this);
+			nativeRenderer = new NativeRenderer(this);
 
-		NativeApp.computeDesiredBackbufferDimensions();
-		int bbW = NativeApp.getDesiredBackbufferWidth();
-		int bbH = NativeApp.getDesiredBackbufferHeight();
+			Point sz = new Point();
+			getDesiredBackbufferSize(sz);
+			if (sz.x > 0) {
+				Log.i(TAG, "Requesting fixed size buffer: " + sz.x + "x" + sz.y);
+				// Auto-calculates new DPI and forwards to the correct call on mGLSurfaceView.getHolder()
+				nativeRenderer.setFixedSize(sz.x, sz.y, mGLSurfaceView);
+			}
+	        mGLSurfaceView.setEGLContextClientVersion(2);
 
-        mSurfaceView = new NativeSurfaceView(NativeActivity.this, bbW, bbH);
-        mSurfaceView.getHolder().addCallback(NativeActivity.this);
-        Log.i(TAG, "setcontentview before");
-		setContentView(mSurfaceView);
-		Log.i(TAG, "setcontentview after");
+	        // Setup the GLSurface and ask android for the correct
+	        // Number of bits for r, g, b, a, depth and stencil components
+	        // The PSP only has 16-bit Z so that should be enough.
+	        // Might want to change this for other apps (24-bit might be useful).
+	        // Actually, we might be able to do without both stencil and depth in
+	        // the back buffer, but that would kill non-buffered rendering.
 
-		ensureRenderLoop();
+	        // It appears some gingerbread devices blow up if you use a config chooser at all ????  (Xperia Play)
+	        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+
+	        // On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set the format here,
+	        // if we specify that we want destination alpha in the config chooser, which we do.
+	        // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
+
+	        // Needed to avoid banding on Ouya?
+	        if (Build.MANUFACTURER == "OUYA") {
+	        	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
+	        	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+	        }
+	        // Tried to mess around with config choosers here but fail completely on Xperia Play.
+
+	        mGLSurfaceView.setRenderer(nativeRenderer);
+			setContentView(mGLSurfaceView);
+        } else {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+				updateSystemUiVisibility();
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+					setupSystemUiCallback();
+				}
+			}
+
+			NativeApp.computeDesiredBackbufferDimensions();
+			int bbW = NativeApp.getDesiredBackbufferWidth();
+			int bbH = NativeApp.getDesiredBackbufferHeight();
+
+	        mSurfaceView = new NativeSurfaceView(NativeActivity.this, bbW, bbH);
+	        mSurfaceView.getHolder().addCallback(NativeActivity.this);
+	        Log.i(TAG, "setcontentview before");
+			setContentView(mSurfaceView);
+			Log.i(TAG, "setcontentview after");
+
+			ensureRenderLoop();
+        }
     }
 
 	@Override
-	public void surfaceCreated(SurfaceHolder holder)
-	{
+	public void surfaceCreated(SurfaceHolder holder) {
 		Log.d(TAG, "Surface created.");
 	}
 
 	//
 	@Override
-	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
-	{
+	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+	    if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into surfaceChanged.");
+	    	return;
+	    }
+
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// Make sure we have fresh display metrics so the computations go right.
 		// This is needed on some very old devices, I guess event order is different or something...
@@ -425,6 +511,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
 	protected synchronized void ensureRenderLoop() {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into ensureRenderLoop.");
+	    	return;
+		}
 		if (mSurface == null) {
 			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
 			return;
@@ -439,6 +529,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	// Invariants: After this, mRenderLoopThread will be null, and the thread has exited.
 	private synchronized void joinRenderLoopThread() {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
+	    	return;
+		}
+
 		if (mRenderLoopThread != null) {
 			// This will wait until the thread has exited.
 			Log.i(TAG, "exitEGLRenderLoop");
@@ -457,11 +552,15 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into surfaceDestroyed.");
+	    	return;
+		}
+
 		mSurface = null;
 		Log.w(TAG, "Surface destroyed.");
 		joinRenderLoopThread();
 	}
-
 
     @TargetApi(19)
 	void setupSystemUiCallback() {
@@ -484,15 +583,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
-      	Log.i(TAG, "onDestroy");
-		mSurfaceView.onDestroy();
-		NativeApp.audioShutdown();
-		// Probably vain attempt to help the garbage collector...
-		mSurfaceView = null;
-		audioFocusChangeListener = null;
-		audioManager = null;
-		unregisterCallbacks();
-
+	    if (javaGL) {
+	      	Log.i(TAG, "onDestroy");
+			mGLSurfaceView.onDestroy();
+			nativeRenderer.onDestroyed();
+			NativeApp.audioShutdown();
+			// Probably vain attempt to help the garbage collector...
+			mGLSurfaceView = null;
+			audioFocusChangeListener = null;
+			audioManager = null;
+			unregisterCallbacks();
+	    }
 		if (shuttingDown) {
 			NativeApp.shutdown();
 		}
@@ -503,13 +604,34 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		super.onPause();
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		Log.i(TAG, "Pausing surface view");
 		NativeApp.pause();
-		mSurfaceView.onPause();
-		Log.i(TAG, "Joining render thread");
-		joinRenderLoopThread();
+	    if (!javaGL) {
+			Log.i(TAG, "Pausing surface view");
+			mSurfaceView.onPause();
+			Log.i(TAG, "Joining render thread");
+			joinRenderLoopThread();
+	    } else {
+			if (mGLSurfaceView != null) {
+				mGLSurfaceView.onPause();
+			} else {
+				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
+			}
+	    }
 		Log.i(TAG, "onPause completed");
+	}
+
+    private boolean detectOpenGLES20() {
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        ConfigurationInfo info = am.getDeviceConfigurationInfo();
+        return info.reqGlEsVersion >= 0x20000;
     }
+
+    private boolean detectOpenGLES30() {
+        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        ConfigurationInfo info = am.getDeviceConfigurationInfo();
+        return info.reqGlEsVersion >= 0x30000;
+    }
+
 
 	@Override
 	protected void onResume() {
@@ -518,20 +640,26 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
             updateSystemUiVisibility();
         }
 		// OK, config should be initialized, we can query for screen rotation.
-		updateScreenRotation();
+		if (javaGL || Build.VERSION.SDK_INT >= 9) {
+			updateScreenRotation();
+		}
 
 		Log.i(TAG, "onResume");
-		if (mSurfaceView != null) {
-			mSurfaceView.onResume();
-		} else {
-			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+		if (javaGL) {
+			if (mGLSurfaceView != null) {
+				mGLSurfaceView.onResume();
+			} else {
+				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+			}
 		}
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 
-		// Restart the render loop.
-		ensureRenderLoop();
+		if (!javaGL) {
+			// Restart the render loop.
+			ensureRenderLoop();
+		}
 	}
 
     @Override
@@ -542,6 +670,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
             updateSystemUiVisibility();
         }
         updateDisplayMetrics(null);
+        if (javaGL) {
+			Point sz = new Point();
+			getDesiredBackbufferSize(sz);
+			if (sz.x > 0) {
+				mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
+			}
+        }
     }
 
 	//keep this static so we can call this even if we don't
@@ -775,7 +910,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
-
 	@TargetApi(11)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
@@ -823,14 +957,14 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     		.setTitle(title)
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
     			@Override
-				public void onClick(DialogInterface d, int which) {
-    	    		NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
+    			public void onClick(DialogInterface d, int which) {
+    	    		NativeApp.sendMessage("inputbox_completed", input.getText().toString());
     				d.dismiss();
     			}
     		})
     		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
     			@Override
-				public void onClick(DialogInterface d, int which) {
+    			public void onClick(DialogInterface d, int which) {
     	    		NativeApp.sendMessage("inputbox_failed", "");
     				d.cancel();
     			}
@@ -841,6 +975,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     public boolean processCommand(String command, String params) {
+    	SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
 			try {
 				Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
@@ -916,18 +1051,18 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			toast.show();
 			Log.i(TAG, params);
 			return true;
-		} else if (command.equals("showKeyboard") && mSurfaceView != null) {
+		} else if (command.equals("showKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
 			inputMethodManager.toggleSoftInputFromWindow(
-					mSurfaceView.getApplicationWindowToken(),
+					surfView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
-		} else if (command.equals("hideKeyboard") && mSurfaceView != null) {
+		} else if (command.equals("hideKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			inputMethodManager.toggleSoftInputFromWindow(
-					mSurfaceView.getApplicationWindowToken(),
+					surfView.getApplicationWindowToken(),
 					InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
@@ -941,7 +1076,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
 			inputBox(title, defString, "OK");
 			return true;
-		} else if (command.equals("vibrate") && mSurfaceView != null) {
+		} else if (command.equals("vibrate") && surfView != null) {
 			int milliseconds = -1;
 			if (params != "") {
 				try {
@@ -958,13 +1093,13 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			// permission.
 			switch (milliseconds) {
 			case -1:
-				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+				surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
 				break;
 			case -2:
-				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+				surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
 				break;
 			case -3:
-				mSurfaceView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+				surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
 				break;
 			default:
 				if (vibrator != null) {
@@ -978,16 +1113,21 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
-			updateScreenRotation();
-			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-				Log.i(TAG, "Must recreate activity on rotation");
-			}
+	      if (javaGL) {
+	        updateScreenRotation();
+	        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+	          Log.i(TAG, "Must recreate activity on rotation");
+	        }
+	      } else {
+	        if (Build.VERSION.SDK_INT >= 9) {
+	          updateScreenRotation();
+	        }
+	      }
 		} else if (command.equals("immersive")) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				updateSystemUiVisibility();
 			}
 		} else if (command.equals("recreate")) {
-			exitEGLRenderLoop();
 			recreate();
 		} else if (command.equals("ask_permission") && params.equals("storage")) {
 			askForStoragePermission();

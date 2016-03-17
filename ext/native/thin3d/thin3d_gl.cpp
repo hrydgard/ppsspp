@@ -164,7 +164,7 @@ public:
 		glBindBuffer(target_, buffer_);
 	}
 
-	void GLLost() override {
+	void GLRestore() override {
 		ILOG("Recreating vertex buffer after glLost");
 		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
 		glGenBuffers(1, &buffer_);
@@ -239,7 +239,7 @@ public:
 	void Apply(const void *base = nullptr);
 	void Unapply();
 	void Compile();
-	void GLLost() override;
+	void GLRestore() override;
 	bool RequiresBuffer() override {
 		return id_ != 0;
 	}
@@ -280,7 +280,7 @@ public:
 	void SetVector(const char *name, float *value, int n) override;
 	void SetMatrix4x4(const char *name, const Matrix4x4 &value) override;
 
-	void GLLost() override {
+	void GLRestore() override {
 		vshader->Compile(vshader->GetSource().c_str());
 		fshader->Compile(fshader->GetSource().c_str());
 		Link();
@@ -466,13 +466,22 @@ public:
 		glBindTexture(target_, tex_);
 	}
 
-	void GLLost() override {
-		// We lost our GL context - zero out the tex_.
+	void GLRestore() override {
+		// We can assume that the texture is gone.
 		tex_ = 0;
 		generatedMips_ = false;
-		// Don't try to restore stuff, that's not what this is for. Lost just means
-		// that all our textures and buffers are invalid.
+		if (!filename_.empty()) {
+			if (LoadFromFile(filename_.c_str())) {
+				ILOG("Reloaded lost texture %s", filename_.c_str());
+			} else {
+				ELOG("Failed to reload lost texture %s", filename_.c_str());
+			}
+		} else {
+			WLOG("Texture %p cannot be restored - has no filename", this);
+			tex_ = 0;
+		}
 	}
+
 	void Finalize(int zim_flags) override;
 
 private:
@@ -573,7 +582,7 @@ void Thin3DGLVertexFormat::Compile() {
 	lastBase_ = -1;
 }
 
-void Thin3DGLVertexFormat::GLLost() {
+void Thin3DGLVertexFormat::GLRestore() {
 	Compile();
 }
 

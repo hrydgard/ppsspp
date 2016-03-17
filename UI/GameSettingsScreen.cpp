@@ -193,6 +193,8 @@ void GameSettingsScreen::CreateViews() {
 #ifdef ANDROID
 	static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 	int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
+	if (max_res_temp == 3)
+		max_res_temp = 4;  // At least allow 2x
 	int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
 	UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
@@ -647,14 +649,18 @@ UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	ILOG("New display rotation: %d", g_Config.iScreenRotation);
+	ILOG("Sending rotate");
 	System_SendMessage("rotate", "");
+	ILOG("Got back from rotate");
 	return UI::EVENT_DONE;
 }
 
 static void RecreateActivity() {
 	const int SYSTEM_JELLYBEAN = 16;
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
+		ILOG("Sending recreate");
 		System_SendMessage("recreate", "");
+		ILOG("Got back from recreate");
 	} else {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));

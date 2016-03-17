@@ -129,7 +129,7 @@ public:
 	void RestoreVAO();
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-	void GLLost() override;
+	void GLRestore() override;
 	void Resized();
 
 	void DecimateTrackedVertexArrays();

@@ -1,6 +1,8 @@
 package org.ppsspp.ppsspp;
 
-// Touch- and sensor-enabled SurfaceView.
+// Touch- and sensor-enabled GLSurfaceView.
+// Used when javaGL = true.
+//
 // Supports simple multitouch and pressure.
 // DPI scaling is handled by the native code.
 
@@ -11,18 +13,15 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Handler;
-// import android.os.Build;
-// import android.util.Log;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.SurfaceView;
-
 import com.bda.controller.*;
 
-public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
-	private static String TAG = "NativeSurfaceView";
+public class NativeGLView extends GLSurfaceView implements SensorEventListener, ControllerListener {
+	private static String TAG = "NativeGLView";
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
 
@@ -30,26 +29,34 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	private Controller mController = null;
 	private boolean isMogaPro = false;
 
-	public NativeSurfaceView(NativeActivity activity, int fixedW, int fixedH) {
-		super(activity);
+	NativeActivity mActivity;
 
-		Log.i(TAG, "NativeSurfaceView");
+	public NativeGLView(NativeActivity activity) {
+		super(activity);
+		mActivity = activity;
+
+		/*// TODO: This would be nice.
+		if (Build.VERSION.SDK_INT >= 11) {
+			try {
+				Method method_setPreserveEGLContextOnPause = GLSurfaceView.class.getMethod(
+						"setPreserveEGLContextOnPause", new Class[] { Boolean.class });
+				Log.i(TAG, "Invoking setPreserveEGLContextOnPause");
+				method_setPreserveEGLContextOnPause.invoke(this, true);
+			} catch (NoSuchMethodException e) {
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				e.printStackTrace();
+			} catch (IllegalAccessException e) {
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				e.printStackTrace();
+			}
+		}*/
 
 		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
-
-		// Maybe we need to use this?
-		if (fixedW != 0 && fixedH != 0) {
-			Log.i(TAG, "Setting surface holder to use a fixed size of " + fixedW + "x" + fixedH + " pixels");
-			this.getHolder().setFixedSize(fixedW, fixedH);
-		} else {
-			Log.i(TAG, "Using default backbuffer size.");
-		}
-
-		// this.getHolder().setFormat(PixelFormat.RGBA_8888);
-
 		try {
 			MogaHack.init(mController, activity);
 			Log.i(TAG, "MOGA initialized");
@@ -70,8 +77,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
 		int numTouchesHandled = 0;
-		//float scaleX = (float)mActivity.getRenderer().getDpiScaleX();
-		//float scaleY = (float)mActivity.getRenderer().getDpiScaleY();
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -123,14 +128,20 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
 	}
 
+	@Override
 	public void onPause() {
+		Log.i(TAG, "onPause");
+		super.onPause();
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
 			mController.onPause();
 		}
 	}
 
+	@Override
 	public void onResume() {
+		Log.i(TAG, "onResume");
+		super.onResume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
 			mController.onResume();
@@ -141,6 +152,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	}
 
 	public void onDestroy() {
+		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}
