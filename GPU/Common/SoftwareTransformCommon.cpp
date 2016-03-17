@@ -412,8 +412,10 @@ void SoftwareTransform(
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
-		bool separateAlphaClear = gstate.isClearModeColorMask() != gstate.isClearModeAlphaMask();
-		if (params->allowSeparateAlphaClear || !separateAlphaClear) {
+		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
+		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
+		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
+		if (params->allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil)) {
 			result->color = transformed[1].color0_32;
 			// Need to rescale from a [0, 1] float.  This is the final transformed value.
 			result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
