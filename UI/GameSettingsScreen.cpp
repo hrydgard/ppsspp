@@ -647,14 +647,18 @@ UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	ILOG("New display rotation: %d", g_Config.iScreenRotation);
+	ILOG("Sending rotate");
 	System_SendMessage("rotate", "");
+	ILOG("Got back from rotate");
 	return UI::EVENT_DONE;
 }
 
 static void RecreateActivity() {
 	const int SYSTEM_JELLYBEAN = 16;
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
+		ILOG("Sending recreate");
 		System_SendMessage("recreate", "");
+		ILOG("Got back from recreate");
 	} else {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));

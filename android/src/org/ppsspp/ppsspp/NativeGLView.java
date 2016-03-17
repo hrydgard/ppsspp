@@ -1,6 +1,8 @@
 package org.ppsspp.ppsspp;
 
-// Touch- and sensor-enabled SurfaceView.
+// Touch- and sensor-enabled GLSurfaceView.
+// Used when javaGL = true.
+//
 // Supports simple multitouch and pressure.
 // DPI scaling is handled by the native code.
 
@@ -128,6 +130,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 
 	@Override
 	public void onPause() {
+		Log.i(TAG, "onPause");
 		super.onPause();
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
@@ -137,6 +140,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 
 	@Override
 	public void onResume() {
+		Log.i(TAG, "onResume");
 		super.onResume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
@@ -148,6 +152,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	}
 
 	public void onDestroy() {
+		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}

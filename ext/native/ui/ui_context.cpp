@@ -120,7 +120,7 @@ void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
 	*fontStyle_ = fontStyle;
 	if (textDrawer_) {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
-		Text()->SetFont(fontStyle.fontName.c_str(), fontStyle.sizePts, fontStyle.flags);
+		textDrawer_->SetFont(fontStyle.fontName.c_str(), fontStyle.sizePts, fontStyle.flags);
 	}
 }
 

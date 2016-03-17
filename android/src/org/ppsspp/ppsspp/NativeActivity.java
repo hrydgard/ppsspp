@@ -420,6 +420,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
+    	updateDisplayMetrics(null);
 	    if (javaGL) {
 	        mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
@@ -447,7 +448,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	        // if we specify that we want destination alpha in the config chooser, which we do.
 	        // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
 
-
 	        // Needed to avoid banding on Ouya?
 	        if (Build.MANUFACTURER == "OUYA") {
 	        	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
@@ -463,14 +463,12 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	        mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
         } else {
-
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 					setupSystemUiCallback();
 				}
 			}
-	    	updateDisplayMetrics(null);
 
 			NativeApp.computeDesiredBackbufferDimensions();
 			int bbW = NativeApp.getDesiredBackbufferWidth();
@@ -487,15 +485,18 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     }
 
 	@Override
-	public void surfaceCreated(SurfaceHolder holder)
-	{
+	public void surfaceCreated(SurfaceHolder holder) {
 		Log.d(TAG, "Surface created.");
 	}
 
 	//
 	@Override
-	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height)
-	{
+	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+	    if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into surfaceChanged.");
+	    	return;
+	    }
+
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// Make sure we have fresh display metrics so the computations go right.
 		// This is needed on some very old devices, I guess event order is different or something...
@@ -514,6 +515,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
 	protected synchronized void ensureRenderLoop() {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into ensureRenderLoop.");
+	    	return;
+		}
 		if (mSurface == null) {
 			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
 			return;
@@ -528,6 +533,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	// Invariants: After this, mRenderLoopThread will be null, and the thread has exited.
 	private synchronized void joinRenderLoopThread() {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
+	    	return;
+		}
+
 		if (mRenderLoopThread != null) {
 			// This will wait until the thread has exited.
 			Log.i(TAG, "exitEGLRenderLoop");
@@ -546,11 +556,15 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
+		if (javaGL) {
+	    	Log.e(TAG, "JavaGL - should not get into surfaceDestroyed.");
+	    	return;
+		}
+
 		mSurface = null;
 		Log.w(TAG, "Surface destroyed.");
 		joinRenderLoopThread();
 	}
-
 
     @TargetApi(19)
 	void setupSystemUiCallback() {
@@ -573,17 +587,17 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     @Override
 	protected void onDestroy() {
 		super.onDestroy();
-    if (javaGL) {
-      	Log.i(TAG, "onDestroy");
-		mGLSurfaceView.onDestroy();
-		nativeRenderer.onDestroyed();
-		NativeApp.audioShutdown();
-		// Probably vain attempt to help the garbage collector...
-		mGLSurfaceView = null;
-		audioFocusChangeListener = null;
-		audioManager = null;
-		unregisterCallbacks();
-    }
+	    if (javaGL) {
+	      	Log.i(TAG, "onDestroy");
+			mGLSurfaceView.onDestroy();
+			nativeRenderer.onDestroyed();
+			NativeApp.audioShutdown();
+			// Probably vain attempt to help the garbage collector...
+			mGLSurfaceView = null;
+			audioFocusChangeListener = null;
+			audioManager = null;
+			unregisterCallbacks();
+	    }
 		if (shuttingDown) {
 			NativeApp.shutdown();
 		}
@@ -594,14 +608,20 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		super.onPause();
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-    if (!javaGL) {
-		Log.i(TAG, "Pausing surface view");
 		NativeApp.pause();
-		mSurfaceView.onPause();
-		Log.i(TAG, "Joining render thread");
-		joinRenderLoopThread();
+	    if (!javaGL) {
+			Log.i(TAG, "Pausing surface view");
+			mSurfaceView.onPause();
+			Log.i(TAG, "Joining render thread");
+			joinRenderLoopThread();
+	    } else {
+			if (mGLSurfaceView != null) {
+				mGLSurfaceView.onPause();
+			} else {
+				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
+			}
+	    }
 		Log.i(TAG, "onPause completed");
-    }
 	}
 
     private boolean detectOpenGLES20() {
@@ -629,17 +649,21 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 
 		Log.i(TAG, "onResume");
-		if (mGLSurfaceView != null) {
-			mGLSurfaceView.onResume();
-		} else {
-			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+		if (javaGL) {
+			if (mGLSurfaceView != null) {
+				mGLSurfaceView.onResume();
+			} else {
+				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+			}
 		}
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
 
-		// Restart the render loop.
-		ensureRenderLoop();
+		if (!javaGL) {
+			// Restart the render loop.
+			ensureRenderLoop();
+		}
 	}
 
     @Override
@@ -651,11 +675,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
         }
         updateDisplayMetrics(null);
         if (javaGL) {
-		Point sz = new Point();
-		getDesiredBackbufferSize(sz);
-		if (sz.x > 0) {
-			mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
-		}
+			Point sz = new Point();
+			getDesiredBackbufferSize(sz);
+			if (sz.x > 0) {
+				mGLSurfaceView.getHolder().setFixedSize(sz.x/2, sz.y/2);
+			}
         }
     }
 
@@ -1093,16 +1117,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			shuttingDown = true;
 			finish();
 		} else if (command.equals("rotate")) {
-      if (javaGL) {
-        updateScreenRotation();
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-          Log.i(TAG, "Must recreate activity on rotation");
-        }
-      } else {
-        if (Build.VERSION.SDK_INT >= 9) {
-          updateScreenRotation();
-        }
-      }
+	      if (javaGL) {
+	        updateScreenRotation();
+	        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+	          Log.i(TAG, "Must recreate activity on rotation");
+	        }
+	      } else {
+	        if (Build.VERSION.SDK_INT >= 9) {
+	          updateScreenRotation();
+	        }
+	      }
 		} else if (command.equals("immersive")) {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 				updateSystemUiVisibility();
