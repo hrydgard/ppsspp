@@ -220,7 +220,7 @@ bool glsl_recompile(GLSLProgram *program, std::string *error_message) {
 	return true;
 }
 
-void GLSLProgram::GLLost() {
+void GLSLProgram::GLRestore() {
 	// Quoth http://developer.android.com/reference/android/opengl/GLSurfaceView.Renderer.html;
 	// "Note that when the EGL context is lost, all OpenGL resources associated with that context will be automatically deleted. 
 	// You do not need to call the corresponding "glDelete" methods such as glDeleteTextures to manually delete these lost resources."
@@ -228,16 +228,15 @@ void GLSLProgram::GLLost() {
 	// glDeleteShader(this->vsh_);
 	// glDeleteShader(this->fsh_);
 	// glDeleteProgram(this->program_);
-	ILOG("Restoring GLSL program %s/%s",
-		strlen(this->vshader_filename) > 0 ? this->vshader_filename : "(mem)",
-		strlen(this->fshader_filename) > 0 ? this->fshader_filename : "(mem)");
 	this->program_ = 0;
 	this->vsh_ = 0;
 	this->fsh_ = 0;
+	ILOG("Restoring GLSL program %s/%s",
+		strlen(this->vshader_filename) > 0 ? this->vshader_filename : "(mem)",
+		strlen(this->fshader_filename) > 0 ? this->fshader_filename : "(mem)");
 	glsl_recompile(this);
-	// Note that uniforms are still lost, hopefully the client sets them every frame at a minimum...
+	// Note that any shader uniforms are still lost, hopefully the client sets them every frame at a minimum...
 }
-
 
 int glsl_attrib_loc(const GLSLProgram *program, const char *name) {
 	return glGetAttribLocation(program->program_, name);

@@ -209,8 +209,8 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 	}
 }
 
-void TransformDrawEngine::GLLost() {
-	ILOG("TransformDrawEngine::GLLost()");
+void TransformDrawEngine::GLRestore() {
+	ILOG("TransformDrawEngine::GLRestore()");
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();

@@ -432,8 +432,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
 	} else {
-		NativeDeviceLost();  // ???
-		ILOG("displayInit: NativeDeviceLost completed.");
+		NativeDeviceRestore();  // ???
+		ILOG("displayInit: NativeDeviceRestore completed.");
 	}
 }
 
@@ -878,9 +878,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	ILOG("After render loop.");
 	g_gameInfoCache->WorkQueue()->Flush();
-
-	NativeDeviceLost();
-	ILOG("NativeDeviceLost completed.");
 
 	NativeShutdownGraphics();
 	renderer_inited = false;
