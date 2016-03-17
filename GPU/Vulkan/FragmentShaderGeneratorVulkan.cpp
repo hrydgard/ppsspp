@@ -268,7 +268,7 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s int(base.alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s base.alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				} else {
 					// This means NEVER.  See above.
 					WRITE(p, "  discard;\n");
@@ -293,11 +293,8 @@ bool GenerateVulkanGLSLFragmentShader(const ShaderID &id, char *buffer) {
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
-					// Apparently GLES3 does not support vector bitwise ops.
 					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-					const char *maskedFragColor = "ivec3(v_scaled.r & base.alphacolormask.r, v_scaled.g & base.alphacolormask.g, v_scaled.b & base.alphacolormask.b)";
-					const char *maskedColorRef = "ivec3(int(base.alphacolorref.r) & base.alphacolormask.r, int(base.alphacolorref.g) & base.alphacolormask.g, int(base.alphacolorref.b) & base.alphacolormask.b)";
-					WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
+					WRITE(p, "  if ((v_scaled & base.alphacolormask.rgb) %s (base.alphacolorref.rgb & base.alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
 				} else {
 					WRITE(p, "  discard;\n");
 				}
