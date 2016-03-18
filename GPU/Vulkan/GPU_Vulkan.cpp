@@ -471,6 +471,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		gstate_c.featureFlags |= GPU_SUPPORTS_LOGIC_OP;
 	}
+	if (vulkan_->GetFeaturesEnabled().samplerAnisotropy) {
+		gstate_c.featureFlags |= GPU_SUPPORTS_ANISOTROPY;
+	}
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	gstate_c.featureFlags |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	gstate_c.featureFlags |= GPU_SUPPORTS_FBO;

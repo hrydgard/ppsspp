@@ -105,15 +105,14 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.minFilter = key.minFilt ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
-	// TODO: Need to check for device support before enabling aniso
-	/*
-	if (g_Config.iAnisotropyLevel > 1) {
+	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
 		samp.maxAnisotropy = g_Config.iAnisotropyLevel;
 		samp.anisotropyEnable = true;
+	} else {
+		samp.maxAnisotropy = 1.0f;
+		samp.anisotropyEnable = false;
 	}
-	*/
-	samp.maxAnisotropy = 1.0f;
-	samp.anisotropyEnable = false;
+
 	samp.maxLod = key.maxLevel;
 	samp.minLod = 0.0f;
 	samp.mipLodBias = 0.0f;
