@@ -664,6 +664,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	if (featuresAvailable_.depthBounds) {
 		featuresEnabled_.depthBounds = true;
 	}
+	if (featuresAvailable_.samplerAnisotropy) {
+		featuresEnabled_.samplerAnisotropy = true;
+	}
 
 	VkDeviceCreateInfo device_info = {};
 	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
