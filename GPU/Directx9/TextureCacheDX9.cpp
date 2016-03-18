@@ -603,7 +603,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	D3DTEXTUREFILTERTYPE mipf = (D3DTEXTUREFILTERTYPE)MipFilt[minFilt];
 	D3DTEXTUREFILTERTYPE magf = (D3DTEXTUREFILTERTYPE)MagFilt[magFilt];
 
-	if (g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
+	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0 && minf == D3DTEXF_LINEAR) {
 		minf = D3DTEXF_ANISOTROPIC;
 	}
 
@@ -653,8 +653,11 @@ void TextureCacheDX9::StartFrame() {
 		Decimate();
 	}
 
-	DWORD anisotropyLevel = (DWORD)g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : g_Config.iAnisotropyLevel;
-	pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
+	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
+		DWORD aniso = 1 << g_Config.iAnisotropyLevel;
+		DWORD anisotropyLevel = aniso > maxAnisotropyLevel ? maxAnisotropyLevel : aniso;
+		pD3Ddevice->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, anisotropyLevel);
+	}
 
 }
 

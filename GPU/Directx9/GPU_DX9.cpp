@@ -481,6 +481,23 @@ void DIRECTX9_GPU::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
 
+	D3DCAPS9 caps;
+	ZeroMemory(&caps, sizeof(caps));
+	HRESULT result = 0;
+	if (pD3DdeviceEx) {
+		result = pD3DdeviceEx->GetDeviceCaps(&caps);
+	} else {
+		result = pD3Ddevice->GetDeviceCaps(&caps);
+	}
+	if (FAILED(result)) {
+		WARN_LOG_REPORT(G3D, "Direct3D9: Failed to get the device caps!");
+	} else {
+		if ((caps.RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0 && caps.MaxAnisotropy > 1)
+			features |= GPU_SUPPORTS_ANISOTROPY;
+		if ((caps.TextureCaps & (D3DPTEXTURECAPS_NONPOW2CONDITIONAL | D3DPTEXTURECAPS_POW2)) == 0)
+			features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
+	}
+
 	if (!g_Config.bHighQualityDepth) {
 		features |= GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT;
 	} else if (PSP_CoreParameter().compat.flags().PixelDepthRounding) {

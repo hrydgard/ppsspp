@@ -337,7 +337,7 @@ int main(int argc, const char* argv[])
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
-	g_Config.iAnisotropyLevel = 8;
+	g_Config.iAnisotropyLevel = 4;
 #endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
