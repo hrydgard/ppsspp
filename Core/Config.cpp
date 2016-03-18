@@ -454,11 +454,11 @@ static ConfigSetting graphicsSettings[] = {
 #endif
 	ReportedConfigSetting("ForceMaxEmulatedFPS", &g_Config.iForceMaxEmulatedFPS, 60, true, true),
 
-	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4...
+	// TODO: Hm, on fast mobile GPUs we should definitely default to at least 4 (setting = 2)...
 #ifdef MOBILE_DEVICE
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 0, true, true),
 #else
-	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 8, true, true),
+	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 #endif
 	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, true, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
@@ -862,6 +862,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		vPinnedPaths.push_back(it->second);
 	}
 
+	// This caps the exponent 4 (so 16x.)
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
 	}

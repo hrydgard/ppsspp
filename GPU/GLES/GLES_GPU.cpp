@@ -565,6 +565,8 @@ void GLES_GPU::CheckGPUFeatures() {
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 
+	features |= GPU_SUPPORTS_ANISOTROPY;
+
 	// If we already have a 16-bit depth buffer, we don't need to round.
 	if (fbo_standard_z_depth() > 16) {
 		if (!g_Config.bHighQualityDepth && (features & GPU_SUPPORTS_ACCURATE_DEPTH) != 0) {

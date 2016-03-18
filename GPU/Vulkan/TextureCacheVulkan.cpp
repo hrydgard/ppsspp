@@ -106,7 +106,8 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	samp.mipmapMode = key.mipFilt ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY) && g_Config.iAnisotropyLevel > 0) {
-		samp.maxAnisotropy = g_Config.iAnisotropyLevel;
+		// Docs say the min of this value and the supported max are used.
+		samp.maxAnisotropy = 1 << g_Config.iAnisotropyLevel;
 		samp.anisotropyEnable = true;
 	} else {
 		samp.maxAnisotropy = 1.0f;
