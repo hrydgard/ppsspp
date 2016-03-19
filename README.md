@@ -21,8 +21,9 @@ For build instructions and other development tutorials, see the [wiki](https://g
 What's new in 1.2.2
 -------------------
 * Went back to the old way of initializing graphics on Android. Should fix many recent issues.
-* Some graphical fixes, and a screen clear optimization
-* Fix to the homebrew store incorrectly unzipping some games. This will lead to more games being added.
+* Some graphical fixes, a vertex cache performance improvement and a screen clear optimization
+* Fix for dual source blending on most SHIELD devices, causing graphical issues.
+* Fix the homebrew store incorrectly unzipping some games. This will lead to more games being added.
 * Slightly faster ISO handling
 
 What's new in 1.2.1
