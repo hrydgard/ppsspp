@@ -440,7 +440,7 @@ void __DisplayGetDebugStats(char stats[], size_t bufsize) {
 		"Vertex shaders loaded: %i\n"
 		"Fragment shaders loaded: %i\n"
 		"Combined shaders loaded: %i\n"
-		"Pushbuffer space used: %i\n",
+		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		kernelStats.msInSyscalls * 1000.0f,
@@ -465,7 +465,9 @@ void __DisplayGetDebugStats(char stats[], size_t bufsize) {
 		gpuStats.numVertexShaders,
 		gpuStats.numFragmentShaders,
 		gpuStats.numShaders,
-		gpuStats.pushSpaceUsed
+		gpuStats.pushUBOSpaceUsed,
+		gpuStats.pushVertexSpaceUsed,
+		gpuStats.pushIndexSpaceUsed
 		);
 	stats[bufsize - 1] = '\0';
 	gpuStats.ResetFrame();

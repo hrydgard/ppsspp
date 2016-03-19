@@ -147,7 +147,9 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	for (int i = 0; i < 2; i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
 		assert(VK_SUCCESS == res);
-		frame_[i].pushData = new VulkanPushBuffer(vulkan_, 32 * 1024 * 1024);  // TODO: Do something more dynamic
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 16 * 1024 * 1024);  // TODO: Do something more dynamic
+		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);  // TODO: Do something more dynamic
+		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);  // TODO: Do something more dynamic
 	}
 
 	VkPipelineLayoutCreateInfo pl;
@@ -184,7 +186,9 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 
 	for (int i = 0; i < 2; i++) {
 		vulkan_->Delete().QueueDeleteDescriptorPool(frame_[i].descPool);
-		delete frame_[i].pushData;
+		delete frame_[i].pushUBO;
+		delete frame_[i].pushVertex;
+		delete frame_[i].pushIndex;
 	}
 	vulkan_->Delete().QueueDeleteSampler(depalSampler_);
 }
@@ -193,13 +197,19 @@ void DrawEngineVulkan::BeginFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
 	vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 	frame->descSets.clear();
-	frame->pushData->Begin(vulkan_->GetDevice());
+	frame->pushUBO->Begin(vulkan_->GetDevice());
+	frame->pushVertex->Begin(vulkan_->GetDevice());
+	frame->pushIndex->Begin(vulkan_->GetDevice());
 }
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
-	gpuStats.pushSpaceUsed = (int)frame->pushData->GetOffset();
-	frame->pushData->End(vulkan_->GetDevice());
+	gpuStats.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
+	gpuStats.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
+	gpuStats.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
+	frame->pushUBO->End(vulkan_->GetDevice());
+	frame->pushVertex->End(vulkan_->GetDevice());
+	frame->pushIndex->End(vulkan_->GetDevice());
 	curFrame_++;
 }
 
@@ -243,7 +253,6 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	SetupVertexDecoderInternal(vertType);
 
 	*bytesRead = vertexCount * dec_->VertexSize();
-
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
 		return;
 
@@ -467,7 +476,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	// TODO: The descriptor set seems to be unbinding the texture when not specified.  Cache it or the imageView instead?
 	// TODO: Add this back when fixed: gstate_c.textureChanged != TEXCHANGE_UNCHANGED &&
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture(frame->pushData);
+		textureCache_->SetTexture(frame->pushUBO);
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
@@ -477,7 +486,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		textureCache_->ApplyTexture(imageView, sampler);
 	}
 
-	VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, frame->pushData->GetVkBuffer());
+	VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, frame->pushUBO->GetVkBuffer());
 
 	GEPrimitiveType prim = prevPrim_;
 
@@ -540,34 +549,35 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 		if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
-			baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushData);
+			baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO);
 		}
 		if (pipeline->uniformBlocks & UB_VS_LIGHTS) {
-			lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushData);
+			lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO);
 		}
 		if (pipeline->uniformBlocks & UB_VS_BONES) {
-			boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushData);
+			boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO);
 		}
 
-		VkBuffer buf[1] = {frame->pushData->GetVkBuffer()};
+		VkBuffer vbuf[1] = { frame->pushVertex->GetVkBuffer() };
+		VkBuffer ibuf = { frame->pushIndex->GetVkBuffer() };
 		const uint32_t dynamicUBOOffsets[3] = {
 			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
-		vbOffset = (uint32_t)frame->pushData->PushAligned(decoded, indexGen.MaxIndex() * stride, 16);
+		vbOffset = (uint32_t)frame->pushVertex->PushAligned(decoded, indexGen.MaxIndex() * stride, 16);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
-			ibOffset = (uint32_t)frame->pushData->PushAligned(decIndex, 2 * indexGen.VertexCount(), 16);
+			ibOffset = (uint32_t)frame->pushIndex->PushAligned(decIndex, 2 * indexGen.VertexCount(), 16);
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
 			// Might want to separate vertices out into a different push buffer in that case.
-			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
-			vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
+			vkCmdBindVertexBuffers(cmd_, 0, 1, vbuf, offsets);
+			vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, 0, 0);
 		} else {
-			vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
+			vkCmdBindVertexBuffers(cmd_, 0, 1, vbuf, offsets);
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 		}
 	} else {
@@ -642,7 +652,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
 			if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
-				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushData);
+				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO);
 			}
 
 			const uint32_t dynamicUBOOffsets[3] = {
@@ -650,21 +660,22 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			};
 			vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
-			VkBuffer buf[1] = { frame->pushData->GetVkBuffer() };
+			VkBuffer vbuf[1] = { frame->pushVertex->GetVkBuffer() };
+			VkBuffer ibuf = { frame->pushIndex->GetVkBuffer() };
 			if (drawIndexed) {
-				vbOffset = (uint32_t)frame->pushData->PushAligned(drawBuffer, maxIndex * sizeof(TransformedVertex), 16);
-				ibOffset = (uint32_t)frame->pushData->PushAligned(inds, sizeof(short) * numTrans, 16);
+				vbOffset = (uint32_t)frame->pushVertex->PushAligned(drawBuffer, maxIndex * sizeof(TransformedVertex), 16);
+				ibOffset = (uint32_t)frame->pushIndex->PushAligned(inds, sizeof(short) * numTrans, 16);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
-				vkCmdBindIndexBuffer(cmd_, buf[0], ibOffset, VK_INDEX_TYPE_UINT16);
+				vkCmdBindVertexBuffers(cmd_, 0, 1, vbuf, offsets);
+				vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
 			} else {
-				vbOffset = (uint32_t)frame->pushData->PushAligned(drawBuffer, numTrans * sizeof(TransformedVertex), 16);
+				vbOffset = (uint32_t)frame->pushVertex->PushAligned(drawBuffer, numTrans * sizeof(TransformedVertex), 16);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
-				vkCmdBindVertexBuffers(cmd_, 0, 1, buf, offsets);
+				vkCmdBindVertexBuffers(cmd_, 0, 1, vbuf, offsets);
 				vkCmdDraw(cmd_, numTrans, 1, 0, 0);
 			}
 		} else if (result.action == SW_CLEAR) {

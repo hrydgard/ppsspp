@@ -181,7 +181,9 @@ private:
 	// We alternate between these.
 	struct FrameData {
 		VkDescriptorPool descPool;
-		VulkanPushBuffer *pushData;
+		VulkanPushBuffer *pushUBO;
+		VulkanPushBuffer *pushVertex;
+		VulkanPushBuffer *pushIndex;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
 	};
