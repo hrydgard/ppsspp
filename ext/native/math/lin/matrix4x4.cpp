@@ -203,23 +203,36 @@ void Matrix4x4::setProjectionD3D(float near_plane, float far_plane, float fov_ho
 }
 
 void Matrix4x4::setOrtho(float left, float right, float bottom, float top, float near, float far) {
-	setIdentity();
+	empty();
 	xx = 2.0f / (right - left);
 	yy = 2.0f / (top - bottom);
 	zz = 2.0f / (far - near);
 	wx = -(right + left) / (right - left);
 	wy = -(top + bottom) / (top - bottom);
 	wz = -(far + near) / (far - near);
+	ww = 1.0f;
 }
 
 void Matrix4x4::setOrthoD3D(float left, float right, float bottom, float top, float near, float far) {
-	setIdentity();
+	empty();
 	xx = 2.0f / (right - left);
 	yy = 2.0f / (top - bottom);
 	zz = 1.0f / (far - near);
 	wx = -(right + left) / (right - left);
 	wy = -(top + bottom) / (top - bottom);
 	wz = -near / (far - near);
+	ww = 1.0f;
+}
+
+void Matrix4x4::setOrthoVulkan(float left, float right, float top, float bottom, float near, float far) {
+	empty();
+	xx = 2.0f / (right - left);
+	yy = 2.0f / (bottom - top);
+	zz = 1.0f / (far - near);
+	wx = -(right + left) / (right - left);
+	wy = -(top + bottom) / (bottom - top);
+	wz = -near / (far - near);
+	ww = 1.0f;
 }
 
 void Matrix4x4::setProjectionInf(const float near_plane, const float fov_horiz, const float aspect) {

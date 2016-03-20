@@ -120,6 +120,7 @@ public:
 	void setProjectionInf(float near_plane, float fov_horiz, float aspect = 0.75f);
 	void setOrtho(float left, float right, float bottom, float top, float near, float far);
 	void setOrthoD3D(float left, float right, float bottom, float top, float near, float far);
+	void setOrthoVulkan(float left, float right, float top, float bottom, float near, float far);
 	void setShadow(float Lx, float Ly, float Lz, float Lw) {
 		float Pa=0;
 		float Pb=1;

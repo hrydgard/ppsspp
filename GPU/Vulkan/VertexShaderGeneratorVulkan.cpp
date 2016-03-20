@@ -173,7 +173,8 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	if (useHWTransform)
 		WRITE(p, "layout (location = %d) in vec3 position;\n", PspAttributeLocation::POSITION);
 	else
-		WRITE(p, "layout (location = %d) in vec4 position;\n", PspAttributeLocation::POSITION);  // need to pass the fog coord in w
+		// we pass the fog coord in w
+		WRITE(p, "layout (location = %d) in vec4 position;\n", PspAttributeLocation::POSITION);
 
 	if (useHWTransform && hasNormal)
 		WRITE(p, "layout (location = %d) in vec3 normal;\n", PspAttributeLocation::NORMAL);

@@ -69,7 +69,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
 #ifdef SHADERLOG
-		OutputDebugStringA("OK");
+		OutputDebugStringA("OK\n");
 #endif
 	}
 
@@ -121,7 +121,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
 #ifdef SHADERLOG
-		OutputDebugStringA("OK");
+		OutputDebugStringA("OK\n");
 #endif
 	}
 
@@ -256,8 +256,7 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 
 	if (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX) {
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
-		ConvertProjMatrixToVulkanThrough(proj_through);
+		proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 		CopyMatrix4x4(ub_base.proj_through, proj_through.getReadPtr());
 	}
 

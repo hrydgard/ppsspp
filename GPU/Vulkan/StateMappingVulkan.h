@@ -24,7 +24,7 @@ struct VulkanDynamicState {
 // Can't use enums unfortunately, they end up signed and breaking values above half their ranges.
 struct VulkanPipelineRasterStateKey {
 	// Blend
-	bool blendEnable : 1;
+	unsigned int blendEnable : 1;
 	unsigned int srcColor : 5;  // VkBlendFactor
 	unsigned int destColor : 5;  // VkBlendFactor
 	unsigned int srcAlpha : 5;  // VkBlendFactor
@@ -32,18 +32,18 @@ struct VulkanPipelineRasterStateKey {
 	// bool useBlendConstant : 1;  // sacrifice a bit to cheaply check if we need to update the blend color
 	unsigned int blendOpColor : 3;  // VkBlendOp
 	unsigned int blendOpAlpha : 3;  // VkBlendOp
-	bool logicOpEnable : 1;
+	unsigned int logicOpEnable : 1;
 	unsigned int logicOp : 4;  // VkLogicOp
 	unsigned int colorWriteMask : 4;
 
 	// Depth/Stencil
-	bool depthTestEnable : 1;
-	bool depthWriteEnable : 1;
+	unsigned int depthTestEnable : 1;
+	unsigned int depthWriteEnable : 1;
 	unsigned int depthCompareOp : 3;  // VkCompareOp 
-	bool stencilTestEnable : 1;
-	unsigned int stencilCompareOp : 4;  // VkCompareOp
+	unsigned int stencilTestEnable : 1;
+	unsigned int stencilCompareOp : 3;  // VkCompareOp
 	unsigned int stencilPassOp : 4; // VkStencilOp
-	unsigned int stencilFailOp : 4; //VkStencilOp 
+	unsigned int stencilFailOp : 4; // VkStencilOp 
 	unsigned int stencilDepthFailOp : 4;  // VkStencilOp 
 
 	// We'll use dynamic state for writemask, reference and comparemask to start with,
@@ -54,7 +54,8 @@ struct VulkanPipelineRasterStateKey {
 	unsigned int topology : 4;  // VkPrimitiveTopology 
 
 	bool operator < (const VulkanPipelineRasterStateKey &other) const {
-		return memcmp(this, &other, sizeof(*this)) < 0;
+		size_t size = sizeof(VulkanPipelineRasterStateKey);
+		return memcmp(this, &other, size) < 0;
 	}
 };
 
