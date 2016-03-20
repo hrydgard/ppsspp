@@ -477,7 +477,7 @@ static int Replace_dl_write_matrix() {
 		return 60;
 	}
 
-	u32 matrix;
+	u32 matrix = 0;
 	int count = 12;
 	switch (PARAM(1)) {
 	case 3:

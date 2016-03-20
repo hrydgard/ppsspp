@@ -180,6 +180,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			// loadstate if audioList is nonempty
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
+			// These sizeof(pointers) are wrong, but kept to avoid breaking on old saves.
+			// They're not used in new savestates.
 			p.DoArray(codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
 			p.DoArray(ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
 			for (int i = 0; i < count; i++) {

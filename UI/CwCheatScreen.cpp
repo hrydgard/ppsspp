@@ -182,6 +182,8 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (!retval) {
 		ERROR_LOG(COMMON, "Failed creating notepad process");
 	}
+	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
 #elif !defined(MOBILE_DEVICE)
 #if defined(__APPLE__)
 	cheatFile = "open ";

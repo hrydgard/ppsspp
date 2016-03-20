@@ -35,9 +35,9 @@ namespace X64JitConstants {
 	const int NUM_MIPS_GPRS = 36;
 
 #ifdef _M_X64
-	const int NUM_X_REGS = 16;
+	const u32 NUM_X_REGS = 16;
 #elif _M_IX86
-	const int NUM_X_REGS = 8;
+	const u32 NUM_X_REGS = 8;
 #endif
 }
 

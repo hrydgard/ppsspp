@@ -81,7 +81,7 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 	else
 		fname = L"Tahoma";
 
-	uint32_t fontHash = hash::Fletcher((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = fontName ? hash::Fletcher((const uint8_t *)fontName, strlen(fontName)) : 0;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 	

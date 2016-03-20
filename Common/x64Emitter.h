@@ -34,7 +34,7 @@
 namespace Gen
 {
 
-enum X64Reg
+enum X64Reg : u32
 {
 	EAX = 0, EBX = 3, ECX = 1, EDX = 2,
 	ESI = 6, EDI = 7, EBP = 5, ESP = 4,
