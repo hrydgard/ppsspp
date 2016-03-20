@@ -27,6 +27,7 @@
 
 #include "base/stringutil.h"
 #include "Common/Vulkan/VulkanLoader.h"
+#include "Core/Config.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderId.h"
@@ -191,7 +192,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR1);
 	}
 
-	bool prescale = false;
+	bool prescale = g_Config.bPrescaleUV && !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	WRITE(p, "layout (location = 1) %sout vec4 v_color0;\n", shading);
 	if (lmode) {
