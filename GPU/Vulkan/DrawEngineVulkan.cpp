@@ -232,8 +232,8 @@ void DrawEngineVulkan::BeginFrame() {
 		uint32_t *data = (uint32_t *)frame_[0].pushUBO->Push(w * h * 4, &bindOffset, &bindBuf);
 		for (int y = 0; y < h; y++) {
 			for (int x = 0; x < w; x++) {
-				int checkerboard = (x ^ y) & 1;
-				data[y*w + x] = checkerboard ? 0xFF808080 : 0xFF000000;
+				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
+				data[y*w + x] = 0;  // black
 			}
 		}
 		nullTexture_->UploadMip(0, w, h, bindBuf, bindOffset, w);
