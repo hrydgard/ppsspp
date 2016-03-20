@@ -14,8 +14,6 @@
 // has completed.
 //
 // TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
-// TODO: Make this auto-grow and shrink. Need to be careful about returning and using the new
-// buffer handle on overflow.
 class VulkanPushBuffer {
 	struct BufInfo {
 		VkBuffer buffer;
@@ -43,6 +41,7 @@ public:
 	void Begin(VkDevice device) {
 		buf_ = 0;
 		offset_ = 0;
+		Defragment();
 		Map(device);
 	}
 
@@ -117,6 +116,7 @@ public:
 private:
 	bool AddBuffer();
 	void NextBuffer();
+	void Defragment();
 
 	VulkanContext *ctx_;
 	std::vector<BufInfo> buffers_;

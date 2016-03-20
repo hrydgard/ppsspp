@@ -76,3 +76,17 @@ void VulkanPushBuffer::NextBuffer() {
 	offset_ = 0;
 	Map(device);
 }
+
+void VulkanPushBuffer::Defragment() {
+	if (buffers_.size() <= 1) {
+		return;
+	}
+
+	// Okay, we have more than one.  Destroy them all and start over with a larger one.
+	size_t newSize = size_ * buffers_.size();
+	Destroy(ctx_);
+
+	size_ = newSize;
+	bool res = AddBuffer();
+	assert(res);
+}
