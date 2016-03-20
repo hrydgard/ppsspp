@@ -27,9 +27,7 @@ VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : ctx_(vu
 
 bool VulkanPushBuffer::AddBuffer() {
 	VkDevice device = ctx_->GetDevice();
-
-	buf_ = buffers_.size();
-	buffers_.resize(buf_ + 1);
+	BufInfo info;
 
 	VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	b.size = size_;
@@ -39,7 +37,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	b.queueFamilyIndexCount = 0;
 	b.pQueueFamilyIndices = nullptr;
 
-	VkResult res = vkCreateBuffer(device, &b, nullptr, &buffers_[buf_].buffer);
+	VkResult res = vkCreateBuffer(device, &b, nullptr, &info.buffer);
 	if (VK_SUCCESS != res) {
 		return false;
 	}
@@ -49,14 +47,18 @@ bool VulkanPushBuffer::AddBuffer() {
 	ctx_->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
 	alloc.allocationSize = size_;
 
-	res = vkAllocateMemory(device, &alloc, nullptr, &buffers_[buf_].deviceMemory);
+	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
 		return false;
 	}
-	res = vkBindBufferMemory(device, buffers_[buf_].buffer, buffers_[buf_].deviceMemory, 0);
+	res = vkBindBufferMemory(device, info.buffer, info.deviceMemory, 0);
 	if (VK_SUCCESS != res) {
 		return false;
 	}
+
+	buf_ = buffers_.size();
+	buffers_.resize(buf_ + 1);
+	buffers_[buf_] = info;
 	return true;
 }
 
@@ -70,6 +72,10 @@ void VulkanPushBuffer::NextBuffer() {
 	if (buf_ >= buffers_.size()) {
 		bool res = AddBuffer();
 		assert(res);
+		if (!res) {
+			// Let's try not to crash at least?
+			buf_ = 0;
+		}
 	}
 
 	// Now, move to the next buffer and map it.
