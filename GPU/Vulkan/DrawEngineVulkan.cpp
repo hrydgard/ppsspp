@@ -73,7 +73,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	vertexCountInDrawCalls(0),
 	fboTexNeedBind_(false),
 	fboTexBound_(false),
-	curFrame_(0) {
+	curFrame_(0),
+	nullTexture_(nullptr) {
 
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = false;  // this may be a good idea though.
@@ -172,9 +173,10 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	samp.flags = 0;
-	samp.magFilter = VK_FILTER_LINEAR;
-	samp.minFilter = VK_FILTER_LINEAR;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
 	res = vkCreateSampler(device, &samp, nullptr, &depalSampler_);
+	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
 	assert(VK_SUCCESS == res);
 }
 
@@ -195,6 +197,11 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 		delete frame_[i].pushIndex;
 	}
 	vulkan_->Delete().QueueDeleteSampler(depalSampler_);
+	vulkan_->Delete().QueueDeleteSampler(nullSampler_);
+	if (nullTexture_) {
+		nullTexture_->Destroy();
+		delete nullTexture_;
+	}
 }
 
 void DrawEngineVulkan::BeginFrame() {
@@ -213,6 +220,25 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Begin(vulkan_->GetDevice());
 	frame->pushVertex->Begin(vulkan_->GetDevice());
 	frame->pushIndex->Begin(vulkan_->GetDevice());
+
+	// TODO : Find a better place to do this.
+	if (!nullTexture_) {
+		nullTexture_ = new VulkanTexture(vulkan_);
+		int w = 8;
+		int h = 8;
+		nullTexture_->CreateDirect(w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		uint32_t bindOffset;
+		VkBuffer bindBuf;
+		uint32_t *data = (uint32_t *)frame_[0].pushUBO->Push(w * h * 4, &bindOffset, &bindBuf);
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				int checkerboard = (x ^ y) & 1;
+				data[y*w + x] = checkerboard ? 0xFF808080 : 0xFF000000;
+			}
+		}
+		nullTexture_->UploadMip(0, w, h, bindBuf, bindOffset, w);
+		nullTexture_->EndCreate();
+	}
 
 	DirtyAllUBOs();
 }
@@ -499,6 +525,9 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	lightBuf = VK_NULL_HANDLE;
 	boneBuf = VK_NULL_HANDLE;
 	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
+	imageView = VK_NULL_HANDLE;
+	sampler = VK_NULL_HANDLE;
+	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
 
 // The inline wrapper in the header checks for numDrawCalls == 0d
@@ -511,12 +540,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
 	// designed the descriptor set.
 
-	VkImageView imageView = VK_NULL_HANDLE;
-	VkSampler sampler = VK_NULL_HANDLE;
-
 	// TODO: The descriptor set seems to be unbinding the texture when not specified.  Cache it or the imageView instead?
 	// TODO: Add this back when fixed: gstate_c.textureChanged != TEXCHANGE_UNCHANGED &&
-	if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture(frame->pushUBO);
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 		if (gstate_c.needShaderTexClamp) {
@@ -525,6 +551,10 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
 		}
 		textureCache_->ApplyTexture(imageView, sampler);
+		if (imageView == VK_NULL_HANDLE)
+			imageView = nullTexture_->GetImageView();
+		if (sampler == VK_NULL_HANDLE)
+			sampler = nullSampler_;
 	}
 
 	GEPrimitiveType prim = prevPrim_;

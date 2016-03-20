@@ -225,11 +225,18 @@ private:
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 
+	// State cache
 	uint32_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
 	uint32_t boneUBOOffset;
 	VkBuffer baseBuf, lightBuf, boneBuf;
+	VkImageView imageView;
+	VkSampler sampler;
+
+	// Null texture
+	VulkanTexture *nullTexture_;
+	VkSampler nullSampler_;
 
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
