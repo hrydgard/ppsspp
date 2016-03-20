@@ -20,29 +20,79 @@
 
 #include "Common/Vulkan/VulkanMemory.h"
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(0) {
-	VkDevice device = vulkan->GetDevice();
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : ctx_(vulkan), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
+	bool res = AddBuffer();
+	assert(res);
+}
+
+bool VulkanPushBuffer::AddBuffer() {
+	VkDevice device = ctx_->GetDevice();
+	BufInfo info;
 
 	VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-	b.size = size;
+	b.size = size_;
 	b.flags = 0;
 	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	b.queueFamilyIndexCount = 0;
 	b.pQueueFamilyIndices = nullptr;
-	VkResult res = vkCreateBuffer(device, &b, nullptr, &buffer_);
-	assert(VK_SUCCESS == res);
+
+	VkResult res = vkCreateBuffer(device, &b, nullptr, &info.buffer);
+	if (VK_SUCCESS != res) {
+		return false;
+	}
 
 	// Okay, that's the buffer. Now let's allocate some memory for it.
-	VkMemoryAllocateInfo alloc = {};
-	alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	alloc.pNext = nullptr;
+	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	ctx_->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
+	alloc.allocationSize = size_;
 
-	vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
-	alloc.allocationSize = size;
+	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
+	if (VK_SUCCESS != res) {
+		return false;
+	}
+	res = vkBindBufferMemory(device, info.buffer, info.deviceMemory, 0);
+	if (VK_SUCCESS != res) {
+		return false;
+	}
 
-	res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
-	assert(VK_SUCCESS == res);
-	res = vkBindBufferMemory(device, buffer_, deviceMemory_, 0);
-	assert(VK_SUCCESS == res);
+	buf_ = buffers_.size();
+	buffers_.resize(buf_ + 1);
+	buffers_[buf_] = info;
+	return true;
+}
+
+void VulkanPushBuffer::NextBuffer() {
+	VkDevice device = ctx_->GetDevice();
+
+	// First, unmap the current memory.
+	Unmap(device);
+
+	buf_++;
+	if (buf_ >= buffers_.size()) {
+		bool res = AddBuffer();
+		assert(res);
+		if (!res) {
+			// Let's try not to crash at least?
+			buf_ = 0;
+		}
+	}
+
+	// Now, move to the next buffer and map it.
+	offset_ = 0;
+	Map(device);
+}
+
+void VulkanPushBuffer::Defragment() {
+	if (buffers_.size() <= 1) {
+		return;
+	}
+
+	// Okay, we have more than one.  Destroy them all and start over with a larger one.
+	size_t newSize = size_ * buffers_.size();
+	Destroy(ctx_);
+
+	size_ = newSize;
+	bool res = AddBuffer();
+	assert(res);
 }

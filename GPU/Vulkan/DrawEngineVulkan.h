@@ -144,8 +144,11 @@ public:
 	void DirtyAllUBOs();
 
 private:
+	struct FrameData;
+
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DoFlush(VkCommandBuffer cmd);
+	void UpdateUBOs(FrameData *frame);
 
 	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
 
