@@ -646,7 +646,8 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE_SCREENSHOT:
-				if (!TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER)) {
+				callbackResult = TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER);
+				if (!callbackResult) {
 					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;

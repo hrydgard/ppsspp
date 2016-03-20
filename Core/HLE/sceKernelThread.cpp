@@ -1656,7 +1656,7 @@ static void __ReportThreadQueueEmpty() {
 	int idleStatus1 = -1;
 	if (idleThread1) {
 		idleThread1->GetQuickInfo(idleDescription1, sizeof(idleDescription1));
-		idleStatus1 = idleThread0->nt.status;
+		idleStatus1 = idleThread1->nt.status;
 	} else {
 		sprintf(idleDescription1, "DELETED");
 	}

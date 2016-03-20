@@ -223,7 +223,7 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 
 			for (u32 i = cacheStartPos; i <= cacheEndPos; ++i) {
 				if (blocks_[i] == 0) {
-					SaveIntoCache(i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD);
+					SaveIntoCache((u64)i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD);
 					break;
 				}
 			}
