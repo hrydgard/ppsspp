@@ -111,7 +111,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 			if (i > 0 && transformed[i].x != transformed[i - 1].x)
 				return false;
 		} else {
-			if ((i & 1) && transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
+			if ((i & 1) && (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz))
 				return false;
 			// Bottom right
 			if (transformed[i].y != bufH)

@@ -208,7 +208,7 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	}
 }
 
-static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
+static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
 	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	int loglevel = ANDROID_LOG_INFO;
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
@@ -266,7 +266,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_Vulkan->InitSurfaceAndroid(wnd, width, height);
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
+		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitObjects(true);
 

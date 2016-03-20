@@ -1034,7 +1034,8 @@ void ArmJit::CompNEON_Vh2f(MIPSOpcode op) {
 	}
 
 	ARMReg vs = NEONMapPrefixS(_VS, sz, 0);
-	DestARMReg vd = NEONMapPrefixD(_VD, outsize, MAP_DIRTY | (vd == vs ? 0 : MAP_NOINIT));
+	// TODO: MAP_NOINIT if they're definitely not overlapping.
+	DestARMReg vd = NEONMapPrefixD(_VD, outsize, MAP_DIRTY);
 
 	VCVTF32F16(vd.rd, vs);
 
