@@ -38,6 +38,8 @@
 static bool netInited;
 static bool netInetInited;
 static bool netApctlInited;
+u32 netDropRate = 0;
+u32 netDropDuration = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
@@ -89,7 +91,7 @@ static void __UpdateApctlHandlers(int oldState, int newState, int flag, int erro
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1);
+	auto s = p.Section("sceNet", 1, 2);
 	if (!s)
 		return;
 
@@ -98,6 +100,13 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netApctlInited);
 	p.Do(apctlHandlers);
 	p.Do(netMallocStat);
+	if (s < 2) {
+		netDropRate = 0;
+		netDropDuration = 0;
+	} else {
+		p.Do(netDropRate);
+		p.Do(netDropDuration);
+	}
 }
 
 static u32 sceNetTerm() {
@@ -457,6 +466,20 @@ static int sceNetUpnpGetNatInfo()
 	return 0;
 }
 
+static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr)
+{
+	Memory::Write_U32(netDropRate, dropRateAddr);
+	Memory::Write_U32(netDropDuration, dropDurationAddr);
+	return hleLogSuccessInfoI(SCENET, 0);
+}
+
+static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
+{
+	netDropRate = dropRate;
+	netDropDuration = dropDuration;
+	return hleLogSuccessInfoI(SCENET, 0);
+}
+
 const HLEFunction sceNet[] = {
 	{0X39AF39A6, &WrapU_UUUUU<sceNetInit>,           "sceNetInit",                      'x', "xxxxx"},
 	{0X281928A9, &WrapU_V<sceNetTerm>,               "sceNetTerm",                      'x', ""     },
@@ -548,6 +571,11 @@ const HLEFunction sceNetUpnp[] = {
 	{0XE24220B5, &WrapI_II<sceNetUpnpInit>,          "sceNetUpnpInit",                  'i', "ii"   },
 };
 
+const HLEFunction sceNetIfhandle[] = {
+	{0xC80181A2, &WrapI_UU<sceNetGetDropRate>,     "sceNetGetDropRate",                 'i', "pp" },
+	{0xFD8585E1, &WrapI_UU<sceNetSetDropRate>,     "sceNetSetDropRate",                 'i', "ii" },
+};
+
 void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
 	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
@@ -561,4 +589,8 @@ void Register_sceWlanDrv() {
 
 void Register_sceNetUpnp() {
 	RegisterModule("sceNetUpnp", ARRAY_SIZE(sceNetUpnp), sceNetUpnp);
+}
+
+void Register_sceNetIfhandle() {
+	RegisterModule("sceNetIfhandle", ARRAY_SIZE(sceNetIfhandle), sceNetIfhandle);
 }
