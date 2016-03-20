@@ -82,6 +82,8 @@ enum {
 };
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
+// This is just a bit too big to fit in 512 bytes...
+// 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
 struct UB_VS_FS_Base {
 	float proj[16];
 	float proj_through[16];
@@ -90,14 +92,13 @@ struct UB_VS_FS_Base {
 	float tex[16];  // not that common, may want to break out
 	float uvScaleOffset[4];
 	float depthRange[4];
-	float fogCoef[4];
+	float fogCoef_stencil[4];
 	float matAmbient[4];
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
 	int alphaColorRef[4];
 	int colorTestMask[4];
-	float stencilReplace[4];  // only first float used
 	float blendFixA[4];
 	float blendFixB[4];
 	float texClamp[4];
@@ -112,19 +113,19 @@ R"(  mat4 proj_mtx;
   mat4 tex_mtx;
   vec4 uvscaleoffset;
   vec4 depthRange;
-  vec2 fogcoef;
+  vec3 fogcoef_stencilreplace;
   vec4 matambientalpha;
   vec3 fogcolor;
   vec3 texenv;
   ivec4 alphacolorref;
   ivec4 alphacolormask;
-  float stencilReplaceValue;
   vec3 blendFixA;
   vec3 blendFixB;
   vec4 texclamp;
   vec2 texclampoff;
 )";
 
+// 576 bytes. Can we get down to 512?
 struct UB_VS_Lights {
 	float ambientColor[4];
 	float materialDiffuse[4];
