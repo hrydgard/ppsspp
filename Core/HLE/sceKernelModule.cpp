@@ -1219,10 +1219,10 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 		u8 unknown2;
 	};
 
-	u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
-	u32_le *entEnd = (u32_le *)Memory::GetPointer(modinfo->libentend);
+	const u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
+	const u32_le *entEnd = (u32_le *)Memory::GetPointer(modinfo->libentend);
 	for (int m = 0; entPos < entEnd; ++m) {
-		PspLibEntEntry *ent = (PspLibEntEntry *)entPos;
+		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
 		entPos += ent->size;
 		if (ent->size == 0) {
 			WARN_LOG_REPORT(LOADER, "Invalid export entry size %d", ent->size);
