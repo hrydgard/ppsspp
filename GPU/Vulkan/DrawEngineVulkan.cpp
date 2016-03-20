@@ -586,18 +586,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
-		if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
-			baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
-			dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
-		}
-		if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
-			lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
-			dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
-		}
-		if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
-			boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
-			dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
-		}
+		UpdateUBOs(frame);
 
 		VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
 
@@ -692,19 +681,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
-			if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
-				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
-				dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
-			}
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
-			if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
-				lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
-				dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
-			}
-			if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
-				boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
-				dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
-			}
+			UpdateUBOs(frame);
 
 			VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
 			const uint32_t dynamicUBOOffsets[3] = {
@@ -795,6 +773,21 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	gstate_c.vertBounds.maxV = 0;
 
 	host->GPUNotifyDraw();
+}
+
+void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
+	if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
+		baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
+		dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
+	}
+	if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
+		lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
+		dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
+	}
+	if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
+		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
+		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
+	}
 }
 
 void DrawEngineVulkan::Resized() {
