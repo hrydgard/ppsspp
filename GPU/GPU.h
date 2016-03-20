@@ -107,5 +107,7 @@ extern GPUStatistics gpuStats;
 extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
-bool GPU_Init(GraphicsContext *ctx);
+class Thin3DContext;
+
+bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d);
 void GPU_Shutdown();

@@ -704,6 +704,8 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
 	assert(result == VK_SUCCESS);
 
+	noScissor_.extent.width = pixel_xres;
+	noScissor_.extent.height = pixel_yres;
 	scissorDirty_ = true;
 	viewportDirty_ = true;
 }

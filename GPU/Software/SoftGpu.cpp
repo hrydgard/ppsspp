@@ -42,18 +42,14 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-static Thin3DContext *thin3d = nullptr;
-static Thin3DTexture *fbTex = nullptr;
 static Thin3DVertexFormat *vformat = nullptr;
 static Thin3DDepthStencilState *depth = nullptr;
 static Thin3DBuffer *vdata = nullptr;
 static Thin3DBuffer *idata = nullptr;
-static std::vector<u32> fbTexBuffer;
 
-SoftGPU::SoftGPU(GraphicsContext *gfxCtx)
-	: gfxCtx_(gfxCtx)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
+	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
-	thin3d = gfxCtx_->CreateThin3DContext();
 	fbTex = thin3d->CreateTexture(LINEAR2D, RGBA8888, 480, 272, 1, 1);
 
 	std::vector<Thin3DVertexComponent> components;
@@ -87,8 +83,6 @@ SoftGPU::~SoftGPU() {
 	vformat = nullptr;
 	fbTex->Release();
 	fbTex = nullptr;
-	thin3d->Release();
-	thin3d = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

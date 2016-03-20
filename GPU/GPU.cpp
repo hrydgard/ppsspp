@@ -45,7 +45,8 @@ static void SetGPU(T *obj) {
 #ifdef USE_CRT_DBG
 #undef new
 #endif
-bool GPU_Init(GraphicsContext *ctx) {
+
+bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
@@ -54,7 +55,7 @@ bool GPU_Init(GraphicsContext *ctx) {
 		SetGPU(new GLES_GPU(ctx));
 		break;
 	case GPU_SOFTWARE:
-		SetGPU(new SoftGPU(ctx));
+		SetGPU(new SoftGPU(ctx, thin3d));
 		break;
 	case GPU_DIRECTX9:
 #if defined(_WIN32)
