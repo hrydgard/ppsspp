@@ -502,9 +502,6 @@
     <ClCompile Include="ext\libpng17\pngset.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
-    <ClCompile Include="ext\libpng17\pngtest.c">
-      <Filter>ext\libpng17</Filter>
-    </ClCompile>
     <ClCompile Include="ext\libpng17\pngtrans.c">
       <Filter>ext\libpng17</Filter>
     </ClCompile>
@@ -744,6 +741,9 @@
     </ClCompile>
     <ClCompile Include="file\free.cpp">
       <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\thin3d_vulkan.cpp">
+      <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

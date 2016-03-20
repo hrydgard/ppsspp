@@ -50,10 +50,14 @@ enum BufferFilter {
 enum class GPUBackend {
 	OPENGL = 0,
 	DIRECT3D9 = 1,
+	DIRECT3D11 = 2,
+	VULKAN = 3,
 };
 enum {
 	GPU_BACKEND_OPENGL = (int)GPUBackend::OPENGL,
 	GPU_BACKEND_DIRECT3D9 = (int)GPUBackend::DIRECT3D9,
+	GPU_BACKEND_DIRECT3D11 = (int)GPUBackend::DIRECT3D11,
+	GPU_BACKEND_VULKAN = (int)GPUBackend::VULKAN,
 };
 
 enum AudioBackendType {

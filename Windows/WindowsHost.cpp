@@ -43,6 +43,7 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 #include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
@@ -68,7 +69,9 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 }
 
 WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
-	: gfx_(nullptr), hInstance_(hInstance), mainWindow_(mainWindow), displayWindow_(displayWindow)
+	: gfx_(nullptr), hInstance_(hInstance),
+		mainWindow_(mainWindow),
+		displayWindow_(displayWindow)
 {
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
@@ -109,6 +112,9 @@ bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx
 		break;
 	case GPU_BACKEND_DIRECT3D9:
 		graphicsContext = new D3D9Context();
+		break;
+	case GPU_BACKEND_VULKAN:
+		graphicsContext = new WindowsVulkanContext();
 		break;
 	default:
 		return false;

@@ -386,7 +386,12 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 #else
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
+	
+	GraphicsContext *temp = coreParameter.graphicsContext;
 	coreParameter = coreParam;
+	if (coreParameter.graphicsContext == nullptr) {
+		coreParameter.graphicsContext = temp;
+	}
 	coreParameter.errorString = "";
 	pspIsIniting = true;
 
@@ -420,7 +425,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
 	if (success) {
-		success = GPU_Init(coreParameter.graphicsContext);
+		success = GPU_Init(coreParameter.graphicsContext, coreParameter.thin3d);
 		if (!success) {
 			PSP_Shutdown();
 			*error_string = "Unable to initialize rendering engine.";

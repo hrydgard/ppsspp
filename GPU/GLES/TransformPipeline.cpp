@@ -890,11 +890,21 @@ rotateVBO:
 		SoftwareTransformResult result;
 		memset(&result, 0, sizeof(result));
 
+		// TODO: Keep this static?  Faster than repopulating?
+		SoftwareTransformParams params;
+		memset(&params, 0, sizeof(params));
+		params.decoded = decoded;
+		params.transformed = transformed;
+		params.transformedExpanded = transformedExpanded;
+		params.fbman = framebufferManager_;
+		params.texCache = textureCache_;
+		params.allowSeparateAlphaClear = true;
+
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
-			prim, decoded, indexGen.VertexCount(),
+			prim, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			maxIndex, framebufferManager_, textureCache_, transformed, transformedExpanded, drawBuffer, numTrans, drawIndexed, &result, 1.0);
+			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 		ApplyDrawStateLate();
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);

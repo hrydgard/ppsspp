@@ -544,6 +544,7 @@ float FromScaledDepth(float z) {
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
 	out.dirtyProj = false;
+	out.dirtyDepth = false;
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;
@@ -640,31 +641,33 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float hScale = 1.0f;
 		float yOffset = 0.0f;
 
-		// If we're within the bounds, we want clipping the viewport way.  So leave it be.
-		if (left < 0.0f || right > renderWidth) {
-			float overageLeft = std::max(-left, 0.0f);
-			float overageRight = std::max(right - renderWidth, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageRight - overageLeft;
+		if (!gstate_c.Supports(GPU_SUPPORTS_LARGE_VIEWPORTS)) {
+			// If we're within the bounds, we want clipping the viewport way.  So leave it be.
+			if (left < 0.0f || right > renderWidth) {
+				float overageLeft = std::max(-left, 0.0f);
+				float overageRight = std::max(right - renderWidth, 0.0f);
+				// Our center drifted by the difference in overages.
+				float drift = overageRight - overageLeft;
 
-			left += overageLeft;
-			right -= overageRight;
+				left += overageLeft;
+				right -= overageRight;
 
-			wScale = vpWidth / (right - left);
-			xOffset = drift / (right - left);
-		}
+				wScale = vpWidth / (right - left);
+				xOffset = drift / (right - left);
+			}
 
-		if (top < 0.0f || bottom > renderHeight) {
-			float overageTop = std::max(-top, 0.0f);
-			float overageBottom = std::max(bottom - renderHeight, 0.0f);
-			// Our center drifted by the difference in overages.
-			float drift = overageBottom - overageTop;
+			if (top < 0.0f || bottom > renderHeight) {
+				float overageTop = std::max(-top, 0.0f);
+				float overageBottom = std::max(bottom - renderHeight, 0.0f);
+				// Our center drifted by the difference in overages.
+				float drift = overageBottom - overageTop;
 
-			top += overageTop;
-			bottom -= overageBottom;
+				top += overageTop;
+				bottom -= overageBottom;
 
-			hScale = vpHeight / (bottom - top);
-			yOffset = drift / (bottom - top);
+				hScale = vpHeight / (bottom - top);
+				yOffset = drift / (bottom - top);
+			}
 		}
 
 		out.viewportX = left + displayOffsetX;

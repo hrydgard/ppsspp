@@ -25,9 +25,7 @@
 #include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
-#include "Windows/GPU/WindowsGLContext.h"
 #include "WindowsHeadlessHost.h"
-#include "WindowsHeadlessHostDx9.h"
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -71,6 +69,7 @@ struct InputState;
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void GL_SwapInterval(int) { }
+void Vulkan_SwapBuffers() {}
 void NativeUpdate(InputState &input_state) { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
@@ -119,10 +118,6 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
 	case GPU_NULL:
 		return new HeadlessHost();
-#ifdef _WIN32
-	case GPU_DIRECTX9:
-		return new WindowsHeadlessHostDx9();
-#endif
 #ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
@@ -257,6 +252,8 @@ int main(int argc, const char* argv[])
 				gpuCore = GPU_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
 				gpuCore = GPU_DIRECTX9;
+			else if (!strcasecmp(gpuName, "vulkan"))
+				gpuCore = GPU_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
 				gpuCore = GPU_NULL;
 			else
@@ -294,10 +291,10 @@ int main(int argc, const char* argv[])
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
-
 	GraphicsContext *graphicsContext;
 	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
@@ -340,7 +337,7 @@ int main(int argc, const char* argv[])
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
-	g_Config.iAnisotropyLevel = 8;
+	g_Config.iAnisotropyLevel = 4;
 #endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;

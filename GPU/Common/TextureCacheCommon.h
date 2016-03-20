@@ -39,6 +39,8 @@ enum FramebufferNotification {
 
 struct VirtualFramebuffer;
 
+class CachedTextureVulkan;
+
 class TextureCacheCommon {
 public:
 	TextureCacheCommon();
@@ -96,6 +98,7 @@ public:
 		union {
 			u32 textureName;
 			void *texturePtr;
+			CachedTextureVulkan *vkTex;
 		};
 		int invalidHint;
 		u32 fullhash;
@@ -104,7 +107,7 @@ public:
 		u16 maxSeenV;
 
 		// Cache the current filter settings so we can avoid setting it again.
-		// (OpenGL madness where filter settings are attached to each texture).
+		// (OpenGL madness where filter settings are attached to each texture. Unused in Vulkan).
 		u8 magFilt;
 		u8 minFilt;
 		bool sClamp;

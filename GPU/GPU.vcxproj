@@ -45,7 +45,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
@@ -84,7 +83,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -106,7 +105,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OmitFramePointers>false</OmitFramePointers>
@@ -132,7 +131,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -158,7 +157,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../common;..;../ext;../ext/native;../ext/native/ext/glew;</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
@@ -168,6 +167,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_LIB;NDEBUG;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -244,6 +244,18 @@
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
+    <ClInclude Include="Vulkan\DepalettizeShaderVulkan.h" />
+    <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
+    <ClInclude Include="Vulkan\FragmentShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\FramebufferVulkan.h" />
+    <ClInclude Include="Vulkan\GPU_Vulkan.h" />
+    <ClInclude Include="Vulkan\PipelineManagerVulkan.h" />
+    <ClInclude Include="Vulkan\ShaderManagerVulkan.h" />
+    <ClInclude Include="Vulkan\StateMappingVulkan.h" />
+    <ClInclude Include="Vulkan\TextureCacheVulkan.h" />
+    <ClInclude Include="Vulkan\TextureScalerVulkan.h" />
+    <ClInclude Include="Vulkan\VertexShaderGeneratorVulkan.h" />
+    <ClInclude Include="Vulkan\VulkanUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
@@ -322,6 +334,18 @@
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />
+    <ClCompile Include="Vulkan\DepalettizeShaderVulkan.cpp" />
+    <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />
+    <ClCompile Include="Vulkan\FragmentShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\FramebufferVulkan.cpp" />
+    <ClCompile Include="Vulkan\GPU_Vulkan.cpp" />
+    <ClCompile Include="Vulkan\PipelineManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\ShaderManagerVulkan.cpp" />
+    <ClCompile Include="Vulkan\StateMappingVulkan.cpp" />
+    <ClCompile Include="Vulkan\TextureCacheVulkan.cpp" />
+    <ClCompile Include="Vulkan\TextureScalerVulkan.cpp" />
+    <ClCompile Include="Vulkan\VertexShaderGeneratorVulkan.cpp" />
+    <ClCompile Include="Vulkan\VulkanUtil.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

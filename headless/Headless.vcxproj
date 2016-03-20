@@ -47,7 +47,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
     <PlatformToolset>v140_xp</PlatformToolset>
   </PropertyGroup>
@@ -203,6 +202,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -225,6 +225,10 @@
   <ItemGroup>
     <ClCompile Include="..\ext\native\ext\glew\glew.c" />
     <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
+    <ClCompile Include="..\Windows\GPU\D3D9Context.cpp" />
+    <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp" />
+    <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp" />
+    <ClCompile Include="..\Windows\W32Util\Misc.cpp" />
     <ClCompile Include="Compare.cpp" />
     <ClCompile Include="Headless.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -233,7 +237,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="WindowsHeadlessHost.cpp" />
-    <ClCompile Include="WindowsHeadlessHostDx9.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\test.py" />
@@ -245,6 +248,9 @@
     </ProjectReference>
     <ProjectReference Include="..\Core\Core.vcxproj">
       <Project>{533f1d30-d04d-47cc-ad71-20f658907e36}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\glslang.vcxproj">
+      <Project>{edfa2e87-8ac1-4853-95d4-d7594ff81947}</Project>
     </ProjectReference>
     <ProjectReference Include="..\ext\libkirk\libkirk.vcxproj">
       <Project>{3baae095-e0ab-4b0e-b5df-ce39c8ae31de}</Project>
@@ -264,7 +270,6 @@
     <ClInclude Include="Compare.h" />
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
-    <ClInclude Include="WindowsHeadlessHostDx9.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

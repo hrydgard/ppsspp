@@ -29,6 +29,13 @@ inline void Uint8x3ToInt4(int i[4], uint32_t u) {
 	i[3] = 0;
 }
 
+inline void Uint8x3ToInt4_Alpha(int i[4], uint32_t u, uint8_t alpha) {
+	i[0] = ((u >> 0) & 0xFF);
+	i[1] = ((u >> 8) & 0xFF);
+	i[2] = ((u >> 16) & 0xFF);
+	i[3] = alpha;
+}
+
 inline void Uint8x3ToFloat4_Alpha(float f[4], uint32_t u, float alpha) {
 	f[0] = ((u >> 0) & 0xFF) * (1.0f / 255.0f);
 	f[1] = ((u >> 8) & 0xFF) * (1.0f / 255.0f);
@@ -54,6 +61,10 @@ inline void Uint8x1ToFloat4(float f[4], uint32_t u) {
 
 inline void CopyFloat2(float dest[2], const float src[2]) {
 	memcpy(dest, src, sizeof(float) * 2);
+}
+
+inline void CopyFloat3(float dest[3], const float src[3]) {
+	memcpy(dest, src, sizeof(float) * 3);
 }
 
 inline void CopyFloat1To4(float dest[4], const float src) {

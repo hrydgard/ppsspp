@@ -170,6 +170,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <StringPooling>true</StringPooling>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -239,6 +240,11 @@
     <ClInclude Include="ThreadSafeList.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
+    <ClInclude Include="Vulkan\SPIRVDisasm.h" />
+    <ClInclude Include="Vulkan\VulkanContext.h" />
+    <ClInclude Include="Vulkan\VulkanImage.h" />
+    <ClInclude Include="Vulkan\VulkanLoader.h" />
+    <ClInclude Include="Vulkan\VulkanMemory.h" />
     <ClInclude Include="x64Analyzer.h" />
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
@@ -307,6 +313,11 @@
     <ClCompile Include="ThreadPools.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Vulkan\SPIRVDisasm.cpp" />
+    <ClCompile Include="Vulkan\VulkanContext.cpp" />
+    <ClCompile Include="Vulkan\VulkanImage.cpp" />
+    <ClCompile Include="Vulkan\VulkanLoader.cpp" />
+    <ClCompile Include="Vulkan\VulkanMemory.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
   </ItemGroup>

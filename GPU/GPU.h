@@ -89,6 +89,9 @@ struct GPUStatistics {
 	int vertexGPUCycles;
 	int otherGPUCycles;
 	int gpuCommandsAtCallLevel[4];
+	int pushUBOSpaceUsed;
+	int pushVertexSpaceUsed;
+	int pushIndexSpaceUsed;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numVBlanks;
@@ -104,5 +107,7 @@ extern GPUStatistics gpuStats;
 extern GPUInterface *gpu;
 extern GPUDebugInterface *gpuDebug;
 
-bool GPU_Init(GraphicsContext *ctx);
+class Thin3DContext;
+
+bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d);
 void GPU_Shutdown();

@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2015- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,23 +17,20 @@
 
 #pragma once
 
-#include "StubHost.h"
-#include "WindowsHeadlessHost.h"
+#include "Common/GraphicsContext.h"
+#include "Windows/GPU/WindowsGraphicsContext.h"
+#include "thin3d/thin3d.h"
 
-#undef HEADLESSHOST_CLASS
-#define HEADLESSHOST_CLASS WindowsHeadlessHost
-
-#include "Common/CommonWindows.h"
-
-// TODO: Get rid of this junk
-class WindowsHeadlessHostDx9 : public WindowsHeadlessHost
-{
+class WindowsVulkanContext : public WindowsGraphicsContext {
 public:
-	bool InitGraphics(std::string *error_message, GraphicsContext **graphicsContext) override;
-	void ShutdownGraphics() override;
-
+	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
+	void Shutdown() override;
+	void SwapInterval(int interval) override;
 	void SwapBuffers() override;
+	void Resize() override;
 
-private:
-	bool ResizeGL() override;
+	void *GetAPIContext();
+
+	Thin3DContext *CreateThin3DContext() override;
 };
+

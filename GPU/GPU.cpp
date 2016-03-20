@@ -15,11 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/GLES_GPU.h"
+#ifndef NO_VULKAN
+#include "GPU/Vulkan/GPU_Vulkan.h"
+#endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
@@ -41,7 +45,8 @@ static void SetGPU(T *obj) {
 #ifdef USE_CRT_DBG
 #undef new
 #endif
-bool GPU_Init(GraphicsContext *ctx) {
+
+bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		SetGPU(new NullGPU());
@@ -50,13 +55,20 @@ bool GPU_Init(GraphicsContext *ctx) {
 		SetGPU(new GLES_GPU(ctx));
 		break;
 	case GPU_SOFTWARE:
-		SetGPU(new SoftGPU(ctx));
+		SetGPU(new SoftGPU(ctx, thin3d));
 		break;
 	case GPU_DIRECTX9:
 #if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU(ctx));
 #endif
 		break;
+	case GPU_DIRECTX11:
+		return nullptr;
+#ifndef NO_VULKAN
+	case GPU_VULKAN:
+		SetGPU(new GPU_Vulkan(ctx));
+		break;
+#endif
 	}
 
 	return gpu != NULL;

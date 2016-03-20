@@ -66,6 +66,10 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 
+#ifdef _WIN32
+#include "Windows/MainWindow.h"
+#endif
+
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
@@ -99,14 +103,36 @@ void EmuScreen::bootGame(const std::string &filename) {
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
 	coreParam.gpuCore = GPU_GLES;
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
+		coreParam.gpuCore = GPU_GLES;
+		break;
+	case GPUBackend::DIRECT3D9:
 		coreParam.gpuCore = GPU_DIRECTX9;
+		break;
+	case GPUBackend::DIRECT3D11:
+		coreParam.gpuCore = GPU_DIRECTX11;
+		break;
+	case GPUBackend::VULKAN:
+		coreParam.gpuCore = GPU_VULKAN;
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+#ifdef _WIN32
+			if (IDYES == MessageBox(MainWindow::GetHWND(), L"The Vulkan backend is not yet compatible with buffered rendering. Switch to non-buffered (WARNING: This will cause glitches with the other backends unless you switch back)", L"Vulkan Experimental Support", MB_ICONINFORMATION | MB_YESNO)) {
+				g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
+			} else {
+				errorMessage_ = "Non-buffered rendering required for Vulkan";
+				return;
+			}
+#endif
+		}
+		break;
 	}
 	if (g_Config.bSoftwareRendering) {
 		coreParam.gpuCore = GPU_SOFTWARE;
 	}
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
+	coreParam.thin3d = screenManager()->getThin3DContext();
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
@@ -691,7 +717,7 @@ void EmuScreen::update(InputState &input) {
 
 	UIScreen::update(input);
 
-	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
+	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
 	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
@@ -897,6 +923,7 @@ void EmuScreen::render() {
 	while (coreState == CORE_RUNNING) {
 		PSP_RunLoopFor(blockTicks);
 	}
+
 	// Hopefully coreState is now CORE_NEXTFRAME
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
@@ -956,6 +983,7 @@ void EmuScreen::render() {
 	}
 
 	// We have no use for backbuffer depth or stencil, so let tiled renderers discard them after tiling.
+	/*
 	if (gl_extensions.GLES3 && glInvalidateFramebuffer != nullptr) {
 		GLenum attachments[2] = { GL_DEPTH, GL_STENCIL };
 		glInvalidateFramebuffer(GL_FRAMEBUFFER, 2, attachments);
@@ -969,6 +997,7 @@ void EmuScreen::render() {
 		}
 #endif
 	}
+	*/
 }
 
 void EmuScreen::deviceLost() {

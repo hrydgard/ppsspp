@@ -22,6 +22,7 @@
 enum ShaderLanguage {
 	GLSL_140,
 	GLSL_300,
+	GLSL_VULKAN,
 	HLSL_DX9,
 };
 

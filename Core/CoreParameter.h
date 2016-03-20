@@ -31,19 +31,23 @@ enum GPUCore {
 	GPU_GLES,
 	GPU_SOFTWARE,
 	GPU_DIRECTX9,
+	GPU_DIRECTX11,
+	GPU_VULKAN,
 };
 
 class FileLoader;
 
 class GraphicsContext;
+class Thin3DContext;
 
 // PSP_CoreParameter()
 struct CoreParameter {
-	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true), freezeNext(false), frozen(false), mountIsoLoader(nullptr) {}
+	CoreParameter() : thin3d(nullptr), collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true), freezeNext(false), frozen(false), mountIsoLoader(nullptr) {}
 
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 	GraphicsContext *graphicsContext;  // TODO: Find a better place.
+	Thin3DContext *thin3d;
 	bool enableSound;  // there aren't multiple sound cores.
 
 	std::string fileToStart;

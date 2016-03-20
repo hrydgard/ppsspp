@@ -124,9 +124,29 @@ EGL_FILES := \
   $(SRC)/Common/GL/GLInterface/EGLAndroid.cpp \
   $(SRC)/Common/GL/GLInterface/GLInterface.cpp
 
+VULKAN_FILES := \
+  $(SRC)/Common/Vulkan/VulkanLoader.cpp \
+  $(SRC)/Common/Vulkan/VulkanContext.cpp \
+  $(SRC)/Common/Vulkan/VulkanImage.cpp \
+  $(SRC)/Common/Vulkan/VulkanMemory.cpp \
+  $(SRC)/GPU/Vulkan/FragmentShaderGeneratorVulkan.cpp \
+  $(SRC)/GPU/Vulkan/DrawEngineVulkan.cpp \
+  $(SRC)/GPU/Vulkan/FramebufferVulkan.cpp \
+  $(SRC)/GPU/Vulkan/GPU_Vulkan.cpp \
+  $(SRC)/GPU/Vulkan/PipelineManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/ShaderManagerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/StateMappingVulkan.cpp \
+  $(SRC)/GPU/Vulkan/TextureCacheVulkan.cpp \
+  $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
+  $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
+  $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp \
+  $(SRC)/GPU/Vulkan/VulkanUtil.cpp
+#endif
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
+  $(VULKAN_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
@@ -492,6 +512,7 @@ endif
 
 $(call import-module,libzip)
 $(call import-module,native)
+$(call import-module,glslang)
 
 ifeq ($(ANDROID_NDK_PROFILER),1)
   $(call import-module,android-ndk-profiler)

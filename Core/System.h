@@ -68,6 +68,8 @@ void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
+void PSP_BeginFrame();
+void PSP_EndFrame();
 
 void Audio_Init();
 
