@@ -71,12 +71,12 @@ public:
 class AndroidEGLGraphicsContext : public AndroidGraphicsContext {
 public:
 	AndroidEGLGraphicsContext() : wnd_(nullptr), gl(nullptr) {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion);
+	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
-	void Resize() {}
-	Thin3DContext *CreateThin3DContext() {
+	void Resize() override {}
+	Thin3DContext *CreateThin3DContext() override {
 		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
@@ -141,8 +141,8 @@ public:
 	void Shutdown() override {}
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
-	void Resize() {}
-	Thin3DContext *CreateThin3DContext() {
+	void Resize() override {}
+	Thin3DContext *CreateThin3DContext() override {
 		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
@@ -161,7 +161,7 @@ public:
 	void SwapBuffers() override;
 	void Resize() override;
 
-	void *GetAPIContext() { return g_Vulkan; }
+	void *GetAPIContext() override { return g_Vulkan; }
 
 	Thin3DContext *CreateThin3DContext() override {
 		return T3DCreateVulkanContext(g_Vulkan);
