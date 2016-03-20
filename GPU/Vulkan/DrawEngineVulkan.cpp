@@ -66,7 +66,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	vulkan_(vulkan), 
 	decodedVerts_(0),
 	prevPrim_(GE_PRIM_INVALID),
-	lastVType_(-1),
+	lastVTypeID_(-1),
 	pipelineManager_(nullptr),
 	textureCache_(nullptr),
 	framebufferManager_(nullptr),
@@ -248,9 +248,9 @@ inline void DrawEngineVulkan::SetupVertexDecoderInternal(u32 vertType) {
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 
 	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
+	if (vertTypeID != lastVTypeID_) {
 		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
+		lastVTypeID_ = vertTypeID;
 	}
 }
 
@@ -289,11 +289,6 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
 
-	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep();
-		decodeCounter_++;
-	}
-
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
 		// Rendertarget == texture?
 		if (!g_Config.bDisableSlowFramebufEffects) {
@@ -305,7 +300,7 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 
 void DrawEngineVulkan::DecodeVerts() {
 	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		DecodeVertsStep();
+		DecodeVertsStep(decoded);
 	}
 	// Sanity check
 	if (indexGen.Prim() < 0) {
@@ -315,7 +310,7 @@ void DrawEngineVulkan::DecodeVerts() {
 	}
 }
 
-void DrawEngineVulkan::DecodeVertsStep() {
+void DrawEngineVulkan::DecodeVertsStep(u8 *decoded) {
 	const int i = decodeCounter_;
 
 	const DeferredDrawCall &dc = drawCalls[i];
@@ -535,7 +530,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 		prim = indexGen.Prim();
 
-		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -555,7 +550,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		Uint8x4ToFloat4(bc, dynState.blendColor);
 		vkCmdSetBlendConstants(cmd_, bc);
 		shaderManager_->UpdateUniforms();
-		shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
 		if (!pipeline) {
 			// Already logged, let's bail out.
@@ -600,7 +595,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 	} else {
 		DecodeVerts();
-		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
+		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
@@ -661,7 +656,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			Uint8x4ToFloat4(bc, dynState.blendColor);
 			vkCmdSetBlendConstants(cmd_, bc);
 			shaderManager_->UpdateUniforms();
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, useHWTransform);
+			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
 			if (!pipeline) {
 				// Already logged, let's bail out.
@@ -770,7 +765,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 void DrawEngineVulkan::Resized() {
 	decJitCache_->Clear();
-	lastVType_ = -1;
+	lastVTypeID_ = -1;
 	dec_ = NULL;
 	// TODO: We must also wipe pipelines.
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {

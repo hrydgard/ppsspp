@@ -149,7 +149,7 @@ public:
 
 private:
 	void DecodeVerts();
-	void DecodeVertsStep();
+	void DecodeVertsStep(u8 *decoded);
 	void DoFlush(VkCommandBuffer cmd);
 
 	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
@@ -216,7 +216,7 @@ private:
 	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
-	u32 lastVType_;
+	u32 lastVTypeID_;
 
 	TransformedVertex *transformed;
 	TransformedVertex *transformedExpanded;
