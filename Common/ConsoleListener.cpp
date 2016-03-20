@@ -438,8 +438,10 @@ void ConsoleListener::SendToThread(LogTypes::LOG_LEVELS Level, const char *Text)
 	}
 
 	// Double check we didn't start quitting.
-	if (logPendingWritePos == (u32) -1)
+	if (logPendingWritePos == (u32) -1) {
+		LeaveCriticalSection(&criticalSection);
 		return;
+	}
 
 	Common::AtomicStoreRelease(logPendingWritePos, logWritePos);
 	LeaveCriticalSection(&criticalSection);
