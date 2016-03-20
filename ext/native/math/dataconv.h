@@ -63,6 +63,10 @@ inline void CopyFloat2(float dest[2], const float src[2]) {
 	memcpy(dest, src, sizeof(float) * 2);
 }
 
+inline void CopyFloat3(float dest[3], const float src[3]) {
+	memcpy(dest, src, sizeof(float) * 3);
+}
+
 inline void CopyFloat1To4(float dest[4], const float src) {
 	dest[0] = src;
 	dest[1] = 0.0f;

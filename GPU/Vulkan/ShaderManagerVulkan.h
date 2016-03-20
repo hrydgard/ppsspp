@@ -82,7 +82,6 @@ enum {
 };
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
-// This is just a bit too big to fit in 512 bytes...
 // 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
 struct UB_VS_FS_Base {
 	float proj[16];
@@ -156,6 +155,9 @@ R"(	vec4 globalAmbient;
 	vec3 specular[4];
 )";
 
+// With some cleverness, we could get away with uploading just half this when only the four first
+// bones are being used. This is 512b, 256b would be great.
+// Could also move to 4x3 matrices - would let us fit 5 bones into 256b.
 struct UB_VS_Bones {
 	float bones[8][16];
 };
