@@ -148,9 +148,9 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	for (int i = 0; i < 2; i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
 		assert(VK_SUCCESS == res);
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 16 * 1024 * 1024);  // TODO: Do something more dynamic
-		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);  // TODO: Do something more dynamic
-		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);  // TODO: Do something more dynamic
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);
+		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);
+		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);
 	}
 
 	VkPipelineLayoutCreateInfo pl;
