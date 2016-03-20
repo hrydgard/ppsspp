@@ -49,7 +49,7 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16_UNORM, "R16G16_UNORM" },	// 	DEC_U16_2,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_3,
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_4,
-																											// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
+
 	{ VK_FORMAT_R8G8_UINT, "R8G8_UINT" },   // DEC_U8A_2,
 	{ VK_FORMAT_R16G16_UINT, "R16G16_UINT" }, // DEC_U16A_2,
 };
@@ -235,11 +235,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	pipe.basePipelineIndex = 0;
 
 	pipe.pColorBlendState = &cbs;
-	if (key.depthTestEnable || key.stencilTestEnable) {
-		pipe.pDepthStencilState = &dss;
-	} else {
-		pipe.pDepthStencilState = nullptr;
-	}
+	pipe.pDepthStencilState = &dss;
 	pipe.pRasterizationState = &rs;
 
 	// We will use dynamic viewport state.
@@ -278,7 +274,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
-	key.vtxDec = vtxDec;
+	key.vtxDec = useHwTransform ? vtxDec : nullptr;
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
 		return iter->second;
