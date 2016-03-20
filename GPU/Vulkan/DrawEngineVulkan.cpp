@@ -130,7 +130,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[2];
-	dpTypes[0].descriptorCount = 800;
+	dpTypes[0].descriptorCount = 2048;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -213,6 +213,8 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Begin(vulkan_->GetDevice());
 	frame->pushVertex->Begin(vulkan_->GetDevice());
 	frame->pushIndex->Begin(vulkan_->GetDevice());
+
+	DirtyAllUBOs();
 }
 
 void DrawEngineVulkan::EndFrame() {
@@ -411,6 +413,9 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
+	assert(base != VK_NULL_HANDLE);
+	assert(light != VK_NULL_HANDLE);
+	assert(bone != VK_NULL_HANDLE);
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 	auto iter = frame->descSets.find(key);
@@ -455,19 +460,24 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
   // Skipping 2nd texture for now.
 	// Uniform buffer objects
 	VkDescriptorBufferInfo buf[3];
-	buf[0].buffer = base;
-	buf[0].offset = 0;
-	buf[0].range = sizeof(UB_VS_FS_Base);
-	buf[1].buffer = light;
-	buf[1].offset = 0;
-	buf[1].range = sizeof(UB_VS_Lights);
-	buf[2].buffer = bone;
-	buf[2].offset = 0;
-	buf[2].range = sizeof(UB_VS_Bones);
-	for (int i = 0; i < 3; i++) {
+	int count = 0;
+	buf[count].buffer = base;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_FS_Base);
+	count++;
+	buf[count].buffer = light;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_Lights);
+	count++;
+	buf[count].buffer = bone;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_Bones);
+	count++;
+	for (int i = 0; i < count; i++) {
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_DYNUBO_BASE + i;
+		writes[n].dstArrayElement = 0;
 		writes[n].pBufferInfo = &buf[i];
 		writes[n].dstSet = desc;
 		writes[n].descriptorCount = 1;
@@ -479,6 +489,16 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 
 	frame->descSets[key] = desc;
 	return desc;
+}
+
+void DrawEngineVulkan::DirtyAllUBOs() {
+	baseUBOOffset = 0;
+	lightUBOOffset = 0;
+	boneUBOOffset = 0;
+	baseBuf = VK_NULL_HANDLE;
+	lightBuf = VK_NULL_HANDLE;
+	boneBuf = VK_NULL_HANDLE;
+	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
 }
 
 // The inline wrapper in the header checks for numDrawCalls == 0d
@@ -513,11 +533,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	VulkanVertexShader *vshader = nullptr;
 	VulkanFragmentShader *fshader = nullptr;
-
-	// TODO: Keep these between calls if not dirty.
-	uint32_t baseUBOOffset = 0;
-	uint32_t lightUBOOffset = 0;
-	uint32_t boneUBOOffset = 0;
 
 	uint32_t ibOffset = 0;
 	uint32_t vbOffset = 0;
@@ -560,7 +575,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState.blendColor);
 		vkCmdSetBlendConstants(cmd_, bc);
-		shaderManager_->UpdateUniforms();
+
+		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
+
 		shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
 		VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, true);
 		if (!pipeline) {
@@ -569,16 +586,17 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 		vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
-		// TODO: Make only one allocation so all three end up in the same buffer.
-		VkBuffer baseBuf, lightBuf, boneBuf;
-		if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
+		if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
 			baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
+			dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
 		}
-		if (pipeline->uniformBlocks & UB_VS_LIGHTS) {
+		if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
 			lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
+			dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
 		}
-		if (pipeline->uniformBlocks & UB_VS_BONES) {
+		if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
 			boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
+			dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 		}
 
 		VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
@@ -656,7 +674,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
 			}
 			if (result.setStencil) {
-				// hey, dynamic state!
 				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, result.stencilValue);
 			} else if (dynState.useStencil) {
 				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
@@ -665,7 +682,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			float bc[4];
 			Uint8x4ToFloat4(bc, dynState.blendColor);
 			vkCmdSetBlendConstants(cmd_, bc);
-			shaderManager_->UpdateUniforms();
+			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
+
 			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, pipelineKey, dec_, vshader, fshader, false);
 			if (!pipeline) {
@@ -674,12 +692,21 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 			vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);  // TODO: Avoid if same as last draw.
 
-			VkBuffer uboBuf;
-			if (pipeline->uniformBlocks & UB_VS_FS_BASE) {
-				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &uboBuf);
+			if ((dirtyUniforms_ & DIRTY_BASE_UNIFORMS) || baseBuf == VK_NULL_HANDLE) {
+				baseUBOOffset = shaderManager_->PushBaseBuffer(frame->pushUBO, &baseBuf);
+				dirtyUniforms_ &= ~DIRTY_BASE_UNIFORMS;
+			}
+			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
+			if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
+				lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
+				dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
+			}
+			if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
+				boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
+				dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 			}
 
-			VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, uboBuf, uboBuf, uboBuf);
+			VkDescriptorSet ds = GetDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf);
 			const uint32_t dynamicUBOOffsets[3] = {
 				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
@@ -690,7 +717,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
 				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * numTrans, &ibuf);
 				VkDeviceSize offsets[1] = { vbOffset };
-				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
 				vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);

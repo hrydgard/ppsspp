@@ -544,6 +544,7 @@ float FromScaledDepth(float z) {
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
 	bool throughmode = gstate.isModeThrough();
 	out.dirtyProj = false;
+	out.dirtyDepth = false;
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderX = 0.0f, renderY = 0.0f;

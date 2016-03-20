@@ -141,6 +141,8 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	void DirtyAllUBOs();
+
 private:
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DoFlush(VkCommandBuffer cmd);
@@ -222,6 +224,12 @@ private:
 	VkSampler depalSampler_;
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
+
+	uint32_t dirtyUniforms_;
+	uint32_t baseUBOOffset;
+	uint32_t lightUBOOffset;
+	uint32_t boneUBOOffset;
+	VkBuffer baseBuf, lightBuf, boneBuf;
 
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;

@@ -98,7 +98,9 @@ int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], 
 	return count;
 }
 
-static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key, const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
+		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
+		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
 	VkPipelineColorBlendAttachmentState blend0 = {};
 	blend0.blendEnable = key.blendEnable;
 	if (key.blendEnable) {
@@ -262,8 +264,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	vulkanPipeline->pipeline = pipeline;
 	vulkanPipeline->uniformBlocks = UB_VS_FS_BASE;
 	if (useHwTransform) {
-		// TODO: Remove BONES and LIGHTS when those aren't used.
-		vulkanPipeline->uniformBlocks |= UB_VS_BONES | UB_VS_LIGHTS;
+		if (vs->HasLights()) {
+			vulkanPipeline->uniformBlocks |= UB_VS_LIGHTS;
+		}
+		if (vs->HasBones()) {
+			vulkanPipeline->uniformBlocks |= UB_VS_BONES;
+		}
 	}
 	return vulkanPipeline;
 }

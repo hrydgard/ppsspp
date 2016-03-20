@@ -102,7 +102,7 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
+bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *usesLighting) {
 	char *p = buffer;
 
 	// #define USE_FOR_LOOP
@@ -140,7 +140,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer) {
 	// The uniforms are passed in as three "clumps" that may or may not be present.
 	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
 	// are present and what parts aren't, but we will not be ultra detailed about it.
-
+	*usesLighting = enableLighting || doShadeMapping;
 	WRITE(p, "\n");
 	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)

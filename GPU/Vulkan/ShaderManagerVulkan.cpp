@@ -98,8 +98,8 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
-VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform) 
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE) {
+VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE), usesLighting_(usesLighting) {
 	source_ = code;
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
@@ -462,13 +462,15 @@ void ShaderManagerVulkan::DirtyLastShader() { // disables vertex arrays
 	lastFShader_ = nullptr;
 }
 
-void ShaderManagerVulkan::UpdateUniforms() {
+uint32_t ShaderManagerVulkan::UpdateUniforms() {
+	uint32_t dirty = globalDirty_;
 	if (globalDirty_) {
-		BaseUpdateUniforms(globalDirty_);
-		LightUpdateUniforms(globalDirty_);
-		BoneUpdateUniforms(globalDirty_);
-		globalDirty_ = 0;
+		BaseUpdateUniforms(dirty);
+		LightUpdateUniforms(dirty);
+		BoneUpdateUniforms(dirty);
 	}
+	globalDirty_ = 0;
+	return dirty;
 }
 
 void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform) {
@@ -489,8 +491,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanVertexShader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
-		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, vertType, useHWTransform);
+		bool usesLighting;
+		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_, &usesLighting);
+		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;

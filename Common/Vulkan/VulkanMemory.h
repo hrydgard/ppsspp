@@ -56,6 +56,7 @@ public:
 	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+
 		if (offset_ >= size_) {
 			// TODO: Allocate a second buffer, then combine them on the next frame.
 #ifdef _WIN32

@@ -191,13 +191,19 @@ protected:
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform);
+	VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
+	bool HasBones() const {
+		return id_.Bit(VS_BIT_ENABLE_BONES);
+	}
+	bool HasLights() const {
+		return usesLighting_;
+	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	VkShaderModule GetModule() const { return module_; }
@@ -209,6 +215,7 @@ protected:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+	bool usesLighting_;
 	ShaderID id_;
 };
 
@@ -230,7 +237,7 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
-	void UpdateUniforms();
+	uint32_t UpdateUniforms();
 
 	void DirtyUniform(u32 what) {
 		globalDirty_ |= what;
