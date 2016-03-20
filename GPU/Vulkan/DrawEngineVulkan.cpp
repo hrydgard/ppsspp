@@ -584,14 +584,13 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		int stride = dec_->GetDecVtxFmt().stride;
 		VkBuffer vbuf;
-		vbOffset = (uint32_t)frame->pushVertex->PushAligned(decoded, indexGen.MaxIndex() * stride, 16, &vbuf);
+		vbOffset = (uint32_t)frame->pushVertex->Push(decoded, indexGen.MaxIndex() * stride, &vbuf);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
 			VkBuffer ibuf;
-			ibOffset = (uint32_t)frame->pushIndex->PushAligned(decIndex, 2 * indexGen.VertexCount(), 16, &ibuf);
+			ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, 2 * indexGen.VertexCount(), &ibuf);
 			// TODO: Avoid rebinding vertex/index buffers if the vertex size stays the same by using the offset arguments
-			// Might want to separate vertices out into a different push buffer in that case.
 			vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
 			vkCmdBindIndexBuffer(cmd_, ibuf, ibOffset, VK_INDEX_TYPE_UINT16);
 			vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, 0, 0);
@@ -683,8 +682,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 			if (drawIndexed) {
 				VkBuffer vbuf, ibuf;
-				vbOffset = (uint32_t)frame->pushVertex->PushAligned(drawBuffer, maxIndex * sizeof(TransformedVertex), 16, &vbuf);
-				ibOffset = (uint32_t)frame->pushIndex->PushAligned(inds, sizeof(short) * numTrans, 16, &ibuf);
+				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
+				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * numTrans, &ibuf);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Have a buffer per frame, use a walking buffer pointer
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
@@ -693,7 +692,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				vkCmdDrawIndexed(cmd_, numTrans, 1, 0, 0, 0);
 			} else {
 				VkBuffer vbuf;
-				vbOffset = (uint32_t)frame->pushVertex->PushAligned(drawBuffer, numTrans * sizeof(TransformedVertex), 16, &vbuf);
+				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vbuf);
 				VkDeviceSize offsets[1] = { vbOffset };
 				// TODO: Avoid rebinding if the vertex size stays the same by using the offset arguments
 				vkCmdBindVertexBuffers(cmd_, 0, 1, &vbuf, offsets);
