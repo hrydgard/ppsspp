@@ -64,7 +64,6 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	:
 	vulkan_(vulkan), 
-	decodedVerts_(0),
 	prevPrim_(GE_PRIM_INVALID),
 	lastVTypeID_(-1),
 	pipelineManager_(nullptr),
@@ -72,7 +71,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	framebufferManager_(nullptr),
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
-	decodeCounter_(0),
 	fboTexNeedBind_(false),
 	fboTexBound_(false),
 	curFrame_(0) {
@@ -298,82 +296,93 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 }
 
-void DrawEngineVulkan::DecodeVerts() {
-	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		DecodeVertsStep(decoded);
+void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
+	int decodedVerts = 0;
+
+	u8 *dest = decoded;
+
+	// Figure out how much pushbuffer space we need to allocate.
+	if (push) {
+		int vertsToDecode = 0;
+		for (int i = 0; i < numDrawCalls; i++) {
+			const DeferredDrawCall &dc = drawCalls[i];
+			if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+				vertsToDecode += dc.indexUpperBound - dc.indexLowerBound + 1;
+			} else {
+				vertsToDecode += dc.vertexCount;
+			}
+		}
+		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
+	}
+
+	for (int i = 0; i < numDrawCalls; i++) {
+		const DeferredDrawCall &dc = drawCalls[i];
+
+		indexGen.SetIndex(decodedVerts);
+		int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+
+		void *inds = dc.inds;
+		if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+			// Decode the verts and apply morphing. Simple.
+			dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+				dc.verts, indexLowerBound, indexUpperBound);
+			decodedVerts += indexUpperBound - indexLowerBound + 1;
+			indexGen.AddPrim(dc.prim, dc.vertexCount);
+		} else {
+			// It's fairly common that games issue long sequences of PRIM calls, with differing
+			// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
+			// these as much as possible, so we make sure here to combine as many as possible
+			// into one nice big drawcall, sharing data.
+
+			// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
+			//    Expand the lower and upper bounds as we go.
+			int lastMatch = i;
+			const int total = numDrawCalls;
+			for (int j = i + 1; j < total; ++j) {
+				if (drawCalls[j].verts != dc.verts)
+					break;
+
+				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+				lastMatch = j;
+			}
+
+			// 2. Loop through the drawcalls, translating indices as we go.
+			switch (dc.indexType) {
+			case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
+				for (int j = i; j <= lastMatch; j++) {
+					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+				}
+				break;
+			case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
+				for (int j = i; j <= lastMatch; j++) {
+					indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+				}
+				break;
+			}
+
+			const int vertexCount = indexUpperBound - indexLowerBound + 1;
+
+			// This check is a workaround for Pangya Fantasy Golf, which sends bogus index data when switching items in "My Room" sometimes.
+			if (decodedVerts + vertexCount > VERTEX_BUFFER_MAX) {
+				return;
+			}
+
+			// 3. Decode that range of vertex data.
+			dec_->DecodeVerts(dest + decodedVerts * (int)dec_->GetDecVtxFmt().stride,
+				dc.verts, indexLowerBound, indexUpperBound);
+			decodedVerts += vertexCount;
+
+			// 4. Advance indexgen vertex counter.
+			indexGen.Advance(vertexCount);
+			i = lastMatch;
+		}
 	}
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
 		// Force to points (0)
 		indexGen.AddPrim(GE_PRIM_POINTS, 0);
-	}
-}
-
-void DrawEngineVulkan::DecodeVertsStep(u8 *decoded) {
-	const int i = decodeCounter_;
-
-	const DeferredDrawCall &dc = drawCalls[i];
-
-	indexGen.SetIndex(decodedVerts_);
-	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
-
-	u32 indexType = dc.indexType;
-	void *inds = dc.inds;
-	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-		// Decode the verts and apply morphing. Simple.
-		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
-		decodedVerts_ += indexUpperBound - indexLowerBound + 1;
-		indexGen.AddPrim(dc.prim, dc.vertexCount);
-	} else {
-		// It's fairly common that games issue long sequences of PRIM calls, with differing
-		// inds pointer but the same base vertex pointer. We'd like to reuse vertices between
-		// these as much as possible, so we make sure here to combine as many as possible
-		// into one nice big drawcall, sharing data.
-
-		// 1. Look ahead to find the max index, only looking as "matching" drawcalls.
-		//    Expand the lower and upper bounds as we go.
-		int lastMatch = i;
-		const int total = numDrawCalls;
-		for (int j = i + 1; j < total; ++j) {
-			if (drawCalls[j].verts != dc.verts)
-				break;
-
-			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-			lastMatch = j;
-		}
-
-		// 2. Loop through the drawcalls, translating indices as we go.
-		switch (indexType) {
-		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
-			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
-			}
-			break;
-		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
-			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
-			}
-			break;
-		}
-
-		const int vertexCount = indexUpperBound - indexLowerBound + 1;
-
-		// This check is a workaround for Pangya Fantasy Golf, which sends bogus index data when switching items in "My Room" sometimes.
-		if (decodedVerts_ + vertexCount > VERTEX_BUFFER_MAX) {
-			return;
-		}
-
-		// 3. Decode that range of vertex data.
-		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
-			dc.verts, indexLowerBound, indexUpperBound);
-		decodedVerts_ += vertexCount;
-
-		// 4. Advance indexgen vertex counter.
-		indexGen.Advance(vertexCount);
-		decodeCounter_ = lastMatch;
 	}
 }
 
@@ -520,7 +529,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		int maxIndex = 0;
 		bool useElements = true;
 
-		DecodeVerts();
+		// Decode directly into the pushbuffer
+		VkBuffer vbuf;
+		DecodeVerts(frame->pushVertex, &vbOffset, &vbuf);
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		useElements = !indexGen.SeenOnlyPurePrims();
 		vertexCount = indexGen.VertexCount();
@@ -578,8 +589,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &ds, 3, dynamicUBOOffsets);
 
 		int stride = dec_->GetDecVtxFmt().stride;
-		VkBuffer vbuf;
-		vbOffset = (uint32_t)frame->pushVertex->Push(decoded, indexGen.MaxIndex() * stride, &vbuf);
 
 		VkDeviceSize offsets[1] = { vbOffset };
 		if (useElements) {
@@ -594,7 +603,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 		}
 	} else {
-		DecodeVerts();
+		// Decode to "decoded"
+		DecodeVerts(nullptr, nullptr, nullptr);
 		bool hasColor = (lastVTypeID_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
@@ -746,10 +756,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	gpuStats.numVertsSubmitted += vertexCountInDrawCalls;
 
 	indexGen.Reset();
-	decodedVerts_ = 0;
 	numDrawCalls = 0;
 	vertexCountInDrawCalls = 0;
-	decodeCounter_ = 0;
 	prevPrim_ = GE_PRIM_INVALID;
 	gstate_c.vertexFullAlpha = true;
 	framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);

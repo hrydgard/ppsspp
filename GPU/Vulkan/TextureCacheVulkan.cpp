@@ -1481,7 +1481,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 		int stride = (mipWidth * bpp + 15) & ~15;
 		int size = stride * mipHeight;
-		size_t bufferOffset;
+		uint32_t bufferOffset;
 		VkBuffer texBuf;
 		void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
 		LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);

@@ -123,12 +123,6 @@ public:
 		DoFlush(cmd);
 	}
 
-	void FinishDeferred() {
-		if (!numDrawCalls)
-			return;
-		DecodeVerts();
-	}
-
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	void DispatchFlush() override { Flush(cmd_); }
@@ -148,8 +142,7 @@ public:
 	void EndFrame();
 
 private:
-	void DecodeVerts();
-	void DecodeVertsStep(u8 *decoded);
+	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DoFlush(VkCommandBuffer cmd);
 
 	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
@@ -213,7 +206,6 @@ private:
 
 	// Vertex collector state
 	IndexGenerator indexGen;
-	int decodedVerts_;
 	GEPrimitiveType prevPrim_;
 
 	u32 lastVTypeID_;
@@ -234,8 +226,6 @@ private:
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
-
-	int decodeCounter_;
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;

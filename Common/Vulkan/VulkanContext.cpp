@@ -31,7 +31,7 @@ using namespace std;
 
 static const char *validationLayers[] = {
 	"VK_LAYER_GOOGLE_unique_objects",
-	"VK_LAYER_LUNARG_standard_validation",
+	//"VK_LAYER_LUNARG_standard_validation",
 	/*
 	"VK_LAYER_GOOGLE_threading",
 	"VK_LAYER_LUNARG_draw_state",

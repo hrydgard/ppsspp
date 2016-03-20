@@ -672,8 +672,6 @@ void GPU_Vulkan::FastRunLoop(DisplayList &list) {
 }
 
 void GPU_Vulkan::FinishDeferred() {
-	// This finishes reading any vertex data that is pending.
-	drawEngine_.FinishDeferred();
 }
 
 void GPU_Vulkan::ProcessEvent(GPUEvent ev) {

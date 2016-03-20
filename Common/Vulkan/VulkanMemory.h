@@ -86,9 +86,9 @@ public:
 	}
 
 	// "Zero-copy" variant - you can write the data directly as you compute it.
-	void *Push(size_t size, size_t *bindOffset, VkBuffer *vkbuf) {
+	void *Push(size_t size, uint32_t *bindOffset, VkBuffer *vkbuf) {
 		size_t off = Allocate(size, vkbuf);
-		*bindOffset = off;
+		*bindOffset = (uint32_t)off;
 		return writePtr_ + off;
 	}
 

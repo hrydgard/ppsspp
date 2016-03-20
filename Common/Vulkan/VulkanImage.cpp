@@ -308,7 +308,7 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, size_t offset, size_t rowLength) {
+void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
 	VkBufferImageCopy copy_region = {};
 	copy_region.bufferOffset = offset;
 	copy_region.bufferRowLength = (uint32_t)rowLength;
