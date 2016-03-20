@@ -38,33 +38,34 @@ public:
 
 	void Reset() { offset_ = 0; }
 
-	void Begin(VkDevice device) {
+	// Needs context in case of defragment.
+	void Begin(VulkanContext *vulkan) {
 		buf_ = 0;
 		offset_ = 0;
-		Defragment();
-		Map(device);
+		Defragment(vulkan);
+		Map();
 	}
 
-	void End(VkDevice device) {
-		Unmap(device);
+	void End() {
+		Unmap();
 	}
 
-	void Map(VkDevice device) {
+	void Map() {
 		assert(!writePtr_);
-		VkResult res = vkMapMemory(device, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
+		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
 		assert(VK_SUCCESS == res);
 	}
 
-	void Unmap(VkDevice device) {
+	void Unmap() {
 		assert(writePtr_);
 		/*
 		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 		range.offset = 0;
 		range.size = offset_;
 		range.memory = buffers_[buf_].deviceMemory;
-		vkFlushMappedMemoryRanges(device, 1, &range);
+		vkFlushMappedMemoryRanges(device_, 1, &range);
 		*/
-		vkUnmapMemory(device, buffers_[buf_].deviceMemory);
+		vkUnmapMemory(device_, buffers_[buf_].deviceMemory);
 		writePtr_ = nullptr;
 	}
 
@@ -116,12 +117,13 @@ public:
 private:
 	bool AddBuffer();
 	void NextBuffer();
-	void Defragment();
+	void Defragment(VulkanContext *vulkan);
 
-	VulkanContext *ctx_;
+	VkDevice device_;
 	std::vector<BufInfo> buffers_;
 	size_t buf_;
 	size_t offset_;
 	size_t size_;
+	uint32_t memoryTypeIndex_;
 	uint8_t *writePtr_;
 };

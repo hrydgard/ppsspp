@@ -217,9 +217,9 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushVertex->Reset();
 	frame->pushIndex->Reset();
 
-	frame->pushUBO->Begin(vulkan_->GetDevice());
-	frame->pushVertex->Begin(vulkan_->GetDevice());
-	frame->pushIndex->Begin(vulkan_->GetDevice());
+	frame->pushUBO->Begin(vulkan_);
+	frame->pushVertex->Begin(vulkan_);
+	frame->pushIndex->Begin(vulkan_);
 
 	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
@@ -248,9 +248,9 @@ void DrawEngineVulkan::EndFrame() {
 	gpuStats.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
 	gpuStats.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
 	gpuStats.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
-	frame->pushUBO->End(vulkan_->GetDevice());
-	frame->pushVertex->End(vulkan_->GetDevice());
-	frame->pushIndex->End(vulkan_->GetDevice());
+	frame->pushUBO->End();
+	frame->pushVertex->End();
+	frame->pushIndex->End();
 	curFrame_++;
 }
 

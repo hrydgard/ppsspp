@@ -698,7 +698,7 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
 	push_->Reset();
-	push_->Begin(device_);
+	push_->Begin(vulkan_);
 
 	frame->descSets_.clear();
 	VkResult result = vkResetDescriptorPool(device_, frame->descriptorPool, 0);
@@ -712,7 +712,7 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 
 void Thin3DVKContext::End() {
 	// Stop collecting data in the frame's data pushbuffer.
-	push_->End(device_);
+	push_->End();
 	vulkan_->EndSurfaceRenderPass();
 
 	frameNum_++;
