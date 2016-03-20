@@ -1,28 +1,3 @@
-/*
- * Vulkan Samples Kit
- *
- * Copyright (C) 2015 Valve Corporation
- * Copyright (C) 2015 Google, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- */
-
 #ifndef UTIL_INIT
 #define UTIL_INIT
 
@@ -52,7 +27,7 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 
- /* Amount of time, in nanoseconds, to wait for a command buffer to complete */
+// Amount of time, in nanoseconds, to wait for a command buffer to complete
 #define FENCE_TIMEOUT 10000000000
 
 #if defined(NDEBUG) && defined(__GNUC__)
@@ -88,6 +63,15 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 
 	void Take(VulkanDeleteList &del) {
+		assert(descPools_.size() == 0);
+		assert(modules_.size() == 0);
+		assert(buffers_.size() == 0);
+		assert(bufferViews_.size() == 0);
+		assert(images_.size() == 0);
+		assert(imageViews_.size() == 0);
+		assert(deviceMemory_.size() == 0);
+		assert(samplers_.size() == 0);
+		assert(pipelineCaches_.size() == 0);
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -338,106 +322,6 @@ private:
 	VkPhysicalDeviceFeatures featuresEnabled_;
 
 	std::vector<VkCommandBuffer> cmdQueue_;
-};
-
-// Use these to push vertex, index and uniform data. Generally you'll have two of these
-// and alternate on each frame.
-// TODO: Make it possible to suballocate pushbuffers from a large DeviceMemory block.
-// We'll have two of these that we alternate between on each frame.
-// TODO: Make this auto-grow and shrink. Need to be careful about returning and using the new
-// buffer handle on overflow.
-class VulkanPushBuffer {
-public:
-	VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_(0), size_(size), writePtr_(nullptr), deviceMemory_(0) {
-		VkDevice device = vulkan->GetDevice();
-
-		VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-		b.size = size;
-		b.flags = 0;
-		b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		b.queueFamilyIndexCount = 0;
-		b.pQueueFamilyIndices = nullptr;
-		VkResult res = vkCreateBuffer(device, &b, nullptr, &buffer_);
-		assert(VK_SUCCESS == res);
-
-		// Okay, that's the buffer. Now let's allocate some memory for it.
-		VkMemoryAllocateInfo alloc = {};
-		alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		alloc.pNext = nullptr;
-		vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
-		alloc.allocationSize = size;
-
-		res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
-		assert(VK_SUCCESS == res);
-		res = vkBindBufferMemory(device, buffer_, deviceMemory_, 0);
-		assert(VK_SUCCESS == res);
-	}
-
-	void Destroy(VulkanContext *vulkan) {
-		vulkan->Delete().QueueDeleteBuffer(buffer_);
-		vulkan->Delete().QueueDeleteDeviceMemory(deviceMemory_);
-	}
-
-	void Reset() { offset_ = 0; }
-
-	void Begin(VkDevice device) {
-		offset_ = 0;
-		VkResult res = vkMapMemory(device, deviceMemory_, 0, size_, 0, (void **)(&writePtr_));
-		assert(VK_SUCCESS == res);
-	}
-
-	void End(VkDevice device) {
-		vkUnmapMemory(device, deviceMemory_);
-		writePtr_ = nullptr;
-	}
-
-	size_t Allocate(size_t numBytes) {
-		size_t out = offset_;
-		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-		if (offset_ >= size_) {
-			// TODO: Allocate a second buffer, then combine them on the next frame.
-#ifdef _WIN32
-			DebugBreak();
-#endif
-		}
-		return out;
-	}
-
-	// TODO: Add alignment support?
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size) {
-		size_t off = Allocate(size);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	uint32_t PushAligned(const void *data, size_t size, int align) {
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	void *Push(size_t size, size_t *bindOffset) {
-		size_t off = Allocate(size);
-		*bindOffset = off;
-		return writePtr_ + off;
-	}
-
-	VkBuffer GetVkBuffer() const { return buffer_; }
-
-private:
-	VkDeviceMemory deviceMemory_;
-	VkBuffer buffer_;
-	size_t offset_;
-	size_t size_;
-	uint8_t *writePtr_;
 };
 
 // Stand-alone utility functions

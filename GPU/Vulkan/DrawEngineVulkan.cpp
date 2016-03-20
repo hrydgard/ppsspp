@@ -33,6 +33,9 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanMemory.h"
+
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TransformCommon.h"

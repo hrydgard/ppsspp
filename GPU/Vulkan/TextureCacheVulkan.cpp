@@ -31,6 +31,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

@@ -27,6 +27,7 @@
 #include "math/dataconv.h"
 #include "util/text/utf8.h"
 #include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"

@@ -34,6 +34,7 @@ class DrawEngineVulkan;
 
 class VulkanContext;
 class VulkanTexture;
+class VulkanPushBuffer;
 
 struct SamplerCacheKey {
 	SamplerCacheKey() : fullKey(0) {}

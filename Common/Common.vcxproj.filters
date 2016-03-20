@@ -70,6 +70,9 @@
     <ClInclude Include="Vulkan\VulkanImage.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="Vulkan\VulkanMemory.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -125,6 +128,9 @@
       <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanImage.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Vulkan\VulkanMemory.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
   </ItemGroup>

@@ -33,6 +33,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
 // binding 0 - uniform data
