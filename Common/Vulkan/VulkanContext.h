@@ -87,6 +87,10 @@ public:
 		for (auto &descPool : descPools_) {
 			vkDestroyDescriptorPool(device, descPool, nullptr);
 		}
+		descPools_.clear();
+		for (auto &module : modules_) {
+			vkDestroyShaderModule(device, module, nullptr);
+		}
 		modules_.clear();
 		for (auto &buf : buffers_) {
 			vkDestroyBuffer(device, buf, nullptr);

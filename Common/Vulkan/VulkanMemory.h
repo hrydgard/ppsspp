@@ -40,6 +40,13 @@ public:
 	}
 
 	void End(VkDevice device) {
+		/*
+		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+		range.offset = 0;
+		range.size = offset_;
+		range.memory = deviceMemory_;
+		vkFlushMappedMemoryRanges(device, 1, &range);
+		*/
 		vkUnmapMemory(device, deviceMemory_);
 		writePtr_ = nullptr;
 	}

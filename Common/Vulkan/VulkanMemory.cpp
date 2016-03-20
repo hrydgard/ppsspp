@@ -37,7 +37,8 @@ VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : offset_
 	VkMemoryAllocateInfo alloc = {};
 	alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc.pNext = nullptr;
-	vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &alloc.memoryTypeIndex);
+
+	vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
 	alloc.allocationSize = size;
 
 	res = vkAllocateMemory(device, &alloc, nullptr, &deviceMemory_);
