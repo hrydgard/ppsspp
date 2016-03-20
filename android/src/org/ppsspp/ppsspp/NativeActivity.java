@@ -958,7 +958,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
     			@Override
     			public void onClick(DialogInterface d, int which) {
-    	    		NativeApp.sendMessage("inputbox_completed", input.getText().toString());
+    	    		NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
     				d.dismiss();
     			}
     		})
