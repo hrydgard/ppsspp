@@ -66,6 +66,10 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 
+#ifdef _WIN32
+#include "Windows/MainWindow.h"
+#endif
+
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
@@ -111,6 +115,16 @@ void EmuScreen::bootGame(const std::string &filename) {
 		break;
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPU_VULKAN;
+		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+#ifdef _WIN32
+			if (IDYES == MessageBox(MainWindow::GetHWND(), L"The Vulkan backend is not yet compatible with buffered rendering. Switch to non-buffered (WARNING: This will cause glitches with the other backends unless you switch back)", L"Vulkan Experimental Support", MB_ICONINFORMATION | MB_YESNO)) {
+				g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
+			} else {
+				errorMessage_ = "Non-buffered rendering required for Vulkan";
+				return;
+			}
+#endif
+		}
 		break;
 	}
 	if (g_Config.bSoftwareRendering) {

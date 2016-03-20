@@ -135,7 +135,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
-	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
+	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan (experimental)" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #if !defined(_WIN32)
