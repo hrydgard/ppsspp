@@ -50,11 +50,11 @@ bool GPU_Init(GraphicsContext *ctx) {
 		SetGPU(new GLES_GPU(ctx));
 		break;
 	case GPU_SOFTWARE:
-		SetGPU(new SoftGPU());
+		SetGPU(new SoftGPU(ctx));
 		break;
 	case GPU_DIRECTX9:
 #if defined(_WIN32)
-		SetGPU(new DIRECTX9_GPU());
+		SetGPU(new DIRECTX9_GPU(ctx));
 #endif
 		break;
 	}

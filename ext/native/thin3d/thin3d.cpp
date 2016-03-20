@@ -94,6 +94,12 @@ void Thin3DContext::CreatePresets() {
 	bsPresets_[BS_STANDARD_ALPHA] = CreateBlendState(standard_alpha);
 	bsPresets_[BS_PREMUL_ALPHA] = CreateBlendState(premul_alpha);
 
+	T3DSamplerStateDesc nearest = { CLAMP, CLAMP, NEAREST, NEAREST, NEAREST };
+	T3DSamplerStateDesc linear = { CLAMP, CLAMP, LINEAR, LINEAR, NEAREST };
+
+	sampsPresets_[SAMPS_NEAREST] = CreateSamplerState(nearest);
+	sampsPresets_[SAMPS_LINEAR] = CreateSamplerState(linear);
+
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateVertexShader(glsl_vsTexCol, hlslVsTexCol);
 	vsPresets_[VS_COLOR_2D] = CreateVertexShader(glsl_vsCol, hlslVsCol);
 

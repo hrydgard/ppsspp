@@ -14,6 +14,7 @@ class Thin3DShaderSet;
 class Thin3DDepthStencilState;
 class Thin3DTexture;
 class Thin3DBlendState;
+class Thin3DSamplerState;
 class Texture;
 class DrawBuffer;
 class TextDrawer;
@@ -82,6 +83,7 @@ private:
 	Thin3DContext *thin3D_;
 	Thin3DDepthStencilState *depth_;
 	Thin3DBlendState *blend_;
+	Thin3DSamplerState *sampler_;
 	Thin3DShaderSet *uishader_;
 	Thin3DShaderSet *uishadernotex_;
 	Thin3DTexture *uitexture_;

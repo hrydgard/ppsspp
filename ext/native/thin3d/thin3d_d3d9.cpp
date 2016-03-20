@@ -56,10 +56,26 @@ static const D3DBLEND blendFactorToD3D9[] = {
 	D3DBLEND_BLENDFACTOR,
 };
 
+static const D3DTEXTUREADDRESS texWrapToD3D9[] = {
+	D3DTADDRESS_WRAP,
+	D3DTADDRESS_CLAMP,
+};
+
+static const D3DTEXTUREFILTERTYPE texFilterToD3D9[] = {
+	D3DTEXF_POINT,
+	D3DTEXF_LINEAR,
+};
+
 static const D3DPRIMITIVETYPE primToD3D9[] = {
 	D3DPT_POINTLIST,
 	D3DPT_LINELIST,
 	D3DPT_TRIANGLELIST,
+};
+
+static const int primCountDivisor[] = {
+	1,
+	2,
+	3,
 };
 
 class Thin3DDX9DepthStencilState : public Thin3DDepthStencilState {
@@ -91,6 +107,20 @@ public:
 		device->SetRenderState(D3DRS_SRCBLENDALPHA, srcAlpha);
 		device->SetRenderState(D3DRS_DESTBLENDALPHA, dstAlpha);
 		// device->SetRenderState(, fixedColor);
+	}
+};
+
+class Thin3DDX9SamplerState : public Thin3DSamplerState {
+public:
+	D3DTEXTUREADDRESS wrapS, wrapT;
+	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
+
+	void Apply(LPDIRECT3DDEVICE9 device, int index) {
+		device->SetSamplerState(index, D3DSAMP_ADDRESSU, wrapS);
+		device->SetSamplerState(index, D3DSAMP_ADDRESSV, wrapT);
+		device->SetSamplerState(index, D3DSAMP_MAGFILTER, magFilt);
+		device->SetSamplerState(index, D3DSAMP_MINFILTER, minFilt);
+		device->SetSamplerState(index, D3DSAMP_MIPFILTER, mipFilt);
 	}
 };
 
@@ -212,7 +242,7 @@ public:
 		}
 	}
 	void SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n);
-	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const Matrix4x4 &value);
+	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]);
 
 private:
 	bool isPixelShader_;
@@ -228,7 +258,7 @@ public:
 	Thin3DDX9Shader *pshader;
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
-	void SetMatrix4x4(const char *name, const Matrix4x4 &value) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
+	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
 private:
 	LPDIRECT3DDEVICE9 device_;
 };
@@ -397,6 +427,7 @@ public:
 
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare);
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
+	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
@@ -410,6 +441,12 @@ public:
 	void SetBlendState(Thin3DBlendState *state) {
 		Thin3DDX9BlendState *bs = static_cast<Thin3DDX9BlendState *>(state);
 		bs->Apply(device_);
+	}
+	void SetSamplerStates(int start, int count, Thin3DSamplerState **states) {
+		for (int i = 0; i < count; ++i) {
+			Thin3DDX9SamplerState *s = static_cast<Thin3DDX9SamplerState *>(states[start + i]);
+			s->Apply(device_, start + i);
+		}
 	}
 	void SetDepthStencilState(Thin3DDepthStencilState *state) {
 		Thin3DDX9DepthStencilState *bs = static_cast<Thin3DDX9DepthStencilState *>(state);
@@ -522,6 +559,16 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 	return bs;
 }
 
+Thin3DSamplerState *Thin3DDX9Context::CreateSamplerState(const T3DSamplerStateDesc &desc) {
+	Thin3DDX9SamplerState *samps = new Thin3DDX9SamplerState();
+	samps->wrapS = texWrapToD3D9[desc.wrapS];
+	samps->wrapT = texWrapToD3D9[desc.wrapT];
+	samps->magFilt = texFilterToD3D9[desc.magFilt];
+	samps->minFilt = texFilterToD3D9[desc.minFilt];
+	samps->mipFilt = texFilterToD3D9[desc.mipFilt];
+	return samps;
+}
+
 Thin3DTexture *Thin3DDX9Context::CreateTexture() {
 	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_);
 	return tex;
@@ -625,12 +672,6 @@ void Thin3DDX9Context::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
 
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
-
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -647,18 +688,12 @@ void Thin3DDX9Context::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet
 	fmt->Apply(device_);
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
-	device_->DrawIndexedPrimitive(primToD3D9[prim], 0, 0, vertexCount, 0, vertexCount / 3);
+	device_->DrawIndexedPrimitive(primToD3D9[prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[prim]);
 }
 
 void Thin3DDX9Context::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
 	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
-
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-	device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-	device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -757,10 +792,10 @@ void Thin3DDX9Shader::SetVector(LPDIRECT3DDEVICE9 device, const char *name, floa
 	}
 }
 
-void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const Matrix4x4 &value) {
+void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
-		constantTable_->SetFloatArray(device, handle, value.getReadPtr(), 16);
+		constantTable_->SetFloatArray(device, handle, value, 16);
 	}
 }
 

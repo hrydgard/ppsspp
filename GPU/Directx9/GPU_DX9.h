@@ -35,7 +35,7 @@ class LinkedShaderDX9;
 
 class DIRECTX9_GPU : public GPUCommon {
 public:
-	DIRECTX9_GPU();
+	DIRECTX9_GPU(GraphicsContext *gfxCtx);
 	~DIRECTX9_GPU();
 	void CheckGPUFeatures();
 	void InitClear() override;
@@ -187,6 +187,8 @@ private:
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;
+
+	GraphicsContext *gfxCtx_;
 };
 
 }  // namespace DX9

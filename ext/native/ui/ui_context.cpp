@@ -23,6 +23,7 @@ UIContext::~UIContext() {
 void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	thin3d_ = thin3d;
 	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
+	sampler_ = thin3d_->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
 	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
 
 	uishader_ = uishader;
@@ -39,6 +40,7 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 
 void UIContext::Begin() {
 	thin3d_->SetBlendState(blend_);
+	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
 	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 	thin3d_->SetTexture(0, uitexture_);
@@ -48,6 +50,7 @@ void UIContext::Begin() {
 
 void UIContext::BeginNoTex() {
 	thin3d_->SetBlendState(blend_);
+	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
 
 	UIBegin(uishadernotex_);
