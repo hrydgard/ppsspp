@@ -285,9 +285,9 @@ public:
 	}
 	bool Link();
 
-	// Returns the binding offset.
-	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment);
+	// Returns the binding offset, and the VkBuffer to bind.
+	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
+		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUniformLoc(const char *name);
@@ -335,7 +335,7 @@ class Thin3DVKSamplerState;
 struct DescriptorSetKey {
 	Thin3DVKTexture *texture_;
 	Thin3DVKSamplerState *sampler_;
-	VulkanPushBuffer *buffer_;
+	VkBuffer buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
 		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
@@ -418,7 +418,7 @@ public:
 	}
 
 	VkPipeline GetOrCreatePipeline();
-	VkDescriptorSet GetOrCreateDescriptorSet();
+	VkDescriptorSet GetOrCreateDescriptorSet(VkBuffer buffer);
 
 	std::vector<std::string> GetFeatureList() override;
 
@@ -672,6 +672,7 @@ Thin3DVKContext::~Thin3DVKContext() {
 	for (int i = 0; i < 2; i++) {
 		frame_[i].descSets_.clear();
 		vkDestroyDescriptorPool(device_, frame_[i].descriptorPool, nullptr);
+		frame_[i].pushBuffer->Destroy(vulkan_);
 		delete frame_[i].pushBuffer;
 	}
 	vkDestroyDescriptorSetLayout(device_, descriptorSetLayout_, nullptr);
@@ -696,6 +697,7 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 	push_ = frame->pushBuffer;
 
 	// OK, we now know that nothing is reading from this frame's data pushbuffer,
+	push_->Reset();
 	push_->Begin(device_);
 
 	frame->descSets_.clear();
@@ -718,14 +720,14 @@ void Thin3DVKContext::End() {
 	DirtyDynamicState();
 }
 
-VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
+VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
 	FrameData *frame = &frame_[frameNum_ & 1];
 
 	key.texture_ = boundTextures_[0];
 	key.sampler_ = boundSamplers_[0];
-	key.buffer_ = push_;  // Not currently strictly necessary as a single frame always uses a specific push buffer
+	key.buffer_ = buf;
 
 	auto iter = frame->descSets_.find(key);
 	if (iter != frame->descSets_.end()) {
@@ -747,7 +749,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet() {
 	// bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorBufferInfo bufferDesc;
-	bufferDesc.buffer = push_->GetVkBuffer();
+	bufferDesc.buffer = buf;
 	bufferDesc.offset = 0;
 	bufferDesc.range = curShaderSet_->GetUBOSize();
 
@@ -1092,14 +1094,16 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize());
+	VkBuffer vulkanVbuf;
+	VkBuffer vulkanUBObuf;
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanVbuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanUBObuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet();
+	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
-	VkBuffer buffers[1] = { push_->GetVkBuffer() };
+	VkBuffer buffers[1] = { vulkanVbuf };
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
@@ -1115,21 +1119,22 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	Thin3DVKBuffer *ibuf = (Thin3DVKBuffer *)idata;
 	Thin3DVKBuffer *vbuf = (Thin3DVKBuffer *)vdata;
 
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize());
-	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize());
+	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
+	size_t ibBindOffset = push_->Push(ibuf->GetData(), ibuf->GetSize(), &vulkanIbuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet();
+	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 
-	VkBuffer buffers[1] = { push_->GetVkBuffer() };
+	VkBuffer buffers[1] = { vulkanVbuf };
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
 
-	vkCmdBindIndexBuffer(cmd_, push_->GetVkBuffer(), ibBindOffset, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT16);
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
@@ -1140,17 +1145,18 @@ void Thin3DVKContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 
-	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_);
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_);
+	VkBuffer vulkanVbuf, vulkanUBObuf;
+	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_, &vulkanVbuf);
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-	VkBuffer buffers[1] = { push_->GetVkBuffer() };
+	VkBuffer buffers[1] = { vulkanVbuf };
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
 
-	VkDescriptorSet descSet = GetOrCreateDescriptorSet();
+	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 	vkCmdBindDescriptorSets(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout_, 0, 1, &descSet, 1, &ubo_offset);
 	vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 }

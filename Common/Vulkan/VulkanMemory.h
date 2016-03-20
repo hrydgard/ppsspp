@@ -44,7 +44,9 @@ public:
 		writePtr_ = nullptr;
 	}
 
-	size_t Allocate(size_t numBytes) {
+	// When using the returned memory, make sure to bind the returned vkbuf.
+	// This will later allow for handling overflow correctly.
+	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 		if (offset_ >= size_) {
@@ -53,20 +55,21 @@ public:
 			DebugBreak();
 #endif
 		}
+		*vkbuf = buffer_;
 		return out;
 	}
 
 	// TODO: Add alignment support?
 	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size) {
-		size_t off = Allocate(size);
+	size_t Push(const void *data, size_t size, VkBuffer *vkbuf) {
+		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
 		return off;
 	}
 
-	uint32_t PushAligned(const void *data, size_t size, int align) {
+	uint32_t PushAligned(const void *data, size_t size, int align, VkBuffer *vkbuf) {
 		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size);
+		size_t off = Allocate(size, vkbuf);
 		memcpy(writePtr_ + off, data, size);
 		return (uint32_t)off;
 	}
@@ -76,13 +79,11 @@ public:
 	}
 
 	// "Zero-copy" variant - you can write the data directly as you compute it.
-	void *Push(size_t size, size_t *bindOffset) {
-		size_t off = Allocate(size);
+	void *Push(size_t size, size_t *bindOffset, VkBuffer *vkbuf) {
+		size_t off = Allocate(size, vkbuf);
 		*bindOffset = off;
 		return writePtr_ + off;
 	}
-
-	VkBuffer GetVkBuffer() const { return buffer_; }
 
 private:
 	VkDeviceMemory deviceMemory_;

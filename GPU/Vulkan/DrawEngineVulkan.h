@@ -152,7 +152,7 @@ private:
 	void DecodeVertsStep();
 	void DoFlush(VkCommandBuffer cmd);
 
-	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer dynamicUbo);
+	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
@@ -166,14 +166,16 @@ private:
 		VkImageView imageView_;
 		VkImageView secondaryImageView_;
 		VkSampler sampler_;
-		VkBuffer buffer_;  // All three UBO slots will be set to this. This will usually be identical
+		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
 
 		bool operator < (const DescriptorSetKey &other) const {
 			if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
 			if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
 			if (secondaryImageView_ < other.secondaryImageView_) return true; else if (secondaryImageView_ > other.secondaryImageView_) return false;
-			if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
+			if (base_ < other.base_) return true; else if (base_ > other.base_) return false;
+			if (light_ < other.light_) return true; else if (light_ > other.light_) return false;
+			if (bone_ < other.bone_) return true; else if (bone_ > other.bone_) return false;
 			return false;
 		}
 	};

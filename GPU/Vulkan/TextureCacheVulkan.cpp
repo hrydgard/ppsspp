@@ -1482,9 +1482,10 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		int stride = (mipWidth * bpp + 15) & ~15;
 		int size = stride * mipHeight;
 		size_t bufferOffset;
-		void *data = uploadBuffer->Push(size, &bufferOffset);
+		VkBuffer texBuf;
+		void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
 		LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);
-		entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, uploadBuffer->GetVkBuffer(), bufferOffset, stride / bpp);
+		entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 	}
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;

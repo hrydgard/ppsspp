@@ -702,7 +702,7 @@ void EmuScreen::update(InputState &input) {
 
 	UIScreen::update(input);
 
-	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
+	// Simply forcibly update to the current screen size every frame. Doesn't cost much.
 	// If bounds is set to be smaller than the actual pixel resolution of the display, respect that.
 	// TODO: Should be able to use g_dpi_scale here instead. Might want to store the dpi scale in the UI context too.
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();

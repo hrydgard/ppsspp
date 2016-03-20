@@ -176,17 +176,17 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 	delete[] codeBuffer_;
 }
 
-uint32_t ShaderManagerVulkan::PushBaseBuffer(VulkanPushBuffer *dest) {
-	return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_);
+uint32_t ShaderManagerVulkan::PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+	return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
 }
 
-uint32_t ShaderManagerVulkan::PushLightBuffer(VulkanPushBuffer *dest) {
-	return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_);
+uint32_t ShaderManagerVulkan::PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+	return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
 }
 
 // TODO: Only push half the bone buffer if we only have four bones.
-uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest) {
-	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_);
+uint32_t ShaderManagerVulkan::PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
+	return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 }
 
 void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {

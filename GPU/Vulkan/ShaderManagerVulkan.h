@@ -242,9 +242,9 @@ public:
 	bool IsLightDirty() { return true; }
 	bool IsBoneDirty() { return true; }
 
-	uint32_t PushBaseBuffer(VulkanPushBuffer *dest);
-	uint32_t PushLightBuffer(VulkanPushBuffer *dest);
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest);
+	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
+	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
+	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf);
 
 private:
 	void BaseUpdateUniforms(int dirtyUniforms);
