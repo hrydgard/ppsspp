@@ -59,6 +59,7 @@ typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 
+#ifdef IOS
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
@@ -70,6 +71,7 @@ extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 #define glBindVertexArray glBindVertexArrayOES
 #define glDeleteVertexArrays glDeleteVertexArraysOES
 #define glIsVertexArray glIsVertexArrayOES
+#endif
 
 #endif
 
