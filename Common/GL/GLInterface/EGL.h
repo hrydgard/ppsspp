@@ -26,14 +26,14 @@
 
 class cInterfaceEGL : public cInterfaceBase {
 public:
-	void SwapInterval(int Interval);
-	void Swap();
-	void SetMode(u32 mode) { s_opengl_mode = mode; }
-	void* GetFuncAddress(const std::string& name);
+	void SwapInterval(int Interval) override;
+	void Swap() override;
+	void SetMode(u32 mode) override { s_opengl_mode = mode; }
+	void* GetFuncAddress(const std::string& name) override;
 	bool Create(void *window_handle, bool core, bool use565) override;
-	bool MakeCurrent();
-	bool ClearCurrent();
-	void Shutdown();
+	bool MakeCurrent() override;
+	bool ClearCurrent() override;
+	void Shutdown() override;
 
 protected:
 	EGLSurface egl_surf;

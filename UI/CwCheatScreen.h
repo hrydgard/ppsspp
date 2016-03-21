@@ -44,7 +44,6 @@ protected:
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
 	std::vector<std::string> formattedList_;
-	bool anythingChanged_;
 };
 
 // TODO: Instead just hook the OnClick event on a regular checkbox.

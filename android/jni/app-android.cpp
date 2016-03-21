@@ -71,12 +71,12 @@ public:
 class AndroidEGLGraphicsContext : public AndroidGraphicsContext {
 public:
 	AndroidEGLGraphicsContext() : wnd_(nullptr), gl(nullptr) {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion);
+	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
-	void Resize() {}
-	Thin3DContext *CreateThin3DContext() {
+	void Resize() override {}
+	Thin3DContext *CreateThin3DContext() override {
 		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
@@ -141,8 +141,8 @@ public:
 	void Shutdown() override {}
 	void SwapBuffers() override {}
 	void SwapInterval(int interval) override {}
-	void Resize() {}
-	Thin3DContext *CreateThin3DContext() {
+	void Resize() override {}
+	Thin3DContext *CreateThin3DContext() override {
 		CheckGLExtensions();
 		return T3DCreateGLContext();
 	}
@@ -161,7 +161,7 @@ public:
 	void SwapBuffers() override;
 	void Resize() override;
 
-	void *GetAPIContext() { return g_Vulkan; }
+	void *GetAPIContext() override { return g_Vulkan; }
 
 	Thin3DContext *CreateThin3DContext() override {
 		return T3DCreateVulkanContext(g_Vulkan);
@@ -208,7 +208,7 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	}
 }
 
-static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
+static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
 	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	int loglevel = ANDROID_LOG_INFO;
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
@@ -266,7 +266,7 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	g_Vulkan->InitSurfaceAndroid(wnd, width, height);
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-		g_Vulkan->InitDebugMsgCallback(Vulkan_Dbg, bits, &g_LogOptions);
+		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
 	}
 	g_Vulkan->InitObjects(true);
 
