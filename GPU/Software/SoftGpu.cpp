@@ -83,6 +83,13 @@ SoftGPU::~SoftGPU() {
 	vformat = nullptr;
 	fbTex->Release();
 	fbTex = nullptr;
+
+	vdata->Release();
+	vdata = nullptr;
+	idata->Release();
+	idata = nullptr;
+	depth->Release();
+	depth = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
