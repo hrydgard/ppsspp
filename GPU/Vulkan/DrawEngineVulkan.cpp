@@ -536,12 +536,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
-	// Note than when we implement overflow in pushbuffer, we need to make sure to overflow here, not between
-	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
-	// designed the descriptor set.
-
-	// TODO: The descriptor set seems to be unbinding the texture when not specified.  Cache it or the imageView instead?
-	// TODO: Add this back when fixed: gstate_c.textureChanged != TEXCHANGE_UNCHANGED &&
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture(frame->pushUBO);
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
