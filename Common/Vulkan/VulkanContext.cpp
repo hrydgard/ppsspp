@@ -626,6 +626,22 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	assert(found);
 	assert(queue_count >= 1);
 
+	// Detect preferred formats, in this order.
+	static const VkFormat depthStencilFormats[] = {
+		VK_FORMAT_D24_UNORM_S8_UINT,
+		VK_FORMAT_D32_SFLOAT_S8_UINT,
+		VK_FORMAT_D16_UNORM_S8_UINT,
+	};
+	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
+	for (int i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(physical_devices_[0], VK_FORMAT_D24_UNORM_S8_UINT, &props);
+		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+			deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+			break;
+		}
+	}
+
 	// This is as good a place as any to do this
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
 	vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
@@ -730,24 +746,9 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
   VkResult U_ASSERT_ONLY res;
   bool U_ASSERT_ONLY pass;
   VkImageCreateInfo image_info = {};
-	// const VkFormat depth_format = VK_FORMAT_D16_UNORM;
-	// int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-	const VkFormat depth_format = VK_FORMAT_D24_UNORM_S8_UINT;
+	const VkFormat depth_format = deviceInfo_.preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-
-  VkFormatProperties props;
-	vkGetPhysicalDeviceFormatProperties(physical_devices_[0], depth_format, &props);
-	if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-		image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	} else if (props.linearTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-		image_info.tiling = VK_IMAGE_TILING_LINEAR;
-	} else {
-		/* Try other depth formats? */
-		std::cout << "VK_FORMAT_D16_UNORM Unsupported.\n";
-		exit(-1);
-	}
-
 	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image_info.pNext = NULL;
 	image_info.imageType = VK_IMAGE_TYPE_2D;
@@ -774,7 +775,6 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
   depth.format = depth_format;
 
-  /* Create image */
   res = vkCreateImage(device_, &image_info, NULL, &depth.image);
   assert(res == VK_SUCCESS);
 

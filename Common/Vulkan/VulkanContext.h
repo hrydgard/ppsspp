@@ -49,6 +49,11 @@ struct layer_properties {
 	std::vector<VkExtensionProperties> extensions;
 };
 
+
+struct VulkanPhysicalDeviceInfo {
+	VkFormat preferredDepthStencilFormat;
+};
+
 // This is a bit repetitive...
 class VulkanDeleteList {
 public:
@@ -61,6 +66,8 @@ public:
 	void QueueDeleteDeviceMemory(VkDeviceMemory deviceMemory) { deviceMemory_.push_back(deviceMemory); }
 	void QueueDeleteSampler(VkSampler sampler) { samplers_.push_back(sampler); }
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
+	void QueueDeleteRenderPass(VkRenderPass renderPass) { renderPasses_.push_back(renderPass); }
+	void QueueDeleteFramebuffer(VkFramebuffer framebuffer) { framebuffers_.push_back(framebuffer); }
 
 	void Take(VulkanDeleteList &del) {
 		assert(descPools_.size() == 0);
@@ -72,6 +79,7 @@ public:
 		assert(deviceMemory_.size() == 0);
 		assert(samplers_.size() == 0);
 		assert(pipelineCaches_.size() == 0);
+		assert(renderPasses_.size() == 0);
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -81,6 +89,8 @@ public:
 		deviceMemory_ = std::move(del.deviceMemory_);
 		samplers_ = std::move(del.samplers_);
 		pipelineCaches_ = std::move(del.pipelineCaches_);
+		renderPasses_ = std::move(del.renderPasses_);
+		framebuffers_ = std::move(del.framebuffers_);
 	}
 
 	void PerformDeletes(VkDevice device) {
@@ -120,6 +130,14 @@ public:
 			vkDestroyPipelineCache(device, pcache, nullptr);
 		}
 		pipelineCaches_.clear();
+		for (auto &renderPass : renderPasses_) {
+			vkDestroyRenderPass(device, renderPass, nullptr);
+		}
+		renderPasses_.clear();
+		for (auto &framebuffer : framebuffers_) {
+			vkDestroyFramebuffer(device, framebuffer, nullptr);
+		}
+		renderPasses_.clear();
 	}
 
 private:
@@ -132,6 +150,8 @@ private:
 	std::vector<VkDeviceMemory> deviceMemory_;
 	std::vector<VkSampler> samplers_;
 	std::vector<VkPipelineCache> pipelineCaches_;
+	std::vector<VkRenderPass> renderPasses_;
+	std::vector<VkFramebuffer> framebuffers_;
 };
 
 // VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.
@@ -236,6 +256,8 @@ public:
 
 	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
 	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
+	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
+
 
 private:
 	VkSemaphore acquireSemaphore;
@@ -272,6 +294,9 @@ private:
 	VkPhysicalDeviceProperties gpu_props;
 	std::vector<VkQueueFamilyProperties> queue_props;
 	VkPhysicalDeviceMemoryProperties memory_properties;
+
+	// Custom collection of things that are good to know
+	VulkanPhysicalDeviceInfo deviceInfo_;
 
 	struct swap_chain_buffer {
 		VkImage image;
