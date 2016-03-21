@@ -194,10 +194,12 @@ public:
 	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
 	~Thin3DVKShader() {
+		vkDestroyShaderModule(device_, module_, nullptr);
 	}
 	VkShaderModule Get() const { return module_; }
 
 private:
+	VkDevice device_;
 	VkShaderModule module_;
 	VkShaderStageFlagBits stage_;
 	bool ok_;
@@ -205,6 +207,8 @@ private:
 };
 
 bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
+	// We'll need this to free it later.
+	device_ = vulkan->GetDevice();
 	this->source_ = source;
 	std::vector<uint32_t> spirv;
 	if (!GLSLtoSPV(stage_, source, spirv)) {
