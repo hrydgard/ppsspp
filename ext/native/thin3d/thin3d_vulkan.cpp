@@ -741,18 +741,12 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	}
 
 	VkDescriptorSet descSet;
-	VkDescriptorSetAllocateInfo alloc;
-	alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	alloc.pNext = nullptr;
+	VkDescriptorSetAllocateInfo alloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	alloc.descriptorPool = frame->descriptorPool;
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
-	// OutputDebugStringA("Allocated a desc set!\n");
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
 	assert(VK_SUCCESS == res);
-
-	// bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	// bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
@@ -764,10 +758,8 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	imageDesc.sampler = boundSamplers_[0]->GetSampler();
 	imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkWriteDescriptorSet writes[2];
-	memset(writes, 0, sizeof(writes));
+	VkWriteDescriptorSet writes[2] = {};
 	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[0].pNext = nullptr;
 	writes[0].dstSet = descSet;
 	writes[0].dstArrayElement = 0;
 	writes[0].dstBinding = 0;
@@ -778,7 +770,6 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 
 	writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[1].pNext = nullptr;
 	writes[1].dstSet = descSet;
 	writes[1].dstArrayElement = 0;
 	writes[1].dstBinding = 1;
@@ -1098,8 +1089,8 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 
 	VkBuffer vulkanVbuf;
 	VkBuffer vulkanUBObuf;
-	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanVbuf);
-	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanUBObuf);
+	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
+	size_t vbBindOffset = push_->Push(vbuf->GetData(), vbuf->GetSize(), &vulkanVbuf);
 
 	VkPipeline pipeline = GetOrCreatePipeline();
 	vkCmdBindPipeline(cmd_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -1118,8 +1109,8 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 
-	Thin3DVKBuffer *ibuf = (Thin3DVKBuffer *)idata;
-	Thin3DVKBuffer *vbuf = (Thin3DVKBuffer *)vdata;
+	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
+	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf, vulkanIbuf, vulkanUBObuf;
 	uint32_t ubo_offset = (uint32_t)curShaderSet_->PushUBO(push_, vulkan_, &vulkanUBObuf);
@@ -1136,7 +1127,7 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
 
-	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
