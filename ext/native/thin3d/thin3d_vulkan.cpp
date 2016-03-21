@@ -1127,7 +1127,7 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	VkDeviceSize offsets[1] = { vbBindOffset };
 	vkCmdBindVertexBuffers(cmd_, 0, 1, buffers, offsets);
 
-	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT16);
+	vkCmdBindIndexBuffer(cmd_, vulkanIbuf, ibBindOffset, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
