@@ -121,14 +121,14 @@ TransformDrawEngine::TransformDrawEngine()
 	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
-		shaderManager_(0),
-		textureCache_(0),
-		framebufferManager_(0),
+		shaderManager_(nullptr),
+		textureCache_(nullptr),
+		framebufferManager_(nullptr),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(0),
+		uvScale(nullptr),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;

@@ -147,6 +147,8 @@ private:
 	struct FrameData;
 
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
+	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
+
 	void DoFlush(VkCommandBuffer cmd);
 	void UpdateUBOs(FrameData *frame);
 
@@ -244,6 +246,7 @@ private:
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
+	UVScale *uvScale;
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
