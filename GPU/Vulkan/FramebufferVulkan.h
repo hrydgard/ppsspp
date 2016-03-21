@@ -23,7 +23,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-// TODO: WTF?
+// TODO: Remove?
 enum VulkanFBOColorDepth {
 	VK_FBO_8888,
 	VK_FBO_565,
@@ -97,7 +97,10 @@ public:
 	void DestroyAllFBOs();
 
 	virtual void Init() override;
+
+	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
+
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
@@ -127,13 +130,23 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
+	// VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
 
 	// Cardboard Settings Calculator
 	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
+	// Pass management
+	// void BeginPassClear()
+
+	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
+	// do that.
+	void NotifyClear(bool clearColor, bool clearDepth, uint32_t color, float depth);
+	void NotifyDraw() {
+		DoNotifyDraw();
+	}
+
 protected:
-	virtual void DisableState() override;
+	virtual void DisableState() override {}
 	virtual void ClearBuffer(bool keepState = false);
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
@@ -150,6 +163,9 @@ protected:
 
 private:
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DoNotifyDraw();
+
+	VkCommandBuffer AllocFrameCommandBuffer();
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
@@ -161,6 +177,7 @@ private:
 	// One framebuffer can be used as a texturing source at multiple times in a frame,
 	// but then the contents have to be copied out into a new texture every time.
 	VkCommandBuffer curCmd_;
+	VkCommandBuffer cmdInit_;
 
 	DrawEngineVulkan *drawEngine_;
 
@@ -175,19 +192,37 @@ private:
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *transformDraw_;
 
+	// Used for postprocessing tasks and in-render-pass plain 2D draws/blits.
+	VkPipelineLayout simplePipelineLayout_;
+
 	bool resized_;
 
-	struct TempFBO {
-		VulkanFBO *fbo_vk;
-		int last_frame_used;
+	AsyncPBOVulkan *pixelBufObj_;
+	int currentPBO_;
+	CardboardSettings cardboardSettings;
+
+	enum {
+		MAX_COMMAND_BUFFERS = 32,
 	};
 
-	std::map<u64, TempFBO> tempFBOs_;
+	struct FrameData {
+		VkCommandPool cmdPool_;
+		// Keep track of command buffers we allocated so we can reset or free them at an appropriate point.
+		VkCommandBuffer commandBuffers_[MAX_COMMAND_BUFFERS];
+		int numCommandBuffers_;
+		int totalCommandBuffers_;
+	};
 
-	// Not used under ES currently.
-	AsyncPBOVulkan *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
+	FrameData frameData_[2];
+	int curFrame_;
 
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
+
+	// Renderpasses, all combination of preserving or clearing fb contents
+	VkRenderPass rpLoadColorLoadDepth_;
+	VkRenderPass rpClearColorLoadDepth_;
+	VkRenderPass rpLoadColorClearDepth_;
+	VkRenderPass rpClearColorClearDepth_;
+
 };

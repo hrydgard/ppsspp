@@ -158,7 +158,8 @@ public:
 			// that come from elsewhere than gstate.
 			FramebufferHeuristicParams inputs;
 			GetFramebufferHeuristicInputs(&inputs, gstate);
-			return DoSetRenderFrameBuffer(inputs, skipDrawReason);
+			VirtualFramebuffer *vfb = DoSetRenderFrameBuffer(inputs, skipDrawReason);
+			return vfb;
 		}
 	}
 	virtual void RebindFramebuffer() = 0;

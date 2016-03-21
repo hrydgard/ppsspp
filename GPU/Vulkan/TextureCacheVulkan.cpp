@@ -748,7 +748,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	}
 	if (depal) {
 		// VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		VulkanFBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
+		// VulkanFBO *depalFBO = framebufferManager_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, VK_FBO_8888);
 
 		//depalFBO->BeginPass(cmd);
 

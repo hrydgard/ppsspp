@@ -52,12 +52,14 @@
 
 extern int g_iNumVideos;
 
+const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
 static const char tex_fs[] =
 "layout (binding = 0) uniform sampler2D sampler0;\n"
 "layout (location = 0) in vec2 v_texcoord0;\n"
+"layout (location = 0) out vec4 fragColor;\n"
 "void main() {\n"
-"  gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
+"  fragColor = texture2D(sampler0, v_texcoord0);\n"
 "}\n";
 
 static const char basic_vs[] =
@@ -71,26 +73,113 @@ static const char basic_vs[] =
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
-	// keepState is irrelevant.
-	if (!currentRenderVfb_) {
-		return;
+FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
+	vulkan_(vulkan),
+	drawPixelsTex_(0),
+	drawPixelsTexFormat_(GE_FORMAT_INVALID),
+	textureCache_(nullptr),
+	shaderManager_(nullptr),
+	resized_(false),
+	pixelBufObj_(nullptr),
+	currentPBO_(0),
+	curFrame_(0) {
+
+	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
+	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
+	VkAttachmentDescription attachments[2] = {};
+	attachments[0].format = framebufFormat;
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].flags = 0;
+
+	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
+	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].flags = 0;
+
+	VkAttachmentReference color_reference = {};
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depth_reference = {};
+	depth_reference.attachment = 1;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.flags = 0;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = NULL;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_reference;
+	subpass.pResolveAttachments = NULL;
+	subpass.pDepthStencilAttachment = &depth_reference;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = NULL;
+
+	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+	rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	rp.pNext = NULL;
+	rp.attachmentCount = 2;
+	rp.pAttachments = attachments;
+	rp.subpassCount = 1;
+	rp.pSubpasses = &subpass;
+	rp.dependencyCount = 0;
+	rp.pDependencies = NULL;
+
+	// TODO: Maybe LOAD_OP_DONT_CARE makes sense in some situations. Additionally,
+	// there is often no need to store the depth buffer afterwards, although hard to know up front.
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorLoadDepth_);
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorLoadDepth_);
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorClearDepth_);
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorClearDepth_);
+
+	// Initialize framedata
+	for (int i = 0; i < 2; i++) {
+		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
+		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
+		assert(res == VK_SUCCESS);
 	}
-	VkClearAttachment clear[2];
-	memset(clear, 0, sizeof(clear));
-	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkClearRect rc;
-	rc.baseArrayLayer = 0;
-	rc.layerCount = 1;
-	rc.rect.offset.x = 0;
-	rc.rect.offset.y = 0;
-	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
-	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
-	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+
+	// Initialize objects
+	drawPixelsTex_ = new VulkanTexture(vulkan_);
+	drawPixelsTex_->CreateDirect(512, 272, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 }
 
-void FramebufferManagerVulkan::DisableState() {
+FramebufferManagerVulkan::~FramebufferManagerVulkan() {
+	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
+
+	for (int i = 0; i < 2; i++) {
+		vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);
+		vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
+	}
+	delete drawPixelsTex_;
+}
+
+void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearDepth, uint32_t color, float depth) {
+
+}
+
+void FramebufferManagerVulkan::DoNotifyDraw() {
+
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -113,37 +202,6 @@ void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int buf
 	int vCount = __DisplayGetVCount();
 	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
 	memcpy(postUniforms_.time, time, 4 * sizeof(float));
-}
-
-FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
-	vulkan_(vulkan),
-	drawPixelsTex_(0),
-	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
-	textureCache_(nullptr),
-	shaderManager_(nullptr),
-	resized_(false),
-	pixelBufObj_(nullptr),
-	currentPBO_(0) {
-}
-
-FramebufferManagerVulkan::~FramebufferManagerVulkan() {
-	/*
-	if (drawPixelsTex_)
-	glDeleteTextures(1, &drawPixelsTex_);
-	DestroyDraw2DProgram();
-	if (stencilUploadProgram_) {
-	glsl_destroy(stencilUploadProgram_);
-	}
-	SetNumExtraFBOs(0);
-
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-	fbo_destroy(it->second.fbo_vk);
-	}
-
-	delete[] pixelBufObj_;
-	delete[] convBuf_;
-	*/
 }
 
 void FramebufferManagerVulkan::Init() {
@@ -224,21 +282,18 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 }
 
 void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	/*
 	float v0 = 0.0f, v1 = 1.0f;
 	if (useBufferedRendering_ && vfb && vfb->fbo_vk) {
-		fbo_bind_as_render_target(vfb->fbo_vk);
-		glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+		// fbo_bind_as_render_target(vfb->fbo_vk);
+		// glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
-		// We are drawing to the back buffer so need to flip.
-		v0 = 1.0f;
-		v1 = 0.0f;
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		glViewport(x, y, w, h);
+		// glViewport(x, y, w, h);
 	}
 
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	/*
 	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
 	*/
@@ -247,9 +302,6 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
-
-	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
@@ -404,6 +456,9 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 }
 
 void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
+	return;
+
+	/*
 	VirtualFramebuffer old = *vfb;
 
 	if (force) {
@@ -476,6 +531,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	if (!vfb->fbo_vk) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
+	*/
 }
 
 void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -485,7 +541,6 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	}
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
@@ -613,28 +668,6 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}
 }
 
-VulkanFBO *FramebufferManagerVulkan::GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth) {
-	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
-	auto it = tempFBOs_.find(key);
-	if (it != tempFBOs_.end()) {
-		it->second.last_frame_used = gpuStats.numFlips;
-		return it->second.fbo_vk;
-	}
-
-	textureCache_->ForgetLastTexture();
-	// FBO *fbo_vk = fbo_create(w, h, 1, false, depth);
-	VulkanFBO *fbo_vk = new VulkanFBO();
-	if (!fbo_vk)
-		return nullptr;
-	//	 fbo_bind_as_render_target(fbo_vk);
-	// fbo_vk->GetColorImageView()
-	// ClearBuffer(true);
-	const TempFBO info = { fbo_vk, gpuStats.numFlips };
-	tempFBOs_[key] = info;
-	return fbo_vk;
-}
-
-// This function signature will need to change. Only used for shader blending, doing it later.
 void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
@@ -696,29 +729,7 @@ void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress,
 }
 
 struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {
-	if (cardboardSettings) {
-		// Calculate Cardboard Settings
-		float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-		float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-		float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
-		float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
-		float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
-		float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-		float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-		float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
-		float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
-		float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
-
-		// Copy current Settings into Structure
-		cardboardSettings->enabled = g_Config.bEnableCardboard;
-		cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
-		cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
-		cardboardSettings->screenYPosition = cardboardScreenY;
-		cardboardSettings->screenWidth = cardboardScreenWidth;
-		cardboardSettings->screenHeight = cardboardScreenHeight;
-	}
-
-	return cardboardSettings;
+	return nullptr;
 }
 
 void FramebufferManagerVulkan::CopyDisplayToOutput() {
@@ -750,12 +761,10 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	u32 offsetX = 0;
 	u32 offsetY = 0;
 
-	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
-
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range.
+		// TODO: Let's keep an interval_map or something of the memory contents.
 		const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *v = vfbs_[i];
@@ -1319,6 +1328,28 @@ void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 void ShowScreenResolution();
 #endif
 
+VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
+	FrameData &frame = frameData_[curFrame_];
+	int num = frame.numCommandBuffers_;
+	if (!frame.commandBuffers_[num]) {
+		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+		cmd.commandBufferCount = 1;
+		cmd.commandPool = frame.cmdPool_;
+		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
+		frame.totalCommandBuffers_ = num + 1;
+	}
+	return frame.commandBuffers_[num];
+}
+
+void FramebufferManagerVulkan::BeginFrameVulkan() {
+	BeginFrame();
+
+	FrameData &frame = frameData_[curFrame_];
+	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
+	frame.numCommandBuffers_ = 0;
+}
+
 void FramebufferManagerVulkan::EndFrame() {
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
@@ -1370,6 +1401,9 @@ void FramebufferManagerVulkan::EndFrame() {
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
 		PackFramebufferAsync_(nullptr);
+
+	curFrame_++;
+	curFrame_ &= 1;
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
@@ -1419,27 +1453,6 @@ void FramebufferManagerVulkan::DecimateFBOs() {
 			}
 		}
 	}
-
-	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
-		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-		if (age > FBO_OLD_AGE) {
-			delete it->second.fbo_vk;
-			tempFBOs_.erase(it++);
-		} else {
-			++it;
-		}
-	}
-
-	// Do the same for ReadFramebuffersToMemory's VFBs
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-			DestroyFramebuf(vfb);
-			bvfbs_.erase(bvfbs_.begin() + i--);
-		}
-	}
 }
 
 void FramebufferManagerVulkan::DestroyAllFBOs() {
@@ -1460,11 +1473,6 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 		DestroyFramebuf(vfb);
 	}
 	bvfbs_.clear();
-
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		delete it->second.fbo_vk;
-	}
-	tempFBOs_.clear();
 }
 
 void FramebufferManagerVulkan::FlushBeforeCopy() {
@@ -1569,4 +1577,24 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return true;
 	*/
 	return false;
+}
+
+
+void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
+	// keepState is irrelevant.
+	if (!currentRenderVfb_) {
+		return;
+	}
+	VkClearAttachment clear[2];
+	memset(clear, 0, sizeof(clear));
+	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	VkClearRect rc;
+	rc.baseArrayLayer = 0;
+	rc.layerCount = 1;
+	rc.rect.offset.x = 0;
+	rc.rect.offset.y = 0;
+	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
+	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
+	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
 }
