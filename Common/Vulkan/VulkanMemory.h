@@ -38,46 +38,46 @@ public:
 
 	void Reset() { offset_ = 0; }
 
-	void Begin(VkDevice device) {
+	// Needs context in case of defragment.
+	void Begin(VulkanContext *vulkan) {
 		buf_ = 0;
 		offset_ = 0;
-		Defragment();
-		Map(device);
+		// Note: we must defrag because some buffers may be smaller than size_.
+		Defragment(vulkan);
+		Map();
 	}
 
-	void End(VkDevice device) {
-		Unmap(device);
+	void End() {
+		Unmap();
 	}
 
-	void Map(VkDevice device) {
+	void Map() {
 		assert(!writePtr_);
-		VkResult res = vkMapMemory(device, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
+		VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, offset_, size_, 0, (void **)(&writePtr_));
 		assert(VK_SUCCESS == res);
 	}
 
-	void Unmap(VkDevice device) {
+	void Unmap() {
 		assert(writePtr_);
 		/*
 		VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 		range.offset = 0;
 		range.size = offset_;
 		range.memory = buffers_[buf_].deviceMemory;
-		vkFlushMappedMemoryRanges(device, 1, &range);
+		vkFlushMappedMemoryRanges(device_, 1, &range);
 		*/
-		vkUnmapMemory(device, buffers_[buf_].deviceMemory);
+		vkUnmapMemory(device_, buffers_[buf_].deviceMemory);
 		writePtr_ = nullptr;
 	}
 
 	// When using the returned memory, make sure to bind the returned vkbuf.
 	// This will later allow for handling overflow correctly.
 	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
-		assert(numBytes < size_);
-
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 
 		if (offset_ >= size_) {
-			NextBuffer();
+			NextBuffer(numBytes);
 			out = offset_;
 			offset_ += (numBytes + 3) & ~3;
 		}
@@ -115,13 +115,14 @@ public:
 
 private:
 	bool AddBuffer();
-	void NextBuffer();
-	void Defragment();
+	void NextBuffer(size_t minSize);
+	void Defragment(VulkanContext *vulkan);
 
-	VulkanContext *ctx_;
+	VkDevice device_;
 	std::vector<BufInfo> buffers_;
 	size_t buf_;
 	size_t offset_;
 	size_t size_;
+	uint32_t memoryTypeIndex_;
 	uint8_t *writePtr_;
 };

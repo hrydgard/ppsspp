@@ -217,9 +217,9 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushVertex->Reset();
 	frame->pushIndex->Reset();
 
-	frame->pushUBO->Begin(vulkan_->GetDevice());
-	frame->pushVertex->Begin(vulkan_->GetDevice());
-	frame->pushIndex->Begin(vulkan_->GetDevice());
+	frame->pushUBO->Begin(vulkan_);
+	frame->pushVertex->Begin(vulkan_);
+	frame->pushIndex->Begin(vulkan_);
 
 	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
@@ -248,9 +248,9 @@ void DrawEngineVulkan::EndFrame() {
 	gpuStats.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
 	gpuStats.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
 	gpuStats.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
-	frame->pushUBO->End(vulkan_->GetDevice());
-	frame->pushVertex->End(vulkan_->GetDevice());
-	frame->pushIndex->End(vulkan_->GetDevice());
+	frame->pushUBO->End();
+	frame->pushVertex->End();
+	frame->pushIndex->End();
 	curFrame_++;
 }
 
@@ -536,12 +536,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
-	// Note than when we implement overflow in pushbuffer, we need to make sure to overflow here, not between
-	// the three ubo pushes. The reason is that the three UBOs must be in the same buffer as that's how we
-	// designed the descriptor set.
-
-	// TODO: The descriptor set seems to be unbinding the texture when not specified.  Cache it or the imageView instead?
-	// TODO: Add this back when fixed: gstate_c.textureChanged != TEXCHANGE_UNCHANGED &&
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture(frame->pushUBO);
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
