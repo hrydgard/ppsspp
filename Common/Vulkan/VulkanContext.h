@@ -80,6 +80,7 @@ public:
 		assert(samplers_.size() == 0);
 		assert(pipelineCaches_.size() == 0);
 		assert(renderPasses_.size() == 0);
+		assert(framebuffers_.size() == 0);
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -137,7 +138,7 @@ public:
 		for (auto &framebuffer : framebuffers_) {
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		}
-		renderPasses_.clear();
+		framebuffers_.clear();
 	}
 
 private:

@@ -635,9 +635,9 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
 	for (int i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(physical_devices_[0], VK_FORMAT_D24_UNORM_S8_UINT, &props);
+		vkGetPhysicalDeviceFormatProperties(physical_devices_[0], depthStencilFormats[i], &props);
 		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-			deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+			deviceInfo_.preferredDepthStencilFormat = depthStencilFormats[i];
 			break;
 		}
 	}
@@ -787,15 +787,12 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
                                     &mem_alloc.memoryTypeIndex);
   assert(pass);
 
-  /* Allocate memory */
   res = vkAllocateMemory(device_, &mem_alloc, NULL, &depth.mem);
   assert(res == VK_SUCCESS);
 
-  /* Bind memory */
   res = vkBindImageMemory(device_, depth.image, depth.mem, 0);
   assert(res == VK_SUCCESS);
 
-  /* Set the image layout to depth stencil optimal */
   TransitionImageLayout(cmd, depth.image,
                         aspectMask,
                         VK_IMAGE_LAYOUT_UNDEFINED,
