@@ -1240,12 +1240,14 @@ void VulkanContext::DestroyFramebuffers() {
 }
 
 void VulkanContext::DestroySurfaceRenderPass() {
-  vkDestroyRenderPass(device_, surface_render_pass_, NULL);
+	vkDestroyRenderPass(device_, surface_render_pass_, NULL);
 	surface_render_pass_ = NULL;
 }
 
 void VulkanContext::DestroyDevice() {
-  vkDestroyDevice(device_, NULL);
+	// If there happen to be any pending deletes, now is a good time.
+	Delete().PerformDeletes(device_);
+	vkDestroyDevice(device_, NULL);
 	device_ = NULL;
 }
 
