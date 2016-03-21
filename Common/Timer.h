@@ -51,7 +51,9 @@ public:
 private:
 	u64 m_LastTime;
 	u64 m_StartTime;
+#ifdef _WIN32
 	u64 m_frequency;
+#endif
 	bool m_Running;
 };
 

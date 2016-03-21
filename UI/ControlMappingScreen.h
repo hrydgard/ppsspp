@@ -64,7 +64,6 @@ protected:
 
 private:
 	int pspBtn_;
-	bool replace_;
 	std::function<void(KeyDef)> callback_;
 	bool mapped_;  // Prevent double registrations
 };

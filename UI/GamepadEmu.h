@@ -127,8 +127,6 @@ private:
 	int stick_;
 	float stick_size_;
 	float scale_;
-	bool dragging_[MAX_POINTERS];
-	bool lastPointerDown_[MAX_POINTERS];
 
 	float centerX_;
 	float centerY_;

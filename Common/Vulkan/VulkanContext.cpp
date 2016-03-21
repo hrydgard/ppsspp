@@ -55,8 +55,6 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 #endif
 	graphics_queue_family_index_(-1),
 	surface_(VK_NULL_HANDLE),
-	prepared(false),
-	use_staging_buffer_(false),
 	instance_(VK_NULL_HANDLE),
 	width(0),
 	height(0),

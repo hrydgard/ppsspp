@@ -255,8 +255,6 @@ private:
 	VkQueue gfx_queue_;
 
 	VkSurfaceKHR surface_;
-	bool prepared;
-	bool use_staging_buffer_;
 
 	std::string init_error_;
 	std::vector<const char *> instance_layer_names;

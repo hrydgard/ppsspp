@@ -43,9 +43,6 @@ private:
 	//edit the game-specific settings and restore the global settings after exiting
 	bool bEditThenRestore;
 	bool lastVertical_;
-	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextView *tvTitle_;
-	UI::TextView *tvGameSize_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;

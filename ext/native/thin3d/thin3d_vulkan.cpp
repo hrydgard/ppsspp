@@ -979,10 +979,6 @@ void Thin3DVKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
-static bool isPowerOf2(int n) {
-	return n == 1 || (n & (n - 1)) == 0;
-}
-
 Thin3DDepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
 	Thin3DVKDepthStencilState *ds = new Thin3DVKDepthStencilState();
 	ds->depthTestEnabled = depthTestEnabled;
