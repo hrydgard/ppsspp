@@ -191,6 +191,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	float v0 = 1.0f;
 	float v1 = 0.0f;
 
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		std::swap(v0, v1);
+	}
+
 	const Vertex verts[4] = {
 		{x, y, 0,    u0, v0,  0xFFFFFFFF}, // TL
 		{x, y2, 0,   u0, v1,  0xFFFFFFFF}, // BL
