@@ -192,6 +192,11 @@ Thin3DContext::~Thin3DContext() {
 			ssPresets_[i]->Release();
 		}
 	}
+	for (int i = 0; i < SAMPS_MAX_PRESET; i++) {
+		if (sampsPresets_[i]) {
+			sampsPresets_[i]->Release();
+		}
+	}
 }
 
 static T3DImageFormat ZimToT3DFormat(int zim) {
