@@ -1461,7 +1461,11 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		}
 	}
 
-	// Ready or not, here I go...
+	// TODO
+	if (scaleFactor > 1) {
+		maxLevel = 0;
+	}
+
 	if (replaceImages) {
 		if (!entry->vkTex) {
 			Crash();
@@ -1470,14 +1474,14 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		image->CreateDirect(w, h, maxLevel + 1, dstFmt);
+		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, dstFmt);
 	}
 	lastBoundTexture = entry->vkTex;
 
 	// Upload the texture data.
 	for (int i = 0; i <= maxLevel; i++) {
-		int mipWidth = gstate.getTextureWidth(i);
-		int mipHeight = gstate.getTextureHeight(i);
+		int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
+		int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
 		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 		int stride = (mipWidth * bpp + 15) & ~15;
 		int size = stride * mipHeight;
@@ -1771,6 +1775,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			u32 fmt = dstFmt;
 			scaler.Scale(pixelData, fmt, w, h, scaleFactor);
 			dstFmt = (VkFormat)fmt;
+			decPitch *= scaleFactor;
+			rowBytes *= scaleFactor;
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -1787,6 +1793,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	}
 
 	PROFILE_THIS_SCOPE("loadtex");
+	// TODO: Get rid of this, and decode or scale directly into this.
 	for (int y = 0; y < h; y++) {
 		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 		// uncomment to make all textures white for debugging
