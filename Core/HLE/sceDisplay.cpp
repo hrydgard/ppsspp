@@ -217,6 +217,12 @@ void __DisplayInit() {
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
 
+struct GPUStatistics_v0 {
+	int firstInts[11];
+	double msProcessingDisplayLists;
+	int moreInts[15];
+};
+
 void __DisplayDoState(PointerWrap &p) {
 	auto s = p.Section("sceDisplay", 1, 6);
 	if (!s)
@@ -283,12 +289,8 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 #endif
 	if (s < 6) {
-		p.Do(gpuStats);
-
-		// Removed values from gpuStats.
-		int ignore = 42;
-		p.Do(ignore);
-		p.Do(ignore);
+		GPUStatistics_v0 oldStats;
+		p.Do(oldStats);
 	}
 	gpu->DoState(p);
 
