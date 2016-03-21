@@ -42,6 +42,7 @@ public:
 	void Begin(VulkanContext *vulkan) {
 		buf_ = 0;
 		offset_ = 0;
+		// Note: we must defrag because some buffers may be smaller than size_.
 		Defragment(vulkan);
 		Map();
 	}
@@ -72,13 +73,11 @@ public:
 	// When using the returned memory, make sure to bind the returned vkbuf.
 	// This will later allow for handling overflow correctly.
 	size_t Allocate(size_t numBytes, VkBuffer *vkbuf) {
-		assert(numBytes < size_);
-
 		size_t out = offset_;
 		offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
 
 		if (offset_ >= size_) {
-			NextBuffer();
+			NextBuffer(numBytes);
 			out = offset_;
 			offset_ += (numBytes + 3) & ~3;
 		}
@@ -116,7 +115,7 @@ public:
 
 private:
 	bool AddBuffer();
-	void NextBuffer();
+	void NextBuffer(size_t minSize);
 	void Defragment(VulkanContext *vulkan);
 
 	VkDevice device_;

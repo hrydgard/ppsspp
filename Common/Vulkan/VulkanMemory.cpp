@@ -63,12 +63,17 @@ bool VulkanPushBuffer::AddBuffer() {
 	return true;
 }
 
-void VulkanPushBuffer::NextBuffer() {
+void VulkanPushBuffer::NextBuffer(size_t minSize) {
 	// First, unmap the current memory.
 	Unmap();
 
 	buf_++;
-	if (buf_ >= buffers_.size()) {
+	if (buf_ >= buffers_.size() || minSize > size_) {
+		// Before creating the buffer, adjust to the new size_ if necessary.
+		while (size_ < minSize) {
+			size_ <<= 1;
+		}
+
 		bool res = AddBuffer();
 		assert(res);
 		if (!res) {
