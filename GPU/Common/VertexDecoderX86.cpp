@@ -379,13 +379,48 @@ void VertexDecoderJitCache::Jit_WeightsU16ToFloat() {
 
 void VertexDecoderJitCache::Jit_WeightsFloat() {
 	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff + j * 4));
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), R(tempReg1));
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
-		j++;
+	switch (dec_->nweights) {
+	case 1:
+		// MOVSS: When the source operand is a memory location and destination operand is an XMM register, the three high-order doublewords of the destination operand are cleared to all 0s.
+		MOVSS(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		break;
+
+	// Don't we have an emitter for MOVQ?
+	//case 2:
+	//	MOVQ(XMM3, MDisp(srcReg, dec_->weightoff));
+	//	MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+	//	break;
+
+	case 4:
+		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		break;
+
+	case 5:
+		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVSS(XMM4, MDisp(srcReg, dec_->weightoff + 16));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off + 16), XMM4);
+		break;
+
+	case 8:
+		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVUPS(XMM4, MDisp(srcReg, dec_->weightoff + 16));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off + 16), XMM4);
+		break;
+
+	default:
+		for (j = 0; j < dec_->nweights; j++) {
+			MOV(32, R(tempReg1), MDisp(srcReg, dec_->weightoff + j * 4));
+			MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), R(tempReg1));
+		}
+		while (j & 3) {  // Zero additional weights rounding up to 4.
+			MOV(32, MDisp(dstReg, dec_->decFmt.w0off + j * 4), Imm32(0));
+			j++;
+		}
+		break;
 	}
 }
 
