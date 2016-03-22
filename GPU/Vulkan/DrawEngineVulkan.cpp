@@ -741,7 +741,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
-
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;

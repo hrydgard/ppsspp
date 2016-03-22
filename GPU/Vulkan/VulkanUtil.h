@@ -25,6 +25,24 @@
 // VulkanFBO is an approximation of the FBO concept the other backends use
 // to make things as similar as possible without being suboptimal.
 //
+// An FBO can be rendered to and used as a texture multiple times in a frame.
+// Even at multiple sizes, while keeping the same contents.
+// With GL or D3D we'd just rely on the driver managing duplicates for us, but in
+// Vulkan we will want to be able to batch up the whole frame and reorder passes
+// so that all textures are ready before the main scene, instead of switching back and
+// forth. This comes at a memory cost but will be worth it.
+//
+// When we render to a scene, then render to a texture, then go back to the scene and
+// use that texture, we will register that as a dependency. Then we will walk the DAG
+// to find the final order of command buffers, and execute it.
+//
+// Each FBO will get its own command buffer for each pass. 
+
+// 
+struct VulkanFBOPass {
+	VkCommandBuffer cmd;
+};
+
 class VulkanFBO {
 public:
 	VulkanFBO();
