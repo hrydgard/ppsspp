@@ -288,13 +288,12 @@ void AndroidVulkanContext::SwapBuffers() {
 }
 
 void AndroidVulkanContext::Resize() {
-	/*
+	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 
-	g_Vulkan->WaitUntilQueueIdle();
-
-	g_Vulkan->InitObjects(g_Vulkan)
-	*/
+	// backbufferResize updated these values.  TODO: Notify another way?
+	g_Vulkan->ReinitSurfaceAndroid(pixel_xres, pixel_yres);
+	g_Vulkan->InitObjects(g_Vulkan);
 }
 
 void AndroidVulkanContext::SwapInterval(int interval) {
