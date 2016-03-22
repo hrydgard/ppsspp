@@ -307,7 +307,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }
 
-void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
+void TextureCacheCommon::UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
@@ -317,15 +317,14 @@ void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 heigh
 
 	u32 ydest = 0;
 	if (rowWidth >= 16) {
-		u32 *ydestp = tmpTexBuf32.data();
 		// The most common one, so it gets an optimized implementation.
-		DoUnswizzleTex16(texptr, ydestp, bxc, byc, pitch, rowWidth);
+		DoUnswizzleTex16(texptr, dest, bxc, byc, pitch, rowWidth);
 	} else if (rowWidth == 8) {
 		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest += 2) {
-				tmpTexBuf32[ydest + 0] = *src++;
-				tmpTexBuf32[ydest + 1] = *src++;
+				dest[ydest + 0] = *src++;
+				dest[ydest + 1] = *src++;
 				src += 2; // skip two u32
 			}
 		}
@@ -333,7 +332,7 @@ void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 heigh
 		const u32 *src = (const u32 *) texptr;
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest++) {
-				tmpTexBuf32[ydest] = *src++;
+				dest[ydest] = *src++;
 				src += 3;
 			}
 		}
@@ -343,7 +342,7 @@ void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 heigh
 			for (int n = 0; n < 4; n++, ydest++) {
 				u16 n1 = src[0];
 				u16 n2 = src[8];
-				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 16);
+				dest[ydest] = (u32)n1 | ((u32)n2 << 16);
 				src += 16;
 			}
 		}
@@ -355,12 +354,11 @@ void *TextureCacheCommon::UnswizzleFromMem(const u8 *texptr, u32 bufw, u32 heigh
 				u8 n2 = src[16];
 				u8 n3 = src[32];
 				u8 n4 = src[48];
-				tmpTexBuf32[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
+				dest[ydest] = (u32)n1 | ((u32)n2 << 8) | ((u32)n3 << 16) | ((u32)n4 << 24);
 				src += 64;
 			}
 		}
 	}
-	return tmpTexBuf32.data();
 }
 
 void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {
