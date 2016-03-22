@@ -182,8 +182,6 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	g_Vulkan->InitSurfaceWin32(hInst, hWnd);
 	g_Vulkan->InitObjects(true);
 
-	_CrtCheckMemory();
-
 	return true;
 }
 
@@ -206,13 +204,11 @@ void WindowsVulkanContext::SwapBuffers() {
 }
 
 void WindowsVulkanContext::Resize() {
-	/*
+	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 
-	g_Vulkan->WaitUntilQueueIdle();
-
-	g_Vulkan->InitObjects(g_Vulkan)
-	*/
+	g_Vulkan->ReinitSurfaceWin32();
+	g_Vulkan->InitObjects(true);
 }
 
 void WindowsVulkanContext::SwapInterval(int interval) {

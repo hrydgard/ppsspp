@@ -56,8 +56,8 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	graphics_queue_family_index_(-1),
 	surface_(VK_NULL_HANDLE),
 	instance_(VK_NULL_HANDLE),
-	width(0),
-	height(0),
+	width_(0),
+	height_(0),
 	flags_(flags),
 	swapchain_format(VK_FORMAT_UNDEFINED),
 	swapchainImageCount(0),
@@ -81,7 +81,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
 	if (flags & VULKAN_FLAG_VALIDATE) {
-		for (int i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 			instance_layer_names.push_back(validationLayers[i]);
 			device_layer_names.push_back(validationLayers[i]);
 		}
@@ -222,7 +222,7 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 
 	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
 	// Now, I wonder if we should do this early in the frame or late? Right now we do it early, which should be fine.
-	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore, NULL, &current_buffer);
+	VkResult res = vkAcquireNextImageKHR(device_, swap_chain_, UINT64_MAX, acquireSemaphore, VK_NULL_HANDLE, &current_buffer);
 
 	// TODO: Deal with the VK_SUBOPTIMAL_KHR and VK_ERROR_OUT_OF_DATE_KHR
 	// return codes
@@ -250,8 +250,8 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	rp_begin.framebuffer = framebuffers_[current_buffer];
 	rp_begin.renderArea.offset.x = 0;
 	rp_begin.renderArea.offset.y = 0;
-	rp_begin.renderArea.extent.width = width;
-	rp_begin.renderArea.extent.height = height;
+	rp_begin.renderArea.extent.width = width_;
+	rp_begin.renderArea.extent.height = height_;
 	rp_begin.clearValueCount = 2;
 	rp_begin.pClearValues = clear_values;
 
@@ -399,6 +399,12 @@ void VulkanContext::DestroyObjects() {
 	DestroyDepthStencilBuffer();
 	DestroySwapChain();
 	DestroyCommandPool();
+
+	// If there happen to be any pending deletes, now is a good time.
+	Delete().PerformDeletes(device_);
+
+	vkDestroySurfaceKHR(instance_, surface_, nullptr);
+	surface_ = VK_NULL_HANDLE;
 }
 
 VkResult VulkanContext::InitLayerExtensionProperties(layer_properties &layer_props) {
@@ -753,8 +759,8 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	image_info.pNext = NULL;
 	image_info.imageType = VK_IMAGE_TYPE_2D;
 	image_info.format = depth_format;
-	image_info.extent.width = width;
-	image_info.extent.height = height;
+	image_info.extent.width = width_;
+	image_info.extent.height = height_;
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1;
 	image_info.arrayLayers = 1;
@@ -825,46 +831,61 @@ void VulkanContext::InitSurfaceWin32(HINSTANCE conn, HWND wnd) {
 	connection = conn;
 	window = wnd;
 
+	ReinitSurfaceWin32();
+}
+
+void VulkanContext::ReinitSurfaceWin32() {
+	if (surface_ != VK_NULL_HANDLE) {
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
 	RECT rc;
-	GetClientRect(wnd, &rc);
-	width = rc.right - rc.left;
-	height = rc.bottom - rc.top;
+	GetClientRect(window, &rc);
+	width_ = rc.right - rc.left;
+	height_ = rc.bottom - rc.top;
 
 	VkResult U_ASSERT_ONLY res;
 
-	VkWin32SurfaceCreateInfoKHR win32;
-	win32.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-	win32.pNext = nullptr;
+	VkWin32SurfaceCreateInfoKHR win32 = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 	win32.flags = 0;
-	win32.hwnd = wnd;
-	win32.hinstance = conn;
+	win32.hwnd = window;
+	win32.hinstance = connection;
 	res = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
 
 	assert(res == VK_SUCCESS);
 }
+
 #elif defined(ANDROID)
+
 void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height) {
 	native_window = wnd;
 
+	ReinitSurfaceAndroid(width, height);
+}
+
+void VulkanContext::ReinitSurfaceAndroid(int width, int height) {
+	if (surface_ != VK_NULL_HANDLE) {
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
 	VkResult U_ASSERT_ONLY res;
 
-	VkAndroidSurfaceCreateInfoKHR android;
-	android.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
-	android.pNext = nullptr;
+	VkAndroidSurfaceCreateInfoKHR android = { VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 	android.flags = 0;
 	android.window = native_window;
 	res = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
 	assert(res == VK_SUCCESS);
 
-	this->width = width;
-	this->height = height;
+	width_ = width;
+	height_ = height;
 }
-
 #endif
 
 void VulkanContext::InitQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
-	VkBool32* supportsPresent = new VkBool32[queue_count];
+	VkBool32 *supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
 		vkGetPhysicalDeviceSurfaceSupportKHR(physical_devices_[0], i, surface_, &supportsPresent[i]);
 	}
@@ -961,9 +982,9 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	if (surfCapabilities.currentExtent.width == (uint32_t)-1) {
 		// If the surface size is undefined, the size is set to
 		// the size of the images requested.
-		ILOG("initSwapchain: %dx%d", width, height);
-		swapChainExtent.width = width;
-		swapChainExtent.height = height;
+		ILOG("initSwapchain: %dx%d", width_, height_);
+		swapChainExtent.width = width_;
+		swapChainExtent.height = height_;
 	} else {
 		// If the surface size is defined, the swap chain size must match
 		swapChainExtent = surfCapabilities.currentExtent;
@@ -1151,27 +1172,25 @@ void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
 }
 
 void VulkanContext::InitFramebuffers(bool include_depth) {
-  VkResult U_ASSERT_ONLY res;
-  VkImageView attachments[2];
-  attachments[1] = depth.view;
+	VkResult U_ASSERT_ONLY res;
+	VkImageView attachments[2];
+	attachments[1] = depth.view;
 
-	ILOG("InitFramebuffers: %dx%d", width, height);
-  VkFramebufferCreateInfo fb_info = {};
-  fb_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  fb_info.pNext = NULL;
-  fb_info.renderPass = surface_render_pass_;
-  fb_info.attachmentCount = include_depth ? 2 : 1;
-  fb_info.pAttachments = attachments;
-  fb_info.width  = width;
-  fb_info.height = height;
-  fb_info.layers = 1;
+	ILOG("InitFramebuffers: %dx%d", width_, height_);
+	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+	fb_info.renderPass = surface_render_pass_;
+	fb_info.attachmentCount = include_depth ? 2 : 1;
+	fb_info.pAttachments = attachments;
+	fb_info.width  = width_;
+	fb_info.height = height_;
+	fb_info.layers = 1;
 
-  framebuffers_.resize(swapchainImageCount);
+	framebuffers_.resize(swapchainImageCount);
 
-  for (uint32_t i = 0; i < swapchainImageCount; i++) {
-    attachments[0] = swapChainBuffers[i].view;
-    res = vkCreateFramebuffer(device_, &fb_info, NULL, &framebuffers_[i]);
-    assert(res == VK_SUCCESS);
+	for (uint32_t i = 0; i < swapchainImageCount; i++) {
+		attachments[0] = swapChainBuffers[i].view;
+		res = vkCreateFramebuffer(device_, &fb_info, nullptr, &framebuffers_[i]);
+		assert(res == VK_SUCCESS);
 	}
 }
 
@@ -1240,17 +1259,13 @@ void VulkanContext::DestroySurfaceRenderPass() {
 }
 
 void VulkanContext::DestroyDevice() {
-	// If there happen to be any pending deletes, now is a good time.
-	Delete().PerformDeletes(device_);
-	vkDestroyDevice(device_, NULL);
-	device_ = NULL;
+	vkDestroyDevice(device_, nullptr);
+	device_ = nullptr;
 }
 
 VkPipelineCache VulkanContext::CreatePipelineCache() {
 	VkPipelineCache cache;
-	VkPipelineCacheCreateInfo pc;
-	pc.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
-	pc.pNext = nullptr;
+	VkPipelineCacheCreateInfo pc = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	pc.pInitialData = nullptr;
 	pc.initialDataSize = 0;
 	pc.flags = 0;

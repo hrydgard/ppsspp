@@ -175,8 +175,10 @@ public:
 
 #ifdef _WIN32
 	void InitSurfaceWin32(HINSTANCE conn, HWND wnd);
+	void ReinitSurfaceWin32();
 #elif ANDROID
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
+	void ReinitSurfaceAndroid(int width, int height);
 #endif
 	void InitQueue();
 	void InitObjects(bool depthPresent);
@@ -186,6 +188,7 @@ public:
 	void InitDepthStencilBuffer(VkCommandBuffer cmd);
 	void InitCommandPool();
 
+	// Also destroys the surface.
 	void DestroyObjects();
 
 	void DestroySurfaceRenderPass();
@@ -203,8 +206,8 @@ public:
 
 	void WaitAndResetFence(VkFence fence);
 
-	int GetWidth() { return width; }
-	int GetHeight() { return height; }
+	int GetWidth() { return width_; }
+	int GetHeight() { return height_; }
 
 	VkCommandBuffer GetInitCommandBuffer();
 
@@ -305,7 +308,7 @@ private:
 	};
 
 	// Swap chain
-	int width, height;
+	int width_, height_;
 	int flags_;
 	VkFormat swapchain_format;
 	std::vector<VkFramebuffer> framebuffers_;
