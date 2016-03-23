@@ -235,7 +235,9 @@ bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
 	VkDeviceMemory deviceMemory;
 	VkResult res = vkAllocateMemory(vulkan_->GetDevice(), &alloc, NULL, &deviceMemory);
 	if (res != VK_SUCCESS) {
-		// Ran out of memory.
+		// If it's something else, we used it wrong?
+		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		// Okay, so we ran out of memory.
 		return false;
 	}
 
