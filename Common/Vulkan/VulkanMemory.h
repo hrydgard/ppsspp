@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 #include "Common/Vulkan/VulkanContext.h"
 
 // VulkanMemory
@@ -125,4 +126,49 @@ private:
 	size_t size_;
 	uint32_t memoryTypeIndex_;
 	uint8_t *writePtr_;
+};
+
+class VulkanDeviceAllocator {
+public:
+	VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize);
+	~VulkanDeviceAllocator();
+
+	void Destroy();
+
+	void Begin() {
+		Decimate();
+	}
+
+	void End() {
+	}
+
+	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory);
+	void Free(VkDeviceMemory deviceMemory, size_t offset);
+
+	static const size_t ALLOCATE_FAILED = -1;
+
+private:
+	static const size_t SLAB_GRAIN_SIZE = 1024;
+	static const uint8_t SLAB_GRAIN_SHIFT = 10;
+	static const uint32_t UNDEFINED_MEMORY_TYPE = -1;
+
+	struct Slab {
+		VkDeviceMemory deviceMemory;
+		std::vector<uint8_t> usage;
+		std::unordered_map<size_t, size_t> allocSizes;
+		size_t nextFree;
+
+		size_t Size() {
+			return usage.size() * SLAB_GRAIN_SIZE;
+		}
+	};
+
+	bool AllocateSlab(size_t minBytes);
+	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks);
+	void Decimate();
+
+	VulkanContext *vulkan_;
+	std::vector<Slab> slabs_;
+	size_t minSlabSize_;
+	uint32_t memoryTypeIndex_;
 };
