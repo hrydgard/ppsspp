@@ -140,7 +140,7 @@ unsigned int WINAPI TheThread(void *)
 			break;
 		case GPU_BACKEND_VULKAN:
 			nextBackend = GPU_BACKEND_OPENGL;
-			genericError = err->T("GenericVulkanError", defaultErrorDirect3D9);
+			genericError = err->T("GenericVulkanError", defaultErrorVulkan);
 			break;
 		case GPU_BACKEND_OPENGL:
 		default:
