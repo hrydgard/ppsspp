@@ -198,6 +198,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
+	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
 	size_t start = offset >> SLAB_GRAIN_SHIFT;
 	bool found = false;
 	for (Slab &slab : slabs_) {
@@ -206,21 +207,64 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 		}
 
 		auto it = slab.allocSizes.find(start);
-		// Let's hope we don't get any double-frees or misfrees.
-		assert(it == slab.allocSizes.end());
+		if (it == slab.allocSizes.end()) {
+			// Ack, a double free?
+			Crash();
+		}
+		if (slab.usage[start] != 1) {
+			// This means a double free, while queued to actually free.
+			Crash();
+		}
+
+		// Mark it as "free in progress".
+		slab.usage[start] = 2;
+		found = true;
+		break;
+	}
+
+	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
+	if (!found) {
+		Crash();
+	}
+
+	// Okay, now enqueue.  It's valid.
+	FreeInfo *info = new FreeInfo(deviceMemory, offset);
+	vulkan_->Delete().QueueCallback(&DispatchFree, this, info);
+}
+
+void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
+	VkDeviceMemory deviceMemory = userdata->deviceMemory;
+	size_t offset = userdata->offset;
+
+	// Revalidate in case something else got freed and made things inconsistent.
+	size_t start = offset >> SLAB_GRAIN_SHIFT;
+	bool found = false;
+	for (Slab &slab : slabs_) {
+		if (slab.deviceMemory != deviceMemory) {
+			continue;
+		}
+
+		auto it = slab.allocSizes.find(start);
 		if (it != slab.allocSizes.end()) {
 			size_t size = it->second;
 			for (size_t i = 0; i < size; ++i) {
 				slab.usage[start + i] = 0;
 			}
 			slab.allocSizes.erase(it);
+		} else {
+			// Ack, a double free?
+			Crash();
 		}
 		found = true;
 		break;
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	assert(found);
+	if (!found) {
+		Crash();
+	}
+
+	delete userdata;
 }
 
 bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {

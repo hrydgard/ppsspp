@@ -56,6 +56,16 @@ struct VulkanPhysicalDeviceInfo {
 
 // This is a bit repetitive...
 class VulkanDeleteList {
+	struct Callback {
+		explicit Callback(void (*f)(void *userdata1, void *userdata2), void *u1, void *u2)
+			: func(f), userdata1(u1), userdata2(u2) {
+		}
+
+		void (*func)(void *userdata1, void *userdata2);
+		void *userdata1;
+		void *userdata2;
+	};
+
 public:
 	void QueueDeleteDescriptorPool(VkDescriptorPool pool) { descPools_.push_back(pool); }
 	void QueueDeleteShaderModule(VkShaderModule module) { modules_.push_back(module); }
@@ -68,6 +78,7 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 	void QueueDeleteRenderPass(VkRenderPass renderPass) { renderPasses_.push_back(renderPass); }
 	void QueueDeleteFramebuffer(VkFramebuffer framebuffer) { framebuffers_.push_back(framebuffer); }
+	void QueueCallback(void (*func)(void *userdata1, void *userdata2), void *userdata1, void *userdata2) { callbacks_.push_back(Callback(func, userdata1, userdata2)); }
 
 	void Take(VulkanDeleteList &del) {
 		assert(descPools_.size() == 0);
@@ -81,6 +92,7 @@ public:
 		assert(pipelineCaches_.size() == 0);
 		assert(renderPasses_.size() == 0);
 		assert(framebuffers_.size() == 0);
+		assert(callbacks_.size() == 0);
 		descPools_ = std::move(del.descPools_);
 		modules_ = std::move(del.modules_);
 		buffers_ = std::move(del.buffers_);
@@ -92,6 +104,7 @@ public:
 		pipelineCaches_ = std::move(del.pipelineCaches_);
 		renderPasses_ = std::move(del.renderPasses_);
 		framebuffers_ = std::move(del.framebuffers_);
+		callbacks_ = std::move(del.callbacks_);
 	}
 
 	void PerformDeletes(VkDevice device) {
@@ -139,6 +152,10 @@ public:
 			vkDestroyFramebuffer(device, framebuffer, nullptr);
 		}
 		framebuffers_.clear();
+		for (auto &callback : callbacks_) {
+			callback.func(callback.userdata1, callback.userdata2);
+		}
+		callbacks_.clear();
 	}
 
 private:
@@ -153,6 +170,7 @@ private:
 	std::vector<VkPipelineCache> pipelineCaches_;
 	std::vector<VkRenderPass> renderPasses_;
 	std::vector<VkFramebuffer> framebuffers_;
+	std::vector<Callback> callbacks_;
 };
 
 // VulkanContext sets up the basics necessary for rendering to a window, including framebuffers etc.

@@ -163,9 +163,25 @@ private:
 		}
 	};
 
+	struct FreeInfo {
+		explicit FreeInfo(VkDeviceMemory d, size_t o)
+			: deviceMemory(d), offset(o) {
+		}
+
+		VkDeviceMemory deviceMemory;
+		size_t offset;
+	};
+
+	static void DispatchFree(void *thiz, void *userdata) {
+		auto allocator = static_cast<VulkanDeviceAllocator *>(thiz);
+		auto freeInfo = static_cast<FreeInfo *>(userdata);
+		allocator->ExecuteFree(freeInfo);
+	}
+
 	bool AllocateSlab(size_t minBytes);
 	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks);
 	void Decimate();
+	void ExecuteFree(FreeInfo *userdata);
 
 	VulkanContext *vulkan_;
 	std::vector<Slab> slabs_;
