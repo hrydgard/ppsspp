@@ -130,7 +130,7 @@ private:
 
 class VulkanDeviceAllocator {
 public:
-	VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize);
+	VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize);
 	~VulkanDeviceAllocator();
 
 	void Destroy();
@@ -183,8 +183,9 @@ private:
 	void Decimate();
 	void ExecuteFree(FreeInfo *userdata);
 
-	VulkanContext *vulkan_;
+	VulkanContext *const vulkan_;
 	std::vector<Slab> slabs_;
 	size_t minSlabSize_;
+	const size_t maxSlabSize_;
 	uint32_t memoryTypeIndex_;
 };

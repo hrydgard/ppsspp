@@ -101,8 +101,8 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 	assert(res);
 }
 
-VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize)
-	: vulkan_(vulkan), minSlabSize_(minSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
+VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
+	: vulkan_(vulkan), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
 }
 
@@ -268,6 +268,11 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 }
 
 bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
+	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
+		// We're allocating an additional slab, so rachet up its size.
+		minSlabSize_ <<= 1;
+	}
+
 	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = minSlabSize_;
 	alloc.memoryTypeIndex = memoryTypeIndex_;
@@ -297,7 +302,11 @@ void VulkanDeviceAllocator::Decimate() {
 	bool foundFree = false;
 
 	for (size_t i = 0; i < slabs_.size(); ++i) {
-		if (!slabs_[i].allocSizes.empty()) {
+		// Go backwards.  This way, we keep the largest free slab.
+		// We do this here (instead of the for) since size_t is unsigned.
+		size_t index = slabs_.size() - i - 1;
+
+		if (!slabs_[index].allocSizes.empty()) {
 			continue;
 		}
 
@@ -308,8 +317,9 @@ void VulkanDeviceAllocator::Decimate() {
 		}
 
 		// Okay, let's free this one up.
-		vulkan_->Delete().QueueDeleteDeviceMemory(slabs_[i].deviceMemory);
-		slabs_.erase(slabs_.begin() + i);
+		vulkan_->Delete().QueueDeleteDeviceMemory(slabs_[index].deviceMemory);
+		slabs_.erase(slabs_.begin() + index);
+
 		// Let's check the next one, which is now in this same slot.
 		--i;
 	}
