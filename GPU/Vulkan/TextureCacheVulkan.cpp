@@ -69,12 +69,16 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-// TODO: Except for color swizzle, exact matches are available.
-// So we can get rid of the conversion functions entirely.
-#define VULKAN_4444_FORMAT VK_FORMAT_R4G4B4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_R5G5B5A1_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
+// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
+#define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
+#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
+#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+
+static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B };
+static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
 // Hack!
 extern int g_iNumVideos;
@@ -620,14 +624,10 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, VkFormat dstFmt, int
 	u32 *dst = (u32 *)dstBuf;
 	switch (dstFmt) {
 	case VULKAN_4444_FORMAT:
-		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
-		break;
-		// Final Fantasy 2 uses this heavily in animated textures.
 	case VULKAN_1555_FORMAT:
-		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
-		break;
 	case VULKAN_565_FORMAT:
-		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
+		if (dst != src)
+			memcpy(dst, src, numPixels * sizeof(u16));
 		break;
 	default:
 		// No need to convert RGBA8888, right order already
@@ -680,15 +680,7 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
 	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-
-	// Avoid a copy when we don't need to convert colors.
-	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		const int numColors = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutMaxBytes_ / sizeof(u32)) : (clutMaxBytes_ / sizeof(u16));
-		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormatVulkan(clutFormat), numColors);
-		clutBuf_ = clutBufConverted_;
-	} else {
-		clutBuf_ = clutBufRaw_;
-	}
+	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
@@ -1405,7 +1397,27 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, dstFmt);
+
+		const VkComponentMapping *mapping;
+		switch (dstFmt) {
+		case VULKAN_4444_FORMAT:
+			mapping = &VULKAN_4444_SWIZZLE;
+			break;
+
+		case VULKAN_1555_FORMAT:
+			mapping = &VULKAN_1555_SWIZZLE;
+			break;
+
+		case VULKAN_565_FORMAT:
+			mapping = &VULKAN_565_SWIZZLE;
+			break;
+
+		default:
+			mapping = &VULKAN_8888_SWIZZLE;
+			break;
+		}
+
+		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, dstFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -1647,10 +1659,10 @@ TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case VULKAN_4444_FORMAT:
-		res = CheckAlphaABGR4444Basic(pixelData, stride, w, h);
+		res = CheckAlphaRGBA4444Basic(pixelData, stride, w, h);
 		break;
 	case VULKAN_1555_FORMAT:
-		res = CheckAlphaABGR1555Basic(pixelData, stride, w, h);
+		res = CheckAlphaRGBA5551Basic(pixelData, stride, w, h);
 		break;
 	case VULKAN_565_FORMAT:
 		// Never has any alpha.
