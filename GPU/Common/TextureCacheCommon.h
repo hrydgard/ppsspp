@@ -134,6 +134,9 @@ public:
 			}
 		}
 		bool Matches(u16 dim2, u8 format2, u8 maxLevel2);
+
+		u64 CacheKey();
+		static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 	};
 
 protected:
@@ -184,4 +187,17 @@ protected:
 
 inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
+}
+
+inline u64 TextureCacheCommon::TexCacheEntry::CacheKey() {
+	return CacheKey(addr, format, dim, cluthash);
+}
+
+inline u64 TextureCacheCommon::TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
+	u64 cachekey = ((u64)(addr & 0x3FFFFFFF) << 32) | dim;
+	bool hasClut = (format & 4) != 0;
+	if (hasClut) {
+		cachekey ^= cluthash;
+	}
+	return cachekey;
 }

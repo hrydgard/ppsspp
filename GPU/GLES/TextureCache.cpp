@@ -961,7 +961,7 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	}
 
 	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter == cache.end()) {
 		return false;
@@ -1020,7 +1020,6 @@ void TextureCache::SetTexture(bool force) {
 	bool hasClut = gstate.isTextureFormatIndexed();
 
 	// Ignore uncached/kernel when caching.
-	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1028,10 +1027,10 @@ void TextureCache::SetTexture(bool force) {
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-		cachekey ^= cluthash;
 	} else {
 		cluthash = 0;
 	}
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
 
 	int bufw = GetTextureBufw(0, texaddr, format);
 	u8 maxLevel = gstate.getTextureMaxLevel();
