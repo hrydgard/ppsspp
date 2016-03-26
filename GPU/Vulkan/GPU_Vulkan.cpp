@@ -450,6 +450,8 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
+
+	textureCache_.NotifyConfigChanged();
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
@@ -494,6 +496,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		CheckGPUFeatures();
 		UpdateCmdInfo();
 		drawEngine_.Resized();
+		textureCache_.NotifyConfigChanged();
 	}
 	resized_ = false;
 

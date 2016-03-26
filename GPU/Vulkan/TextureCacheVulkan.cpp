@@ -867,7 +867,7 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 	VkCommandBuffer cmd = nullptr;
 	if (nextTexture_->framebuffer) {
 		ApplyTextureFramebuffer(cmd, nextTexture_, nextTexture_->framebuffer, imageView, sampler);
-	} else {
+	} else if (nextTexture_->vkTex) {
 		// If the texture is >= 512 pixels tall...
 		if (nextTexture_->dim >= 0x900) {
 			// Texture scale/offset and gen modes don't apply in through.
@@ -896,6 +896,9 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 		sampler = samplerCache_.GetOrCreateSampler(key);
 
 		lastBoundTexture = nextTexture_->vkTex;
+	} else {
+		imageView = VK_NULL_HANDLE;
+		sampler = VK_NULL_HANDLE;
 	}
 
 	nextTexture_ = nullptr;
@@ -1287,7 +1290,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1 && entry->vkTex) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1410,27 +1413,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
-		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			bool supportNpot = gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT);
-			scaleFactor = std::min(supportNpot ? 5 : 4, scaleFactor);
-			if (!supportNpot && scaleFactor == 3) {
-				scaleFactor = 2;
-			}
-		} else {
-			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
-		}
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {
