@@ -69,12 +69,16 @@
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-// TODO: Except for color swizzle, exact matches are available.
-// So we can get rid of the conversion functions entirely.
-#define VULKAN_4444_FORMAT VK_FORMAT_R4G4B4A4_UNORM_PACK16
-#define VULKAN_1555_FORMAT VK_FORMAT_R5G5B5A1_UNORM_PACK16
-#define VULKAN_565_FORMAT  VK_FORMAT_R5G6B5_UNORM_PACK16
+// Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
+#define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
+#define VULKAN_1555_FORMAT VK_FORMAT_A1R5G5B5_UNORM_PACK16
+#define VULKAN_565_FORMAT  VK_FORMAT_B5G6R5_UNORM_PACK16
 #define VULKAN_8888_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+
+static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B };
+static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 
 // Hack!
 extern int g_iNumVideos;
@@ -145,38 +149,6 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
 
-}
-
-static u32 EstimateTexMemoryUsage(const TextureCacheVulkan::TexCacheEntry *entry) {
-	const u16 dim = entry->dim;
-	const u8 dimW = ((dim >> 0) & 0xf);
-	const u8 dimH = ((dim >> 8) & 0xf);
-
-	u32 pixelSize = 2;
-	switch (entry->format) {
-	case GE_TFMT_CLUT4:
-	case GE_TFMT_CLUT8:
-	case GE_TFMT_CLUT16:
-	case GE_TFMT_CLUT32:
-		// We assume cluts always point to 8888 for simplicity.
-		pixelSize = 4;
-		break;
-	case GE_TFMT_4444:
-	case GE_TFMT_5551:
-	case GE_TFMT_5650:
-		break;
-
-	case GE_TFMT_8888:
-	case GE_TFMT_DXT1:
-	case GE_TFMT_DXT3:
-	case GE_TFMT_DXT5:
-	default:
-		pixelSize = 4;
-		break;
-	}
-
-	// This in other words multiplies by w and h.
-	return pixelSize << (dimW + dimH);
 }
 
 void TextureCacheVulkan::Clear(bool delete_them) {
@@ -615,28 +587,6 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 	}
 }
 
-static void ConvertColors(void *dstBuf, const void *srcBuf, VkFormat dstFmt, int numPixels) {
-	const u32 *src = (const u32 *)srcBuf;
-	u32 *dst = (u32 *)dstBuf;
-	switch (dstFmt) {
-	case VULKAN_4444_FORMAT:
-		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
-		break;
-		// Final Fantasy 2 uses this heavily in animated textures.
-	case VULKAN_1555_FORMAT:
-		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
-		break;
-	case VULKAN_565_FORMAT:
-		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
-		break;
-	default:
-		// No need to convert RGBA8888, right order already
-		if (dst != src)
-			memcpy(dst, src, numPixels * sizeof(u32));
-		break;
-	}
-}
-
 void TextureCacheVulkan::StartFrame() {
 	lastBoundTexture = nullptr;
 	timesInvalidatedAllThisFrame_ = 0;
@@ -680,15 +630,7 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	const u32 clutExtendedBytes = std::min(clutTotalBytes_ + clutBaseBytes, clutMaxBytes_);
 
 	clutHash_ = DoReliableHash32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
-
-	// Avoid a copy when we don't need to convert colors.
-	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		const int numColors = clutFormat == GE_CMODE_32BIT_ABGR8888 ? (clutMaxBytes_ / sizeof(u32)) : (clutMaxBytes_ / sizeof(u16));
-		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormatVulkan(clutFormat), numColors);
-		clutBuf_ = clutBufConverted_;
-	} else {
-		clutBuf_ = clutBufRaw_;
-	}
+	clutBuf_ = clutBufRaw_;
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
@@ -1397,6 +1339,8 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		maxLevel = 0;
 	}
 
+	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
+
 	if (replaceImages) {
 		if (!entry->vkTex) {
 			Crash();
@@ -1405,7 +1349,27 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
 		VulkanTexture *image = entry->vkTex->texture_;
-		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, dstFmt);
+
+		const VkComponentMapping *mapping;
+		switch (actualFmt) {
+		case VULKAN_4444_FORMAT:
+			mapping = &VULKAN_4444_SWIZZLE;
+			break;
+
+		case VULKAN_1555_FORMAT:
+			mapping = &VULKAN_1555_SWIZZLE;
+			break;
+
+		case VULKAN_565_FORMAT:
+			mapping = &VULKAN_565_SWIZZLE;
+			break;
+
+		default:
+			mapping = &VULKAN_8888_SWIZZLE;
+			break;
+		}
+
+		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -1413,7 +1377,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	for (int i = 0; i <= maxLevel; i++) {
 		int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
 		int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
-		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
 		int stride = (mipWidth * bpp + 15) & ~15;
 		int size = stride * mipHeight;
 		uint32_t bufferOffset;
@@ -1451,7 +1415,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-void *TextureCacheVulkan::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
+void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
 	void *finalBuf = NULL;
 
 	bool swizzled = gstate.isTextureSwizzled();
@@ -1541,93 +1505,96 @@ void *TextureCacheVulkan::DecodeTextureLevel(GETextureFormat format, GEPaletteFo
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
 		if (!swizzled) {
-			int len = std::max(bufw, w) * h;
-			tmpTexBuf16.resize(len);
-			finalBuf = tmpTexBuf16.data();
-			ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
+			// Just a simple copy, we swizzle the color format.
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
+			}
+			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 2);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, w * sizeof(u16));
+			}
+			finalBuf = out;
 		}
 		break;
 
 	case GE_TFMT_8888:
 		if (!swizzled) {
-			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if (scaleFactor == 1 || w == bufw) {
-				finalBuf = (void *)texptr;
-			} else {
-				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				finalBuf = tmpTexBuf32.data();
-				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
+			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 4);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, w * sizeof(u32));
+			}
+			finalBuf = out;
 		}
 		break;
 
 	case GE_TFMT_DXT1:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT1Block *src = (DXT1Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
+		finalBuf = out;
 	}
 	break;
 
 	case GE_TFMT_DXT3:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT3Block *src = (DXT3Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		finalBuf = out;
 	}
 	break;
 
 	case GE_TFMT_DXT5:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT5Block *src = (DXT5Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		finalBuf = out;
 	}
 	break;
 
@@ -1647,10 +1614,10 @@ TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case VULKAN_4444_FORMAT:
-		res = CheckAlphaABGR4444Basic(pixelData, stride, w, h);
+		res = CheckAlphaRGBA4444Basic(pixelData, stride, w, h);
 		break;
 	case VULKAN_1555_FORMAT:
-		res = CheckAlphaABGR1555Basic(pixelData, stride, w, h);
+		res = CheckAlphaRGBA5551Basic(pixelData, stride, w, h);
 		break;
 	case VULKAN_565_FORMAT:
 		// Never has any alpha.
@@ -1678,21 +1645,51 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
-		void *finalBuf = DecodeTextureLevel(tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
+		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+
+		pixelData = (u32 *)writePtr;
+		decPitch = rowPitch;
+		if (scaleFactor > 1) {
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange.data();
+			// We want to end up with a neatly packed texture for scaling.
+			decPitch = w * bpp;
+		}
+
+		void *finalBuf = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
 		if (finalBuf == NULL) {
 			return;
 		}
-		decPitch = bufw * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
-		rowBytes = w * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
+		if (finalBuf != pixelData) {
+			// Since we didn't write to pixelData, we must've ignored decPitch too.
+			// TODO: Can remove once all formats are decoded directly and respect decPitch.
+			decPitch = bufw * bpp;
+		}
+		pixelData = (u32 *)finalBuf;
+		rowBytes = w * bpp;
 		gpuStats.numTexturesDecoded++;
 
-		pixelData = (u32 *)finalBuf;
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
+			// We need to repack it sometimes.
+			// TODO: Can remove once all formats are decoded directly and respect decPitch.
+			if (decPitch != w * bpp) {
+				tmpTexBufRearrange.resize(w * h);
+				const u8 *src = (u8 *)pixelData;
+				u8 *dst = (u8 *)tmpTexBufRearrange.data();
+				for (int y = 0; y < h; y++) {
+					memcpy(dst + rowBytes * y, src + decPitch * y, rowBytes);
+				}
+				pixelData = (u32 *)dst;
+			}
+
 			scaler.Scale(pixelData, fmt, w, h, scaleFactor);
 			dstFmt = (VkFormat)fmt;
-			decPitch *= scaleFactor;
-			rowBytes *= scaleFactor;
+
+			// We always end up at 8888.  Other parts check for this.
+			assert(dstFmt == VULKAN_8888_FORMAT);
+			decPitch = w * sizeof(u32);
+			rowBytes = w * sizeof(u32);
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -1709,11 +1706,10 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	}
 
 	PROFILE_THIS_SCOPE("loadtex");
-	// TODO: Get rid of this, and decode or scale directly into this.
-	for (int y = 0; y < h; y++) {
-		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
-		// uncomment to make all textures white for debugging
-		//memset(writePtr + rowPitch * y, 0xff, rowBytes);
+	if (pixelData != (u32 *)writePtr) {
+		for (int y = 0; y < h; y++) {
+			memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
+		}
 	}
 
 	/*

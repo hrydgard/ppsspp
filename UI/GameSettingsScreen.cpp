@@ -250,22 +250,18 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
 #ifndef MOBILE_DEVICE
 	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
-	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x", "4x"};
 #else
 	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x"};
-	static const char *texScaleLevelsPOT[] = {"Auto", "Off", "2x"};
 #endif
 
-	static const char **texScaleLevels;
-	static int numTexScaleLevels;
-	if (gl_extensions.OES_texture_npot) {
-		texScaleLevels = texScaleLevelsNPOT;
-		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsNPOT);
-	} else {
-		texScaleLevels = texScaleLevelsPOT;
-		numTexScaleLevels = ARRAY_SIZE(texScaleLevelsPOT);
-	}
+	static const char **texScaleLevels = texScaleLevelsNPOT;
+	static int numTexScaleLevels = ARRAY_SIZE(texScaleLevelsNPOT);
 	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gr->GetName(), screenManager()));
+	// TODO: Better check?  When it won't work, it scales down anyway.
+	if (!gl_extensions.OES_texture_npot && GetGPUBackend() == GPUBackend::OPENGL) {
+		texScalingChoice->HideChoice(3); // 3x
+		texScalingChoice->HideChoice(5); // 5x
+	}
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
