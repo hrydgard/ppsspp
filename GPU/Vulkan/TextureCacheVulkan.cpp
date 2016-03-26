@@ -1553,93 +1553,93 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
 		if (!swizzled) {
-			int len = std::max(bufw, w) * h;
-			tmpTexBuf16.resize(len);
-			finalBuf = tmpTexBuf16.data();
-			ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
+			// Just a simple copy, we swizzle the color format.
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
+			}
+			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 2);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, w * sizeof(u16));
+			}
+			finalBuf = out;
 		}
 		break;
 
 	case GE_TFMT_8888:
 		if (!swizzled) {
-			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if (scaleFactor == 1 || w == bufw) {
-				finalBuf = (void *)texptr;
-			} else {
-				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				finalBuf = tmpTexBuf32.data();
-				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
+			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 4);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+			for (int y = 0; y < h; ++y) {
+				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, w * sizeof(u32));
+			}
+			finalBuf = out;
 		}
 		break;
 
 	case GE_TFMT_DXT1:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
 		DXT1Block *src = (DXT1Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT1Block(dst + outPitch * y + x, src + blockIndex, outPitch);
 				blockIndex++;
 			}
 		}
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
+		finalBuf = out;
 	}
 	break;
 
 	case GE_TFMT_DXT3:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
 		DXT3Block *src = (DXT3Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT3Block(dst + outPitch * y + x, src + blockIndex, outPitch);
 				blockIndex++;
 			}
 		}
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		finalBuf = out;
 	}
 	break;
 
 	case GE_TFMT_DXT5:
 	{
 		int minw = std::min(bufw, w);
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		u32 *dst = tmpTexBuf32.data();
+		u32 *dst = (u32 *)out;
 		DXT5Block *src = (DXT5Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
+				DecodeDXT5Block(dst + outPitch * y + x, src + blockIndex, outPitch);
 				blockIndex++;
 			}
 		}
+		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = tmpTexBuf32.data();
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		finalBuf = out;
 	}
 	break;
 
