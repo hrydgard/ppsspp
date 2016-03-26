@@ -1389,6 +1389,8 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		maxLevel = 0;
 	}
 
+	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
+
 	if (replaceImages) {
 		if (!entry->vkTex) {
 			Crash();
@@ -1399,7 +1401,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		VulkanTexture *image = entry->vkTex->texture_;
 
 		const VkComponentMapping *mapping;
-		switch (dstFmt) {
+		switch (actualFmt) {
 		case VULKAN_4444_FORMAT:
 			mapping = &VULKAN_4444_SWIZZLE;
 			break;
@@ -1417,7 +1419,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			break;
 		}
 
-		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, dstFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 	}
 	lastBoundTexture = entry->vkTex;
 
@@ -1425,7 +1427,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	for (int i = 0; i <= maxLevel; i++) {
 		int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
 		int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
-		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
 		int stride = (mipWidth * bpp + 15) & ~15;
 		int size = stride * mipHeight;
 		uint32_t bufferOffset;
@@ -1697,7 +1699,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange.data();
-			decPitch = bufw * bpp;
+			// We want to end up with a neatly packed texture for scaling.
+			decPitch = w * bpp;
 		}
 
 		void *finalBuf = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
@@ -1705,18 +1708,35 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			return;
 		}
 		if (finalBuf != pixelData) {
+			// Since we didn't write to pixelData, we must've ignored decPitch too.
+			// TODO: Can remove once all formats are decoded directly and respect decPitch.
 			decPitch = bufw * bpp;
 		}
+		pixelData = (u32 *)finalBuf;
 		rowBytes = w * bpp;
 		gpuStats.numTexturesDecoded++;
 
-		pixelData = (u32 *)finalBuf;
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
+			// We need to repack it sometimes.
+			// TODO: Can remove once all formats are decoded directly and respect decPitch.
+			if (decPitch != w * bpp) {
+				tmpTexBufRearrange.resize(w * h);
+				const u8 *src = (u8 *)pixelData;
+				u8 *dst = (u8 *)tmpTexBufRearrange.data();
+				for (int y = 0; y < h; y++) {
+					memcpy(dst + rowBytes * y, src + decPitch * y, rowBytes);
+				}
+				pixelData = (u32 *)dst;
+			}
+
 			scaler.Scale(pixelData, fmt, w, h, scaleFactor);
 			dstFmt = (VkFormat)fmt;
-			decPitch *= scaleFactor;
-			rowBytes *= scaleFactor;
+
+			// We always end up at 8888.  Other parts check for this.
+			assert(dstFmt == VULKAN_8888_FORMAT);
+			decPitch = w * sizeof(u32);
+			rowBytes = w * sizeof(u32);
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
