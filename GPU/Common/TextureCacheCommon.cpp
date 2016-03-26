@@ -178,16 +178,16 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		break;
 
 	case NOTIFY_FB_DESTROYED:
-		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
-		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, addr, framebuffer);
-		}
-		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
-			// Let's still make sure it's in the cache range.
-			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
-				DetachFramebuffer(&it->second, addr, framebuffer);
-			}
+		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(), framebuffer), fbCache_.end());
+
+		// We may have an offset texture attached.  So we use fbTexInfo as a guide.
+		// We're not likely to have many attached framebuffers.
+		for (auto it = fbTexInfo_.begin(); it != fbTexInfo_.end(); ) {
+			u64 cachekey = it->first;
+			// We might erase, so move to the next one already (which won't become invalid.)
+			++it;
+
+			DetachFramebuffer(&cache[cachekey], addr, framebuffer);
 		}
 		break;
 	}
