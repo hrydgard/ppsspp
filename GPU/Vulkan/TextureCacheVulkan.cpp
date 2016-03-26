@@ -1542,12 +1542,13 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 	{
 		int minw = std::min(bufw, w);
 		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT1Block *src = (DXT1Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT1Block(dst + outPitch * y + x, src + blockIndex, outPitch);
+				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
@@ -1561,12 +1562,13 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 	{
 		int minw = std::min(bufw, w);
 		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT3Block *src = (DXT3Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT3Block(dst + outPitch * y + x, src + blockIndex, outPitch);
+				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
@@ -1580,12 +1582,13 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 	{
 		int minw = std::min(bufw, w);
 		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
 		DXT5Block *src = (DXT5Block*)texptr;
 
 		for (int y = 0; y < h; y += 4) {
 			u32 blockIndex = (y / 4) * (bufw / 4);
 			for (int x = 0; x < minw; x += 4) {
-				DecodeDXT5Block(dst + outPitch * y + x, src + blockIndex, outPitch);
+				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
 				blockIndex++;
 			}
 		}
