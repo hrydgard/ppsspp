@@ -402,10 +402,9 @@ bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	return false;
 }
 
-void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw) {
+bool TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	int length = bufw * h;
 
 	if (gstate.isTextureSwizzled()) {
 		tmpTexBuf32.resize(std::max(bufw, w) * h);
@@ -413,7 +412,6 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 		texptr = (u8 *)tmpTexBuf32.data();
 	}
 
-	void *buf = nullptr;
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
 	case GE_CMODE_16BIT_ABGR5551:
@@ -439,7 +437,6 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 			}
 			break;
 		}
-		buf = out;
 	}
 	break;
 
@@ -465,16 +462,15 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 			}
 			break;
 		}
-		buf = out;
 	}
 	break;
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
-		break;
+		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
+		return false;
 	}
 
-	return buf;
+	return true;
 }
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format) {
@@ -1390,9 +1386,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
-	void *finalBuf = nullptr;
-
+bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
 		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
@@ -1435,7 +1429,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 					DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 				}
 			}
-			finalBuf = out;
 		}
 		break;
 
@@ -1445,27 +1438,32 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			for (int y = 0; y < h; ++y) {
 				DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 			}
-			finalBuf = out;
 		}
 		break;
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return nullptr;
+			return false;
 		}
 	}
 	break;
 
 	case GE_TFMT_CLUT8:
-		finalBuf = ReadIndexedTex(out, outPitch, level, texptr, 1, dstFmt, bufw);
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 1, dstFmt, bufw)) {
+			return false;
+		}
 		break;
 
 	case GE_TFMT_CLUT16:
-		finalBuf = ReadIndexedTex(out, outPitch, level, texptr, 2, dstFmt, bufw);
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 2, dstFmt, bufw)) {
+			return false;
+		}
 		break;
 
 	case GE_TFMT_CLUT32:
-		finalBuf = ReadIndexedTex(out, outPitch, level, texptr, 4, dstFmt, bufw);
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 4, dstFmt, bufw)) {
+			return false;
+		}
 		break;
 
 	case GE_TFMT_4444:
@@ -1476,7 +1474,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
 			}
-			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 2);
@@ -1484,7 +1481,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, w * sizeof(u16));
 			}
-			finalBuf = out;
 		}
 		break;
 
@@ -1493,7 +1489,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
-			finalBuf = out;
 		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 4);
@@ -1501,7 +1496,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
-			finalBuf = out;
 		}
 		break;
 
@@ -1521,7 +1515,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 		}
 		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = out;
 	}
 	break;
 
@@ -1541,7 +1534,6 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 		}
 		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = out;
 	}
 	break;
 
@@ -1561,20 +1553,15 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 		}
 		// TODO: Not height also?
 		w = (w + 3) & ~3;
-		finalBuf = out;
 	}
 	break;
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
-		return nullptr;
+		return false;
 	}
 
-	if (!finalBuf) {
-		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
-	}
-
-	return finalBuf;
+	return true;
 }
 
 TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h) {
@@ -1623,37 +1610,19 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			decPitch = w * bpp;
 		}
 
-		void *finalBuf = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
-		if (finalBuf == nullptr) {
+		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
+		if (!decSuccess) {
 			return;
 		}
-		if (finalBuf != pixelData) {
-			// Since we didn't write to pixelData, we must've ignored decPitch too.
-			// TODO: Can remove once all formats are decoded directly and respect decPitch.
-			decPitch = bufw * bpp;
-		}
-		pixelData = (u32 *)finalBuf;
 		rowBytes = w * bpp;
 		gpuStats.numTexturesDecoded++;
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
-			// We need to repack it sometimes.
-			// TODO: Can remove once all formats are decoded directly and respect decPitch.
-			if (decPitch != w * bpp) {
-				tmpTexBufRearrange.resize(w * h);
-				const u8 *src = (u8 *)pixelData;
-				u8 *dst = (u8 *)tmpTexBufRearrange.data();
-				for (int y = 0; y < h; y++) {
-					memcpy(dst + rowBytes * y, src + decPitch * y, rowBytes);
-				}
-				pixelData = (u32 *)dst;
-			}
-
 			scaler.Scale(pixelData, fmt, w, h, scaleFactor);
 			dstFmt = (VkFormat)fmt;
 
-			// We always end up at 8888.  Other parts check for this.
+			// We always end up at 8888.  Other parts assume this.
 			assert(dstFmt == VULKAN_8888_FORMAT);
 			decPitch = w * sizeof(u32);
 			rowBytes = w * sizeof(u32);
@@ -1667,13 +1636,9 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		}
 	}
 
-	if (replaceImages) {
-		// TODO: No support for texture shadows
-		// DebugBreak();
-	}
-
 	PROFILE_THIS_SCOPE("loadtex");
 	if (pixelData != (u32 *)writePtr) {
+		// This is used when texture scaling was enabled.
 		for (int y = 0; y < h; y++) {
 			memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 		}
