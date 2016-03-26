@@ -151,38 +151,6 @@ void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
 
 }
 
-static u32 EstimateTexMemoryUsage(const TextureCacheVulkan::TexCacheEntry *entry) {
-	const u16 dim = entry->dim;
-	const u8 dimW = ((dim >> 0) & 0xf);
-	const u8 dimH = ((dim >> 8) & 0xf);
-
-	u32 pixelSize = 2;
-	switch (entry->format) {
-	case GE_TFMT_CLUT4:
-	case GE_TFMT_CLUT8:
-	case GE_TFMT_CLUT16:
-	case GE_TFMT_CLUT32:
-		// We assume cluts always point to 8888 for simplicity.
-		pixelSize = 4;
-		break;
-	case GE_TFMT_4444:
-	case GE_TFMT_5551:
-	case GE_TFMT_5650:
-		break;
-
-	case GE_TFMT_8888:
-	case GE_TFMT_DXT1:
-	case GE_TFMT_DXT3:
-	case GE_TFMT_DXT5:
-	default:
-		pixelSize = 4;
-		break;
-	}
-
-	// This in other words multiplies by w and h.
-	return pixelSize << (dimW + dimH);
-}
-
 void TextureCacheVulkan::Clear(bool delete_them) {
 	lastBoundTexture = nullptr;
 	if (delete_them) {
@@ -616,24 +584,6 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 	if (w != bufferWidth || h != bufferHeight) {
 		key.sClamp = true;
 		key.tClamp = true;
-	}
-}
-
-static void ConvertColors(void *dstBuf, const void *srcBuf, VkFormat dstFmt, int numPixels) {
-	const u32 *src = (const u32 *)srcBuf;
-	u32 *dst = (u32 *)dstBuf;
-	switch (dstFmt) {
-	case VULKAN_4444_FORMAT:
-	case VULKAN_1555_FORMAT:
-	case VULKAN_565_FORMAT:
-		if (dst != src)
-			memcpy(dst, src, numPixels * sizeof(u16));
-		break;
-	default:
-		// No need to convert RGBA8888, right order already
-		if (dst != src)
-			memcpy(dst, src, numPixels * sizeof(u32));
-		break;
 	}
 }
 
