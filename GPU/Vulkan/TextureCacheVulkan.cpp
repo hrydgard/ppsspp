@@ -407,6 +407,12 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
 
+	if (gstate.isTextureSwizzled()) {
+		tmpTexBuf32.resize(std::max(bufw, w) * h);
+		UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, bytesPerIndex);
+		texptr = (u8 *)tmpTexBuf32.data();
+	}
+
 	void *buf = nullptr;
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -414,12 +420,6 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 	case GE_CMODE_16BIT_ABGR4444:
 	{
 		const u16 *clut = GetCurrentClut<u16>();
-		if (gstate.isTextureSwizzled()) {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, bytesPerIndex);
-			texptr = (u8 *)tmpTexBuf32.data();
-		}
-
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
@@ -446,12 +446,6 @@ void *TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const
 	case GE_CMODE_32BIT_ABGR8888:
 	{
 		const u32 *clut = GetCurrentClut<u32>();
-		if (gstate.isTextureSwizzled()) {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, bytesPerIndex);
-			texptr = (u8 *)tmpTexBuf32.data();
-		}
-
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
@@ -1397,7 +1391,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 }
 
 void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
-	void *finalBuf = NULL;
+	void *finalBuf = nullptr;
 
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
@@ -1420,52 +1414,44 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
+		if (swizzled) {
+			tmpTexBuf32.resize(std::max(bufw, w) * h);
+			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 0);
+			texptr = (u8 *)tmpTexBuf32.data();
+		}
+
 		switch (clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 		{
-			tmpTexBuf16.resize(std::max(bufw, w) * h);
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
-			if (!swizzled) {
-				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
-				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), texptr, bufw * h, clut);
+			if (clutAlphaLinear_ && mipmapShareClut) {
+				for (int y = 0; y < h; ++y) {
+					DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
 				}
 			} else {
-				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 0);
-				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
-				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clut);
+				for (int y = 0; y < h; ++y) {
+					DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 				}
 			}
-			finalBuf = tmpTexBuf16.data();
+			finalBuf = out;
 		}
 		break;
 
 		case GE_CMODE_32BIT_ABGR8888:
 		{
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
-			if (!swizzled) {
-				DeIndexTexture4(tmpTexBuf32.data(), texptr, bufw * h, clut);
-				finalBuf = tmpTexBuf32.data();
-			} else {
-				UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 0);
-				// Let's reuse tmpTexBuf16, just need double the space.
-				tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
-				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
-				finalBuf = tmpTexBuf16.data();
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 			}
+			finalBuf = out;
 		}
 		break;
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return NULL;
+			return nullptr;
 		}
 	}
 	break;
@@ -1581,7 +1567,7 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
-		return NULL;
+		return nullptr;
 	}
 
 	if (!finalBuf) {
@@ -1638,7 +1624,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		}
 
 		void *finalBuf = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
-		if (finalBuf == NULL) {
+		if (finalBuf == nullptr) {
 			return;
 		}
 		if (finalBuf != pixelData) {
