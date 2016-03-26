@@ -133,7 +133,10 @@ public:
 				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
 			}
 		}
-		bool Matches(u16 dim2, u8 format2, u8 maxLevel2);
+
+		bool Matches(u16 dim2, u8 format2, u8 maxLevel2) const;
+		u64 CacheKey() const;
+		static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 	};
 
 protected:
@@ -143,16 +146,27 @@ protected:
 	void UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 
+	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
 	void UpdateMaxSeenV(bool throughMode);
 
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
-	virtual void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) = 0;
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
 
 	TexCache cache;
+	u32 cacheSizeEstimate_;
+
+	// Separate to keep main texture cache size down.
+	struct AttachedFramebufferInfo {
+		u32 xOffset;
+		u32 yOffset;
+	};
 	std::vector<VirtualFramebuffer *> fbCache_;
+	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;
@@ -171,6 +185,19 @@ protected:
 	int standardScaleFactor_;
 };
 
-inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {
+inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
+}
+
+inline u64 TextureCacheCommon::TexCacheEntry::CacheKey() const {
+	return CacheKey(addr, format, dim, cluthash);
+}
+
+inline u64 TextureCacheCommon::TexCacheEntry::CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash) {
+	u64 cachekey = ((u64)(addr & 0x3FFFFFFF) << 32) | dim;
+	bool hasClut = (format & 4) != 0;
+	if (hasClut) {
+		cachekey ^= cluthash;
+	}
+	return cachekey;
 }

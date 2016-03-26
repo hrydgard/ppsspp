@@ -127,7 +127,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 }
 
 TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), samplerCache_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0),
+	: vulkan_(vulkan), samplerCache_(vulkan), secondCacheSizeEstimate_(0),
 	  clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0),
 	  clutAlphaLinear_(false) {
 	timesInvalidatedAllThisFrame_ = 0;
@@ -203,7 +203,7 @@ void TextureCacheVulkan::Clear(bool delete_them) {
 
 void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
 	delete it->second.vkTex;
-	auto fbInfo = fbTexInfo_.find(it->second.addr);
+	auto fbInfo = fbTexInfo_.find(it->first);
 	if (fbInfo != fbTexInfo_.end()) {
 		fbTexInfo_.erase(fbInfo);
 	}
@@ -323,48 +323,6 @@ void TextureCacheVulkan::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-
-void TextureCacheVulkan::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
-	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
-	bool hasFartherFramebuffer = false;
-	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
-		// If it's valid, but the offset is greater, then we still win.
-		if (fbTexInfo_[entry->addr].yOffset == fbInfo.yOffset)
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].xOffset > fbInfo.xOffset;
-		else
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
-	}
-	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = 0;
-		entry->status &= ~TextureCacheVulkan::TexCacheEntry::STATUS_DEPALETTIZE;
-		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	} else if (entry->framebuffer == framebuffer) {
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-	}
-}
-
-void TextureCacheVulkan::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = -1;
-		entry->status &= ~TextureCacheVulkan::TexCacheEntry::STATUS_DEPALETTIZE;
-		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
-}
-
 bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
@@ -470,14 +428,6 @@ bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	}
 
 	return false;
-}
-
-inline void TextureCacheVulkan::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
-	if (entry->framebuffer == framebuffer) {
-		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-		entry->framebuffer = 0;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
 }
 
 void *TextureCacheVulkan::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw) {
@@ -817,6 +767,9 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+		const u64 cachekey = entry->CacheKey();
+		const auto &fbInfo = fbTexInfo_[cachekey];
+
 		DepalShaderVulkan *depal = nullptr;
 		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 			// depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
@@ -841,8 +794,8 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
-		gstate_c.curTextureXOffset = fbTexInfo_[entry->addr].xOffset;
-		gstate_c.curTextureYOffset = fbTexInfo_[entry->addr].yOffset;
+		gstate_c.curTextureXOffset = fbInfo.xOffset;
+		gstate_c.curTextureYOffset = fbInfo.yOffset;
 		gstate_c.needShaderTexClamp = gstate_c.curTextureWidth != (u32)gstate.getTextureWidth(0) || gstate_c.curTextureHeight != (u32)gstate.getTextureHeight(0);
 		if (gstate_c.curTextureXOffset != 0 || gstate_c.curTextureYOffset != 0) {
 			gstate_c.needShaderTexClamp = true;
@@ -867,7 +820,7 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 	VkCommandBuffer cmd = nullptr;
 	if (nextTexture_->framebuffer) {
 		ApplyTextureFramebuffer(cmd, nextTexture_, nextTexture_->framebuffer, imageView, sampler);
-	} else {
+	} else if (nextTexture_->vkTex) {
 		// If the texture is >= 512 pixels tall...
 		if (nextTexture_->dim >= 0x900) {
 			// Texture scale/offset and gen modes don't apply in through.
@@ -896,6 +849,9 @@ void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler
 		sampler = samplerCache_.GetOrCreateSampler(key);
 
 		lastBoundTexture = nextTexture_->vkTex;
+	} else {
+		imageView = VK_NULL_HANDLE;
+		sampler = VK_NULL_HANDLE;
 	}
 
 	nextTexture_ = nullptr;
@@ -1054,7 +1010,7 @@ bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
 	}
 
 	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
 	TexCache::iterator iter = cache.find(cachekey);
 	if (iter == cache.end()) {
 		return false;
@@ -1111,7 +1067,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	bool hasClut = gstate.isTextureFormatIndexed();
 
 	// Ignore uncached/kernel when caching.
-	u64 cachekey = ((u64)(texaddr & 0x3FFFFFFF) << 32) | dim;
 	u32 cluthash;
 	if (hasClut) {
 		if (clutLastFormat_ != gstate.clutformat) {
@@ -1119,10 +1074,10 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			UpdateCurrentClut(gstate.getClutPaletteFormat(), gstate.getClutIndexStartPos(), gstate.isClutIndexSimple());
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-		cachekey ^= cluthash;
 	} else {
 		cluthash = 0;
 	}
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
 
 	int bufw = GetTextureBufw(0, texaddr, format);
 	u8 maxLevel = gstate.getTextureMaxLevel();
@@ -1287,7 +1242,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel == 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1 && entry->vkTex) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1410,27 +1365,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
 	VkFormat dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
 
-	int scaleFactor;
-	// Auto-texture scale upto 5x rendering resolution
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		if (scaleFactor == 0) {
-			scaleFactor = (PSP_CoreParameter().renderWidth + 479) / 480;
-		}
-
-		// Mobile devices don't get the higher scale factors, too expensive. Very rough way to decide though...
-		if (!gstate_c.Supports(GPU_IS_MOBILE)) {
-			bool supportNpot = gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT);
-			scaleFactor = std::min(supportNpot ? 5 : 4, scaleFactor);
-			if (!supportNpot && scaleFactor == 3) {
-				scaleFactor = 2;
-			}
-		} else {
-			scaleFactor = std::min(gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT) ? 3 : 2, scaleFactor);
-		}
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
+	int scaleFactor = standardScaleFactor_;
 
 	// Rachet down scale factor in low-memory mode.
 	if (lowMemoryMode_) {

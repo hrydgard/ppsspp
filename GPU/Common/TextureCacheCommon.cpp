@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -36,7 +37,7 @@
 extern int g_iNumVideos;
 
 TextureCacheCommon::TextureCacheCommon()
-	: nextTexture_(nullptr),
+	: cacheSizeEstimate_(0), nextTexture_(nullptr),
 	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF) {
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
@@ -177,18 +178,74 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 		break;
 
 	case NOTIFY_FB_DESTROYED:
-		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
-		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, addr, framebuffer);
-		}
-		for (auto it = cache.lower_bound(mirrorCacheKey), end = cache.upper_bound(mirrorCacheKeyEnd); it != end; ++it) {
-			const u64 mirrorlessKey = it->first & ~0x0060000000000000ULL;
-			// Let's still make sure it's in the cache range.
-			if (mirrorlessKey >= cacheKey && mirrorlessKey <= cacheKeyEnd) {
-				DetachFramebuffer(&it->second, addr, framebuffer);
-			}
+		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(), framebuffer), fbCache_.end());
+
+		// We may have an offset texture attached.  So we use fbTexInfo as a guide.
+		// We're not likely to have many attached framebuffers.
+		for (auto it = fbTexInfo_.begin(); it != fbTexInfo_.end(); ) {
+			u64 cachekey = it->first;
+			// We might erase, so move to the next one already (which won't become invalid.)
+			++it;
+
+			DetachFramebuffer(&cache[cachekey], addr, framebuffer);
 		}
 		break;
+	}
+}
+void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+	const u64 cachekey = entry->CacheKey();
+	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
+	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
+	bool hasFartherFramebuffer = false;
+
+	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
+		// If it's valid, but the offset is greater, then we still win.
+		if (fbTexInfo_[cachekey].yOffset == fbInfo.yOffset)
+			hasFartherFramebuffer = fbTexInfo_[cachekey].xOffset > fbInfo.xOffset;
+		else
+			hasFartherFramebuffer = fbTexInfo_[cachekey].yOffset > fbInfo.yOffset;
+	}
+
+	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = 0;
+		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
+		fbTexInfo_[cachekey] = fbInfo;
+		framebuffer->last_frame_attached = gpuStats.numFlips;
+		host->GPUNotifyTextureAttachment(entry->addr);
+	} else if (entry->framebuffer == framebuffer) {
+		framebuffer->last_frame_attached = gpuStats.numFlips;
+	}
+}
+
+void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+	const u64 cachekey = entry->CacheKey();
+
+	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
+		if (entry->framebuffer == nullptr) {
+			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+		}
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = -1;
+		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
+		entry->maxLevel = 0;
+		fbTexInfo_[cachekey] = fbInfo;
+		host->GPUNotifyTextureAttachment(entry->addr);
+	}
+}
+
+void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+	const u64 cachekey = entry->CacheKey();
+
+	if (entry->framebuffer == framebuffer) {
+		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+		entry->framebuffer = 0;
+		fbTexInfo_.erase(cachekey);
+		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -385,4 +442,36 @@ bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
 	memcpy(buffer.GetData(), clutBufRaw_, 1024);
 	return true;
+}
+
+u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
+	const u16 dim = entry->dim;
+	const u8 dimW = ((dim >> 0) & 0xf);
+	const u8 dimH = ((dim >> 8) & 0xf);
+
+	u32 pixelSize = 2;
+	switch (entry->format) {
+	case GE_TFMT_CLUT4:
+	case GE_TFMT_CLUT8:
+	case GE_TFMT_CLUT16:
+	case GE_TFMT_CLUT32:
+		// We assume cluts always point to 8888 for simplicity.
+		pixelSize = 4;
+		break;
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+		break;
+
+	case GE_TFMT_8888:
+	case GE_TFMT_DXT1:
+	case GE_TFMT_DXT3:
+	case GE_TFMT_DXT5:
+	default:
+		pixelSize = 4;
+		break;
+	}
+
+	// This in other words multiplies by w and h.
+	return pixelSize << (dimW + dimH);
 }

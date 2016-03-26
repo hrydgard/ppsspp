@@ -135,7 +135,6 @@ private:
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) override;
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &image, VkSampler &sampler);
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
@@ -143,18 +142,7 @@ private:
 	VulkanContext *vulkan_;
 
 	TexCache secondCache;
-	std::vector<u32> nameCache_;
-	u32 cacheSizeEstimate_;
 	u32 secondCacheSizeEstimate_;
-
-	// Separate to keep main texture cache size down.
-	struct AttachedFramebufferInfo {
-		u32 xOffset;
-		u32 yOffset;
-	};
-	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

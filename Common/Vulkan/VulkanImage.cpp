@@ -66,7 +66,7 @@ void VulkanTexture::CreateMappableImage() {
 	mem_alloc.allocationSize = mem_reqs.size;
 
 	// Find the memory type that is host mappable.
-	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &mem_alloc.memoryTypeIndex);
+	pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &mem_alloc.memoryTypeIndex);
 	assert(pass);
 
 	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mappableMemory);
