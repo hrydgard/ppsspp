@@ -169,6 +169,12 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 
 bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks) {
 	bool matched = true;
+
+	if (start + blocks > slab.usage.size()) {
+		start = slab.usage.size();
+		return false;
+	}
+
 	for (size_t i = 0; i < blocks; ++i) {
 		if (slab.usage[start + i]) {
 			// If we just ran into one, there's probably an allocation size.
