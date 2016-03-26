@@ -127,7 +127,7 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 }
 
 TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), samplerCache_(vulkan), cacheSizeEstimate_(0), secondCacheSizeEstimate_(0),
+	: vulkan_(vulkan), samplerCache_(vulkan), secondCacheSizeEstimate_(0),
 	  clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0),
 	  clutAlphaLinear_(false) {
 	timesInvalidatedAllThisFrame_ = 0;
@@ -323,48 +323,6 @@ void TextureCacheVulkan::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-
-void TextureCacheVulkan::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
-	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
-	bool hasFartherFramebuffer = false;
-	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
-		// If it's valid, but the offset is greater, then we still win.
-		if (fbTexInfo_[entry->addr].yOffset == fbInfo.yOffset)
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].xOffset > fbInfo.xOffset;
-		else
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
-	}
-	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = 0;
-		entry->status &= ~TextureCacheVulkan::TexCacheEntry::STATUS_DEPALETTIZE;
-		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	} else if (entry->framebuffer == framebuffer) {
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-	}
-}
-
-void TextureCacheVulkan::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = -1;
-		entry->status &= ~TextureCacheVulkan::TexCacheEntry::STATUS_DEPALETTIZE;
-		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
-}
-
 bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
@@ -470,14 +428,6 @@ bool TextureCacheVulkan::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	}
 
 	return false;
-}
-
-inline void TextureCacheVulkan::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
-	if (entry->framebuffer == framebuffer) {
-		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-		entry->framebuffer = 0;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
 }
 
 void *TextureCacheVulkan::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw) {

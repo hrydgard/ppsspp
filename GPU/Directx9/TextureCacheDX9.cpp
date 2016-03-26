@@ -63,7 +63,7 @@ namespace DX9 {
 #define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in VRAM
 #define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
 
-TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+TextureCacheDX9::TextureCacheDX9() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -89,38 +89,6 @@ TextureCacheDX9::TextureCacheDX9() : cacheSizeEstimate_(0), secondCacheSizeEstim
 
 TextureCacheDX9::~TextureCacheDX9() {
 	Clear(true);
-}
-
-static u32 EstimateTexMemoryUsage(const TextureCacheDX9::TexCacheEntry *entry) {
-	const u16 dim = entry->dim;
-	const u8 dimW = ((dim >> 0) & 0xf);
-	const u8 dimH = ((dim >> 8) & 0xf);
-
-	u32 pixelSize = 2;
-	switch (entry->format) {
-	case GE_TFMT_CLUT4:
-	case GE_TFMT_CLUT8:
-	case GE_TFMT_CLUT16:
-	case GE_TFMT_CLUT32:
-		// We assume cluts always point to 8888 for simplicity.
-		pixelSize = 4;
-		break;
-	case GE_TFMT_4444:
-	case GE_TFMT_5551:
-	case GE_TFMT_5650:
-		break;
-
-	case GE_TFMT_8888:
-	case GE_TFMT_DXT1:
-	case GE_TFMT_DXT3:
-	case GE_TFMT_DXT5:
-	default:
-		pixelSize = 4;
-		break;
-	}
-
-	// This in other words multiplies by w and h.
-	return pixelSize << (dimW + dimH);
 }
 
 void TextureCacheDX9::Clear(bool delete_them) {
@@ -273,46 +241,6 @@ void TextureCacheDX9::ClearNextFrame() {
 	clearCacheNextFrame_ = true;
 }
 
-
-void TextureCacheDX9::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
-	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
-	bool hasFartherFramebuffer = false;
-	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
-		// If it's valid, but the offset is greater, then we still win.
-		if (fbTexInfo_[entry->addr].yOffset == fbInfo.yOffset)
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].xOffset > fbInfo.xOffset;
-		else
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
-	}
-	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = 0;
-		entry->status &= ~TextureCacheDX9::TexCacheEntry::STATUS_DEPALETTIZE;
-		fbTexInfo_[entry->addr] = fbInfo;
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	} else if (entry->framebuffer == framebuffer) {
-		framebuffer->last_frame_attached = gpuStats.numFlips;
-	}
-}
-
-void TextureCacheDX9::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
-	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
-		if (entry->framebuffer == nullptr) {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-		}
-		entry->framebuffer = framebuffer;
-		entry->invalidHint = -1;
-		entry->status &= ~TextureCacheDX9::TexCacheEntry::STATUS_DEPALETTIZE;
-		fbTexInfo_[entry->addr] = fbInfo;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
-}
-
 bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
@@ -418,14 +346,6 @@ bool TextureCacheDX9::AttachFramebuffer(TexCacheEntry *entry, u32 address, Virtu
 	}
 
 	return false;
-}
-
-inline void TextureCacheDX9::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
-	if (entry->framebuffer == framebuffer) {
-		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-		entry->framebuffer = 0;
-		host->GPUNotifyTextureAttachment(entry->addr);
-	}
 }
 
 void *TextureCacheDX9::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw) {

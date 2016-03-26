@@ -143,16 +143,27 @@ protected:
 	void UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 
+	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
 	void UpdateMaxSeenV(bool throughMode);
 
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
-	virtual void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) = 0;
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
 
 	TexCache cache;
+	u32 cacheSizeEstimate_;
+
+	// Separate to keep main texture cache size down.
+	struct AttachedFramebufferInfo {
+		u32 xOffset;
+		u32 yOffset;
+	};
 	std::vector<VirtualFramebuffer *> fbCache_;
+	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;
