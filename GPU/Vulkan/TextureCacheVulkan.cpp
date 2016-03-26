@@ -1463,7 +1463,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-void *TextureCacheVulkan::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
+void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw) {
 	void *finalBuf = NULL;
 
 	bool swizzled = gstate.isTextureSwizzled();
@@ -1690,12 +1690,24 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
-		void *finalBuf = DecodeTextureLevel(tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
+		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
+
+		pixelData = (u32 *)writePtr;
+		decPitch = rowPitch;
+		if (scaleFactor > 1) {
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange.data();
+			decPitch = bufw * bpp;
+		}
+
+		void *finalBuf = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
 		if (finalBuf == NULL) {
 			return;
 		}
-		decPitch = bufw * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
-		rowBytes = w * (dstFmt == VULKAN_8888_FORMAT ? 4 : 2);
+		if (finalBuf != pixelData) {
+			decPitch = bufw * bpp;
+		}
+		rowBytes = w * bpp;
 		gpuStats.numTexturesDecoded++;
 
 		pixelData = (u32 *)finalBuf;
@@ -1721,11 +1733,10 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	}
 
 	PROFILE_THIS_SCOPE("loadtex");
-	// TODO: Get rid of this, and decode or scale directly into this.
-	for (int y = 0; y < h; y++) {
-		memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
-		// uncomment to make all textures white for debugging
-		//memset(writePtr + rowPitch * y, 0xff, rowBytes);
+	if (pixelData != (u32 *)writePtr) {
+		for (int y = 0; y < h; y++) {
+			memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
+		}
 	}
 
 	/*
