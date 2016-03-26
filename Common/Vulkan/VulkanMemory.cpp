@@ -228,8 +228,8 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	}
 
 	// Okay, now enqueue.  It's valid.
-	FreeInfo *info = new FreeInfo(deviceMemory, offset);
-	vulkan_->Delete().QueueCallback(&DispatchFree, this, info);
+	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
+	vulkan_->Delete().QueueCallback(&DispatchFree, info);
 }
 
 void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {

@@ -128,11 +128,18 @@ private:
 	uint8_t *writePtr_;
 };
 
+// VulkanDeviceAllocator
+//
+// Implements a slab based allocator that manages suballocations inside the slabs.
+// Bitmaps are used to handle allocation state, with a 1KB grain.
 class VulkanDeviceAllocator {
 public:
+	// Slab sizes start at minSlabSize and double until maxSlabSize.
+	// Total slab count is unlimited, as long as there's free memory.
 	VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize);
 	~VulkanDeviceAllocator();
 
+	// Requires all memory be free beforehand (including all pending deletes.)
 	void Destroy();
 
 	void Begin() {
@@ -142,7 +149,10 @@ public:
 	void End() {
 	}
 
+	// May return ALLOCATE_FAILED if the allocation fails.
 	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory);
+
+	// Crashes on a double or misfree.
 	void Free(VkDeviceMemory deviceMemory, size_t offset);
 
 	static const size_t ALLOCATE_FAILED = -1;
@@ -164,18 +174,18 @@ private:
 	};
 
 	struct FreeInfo {
-		explicit FreeInfo(VkDeviceMemory d, size_t o)
-			: deviceMemory(d), offset(o) {
+		explicit FreeInfo(VulkanDeviceAllocator *a, VkDeviceMemory d, size_t o)
+			: allocator(a), deviceMemory(d), offset(o) {
 		}
 
+		VulkanDeviceAllocator *allocator;
 		VkDeviceMemory deviceMemory;
 		size_t offset;
 	};
 
-	static void DispatchFree(void *thiz, void *userdata) {
-		auto allocator = static_cast<VulkanDeviceAllocator *>(thiz);
+	static void DispatchFree(void *userdata) {
 		auto freeInfo = static_cast<FreeInfo *>(userdata);
-		allocator->ExecuteFree(freeInfo);
+		freeInfo->allocator->ExecuteFree(freeInfo);
 	}
 
 	bool AllocateSlab(size_t minBytes);

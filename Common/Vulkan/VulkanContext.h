@@ -57,13 +57,12 @@ struct VulkanPhysicalDeviceInfo {
 // This is a bit repetitive...
 class VulkanDeleteList {
 	struct Callback {
-		explicit Callback(void (*f)(void *userdata1, void *userdata2), void *u1, void *u2)
-			: func(f), userdata1(u1), userdata2(u2) {
+		explicit Callback(void (*f)(void *userdata), void *u)
+			: func(f), userdata(u) {
 		}
 
-		void (*func)(void *userdata1, void *userdata2);
-		void *userdata1;
-		void *userdata2;
+		void (*func)(void *userdata);
+		void *userdata;
 	};
 
 public:
@@ -78,7 +77,7 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 	void QueueDeleteRenderPass(VkRenderPass renderPass) { renderPasses_.push_back(renderPass); }
 	void QueueDeleteFramebuffer(VkFramebuffer framebuffer) { framebuffers_.push_back(framebuffer); }
-	void QueueCallback(void (*func)(void *userdata1, void *userdata2), void *userdata1, void *userdata2) { callbacks_.push_back(Callback(func, userdata1, userdata2)); }
+	void QueueCallback(void (*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void Take(VulkanDeleteList &del) {
 		assert(descPools_.size() == 0);
@@ -153,7 +152,7 @@ public:
 		}
 		framebuffers_.clear();
 		for (auto &callback : callbacks_) {
-			callback.func(callback.userdata1, callback.userdata2);
+			callback.func(callback.userdata);
 		}
 		callbacks_.clear();
 	}
