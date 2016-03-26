@@ -133,9 +133,9 @@ public:
 				SetAlphaStatus(STATUS_ALPHA_SIMPLE);
 			}
 		}
-		bool Matches(u16 dim2, u8 format2, u8 maxLevel2);
 
-		u64 CacheKey();
+		bool Matches(u16 dim2, u8 format2, u8 maxLevel2) const;
+		u64 CacheKey() const;
 		static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 	};
 
@@ -163,7 +163,7 @@ protected:
 		u32 yOffset;
 	};
 	std::vector<VirtualFramebuffer *> fbCache_;
-	std::map<u32, AttachedFramebufferInfo> fbTexInfo_;
+	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
@@ -185,11 +185,11 @@ protected:
 	int standardScaleFactor_;
 };
 
-inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) {
+inline bool TextureCacheCommon::TexCacheEntry::Matches(u16 dim2, u8 format2, u8 maxLevel2) const {
 	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }
 
-inline u64 TextureCacheCommon::TexCacheEntry::CacheKey() {
+inline u64 TextureCacheCommon::TexCacheEntry::CacheKey() const {
 	return CacheKey(addr, format, dim, cluthash);
 }
 

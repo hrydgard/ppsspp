@@ -193,16 +193,19 @@ void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *fram
 	}
 }
 void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+	const u64 cachekey = entry->CacheKey();
 	const bool hasInvalidFramebuffer = entry->framebuffer == nullptr || entry->invalidHint == -1;
 	const bool hasOlderFramebuffer = entry->framebuffer != nullptr && entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
 	bool hasFartherFramebuffer = false;
+
 	if (!hasInvalidFramebuffer && !hasOlderFramebuffer) {
 		// If it's valid, but the offset is greater, then we still win.
-		if (fbTexInfo_[entry->addr].yOffset == fbInfo.yOffset)
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].xOffset > fbInfo.xOffset;
+		if (fbTexInfo_[cachekey].yOffset == fbInfo.yOffset)
+			hasFartherFramebuffer = fbTexInfo_[cachekey].xOffset > fbInfo.xOffset;
 		else
-			hasFartherFramebuffer = fbTexInfo_[entry->addr].yOffset > fbInfo.yOffset;
+			hasFartherFramebuffer = fbTexInfo_[cachekey].yOffset > fbInfo.yOffset;
 	}
+
 	if (hasInvalidFramebuffer || hasOlderFramebuffer || hasFartherFramebuffer) {
 		if (entry->framebuffer == nullptr) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
@@ -211,7 +214,7 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 		entry->invalidHint = 0;
 		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
+		fbTexInfo_[cachekey] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	} else if (entry->framebuffer == framebuffer) {
@@ -220,6 +223,8 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 }
 
 void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo) {
+	const u64 cachekey = entry->CacheKey();
+
 	if (entry->framebuffer == nullptr || entry->framebuffer == framebuffer) {
 		if (entry->framebuffer == nullptr) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
@@ -228,15 +233,18 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		entry->invalidHint = -1;
 		entry->status &= ~TextureCacheCommon::TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
-		fbTexInfo_[entry->addr] = fbInfo;
+		fbTexInfo_[cachekey] = fbInfo;
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
 
 void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+	const u64 cachekey = entry->CacheKey();
+
 	if (entry->framebuffer == framebuffer) {
 		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 		entry->framebuffer = 0;
+		fbTexInfo_.erase(cachekey);
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}
 }
