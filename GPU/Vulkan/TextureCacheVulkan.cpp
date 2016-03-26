@@ -619,9 +619,9 @@ void TextureCacheVulkan::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	if (clutFormat == GE_CMODE_16BIT_ABGR4444 && clutIndexIsSimple) {
 		const u16_le *clut = GetCurrentClut<u16_le>();
 		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
+		clutAlphaLinearColor_ = clut[15] & 0x0FFF;
 		for (int i = 0; i < 16; ++i) {
-			u16 step = clutAlphaLinearColor_ | i;
+			u16 step = clutAlphaLinearColor_ | (i << 12);
 			if (clut[i] != step) {
 				clutAlphaLinear_ = false;
 				break;
@@ -1429,7 +1429,7 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			if (!swizzled) {
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), texptr, bufw * h, clut);
 				}
@@ -1437,7 +1437,7 @@ void *TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureFor
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
 				UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 0);
 				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
+					DeIndexTexture4OptimalRev(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				}
