@@ -206,10 +206,8 @@ void VulkanTexture::Unlock() {
 		mappableMemory = VK_NULL_HANDLE;
 	}
 
-	VkImageViewCreateInfo view_info = {};
-	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	view_info.pNext = NULL;
-	view_info.image = VK_NULL_HANDLE;
+	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	view_info.image = image;
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	view_info.format = format_;
 	view_info.components.r = VK_COMPONENT_SWIZZLE_R;
@@ -221,7 +219,6 @@ void VulkanTexture::Unlock() {
 	view_info.subresourceRange.levelCount = 1;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount = 1;
-	view_info.image = image;
 	VkResult res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
 	assert(res == VK_SUCCESS);
 }
@@ -244,7 +241,7 @@ void VulkanTexture::Wipe() {
 	}
 }
 
-void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	Wipe();
 
 	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
@@ -268,12 +265,18 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	VkResult res = vkCreateImage(vulkan_->GetDevice(), &image_create_info, NULL, &image);
-	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		return false;
+	}
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
 
 	if (allocator_) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem);
+		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
+			return false;
+		}
 	} else {
 		VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 		mem_alloc.memoryTypeIndex = 0;
@@ -284,13 +287,19 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 		assert(pass);
 
 		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
-		assert(res == VK_SUCCESS);
+		if (res != VK_SUCCESS) {
+			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+			return false;
+		}
 
 		offset_ = 0;
 	}
 
 	res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, offset_);
-	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		return false;
+	}
 
 	// Since we're going to blit to the target, set its layout to TRANSFER_DST
 	TransitionImageLayout(cmd, image,
@@ -299,10 +308,8 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 	// Create the view while we're at it.
-	VkImageViewCreateInfo view_info = {};
-	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	view_info.pNext = NULL;
-	view_info.image = VK_NULL_HANDLE;
+	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	view_info.image = image;
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
 	view_info.format = format_;
 	if (mapping) {
@@ -318,9 +325,12 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	view_info.subresourceRange.levelCount = numMips;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount = 1;
-	view_info.image = image;
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
-	assert(res == VK_SUCCESS);
+	if (res != VK_SUCCESS) {
+		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		return false;
+	}
+	return true;
 }
 
 void VulkanTexture::UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength) {
