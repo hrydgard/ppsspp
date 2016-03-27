@@ -88,7 +88,7 @@ static const VkStencilOp stencilOps[] = {
 	VK_STENCIL_OP_KEEP, // reserved
 };
 
-const VkPrimitiveTopology primToVulkan[8] = {
+static const VkPrimitiveTopology primToVulkan[8] = {
 	VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
 	VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
 	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
@@ -98,6 +98,25 @@ const VkPrimitiveTopology primToVulkan[8] = {
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,  // Vulkan doesn't do quads. We could do strips with restart-index though. We could also do RECT primitives in the geometry shader.
 };
 
+// These are actually the same exact values/order/etc. as the GE ones, but for clarity...
+static const VkLogicOp logicOps[] = {
+	VK_LOGIC_OP_CLEAR,
+	VK_LOGIC_OP_AND,
+	VK_LOGIC_OP_AND_REVERSE,
+	VK_LOGIC_OP_COPY,
+	VK_LOGIC_OP_AND_INVERTED,
+	VK_LOGIC_OP_NO_OP,
+	VK_LOGIC_OP_XOR,
+	VK_LOGIC_OP_OR,
+	VK_LOGIC_OP_NOR,
+	VK_LOGIC_OP_EQUIVALENT,
+	VK_LOGIC_OP_INVERT,
+	VK_LOGIC_OP_OR_REVERSE,
+	VK_LOGIC_OP_COPY_INVERTED,
+	VK_LOGIC_OP_OR_INVERTED,
+	VK_LOGIC_OP_NAND,
+	VK_LOGIC_OP_SET,
+};
 
 bool ApplyShaderBlending() {
 	return false;
@@ -165,6 +184,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
+		key.logicOpEnable = false;
 		key.cullMode = VK_CULL_MODE_NONE;
 
 		key.depthTestEnable = true;
@@ -197,6 +217,16 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 			dynState.useStencil = false;
 		}
 	} else {
+		if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
+			// Logic Ops
+			if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+				key.logicOpEnable = true;
+				key.logicOp = logicOps[gstate.getLogicOp()];
+			} else {
+				key.logicOpEnable = false;
+			}
+		}
+
 		// Set cull
 		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
