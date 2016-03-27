@@ -407,8 +407,8 @@ bool TextureCacheVulkan::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 	int h = gstate.getTextureHeight(level);
 
 	if (gstate.isTextureSwizzled()) {
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, bytesPerIndex);
+		tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+		UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
 		texptr = (u8 *)tmpTexBuf32.data();
 	}
 
@@ -1409,8 +1409,8 @@ bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
 
 		if (swizzled) {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 0);
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
 			texptr = (u8 *)tmpTexBuf32.data();
 		}
 
@@ -1475,8 +1475,8 @@ bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
 			}
 		} else {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 2);
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, w * sizeof(u16));
@@ -1490,8 +1490,8 @@ bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
 		} else {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), texptr, bufw, h, 4);
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, w * sizeof(u32));

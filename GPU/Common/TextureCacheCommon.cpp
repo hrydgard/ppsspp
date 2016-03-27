@@ -364,7 +364,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 	clutMaxBytes_ = std::max(clutMaxBytes_, loadBytes);
 }
 
-void TextureCacheCommon::UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
+void TextureCacheCommon::UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel) {
 	// Note: bufw is always aligned to 16 bytes, so rowWidth is always >= 16.
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	// A visual mapping of unswizzling, where each letter is 16-byte and 8 letters is a block:
@@ -381,8 +381,7 @@ void TextureCacheCommon::UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw,
 	// The height is not always aligned to 8, but rounds up.
 	int byc = (height + 7) / 8;
 
-	// TODO: Can change rowWidth param below (leave above) to adjust dest pitch.
-	DoUnswizzleTex16(texptr, dest, bxc, byc, rowWidth);
+	DoUnswizzleTex16(texptr, dest, bxc, byc, destPitch);
 }
 
 void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {

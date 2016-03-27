@@ -118,7 +118,10 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	return check;
 }
 
-void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
+void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch) {
+	// ydestp is in 32-bits, so this is convenient.
+	const u32 pitchBy32 = pitch >> 2;
+
 	__builtin_prefetch(texptr, 0, 0);
 	__builtin_prefetch(ydestp, 1, 1);
 
@@ -134,18 +137,18 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 				uint32x4_t temp3 = vld1q_u32(src + 8);
 				uint32x4_t temp4 = vld1q_u32(src + 12);
 				vst1q_u32(dest, temp1);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp2);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp3);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp4);
-				dest += pitch;
+				dest += pitchBy32;
 				src += 16;
 			}
 			xdest += 4;
 		}
-		ydestp += (rowWidth * 8) / 4;
+		ydestp += pitchBy32 * 8;
 	}
 }
 
