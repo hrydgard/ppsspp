@@ -113,7 +113,13 @@ VulkanDeviceAllocator::~VulkanDeviceAllocator() {
 void VulkanDeviceAllocator::Destroy() {
 	for (Slab &slab : slabs_) {
 		// Did anyone forget to free?
-		assert(slab.allocSizes.empty());
+		for (auto pair : slab.allocSizes) {
+			if (slab.usage[pair.first] != 2) {
+				// If it's not 2 (queued), there's a problem.
+				// If it's zero, it means allocSizes is somehow out of sync.
+				Crash();
+			}
+		}
 
 		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 	}
