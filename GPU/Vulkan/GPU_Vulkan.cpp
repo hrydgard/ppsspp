@@ -588,6 +588,8 @@ void GPU_Vulkan::BuildReportingInfo() {
 	CHECK_BOOL_FEATURE(variableMultisampleRate);
 	CHECK_BOOL_FEATURE(inheritedQueries);
 
+#undef CHECK_BOOL_FEATURE
+
 	if (!featureNames.empty()) {
 		featureNames = featureNames.substr(2);
 	}
