@@ -1474,7 +1474,10 @@ bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
 			}
+		} else if (h >= 8) {
+			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 2);
 		} else {
+			// We don't have enough space for all rows in out, so use a temp buffer.
 			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
 			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
@@ -1489,7 +1492,10 @@ bool TextureCacheVulkan::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 			for (int y = 0; y < h; ++y) {
 				memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 			}
+		} else if (h >= 8) {
+			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 4);
 		} else {
+			// We don't have enough space for all rows in out, so use a temp buffer.
 			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
 			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
 			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
