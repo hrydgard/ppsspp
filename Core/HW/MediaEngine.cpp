@@ -673,13 +673,12 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	}
 
 	if (swizzle) {
-		const u32 pitch = videoLineSize / 4;
 		const int bxc = videoLineSize / 16;
 		int byc = (height + 7) / 8;
 		if (byc == 0)
 			byc = 1;
 
-		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, pitch, videoLineSize);
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
 		delete [] imgbuf;
 	}
 
@@ -789,13 +788,12 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 	if (swizzle) {
 		WARN_LOG_REPORT_ONCE(vidswizzle, ME, "Swizzling Video with range");
 
-		const u32 pitch = videoLineSize / 4;
 		const int bxc = videoLineSize / 16;
 		int byc = (height + 7) / 8;
 		if (byc == 0)
 			byc = 1;
 
-		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, pitch, videoLineSize);
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
 		delete [] imgbuf;
 	}
 
