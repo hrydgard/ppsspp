@@ -199,4 +199,5 @@ private:
 	size_t minSlabSize_;
 	const size_t maxSlabSize_;
 	uint32_t memoryTypeIndex_;
+	bool destroyed_;
 };

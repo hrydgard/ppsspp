@@ -102,11 +102,12 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 }
 
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
-	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
+	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE), destroyed_(false) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
 }
 
 VulkanDeviceAllocator::~VulkanDeviceAllocator() {
+	assert(destroyed_);
 	assert(slabs_.empty());
 }
 
@@ -124,9 +125,11 @@ void VulkanDeviceAllocator::Destroy() {
 		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 	}
 	slabs_.clear();
+	destroyed_ = true;
 }
 
 size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory) {
+	assert(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
 	assert(pass);
@@ -181,6 +184,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 }
 
 bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks) {
+	assert(!destroyed_);
 	bool matched = true;
 
 	if (start + blocks > slab.usage.size()) {
@@ -217,6 +221,8 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
+	assert(!destroyed_);
+
 	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
 	size_t start = offset >> SLAB_GRAIN_SHIFT;
 	bool found = false;
@@ -252,6 +258,12 @@ void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 }
 
 void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
+	if (destroyed_) {
+		// We already freed this, and it's been validated.
+		delete userdata;
+		return;
+	}
+
 	VkDeviceMemory deviceMemory = userdata->deviceMemory;
 	size_t offset = userdata->offset;
 
@@ -287,6 +299,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 }
 
 bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
+	assert(!destroyed_);
 	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
 		// We're allocating an additional slab, so rachet up its size.
 		minSlabSize_ <<= 1;
@@ -318,6 +331,7 @@ bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
 }
 
 void VulkanDeviceAllocator::Decimate() {
+	assert(!destroyed_);
 	bool foundFree = false;
 
 	for (size_t i = 0; i < slabs_.size(); ++i) {
