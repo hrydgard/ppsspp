@@ -617,9 +617,11 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// TODO: Dirty-flag these.
 		vkCmdSetScissor(cmd_, 0, 1, &dynState.scissor);
 		vkCmdSetViewport(cmd_, 0, 1, &dynState.viewport);
-		vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
-		vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
-		vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
+		if (dynState.useStencil) {
+			vkCmdSetStencilWriteMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilWriteMask);
+			vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
+			vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
+		}
 		float bc[4];
 		Uint8x4ToFloat4(bc, dynState.blendColor);
 		vkCmdSetBlendConstants(cmd_, bc);
