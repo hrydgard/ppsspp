@@ -1,4 +1,5 @@
 #include "Common/Vulkan/VulkanImage.h"
+#include "Common/Vulkan/VulkanMemory.h"
 
 VkResult VulkanTexture::Create(int w, int h, VkFormat format) {
 	tex_width = w;
@@ -234,8 +235,11 @@ void VulkanTexture::Wipe() {
 		vulkan_->Delete().QueueDeleteImageView(view);
 		view = VK_NULL_HANDLE;
 	}
-	if (mem) {
+	if (mem && !allocator_) {
 		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
+		mem = VK_NULL_HANDLE;
+	} else if (mem) {
+		allocator_->Free(mem, offset_);
 		mem = VK_NULL_HANDLE;
 	}
 }
@@ -267,18 +271,25 @@ void VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	assert(res == VK_SUCCESS);
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
-	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	mem_alloc.memoryTypeIndex = 0;
-	mem_alloc.allocationSize = mem_reqs.size;
 
-	// Find memory type - don't specify any mapping requirements
-	bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
-	assert(pass);
+	if (allocator_) {
+		offset_ = allocator_->Allocate(mem_reqs, &mem);
+	} else {
+		VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+		mem_alloc.memoryTypeIndex = 0;
+		mem_alloc.allocationSize = mem_reqs.size;
 
-	res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
-	assert(res == VK_SUCCESS);
+		// Find memory type - don't specify any mapping requirements
+		bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
+		assert(pass);
 
-	res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, 0);
+		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem);
+		assert(res == VK_SUCCESS);
+
+		offset_ = 0;
+	}
+
+	res = vkBindImageMemory(vulkan_->GetDevice(), image, mem, offset_);
 	assert(res == VK_SUCCESS);
 
 	// Since we're going to blit to the target, set its layout to TRANSFER_DST
@@ -347,11 +358,13 @@ void VulkanTexture::Destroy() {
 			mappableImage = VK_NULL_HANDLE;
 		}
 	}
-	if (mem) {
+	if (mem && !allocator_) {
 		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
 		if (mappableMemory == mem) {
 			mappableMemory = VK_NULL_HANDLE;
 		}
+	} else if (mem) {
+		allocator_->Free(mem, offset_);
 	}
 
 	view = VK_NULL_HANDLE;

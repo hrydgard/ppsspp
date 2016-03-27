@@ -2,14 +2,17 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 
+class VulkanDeviceAllocator;
+
 // Wrapper around what you need to use a texture.
 // Not very optimal - if you have many small textures you should use other strategies.
 class VulkanTexture {
 public:
-	VulkanTexture(VulkanContext *vulkan)
+	VulkanTexture(VulkanContext *vulkan, VulkanDeviceAllocator *allocator = nullptr)
 		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
 		tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false) {
+		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false),
+		allocator_(allocator), offset_(0) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
 	~VulkanTexture() {
@@ -47,4 +50,6 @@ private:
 	VkDeviceMemory mappableMemory;
 	VkMemoryRequirements mem_reqs;
 	bool needStaging;
+	VulkanDeviceAllocator *allocator_;
+	size_t offset_;
 };

@@ -35,6 +35,7 @@ class DrawEngineVulkan;
 class VulkanContext;
 class VulkanTexture;
 class VulkanPushBuffer;
+class VulkanDeviceAllocator;
 
 struct SamplerCacheKey {
 	SamplerCacheKey() : fullKey(0) {}
@@ -140,6 +141,7 @@ private:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	VulkanContext *vulkan_;
+	VulkanDeviceAllocator *allocator_;
 
 	TexCache secondCache;
 	u32 secondCacheSizeEstimate_;

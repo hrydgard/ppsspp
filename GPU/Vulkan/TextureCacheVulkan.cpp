@@ -66,8 +66,11 @@
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
-#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
-#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+#define TEXCACHE_MIN_PRESSURE (16 * 1024 * 1024)  // Total in GL
+#define TEXCACHE_SECOND_MIN_PRESSURE (4 * 1024 * 1024)
+
+#define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
+#define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 
 // Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
@@ -137,6 +140,7 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
 	SetupTextureDecoder();
 
@@ -559,6 +563,8 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 }
 
 void TextureCacheVulkan::StartFrame() {
+	// TODO: Better place?
+	allocator_->End();
 	lastBoundTexture = nullptr;
 	timesInvalidatedAllThisFrame_ = 0;
 
@@ -572,6 +578,8 @@ void TextureCacheVulkan::StartFrame() {
 	} else {
 		Decimate();
 	}
+
+	allocator_->Begin();
 }
 
 static inline u32 MiniHash(const u32 *ptr) {
@@ -1318,7 +1326,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		}
 	} else {
 		entry->vkTex = new CachedTextureVulkan();
-		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
+		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
 		VulkanTexture *image = entry->vkTex->texture_;
 
 		const VkComponentMapping *mapping;
