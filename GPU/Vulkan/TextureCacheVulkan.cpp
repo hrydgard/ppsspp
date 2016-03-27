@@ -564,15 +564,10 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 }
 
 void TextureCacheVulkan::StartFrame() {
-	// TODO: Better place?
-	allocator_->End();
 	lastBoundTexture = nullptr;
 	timesInvalidatedAllThisFrame_ = 0;
-
-	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
 	texelsScaledThisFrame_ = 0;
+
 	if (clearCacheNextFrame_) {
 		Clear(true);
 		clearCacheNextFrame_ = false;
@@ -581,6 +576,14 @@ void TextureCacheVulkan::StartFrame() {
 	}
 
 	allocator_->Begin();
+}
+
+void TextureCacheVulkan::EndFrame() {
+	allocator_->End();
+
+	if (texelsScaledThisFrame_) {
+		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
+	}
 }
 
 static inline u32 MiniHash(const u32 *ptr) {

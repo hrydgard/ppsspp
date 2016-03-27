@@ -91,6 +91,7 @@ public:
 
 	void Clear(bool delete_them);
 	void StartFrame();
+	void EndFrame();
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
