@@ -27,11 +27,11 @@ public:
 	TextureScaler();
 	~TextureScaler();
 
-	void Scale(u32* &data, u32 &dstfmt, int &width, int &height, int factor);
+	bool Scale(u32* &data, u32 &dstfmt, int &width, int &height, int factor);
 
 	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
-private:
+protected:
 	virtual void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) = 0;
 	virtual int BytesPerPixel(u32 format) = 0;
 	virtual u32 Get8888Format() = 0;

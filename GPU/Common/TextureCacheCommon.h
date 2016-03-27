@@ -143,7 +143,7 @@ protected:
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
-	void UnswizzleFromMem(u32 *dest, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
+	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
 	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);

@@ -495,18 +495,21 @@ TextureScaler::~TextureScaler() {
 bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, int fmt) {
 	int pixelsPerWord = 4 / BytesPerPixel(fmt);
 	u32 ref = data[0];
+	if (pixelsPerWord > 1 && (ref & 0x0000FFFF) != (ref >> 16)) {
+		return false;
+	}
 	for (int i = 0; i < pixels / pixelsPerWord; ++i) {
 		if (data[i] != ref) return false;
 	}
 	return true;
 }
 
-void TextureScaler::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
+bool TextureScaler::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
 	// prevent processing empty or flat textures (this happens a lot in some games)
 	// doesn't hurt the standard case, will be very quick for textures with actual texture
 	if (IsEmptyOrFlat(data, width*height, dstFmt)) {
 		INFO_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
-		return;
+		return false;
 	}
 
 #ifdef SCALING_MEASURE_TIME
@@ -559,6 +562,8 @@ void TextureScaler::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int 
 			width*height, t, (width*height) / (t * 1000 * 1000));
 	}
 #endif
+
+	return true;
 }
 
 void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
