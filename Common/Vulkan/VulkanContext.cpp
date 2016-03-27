@@ -639,7 +639,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		VK_FORMAT_D16_UNORM_S8_UINT,
 	};
 	deviceInfo_.preferredDepthStencilFormat = VK_FORMAT_UNDEFINED;
-	for (int i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(depthStencilFormats); i++) {
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(physical_devices_[0], depthStencilFormats[i], &props);
 		if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
@@ -1255,7 +1255,7 @@ void VulkanContext::DestroyFramebuffers() {
 
 void VulkanContext::DestroySurfaceRenderPass() {
 	vkDestroyRenderPass(device_, surface_render_pass_, NULL);
-	surface_render_pass_ = NULL;
+	surface_render_pass_ = VK_NULL_HANDLE;
 }
 
 void VulkanContext::DestroyDevice() {

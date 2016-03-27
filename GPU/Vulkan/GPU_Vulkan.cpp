@@ -529,7 +529,7 @@ void GPU_Vulkan::BuildReportingInfo() {
 	const auto &props = vulkan_->GetPhysicalDeviceProperties();
 	const auto &features = vulkan_->GetFeaturesAvailable();
 
-#define CHECK_BOOL_FEATURE(n) do { if (features.##n) { featureNames += ", " #n; } } while (false)
+#define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
 
 	std::string featureNames = "";
 	CHECK_BOOL_FEATURE(robustBufferAccess);
