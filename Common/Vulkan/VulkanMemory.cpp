@@ -102,7 +102,7 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 }
 
 VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
-	: vulkan_(vulkan), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
+	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
 	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
 }
 
@@ -137,7 +137,12 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (reqs.alignment >> SLAB_GRAIN_SHIFT);
 	size_t blocks = (reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT;
 
-	for (Slab &slab : slabs_) {
+	const size_t numSlabs = slabs_.size();
+	for (size_t i = 0; i < numSlabs; ++i) {
+		// We loop starting at the last successful allocation.
+		// This helps us "creep forward", and also spend less time allocating.
+		const size_t actualSlab = (lastSlab_ + i) % numSlabs;
+		Slab &slab = slabs_[actualSlab];
 		size_t start = slab.nextFree;
 
 		while (start < slab.usage.size()) {
@@ -145,6 +150,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 			if (AllocateFromSlab(slab, start, blocks)) {
 				// Allocated?  Great, let's return right away.
 				*deviceMemory = slab.deviceMemory;
+				lastSlab_ = actualSlab;
 				return start << SLAB_GRAIN_SHIFT;
 			}
 		} 
@@ -160,6 +166,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	size_t start = 0;
 	if (AllocateFromSlab(slab, start, blocks)) {
 		*deviceMemory = slab.deviceMemory;
+		lastSlab_ = slabs_.size() - 1;
 		return start << SLAB_GRAIN_SHIFT;
 	}
 
