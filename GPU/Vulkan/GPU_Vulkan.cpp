@@ -525,9 +525,75 @@ void GPU_Vulkan::EndHostFrame() {
 // Needs to be called on GPU thread, not reporting thread.
 // TODO
 void GPU_Vulkan::BuildReportingInfo() {
+	const auto &props = vulkan_->GetPhysicalDeviceProperties();
+	const auto &features = vulkan_->GetFeaturesAvailable();
+
+#define CHECK_BOOL_FEATURE(n) do { if (features.##n) { featureNames += ", " #n; } } while (false)
+
+	std::string featureNames = "";
+	CHECK_BOOL_FEATURE(robustBufferAccess);
+	CHECK_BOOL_FEATURE(fullDrawIndexUint32);
+	CHECK_BOOL_FEATURE(imageCubeArray);
+	CHECK_BOOL_FEATURE(independentBlend);
+	CHECK_BOOL_FEATURE(geometryShader);
+	CHECK_BOOL_FEATURE(tessellationShader);
+	CHECK_BOOL_FEATURE(sampleRateShading);
+	CHECK_BOOL_FEATURE(dualSrcBlend);
+	CHECK_BOOL_FEATURE(logicOp);
+	CHECK_BOOL_FEATURE(multiDrawIndirect);
+	CHECK_BOOL_FEATURE(drawIndirectFirstInstance);
+	CHECK_BOOL_FEATURE(depthClamp);
+	CHECK_BOOL_FEATURE(depthBiasClamp);
+	CHECK_BOOL_FEATURE(fillModeNonSolid);
+	CHECK_BOOL_FEATURE(depthBounds);
+	CHECK_BOOL_FEATURE(wideLines);
+	CHECK_BOOL_FEATURE(largePoints);
+	CHECK_BOOL_FEATURE(alphaToOne);
+	CHECK_BOOL_FEATURE(multiViewport);
+	CHECK_BOOL_FEATURE(samplerAnisotropy);
+	CHECK_BOOL_FEATURE(textureCompressionETC2);
+	CHECK_BOOL_FEATURE(textureCompressionASTC_LDR);
+	CHECK_BOOL_FEATURE(textureCompressionBC);
+	CHECK_BOOL_FEATURE(occlusionQueryPrecise);
+	CHECK_BOOL_FEATURE(pipelineStatisticsQuery);
+	CHECK_BOOL_FEATURE(vertexPipelineStoresAndAtomics);
+	CHECK_BOOL_FEATURE(fragmentStoresAndAtomics);
+	CHECK_BOOL_FEATURE(shaderTessellationAndGeometryPointSize);
+	CHECK_BOOL_FEATURE(shaderImageGatherExtended);
+	CHECK_BOOL_FEATURE(shaderStorageImageExtendedFormats);
+	CHECK_BOOL_FEATURE(shaderStorageImageMultisample);
+	CHECK_BOOL_FEATURE(shaderStorageImageReadWithoutFormat);
+	CHECK_BOOL_FEATURE(shaderStorageImageWriteWithoutFormat);
+	CHECK_BOOL_FEATURE(shaderUniformBufferArrayDynamicIndexing);
+	CHECK_BOOL_FEATURE(shaderSampledImageArrayDynamicIndexing);
+	CHECK_BOOL_FEATURE(shaderStorageBufferArrayDynamicIndexing);
+	CHECK_BOOL_FEATURE(shaderStorageImageArrayDynamicIndexing);
+	CHECK_BOOL_FEATURE(shaderClipDistance);
+	CHECK_BOOL_FEATURE(shaderCullDistance);
+	CHECK_BOOL_FEATURE(shaderFloat64);
+	CHECK_BOOL_FEATURE(shaderInt64);
+	CHECK_BOOL_FEATURE(shaderInt16);
+	CHECK_BOOL_FEATURE(shaderResourceResidency);
+	CHECK_BOOL_FEATURE(shaderResourceMinLod);
+	CHECK_BOOL_FEATURE(sparseBinding);
+	CHECK_BOOL_FEATURE(sparseResidencyBuffer);
+	CHECK_BOOL_FEATURE(sparseResidencyImage2D);
+	CHECK_BOOL_FEATURE(sparseResidencyImage3D);
+	CHECK_BOOL_FEATURE(sparseResidency2Samples);
+	CHECK_BOOL_FEATURE(sparseResidency4Samples);
+	CHECK_BOOL_FEATURE(sparseResidency8Samples);
+	CHECK_BOOL_FEATURE(sparseResidency16Samples);
+	CHECK_BOOL_FEATURE(sparseResidencyAliased);
+	CHECK_BOOL_FEATURE(variableMultisampleRate);
+	CHECK_BOOL_FEATURE(inheritedQueries);
+
+	if (!featureNames.empty()) {
+		featureNames = featureNames.substr(2);
+	}
+
 	char temp[16384];
-	snprintf(temp, sizeof(temp), "Vulkan");
-	reportingPrimaryInfo_ = "VulkanVendor";
+	snprintf(temp, sizeof(temp), "v%08x driver v%08x (%s), vendorID=%d, deviceID=%d (features: %s)", props.apiVersion, props.driverVersion, props.deviceName, props.vendorID, props.deviceID, featureNames.c_str());
+	reportingPrimaryInfo_ = props.deviceName;
 	reportingFullInfo_ = temp;
 
 	Reporting::UpdateConfig();
