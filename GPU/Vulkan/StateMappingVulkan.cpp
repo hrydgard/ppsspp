@@ -179,20 +179,19 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		bool alphaMask = gstate.isClearModeAlphaMask();
 		key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
 
-		GenericStencilFuncState stencilState;
-		ConvertStencilFuncState(stencilState);
-
 		// Stencil Test
-		if (stencilState.enabled) {
+		if (alphaMask) {
 			key.stencilTestEnable = true;
-			key.stencilCompareOp = compareOps[stencilState.testFunc];
-			key.stencilPassOp = stencilOps[stencilState.zPass];
-			key.stencilFailOp = stencilOps[stencilState.sFail];
-			key.stencilDepthFailOp = stencilOps[stencilState.zFail];
+			key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;
+			key.stencilPassOp = VK_STENCIL_OP_REPLACE;
+			key.stencilFailOp = VK_STENCIL_OP_REPLACE;
+			key.stencilDepthFailOp = VK_STENCIL_OP_REPLACE;
 			dynState.useStencil = true;
-			dynState.stencilRef = stencilState.testRef;
-			dynState.stencilCompareMask = stencilState.testMask;
-			dynState.stencilWriteMask = stencilState.writeMask;
+			// In clear mode, the stencil value is set to the alpha value of the vertex.
+			// A normal clear will be 2 points, the second point has the color.
+			// We override this value in the pipeline from software transform for clear rectangles.
+			dynState.stencilRef = 0xFF;
+			dynState.stencilWriteMask = 0xFF;
 		} else {
 			key.stencilTestEnable = false;
 			dynState.useStencil = false;
@@ -208,7 +207,7 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 			key.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
 			key.depthWriteEnable = gstate.isDepthWriteEnabled();
 			if (gstate.isDepthWriteEnabled()) {
-				// framebufferManager_->SetDepthUpdated();
+				fbManager.SetDepthUpdated();
 			}
 		} else {
 			key.depthTestEnable = false;
@@ -223,8 +222,8 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		bool bmask = ((gstate.pmskc >> 16) & 0xFF) < 128;
 		bool amask = (gstate.pmska & 0xFF) < 128;
 
-		u8 abits = (gstate.pmska >> 0) & 0xFF;
 #ifndef MOBILE_DEVICE
+		u8 abits = (gstate.pmska >> 0) & 0xFF;
 		u8 rbits = (gstate.pmskc >> 0) & 0xFF;
 		u8 gbits = (gstate.pmskc >> 8) & 0xFF;
 		u8 bbits = (gstate.pmskc >> 16) & 0xFF;
@@ -248,19 +247,24 @@ void ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerV
 		}
 
 		key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
-		
+
+		GenericStencilFuncState stencilState;
+		ConvertStencilFuncState(stencilState);
+
 		// Stencil Test
-		if (gstate.isStencilTestEnabled()) {
+		if (stencilState.enabled) {
 			key.stencilTestEnable = true;
-			key.stencilCompareOp = compareOps[gstate.getStencilTestFunction()];
-			dynState.stencilRef = gstate.getStencilTestRef();
-			dynState.stencilCompareMask = gstate.getStencilTestMask();
-			key.stencilFailOp = stencilOps[gstate.getStencilOpSFail()];  // stencil fail
-			key.stencilDepthFailOp = stencilOps[gstate.getStencilOpZFail()];  // depth fail
-			key.stencilPassOp = stencilOps[gstate.getStencilOpZPass()]; // depth pass
-			dynState.stencilWriteMask = ~abits;
+			key.stencilCompareOp = compareOps[stencilState.testFunc];
+			key.stencilPassOp = stencilOps[stencilState.zPass];
+			key.stencilFailOp = stencilOps[stencilState.sFail];
+			key.stencilDepthFailOp = stencilOps[stencilState.zFail];
+			dynState.useStencil = true;
+			dynState.stencilRef = stencilState.testRef;
+			dynState.stencilCompareMask = stencilState.testMask;
+			dynState.stencilWriteMask = stencilState.writeMask;
 		} else {
 			key.stencilTestEnable = false;
+			dynState.useStencil = false;
 		}
 	}
 
