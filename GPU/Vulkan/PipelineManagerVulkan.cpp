@@ -148,9 +148,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_VIEWPORT;
 	if (key.stencilTestEnable) {
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_WRITE_MASK;
 		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK;
 		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
-		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_WRITE_MASK;
 	}
 	
 	VkPipelineDynamicStateCreateInfo ds = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
