@@ -47,10 +47,10 @@ TextureCacheCommon::TextureCacheCommon()
 	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
 
-	// This is 5MB of temporary storage. Might be possible to shrink it.
-	tmpTexBuf32.resize(1024 * 512);  // 2MB
-	tmpTexBuf16.resize(1024 * 512);  // 1MB
-	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
+	// These buffers will grow if necessary, but most won't need more than this.
+	tmpTexBuf32.resize(512 * 512);  // 1MB
+	tmpTexBuf16.resize(512 * 512);  // 0.5MB
+	tmpTexBufRearrange.resize(512 * 512);   // 1MB
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
