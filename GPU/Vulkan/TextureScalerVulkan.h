@@ -21,6 +21,10 @@
 #include "GPU/Common/TextureScalerCommon.h"
 
 class TextureScalerVulkan : public TextureScaler {
+public:
+	void ScaleAlways(u32* &data, u32 &dstFmt, int &width, int &height, int factor);
+
+protected:
 	void ConvertTo8888(u32 format, u32* source, u32* &dest, int width, int height) override;
 	int BytesPerPixel(u32 format) override;
 	u32 Get8888Format() override;

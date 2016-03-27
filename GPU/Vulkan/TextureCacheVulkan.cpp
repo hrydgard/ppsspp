@@ -1612,6 +1612,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, dstFmt, scaleFactor, bufw);
 		if (!decSuccess) {
+			memset(writePtr, 0, rowPitch * h);
 			return;
 		}
 		rowBytes = w * bpp;
@@ -1619,7 +1620,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
-			scaler.Scale(pixelData, fmt, w, h, scaleFactor);
+			scaler.ScaleAlways(pixelData, fmt, w, h, scaleFactor);
 			dstFmt = (VkFormat)fmt;
 
 			// We always end up at 8888.  Other parts assume this.
