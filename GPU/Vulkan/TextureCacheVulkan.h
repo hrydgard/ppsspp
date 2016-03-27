@@ -35,6 +35,7 @@ class DrawEngineVulkan;
 class VulkanContext;
 class VulkanTexture;
 class VulkanPushBuffer;
+class VulkanDeviceAllocator;
 
 struct SamplerCacheKey {
 	SamplerCacheKey() : fullKey(0) {}
@@ -90,6 +91,7 @@ public:
 
 	void Clear(bool delete_them);
 	void StartFrame();
+	void EndFrame();
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
@@ -140,6 +142,7 @@ private:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
 
 	VulkanContext *vulkan_;
+	VulkanDeviceAllocator *allocator_;
 
 	TexCache secondCache;
 	u32 secondCacheSizeEstimate_;

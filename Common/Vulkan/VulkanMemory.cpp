@@ -100,3 +100,246 @@ void VulkanPushBuffer::Defragment(VulkanContext *vulkan) {
 	bool res = AddBuffer();
 	assert(res);
 }
+
+VulkanDeviceAllocator::VulkanDeviceAllocator(VulkanContext *vulkan, size_t minSlabSize, size_t maxSlabSize)
+	: vulkan_(vulkan), lastSlab_(0), minSlabSize_(minSlabSize), maxSlabSize_(maxSlabSize), memoryTypeIndex_(UNDEFINED_MEMORY_TYPE) {
+	assert((minSlabSize_ & (SLAB_GRAIN_SIZE - 1)) == 0);
+}
+
+VulkanDeviceAllocator::~VulkanDeviceAllocator() {
+	assert(slabs_.empty());
+}
+
+void VulkanDeviceAllocator::Destroy() {
+	for (Slab &slab : slabs_) {
+		// Did anyone forget to free?
+		for (auto pair : slab.allocSizes) {
+			if (slab.usage[pair.first] != 2) {
+				// If it's not 2 (queued), there's a problem.
+				// If it's zero, it means allocSizes is somehow out of sync.
+				Crash();
+			}
+		}
+
+		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
+	}
+	slabs_.clear();
+}
+
+size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory) {
+	uint32_t memoryTypeIndex;
+	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
+	assert(pass);
+	if (!pass) {
+		return ALLOCATE_FAILED;
+	}
+	if (memoryTypeIndex_ == UNDEFINED_MEMORY_TYPE) {
+		memoryTypeIndex_ = memoryTypeIndex;
+	} else if (memoryTypeIndex_ != memoryTypeIndex) {
+		assert(memoryTypeIndex_ == memoryTypeIndex);
+		return ALLOCATE_FAILED;
+	}
+
+	size_t align = reqs.alignment <= SLAB_GRAIN_SIZE ? 1 : (reqs.alignment >> SLAB_GRAIN_SHIFT);
+	size_t blocks = (reqs.size + SLAB_GRAIN_SIZE - 1) >> SLAB_GRAIN_SHIFT;
+
+	const size_t numSlabs = slabs_.size();
+	for (size_t i = 0; i < numSlabs; ++i) {
+		// We loop starting at the last successful allocation.
+		// This helps us "creep forward", and also spend less time allocating.
+		const size_t actualSlab = (lastSlab_ + i) % numSlabs;
+		Slab &slab = slabs_[actualSlab];
+		size_t start = slab.nextFree;
+
+		while (start < slab.usage.size()) {
+			start = (start + align - 1) & ~(align - 1);
+			if (AllocateFromSlab(slab, start, blocks)) {
+				// Allocated?  Great, let's return right away.
+				*deviceMemory = slab.deviceMemory;
+				lastSlab_ = actualSlab;
+				return start << SLAB_GRAIN_SHIFT;
+			}
+		} 
+	}
+
+	// Okay, we couldn't fit it into any existing slabs.  We need a new one.
+	if (!AllocateSlab(reqs.size)) {
+		return ALLOCATE_FAILED;
+	}
+
+	// Guaranteed to be the last one, unless it failed to allocate.
+	Slab &slab = slabs_[slabs_.size() - 1];
+	size_t start = 0;
+	if (AllocateFromSlab(slab, start, blocks)) {
+		*deviceMemory = slab.deviceMemory;
+		lastSlab_ = slabs_.size() - 1;
+		return start << SLAB_GRAIN_SHIFT;
+	}
+
+	// Somehow... we're out of space.  Darn.
+	return ALLOCATE_FAILED;
+}
+
+bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks) {
+	bool matched = true;
+
+	if (start + blocks > slab.usage.size()) {
+		start = slab.usage.size();
+		return false;
+	}
+
+	for (size_t i = 0; i < blocks; ++i) {
+		if (slab.usage[start + i]) {
+			// If we just ran into one, there's probably an allocation size.
+			auto it = slab.allocSizes.find(start + i);
+			if (it != slab.allocSizes.end()) {
+				start += i + it->second;
+			} else {
+				// We don't know how big it is, so just skip to the next one.
+				start += i + 1;
+			}
+			return false;
+		}
+	}
+
+	// Okay, this run is good.  Actually mark it.
+	for (size_t i = 0; i < blocks; ++i) {
+		slab.usage[start + i] = 1;
+	}
+	slab.nextFree = start + blocks;
+	if (slab.nextFree >= slab.usage.size()) {
+		slab.nextFree = 0;
+	}
+
+	// Remember the size so we can free.
+	slab.allocSizes[start] = blocks;
+	return true;
+}
+
+void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
+	// First, let's validate.  This will allow stack traces to tell us when frees are bad.
+	size_t start = offset >> SLAB_GRAIN_SHIFT;
+	bool found = false;
+	for (Slab &slab : slabs_) {
+		if (slab.deviceMemory != deviceMemory) {
+			continue;
+		}
+
+		auto it = slab.allocSizes.find(start);
+		if (it == slab.allocSizes.end()) {
+			// Ack, a double free?
+			Crash();
+		}
+		if (slab.usage[start] != 1) {
+			// This means a double free, while queued to actually free.
+			Crash();
+		}
+
+		// Mark it as "free in progress".
+		slab.usage[start] = 2;
+		found = true;
+		break;
+	}
+
+	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
+	if (!found) {
+		Crash();
+	}
+
+	// Okay, now enqueue.  It's valid.
+	FreeInfo *info = new FreeInfo(this, deviceMemory, offset);
+	vulkan_->Delete().QueueCallback(&DispatchFree, info);
+}
+
+void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
+	VkDeviceMemory deviceMemory = userdata->deviceMemory;
+	size_t offset = userdata->offset;
+
+	// Revalidate in case something else got freed and made things inconsistent.
+	size_t start = offset >> SLAB_GRAIN_SHIFT;
+	bool found = false;
+	for (Slab &slab : slabs_) {
+		if (slab.deviceMemory != deviceMemory) {
+			continue;
+		}
+
+		auto it = slab.allocSizes.find(start);
+		if (it != slab.allocSizes.end()) {
+			size_t size = it->second;
+			for (size_t i = 0; i < size; ++i) {
+				slab.usage[start + i] = 0;
+			}
+			slab.allocSizes.erase(it);
+		} else {
+			// Ack, a double free?
+			Crash();
+		}
+		found = true;
+		break;
+	}
+
+	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
+	if (!found) {
+		Crash();
+	}
+
+	delete userdata;
+}
+
+bool VulkanDeviceAllocator::AllocateSlab(size_t minBytes) {
+	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
+		// We're allocating an additional slab, so rachet up its size.
+		minSlabSize_ <<= 1;
+	}
+
+	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	alloc.allocationSize = minSlabSize_;
+	alloc.memoryTypeIndex = memoryTypeIndex_;
+
+	while (alloc.allocationSize < minBytes) {
+		alloc.allocationSize <<= 1;
+	}
+
+	VkDeviceMemory deviceMemory;
+	VkResult res = vkAllocateMemory(vulkan_->GetDevice(), &alloc, NULL, &deviceMemory);
+	if (res != VK_SUCCESS) {
+		// If it's something else, we used it wrong?
+		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		// Okay, so we ran out of memory.
+		return false;
+	}
+
+	slabs_.resize(slabs_.size() + 1);
+	Slab &slab = slabs_[slabs_.size() - 1];
+	slab.deviceMemory = deviceMemory;
+	slab.usage.resize(alloc.allocationSize >> SLAB_GRAIN_SHIFT);
+
+	return true;
+}
+
+void VulkanDeviceAllocator::Decimate() {
+	bool foundFree = false;
+
+	for (size_t i = 0; i < slabs_.size(); ++i) {
+		// Go backwards.  This way, we keep the largest free slab.
+		// We do this here (instead of the for) since size_t is unsigned.
+		size_t index = slabs_.size() - i - 1;
+
+		if (!slabs_[index].allocSizes.empty()) {
+			continue;
+		}
+
+		if (!foundFree) {
+			// Let's allow one free slab, so we have room.
+			foundFree = true;
+			continue;
+		}
+
+		// Okay, let's free this one up.
+		vulkan_->Delete().QueueDeleteDeviceMemory(slabs_[index].deviceMemory);
+		slabs_.erase(slabs_.begin() + index);
+
+		// Let's check the next one, which is now in this same slot.
+		--i;
+	}
+}

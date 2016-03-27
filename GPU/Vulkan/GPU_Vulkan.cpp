@@ -520,6 +520,7 @@ void GPU_Vulkan::BeginHostFrame() {
 void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
 	framebufferManager_->EndFrame();
+	textureCache_.EndFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.

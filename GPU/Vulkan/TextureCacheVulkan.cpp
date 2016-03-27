@@ -66,8 +66,11 @@
 
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
-#define TEXCACHE_MIN_PRESSURE 16 * 1024 * 1024  // Total in GL
-#define TEXCACHE_SECOND_MIN_PRESSURE 4 * 1024 * 1024
+#define TEXCACHE_MIN_PRESSURE (16 * 1024 * 1024)  // Total in GL
+#define TEXCACHE_SECOND_MIN_PRESSURE (4 * 1024 * 1024)
+
+#define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
+#define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
 
 // Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
@@ -137,6 +140,7 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = nullptr;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 
 	SetupTextureDecoder();
 
@@ -145,6 +149,7 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 
 TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
+	allocator_->Destroy();
 }
 
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
@@ -561,16 +566,23 @@ void TextureCacheVulkan::SetFramebufferSamplingParams(u16 bufferWidth, u16 buffe
 void TextureCacheVulkan::StartFrame() {
 	lastBoundTexture = nullptr;
 	timesInvalidatedAllThisFrame_ = 0;
-
-	if (texelsScaledThisFrame_) {
-		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
-	}
 	texelsScaledThisFrame_ = 0;
+
 	if (clearCacheNextFrame_) {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
 		Decimate();
+	}
+
+	allocator_->Begin();
+}
+
+void TextureCacheVulkan::EndFrame() {
+	allocator_->End();
+
+	if (texelsScaledThisFrame_) {
+		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
 }
 
@@ -1312,13 +1324,10 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 
 	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 
-	if (replaceImages) {
-		if (!entry->vkTex) {
-			Crash();
-		}
-	} else {
+	if (!replaceImages || !entry->vkTex) {
+		delete entry->vkTex;
 		entry->vkTex = new CachedTextureVulkan();
-		entry->vkTex->texture_ = new VulkanTexture(vulkan_);
+		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
 		VulkanTexture *image = entry->vkTex->texture_;
 
 		const VkComponentMapping *mapping;
@@ -1340,22 +1349,49 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			break;
 		}
 
-		image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		bool allocSuccess = image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		if (!allocSuccess && !lowMemoryMode_) {
+			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
+			lowMemoryMode_ = true;
+			decimationCounter_ = 0;
+			Decimate();
+			// TODO: We should stall the GPU here and wipe things out of memory.
+			// As is, it will almost definitely fail the second time, but next frame it may recover.
+
+			I18NCategory *err = GetI18NCategory("Error");
+			if (scaleFactor > 1) {
+				osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+			} else {
+				osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+			}
+
+			scaleFactor = 1;
+			actualFmt = dstFmt;
+
+			allocSuccess = image->CreateDirect(w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
+		}
+
+		if (!allocSuccess) {
+			delete entry->vkTex;
+			entry->vkTex = nullptr;
+		}
 	}
 	lastBoundTexture = entry->vkTex;
 
-	// Upload the texture data.
-	for (int i = 0; i <= maxLevel; i++) {
-		int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
-		int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
-		int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
-		int stride = (mipWidth * bpp + 15) & ~15;
-		int size = stride * mipHeight;
-		uint32_t bufferOffset;
-		VkBuffer texBuf;
-		void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
-		LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);
-		entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+	if (entry->vkTex) {
+		// Upload the texture data.
+		for (int i = 0; i <= maxLevel; i++) {
+			int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
+			int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
+			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
+			int stride = (mipWidth * bpp + 15) & ~15;
+			int size = stride * mipHeight;
+			uint32_t bufferOffset;
+			VkBuffer texBuf;
+			void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
+			LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);
+			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+		}
 	}
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
@@ -1650,29 +1686,4 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 		}
 	}
-
-	/*
-	if (!lowMemoryMode_) {
-		GLenum err = glGetError();
-		if (err == GL_OUT_OF_MEMORY) {
-			WARN_LOG_REPORT(G3D, "Texture cache ran out of GPU memory; switching to low memory mode");
-			lowMemoryMode_ = true;
-			decimationCounter_ = 0;
-			Decimate();
-			// TODO: We need to stall the GPU here and wipe things out of memory.
-
-			// Try again, now that we've cleared out textures in lowMemoryMode_.
-			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components2, dstFmt, pixelData);
-
-			I18NCategory *err = GetI18NCategory("Error");
-			if (scaleFactor > 1) {
-				osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-			} else {
-				osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-			}
-		} else if (err != GL_NO_ERROR) {
-			// We checked the err anyway, might as well log if there is one.
-			WARN_LOG(G3D, "Got an error in texture upload: %08x", err);
-		}
-	}*/
 }

@@ -2,14 +2,17 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 
+class VulkanDeviceAllocator;
+
 // Wrapper around what you need to use a texture.
 // Not very optimal - if you have many small textures you should use other strategies.
 class VulkanTexture {
 public:
-	VulkanTexture(VulkanContext *vulkan)
+	VulkanTexture(VulkanContext *vulkan, VulkanDeviceAllocator *allocator = nullptr)
 		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
 		tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false) {
+		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false),
+		allocator_(allocator), offset_(0) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
 	~VulkanTexture() {
@@ -26,7 +29,7 @@ public:
 	void Unlock();
 
 	// Fast uploads from buffer. Mipmaps supported. Usage must at least include VK_IMAGE_USAGE_TRANSFER_DST_BIT in order to use UploadMip.
-	void CreateDirect(int w, int h, int numMips, VkFormat format, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
+	bool CreateDirect(int w, int h, int numMips, VkFormat format, VkImageUsageFlags usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, const VkComponentMapping *mapping = nullptr);
 	void UploadMip(int mip, int mipWidth, int mipHeight, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 	void EndCreate();
 	int GetNumMips() const { return numMips_; }
@@ -47,4 +50,6 @@ private:
 	VkDeviceMemory mappableMemory;
 	VkMemoryRequirements mem_reqs;
 	bool needStaging;
+	VulkanDeviceAllocator *allocator_;
+	size_t offset_;
 };
