@@ -24,6 +24,8 @@
 #include "math/lin/matrix4x4.h"
 
 #include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Vulkan/VulkanImage.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -54,35 +56,42 @@ extern int g_iNumVideos;
 
 const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
-static const char tex_fs[] =
-"layout (binding = 0) uniform sampler2D sampler0;\n"
-"layout (location = 0) in vec2 v_texcoord0;\n"
-"layout (location = 0) out vec4 fragColor;\n"
-"void main() {\n"
-"  fragColor = texture2D(sampler0, v_texcoord0);\n"
-"}\n";
+static const char tex_fs[] = R"(#version 400
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (binding = 0) uniform sampler2D sampler0;
+layout (location = 0) in vec2 v_texcoord0;
+layout (location = 0) out vec4 fragColor;
+void main() {
+  fragColor = texture(sampler0, v_texcoord0);
+}
+)";
 
-static const char basic_vs[] =
-"layout (location = 0) in vec4 a_position;\n"
-"layout (location = 1) in attribute vec2 a_texcoord0;\n"
-"layout (location = 0) out vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char tex_vs[] = R"(#version 400
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (location = 0) in vec4 a_position;
+layout (location = 1) in vec2 a_texcoord0;
+layout (location = 0) out vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+}
+)";
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	vulkan_(vulkan),
-	drawPixelsTex_(0),
+	drawPixelsTex_(nullptr),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
 	resized_(false),
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
-	curFrame_(0) {
+	curFrame_(0),
+	vulkan2D_(vulkan) {
 
 	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
 	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
@@ -154,11 +163,30 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
 		assert(res == VK_SUCCESS);
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
 
-	// Initialize objects
-	drawPixelsTex_ = new VulkanTexture(vulkan_);
-	drawPixelsTex_->CreateDirect(512, 272, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+	pipelineCache2D_ = vulkan_->CreatePipelineCache();
+
+	std::string fs_errors, vs_errors;
+	fsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, tex_fs, &fs_errors);
+	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
+	assert(fsBasicTex_ != VK_NULL_HANDLE);
+	assert(vsBasicTex_ != VK_NULL_HANDLE);
+	pipelineBasicTex_ = vulkan2D_.GetPipeline(pipelineCache2D_, rpClearColorClearDepth_, vsBasicTex_, fsBasicTex_);
+
+	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &nearestSampler_);
+	assert(res == VK_SUCCESS);
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
+	res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &linearSampler_);
+	assert(res == VK_SUCCESS);
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
@@ -172,6 +200,14 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 		vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
 	}
 	delete drawPixelsTex_;
+
+	vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
+	vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
+
+	vulkan_->Delete().QueueDeleteSampler(linearSampler_);
+	vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
+
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearDepth, uint32_t color, float depth) {
@@ -225,9 +261,9 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	bool useConvBuf = false;
+	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
-		useConvBuf = true;
+		data = convBuf_;
 		u32 neededSize = width * height * 4;
 		if (!convBuf_ || convBufSize_ < neededSize) {
 			delete[] convBuf_;
@@ -274,15 +310,15 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 			}
 		}
 	}
-	
-	/*VkBuffer buffer;
-	size_t offset = drawEngine_->
-	drawPixelsTex_->UploadMip(0, width, height, )*/
+
+	VkBuffer buffer;
+	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
+	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
 }
 
 void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	float v0 = 0.0f, v1 = 1.0f;
+	// vkCmdSetViewport(curCmd_, 1, )
 	if (useBufferedRendering_ && vfb && vfb->fbo_vk) {
 		// fbo_bind_as_render_target(vfb->fbo_vk);
 		// glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -293,10 +329,8 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	}
 
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	/*
-	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+	DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
-	*/
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
@@ -352,6 +386,9 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
+	if (!texture)
+		return;
+
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
@@ -375,25 +412,30 @@ void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x
 		memcpy(texCoords, temp, sizeof(temp));
 	}
 
-	if (texture) {
-		// Previously had NVDrawTexture fallback here but wasn't worth it.
-		// glBindTexture(GL_TEXTURE_2D, texture);
-	}
-
-	float pos[12] = {
-		x,y,0,
-		x + w,y,0,
-		x + w,y + h,0,
-		x,y + h,0
+	Vulkan2D::Vertex vtx[4] = {
+		{x,y,0,texCoords[0],texCoords[1]},
+		{x + w,y,0,texCoords[2],texCoords[3]},
+		{x + w,y + h,0,texCoords[4],texCoords[5] },
+		{x,y + h,0,texCoords[6],texCoords[7] },
 	};
 
 	float invDestW = 1.0f / (destW * 0.5f);
 	float invDestH = 1.0f / (destH * 0.5f);
 	for (int i = 0; i < 4; i++) {
-		pos[i * 3] = pos[i * 3] * invDestW - 1.0f;
-		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
+		vtx[i].x = vtx[i].x * invDestW - 1.0f;
+		vtx[i].y = vtx[i].y * invDestH - 1.0f;
 	}
 
+	VulkanPushBuffer *push = frameData_[curFrame_].push_;
+
+	VkCommandBuffer cmd = curCmd_;
+	vulkan2D_.BindDescriptorSet(cmd, texture->GetImageView(), linearSampler_);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineBasicTex_);
+	VkBuffer vbuffer;
+	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
+	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
+	vkCmdDraw(cmd, 4, 1, 0, 0);
+	
 	//if (!program) {
 	//	program = draw2dprogram_;
 	//}
@@ -1348,6 +1390,9 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 	FrameData &frame = frameData_[curFrame_];
 	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
 	frame.numCommandBuffers_ = 0;
+
+	frame.push_->Reset();
+	frame.push_->Begin(vulkan_);
 }
 
 void FramebufferManagerVulkan::EndFrame() {
@@ -1401,6 +1446,8 @@ void FramebufferManagerVulkan::EndFrame() {
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
 		PackFramebufferAsync_(nullptr);
+	FrameData &frame = frameData_[curFrame_];
+	frame.push_->End();
 
 	curFrame_++;
 	curFrame_ &= 1;
@@ -1483,7 +1530,7 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
-	transformDraw_->Flush(curCmd_);
+	drawEngine_->Flush(curCmd_);
 }
 
 void FramebufferManagerVulkan::Resized() {

@@ -36,6 +36,7 @@ class DrawEngineVulkan;
 class VulkanContext;
 class ShaderManagerVulkan;
 class VulkanTexture;
+class VulkanPushBuffer;
 
 struct PostShaderUniforms {
 	float texelDelta[2]; float pad[2];
@@ -84,7 +85,7 @@ public:
 		shaderManager_ = sm;
 	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
-		transformDraw_ = td;
+		drawEngine_ = td;
 	}
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
@@ -179,8 +180,6 @@ private:
 	VkCommandBuffer curCmd_;
 	VkCommandBuffer cmdInit_;
 
-	DrawEngineVulkan *drawEngine_;
-
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
@@ -190,7 +189,7 @@ private:
 
 	TextureCacheVulkan *textureCache_;
 	ShaderManagerVulkan *shaderManager_;
-	DrawEngineVulkan *transformDraw_;
+	DrawEngineVulkan *drawEngine_;
 
 	// Used for postprocessing tasks and in-render-pass plain 2D draws/blits.
 	VkPipelineLayout simplePipelineLayout_;
@@ -209,6 +208,7 @@ private:
 		VkCommandPool cmdPool_;
 		// Keep track of command buffers we allocated so we can reset or free them at an appropriate point.
 		VkCommandBuffer commandBuffers_[MAX_COMMAND_BUFFERS];
+		VulkanPushBuffer *push_;
 		int numCommandBuffers_;
 		int totalCommandBuffers_;
 	};
@@ -225,4 +225,16 @@ private:
 	VkRenderPass rpLoadColorClearDepth_;
 	VkRenderPass rpClearColorClearDepth_;
 
+	VkPipelineCache pipelineCache2D_;
+
+	// Basic shaders
+	VkShaderModule fsBasicTex_;
+	VkShaderModule vsBasicTex_;
+	VkPipeline pipelineBasicTex_;
+
+	VkSampler linearSampler_;
+	VkSampler nearestSampler_;
+
+	// Simple 2D drawing engine.
+	Vulkan2D vulkan2D_;
 };
