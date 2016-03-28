@@ -386,11 +386,10 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
 		break;
 
-	// Don't we have an emitter for MOVQ?
-	//case 2:
-	//	MOVQ(XMM3, MDisp(srcReg, dec_->weightoff));
-	//	MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
-	//	break;
+	case 2:
+		MOVQ_xmm(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		break;
 
 	case 4:
 		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
@@ -400,6 +399,13 @@ void VertexDecoderJitCache::Jit_WeightsFloat() {
 	case 5:
 		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
 		MOVSS(XMM4, MDisp(srcReg, dec_->weightoff + 16));
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
+		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off + 16), XMM4);
+		break;
+
+	case 6:
+		MOVUPS(XMM3, MDisp(srcReg, dec_->weightoff));
+		MOVQ_xmm(XMM4, MDisp(srcReg, dec_->weightoff + 16));
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off), XMM3);
 		MOVUPS(MDisp(dstReg, dec_->decFmt.w0off + 16), XMM4);
 		break;
