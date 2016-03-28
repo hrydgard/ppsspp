@@ -43,6 +43,12 @@ struct PostShaderUniforms {
 	float time[4];
 };
 
+static const char *ub_post_shader =
+R"(	vec2 texelDelta;
+	vec2 pixelDelta;
+	vec4 time;
+)";
+
 // Simple struct for asynchronous PBO readbacks
 // TODO: Probably will need a complete redesign.
 struct AsyncPBOVulkan {
@@ -81,7 +87,6 @@ public:
 		transformDraw_ = td;
 	}
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
 	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) override;
 
@@ -144,13 +149,10 @@ protected:
 
 
 private:
+	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
-	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
 
-	void SetNumExtraFBOs(int num);
-
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
+	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	VulkanContext *vulkan_;
@@ -166,18 +168,12 @@ private:
 	VulkanTexture *drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
 
-	int drawPixelsTexW_;
-	int drawPixelsTexH_;
-
 	u8 *convBuf_;
 	u32 convBufSize_;
 
 	TextureCacheVulkan *textureCache_;
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *transformDraw_;
-
-	// Used by post-processing shader
-	std::vector<FBO *> extraFBOs_;
 
 	bool resized_;
 

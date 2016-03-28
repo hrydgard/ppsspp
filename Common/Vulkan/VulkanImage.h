@@ -37,11 +37,19 @@ public:
 	int GetNumMips() const { return numMips_; }
 	void Destroy();
 
+	// Used in image copies, etc.
+	VkImage GetImage() const { return image; }
+
+	// Used for sampling, generally.
 	VkImageView GetImageView() const { return view; }
+
+	int32_t GetWidth() const { return tex_width; }
+	int32_t GetHeight() const { return tex_height; }
 
 private:
 	void CreateMappableImage();
 	void Wipe();
+
 	VulkanContext *vulkan_;
 	VkImage image;
 	VkDeviceMemory mem;
@@ -51,7 +59,7 @@ private:
 	VkImage mappableImage;
 	VkDeviceMemory mappableMemory;
 	VkMemoryRequirements mem_reqs;
-	bool needStaging;
 	VulkanDeviceAllocator *allocator_;
 	size_t offset_;
+	bool needStaging;
 };

@@ -643,48 +643,6 @@ inline u32 TextureCacheVulkan::GetCurrentClutHash() {
 	return clutHash_;
 }
 
-// #define DEBUG_TEXTURES
-
-#ifdef DEBUG_TEXTURES
-bool SetDebugTexture() {
-	static const int highlightFrames = 30;
-
-	static int numTextures = 0;
-	static int lastFrames = 0;
-	static int mostTextures = 1;
-
-	if (lastFrames != gpuStats.numFlips) {
-		mostTextures = std::max(mostTextures, numTextures);
-		numTextures = 0;
-		lastFrames = gpuStats.numFlips;
-	}
-
-	static GLuint solidTexture = 0;
-
-	bool changed = false;
-	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFlips % highlightFrames == 0) {
-			NOTICE_LOG(G3D, "Highlighting texture # %d / %d", numTextures, mostTextures);
-		}
-		static const u32 solidTextureData[] = { 0x99AA99FF };
-
-		if (solidTexture == 0) {
-			glGenTextures(1, &solidTexture);
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-			glPixelStorei(GL_PACK_ALIGNMENT, 1);
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
-		} else {
-			glBindTexture(GL_TEXTURE_2D, solidTexture);
-		}
-		changed = true;
-	}
-
-	++numTextures;
-	return changed;
-}
-#endif
-
 void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
 
@@ -858,51 +816,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 
 		shaderManager_->DirtyLastShader();
 
-		/*
-		glUseProgram(depal->program);
-
-		// Restore will rebind all of the state below.
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			transformDraw_->BindBuffer(pos, sizeof(pos), uv, sizeof(uv));
-			transformDraw_->BindElementBuffer(indices, sizeof(indices));
-		} else {
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		}
-		glEnableVertexAttribArray(depal->a_position);
-		glEnableVertexAttribArray(depal->a_texcoord0);
-
-		glActiveTexture(GL_TEXTURE3);
-		glBindTexture(GL_TEXTURE_2D, clutTexture);
-		glActiveTexture(GL_TEXTURE0);
-
-		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_SKIP_COPY);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-		glstate.blend.force(false);
-		glstate.colorMask.force(true, true, true, true);
-		glstate.scissorTest.force(false);
-		glstate.cullFace.force(false);
-		glstate.depthTest.force(false);
-		glstate.stencilTest.force(false);
-#if !defined(USING_GLES2)
-		glstate.colorLogicOp.force(false);
-#endif
-		glViewport(0, 0, framebuffer->renderWidth, framebuffer->renderHeight);
-
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
-		} else {
-			glVertexAttribPointer(depal->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-			glVertexAttribPointer(depal->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, uv);
-			glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-		}
-		glDisableVertexAttribArray(depal->a_position);
-		glDisableVertexAttribArray(depal->a_texcoord0);
-		*/
 		//depalFBO->EndPass(cmd);
 		//depalFBO->TransitionToTexture(cmd);
 		//imageView = depalFBO->GetColorImageView();
