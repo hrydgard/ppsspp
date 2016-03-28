@@ -232,7 +232,8 @@ void DrawEngineVulkan::BeginFrame() {
 		nullTexture_ = new VulkanTexture(vulkan_);
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		nullTexture_->CreateDirect(w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
 		uint32_t *data = (uint32_t *)frame_[0].pushUBO->Push(w * h * 4, &bindOffset, &bindBuf);

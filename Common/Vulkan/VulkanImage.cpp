@@ -241,7 +241,20 @@ void VulkanTexture::Wipe() {
 	}
 }
 
-bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+static bool IsDepthStencilFormat(VkFormat format) {
+	switch (format) {
+	case VK_FORMAT_D16_UNORM:
+	case VK_FORMAT_D16_UNORM_S8_UINT:
+	case VK_FORMAT_D24_UNORM_S8_UINT:
+	case VK_FORMAT_D32_SFLOAT:
+	case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	Wipe();
 
 	VkCommandBuffer cmd = vulkan_->GetInitCommandBuffer();
@@ -250,6 +263,8 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	tex_height = h;
 	numMips_ = numMips;
 	format_ = format;
+
+	VkImageAspectFlags aspect = IsDepthStencilFormat(format) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
 	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
@@ -262,12 +277,22 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
 	image_create_info.flags = 0;
 	image_create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_create_info.usage = usage;
+	if (initialLayout == VK_IMAGE_LAYOUT_PREINITIALIZED) {
+		image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+	} else {
+		image_create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	}
+
 	VkResult res = vkCreateImage(vulkan_->GetDevice(), &image_create_info, NULL, &image);
 	if (res != VK_SUCCESS) {
 		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
+	}
+
+	// Write a command to transition the image to the requested layout, if it's not already that layout.
+	if (initialLayout != VK_IMAGE_LAYOUT_UNDEFINED && initialLayout != VK_IMAGE_LAYOUT_PREINITIALIZED) {
+		TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, initialLayout);
 	}
 
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
@@ -301,12 +326,6 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 		return false;
 	}
 
-	// Since we're going to blit to the target, set its layout to TRANSFER_DST
-	TransitionImageLayout(cmd, image,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
 	// Create the view while we're at it.
 	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	view_info.image = image;
@@ -320,11 +339,12 @@ bool VulkanTexture::CreateDirect(int w, int h, int numMips, VkFormat format, VkI
 		view_info.components.b = VK_COMPONENT_SWIZZLE_B;
 		view_info.components.a = VK_COMPONENT_SWIZZLE_A;
 	}
-	view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	view_info.subresourceRange.aspectMask = aspect;
 	view_info.subresourceRange.baseMipLevel = 0;
 	view_info.subresourceRange.levelCount = numMips;
 	view_info.subresourceRange.baseArrayLayer = 0;
 	view_info.subresourceRange.layerCount = 1;
+
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view);
 	if (res != VK_SUCCESS) {
 		assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);

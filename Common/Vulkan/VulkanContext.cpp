@@ -804,25 +804,24 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
                         VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-  /* Create image view */
-  VkImageViewCreateInfo view_info = {};
-  view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  view_info.pNext = NULL;
-	view_info.image = depth.image;
-  view_info.format = depth_format;
-  view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-  view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-  view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-  view_info.components.a = VK_COMPONENT_SWIZZLE_A;
-  view_info.subresourceRange.aspectMask = aspectMask;
-  view_info.subresourceRange.baseMipLevel = 0;
-  view_info.subresourceRange.levelCount = 1;
-  view_info.subresourceRange.baseArrayLayer = 0;
-  view_info.subresourceRange.layerCount = 1;
-  view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  view_info.flags = 0;
+	VkImageViewCreateInfo depth_view_info = {};
+	depth_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	depth_view_info.pNext = NULL;
+	depth_view_info.image = depth.image;
+	depth_view_info.format = depth_format;
+	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_R;
+	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_G;
+	depth_view_info.components.b = VK_COMPONENT_SWIZZLE_B;
+	depth_view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	depth_view_info.subresourceRange.aspectMask = aspectMask;
+	depth_view_info.subresourceRange.baseMipLevel = 0;
+	depth_view_info.subresourceRange.levelCount = 1;
+	depth_view_info.subresourceRange.baseArrayLayer = 0;
+	depth_view_info.subresourceRange.layerCount = 1;
+	depth_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	depth_view_info.flags = 0;
 
-	res = vkCreateImageView(device_, &view_info, NULL, &depth.view);
+	res = vkCreateImageView(device_, &depth_view_info, NULL, &depth.view);
 	assert(res == VK_SUCCESS);
 }
 
