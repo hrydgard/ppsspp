@@ -93,6 +93,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	pixelBufObj_(nullptr),
 	currentPBO_(0),
 	curFrame_(0),
+	pipelineBasicTex_(VK_NULL_HANDLE),
+	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
 
 	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
@@ -175,6 +177,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
 	assert(fsBasicTex_ != VK_NULL_HANDLE);
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
+
 	pipelineBasicTex_ = vulkan2D_.GetPipeline(pipelineCache2D_, rpClearColorClearDepth_, vsBasicTex_, fsBasicTex_);
 
 	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -212,12 +215,59 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 
 	vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-
+	vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
+	if (pipelinePostShader_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeletePipeline(pipelinePostShader_);
 	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
 }
 
-void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearDepth, uint32_t color, float depth) {
+void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
+	if (!this->useBufferedRendering_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
+		VkClearValue colorValue, depthValue;
+		colorValue.color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[3] = ((color >> 24) & 0xFF) * (1.0f / 255.0f);
+		depthValue.depthStencil.depth = depth;
+		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
+
+		VkClearRect rect;
+		rect.baseArrayLayer = 0;
+		rect.layerCount = 1;
+		rect.rect.offset.x = x;
+		rect.rect.offset.y = y;
+		rect.rect.extent.width = w;
+		rect.rect.extent.height = h;
+
+		int count = 0;
+		VkClearAttachment attach[2];
+		// TODO: Should change to a rectangle draw with color mask if both aren't set.
+		if (clearColor || clearAlpha) {
+			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			attach[count].clearValue = colorValue;
+			attach[count].colorAttachment = 0;
+			count++;
+		}
+		if (clearDepth) {
+			attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			attach[count].clearValue = depthValue;
+			attach[count].colorAttachment = 0;
+			count++;
+		}
+		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
+
+		if (clearColor) {
+			SetColorUpdated(gstate_c.skipDrawReason);
+		}
+		if (clearAlpha) {
+			SetDepthUpdated();
+		}
+	} else {
+		// TODO: Clever render pass magic.
+	}
 }
 
 void FramebufferManagerVulkan::DoNotifyDraw() {
@@ -328,8 +378,6 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	vp.minDepth = 0.0;
 	vp.maxDepth = 1.0;
 	if (useBufferedRendering_ && vfb && vfb->fbo_vk) {
-		// fbo_bind_as_render_target(vfb->fbo_vk);
-		// glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
 		vp.x = 0;
 		vp.y = 0;
 		vp.width = vfb->renderWidth;
@@ -699,17 +747,16 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}
 }
 
-void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
+VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
 	}
 
 	if (!framebuffer->fbo_vk || !useBufferedRendering_) {
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
+		return nullptr;
 	}
 
-	/*
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
 	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
@@ -717,8 +764,11 @@ void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress,
 		skipCopy = true;
 	}
 	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
+		// TODO: Enable the below code
+		return framebuffer->fbo_vk->GetColor();
+		/*
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		fbo_vk *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
+		VulkanFBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo_vk = renderCopy;
@@ -745,18 +795,14 @@ void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress,
 
 			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
-			fbo_bind_color_as_texture(renderCopy, 0);
+			return nullptr;  // fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo_vk, 0);
+			return framebuffer->fbo_vk->GetColor();
 		}
+		*/
 	} else {
-		fbo_bind_color_as_texture(framebuffer->fbo_vk, 0);
+		return framebuffer->fbo_vk->GetColor();
 	}
-
-	if (stage != GL_TEXTURE0) {
-		glActiveTexture(stage);
-	}
-	*/
 }
 
 struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {

@@ -800,51 +800,9 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
-			// A rectangle will be used instead.
-			// TODO: If this is the first clear in a frame, translate to a cleared attachment load instead.
 
-			int mask = gstate.isClearModeColorMask() ? 1 : 0;
-			if (gstate.isClearModeAlphaMask()) mask |= 2;
-			if (gstate.isClearModeDepthMask()) mask |= 4;
-
-			VkClearValue colorValue, depthValue;
-			colorValue.color.float32[0] = (result.color & 0xFF) * (1.0f / 255.0f);
-			colorValue.color.float32[1] = ((result.color >> 8) & 0xFF) * (1.0f / 255.0f);
-			colorValue.color.float32[2] = ((result.color >> 16) & 0xFF) * (1.0f / 255.0f);
-			colorValue.color.float32[3] = ((result.color >> 24) & 0xFF) * (1.0f / 255.0f);
-			depthValue.depthStencil.depth = result.depth;
-			depthValue.depthStencil.stencil = (result.color >> 24) & 0xFF;
-
-			VkClearRect rect;
-			rect.baseArrayLayer = 0;
-			rect.layerCount = 1;
-			rect.rect.offset.x = 0;
-			rect.rect.offset.y = 0;
-			rect.rect.extent.width = gstate_c.curRTRenderWidth;
-			rect.rect.extent.height = gstate_c.curRTRenderHeight;
-
-			int count = 0;
-			VkClearAttachment attach[2];
-			if (mask & 3) {
-				attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-				attach[count].clearValue = colorValue;
-				attach[count].colorAttachment = 0;
-				count++;
-			}
-			if (mask & 4) {
-				attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-				attach[count].clearValue = depthValue;
-				attach[count].colorAttachment = 0;
-				count++;
-			}
-			vkCmdClearAttachments(cmd_, count, attach, 1, &rect);
-
-			if (mask & 1) {
-				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-			}
-			if (mask & 4) {
-				framebufferManager_->SetDepthUpdated();
-			}
+			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
+			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 		}
 	}
 

@@ -74,6 +74,7 @@ public:
 	void QueueDeleteImageView(VkImageView imageView) { imageViews_.push_back(imageView); }
 	void QueueDeleteDeviceMemory(VkDeviceMemory deviceMemory) { deviceMemory_.push_back(deviceMemory); }
 	void QueueDeleteSampler(VkSampler sampler) { samplers_.push_back(sampler); }
+	void QueueDeletePipeline(VkPipeline pipeline) { pipelines_.push_back(pipeline); }
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 	void QueueDeleteRenderPass(VkRenderPass renderPass) { renderPasses_.push_back(renderPass); }
 	void QueueDeleteFramebuffer(VkFramebuffer framebuffer) { framebuffers_.push_back(framebuffer); }
@@ -88,6 +89,7 @@ public:
 		assert(imageViews_.size() == 0);
 		assert(deviceMemory_.size() == 0);
 		assert(samplers_.size() == 0);
+		assert(pipelines_.size() == 0);
 		assert(pipelineCaches_.size() == 0);
 		assert(renderPasses_.size() == 0);
 		assert(framebuffers_.size() == 0);
@@ -100,6 +102,7 @@ public:
 		imageViews_ = std::move(del.imageViews_);
 		deviceMemory_ = std::move(del.deviceMemory_);
 		samplers_ = std::move(del.samplers_);
+		pipelines_ = std::move(del.pipelines_);
 		pipelineCaches_ = std::move(del.pipelineCaches_);
 		renderPasses_ = std::move(del.renderPasses_);
 		framebuffers_ = std::move(del.framebuffers_);
@@ -139,6 +142,10 @@ public:
 			vkDestroySampler(device, sampler, nullptr);
 		}
 		samplers_.clear();
+		for (auto &pipeline : pipelines_) {
+			vkDestroyPipeline(device, pipeline, nullptr);
+		}
+		pipelines_.clear();
 		for (auto &pcache : pipelineCaches_) {
 			vkDestroyPipelineCache(device, pcache, nullptr);
 		}
@@ -166,6 +173,7 @@ private:
 	std::vector<VkImageView> imageViews_;
 	std::vector<VkDeviceMemory> deviceMemory_;
 	std::vector<VkSampler> samplers_;
+	std::vector<VkPipeline> pipelines_;
 	std::vector<VkPipelineCache> pipelineCaches_;
 	std::vector<VkRenderPass> renderPasses_;
 	std::vector<VkFramebuffer> framebuffers_;

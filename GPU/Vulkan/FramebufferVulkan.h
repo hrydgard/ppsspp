@@ -111,7 +111,7 @@ public:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
+	VulkanTexture *GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
@@ -141,7 +141,7 @@ public:
 
 	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
 	// do that.
-	void NotifyClear(bool clearColor, bool clearDepth, uint32_t color, float depth);
+	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 	void NotifyDraw() {
 		DoNotifyDraw();
 	}
@@ -227,6 +227,9 @@ private:
 	VkShaderModule fsBasicTex_;
 	VkShaderModule vsBasicTex_;
 	VkPipeline pipelineBasicTex_;
+
+	// Postprocessing
+	VkPipeline pipelinePostShader_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
