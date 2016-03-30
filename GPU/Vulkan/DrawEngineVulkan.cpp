@@ -835,6 +835,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 				attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 				attach[count].clearValue = depthValue;
 				attach[count].colorAttachment = 0;
+				count++;
 			}
 			vkCmdClearAttachments(cmd_, count, attach, 1, &rect);
 
