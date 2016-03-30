@@ -85,6 +85,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	vulkan_(vulkan),
 	drawPixelsTex_(nullptr),
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
+	convBuf_(nullptr),
+	convBufSize_(0),
 	textureCache_(nullptr),
 	shaderManager_(nullptr),
 	resized_(false),
@@ -267,13 +269,13 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	// Could share code with the texture cache perhaps.
 	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
-		data = convBuf_;
 		u32 neededSize = width * height * 4;
 		if (!convBuf_ || convBufSize_ < neededSize) {
 			delete[] convBuf_;
 			convBuf_ = new u8[neededSize];
 			convBufSize_ = neededSize;
 		}
+		data = convBuf_;
 		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:

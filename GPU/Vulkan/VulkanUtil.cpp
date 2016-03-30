@@ -108,6 +108,7 @@ Vulkan2D::~Vulkan2D() {
 		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
 	}
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout_, nullptr);
+	vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
 }
 
 void Vulkan2D::BeginFrame() {
