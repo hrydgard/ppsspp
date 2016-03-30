@@ -198,7 +198,6 @@ private:
 
 	AsyncPBOVulkan *pixelBufObj_;
 	int currentPBO_;
-	CardboardSettings cardboardSettings;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
