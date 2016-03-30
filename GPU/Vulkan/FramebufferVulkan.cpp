@@ -373,8 +373,10 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	vp.maxDepth = 1.0f;
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
-		vp.x = cardboardSettings.leftEyeXPosition; vp.y = cardboardSettings.screenYPosition;
-		vp.width = cardboardSettings.screenWidth; vp.height = cardboardSettings.screenHeight;
+		vp.x = cardboardSettings.leftEyeXPosition;
+		vp.y = cardboardSettings.screenYPosition;
+		vp.width = cardboardSettings.screenWidth;
+		vp.height = cardboardSettings.screenHeight;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
 			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
@@ -383,8 +385,7 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		}
 
 		// Right Eye Image
-		vp.x = cardboardSettings.rightEyeXPosition; vp.y = cardboardSettings.screenYPosition;
-		vp.width = cardboardSettings.screenWidth; vp.height = cardboardSettings.screenHeight;
+		vp.x = cardboardSettings.rightEyeXPosition;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
 			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
@@ -393,8 +394,10 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		}
 	} else {
 		// Fullscreen Image
-		vp.x = 0.0f; vp.y = 0.0f;
-		vp.width = pixelWidth_; vp.height = pixelHeight_;
+		vp.x = 0.0f;
+		vp.y = 0.0f;
+		vp.width = pixelWidth_;
+		vp.height = pixelHeight_;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
 			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
@@ -770,7 +773,6 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	// is worth the needed refactoring trouble though.
 
 	// fbo_unbind();
-	// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 
 	currentRenderVfb_ = 0;
 
@@ -875,6 +877,7 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		// We should not be in a renderpass here so can just copy.
 
 		// GLuint colorTexture = fbo_get_color_texture(vfb->fbo_vk);
+		VulkanTexture *colorTexture = vfb->fbo_vk->GetColor();
 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -889,19 +892,32 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
+		VkViewport vp;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
+
 		if (!usePostShader_) {
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
-				// glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+				vp.x = cardboardSettings.leftEyeXPosition;
+				vp.y = cardboardSettings.screenYPosition;
+				vp.width = cardboardSettings.screenWidth;
+				vp.height = cardboardSettings.screenHeight;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 
-				// Right Eye Image
-				// glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+				vp.x = cardboardSettings.rightEyeXPosition;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
+				vp.x = 0.0f;
+				vp.y = 0.0f;
+				vp.width = pixelWidth_;
+				vp.height = pixelHeight_;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
 			}
 		} else if (usePostShader_ && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
