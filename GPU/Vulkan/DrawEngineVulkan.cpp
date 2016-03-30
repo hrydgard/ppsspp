@@ -339,7 +339,8 @@ void DrawEngineVulkan::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 	const DeferredDrawCall &dc = drawCalls[i];
 
 	indexGen.SetIndex(decodedVerts);
-	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
+	int indexLowerBound = dc.indexLowerBound;
+	int indexUpperBound = dc.indexUpperBound;
 
 	void *inds = dc.inds;
 	if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
@@ -407,12 +408,29 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 	// Figure out how much pushbuffer space we need to allocate.
 	if (push) {
 		int vertsToDecode = 0;
-		for (int i = 0; i < numDrawCalls; i++) {
-			const DeferredDrawCall &dc = drawCalls[i];
-			if (dc.indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
-				vertsToDecode += dc.indexUpperBound - dc.indexLowerBound + 1;
-			} else {
+		if (drawCalls[0].indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
+			for (int i = 0; i < numDrawCalls; i++) {
+				const DeferredDrawCall &dc = drawCalls[i];
 				vertsToDecode += dc.vertexCount;
+			}
+		} else {
+			// TODO: Share this computation with DecodeVertsStep?
+			for (int i = 0; i < numDrawCalls; i++) {
+				const DeferredDrawCall &dc = drawCalls[i];
+				int lastMatch = i;
+				const int total = numDrawCalls;
+				int indexLowerBound = dc.indexLowerBound;
+				int indexUpperBound = dc.indexUpperBound;
+				for (int j = i + 1; j < total; ++j) {
+					if (drawCalls[j].verts != dc.verts)
+						break;
+
+					indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+					indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+					lastMatch = j;
+				}
+				vertsToDecode += indexUpperBound - indexLowerBound + 1;
+				i = lastMatch;
 			}
 		}
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
