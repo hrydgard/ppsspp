@@ -208,6 +208,7 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 		delete nullTexture_;
 	}
 	delete[] uvScale;
+	vkDestroyPipelineLayout(vulkan_->GetDevice(), pipelineLayout_, nullptr);
 }
 
 void DrawEngineVulkan::BeginFrame() {

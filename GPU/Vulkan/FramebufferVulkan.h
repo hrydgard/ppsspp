@@ -191,9 +191,6 @@ private:
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *drawEngine_;
 
-	// Used for postprocessing tasks and in-render-pass plain 2D draws/blits.
-	VkPipelineLayout simplePipelineLayout_;
-
 	bool resized_;
 
 	AsyncPBOVulkan *pixelBufObj_;

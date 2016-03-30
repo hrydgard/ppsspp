@@ -341,7 +341,7 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
 
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, nullptr, ROTATION_LOCKED_HORIZONTAL);
+	DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
 }
 
@@ -455,7 +455,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x
 
 	// TODO: Choose linear or nearest appropriately, see GL impl.
 	vulkan2D_.BindDescriptorSet(cmd, texture->GetImageView(), linearSampler_);
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineBasicTex_);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
 	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
