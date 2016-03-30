@@ -259,10 +259,10 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		}
 		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
 
-		if (clearColor) {
+		if (clearColor || clearAlpha) {
 			SetColorUpdated(gstate_c.skipDrawReason);
 		}
-		if (clearAlpha) {
+		if (clearDepth) {
 			SetDepthUpdated();
 		}
 	} else {
