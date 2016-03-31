@@ -128,6 +128,9 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	// https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/121
 	if (msgCode == 6 && (!memcmp(pMsg, "Cannot map", 10) || !memcmp(pMsg, "Cannot sub", 10)))
 		return false;
+	// And for dynamic offsets.
+	if (msgCode == 62 && (!memcmp(pMsg, "VkDesc", 6)))
+		return false;
 
 #ifdef _WIN32
 	OutputDebugStringA(message.str().c_str());

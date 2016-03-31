@@ -23,7 +23,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-// TODO: WTF?
+// TODO: Remove?
 enum VulkanFBOColorDepth {
 	VK_FBO_8888,
 	VK_FBO_565,
@@ -36,6 +36,7 @@ class DrawEngineVulkan;
 class VulkanContext;
 class ShaderManagerVulkan;
 class VulkanTexture;
+class VulkanPushBuffer;
 
 struct PostShaderUniforms {
 	float texelDelta[2]; float pad[2];
@@ -84,7 +85,7 @@ public:
 		shaderManager_ = sm;
 	}
 	void SetDrawEngine(DrawEngineVulkan *td) {
-		transformDraw_ = td;
+		drawEngine_ = td;
 	}
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) override;
@@ -92,12 +93,15 @@ public:
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawActiveTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
+	void DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
 
 	void DestroyAllFBOs();
 
 	virtual void Init() override;
+
+	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
+
 	void Resized();
 	void DeviceLost();
 	void CopyDisplayToOutput();
@@ -107,7 +111,7 @@ public:
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst);
 
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
-	void BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
+	VulkanTexture *GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags);
 
 	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
@@ -127,13 +131,23 @@ public:
 
 	virtual void RebindFramebuffer() override;
 
-	VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
+	// VulkanFBO *GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth = VK_FBO_8888);
 
 	// Cardboard Settings Calculator
 	struct CardboardSettings * GetCardboardSettings(struct CardboardSettings * cardboardSettings);
 
+	// Pass management
+	// void BeginPassClear()
+
+	// If within a render pass, this will just issue a regular clear. If beginning a new render pass,
+	// do that.
+	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
+	void NotifyDraw() {
+		DoNotifyDraw();
+	}
+
 protected:
-	virtual void DisableState() override;
+	virtual void DisableState() override {}
 	virtual void ClearBuffer(bool keepState = false);
 	virtual void FlushBeforeCopy() override;
 	virtual void DecimateFBOs() override;
@@ -149,7 +163,12 @@ protected:
 
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+
+	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
+	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+	void DoNotifyDraw();
+
+	VkCommandBuffer AllocFrameCommandBuffer();
 	void UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight);
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
@@ -161,8 +180,7 @@ private:
 	// One framebuffer can be used as a texturing source at multiple times in a frame,
 	// but then the contents have to be copied out into a new texture every time.
 	VkCommandBuffer curCmd_;
-
-	DrawEngineVulkan *drawEngine_;
+	VkCommandBuffer cmdInit_;
 
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
@@ -173,21 +191,51 @@ private:
 
 	TextureCacheVulkan *textureCache_;
 	ShaderManagerVulkan *shaderManager_;
-	DrawEngineVulkan *transformDraw_;
+	DrawEngineVulkan *drawEngine_;
 
 	bool resized_;
 
-	struct TempFBO {
-		VulkanFBO *fbo_vk;
-		int last_frame_used;
+	AsyncPBOVulkan *pixelBufObj_;
+	int currentPBO_;
+
+	enum {
+		MAX_COMMAND_BUFFERS = 32,
 	};
 
-	std::map<u64, TempFBO> tempFBOs_;
+	struct FrameData {
+		VkCommandPool cmdPool_;
+		// Keep track of command buffers we allocated so we can reset or free them at an appropriate point.
+		VkCommandBuffer commandBuffers_[MAX_COMMAND_BUFFERS];
+		VulkanPushBuffer *push_;
+		int numCommandBuffers_;
+		int totalCommandBuffers_;
+	};
 
-	// Not used under ES currently.
-	AsyncPBOVulkan *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
+	FrameData frameData_[2];
+	int curFrame_;
 
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
+
+	// Renderpasses, all combination of preserving or clearing fb contents
+	VkRenderPass rpLoadColorLoadDepth_;
+	VkRenderPass rpClearColorLoadDepth_;
+	VkRenderPass rpLoadColorClearDepth_;
+	VkRenderPass rpClearColorClearDepth_;
+
+	VkPipelineCache pipelineCache2D_;
+
+	// Basic shaders
+	VkShaderModule fsBasicTex_;
+	VkShaderModule vsBasicTex_;
+	VkPipeline pipelineBasicTex_;
+
+	// Postprocessing
+	VkPipeline pipelinePostShader_;
+
+	VkSampler linearSampler_;
+	VkSampler nearestSampler_;
+
+	// Simple 2D drawing engine.
+	Vulkan2D vulkan2D_;
 };

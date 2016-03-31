@@ -29,17 +29,28 @@
 // Uses integer instructions available since OpenGL 3.0. Suitable for ES 3.0 as well.
 void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLanguage language) {
 	char *p = buffer;
-	if (gl_extensions.IsGLES) {
-		WRITE(p, "#version 300 es\n");
-		WRITE(p, "precision mediump float;\n");
+	if (language == GLSL_VULKAN) {
+		WRITE(p, "#version 140\n");
+		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
+		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
+		WRITE(p, "layout(set = 0, binding = 0) uniform sampler2D tex;\n");
+		WRITE(p, "layout(set = 0, binding = 1) uniform sampler2D pal;\n");
+		WRITE(p, "layout(location = 0) in vec2 v_texcoord0;\n");
+		WRITE(p, "layout(location = 0) out vec4 fragColor0\n;");
 	} else {
-		WRITE(p, "#version 330\n");
+		if (gl_extensions.IsGLES) {
+			WRITE(p, "#version 300 es\n");
+			WRITE(p, "precision mediump float;\n");
+		} else {
+			WRITE(p, "#version 330\n");
+		}
+		WRITE(p, "in vec2 v_texcoord0;\n");
+		WRITE(p, "out vec4 fragColor0;\n");
+		WRITE(p, "uniform sampler2D tex;\n");
+		WRITE(p, "uniform sampler2D pal;\n");
 	}
-	WRITE(p, "in vec2 v_texcoord0;\n");
-	WRITE(p, "out vec4 fragColor0;\n");
-	WRITE(p, "uniform sampler2D tex;\n");
-	WRITE(p, "uniform sampler2D pal;\n");
 
+	// TODO: Add support for integer textures. Though it hardly matters.
 	WRITE(p, "void main() {\n");
 	WRITE(p, "  vec4 color = texture(tex, v_texcoord0);\n");
 

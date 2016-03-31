@@ -143,6 +143,10 @@ public:
 
 	void DirtyAllUBOs();
 
+	VulkanPushBuffer *GetPushBufferForTextureData() {
+		return frame_[curFrame_].pushUBO;
+	}
+
 private:
 	struct FrameData;
 

@@ -503,6 +503,11 @@ void GPU_Vulkan::BeginHostFrame() {
 	textureCache_.StartFrame();
 	depalShaderCache_.Decimate();
 
+	framebufferManager_->BeginFrameVulkan();
+
+	shaderManager_->DirtyShader();
+	shaderManager_->DirtyUniform(DIRTY_ALL);
+
 	if (dumpNextFrame_) {
 		NOTICE_LOG(G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -510,11 +515,6 @@ void GPU_Vulkan::BeginHostFrame() {
 	} else if (dumpThisFrame_) {
 		dumpThisFrame_ = false;
 	}
-
-	shaderManager_->DirtyShader();
-	shaderManager_->DirtyUniform(DIRTY_ALL);
-
-	framebufferManager_->BeginFrame();
 }
 
 void GPU_Vulkan::EndHostFrame() {
@@ -840,6 +840,7 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 	// This also makes skipping drawing very effective.
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
+
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		drawEngine_.SetupVertexDecoder(gstate.vertType);
 		// Rough estimate, not sure what's correct.

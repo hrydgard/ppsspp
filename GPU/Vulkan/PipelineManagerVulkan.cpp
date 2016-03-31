@@ -54,7 +54,7 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16_UINT, "R16G16_UINT" }, // DEC_U16A_2,
 };
 
-void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
+static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
 	attr->location = (uint32_t)location;
 	attr->binding = 0;
 	attr->format = VComp[fmt].type;
@@ -64,7 +64,7 @@ void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int off
 // Returns the number of attributes that were set.
 // We could cache these AttributeDescription arrays (with pspFmt as the key), but hardly worth bothering
 // as we will only call this code when we need to create a new VkPipeline.
-int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
+static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
 	int count = 0;
 	if (decFmt.w0fmt != 0) {
 		VertexAttribSetup(&attrs[count++], decFmt.w0fmt, decFmt.w0off, PspAttributeLocation::W1);
@@ -89,7 +89,7 @@ int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFo
 	return count;
 }
 
-int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
+static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
 	int count = 0;
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);

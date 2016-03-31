@@ -24,6 +24,8 @@
 #include "math/lin/matrix4x4.h"
 
 #include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanMemory.h"
+#include "Common/Vulkan/VulkanImage.h"
 #include "Common/ColorConv.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -52,45 +54,225 @@
 
 extern int g_iNumVideos;
 
+const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
-static const char tex_fs[] =
-"layout (binding = 0) uniform sampler2D sampler0;\n"
-"layout (location = 0) in vec2 v_texcoord0;\n"
-"void main() {\n"
-"  gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
-"}\n";
+static const char tex_fs[] = R"(#version 400
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (binding = 0) uniform sampler2D sampler0;
+layout (location = 0) in vec2 v_texcoord0;
+layout (location = 0) out vec4 fragColor;
+void main() {
+  fragColor = texture(sampler0, v_texcoord0);
+}
+)";
 
-static const char basic_vs[] =
-"layout (location = 0) in vec4 a_position;\n"
-"layout (location = 1) in attribute vec2 a_texcoord0;\n"
-"layout (location = 0) out vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char tex_vs[] = R"(#version 400
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (location = 0) in vec3 a_position;
+layout (location = 1) in vec2 a_texcoord0;
+layout (location = 0) out vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = vec4(a_position, 1.0);
+}
+)";
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
-	// keepState is irrelevant.
-	if (!currentRenderVfb_) {
-		return;
+FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
+	vulkan_(vulkan),
+	drawPixelsTex_(nullptr),
+	drawPixelsTexFormat_(GE_FORMAT_INVALID),
+	convBuf_(nullptr),
+	convBufSize_(0),
+	textureCache_(nullptr),
+	shaderManager_(nullptr),
+	resized_(false),
+	pixelBufObj_(nullptr),
+	currentPBO_(0),
+	curFrame_(0),
+	pipelineBasicTex_(VK_NULL_HANDLE),
+	pipelinePostShader_(VK_NULL_HANDLE),
+	vulkan2D_(vulkan) {
+
+	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
+	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
+	VkAttachmentDescription attachments[2] = {};
+	attachments[0].format = framebufFormat;
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].flags = 0;
+
+	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
+	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	attachments[1].flags = 0;
+
+	VkAttachmentReference color_reference = {};
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depth_reference = {};
+	depth_reference.attachment = 1;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.flags = 0;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = NULL;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_reference;
+	subpass.pResolveAttachments = NULL;
+	subpass.pDepthStencilAttachment = &depth_reference;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = NULL;
+
+	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+	rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	rp.pNext = NULL;
+	rp.attachmentCount = 2;
+	rp.pAttachments = attachments;
+	rp.subpassCount = 1;
+	rp.pSubpasses = &subpass;
+	rp.dependencyCount = 0;
+	rp.pDependencies = NULL;
+
+	// TODO: Maybe LOAD_OP_DONT_CARE makes sense in some situations. Additionally,
+	// there is often no need to store the depth buffer afterwards, although hard to know up front.
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorLoadDepth_);
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorLoadDepth_);
+	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpClearColorClearDepth_);
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorClearDepth_);
+
+	// Initialize framedata
+	for (int i = 0; i < 2; i++) {
+		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
+		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
+		assert(res == VK_SUCCESS);
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
-	VkClearAttachment clear[2];
-	memset(clear, 0, sizeof(clear));
-	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	VkClearRect rc;
-	rc.baseArrayLayer = 0;
-	rc.layerCount = 1;
-	rc.rect.offset.x = 0;
-	rc.rect.offset.y = 0;
-	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
-	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
-	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+
+	pipelineCache2D_ = vulkan_->CreatePipelineCache();
+
+	std::string fs_errors, vs_errors;
+	fsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, tex_fs, &fs_errors);
+	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
+	assert(fsBasicTex_ != VK_NULL_HANDLE);
+	assert(vsBasicTex_ != VK_NULL_HANDLE);
+
+	pipelineBasicTex_ = vulkan2D_.GetPipeline(pipelineCache2D_, rpClearColorClearDepth_, vsBasicTex_, fsBasicTex_);
+
+	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &nearestSampler_);
+	assert(res == VK_SUCCESS);
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
+	res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &linearSampler_);
+	assert(res == VK_SUCCESS);
 }
 
-void FramebufferManagerVulkan::DisableState() {
+FramebufferManagerVulkan::~FramebufferManagerVulkan() {
+	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
+	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
+
+	for (int i = 0; i < 2; i++) {
+		if (frameData_[i].numCommandBuffers_ > 0) {
+			vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);
+		}
+		vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
+		frameData_[i].push_->Destroy(vulkan_);
+		delete frameData_[i].push_;
+	}
+	delete drawPixelsTex_;
+
+	vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
+	vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
+
+	vulkan_->Delete().QueueDeleteSampler(linearSampler_);
+	vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
+	vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
+	if (pipelinePostShader_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeletePipeline(pipelinePostShader_);
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
+}
+
+void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
+	if (!useBufferedRendering_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+
+		VkClearValue colorValue, depthValue;
+		colorValue.color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
+		colorValue.color.float32[3] = ((color >> 24) & 0xFF) * (1.0f / 255.0f);
+		depthValue.depthStencil.depth = depth;
+		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
+
+		VkClearRect rect;
+		rect.baseArrayLayer = 0;
+		rect.layerCount = 1;
+		rect.rect.offset.x = x;
+		rect.rect.offset.y = y;
+		rect.rect.extent.width = w;
+		rect.rect.extent.height = h;
+
+		int count = 0;
+		VkClearAttachment attach[2];
+		// The Clear detection takes care of doing a regular draw instead if separate masking
+		// of color and alpha is needed, so we can just treat them as the same.
+		if (clearColor || clearAlpha) {
+			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			attach[count].clearValue = colorValue;
+			attach[count].colorAttachment = 0;
+			count++;
+		}
+		if (clearDepth) {
+			attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			attach[count].clearValue = depthValue;
+			attach[count].colorAttachment = 0;
+			count++;
+		}
+		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
+
+		if (clearColor || clearAlpha) {
+			SetColorUpdated(gstate_c.skipDrawReason);
+		}
+		if (clearDepth) {
+			SetDepthUpdated();
+		}
+	} else {
+		// TODO: Clever render pass magic.
+	}
+}
+
+void FramebufferManagerVulkan::DoNotifyDraw() {
+
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -115,44 +297,13 @@ void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int buf
 	memcpy(postUniforms_.time, time, 4 * sizeof(float));
 }
 
-FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
-	vulkan_(vulkan),
-	drawPixelsTex_(0),
-	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
-	textureCache_(nullptr),
-	shaderManager_(nullptr),
-	resized_(false),
-	pixelBufObj_(nullptr),
-	currentPBO_(0) {
-}
-
-FramebufferManagerVulkan::~FramebufferManagerVulkan() {
-	/*
-	if (drawPixelsTex_)
-	glDeleteTextures(1, &drawPixelsTex_);
-	DestroyDraw2DProgram();
-	if (stencilUploadProgram_) {
-	glsl_destroy(stencilUploadProgram_);
-	}
-	SetNumExtraFBOs(0);
-
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-	fbo_destroy(it->second.fbo_vk);
-	}
-
-	delete[] pixelBufObj_;
-	delete[] convBuf_;
-	*/
-}
-
 void FramebufferManagerVulkan::Init() {
 	FramebufferManagerCommon::Init();
 	// Workaround for upscaling shaders where we force x1 resolution without saving it
 	resized_ = true;
 }
 
-void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
@@ -167,15 +318,15 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	bool useConvBuf = false;
+	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
-		useConvBuf = true;
 		u32 neededSize = width * height * 4;
 		if (!convBuf_ || convBufSize_ < neededSize) {
 			delete[] convBuf_;
 			convBuf_ = new u8[neededSize];
 			convBufSize_ = neededSize;
 		}
+		data = convBuf_;
 		for (int y = 0; y < height; y++) {
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
@@ -216,40 +367,37 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 			}
 		}
 	}
-	
-	/*VkBuffer buffer;
-	size_t offset = drawEngine_->
-	drawPixelsTex_->UploadMip(0, width, height, )*/
+
+	VkBuffer buffer;
+	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
+	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
+	return drawPixelsTex_;
 }
 
 void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	/*
-	float v0 = 0.0f, v1 = 1.0f;
+	VkViewport vp;
+	vp.minDepth = 0.0;
+	vp.maxDepth = 1.0;
 	if (useBufferedRendering_ && vfb && vfb->fbo_vk) {
-		fbo_bind_as_render_target(vfb->fbo_vk);
-		glViewport(0, 0, vfb->renderWidth, vfb->renderHeight);
+		vp.x = 0;
+		vp.y = 0;
+		vp.width = vfb->renderWidth;
+		vp.height = vfb->renderHeight;
 	} else {
-		// We are drawing to the back buffer so need to flip.
-		v0 = 1.0f;
-		v1 = 0.0f;
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		glViewport(x, y, w, h);
+		CenterDisplayOutputRect(&vp.x, &vp.y, &vp.width, &vp.height, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 	}
+	// TODO: Don't use the viewport mechanism for this.
+	vkCmdSetViewport(curCmd_, 0, 1, &vp);
 
-	DrawActiveTexture(0, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, v0, 1.0f, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
-	*/
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
-
-	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
@@ -266,48 +414,62 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
-	// We are drawing directly to the back buffer.
-	std::swap(v0, v1);
-
 	VkPipeline postShaderProgram_ = VK_NULL_HANDLE;
 
+	struct CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
+
+	// TODO: Don't use the viewport mechanism for this.
+	VkViewport vp;
+	vp.minDepth = 0.0f;
+	vp.maxDepth = 1.0f;
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
-		// glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		vp.x = cardboardSettings.leftEyeXPosition;
+		vp.y = cardboardSettings.screenYPosition;
+		vp.width = cardboardSettings.screenWidth;
+		vp.height = cardboardSettings.screenHeight;
+		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, VK_NULL_HANDLE, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 		}
 
 		// Right Eye Image
-		// glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		vp.x = cardboardSettings.rightEyeXPosition;
+		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, VK_NULL_HANDLE, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 		}
 	} else {
 		// Fullscreen Image
-		// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
+		vp.x = 0.0f;
+		vp.y = 0.0f;
+		vp.width = pixelWidth_;
+		vp.height = pixelHeight_;
+		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 		} else {
-			DrawActiveTexture(0, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, VK_NULL_HANDLE, uvRotation);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
 		}
 	}
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
-void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
+void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
+	if (!texture)
+		return;
+
 	float texCoords[8] = {
 		u0,v0,
 		u1,v0,
 		u1,v1,
 		u0,v1,
 	};
-
-	static const uint16_t indices[4] = { 0,1,3,2 };
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
 		float temp[8];
@@ -323,60 +485,31 @@ void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x
 		memcpy(texCoords, temp, sizeof(temp));
 	}
 
-	if (texture) {
-		// Previously had NVDrawTexture fallback here but wasn't worth it.
-		// glBindTexture(GL_TEXTURE_2D, texture);
-	}
-
-	float pos[12] = {
-		x,y,0,
-		x + w,y,0,
-		x + w,y + h,0,
-		x,y + h,0
+	Vulkan2D::Vertex vtx[4] = {
+		{x,y,0,texCoords[0],texCoords[1]},
+		{x + w,y,0,texCoords[2],texCoords[3]},
+		{x,y + h,0,texCoords[6],texCoords[7] },
+		{x + w,y + h,0,texCoords[4],texCoords[5] },
 	};
 
 	float invDestW = 1.0f / (destW * 0.5f);
 	float invDestH = 1.0f / (destH * 0.5f);
 	for (int i = 0; i < 4; i++) {
-		pos[i * 3] = pos[i * 3] * invDestW - 1.0f;
-		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
+		vtx[i].x = vtx[i].x * invDestW - 1.0f;
+		vtx[i].y = vtx[i].y * invDestH - 1.0f;
 	}
 
-	//if (!program) {
-	//	program = draw2dprogram_;
-	//}
+	VulkanPushBuffer *push = frameData_[curFrame_].push_;
 
-	// Upscaling postshaders doesn't look well with linear
-	/*
-	if (postShaderIsUpscalingFilter_) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	} else {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iBufFilter == SCALE_NEAREST ? GL_NEAREST : GL_LINEAR);
-	}
-	*/
+	VkCommandBuffer cmd = curCmd_;
 
-	//if (program != postShaderProgram_) {
-	//	shaderManager_->DirtyLastShader();  // dirty lastShader_
-	//	glsl_bind(program);
-	//}
-
-	/*
-	if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		transformDraw_->BindBuffer(pos, sizeof(pos), texCoords, sizeof(texCoords));
-		transformDraw_->BindElementBuffer(indices, sizeof(indices));
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (void *)sizeof(pos));
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
-	} else {
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
-		glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-		glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
-		glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
-	}
-	*/
+	// TODO: Choose linear or nearest appropriately, see GL impl.
+	vulkan2D_.BindDescriptorSet(cmd, texture->GetImageView(), linearSampler_);
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	VkBuffer vbuffer;
+	VkDeviceSize offset = push->Push(vtx, sizeof(vtx), &vbuffer);
+	vkCmdBindVertexBuffers(cmd, 0, 1, &vbuffer, &offset);
+	vkCmdDraw(cmd, 4, 1, 0, 0);
 }
 
 void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -404,6 +537,9 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 }
 
 void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
+	return;
+
+	/*
 	VirtualFramebuffer old = *vfb;
 
 	if (force) {
@@ -476,6 +612,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	if (!vfb->fbo_vk) {
 		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
 	}
+	*/
 }
 
 void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -485,7 +622,6 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 	}
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-
 	// ugly...
 	if ((gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) && shaderManager_) {
 		shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
@@ -613,39 +749,16 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	}
 }
 
-VulkanFBO *FramebufferManagerVulkan::GetTempFBO(u16 w, u16 h, VulkanFBOColorDepth depth) {
-	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
-	auto it = tempFBOs_.find(key);
-	if (it != tempFBOs_.end()) {
-		it->second.last_frame_used = gpuStats.numFlips;
-		return it->second.fbo_vk;
-	}
-
-	textureCache_->ForgetLastTexture();
-	// FBO *fbo_vk = fbo_create(w, h, 1, false, depth);
-	VulkanFBO *fbo_vk = new VulkanFBO();
-	if (!fbo_vk)
-		return nullptr;
-	//	 fbo_bind_as_render_target(fbo_vk);
-	// fbo_vk->GetColorImageView()
-	// ClearBuffer(true);
-	const TempFBO info = { fbo_vk, gpuStats.numFlips };
-	tempFBOs_[key] = info;
-	return fbo_vk;
-}
-
-// This function signature will need to change. Only used for shader blending, doing it later.
-void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
+VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (framebuffer == NULL) {
 		framebuffer = currentRenderVfb_;
 	}
 
 	if (!framebuffer->fbo_vk || !useBufferedRendering_) {
 		gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-		return;
+		return nullptr;
 	}
 
-	/*
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
 	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
@@ -653,8 +766,11 @@ void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress,
 		skipCopy = true;
 	}
 	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
+		// TODO: Enable the below code
+		return framebuffer->fbo_vk->GetColor();
+		/*
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		fbo_vk *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
+		VulkanFBO *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (FBOColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo_vk = renderCopy;
@@ -681,44 +797,19 @@ void FramebufferManagerVulkan::BindFramebufferColor(int stage, u32 fbRawAddress,
 
 			BlitFramebuffer(&copyInfo, x, y, framebuffer, x, y, w, h, 0);
 
-			fbo_bind_color_as_texture(renderCopy, 0);
+			return nullptr;  // fbo_bind_color_as_texture(renderCopy, 0);
 		} else {
-			fbo_bind_color_as_texture(framebuffer->fbo_vk, 0);
+			return framebuffer->fbo_vk->GetColor();
 		}
+		*/
 	} else {
-		fbo_bind_color_as_texture(framebuffer->fbo_vk, 0);
+		return framebuffer->fbo_vk->GetColor();
 	}
-
-	if (stage != GL_TEXTURE0) {
-		glActiveTexture(stage);
-	}
-	*/
 }
 
 struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {
-	if (cardboardSettings) {
-		// Calculate Cardboard Settings
-		float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-		float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-		float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
-		float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
-		float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
-		float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-		float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-		float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
-		float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
-		float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
-
-		// Copy current Settings into Structure
-		cardboardSettings->enabled = g_Config.bEnableCardboard;
-		cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
-		cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
-		cardboardSettings->screenYPosition = cardboardScreenY;
-		cardboardSettings->screenWidth = cardboardScreenWidth;
-		cardboardSettings->screenHeight = cardboardScreenHeight;
-	}
-
-	return cardboardSettings;
+	cardboardSettings->enabled = false;
+	return nullptr;
 }
 
 void FramebufferManagerVulkan::CopyDisplayToOutput() {
@@ -732,7 +823,6 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	// is worth the needed refactoring trouble though.
 
 	// fbo_unbind();
-	// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
 
 	currentRenderVfb_ = 0;
 
@@ -750,12 +840,10 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	u32 offsetX = 0;
 	u32 offsetY = 0;
 
-	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
-
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range.
+		// TODO: Let's keep an interval_map or something of the memory contents.
 		const u32 addr = (displayFramebufPtr_ & 0x03FFFFFF) | 0x04000000;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *v = vfbs_[i];
@@ -831,11 +919,15 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo_vk) {
+		struct CardboardSettings cardboardSettings;
+		GetCardboardSettings(&cardboardSettings);
+
 		DEBUG_LOG(SCEGE, "Displaying FBO %08x", vfb->fb_address);
 
 		// We should not be in a renderpass here so can just copy.
 
 		// GLuint colorTexture = fbo_get_color_texture(vfb->fbo_vk);
+		VulkanTexture *colorTexture = vfb->fbo_vk->GetColor();
 
 		int uvRotation = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -850,19 +942,32 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
+		VkViewport vp;
+		vp.minDepth = 0.0f;
+		vp.maxDepth = 1.0f;
+
 		if (!usePostShader_) {
 			if (cardboardSettings.enabled) {
 				// Left Eye Image
-				// glstate.viewport.set(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+				vp.x = cardboardSettings.leftEyeXPosition;
+				vp.y = cardboardSettings.screenYPosition;
+				vp.width = cardboardSettings.screenWidth;
+				vp.height = cardboardSettings.screenHeight;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 
-				// Right Eye Image
-				// glstate.viewport.set(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, ROTATION_LOCKED_HORIZONTAL);
+				vp.x = cardboardSettings.rightEyeXPosition;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
-				// DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, nullptr, uvRotation);
+				vp.x = 0.0f;
+				vp.y = 0.0f;
+				vp.width = pixelWidth_;
+				vp.height = pixelHeight_;
+				vkCmdSetViewport(curCmd_, 0, 1, &vp);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
 			}
 		} else if (usePostShader_ && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
@@ -1319,6 +1424,40 @@ void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 void ShowScreenResolution();
 #endif
 
+VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
+	FrameData &frame = frameData_[curFrame_];
+	int num = frame.numCommandBuffers_;
+	if (!frame.commandBuffers_[num]) {
+		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+		cmd.commandBufferCount = 1;
+		cmd.commandPool = frame.cmdPool_;
+		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
+		frame.totalCommandBuffers_ = num + 1;
+	}
+	return frame.commandBuffers_[num];
+}
+
+void FramebufferManagerVulkan::BeginFrameVulkan() {
+	BeginFrame();
+
+	FrameData &frame = frameData_[curFrame_];
+	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
+	frame.numCommandBuffers_ = 0;
+
+	frame.push_->Reset();
+	frame.push_->Begin(vulkan_);
+	
+	if (!useBufferedRendering_) {
+		// We only use a single command buffer in this case.
+		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
+		VkRect2D scissor;
+		scissor.offset = { 0, 0 };
+		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
+		vkCmdSetScissor(curCmd_, 0, 1, &scissor);
+	}
+}
+
 void FramebufferManagerVulkan::EndFrame() {
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
@@ -1370,6 +1509,11 @@ void FramebufferManagerVulkan::EndFrame() {
 	// Only do this in the read-framebuffer modes.
 	if (updateVRAM_)
 		PackFramebufferAsync_(nullptr);
+	FrameData &frame = frameData_[curFrame_];
+	frame.push_->End();
+
+	curFrame_++;
+	curFrame_ &= 1;
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
@@ -1419,27 +1563,6 @@ void FramebufferManagerVulkan::DecimateFBOs() {
 			}
 		}
 	}
-
-	for (auto it = tempFBOs_.begin(); it != tempFBOs_.end(); ) {
-		int age = frameLastFramebufUsed_ - it->second.last_frame_used;
-		if (age > FBO_OLD_AGE) {
-			delete it->second.fbo_vk;
-			tempFBOs_.erase(it++);
-		} else {
-			++it;
-		}
-	}
-
-	// Do the same for ReadFramebuffersToMemory's VFBs
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed_ - vfb->last_frame_render;
-		if (age > FBO_OLD_AGE) {
-			INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-			DestroyFramebuf(vfb);
-			bvfbs_.erase(bvfbs_.begin() + i--);
-		}
-	}
 }
 
 void FramebufferManagerVulkan::DestroyAllFBOs() {
@@ -1460,11 +1583,6 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 		DestroyFramebuf(vfb);
 	}
 	bvfbs_.clear();
-
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		delete it->second.fbo_vk;
-	}
-	tempFBOs_.clear();
 }
 
 void FramebufferManagerVulkan::FlushBeforeCopy() {
@@ -1475,7 +1593,7 @@ void FramebufferManagerVulkan::FlushBeforeCopy() {
 	// all the irrelevant state checking it'll use to decide what to do. Should
 	// do something more focused here.
 	SetRenderFrameBuffer(gstate_c.framebufChanged, gstate_c.skipDrawReason);
-	transformDraw_->Flush(curCmd_);
+	drawEngine_->Flush(curCmd_);
 }
 
 void FramebufferManagerVulkan::Resized() {
@@ -1569,4 +1687,24 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return true;
 	*/
 	return false;
+}
+
+
+void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
+	// keepState is irrelevant.
+	if (!currentRenderVfb_) {
+		return;
+	}
+	VkClearAttachment clear[2];
+	memset(clear, 0, sizeof(clear));
+	clear[0].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	clear[1].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	VkClearRect rc;
+	rc.baseArrayLayer = 0;
+	rc.layerCount = 1;
+	rc.rect.offset.x = 0;
+	rc.rect.offset.y = 0;
+	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
+	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
+	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
 }
