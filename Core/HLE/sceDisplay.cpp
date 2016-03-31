@@ -417,7 +417,7 @@ static void CalculateFPS() {
 	}
 }
 
-void __DisplayGetDebugStats(char stats[], size_t bufsize) {
+void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 	gpu->UpdateStats();
 
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
@@ -431,17 +431,13 @@ void __DisplayGetDebugStats(char stats[], size_t bufsize) {
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
-		"Cycles executed: %d (%f per vertex)\n"
+		"GPU cycles executed: %d (%f per vertex)\n"
 		"Commands per call level: %i %i %i %i\n"
-		"Vertices Submitted: %i\n"
-		"Cached Vertices Drawn: %i\n"
-		"Uncached Vertices Drawn: %i\n"
+		"Vertices submitted: %i\n"
+		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i\n"
-		"Texture invalidations: %i\n"
-		"Vertex shaders loaded: %i\n"
-		"Fragment shaders loaded: %i\n"
-		"Combined shaders loaded: %i\n"
+		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Vertex, Fragment, Combined shaders loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,

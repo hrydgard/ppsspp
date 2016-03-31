@@ -185,8 +185,7 @@ bool vertTypeIsSkinningEnabled(u32 vertType) {
 		return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE);
 }
 
-struct GPUStateCache_v0
-{
+struct GPUStateCache_v0 {
 	u32 vertexAddr;
 	u32 indexAddr;
 

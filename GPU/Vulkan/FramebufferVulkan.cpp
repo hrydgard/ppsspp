@@ -141,8 +141,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	subpass.pPreserveAttachments = NULL;
 
 	VkRenderPassCreateInfo rp = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	rp.pNext = NULL;
 	rp.attachmentCount = 2;
 	rp.pAttachments = attachments;
 	rp.subpassCount = 1;

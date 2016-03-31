@@ -405,7 +405,7 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	hleAfterSyscallReschedReason = 0;
 }
 
-inline void updateSyscallStats(int modulenum, int funcnum, double total)
+static void updateSyscallStats(int modulenum, int funcnum, double total)
 {
 	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
 	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
