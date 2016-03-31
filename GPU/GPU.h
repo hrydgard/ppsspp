@@ -89,18 +89,10 @@ struct GPUStatistics {
 	int vertexGPUCycles;
 	int otherGPUCycles;
 	int gpuCommandsAtCallLevel[4];
-	int pushUBOSpaceUsed;
-	int pushVertexSpaceUsed;
-	int pushIndexSpaceUsed;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numVBlanks;
 	int numFlips;
-	int numTextures;
-	int numVertexShaders;
-	int numFragmentShaders;
-	int numShaders;
-	int numFBOs;
 };
 
 extern GPUStatistics gpuStats;

@@ -60,6 +60,12 @@ typedef u32 ReliableHashType;
 class VulkanContext;
 class VulkanPushBuffer;
 
+struct DrawEngineVulkanStats {
+	int pushUBOSpaceUsed;
+	int pushVertexSpaceUsed;
+	int pushIndexSpaceUsed;
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -145,6 +151,10 @@ public:
 
 	VulkanPushBuffer *GetPushBufferForTextureData() {
 		return frame_[curFrame_].pushUBO;
+	}
+
+	const DrawEngineVulkanStats &GetStats() const {
+		return stats_;
 	}
 
 private:
@@ -254,4 +264,6 @@ private:
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;
+
+	DrawEngineVulkanStats stats_;
 };

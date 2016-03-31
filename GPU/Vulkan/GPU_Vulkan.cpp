@@ -1954,11 +1954,7 @@ void GPU_Vulkan::DeviceLost() {
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
-	gpuStats.numVertexShaders = shaderManager_->GetNumVertexShaders();
-	gpuStats.numFragmentShaders = shaderManager_->GetNumFragmentShaders();
-	gpuStats.numShaders = pipelineManager_->GetNumPipelines();
-	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = (int)framebufferManager_->NumVFBs();
+	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	snprintf(buffer, bufsize - 1,
 		"Frames: %i\n"
@@ -1972,7 +1968,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Vertex, Fragment, Combined shaders loaded: %i, %i, %i\n"
+		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
@@ -1986,16 +1982,16 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
-		gpuStats.numFBOs,
-		gpuStats.numTextures,
+		(int)framebufferManager_->NumVFBs(),
+		(int)textureCache_.NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		gpuStats.numVertexShaders,
-		gpuStats.numFragmentShaders,
-		gpuStats.numShaders,
-		gpuStats.pushUBOSpaceUsed,
-		gpuStats.pushVertexSpaceUsed,
-		gpuStats.pushIndexSpaceUsed
+		shaderManager_->GetNumVertexShaders(),
+		shaderManager_->GetNumFragmentShaders(),
+		pipelineManager_->GetNumPipelines(),
+		drawStats.pushUBOSpaceUsed,
+		drawStats.pushVertexSpaceUsed,
+		drawStats.pushIndexSpaceUsed
 	);
 }
 

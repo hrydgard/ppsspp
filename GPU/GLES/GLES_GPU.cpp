@@ -2117,11 +2117,6 @@ void GLES_GPU::FastLoadBoneMatrix(u32 target) {
 }
 
 void GLES_GPU::GetStats(char *buffer, size_t bufsize) {
-	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
-	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
-	gpuStats.numShaders = shaderManager_->NumPrograms();
-	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
-	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	snprintf(buffer, bufsize - 1,
 		"Frames: %i\n"
@@ -2135,7 +2130,7 @@ void GLES_GPU::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Vertex, Fragment, Combined shaders loaded: %i, %i, %i\n"
+		"Vertex, Fragment, Programs loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
 		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
@@ -2149,17 +2144,13 @@ void GLES_GPU::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
-		gpuStats.numFBOs,
-		gpuStats.numTextures,
+		(int)framebufferManager_.NumVFBs(),
+		(int)textureCache_.NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
-		gpuStats.numVertexShaders,
-		gpuStats.numFragmentShaders,
-		gpuStats.numShaders,
-		gpuStats.pushUBOSpaceUsed,
-		gpuStats.pushVertexSpaceUsed,
-		gpuStats.pushIndexSpaceUsed
-	);
+		shaderManager_->NumVertexShaders(),
+		shaderManager_->NumFragmentShaders(),
+		shaderManager_->NumPrograms());
 }
 
 void GLES_GPU::DoBlockTransfer(u32 skipDrawReason) {

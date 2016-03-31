@@ -77,6 +77,8 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	curFrame_(0),
 	nullTexture_(nullptr) {
 
+	memset(&stats_, 0, sizeof(stats_));
+
 	memset(&decOptions_, 0, sizeof(decOptions_));
 	decOptions_.expandAllUVtoFloat = false;  // this may be a good idea though.
 	decOptions_.expandAllWeightsToFloat = false;
@@ -253,9 +255,9 @@ void DrawEngineVulkan::BeginFrame() {
 
 void DrawEngineVulkan::EndFrame() {
 	FrameData *frame = &frame_[curFrame_ & 1];
-	gpuStats.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
-	gpuStats.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
-	gpuStats.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
+	stats_.pushUBOSpaceUsed = (int)frame->pushUBO->GetOffset();
+	stats_.pushVertexSpaceUsed = (int)frame->pushVertex->GetOffset();
+	stats_.pushIndexSpaceUsed = (int)frame->pushIndex->GetOffset();
 	frame->pushUBO->End();
 	frame->pushVertex->End();
 	frame->pushIndex->End();
