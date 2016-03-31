@@ -1956,6 +1956,9 @@ void GPU_Vulkan::DeviceLost() {
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+
+	char rpInfo[1024];
+	framebufferManager_->GetRenderPassInfo(rpInfo, sizeof(rpInfo));
 	snprintf(buffer, bufsize - 1,
 		"DL processing time: %0.2f ms\n"
 		"Draw calls: %i, flushes %i\n"
@@ -1968,7 +1971,8 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
+		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
+		"%s\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
 		gpuStats.numFlushes,
@@ -1989,7 +1993,8 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		pipelineManager_->GetNumPipelines(),
 		drawStats.pushUBOSpaceUsed,
 		drawStats.pushVertexSpaceUsed,
-		drawStats.pushIndexSpaceUsed
+		drawStats.pushIndexSpaceUsed,
+		rpInfo
 	);
 }
 

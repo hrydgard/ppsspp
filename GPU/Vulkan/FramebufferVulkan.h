@@ -146,6 +146,8 @@ public:
 		DoNotifyDraw();
 	}
 
+	void GetRenderPassInfo(char *buf, size_t bufsize);
+
 protected:
 	virtual void DisableState() override {}
 	virtual void ClearBuffer(bool keepState = false);
@@ -160,7 +162,6 @@ protected:
 	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
 	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
-
 
 private:
 

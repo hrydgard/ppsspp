@@ -465,10 +465,10 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 		return;
 
 	float texCoords[8] = {
-		u0,v0,
-		u1,v0,
-		u1,v1,
-		u0,v1,
+		u0, v0,
+		u1, v0,
+		u1, v1,
+		u0, v1,
 	};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
@@ -512,24 +512,24 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	vkCmdDraw(cmd, 4, 1, 0, 0);
 }
 
-void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *v) {
-	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-	if (v->fbo_vk) {
-		delete v->fbo_vk;
-		v->fbo_vk = 0;
+void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *vfb) {
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+	if (vfb->fbo_vk) {
+		delete vfb->fbo_vk;
+		vfb->fbo_vk = 0;
 	}
 
 	// Wipe some pointers
-	if (currentRenderVfb_ == v)
+	if (currentRenderVfb_ == vfb)
 		currentRenderVfb_ = 0;
-	if (displayFramebuf_ == v)
+	if (displayFramebuf_ == vfb)
 		displayFramebuf_ = 0;
-	if (prevDisplayFramebuf_ == v)
+	if (prevDisplayFramebuf_ == vfb)
 		prevDisplayFramebuf_ = 0;
-	if (prevPrevDisplayFramebuf_ == v)
+	if (prevPrevDisplayFramebuf_ == vfb)
 		prevPrevDisplayFramebuf_ = 0;
 
-	delete v;
+	delete vfb;
 }
 
 void FramebufferManagerVulkan::RebindFramebuffer() {
@@ -1447,7 +1447,7 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
-	
+
 	if (!useBufferedRendering_) {
 		// We only use a single command buffer in this case.
 		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
@@ -1689,7 +1689,6 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return false;
 }
 
-
 void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
 	// keepState is irrelevant.
 	if (!currentRenderVfb_) {
@@ -1707,4 +1706,12 @@ void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
 	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
 	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
 	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+}
+
+void FramebufferManagerVulkan::GetRenderPassInfo(char *buf, size_t bufsize) {
+	if (!useBufferedRendering_) {
+		snprintf(buf, bufsize, "(non-buffered rendering - single render pass)");
+		return;
+	}
+	snprintf(buf, bufsize, "(TODO)");
 }
