@@ -61,9 +61,7 @@ Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 
 	VkDevice device = vulkan_->GetDevice();
 
-	VkDescriptorSetLayoutCreateInfo dsl;
-	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	dsl.pNext = nullptr;
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
@@ -73,9 +71,7 @@ Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	dpTypes[0].descriptorCount = 200;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-	VkDescriptorPoolCreateInfo dp;
-	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	dp.pNext = nullptr;
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
 	dp.maxSets = 200;
 	dp.pPoolSizes = dpTypes;
@@ -90,9 +86,7 @@ Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	push.size = 32;
 	push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	VkPipelineLayoutCreateInfo pl;
-	pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pl.pNext = nullptr;
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = &push;
 	pl.pushConstantRangeCount = 1;
 	pl.setLayoutCount = 1;
@@ -138,10 +132,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	// We wipe the cache on every frame.
 
 	VkDescriptorSet desc;
-	VkDescriptorSetAllocateInfo descAlloc;
-	VkDescriptorImageInfo tex;
-	descAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	descAlloc.pNext = nullptr;
+	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
 	descAlloc.descriptorPool = frame->descPool;
 	descAlloc.descriptorSetCount = 1;
@@ -149,19 +140,21 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[4];
+	VkWriteDescriptorSet writes[2];
 	memset(writes, 0, sizeof(writes));
 	// Main and sub textures
 	int n = 0;
+	VkDescriptorImageInfo image1 = {};
+	VkDescriptorImageInfo image2 = {};
 	if (tex1) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
-		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		tex.imageView = tex1;
-		tex.sampler = sampler1;
+		image1.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image1.imageView = tex1;
+		image1.sampler = sampler1;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = 0;
-		writes[n].pImageInfo = &tex;
+		writes[n].pImageInfo = &image1;
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writes[n].dstSet = desc;
@@ -169,13 +162,13 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	}
 	if (tex2) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
-		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		tex.imageView = tex2;
-		tex.sampler = sampler2;
+		image2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image2.imageView = tex2;
+		image2.sampler = sampler2;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = 1;
-		writes[n].pImageInfo = &tex;
+		writes[n].pImageInfo = &image2;
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		writes[n].dstSet = desc;

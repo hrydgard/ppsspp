@@ -93,7 +93,7 @@ public:
 
 	// If texture != 0, will bind it.
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
-	void DrawActiveTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
+	void DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation);
 
 	void DestroyAllFBOs();
 
@@ -163,7 +163,9 @@ protected:
 
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
+
+	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
+	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 	void DoNotifyDraw();
 
 	VkCommandBuffer AllocFrameCommandBuffer();

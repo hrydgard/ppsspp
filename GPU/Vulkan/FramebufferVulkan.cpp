@@ -222,7 +222,7 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	if (!this->useBufferedRendering_) {
+	if (!useBufferedRendering_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
@@ -244,7 +244,8 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 
 		int count = 0;
 		VkClearAttachment attach[2];
-		// TODO: Should change to a rectangle draw with color mask if both aren't set.
+		// The Clear detection takes care of doing a regular draw instead if separate masking
+		// of color and alpha is needed, so we can just treat them as the same.
 		if (clearColor || clearAlpha) {
 			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			attach[count].clearValue = colorValue;
@@ -302,7 +303,7 @@ void FramebufferManagerVulkan::Init() {
 	resized_ = true;
 }
 
-void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
+VulkanTexture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	if (drawPixelsTex_ && (drawPixelsTexFormat_ != srcPixelFormat || drawPixelsTex_->GetWidth() != width || drawPixelsTex_->GetHeight() != height)) {
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
@@ -371,6 +372,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	size_t offset = frameData_[curFrame_].push_->Push(data, width * height * 4, &buffer);
 	drawPixelsTex_->UploadMip(0, width, height, buffer, (uint32_t)offset, width);
 	drawPixelsTex_->EndCreate();
+	return drawPixelsTex_;
 }
 
 void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
@@ -388,13 +390,13 @@ void FramebufferManagerVulkan::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	// TODO: Don't use the viewport mechanism for this.
 	vkCmdSetViewport(curCmd_, 0, 1, &vp);
 
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
-	DrawActiveTexture(drawPixelsTex_, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
+	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height);
+	DrawTexture(pixelTex, dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, 0.0f, 0.0f, 1.0f, 1.0f, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 	textureCache_->ForgetLastTexture();
 }
 
 void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	VulkanTexture *pixelTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
 	// glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, g_Config.iTexFiltering == TEX_FILTER_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
@@ -429,18 +431,18 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		vp.height = cardboardSettings.screenHeight;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 		}
 
 		// Right Eye Image
 		vp.x = cardboardSettings.rightEyeXPosition;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, ROTATION_LOCKED_HORIZONTAL);
 		} else {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 		}
 	} else {
 		// Fullscreen Image
@@ -450,15 +452,15 @@ void FramebufferManagerVulkan::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		vp.height = pixelHeight_;
 		vkCmdSetViewport(curCmd_, 0, 1, &vp);
 		if (applyPostShader && usePostShader_ && useBufferedRendering_) {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, postShaderProgram_, uvRotation);
 		} else {
-			DrawActiveTexture(drawPixelsTex_, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
+			DrawTexture(pixelTex, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
 		}
 	}
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
-void FramebufferManagerVulkan::DrawActiveTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
+void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, VkPipeline pipeline, int uvRotation) {
 	if (!texture)
 		return;
 
@@ -952,11 +954,11 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 				vp.width = cardboardSettings.screenWidth;
 				vp.height = cardboardSettings.screenHeight;
 				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 
 				vp.x = cardboardSettings.rightEyeXPosition;
 				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, ROTATION_LOCKED_HORIZONTAL);
 			} else {
 				// Fullscreen Image
 				// glstate.viewport.set(0, 0, pixelWidth_, pixelHeight_);
@@ -965,7 +967,7 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 				vp.width = pixelWidth_;
 				vp.height = pixelHeight_;
 				vkCmdSetViewport(curCmd_, 0, 1, &vp);
-				DrawActiveTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
+				DrawTexture(colorTexture, x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, pipelineBasicTex_, uvRotation);
 			}
 		} else if (usePostShader_ && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.

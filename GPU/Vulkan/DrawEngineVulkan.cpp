@@ -664,9 +664,11 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			vkCmdSetStencilCompareMask(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilCompareMask);
 			vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 		}
-		float bc[4];
-		Uint8x4ToFloat4(bc, dynState.blendColor);
-		vkCmdSetBlendConstants(cmd_, bc);
+		if (dynState.useBlendColor) {
+			float bc[4];
+			Uint8x4ToFloat4(bc, dynState.blendColor);
+			vkCmdSetBlendConstants(cmd_, bc);
+		}
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
@@ -758,10 +760,12 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			} else if (dynState.useStencil) {
 				vkCmdSetStencilReference(cmd_, VK_STENCIL_FRONT_AND_BACK, dynState.stencilRef);
 			}
+			if (dynState.useBlendColor) {
+				float bc[4];
+				Uint8x4ToFloat4(bc, dynState.blendColor);
+				vkCmdSetBlendConstants(cmd_, bc);
+			}
 
-			float bc[4];
-			Uint8x4ToFloat4(bc, dynState.blendColor);
-			vkCmdSetBlendConstants(cmd_, bc);
 			dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 
 			shaderManager_->GetShaders(prim, lastVTypeID_, &vshader, &fshader, useHWTransform);
