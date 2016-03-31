@@ -418,56 +418,19 @@ static void CalculateFPS() {
 }
 
 void __DisplayGetDebugStats(char *stats, size_t bufsize) {
-	gpu->UpdateStats();
+	char statbuf[4096];
+	gpu->GetStats(statbuf, sizeof(statbuf));
 
-	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
-
-	snprintf(stats, bufsize - 1,
-		"Frames: %i\n"
-		"DL processing time: %0.2f ms\n"
+	snprintf(stats, bufsize,
 		"Kernel processing time: %0.2f ms\n"
 		"Slowest syscall: %s : %0.2f ms\n"
-		"Most active syscall: %s : %0.2f ms\n"
-		"Draw calls: %i, flushes %i\n"
-		"Cached Draw calls: %i\n"
-		"Num Tracked Vertex Arrays: %i\n"
-		"GPU cycles executed: %d (%f per vertex)\n"
-		"Commands per call level: %i %i %i %i\n"
-		"Vertices submitted: %i\n"
-		"Cached, Uncached Vertices Drawn: %i, %i\n"
-		"FBOs active: %i\n"
-		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Vertex, Fragment, Combined shaders loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
-		gpuStats.numVBlanks,
-		gpuStats.msProcessingDisplayLists * 1000.0f,
+		"Most active syscall: %s : %0.2f ms\n%s",
 		kernelStats.msInSyscalls * 1000.0f,
 		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
 		kernelStats.slowestSyscallTime * 1000.0f,
 		kernelStats.summedSlowestSyscallName ? kernelStats.summedSlowestSyscallName : "(none)",
 		kernelStats.summedSlowestSyscallTime * 1000.0f,
-		gpuStats.numDrawCalls,
-		gpuStats.numFlushes,
-		gpuStats.numCachedDrawCalls,
-		gpuStats.numTrackedVertexArrays,
-		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
-		vertexAverageCycles,
-		gpuStats.gpuCommandsAtCallLevel[0],gpuStats.gpuCommandsAtCallLevel[1],gpuStats.gpuCommandsAtCallLevel[2],gpuStats.gpuCommandsAtCallLevel[3],
-		gpuStats.numVertsSubmitted,
-		gpuStats.numCachedVertsDrawn,
-		gpuStats.numUncachedVertsDrawn,
-		gpuStats.numFBOs,
-		gpuStats.numTextures,
-		gpuStats.numTexturesDecoded,
-		gpuStats.numTextureInvalidations,
-		gpuStats.numVertexShaders,
-		gpuStats.numFragmentShaders,
-		gpuStats.numShaders,
-		gpuStats.pushUBOSpaceUsed,
-		gpuStats.pushVertexSpaceUsed,
-		gpuStats.pushIndexSpaceUsed
-		);
-	stats[bufsize - 1] = '\0';
+		statbuf);
 	gpuStats.ResetFrame();
 	kernelStats.ResetFrame();
 }

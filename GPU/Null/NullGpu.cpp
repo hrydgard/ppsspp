@@ -676,11 +676,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void NullGPU::UpdateStats() {
-	gpuStats.numVertexShaders = 0;
-	gpuStats.numFragmentShaders = 0;
-	gpuStats.numShaders = 0;
-	gpuStats.numTextures = 0;
+void NullGPU::GetStats(char *buffer, size_t bufsize) {
+	snprintf(buffer, bufsize, "NullGPU: (N/A)");
 }
 
 void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {

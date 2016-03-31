@@ -1864,12 +1864,50 @@ void DIRECTX9_GPU::FastLoadBoneMatrix(u32 target) {
 	gstate.FastLoadBoneMatrix(target);
 }
 
-void DIRECTX9_GPU::UpdateStats() {
+void DIRECTX9_GPU::GetStats(char *buffer, size_t bufsize) {
 	gpuStats.numVertexShaders = shaderManager_->NumVertexShaders();
 	gpuStats.numFragmentShaders = shaderManager_->NumFragmentShaders();
 	gpuStats.numShaders = -1;
 	gpuStats.numTextures = (int)textureCache_.NumLoadedTextures();
 	gpuStats.numFBOs = (int)framebufferManager_.NumVFBs();
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+	snprintf(buffer, bufsize - 1,
+		"Frames: %i\n"
+		"DL processing time: %0.2f ms\n"
+		"Draw calls: %i, flushes %i\n"
+		"Cached Draw calls: %i\n"
+		"Num Tracked Vertex Arrays: %i\n"
+		"GPU cycles executed: %d (%f per vertex)\n"
+		"Commands per call level: %i %i %i %i\n"
+		"Vertices submitted: %i\n"
+		"Cached, Uncached Vertices Drawn: %i, %i\n"
+		"FBOs active: %i\n"
+		"Textures active: %i, decoded: %i  invalidated: %i\n"
+		"Vertex, Fragment, Combined shaders loaded: %i, %i, %i\n"
+		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
+		gpuStats.numVBlanks,
+		gpuStats.msProcessingDisplayLists * 1000.0f,
+		gpuStats.numDrawCalls,
+		gpuStats.numFlushes,
+		gpuStats.numCachedDrawCalls,
+		gpuStats.numTrackedVertexArrays,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles,
+		gpuStats.gpuCommandsAtCallLevel[0], gpuStats.gpuCommandsAtCallLevel[1], gpuStats.gpuCommandsAtCallLevel[2], gpuStats.gpuCommandsAtCallLevel[3],
+		gpuStats.numVertsSubmitted,
+		gpuStats.numCachedVertsDrawn,
+		gpuStats.numUncachedVertsDrawn,
+		gpuStats.numFBOs,
+		gpuStats.numTextures,
+		gpuStats.numTexturesDecoded,
+		gpuStats.numTextureInvalidations,
+		gpuStats.numVertexShaders,
+		gpuStats.numFragmentShaders,
+		gpuStats.numShaders,
+		gpuStats.pushUBOSpaceUsed,
+		gpuStats.pushVertexSpaceUsed,
+		gpuStats.pushIndexSpaceUsed
+	);
 }
 
 void DIRECTX9_GPU::DoBlockTransfer(u32 skipDrawReason) {

@@ -824,7 +824,7 @@ void EmuScreen::checkPowerDown() {
 }
 
 static void DrawDebugStats(DrawBuffer *draw2d) {
-	char statbuf[4096] = { 0 };
+	char statbuf[4096];
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 	draw2d->SetFontScale(.7f, .7f);
 	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);

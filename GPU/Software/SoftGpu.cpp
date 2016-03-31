@@ -760,12 +760,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-void SoftGPU::UpdateStats()
-{
-	gpuStats.numVertexShaders = 0;
-	gpuStats.numFragmentShaders = 0;
-	gpuStats.numShaders = 0;
-	gpuStats.numTextures = 0;
+void SoftGPU::GetStats(char *buffer, size_t bufsize) {
+	snprintf(buffer, bufsize, "SoftGPU: (N/A)");
 }
 
 void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
