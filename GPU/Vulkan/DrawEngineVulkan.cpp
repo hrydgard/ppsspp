@@ -64,6 +64,7 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	:
 	vulkan_(vulkan), 
+	cmd_(VK_NULL_HANDLE),
 	prevPrim_(GE_PRIM_INVALID),
 	lastVTypeID_(-1),
 	pipelineManager_(nullptr),
@@ -623,7 +624,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 	uint32_t vbOffset = 0;
 	
 	if (useHWTransform) {
-		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
+		framebufferManager_->NotifyDraw();
 
 		int vertexCount = 0;
 		int maxIndex = 0;
@@ -740,6 +741,8 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
+			framebufferManager_->NotifyDraw();
+
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);

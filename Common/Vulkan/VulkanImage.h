@@ -11,7 +11,7 @@ public:
 	VulkanTexture(VulkanContext *vulkan, VulkanDeviceAllocator *allocator = nullptr)
 		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
 		tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE), needStaging(false),
+		mappableImage(VK_NULL_HANDLE), mappableMemory(VK_NULL_HANDLE),
 		allocator_(allocator), offset_(0) {
 		memset(&mem_reqs, 0, sizeof(mem_reqs));
 	}
@@ -37,6 +37,10 @@ public:
 	int GetNumMips() const { return numMips_; }
 	void Destroy();
 
+	// Outside of render passes or during init only! Use vkCmdClearAttachment inside them.
+	// NOTE: imageLayout must be transferDstOptimal or general.
+	void ClearColor(VkCommandBuffer cmd, uint32_t color, VkImageLayout imageLayout);
+
 	// Used in image copies, etc.
 	VkImage GetImage() const { return image; }
 
@@ -45,6 +49,8 @@ public:
 
 	int32_t GetWidth() const { return tex_width; }
 	int32_t GetHeight() const { return tex_height; }
+
+	void Transition(VkCommandBuffer cmd, VkImageLayout target);
 
 private:
 	void CreateMappableImage();
@@ -61,5 +67,4 @@ private:
 	VkMemoryRequirements mem_reqs;
 	VulkanDeviceAllocator *allocator_;
 	size_t offset_;
-	bool needStaging;
 };

@@ -42,10 +42,7 @@
 //
 // Each FBO will get its own command buffer for each pass. 
 
-// 
-struct VulkanFBOPass {
-	VkCommandBuffer cmd;
-};
+struct FBRenderPass;
 
 class VulkanFBO {
 public:
@@ -55,6 +52,7 @@ public:
 	// Depth-format is chosen automatically depending on hardware support.
 	// Color format will be 32-bit RGBA.
 	void Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat colorFormat);
+	void Destroy(VulkanContext *vulkan);
 
 	VulkanTexture *GetColor() { return color_; }
 	VulkanTexture *GetDepthStencil() { return depthStencil_; }

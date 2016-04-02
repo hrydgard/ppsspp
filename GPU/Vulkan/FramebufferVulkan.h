@@ -73,6 +73,25 @@ struct CardboardSettings {
 	float screenHeight;
 };
 
+// States of FBRenderPass
+enum class RPState {
+	RECORDING,  // The fb render pass is being recorded.
+	PAUSED,  // The fb render pass is paused and can be resumed without starting a new render pass. Command buffer is still active too.
+	FLUSHED, // The fb render pass has been ended. Can be restarted with LOAD_OP=READ but will need a new command buffer. Useful for debugging.
+	CAPPED,  // The fb render pass has been capped. The command buffer has been ended. No more commands can be recorded.
+	SUBMITTED,
+};
+
+struct FBRenderPass {
+	VkCommandBuffer cmd;
+	// VulkanFBO *vk_fbo;
+	VirtualFramebuffer *vfb;
+	std::vector<FBRenderPass *> dependencies;
+	bool executed;
+	int resumes;
+	RPState state;
+};
+
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(VulkanContext *vulkan);
@@ -164,6 +183,14 @@ protected:
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
+	// Returns true if the caller should begin a render pass on curCmd_.
+	bool UpdateRenderPass();
+	void SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder, VirtualFramebuffer *toDisplay);
+	void ResetRenderPassInfo();
+	FBRenderPass *GetRenderPass(VirtualFramebuffer *vfb);
+
+	void WalkRenderPasses(VirtualFramebuffer *toDisplay, std::vector<FBRenderPass *> &order);
+	void RecurseRenderPasses(FBRenderPass *rp, std::vector<FBRenderPass *> &order);
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -199,6 +226,13 @@ private:
 	AsyncPBOVulkan *pixelBufObj_;
 	int currentPBO_;
 
+	// Render pass management.
+
+	std::vector<FBRenderPass *> passes_;
+	std::vector<FBRenderPass *> passOrder_;
+	FBRenderPass *curRenderPass_;
+	VirtualFramebuffer *renderPassVFB_;
+
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
 	};
@@ -218,7 +252,8 @@ private:
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
 
-	// Renderpasses, all combination of preserving or clearing fb contents
+	// Renderpass Vulkan objects, all combinations of preserving or clearing fb contents.
+	// Let's see if we'll use them all...
 	VkRenderPass rpLoadColorLoadDepth_;
 	VkRenderPass rpClearColorLoadDepth_;
 	VkRenderPass rpLoadColorClearDepth_;
