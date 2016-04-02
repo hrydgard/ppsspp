@@ -90,6 +90,8 @@ struct FBRenderPass {
 	bool executed;
 	int resumes;
 	RPState state;
+
+	void AddDependency(FBRenderPass *dep);
 };
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
@@ -185,12 +187,11 @@ protected:
 private:
 	// Returns true if the caller should begin a render pass on curCmd_.
 	bool UpdateRenderPass();
-	void SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder, VirtualFramebuffer *toDisplay);
+	void SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder);
 	void ResetRenderPassInfo();
 	FBRenderPass *GetRenderPass(VirtualFramebuffer *vfb);
 
-	void WalkRenderPasses(VirtualFramebuffer *toDisplay, std::vector<FBRenderPass *> &order);
-	void RecurseRenderPasses(FBRenderPass *rp, std::vector<FBRenderPass *> &order);
+	void WalkRenderPasses(std::vector<FBRenderPass *> &order);
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -203,23 +204,15 @@ private:
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	VulkanContext *vulkan_;
-
-	// The command buffer of the current framebuffer pass being rendered to.
-	// One framebuffer can be used as a texturing source at multiple times in a frame,
-	// but then the contents have to be copied out into a new texture every time.
-	VkCommandBuffer curCmd_;
-	VkCommandBuffer cmdInit_;
+	TextureCacheVulkan *textureCache_;
+	ShaderManagerVulkan *shaderManager_;
+	DrawEngineVulkan *drawEngine_;
 
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
-
 	u8 *convBuf_;
 	u32 convBufSize_;
-
-	TextureCacheVulkan *textureCache_;
-	ShaderManagerVulkan *shaderManager_;
-	DrawEngineVulkan *drawEngine_;
 
 	bool resized_;
 
@@ -227,7 +220,7 @@ private:
 	int currentPBO_;
 
 	// Render pass management.
-
+	VkCommandBuffer curCmd_; // The command buffer of the current FBRenderPass being rendered to.
 	std::vector<FBRenderPass *> passes_;
 	std::vector<FBRenderPass *> passOrder_;
 	FBRenderPass *curRenderPass_;

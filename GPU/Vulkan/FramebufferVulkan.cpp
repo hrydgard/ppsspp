@@ -81,6 +81,12 @@ void main() {
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
+void FBRenderPass::AddDependency(FBRenderPass *dep) {
+	if (std::find(dependencies.begin(), dependencies.end(), dep) == dependencies.end()) {
+		dependencies.push_back(dep);
+	}
+}
+
 FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	vulkan_(vulkan),
 	drawPixelsTex_(nullptr),
@@ -165,12 +171,21 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 
 	// Initialize framedata
 	for (int i = 0; i < 2; i++) {
+		FrameData &frame = frameData_[i];
+
 		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
 		assert(res == VK_SUCCESS);
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+		frame.push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+
+		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+		cmd.commandBufferCount = MAX_COMMAND_BUFFERS;
+		cmd.commandPool = frame.cmdPool_;
+		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[0]);
+		frame.totalCommandBuffers_ = MAX_COMMAND_BUFFERS;
 	}
 
 	pipelineCache2D_ = vulkan_->CreatePipelineCache();
@@ -316,18 +331,18 @@ bool FramebufferManagerVulkan::UpdateRenderPass() {
 				// Resume pass.
 				frp->resumes++;
 				curRenderPass_ = frp;
-				// currentRenderVfb_ = frp->vfb;
 				curCmd_ = frp->cmd;
+				renderPassVFB_ = currentRenderVfb_;
 				return false;  // Nothing more to do. Don't start a new render pass.
 			case RPState::CAPPED:
 				// We need to create a new render pass.
-				ERROR_LOG(G3D, "Unimplemented - Resuming renderer to a CAPPED render pass");
-				return false;
+				// ERROR_LOG(G3D, "Unimplemented - Resuming renderer to a CAPPED render pass");
+				// return false;
+				break;
 			case RPState::FLUSHED:
 				// TODO: Resume the existing render pass (really, begin a new one but in the same one...)
 				break;
 			case RPState::RECORDING:
-				DebugBreak();
 				// Should never happen.
 				ERROR_LOG(G3D, "Logic failure");
 				break;
@@ -336,7 +351,16 @@ bool FramebufferManagerVulkan::UpdateRenderPass() {
 
 		if (curRenderPass_) {
 			// We simply switched render target. Presumably some later pass will turn it into a texture.
-			curRenderPass_->state = RPState::PAUSED;
+			if (curRenderPass_->state == RPState::RECORDING) {
+				curRenderPass_->state = RPState::PAUSED;
+				// Don't end the command buffer, don't end the render pass.
+			} else if (curRenderPass_->state == RPState::CAPPED) {
+				// Probably coming from SetTexture in Flush, using the results of the last render pass
+				// to draw something into a new one. Quite likely in this situation that we do not
+				// need to care about the existing contents of the framebuffer, if blending is off.
+			} else {
+				DebugBreak();
+			}
 		}
 
 		FBRenderPass *rp = new FBRenderPass();
@@ -350,9 +374,9 @@ bool FramebufferManagerVulkan::UpdateRenderPass() {
 		VkCommandBufferBeginInfo bi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		bi.pInheritanceInfo = nullptr;
-		vkBeginCommandBuffer(rp->cmd, &bi);
+		vkBeginCommandBuffer(curCmd_, &bi);
 
-		drawEngine_->SetCmdBuffer(rp->cmd);
+		drawEngine_->SetCmdBuffer(curCmd_);
 
 		passes_.push_back(rp);
 
@@ -847,7 +871,7 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 		skipCopy = true;
 	}
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
+	if (false && !skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
 		// TODO: Enable the below code
 		return framebuffer->fbo_vk->GetColor();
 		/*
@@ -885,6 +909,22 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 		}
 		*/
 	} else {
+		if (framebuffer == currentRenderVfb_) {
+			// Oh no, self-texture - not OK.
+			return nullptr;
+		}
+		FBRenderPass *rp = GetRenderPass(framebuffer);
+		if (rp) {
+			curRenderPass_->AddDependency(rp);
+			if (rp->state != RPState::CAPPED) {
+				// Transition to a layout appropriate for texturing
+				framebuffer->fbo_vk->GetColor()->Transition(rp->cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				vkCmdEndRenderPass(rp->cmd);
+				vkEndCommandBuffer(rp->cmd);
+				rp->state = RPState::CAPPED;
+			}
+		} // else probably from an older frame.
+
 		return framebuffer->fbo_vk->GetColor();
 	}
 }
@@ -892,17 +932,6 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct CardboardSettings * cardboardSettings) {
 	cardboardSettings->enabled = false;
 	return nullptr;
-}
-
-void FramebufferManagerVulkan::RecurseRenderPasses(FBRenderPass *rp, std::vector<FBRenderPass *> &order) {
-	if (!rp) {
-		return;
-	}
-	for (auto dep : rp->dependencies) {
-		RecurseRenderPasses(dep, order);
-	}
-	rp->executed = true;
-	order.push_back(rp);
 }
 
 FBRenderPass *FramebufferManagerVulkan::GetRenderPass(VirtualFramebuffer *vfb) {
@@ -914,15 +943,21 @@ FBRenderPass *FramebufferManagerVulkan::GetRenderPass(VirtualFramebuffer *vfb) {
 	return nullptr;
 }
 
-void FramebufferManagerVulkan::WalkRenderPasses(VirtualFramebuffer *toDisplay, std::vector<FBRenderPass *> &rpOrder) {
+void FramebufferManagerVulkan::WalkRenderPasses(std::vector<FBRenderPass *> &rpOrder) {
 	rpOrder.clear();
-	// The found render passes are marked with executed = true.
-	FBRenderPass *currentRP = GetRenderPass(toDisplay);
-	if (currentRP) {
-		RecurseRenderPasses(currentRP, rpOrder);
+
+	// This is stupid and must be improved later. Cannot recurse from the display framebuffer,
+	// as generally that's from the previous frame...
+
+	// First grab all the passes without dependencies
+	for (auto rp : passes_) {
+		if (rp->dependencies.empty()) {
+			rpOrder.push_back(rp);
+			rp->executed = true;
+		}
 	}
 
-	// Now, see if there are any "orphan" render passes left to cap off and enqueue.
+	// Then grab all rest.
 	for (auto rp : passes_) {
 		if (!rp->executed) {
 			rpOrder.push_back(rp);
@@ -933,7 +968,7 @@ void FramebufferManagerVulkan::WalkRenderPasses(VirtualFramebuffer *toDisplay, s
 	// OK, now we should have the complete render pass order.
 }
 
-void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder, VirtualFramebuffer *toDisplay) {
+void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder) {
 	// TODO: Maybe there's some more optimal way.
 	FBRenderPass *last = nullptr;
 	for (auto &rp : passOrder) {
@@ -946,9 +981,6 @@ void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &p
 		{
 			VkCommandBuffer cmd = rp->cmd;
 			vkCmdEndRenderPass(cmd);
-			if (rp->vfb == toDisplay) {
-				rp->vfb->fbo_vk->GetColor()->Transition(cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-			}
 			vkEndCommandBuffer(cmd);
 			rp->state = RPState::SUBMITTED;
 			// TODO: Collect transitions from dependencies of the next renderpass and 
@@ -957,7 +989,8 @@ void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &p
 			break;
 		}
 		case RPState::CAPPED:
-			DebugBreak();
+			// Already done. Let's just enqueue it.
+			vulkan_->QueueBeforeSurfaceRender(rp->cmd);
 			break;
 		case RPState::PAUSED:
 			// Should we keep it around for the next frame?
@@ -1077,11 +1110,9 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	// We collect all the renderpasses from this frame, but only do anything
 	// with them if we are running buffered.
 	// TODO: Remove walking when non-buffered - only useful for debugging in the beginning.
-
-	WalkRenderPasses(displayFramebuf_, passOrder_);
-
+	WalkRenderPasses(passOrder_);
 	if (useBufferedRendering_) {
-		SubmitRenderPasses(passOrder_, displayFramebuf_);
+		SubmitRenderPasses(passOrder_);
 	}
 
 	if (displayFramebufPtr_ == 0) {
@@ -1090,6 +1121,8 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		ClearBuffer();
 		return;
 	}
+
+	curCmd_ = VK_NULL_HANDLE;
 
 	if (vfb->fbo_vk) {
 		struct CardboardSettings cardboardSettings;
@@ -1602,14 +1635,6 @@ void ShowScreenResolution();
 VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
 	FrameData &frame = frameData_[curFrame_];
 	int num = frame.numCommandBuffers_;
-	if (!frame.commandBuffers_[num]) {
-		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd.commandBufferCount = 1;
-		cmd.commandPool = frame.cmdPool_;
-		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
-		frame.totalCommandBuffers_ = num + 1;
-	}
 	frame.numCommandBuffers_ = num + 1;
 	return frame.commandBuffers_[num];
 }
@@ -1900,7 +1925,7 @@ void FramebufferManagerVulkan::GetRenderPassInfo(char *buf, size_t bufsize) {
 
 #define WRITE p+=sprintf
 
-	static const char *rpStateStr[4] = { "(REC)", "(CAP)", "(PAUSE)", "(FLUSH)" };
+	static const char *rpStateStr[5] = { "(REC)", "(CAP)", "(PAUSE)", "(FLUSH)", "(SUBMIT)" };
 
 	// TODO: Check against bufsize
 	char *p = buf;

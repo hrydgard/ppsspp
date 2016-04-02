@@ -63,7 +63,7 @@ extern const char *PPSSPP_GIT_VERSION;
 #ifdef _DEBUG
 static const bool g_validate_ = true;
 #else
-static const bool g_validate_ = false;
+static const bool g_validate_ = true;
 #endif
 
 static VulkanContext *g_Vulkan;
