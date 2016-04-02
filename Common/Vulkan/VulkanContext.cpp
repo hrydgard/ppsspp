@@ -1255,6 +1255,8 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 	image_memory_barrier.subresourceRange.baseMipLevel = 0;
 	image_memory_barrier.subresourceRange.levelCount = 1;
 	image_memory_barrier.subresourceRange.layerCount = 1;
+	image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	if (old_image_layout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 		image_memory_barrier.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
 	}

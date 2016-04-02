@@ -246,7 +246,7 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
 	bool shouldBeginRP = UpdateRenderPass();
 
-	VkClearValue clearValues[2];
+	VkClearValue clearValues[2] = {};
 	clearValues[0].color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
 	clearValues[0].color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
 	clearValues[0].color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
@@ -260,6 +260,7 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 		rpbi.clearValueCount = 2;
 		rpbi.pClearValues = clearValues;
 		rpbi.framebuffer = currentRenderVfb_->fbo_vk->GetFramebuffer();
+		rpbi.renderArea.offset = { 0, 0 };
 		rpbi.renderArea.extent.width = currentRenderVfb_->renderWidth;
 		rpbi.renderArea.extent.height = currentRenderVfb_->renderHeight;
 		rpbi.renderPass = rpClearColorClearDepth_;
@@ -272,7 +273,7 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	float x, y, w, h;
 	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
-	VkClearRect rect;
+	VkClearRect rect = {};
 	rect.baseArrayLayer = 0;
 	rect.layerCount = 1;
 	rect.rect.offset.x = x;
@@ -281,7 +282,7 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	rect.rect.extent.height = h;
 
 	int count = 0;
-	VkClearAttachment attach[2];
+	VkClearAttachment attach[2] = {};
 	// The Clear detection takes care of doing a regular draw instead if separate masking
 	// of color and alpha is needed, so we can just treat them as the same.
 	if (clearColor || clearAlpha) {
@@ -311,6 +312,8 @@ void FramebufferManagerVulkan::DoNotifyDraw() {
 	if (shouldBeginRP) {
 		VkRenderPassBeginInfo rpbi = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 		rpbi.framebuffer = currentRenderVfb_->fbo_vk->GetFramebuffer();
+		rpbi.renderArea.offset = { 0, 0 };
+		rpbi.clearValueCount = 0;
 		rpbi.renderArea.extent.width = currentRenderVfb_->renderWidth;
 		rpbi.renderArea.extent.height = currentRenderVfb_->renderHeight;
 		rpbi.renderPass = rpLoadColorLoadDepth_;
@@ -715,9 +718,6 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 		}
 		old.fbo_vk->Destroy(vulkan_);
 		delete old.fbo_vk;
-		if (vfb->fbo_vk) {
-			// fbo_bind_as_render_target(vfb->fbo_vk);
-		}
 	}
 }
 
@@ -1010,6 +1010,7 @@ void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &p
 }
 
 void FramebufferManagerVulkan::ResetRenderPassInfo() {
+	passOrder_.clear();
 	for (auto rp : passes_) {
 		delete rp;
 	}
