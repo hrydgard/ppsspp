@@ -152,7 +152,6 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 		image1.imageView = tex1;
 		image1.sampler = sampler1;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[n].pNext = nullptr;
 		writes[n].dstBinding = 0;
 		writes[n].pImageInfo = &image1;
 		writes[n].descriptorCount = 1;
@@ -166,7 +165,6 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 		image2.imageView = tex2;
 		image2.sampler = sampler2;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[n].pNext = nullptr;
 		writes[n].dstBinding = 1;
 		writes[n].pImageInfo = &image2;
 		writes[n].descriptorCount = 1;

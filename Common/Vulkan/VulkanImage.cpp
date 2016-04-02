@@ -31,9 +31,7 @@ void VulkanTexture::CreateMappableImage() {
 
 	bool U_ASSERT_ONLY pass;
 
-	VkImageCreateInfo image_create_info = {};
-	image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	image_create_info.pNext = NULL;
+	VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_create_info.imageType = VK_IMAGE_TYPE_2D;
 	image_create_info.format = format_;
 	image_create_info.extent.width = tex_width;
@@ -50,9 +48,7 @@ void VulkanTexture::CreateMappableImage() {
 	image_create_info.flags = 0;
 	image_create_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
-	VkMemoryAllocateInfo mem_alloc = {};
-	mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	mem_alloc.pNext = NULL;
+	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	mem_alloc.allocationSize = 0;
 	mem_alloc.memoryTypeIndex = 0;
 
@@ -113,9 +109,7 @@ void VulkanTexture::Unlock() {
 		mappableImage = VK_NULL_HANDLE;
 		mappableMemory = VK_NULL_HANDLE;
 	} else {
-		VkImageCreateInfo image_create_info = {};
-		image_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		image_create_info.pNext = NULL;
+		VkImageCreateInfo image_create_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 		image_create_info.imageType = VK_IMAGE_TYPE_2D;
 		image_create_info.format = format_;
 		image_create_info.extent.width = tex_width;
@@ -138,9 +132,7 @@ void VulkanTexture::Unlock() {
 
 		vkGetImageMemoryRequirements(vulkan_->GetDevice(), image, &mem_reqs);
 
-		VkMemoryAllocateInfo mem_alloc = {};
-		mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		mem_alloc.pNext = NULL;
+		VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 		mem_alloc.memoryTypeIndex = 0;
 		mem_alloc.allocationSize = mem_reqs.size;
 

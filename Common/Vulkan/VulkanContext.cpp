@@ -88,9 +88,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 		instance_extension_names.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
-	VkApplicationInfo app_info = {};
-	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app_info.pNext = NULL;
+	VkApplicationInfo app_info = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = app_name;
 	app_info.applicationVersion = app_ver;
 	app_info.pEngineName = app_name;
@@ -99,9 +97,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	// Don't specify the API patch version.
 	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 0);
 
-	VkInstanceCreateInfo inst_info = {};
-	inst_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	inst_info.pNext = NULL;
+	VkInstanceCreateInfo inst_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
 	inst_info.pApplicationInfo = &app_info;
 	inst_info.enabledLayerCount = (uint32_t)instance_layer_names.size();
@@ -165,9 +161,7 @@ VulkanContext::~VulkanContext() {
 }
 
 void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier = {};
-	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	prePresentBarrier.pNext = NULL;
+	VkImageMemoryBarrier prePresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	prePresentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	prePresentBarrier.dstAccessMask = 0;
 	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -185,9 +179,7 @@ void TransitionToPresent(VkCommandBuffer cmd, VkImage image) {
 }
 
 void TransitionFromPresent(VkCommandBuffer cmd, VkImage image) {
-	VkImageMemoryBarrier prePresentBarrier = {};
-	prePresentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	prePresentBarrier.pNext = NULL;
+	VkImageMemoryBarrier prePresentBarrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	prePresentBarrier.srcAccessMask = 0;
 	prePresentBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	prePresentBarrier.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -234,18 +226,14 @@ VkCommandBuffer VulkanContext::BeginSurfaceRenderPass(VkClearValue clear_values[
 	// Process pending deletes.
 	frame->deleteList.PerformDeletes(device_);
 
-	VkCommandBufferBeginInfo begin;
-	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin.pNext = NULL;
+	VkCommandBufferBeginInfo begin = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	begin.flags = 0;
 	begin.pInheritanceInfo = nullptr;
 	res = vkBeginCommandBuffer(frame->cmdBuf, &begin);
 
 	TransitionFromPresent(frame->cmdBuf, swapChainBuffers[current_buffer].image);
 
-	VkRenderPassBeginInfo rp_begin;
-	rp_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	rp_begin.pNext = NULL;
+	VkRenderPassBeginInfo rp_begin = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 	rp_begin.renderPass = surface_render_pass_;
 	rp_begin.framebuffer = framebuffers_[current_buffer];
 	rp_begin.renderArea.offset.x = 0;
@@ -288,23 +276,19 @@ void VulkanContext::EndSurfaceRenderPass() {
 	cmdQueue_.clear();
 	cmdBufs.push_back(frame->cmdBuf);
 
-	VkSubmitInfo submit_info[1] = {};
-	submit_info[0].pNext = NULL;
-	submit_info[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info[0].waitSemaphoreCount = 1;
-	submit_info[0].pWaitSemaphores = &acquireSemaphore;
+	VkSubmitInfo submit_info = { VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submit_info.waitSemaphoreCount = 1;
+	submit_info.pWaitSemaphores = &acquireSemaphore;
 	VkPipelineStageFlags waitStage[1] = { VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT };
-	submit_info[0].pWaitDstStageMask = waitStage;
-	submit_info[0].commandBufferCount = (uint32_t)cmdBufs.size();
-	submit_info[0].pCommandBuffers = cmdBufs.data();
-	submit_info[0].signalSemaphoreCount = 0;
-	submit_info[0].pSignalSemaphores = NULL;
-	res = vkQueueSubmit(gfx_queue_, 1, submit_info, frame->fence);
+	submit_info.pWaitDstStageMask = waitStage;
+	submit_info.commandBufferCount = (uint32_t)cmdBufs.size();
+	submit_info.pCommandBuffers = cmdBufs.data();
+	submit_info.signalSemaphoreCount = 0;
+	submit_info.pSignalSemaphores = NULL;
+	res = vkQueueSubmit(gfx_queue_, 1, &submit_info, frame->fence);
 	assert(res == VK_SUCCESS);
 
-	VkPresentInfoKHR present;
-	present.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	present.pNext = NULL;
+	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
 	present.swapchainCount = 1;
 	present.pSwapchains = &swap_chain_;
 	present.pImageIndices = &current_buffer;
@@ -344,9 +328,7 @@ bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirem
 
 void VulkanBeginCommandBuffer(VkCommandBuffer cmd) {
 	VkResult U_ASSERT_ONLY res;
-	VkCommandBufferBeginInfo cmd_buf_info = {};
-	cmd_buf_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	cmd_buf_info.pNext = NULL;
+	VkCommandBufferBeginInfo cmd_buf_info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	cmd_buf_info.pInheritanceInfo = nullptr;
 	cmd_buf_info.flags = 0;
 	res = vkBeginCommandBuffer(cmd, &cmd_buf_info);
@@ -359,9 +341,7 @@ void VulkanContext::InitObjects(bool depthPresent) {
 
 	// Create frame data
 
-	VkCommandBufferAllocateInfo cmd_alloc = {};
-	cmd_alloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmd_alloc.pNext = NULL;
+	VkCommandBufferAllocateInfo cmd_alloc = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
 	cmd_alloc.commandPool = cmd_pool_;
 	cmd_alloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	cmd_alloc.commandBufferCount = 4;
@@ -607,7 +587,6 @@ static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, co
 
 VkResult VulkanContext::CreateDevice(int physical_device) {
 	VkResult res;
-	VkDeviceQueueCreateInfo queue_info = {};
 
 	if (!init_error_.empty()) {
 	  ELOG("Vulkan init failed: %s", init_error_.c_str());
@@ -621,6 +600,10 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, queue_props.data());
 	assert(queue_count >= 1);
 
+	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+	float queue_priorities[1] = { 0.0 };
+	queue_info.queueCount = 1;
+	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
 	for (int i = 0; i < (int)queue_count; i++) {
 		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
@@ -631,6 +614,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	}
 	assert(found);
 	assert(queue_count >= 1);
+
 
 	// Detect preferred formats, in this order.
 	static const VkFormat depthStencilFormats[] = {
@@ -651,12 +635,6 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	// This is as good a place as any to do this
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[0], &memory_properties);
 	vkGetPhysicalDeviceProperties(physical_devices_[0], &gpu_props);
-
-	float queue_priorities[1] = { 0.0 };
-	queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queue_info.pNext = nullptr;
-	queue_info.queueCount = 1;
-	queue_info.pQueuePriorities = queue_priorities;
 
 	// Optional features
 	vkGetPhysicalDeviceFeatures(physical_devices_[0], &featuresAvailable_);
@@ -688,9 +666,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 		featuresEnabled_.samplerAnisotropy = true;
 	}
 
-	VkDeviceCreateInfo device_info = {};
-	device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	device_info.pNext = NULL;
+	VkDeviceCreateInfo device_info = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
 	device_info.enabledLayerCount = (uint32_t)device_layer_names.size();
@@ -751,12 +727,10 @@ void VulkanContext::DestroyDebugMsgCallback() {
 void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
   VkResult U_ASSERT_ONLY res;
   bool U_ASSERT_ONLY pass;
-  VkImageCreateInfo image_info = {};
 
 	const VkFormat depth_format = deviceInfo_.preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	image_info.pNext = NULL;
+	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_info.imageType = VK_IMAGE_TYPE_2D;
 	image_info.format = depth_format;
 	image_info.extent.width = width_;
@@ -771,9 +745,7 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
   image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
   image_info.flags = 0;
 
-  VkMemoryAllocateInfo mem_alloc = {};
-  mem_alloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  mem_alloc.pNext = NULL;
+	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
   mem_alloc.allocationSize = 0;
   mem_alloc.memoryTypeIndex = 0;
 
@@ -804,9 +776,7 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
                         VK_IMAGE_LAYOUT_UNDEFINED,
                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-	VkImageViewCreateInfo depth_view_info = {};
-	depth_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	depth_view_info.pNext = NULL;
+	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth.image;
 	depth_view_info.format = depth_format;
 	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_R;
@@ -949,9 +919,7 @@ void VulkanContext::InitQueue() {
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
 	ILOG("gfx_queue_: %p", gfx_queue_);
 
-	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo;
-	acquireSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	acquireSemaphoreCreateInfo.pNext = NULL;
+	VkSemaphoreCreateInfo acquireSemaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	acquireSemaphoreCreateInfo.flags = 0;
 
 	res = vkCreateSemaphore(device_,
@@ -1038,9 +1006,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 		preTransform = surfCapabilities.currentTransform;
 	}
 
-	VkSwapchainCreateInfoKHR swap_chain_info = {};
-	swap_chain_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swap_chain_info.pNext = NULL;
+	VkSwapchainCreateInfoKHR swap_chain_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchain_format;
@@ -1073,9 +1039,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	for (uint32_t i = 0; i < swapchainImageCount; i++) {
 		swap_chain_buffer sc_buffer;
 
-		VkImageViewCreateInfo color_image_view = {};
-		color_image_view.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		color_image_view.pNext = NULL;
+		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = swapchain_format;
 		color_image_view.components.r = VK_COMPONENT_SWIZZLE_R;
 		color_image_view.components.g = VK_COMPONENT_SWIZZLE_G;
@@ -1156,8 +1120,7 @@ void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
   subpass.preserveAttachmentCount = 0;
   subpass.pPreserveAttachments = NULL;
 
-  VkRenderPassCreateInfo rp_info = {};
-  rp_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	VkRenderPassCreateInfo rp_info = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
   rp_info.pNext = NULL;
   rp_info.attachmentCount = include_depth ? 2 : 1;
   rp_info.pAttachments = attachments;
@@ -1196,9 +1159,7 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 void VulkanContext::InitCommandPool() {
   VkResult U_ASSERT_ONLY res;
 
-  VkCommandPoolCreateInfo cmd_pool_info = {};
-  cmd_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  cmd_pool_info.pNext = NULL;
+	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
   cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
   cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
@@ -1208,9 +1169,7 @@ void VulkanContext::InitCommandPool() {
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
-  VkFenceCreateInfo fenceInfo;
-  fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  fenceInfo.pNext = NULL;
+	VkFenceCreateInfo fenceInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
   fenceInfo.flags = presignalled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
   vkCreateFence(device_, &fenceInfo, NULL, &fence);
 	return fence;
@@ -1230,6 +1189,7 @@ void VulkanContext::DestroyDepthStencilBuffer() {
 	vkDestroyImageView(device_, depth.view, NULL);
 	vkDestroyImage(device_, depth.image, NULL);
 	vkFreeMemory(device_, depth.mem, NULL);
+
 	depth.view = VK_NULL_HANDLE;
 	depth.image = VK_NULL_HANDLE;
 	depth.mem = VK_NULL_HANDLE;
@@ -1274,9 +1234,7 @@ VkPipelineCache VulkanContext::CreatePipelineCache() {
 }
 
 bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
-	VkShaderModuleCreateInfo sm;
-	sm.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	sm.pNext = nullptr;
+	VkShaderModuleCreateInfo sm = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	sm.pCode = spirv.data();
 	sm.codeSize = spirv.size() * sizeof(uint32_t);
 	sm.flags = 0;
@@ -1289,9 +1247,7 @@ bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkSha
 }
 
 void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspectMask, VkImageLayout old_image_layout, VkImageLayout new_image_layout) {
-	VkImageMemoryBarrier image_memory_barrier = {};
-	image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	image_memory_barrier.pNext = NULL;
+	VkImageMemoryBarrier image_memory_barrier = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = 0;
 	image_memory_barrier.dstAccessMask = 0;
 	image_memory_barrier.oldLayout = old_image_layout;

@@ -603,9 +603,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	memset(boundTextures_, 0, sizeof(boundTextures_));
 	CreatePresets();
 
-	VkCommandPoolCreateInfo p;
-	p.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	p.pNext = nullptr;
+	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	p.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 	VkResult res = vkCreateCommandPool(device_, &p, nullptr, &cmdPool_);
@@ -617,9 +615,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-	VkDescriptorPoolCreateInfo dp;
-	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	dp.pNext = nullptr;
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
 	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
@@ -646,17 +642,13 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[1].binding = 1;
 
-	VkDescriptorSetLayoutCreateInfo dsl;
-	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	dsl.pNext = nullptr;
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
 	res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkPipelineLayoutCreateInfo pl;
-	pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pl.pNext = nullptr;
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
 	pl.setLayoutCount = 1;
@@ -827,16 +819,12 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	VkVertexInputBindingDescription bindDescs[1];
 	curVertexFormat_->ToVulkan(&vertex, attrDescs, bindDescs);
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly;
-	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.pNext = nullptr;
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 	inputAssembly.topology = curPrim_;
 	inputAssembly.primitiveRestartEnable = false;
 
 	VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-	VkPipelineDynamicStateCreateInfo dynamicInfo;
-	dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-	dynamicInfo.pNext = nullptr;
+	VkPipelineDynamicStateCreateInfo dynamicInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
 	dynamicInfo.dynamicStateCount = ARRAY_SIZE(dynamics);
 	dynamicInfo.pDynamicStates = dynamics;
 
@@ -858,23 +846,19 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	raster.depthClampEnable = false;
 	raster.depthBiasSlopeFactor = 0.0;
 
-	VkPipelineMultisampleStateCreateInfo ms;
-	memset(&ms, 0, sizeof(ms));
-	ms.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	ms.pNext = nullptr;
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	VkPipelineViewportStateCreateInfo vs;
-	vs.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	VkPipelineViewportStateCreateInfo vs = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 	vs.pNext = nullptr;
 	vs.viewportCount = 1;
 	vs.scissorCount = 1;
 	vs.pViewports = nullptr;  // dynamic
 	vs.pScissors = nullptr;  // dynamic
 
-	VkGraphicsPipelineCreateInfo info = {};
-	info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	info.pNext = nullptr;
 	info.flags = 0;
 	info.stageCount = 2;

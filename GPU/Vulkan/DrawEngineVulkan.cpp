@@ -129,9 +129,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 
 	VkDevice device = vulkan_->GetDevice();
 
-	VkDescriptorSetLayoutCreateInfo dsl;
-	dsl.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	dsl.pNext = nullptr;
+	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 5;
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
@@ -143,8 +141,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-	VkDescriptorPoolCreateInfo dp;
-	dp.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.pNext = nullptr;
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go fixed each frame and zap the whole array. Might try the dynamic approach later.
 	dp.maxSets = 1000;
@@ -161,9 +158,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);
 	}
 
-	VkPipelineLayoutCreateInfo pl;
-	pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pl.pNext = nullptr;
+	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
 	pl.setLayoutCount = 1;
@@ -172,9 +167,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkSamplerCreateInfo samp = {};
-	samp.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samp.pNext = nullptr;
+	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -500,9 +493,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	// We wipe the cache on every frame.
 
 	VkDescriptorSet desc;
-	VkDescriptorSetAllocateInfo descAlloc;
-	VkDescriptorImageInfo tex;
-	descAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pNext = nullptr;
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
 	descAlloc.descriptorPool = frame->descPool;
@@ -515,6 +506,7 @@ VkDescriptorSet DrawEngineVulkan::GetDescriptorSet(VkImageView imageView, VkSamp
 	memset(writes, 0, sizeof(writes));
 	// Main texture
 	int n = 0;
+	VkDescriptorImageInfo tex;
 	if (imageView) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
 		tex.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
