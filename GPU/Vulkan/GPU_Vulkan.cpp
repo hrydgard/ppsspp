@@ -1957,7 +1957,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 	snprintf(buffer, bufsize - 1,
-		"Frames: %i\n"
 		"DL processing time: %0.2f ms\n"
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
@@ -1970,7 +1969,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
-		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
 		gpuStats.numFlushes,

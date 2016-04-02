@@ -90,8 +90,7 @@ struct GPUStatistics {
 	int otherGPUCycles;
 	int gpuCommandsAtCallLevel[4];
 
-	// Total statistics, updated by the GPU core in UpdateStats
-	int numVBlanks;
+	// Flip count. Doesn't really belong here.
 	int numFlips;
 };
 

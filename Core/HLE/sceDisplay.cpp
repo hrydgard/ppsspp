@@ -111,6 +111,7 @@ static const double timePerVblank = 1.001f / 60.0f;
 static double curFrameTime;
 static double lastFrameTime;
 static double nextFrameTime;
+static int numVBlanks;
 static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
@@ -161,6 +162,7 @@ void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 int __DisplayGetFlipCount() { return actualFlips; }
 int __DisplayGetVCount() { return vCount; }
+int __DisplayGetNumVblanks() { return numVBlanks; }
 
 static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
@@ -179,6 +181,7 @@ void __DisplayInit() {
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
+	numVBlanks = 0;
 	numVBlanksSinceFlip = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
@@ -399,13 +402,13 @@ static void CalculateFPS() {
 	double now = time_now_d();
 
 	if (now >= lastFpsTime + 1.0) {
-		double frames = (gpuStats.numVBlanks - lastFpsFrame);
+		double frames = (numVBlanks - lastFpsFrame);
 		actualFps = (actualFlips - lastActualFlips);
 
 		fps = frames / (now - lastFpsTime);
 		flips = 60.0 * (double) (gpuStats.numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numVBlanks;
+		lastFpsFrame = numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
 		lastActualFlips = actualFlips;
 		lastFpsTime = now;
@@ -606,8 +609,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// Trigger VBlank interrupt handlers.
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
-	gpuStats.numVBlanks++;
-
+	numVBlanks++;
 	numVBlanksSinceFlip++;
 
 	// TODO: Should this be done here or in hleLeaveVblank?

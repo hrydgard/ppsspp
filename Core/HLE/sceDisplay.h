@@ -37,6 +37,7 @@ void __DisplayGetDebugStats(char stats[], size_t bufsize);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
 void __DisplayGetVPS(float *out_vps);
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
+int __DisplayGetNumVblanks();
 int __DisplayGetVCount();
 int __DisplayGetFlipCount();
 
