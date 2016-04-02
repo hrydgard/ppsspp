@@ -64,8 +64,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	swap_chain_(VK_NULL_HANDLE),
 	cmd_pool_(VK_NULL_HANDLE),
 	queue_count(0),
-	curFrame_(0)
-{
+	curFrame_(0) {
 	if (!VulkanLoad()) {
 		init_error_ = "Failed to load Vulkan driver library";
 		// No DLL?
@@ -368,9 +367,9 @@ void VulkanContext::InitObjects(bool depthPresent) {
 }
 
 void VulkanContext::DestroyObjects() {
-	VkCommandBuffer cmdBuf[4] = { frame_[0].cmdBuf, frame_[0].cmdInit, frame_[1].cmdBuf, frame_[1].cmdInit};
+	VkCommandBuffer cmdBuf[4] = { frame_[0].cmdBuf, frame_[0].cmdInit, frame_[1].cmdBuf, frame_[1].cmdInit };
 
-	vkFreeCommandBuffers(device_, cmd_pool_, sizeof(cmdBuf)/sizeof(cmdBuf[0]), cmdBuf);
+	vkFreeCommandBuffers(device_, cmd_pool_, sizeof(cmdBuf) / sizeof(cmdBuf[0]), cmdBuf);
 	vkDestroyFence(device_, frame_[0].fence, nullptr);
 	vkDestroyFence(device_, frame_[1].fence, nullptr);
 
@@ -589,8 +588,8 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	VkResult res;
 
 	if (!init_error_.empty()) {
-	  ELOG("Vulkan init failed: %s", init_error_.c_str());
-	  return VK_ERROR_INITIALIZATION_FAILED;
+		ELOG("Vulkan init failed: %s", init_error_.c_str());
+		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[0], &queue_count, nullptr);
@@ -671,10 +670,10 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	device_info.pQueueCreateInfos = &queue_info;
 	device_info.enabledLayerCount = (uint32_t)device_layer_names.size();
 	device_info.ppEnabledLayerNames =
-          device_info.enabledLayerCount ? device_layer_names.data() : NULL;
+		device_info.enabledLayerCount ? device_layer_names.data() : NULL;
 	device_info.enabledExtensionCount = (uint32_t)device_extension_names.size();
 	device_info.ppEnabledExtensionNames =
-          device_info.enabledExtensionCount ? device_extension_names.data() : NULL;
+		device_info.enabledExtensionCount ? device_extension_names.data() : NULL;
 	device_info.pEnabledFeatures = &featuresEnabled_;
 
 	res = vkCreateDevice(physical_devices_[0], &device_info, NULL, &device_);
@@ -718,15 +717,15 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 }
 
 void VulkanContext::DestroyDebugMsgCallback() {
-  while (msg_callbacks.size() > 0) {
+	while (msg_callbacks.size() > 0) {
 		vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
-    msg_callbacks.pop_back();
-  }
+		msg_callbacks.pop_back();
+	}
 }
 
 void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
-  VkResult U_ASSERT_ONLY res;
-  bool U_ASSERT_ONLY pass;
+	VkResult U_ASSERT_ONLY res;
+	bool U_ASSERT_ONLY pass;
 
 	const VkFormat depth_format = deviceInfo_.preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -738,43 +737,43 @@ void VulkanContext::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1;
 	image_info.arrayLayers = 1;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.queueFamilyIndexCount = 0;
-  image_info.pQueueFamilyIndices = NULL;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  image_info.flags = 0;
+	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	image_info.queueFamilyIndexCount = 0;
+	image_info.pQueueFamilyIndices = NULL;
+	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+	image_info.flags = 0;
 
 	VkMemoryAllocateInfo mem_alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-  mem_alloc.allocationSize = 0;
-  mem_alloc.memoryTypeIndex = 0;
+	mem_alloc.allocationSize = 0;
+	mem_alloc.memoryTypeIndex = 0;
 
-  VkMemoryRequirements mem_reqs;
+	VkMemoryRequirements mem_reqs;
 
-  depth.format = depth_format;
+	depth.format = depth_format;
 
-  res = vkCreateImage(device_, &image_info, NULL, &depth.image);
-  assert(res == VK_SUCCESS);
+	res = vkCreateImage(device_, &image_info, NULL, &depth.image);
+	assert(res == VK_SUCCESS);
 
-  vkGetImageMemoryRequirements(device_, depth.image, &mem_reqs);
+	vkGetImageMemoryRequirements(device_, depth.image, &mem_reqs);
 
-  mem_alloc.allocationSize = mem_reqs.size;
-  /* Use the memory properties to determine the type of memory required */
-  pass = MemoryTypeFromProperties(mem_reqs.memoryTypeBits,
-                                    0, /* No requirements */
-                                    &mem_alloc.memoryTypeIndex);
-  assert(pass);
+	mem_alloc.allocationSize = mem_reqs.size;
+	/* Use the memory properties to determine the type of memory required */
+	pass = MemoryTypeFromProperties(mem_reqs.memoryTypeBits,
+		0, /* No requirements */
+		&mem_alloc.memoryTypeIndex);
+	assert(pass);
 
-  res = vkAllocateMemory(device_, &mem_alloc, NULL, &depth.mem);
-  assert(res == VK_SUCCESS);
+	res = vkAllocateMemory(device_, &mem_alloc, NULL, &depth.mem);
+	assert(res == VK_SUCCESS);
 
-  res = vkBindImageMemory(device_, depth.image, depth.mem, 0);
-  assert(res == VK_SUCCESS);
+	res = vkBindImageMemory(device_, depth.image, depth.mem, 0);
+	assert(res == VK_SUCCESS);
 
-  TransitionImageLayout(cmd, depth.image,
-                        aspectMask,
-                        VK_IMAGE_LAYOUT_UNDEFINED,
-                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+	TransitionImageLayout(cmd, depth.image,
+		aspectMask,
+		VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth.image;
@@ -1075,20 +1074,20 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 }
 
 void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
-  VkResult U_ASSERT_ONLY res;
-  /* Need attachments for render target and depth buffer */
-  VkAttachmentDescription attachments[2];
-  attachments[0].format = swapchain_format;
-  attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-  attachments[0].loadOp = clear?VK_ATTACHMENT_LOAD_OP_CLEAR:VK_ATTACHMENT_LOAD_OP_LOAD;
-  attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-  attachments[0].flags = 0;
+	VkResult U_ASSERT_ONLY res;
+	/* Need attachments for render target and depth buffer */
+	VkAttachmentDescription attachments[2];
+	attachments[0].format = swapchain_format;
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].flags = 0;
 
-  if (include_depth) {
+	if (include_depth) {
 		attachments[1].format = depth.format;
 		attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
 		attachments[1].loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1098,39 +1097,39 @@ void VulkanContext::InitSurfaceRenderPass(bool include_depth, bool clear) {
 		attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		attachments[1].flags = 0;
-  }
+	}
 
-  VkAttachmentReference color_reference = {};
-  color_reference.attachment = 0;
-  color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkAttachmentReference color_reference = {};
+	color_reference.attachment = 0;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-  VkAttachmentReference depth_reference = {};
-  depth_reference.attachment = 1;
-  depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	VkAttachmentReference depth_reference = {};
+	depth_reference.attachment = 1;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-  VkSubpassDescription subpass = {};
-  subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-  subpass.flags = 0;
-  subpass.inputAttachmentCount = 0;
-  subpass.pInputAttachments = NULL;
-  subpass.colorAttachmentCount = 1;
-  subpass.pColorAttachments = &color_reference;
-  subpass.pResolveAttachments = NULL;
-  subpass.pDepthStencilAttachment = include_depth?&depth_reference:NULL;
-  subpass.preserveAttachmentCount = 0;
-  subpass.pPreserveAttachments = NULL;
+	VkSubpassDescription subpass = {};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.flags = 0;
+	subpass.inputAttachmentCount = 0;
+	subpass.pInputAttachments = NULL;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_reference;
+	subpass.pResolveAttachments = NULL;
+	subpass.pDepthStencilAttachment = include_depth ? &depth_reference : NULL;
+	subpass.preserveAttachmentCount = 0;
+	subpass.pPreserveAttachments = NULL;
 
 	VkRenderPassCreateInfo rp_info = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-  rp_info.pNext = NULL;
-  rp_info.attachmentCount = include_depth ? 2 : 1;
-  rp_info.pAttachments = attachments;
-  rp_info.subpassCount = 1;
-  rp_info.pSubpasses = &subpass;
-  rp_info.dependencyCount = 0;
-  rp_info.pDependencies = NULL;
+	rp_info.pNext = NULL;
+	rp_info.attachmentCount = include_depth ? 2 : 1;
+	rp_info.pAttachments = attachments;
+	rp_info.subpassCount = 1;
+	rp_info.pSubpasses = &subpass;
+	rp_info.dependencyCount = 0;
+	rp_info.pDependencies = NULL;
 
-  res = vkCreateRenderPass(device_, &rp_info, NULL, &surface_render_pass_);
-  assert(res == VK_SUCCESS);
+	res = vkCreateRenderPass(device_, &rp_info, NULL, &surface_render_pass_);
+	assert(res == VK_SUCCESS);
 }
 
 void VulkanContext::InitFramebuffers(bool include_depth) {
@@ -1143,7 +1142,7 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 	fb_info.renderPass = surface_render_pass_;
 	fb_info.attachmentCount = include_depth ? 2 : 1;
 	fb_info.pAttachments = attachments;
-	fb_info.width  = width_;
+	fb_info.width = width_;
 	fb_info.height = height_;
 	fb_info.layers = 1;
 
@@ -1157,21 +1156,21 @@ void VulkanContext::InitFramebuffers(bool include_depth) {
 }
 
 void VulkanContext::InitCommandPool() {
-  VkResult U_ASSERT_ONLY res;
+	VkResult U_ASSERT_ONLY res;
 
 	VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-  cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
-  cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+	cmd_pool_info.queueFamilyIndex = graphics_queue_family_index_;
+	cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 
-  res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &cmd_pool_);
-  assert(res == VK_SUCCESS);
+	res = vkCreateCommandPool(device_, &cmd_pool_info, NULL, &cmd_pool_);
+	assert(res == VK_SUCCESS);
 }
 
 VkFence VulkanContext::CreateFence(bool presignalled) {
 	VkFence fence;
 	VkFenceCreateInfo fenceInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-  fenceInfo.flags = presignalled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
-  vkCreateFence(device_, &fenceInfo, NULL, &fence);
+	fenceInfo.flags = presignalled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+	vkCreateFence(device_, &fenceInfo, NULL, &fence);
 	return fence;
 }
 
@@ -1181,7 +1180,7 @@ void VulkanContext::WaitAndResetFence(VkFence fence) {
 }
 
 void VulkanContext::DestroyCommandPool() {
-  vkDestroyCommandPool(device_, cmd_pool_, NULL);
+	vkDestroyCommandPool(device_, cmd_pool_, NULL);
 	cmd_pool_ = VK_NULL_HANDLE;
 }
 
@@ -1206,9 +1205,9 @@ void VulkanContext::DestroySwapChain() {
 }
 
 void VulkanContext::DestroyFramebuffers() {
-  for (uint32_t i = 0; i < framebuffers_.size(); i++) {
-    vkDestroyFramebuffer(device_, framebuffers_[i], NULL);
-  }
+	for (uint32_t i = 0; i < framebuffers_.size(); i++) {
+		vkDestroyFramebuffer(device_, framebuffers_[i], NULL);
+	}
 	framebuffers_.clear();
 }
 
@@ -1274,7 +1273,7 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 		/* Make sure anything that was copying from this image has completed */
-		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT|VK_ACCESS_MEMORY_READ_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT;
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {

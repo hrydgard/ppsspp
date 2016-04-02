@@ -57,11 +57,11 @@ struct VulkanPhysicalDeviceInfo {
 // This is a bit repetitive...
 class VulkanDeleteList {
 	struct Callback {
-		explicit Callback(void (*f)(void *userdata), void *u)
+		explicit Callback(void(*f)(void *userdata), void *u)
 			: func(f), userdata(u) {
 		}
 
-		void (*func)(void *userdata);
+		void(*func)(void *userdata);
 		void *userdata;
 	};
 
@@ -78,7 +78,7 @@ public:
 	void QueueDeletePipelineCache(VkPipelineCache pipelineCache) { pipelineCaches_.push_back(pipelineCache); }
 	void QueueDeleteRenderPass(VkRenderPass renderPass) { renderPasses_.push_back(renderPass); }
 	void QueueDeleteFramebuffer(VkFramebuffer framebuffer) { framebuffers_.push_back(framebuffer); }
-	void QueueCallback(void (*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
+	void QueueCallback(void(*func)(void *userdata), void *userdata) { callbacks_.push_back(Callback(func, userdata)); }
 
 	void Take(VulkanDeleteList &del) {
 		assert(descPools_.size() == 0);
