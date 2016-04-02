@@ -171,7 +171,6 @@ static void ScheduleLagSync(int over = 0) {
 }
 
 void __DisplayInit() {
-	gpuStats.Reset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;

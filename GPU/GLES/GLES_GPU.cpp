@@ -2130,8 +2130,7 @@ void GLES_GPU::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Vertex, Fragment, Programs loaded: %i, %i, %i\n"
-		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n",
+		"Vertex, Fragment, Programs loaded: %i, %i, %i\n",
 		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,

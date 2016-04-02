@@ -35,6 +35,7 @@ GPUCommon::GPUCommon() :
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
 	gstate.Reset();
 	gstate_c.Reset();
+	gpuStats.Reset();
 }
 
 GPUCommon::~GPUCommon() {
