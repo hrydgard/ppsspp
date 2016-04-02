@@ -150,6 +150,7 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
 	allocator_->Destroy();
+	delete allocator_;
 }
 
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {

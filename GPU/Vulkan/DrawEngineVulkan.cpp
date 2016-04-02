@@ -211,6 +211,7 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	}
 	delete[] uvScale;
 	vkDestroyPipelineLayout(vulkan_->GetDevice(), pipelineLayout_, nullptr);
+	vkDestroyDescriptorSetLayout(vulkan_->GetDevice(), descriptorSetLayout_, nullptr);
 }
 
 void DrawEngineVulkan::BeginFrame() {

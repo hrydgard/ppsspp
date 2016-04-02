@@ -193,6 +193,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
+	delete[] convBuf_;
+
 	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
 	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
 	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);

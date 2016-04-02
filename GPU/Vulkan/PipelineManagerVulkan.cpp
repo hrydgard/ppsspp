@@ -20,7 +20,8 @@ void PipelineManagerVulkan::Clear() {
 	// This should kill off all the shaders at once.
 	// This could also be an opportunity to store the whole cache to disk. Will need to also
 	// store the keys.
-	for (auto iter : pipelines_) {
+	for (auto &iter : pipelines_) {
+		vulkan_->Delete().QueueDeletePipeline(iter.second->pipeline);
 		delete iter.second;
 	}
 	pipelines_.clear();
@@ -98,6 +99,10 @@ static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription at
 	return count;
 }
 
+static bool UsesBlendConstant(int factor) {
+	return factor == VK_BLEND_FACTOR_CONSTANT_ALPHA || factor == VK_BLEND_FACTOR_CONSTANT_COLOR;
+}
+
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
 		const VertexDecoder *vtxDec, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
@@ -142,7 +147,8 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VkDynamicState dynamicStates[8];
 	int numDyn = 0;
-	if (key.blendEnable) {
+	if (key.blendEnable &&
+		  (UsesBlendConstant(key.srcAlpha) || UsesBlendConstant(key.srcColor) || UsesBlendConstant(key.destAlpha) || UsesBlendConstant(key.destColor))) {
 		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_BLEND_CONSTANTS;
 	}
 	dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
