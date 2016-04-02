@@ -32,9 +32,11 @@ void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int wi
 	color_ = new VulkanTexture(vulkan);
 	depthStencil_ = new VulkanTexture(vulkan);
 
+	VkFormat depthFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+
 	VkImageCreateFlags flags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	color_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
-	depthStencil_->CreateDirect(width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
+	depthStencil_->CreateDirect(width, height, 1, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
 
 	// color_->ClearColor(vulkan->GetInitCommandBuffer(), 0x00FF00FF, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -63,7 +65,7 @@ void VulkanFBO::Destroy(VulkanContext *vulkan) {
 	}
 }
 
-Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
+Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	bindings[0].descriptorCount = 1;
