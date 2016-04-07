@@ -370,8 +370,8 @@ void VulkanTexture::EndCreate() {
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
-void VulkanTexture::Transition(VkCommandBuffer cmd, VkImageLayout target) {
-	TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+void VulkanTexture::Transition(VkCommandBuffer cmd, VkImageLayout from, VkImageLayout target) {
+	TransitionImageLayout(cmd, image, VK_IMAGE_ASPECT_COLOR_BIT, from, target);
 }
 
 void VulkanTexture::Destroy() {

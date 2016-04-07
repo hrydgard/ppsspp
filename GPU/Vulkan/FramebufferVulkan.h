@@ -89,7 +89,13 @@ struct FBRenderPass {
 	std::vector<FBRenderPass *> dependencies;
 	bool executed;
 	int resumes;
+	int id;
 	RPState state;
+
+	// Statistics/info. not used for function.
+	bool isSecondary;
+	int numDraws;
+	int numClears;
 
 	void AddDependency(FBRenderPass *dep);
 };
@@ -225,6 +231,9 @@ private:
 	std::vector<FBRenderPass *> passOrder_;
 	FBRenderPass *curRenderPass_;
 	VirtualFramebuffer *renderPassVFB_;
+	
+	// When texturing, is set so that when we switch RP, this dependency will be added.
+	FBRenderPass *pendingDependency_;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,

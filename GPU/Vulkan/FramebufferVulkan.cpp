@@ -103,6 +103,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan),
 	curRenderPass_(nullptr),
+	pendingDependency_(nullptr),
 	curCmd_(VK_NULL_HANDLE),
 	renderPassVFB_(nullptr) {
 
@@ -246,6 +247,7 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
 	bool shouldBeginRP = UpdateRenderPass();
 
+	curRenderPass_->numClears++;
 	VkClearValue clearValues[2] = {};
 	clearValues[0].color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
 	clearValues[0].color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
@@ -309,7 +311,9 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 
 void FramebufferManagerVulkan::DoNotifyDraw() {
 	bool shouldBeginRP = UpdateRenderPass();
+	curRenderPass_->numDraws++;
 	if (shouldBeginRP) {
+		// currentRenderVfb_->fbo_vk->GetColor()->Transition(curCmd_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		VkRenderPassBeginInfo rpbi = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
 		rpbi.framebuffer = currentRenderVfb_->fbo_vk->GetFramebuffer();
 		rpbi.renderArea.offset = { 0, 0 };
@@ -323,71 +327,93 @@ void FramebufferManagerVulkan::DoNotifyDraw() {
 
 bool FramebufferManagerVulkan::UpdateRenderPass() {
 	assert(currentRenderVfb_);
-	if (currentRenderVfb_ != renderPassVFB_) {
-		// Framebuffer has changed! Update render passes.
+	if (currentRenderVfb_ == renderPassVFB_) {
+		return false;
+	}
 
-		// If FBO object already has a render pass, resume it if possible.
-		FBRenderPass *frp = GetRenderPass(currentRenderVfb_);
-		if (frp) {
-			switch (frp->state) {
-			case RPState::PAUSED:
-				// Resume pass.
-				frp->resumes++;
-				curRenderPass_ = frp;
+	// if (currentRenderVfb_->width == 64) 
+	// Framebuffer has changed! Update render passes.
+
+	// If FBO object already has a render pass, resume it if possible.
+	FBRenderPass *frp = GetRenderPass(currentRenderVfb_);
+	bool isSecondary = false;
+	if (frp) {
+		switch (frp->state) {
+		case RPState::PAUSED:
+			// Resume pass.
+			frp->resumes++;
+			frp->state = RPState::RECORDING;
+			assert(frp->vfb == currentRenderVfb_);
+			curRenderPass_ = frp;
+			if (useBufferedRendering_) {
 				curCmd_ = frp->cmd;
-				renderPassVFB_ = currentRenderVfb_;
-				return false;  // Nothing more to do. Don't start a new render pass.
-			case RPState::CAPPED:
-				// We need to create a new render pass.
-				// ERROR_LOG(G3D, "Unimplemented - Resuming renderer to a CAPPED render pass");
-				// return false;
-				break;
-			case RPState::FLUSHED:
-				// TODO: Resume the existing render pass (really, begin a new one but in the same one...)
-				break;
-			case RPState::RECORDING:
-				// Should never happen.
-				ERROR_LOG(G3D, "Logic failure");
-				break;
 			}
-		}
-
-		if (curRenderPass_) {
-			// We simply switched render target. Presumably some later pass will turn it into a texture.
-			if (curRenderPass_->state == RPState::RECORDING) {
-				curRenderPass_->state = RPState::PAUSED;
-				// Don't end the command buffer, don't end the render pass.
-			} else if (curRenderPass_->state == RPState::CAPPED) {
-				// Probably coming from SetTexture in Flush, using the results of the last render pass
-				// to draw something into a new one. Quite likely in this situation that we do not
-				// need to care about the existing contents of the framebuffer, if blending is off.
-			} else {
-				DebugBreak();
+			drawEngine_->SetCmdBuffer(curCmd_);
+			renderPassVFB_ = currentRenderVfb_;
+			if (pendingDependency_) {
+				frp->AddDependency(pendingDependency_);
+				pendingDependency_ = nullptr;
 			}
+			return false;  // Nothing more to do. Don't start a new render pass.
+		case RPState::CAPPED:
+			// We need to create a new render pass.
+			// ERROR_LOG(G3D, "Unimplemented - Resuming renderer to a CAPPED render pass");
+			// return false;
+			isSecondary = true;
+			break;
+		case RPState::FLUSHED:
+			// TODO: Resume the existing render pass (really, begin a new one but in the same one...)
+			break;
+		case RPState::RECORDING:
+			// Should never happen.
+			ERROR_LOG(G3D, "Logic failure");
+			break;
 		}
+	}
 
-		FBRenderPass *rp = new FBRenderPass();
+	if (curRenderPass_) {
+		// We simply switched render target. Presumably some later pass will turn it into a texture.
+		if (curRenderPass_->state == RPState::RECORDING) {
+			curRenderPass_->state = RPState::PAUSED;
+			// Don't end the command buffer, don't end the render pass.
+		} else if (curRenderPass_->state == RPState::CAPPED) {
+			// Probably coming from SetTexture in Flush, using the results of the last render pass
+			// to draw something into a new one. Quite likely in this situation that we do not
+			// need to care about the existing contents of the framebuffer, if blending is off.
+		} else {
+			DebugBreak();
+		}
+	}
+
+	FBRenderPass *rp = new FBRenderPass();
+	rp->id = (int)passes_.size() + 1;
+	rp->executed = false;
+	rp->state = RPState::RECORDING;
+	rp->vfb = currentRenderVfb_;
+	rp->resumes = 0;
+	rp->isSecondary = isSecondary;
+	if (useBufferedRendering_) {
 		rp->cmd = AllocFrameCommandBuffer();
-		rp->executed = false;
-		rp->state = RPState::RECORDING;
-		rp->vfb = currentRenderVfb_;
-		rp->resumes = 0;
 		curCmd_ = rp->cmd;
-
 		VkCommandBufferBeginInfo bi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		bi.pInheritanceInfo = nullptr;
 		vkBeginCommandBuffer(curCmd_, &bi);
-
-		drawEngine_->SetCmdBuffer(curCmd_);
-
-		passes_.push_back(rp);
-
-		curRenderPass_ = rp;
-		renderPassVFB_ = currentRenderVfb_;
-		return useBufferedRendering_;
+	} else {
+		rp->cmd = VK_NULL_HANDLE;
 	}
-	return false;
+
+	drawEngine_->SetCmdBuffer(curCmd_);
+
+	passes_.push_back(rp);
+
+	curRenderPass_ = rp;
+	renderPassVFB_ = currentRenderVfb_;
+	if (pendingDependency_) {
+		rp->AddDependency(pendingDependency_);
+		pendingDependency_ = nullptr;
+	}
+	return useBufferedRendering_;
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -856,8 +882,9 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 }
 
 VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
+	if (!framebuffer) {
+		DebugBreak();
+		return nullptr;
 	}
 
 	if (!framebuffer->fbo_vk || !useBufferedRendering_) {
@@ -909,16 +936,18 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 		}
 		*/
 	} else {
-		if (framebuffer == currentRenderVfb_) {
-			// Oh no, self-texture - not OK.
-			return nullptr;
-		}
+		// if framebuffer == currentRenderVfb here, that's probably OK - the game is just using the just 
+		// rendered texture as an input for the next draw call. At this point we haven't updated curRenderPass yet.
+
 		FBRenderPass *rp = GetRenderPass(framebuffer);
 		if (rp) {
-			curRenderPass_->AddDependency(rp);
+			// TODO: This is wrong - curRenderPass has not been updated yet at this point.
+			// Should latch some state.
+			pendingDependency_ = rp;
+
 			if (rp->state != RPState::CAPPED) {
 				// Transition to a layout appropriate for texturing
-				framebuffer->fbo_vk->GetColor()->Transition(rp->cmd, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				framebuffer->fbo_vk->GetColor()->Transition(rp->cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 				vkCmdEndRenderPass(rp->cmd);
 				vkEndCommandBuffer(rp->cmd);
 				rp->state = RPState::CAPPED;
@@ -1108,22 +1137,13 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	}
 	displayFramebuf_ = vfb;
 
-	// We collect all the renderpasses from this frame, but only do anything
-	// with them if we are running buffered.
-	// TODO: Remove walking when non-buffered - only useful for debugging in the beginning.
-	WalkRenderPasses(passOrder_);
-	if (useBufferedRendering_) {
-		SubmitRenderPasses(passOrder_);
-	}
-
+	curCmd_ = vulkan_->GetSurfaceCommandBuffer();
 	if (displayFramebufPtr_ == 0) {
 		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
 		ClearBuffer();
 		return;
 	}
-
-	curCmd_ = VK_NULL_HANDLE;
 
 	if (vfb->fbo_vk) {
 		struct CardboardSettings cardboardSettings;
@@ -1152,8 +1172,6 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		VkViewport vp;
 		vp.minDepth = 0.0f;
 		vp.maxDepth = 1.0f;
-
-		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
 
 		if (!usePostShader_) {
 			if (cardboardSettings.enabled) {
@@ -1664,6 +1682,10 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 }
 
 void FramebufferManagerVulkan::EndFrame() {
+	if (pendingDependency_) {
+		DebugBreak();
+	}
+
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs();
@@ -1716,6 +1738,14 @@ void FramebufferManagerVulkan::EndFrame() {
 		PackFramebufferAsync_(nullptr);
 	FrameData &frame = frameData_[curFrame_];
 	frame.push_->End();
+
+	// We collect all the renderpasses from this frame, but only do anything
+	// with them if we are running buffered.
+	// TODO: Remove walking when non-buffered - only useful for debugging in the beginning.
+	WalkRenderPasses(passOrder_);
+	if (useBufferedRendering_) {
+		SubmitRenderPasses(passOrder_);
+	}
 
 	curFrame_++;
 	curFrame_ &= 1;
@@ -1926,13 +1956,21 @@ void FramebufferManagerVulkan::GetRenderPassInfo(char *buf, size_t bufsize) {
 
 #define WRITE p+=sprintf
 
-	static const char *rpStateStr[5] = { "(REC)", "(CAP)", "(PAUSE)", "(FLUSH)", "(SUBMIT)" };
-
 	// TODO: Check against bufsize
 	char *p = buf;
 	for (FBRenderPass *rp : passOrder_) {
-		WRITE(p, "RP at %08x/%08x: %s", rp->vfb->fb_address, rp->vfb->z_address, rpStateStr[(int)rp->state]);
+		char depstr[256];
+		if (rp->dependencies.size()) {
+			snprintf(depstr, sizeof(depstr), " (%d)", rp->dependencies[0]->id);
+		} else {
+			depstr[0] = '\0';
+		}
+		WRITE(p, "RP %d at %08x/%08x (%dx%d, %d deps%s, %d resumes, %d sec, %d draws, %d clears) vfb: %p\n",
+			rp->id, rp->vfb->fb_address, rp->vfb->z_address,
+			rp->vfb->width, rp->vfb->height,
+			(int)rp->dependencies.size(), depstr, rp->resumes, (int)rp->isSecondary, rp->numDraws, rp->numClears, rp->vfb);
 	}
+	WRITE(p, "Display: %08x", displayFramebuf_ ? displayFramebuf_->fb_address : -1);
 	*p = '\0';
 #undef WRITE
 }

@@ -50,7 +50,7 @@ public:
 	int32_t GetWidth() const { return tex_width; }
 	int32_t GetHeight() const { return tex_height; }
 
-	void Transition(VkCommandBuffer cmd, VkImageLayout target);
+	void Transition(VkCommandBuffer cmd, VkImageLayout from, VkImageLayout target);
 
 private:
 	void CreateMappableImage();

@@ -1,4 +1,3 @@
-#define __STDC_LIMIT_MACROS
 #include <cstdlib>
 #include <cstdint>
 #include <assert.h>
@@ -1288,6 +1287,13 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 			}
 		}
 		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	}
+
+	if (old_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+			image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		}
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
