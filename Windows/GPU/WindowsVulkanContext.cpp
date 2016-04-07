@@ -53,6 +53,7 @@
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
 
+#include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/text/parsers.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
@@ -124,12 +125,20 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	// Getting some bizarre false positives for mapping image memory.
-	// https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/121
-	if (msgCode == 6 && (!memcmp(pMsg, "Cannot map", 10) || !memcmp(pMsg, "Cannot sub", 10)))
+	// validator or glslang bug (validator #298)
+	if (msgCode == 15 && startsWith(pMsg, "Shader requires"))
 		return false;
-	// And for dynamic offsets.
-	if (msgCode == 62 && (!memcmp(pMsg, "VkDesc", 6)))
+
+	// layout barrier. TODO: This one I should fix.
+	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
+		return false;
+
+	// memory free'd while still holding a ref. validator bug? or worrying...
+	if (msgCode == 6 && startsWith(pMsg, "Attempting to free memory"))
+		return false;
+
+	// another validator bug (validator #299)
+	if (msgCode == 63 && startsWith(pMsg, "VkDescriptorSet"))
 		return false;
 
 #ifdef _WIN32
