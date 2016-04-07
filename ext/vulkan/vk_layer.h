@@ -261,23 +261,15 @@ typedef enum VkLayerDbgAction_ {
 // ------------------------------------------------------------------------------------------------
 // CreateInstance and CreateDevice support structures
 
+/* Sub type of structure for instance and device loader ext of CreateInfo.
+ * When sType == VK_STRUCTURE_TYPE_LAYER_INSTANCE_CREATE_INFO
+ * or sType == VK_STRUCTURE_TYPE_LAYER_DEVICE_CREATE_INFO
+ * then VkLayerFunction indicates struct type pointed to by pNext
+ */
 typedef enum VkLayerFunction_ {
     VK_LAYER_LINK_INFO = 0,
-    VK_LAYER_DEVICE_INFO = 1,
-    VK_LAYER_INSTANCE_INFO = 2
+    VK_LOADER_DATA_CALLBACK = 1
 } VkLayerFunction;
-
-/*
- * When creating the device chain the loader needs to pass
- * down information about it's device structure needed at
- * the end of the chain. Passing the data via the
- * VkLayerInstanceInfo avoids issues with finding the
- * exact instance being used.
- */
-typedef struct VkLayerInstanceInfo_ {
-    void *instance_info;
-    PFN_vkGetInstanceProcAddr pfnNextGetInstanceProcAddr;
-} VkLayerInstanceInfo;
 
 typedef struct VkLayerInstanceLink_ {
     struct VkLayerInstanceLink_ *pNext;
@@ -296,13 +288,18 @@ typedef struct VkLayerDeviceInfo_ {
     PFN_vkGetInstanceProcAddr pfnNextGetInstanceProcAddr;
 } VkLayerDeviceInfo;
 
+typedef VkResult (VKAPI_PTR *PFN_vkSetInstanceLoaderData)(VkInstance instance,
+        void *object);
+typedef VkResult (VKAPI_PTR *PFN_vkSetDeviceLoaderData)(VkDevice device,
+        void *object);
+
 typedef struct {
     VkStructureType sType; // VK_STRUCTURE_TYPE_LAYER_INSTANCE_CREATE_INFO
     const void *pNext;
     VkLayerFunction function;
     union {
         VkLayerInstanceLink *pLayerInfo;
-        VkLayerInstanceInfo instanceInfo;
+        PFN_vkSetInstanceLoaderData pfnSetInstanceLoaderData;
     } u;
 } VkLayerInstanceCreateInfo;
 
@@ -318,9 +315,7 @@ typedef struct {
     VkLayerFunction function;
     union {
         VkLayerDeviceLink *pLayerInfo;
-        VkLayerDeviceInfo deviceInfo;
+        PFN_vkSetDeviceLoaderData pfnSetDeviceLoaderData;
     } u;
 } VkLayerDeviceCreateInfo;
 
-// ------------------------------------------------------------------------------------------------
-// API functions

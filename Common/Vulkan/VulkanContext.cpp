@@ -93,8 +93,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	app_info.pEngineName = app_name;
 	// Let's increment this when we make major engine/context changes.
 	app_info.engineVersion = 1;
-	// Don't specify the API patch version.
-	app_info.apiVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.apiVersion = VK_API_VERSION_1_0;
 
 	VkInstanceCreateInfo inst_info = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
@@ -958,12 +957,12 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 
 	// TODO: Find a better way to specify the prioritized present mode while being able
 	// to fall back in a sensible way.
-	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM;
+	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
 	for (size_t i = 0; i < presentModeCount; i++) {
 		ILOG("Supported present mode: %d", presentModes[i]);
 	}
 	for (size_t i = 0; i < presentModeCount; i++) {
-		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM) {
+		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
 			// Default to the first present mode from the list.
 			swapchainPresentMode = presentModes[i];
 		}
