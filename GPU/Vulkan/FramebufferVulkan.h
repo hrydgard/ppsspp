@@ -73,6 +73,33 @@ struct CardboardSettings {
 	float screenHeight;
 };
 
+// States of FBRenderPass
+enum class RPState {
+	RECORDING,  // The fb render pass is being recorded.
+	PAUSED,  // The fb render pass is paused and can be resumed without starting a new render pass. Command buffer is still active too.
+	FLUSHED, // The fb render pass has been ended. Can be restarted with LOAD_OP=READ but will need a new command buffer. Useful for debugging.
+	CAPPED,  // The fb render pass has been capped. The command buffer has been ended. No more commands can be recorded.
+	SUBMITTED,
+};
+
+struct FBRenderPass {
+	VkCommandBuffer cmd;
+	// VulkanFBO *vk_fbo;
+	VirtualFramebuffer *vfb;
+	std::vector<FBRenderPass *> dependencies;
+	bool executed;
+	int resumes;
+	int id;
+	RPState state;
+
+	// Statistics/info. not used for function.
+	bool isSecondary;
+	int numDraws;
+	int numClears;
+
+	void AddDependency(FBRenderPass *dep);
+};
+
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
 public:
 	FramebufferManagerVulkan(VulkanContext *vulkan);
@@ -146,6 +173,8 @@ public:
 		DoNotifyDraw();
 	}
 
+	void GetRenderPassInfo(char *buf, size_t bufsize);
+
 protected:
 	virtual void DisableState() override {}
 	virtual void ClearBuffer(bool keepState = false);
@@ -161,8 +190,14 @@ protected:
 	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
-
 private:
+	// Returns true if the caller should begin a render pass on curCmd_.
+	bool UpdateRenderPass();
+	void SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder);
+	void ResetRenderPassInfo();
+	FBRenderPass *GetRenderPass(VirtualFramebuffer *vfb);
+
+	void WalkRenderPasses(std::vector<FBRenderPass *> &order);
 
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
 	VulkanTexture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
@@ -175,28 +210,30 @@ private:
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
 	VulkanContext *vulkan_;
-
-	// The command buffer of the current framebuffer pass being rendered to.
-	// One framebuffer can be used as a texturing source at multiple times in a frame,
-	// but then the contents have to be copied out into a new texture every time.
-	VkCommandBuffer curCmd_;
-	VkCommandBuffer cmdInit_;
+	TextureCacheVulkan *textureCache_;
+	ShaderManagerVulkan *shaderManager_;
+	DrawEngineVulkan *drawEngine_;
 
 	// Used by DrawPixels
 	VulkanTexture *drawPixelsTex_;
 	GEBufferFormat drawPixelsTexFormat_;
-
 	u8 *convBuf_;
 	u32 convBufSize_;
-
-	TextureCacheVulkan *textureCache_;
-	ShaderManagerVulkan *shaderManager_;
-	DrawEngineVulkan *drawEngine_;
 
 	bool resized_;
 
 	AsyncPBOVulkan *pixelBufObj_;
 	int currentPBO_;
+
+	// Render pass management.
+	VkCommandBuffer curCmd_; // The command buffer of the current FBRenderPass being rendered to.
+	std::vector<FBRenderPass *> passes_;
+	std::vector<FBRenderPass *> passOrder_;
+	FBRenderPass *curRenderPass_;
+	VirtualFramebuffer *renderPassVFB_;
+	
+	// When texturing, is set so that when we switch RP, this dependency will be added.
+	FBRenderPass *pendingDependency_;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
@@ -217,7 +254,8 @@ private:
 	// This gets copied to the current frame's push buffer as needed.
 	PostShaderUniforms postUniforms_;
 
-	// Renderpasses, all combination of preserving or clearing fb contents
+	// Renderpass Vulkan objects, all combinations of preserving or clearing fb contents.
+	// Let's see if we'll use them all...
 	VkRenderPass rpLoadColorLoadDepth_;
 	VkRenderPass rpClearColorLoadDepth_;
 	VkRenderPass rpLoadColorClearDepth_;

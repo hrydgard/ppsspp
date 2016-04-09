@@ -406,6 +406,8 @@ void SoftwareTransform(
 
 	// Here's the best opportunity to try to detect rectangles used to clear the screen, and
 	// replace them with real clears. This can provide a speedup on certain mobile chips.
+	// Potentially we could also detect things like textured rectangles that cover the screen
+	// like FMV.
 	//
 	// An alternative option is to simply ditch all the verts except the first and last to create a single
 	// rectangle out of many. Quite a small optimization though.

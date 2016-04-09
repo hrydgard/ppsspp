@@ -173,6 +173,7 @@ private:
 	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
+
 	static CommandInfo cmdInfo_[256];
 
 	GraphicsContext *gfxCtx_;

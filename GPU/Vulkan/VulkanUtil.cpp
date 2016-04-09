@@ -20,18 +20,25 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-VulkanFBO::VulkanFBO() : color_(nullptr), depthStencil_(nullptr) {}
+VulkanFBO::VulkanFBO() : color_(nullptr), depthStencil_(nullptr), framebuffer_(VK_NULL_HANDLE) {}
 
 VulkanFBO::~VulkanFBO() {
+	assert(color_ == nullptr);
 	delete color_;
 	delete depthStencil_;
 }
 
 void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int width, int height, VkFormat color_Format) {
 	color_ = new VulkanTexture(vulkan);
+	depthStencil_ = new VulkanTexture(vulkan);
+
+	VkFormat depthFormat = vulkan->GetDeviceInfo().preferredDepthStencilFormat;
+
 	VkImageCreateFlags flags = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	color_->CreateDirect(width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, nullptr);
-	depthStencil_->CreateDirect(width, height, 1, VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, flags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
+	depthStencil_->CreateDirect(width, height, 1, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, nullptr);
+
+	// color_->ClearColor(vulkan->GetInitCommandBuffer(), 0x00FF00FF, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
 	VkImageView views[2] = { color_->GetImageView(), depthStencil_->GetImageView() };
 
@@ -47,7 +54,18 @@ void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int wi
 	vkCreateFramebuffer(vulkan->GetDevice(), &fb, nullptr, &framebuffer_);
 }
 
-Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
+void VulkanFBO::Destroy(VulkanContext *vulkan) {
+	delete color_;
+	color_ = nullptr;
+	delete depthStencil_;
+	depthStencil_ = nullptr;
+	if (framebuffer_) {
+		vulkan->Delete().QueueDeleteFramebuffer(framebuffer_);
+		framebuffer_ = VK_NULL_HANDLE;
+	}
+}
+
+Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan), curFrame_(0) {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	bindings[0].descriptorCount = 1;

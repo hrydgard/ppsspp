@@ -512,7 +512,7 @@ void TextureCacheVulkan::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 	key.magFilt = magFilt & 1;
 	key.sClamp = sClamp;
 	key.tClamp = tClamp;
-	key.maxLevel = entry.vkTex->texture_->GetNumMips() - 1;
+	key.maxLevel = entry.vkTex ? (entry.vkTex->texture_->GetNumMips() - 1) : 0;
 	/*
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
@@ -820,18 +820,20 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 		//depalFBO->EndPass(cmd);
 		//depalFBO->TransitionToTexture(cmd);
 		//imageView = depalFBO->GetColorImageView();
+	} else {
+		VulkanTexture *texture = framebufferManager_->GetFramebufferColor(gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		imageView = texture->GetImageView();
 	}
 
 	/*
 	imageView = depalFBO->GetColorImageView();
 
 	SamplerCacheKey samplerKey;
-	framebufferManager_->RebindFramebuffer();
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
-	sampler = GetOrCreateSampler(samplerKey);
 	*/
 
+	
 	SamplerCacheKey key;
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, key);
 	UpdateSamplingParams(*nextTexture_, key);
 	key.mipEnable = false;
 	sampler = samplerCache_.GetOrCreateSampler(key);

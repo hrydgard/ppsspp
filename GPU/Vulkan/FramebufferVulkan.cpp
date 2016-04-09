@@ -81,6 +81,12 @@ void main() {
 
 void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
+void FBRenderPass::AddDependency(FBRenderPass *dep) {
+	if (std::find(dependencies.begin(), dependencies.end(), dep) == dependencies.end()) {
+		dependencies.push_back(dep);
+	}
+}
+
 FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	vulkan_(vulkan),
 	drawPixelsTex_(nullptr),
@@ -95,7 +101,11 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	curFrame_(0),
 	pipelineBasicTex_(VK_NULL_HANDLE),
 	pipelinePostShader_(VK_NULL_HANDLE),
-	vulkan2D_(vulkan) {
+	vulkan2D_(vulkan),
+	curRenderPass_(nullptr),
+	pendingDependency_(nullptr),
+	curCmd_(VK_NULL_HANDLE),
+	renderPassVFB_(nullptr) {
 
 	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
 	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
@@ -158,14 +168,25 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &rpLoadColorClearDepth_);
 
+	memset(&frameData_, 0, sizeof(frameData_));
+
 	// Initialize framedata
 	for (int i = 0; i < 2; i++) {
+		FrameData &frame = frameData_[i];
+
 		VkCommandPoolCreateInfo cp = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		cp.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 		cp.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		VkResult res = vkCreateCommandPool(vulkan_->GetDevice(), &cp, nullptr, &frameData_[i].cmdPool_);
 		assert(res == VK_SUCCESS);
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+		frame.push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+
+		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+		cmd.commandBufferCount = MAX_COMMAND_BUFFERS;
+		cmd.commandPool = frame.cmdPool_;
+		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[0]);
+		frame.totalCommandBuffers_ = MAX_COMMAND_BUFFERS;
 	}
 
 	pipelineCache2D_ = vulkan_->CreatePipelineCache();
@@ -195,6 +216,8 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 	delete[] convBuf_;
 
+	ResetRenderPassInfo();
+
 	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
 	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
 	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
@@ -222,57 +245,175 @@ FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	if (!useBufferedRendering_) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+	bool shouldBeginRP = UpdateRenderPass();
 
-		VkClearValue colorValue, depthValue;
-		colorValue.color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
-		colorValue.color.float32[3] = ((color >> 24) & 0xFF) * (1.0f / 255.0f);
-		depthValue.depthStencil.depth = depth;
-		depthValue.depthStencil.stencil = (color >> 24) & 0xFF;
+	curRenderPass_->numClears++;
+	VkClearValue clearValues[2] = {};
+	clearValues[0].color.float32[0] = (color & 0xFF) * (1.0f / 255.0f);
+	clearValues[0].color.float32[1] = ((color >> 8) & 0xFF) * (1.0f / 255.0f);
+	clearValues[0].color.float32[2] = ((color >> 16) & 0xFF) * (1.0f / 255.0f);
+	clearValues[0].color.float32[3] = ((color >> 24) & 0xFF) * (1.0f / 255.0f);
+	clearValues[1].depthStencil.depth = depth;
+	clearValues[1].depthStencil.stencil = (color >> 24) & 0xFF;
 
-		VkClearRect rect;
-		rect.baseArrayLayer = 0;
-		rect.layerCount = 1;
-		rect.rect.offset.x = x;
-		rect.rect.offset.y = y;
-		rect.rect.extent.width = w;
-		rect.rect.extent.height = h;
+	if (shouldBeginRP) {
+		// TODO: Only clear color or only clear depth as appropriate.
+		VkRenderPassBeginInfo rpbi = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+		rpbi.clearValueCount = 2;
+		rpbi.pClearValues = clearValues;
+		rpbi.framebuffer = currentRenderVfb_->fbo_vk->GetFramebuffer();
+		rpbi.renderArea.offset = { 0, 0 };
+		rpbi.renderArea.extent.width = currentRenderVfb_->renderWidth;
+		rpbi.renderArea.extent.height = currentRenderVfb_->renderHeight;
+		rpbi.renderPass = rpClearColorClearDepth_;
+		vkCmdBeginRenderPass(curCmd_, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+		// The render pass takes care of clearing.
+		return;
+	}
 
-		int count = 0;
-		VkClearAttachment attach[2];
-		// The Clear detection takes care of doing a regular draw instead if separate masking
-		// of color and alpha is needed, so we can just treat them as the same.
-		if (clearColor || clearAlpha) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			attach[count].clearValue = colorValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		if (clearDepth) {
-			attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-			attach[count].clearValue = depthValue;
-			attach[count].colorAttachment = 0;
-			count++;
-		}
-		vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
+	// Simply perform a clear directly onto the current framebuffer.
+	float x, y, w, h;
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 
-		if (clearColor || clearAlpha) {
-			SetColorUpdated(gstate_c.skipDrawReason);
-		}
-		if (clearDepth) {
-			SetDepthUpdated();
-		}
-	} else {
-		// TODO: Clever render pass magic.
+	VkClearRect rect = {};
+	rect.baseArrayLayer = 0;
+	rect.layerCount = 1;
+	rect.rect.offset.x = x;
+	rect.rect.offset.y = y;
+	rect.rect.extent.width = w;
+	rect.rect.extent.height = h;
+
+	int count = 0;
+	VkClearAttachment attach[2] = {};
+	// The Clear detection takes care of doing a regular draw instead if separate masking
+	// of color and alpha is needed, so we can just treat them as the same.
+	if (clearColor || clearAlpha) {
+		attach[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		attach[count].clearValue = clearValues[0];
+		attach[count].colorAttachment = 0;
+		count++;
+	}
+	if (clearDepth) {
+		attach[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		attach[count].clearValue = clearValues[1];
+		attach[count].colorAttachment = 0;
+		count++;
+	}
+	vkCmdClearAttachments(curCmd_, count, attach, 1, &rect);
+
+	if (clearColor || clearAlpha) {
+		SetColorUpdated(gstate_c.skipDrawReason);
+	}
+	if (clearDepth) {
+		SetDepthUpdated();
 	}
 }
 
 void FramebufferManagerVulkan::DoNotifyDraw() {
+	bool shouldBeginRP = UpdateRenderPass();
+	curRenderPass_->numDraws++;
+	if (shouldBeginRP) {
+		// currentRenderVfb_->fbo_vk->GetColor()->Transition(curCmd_, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		VkRenderPassBeginInfo rpbi = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
+		rpbi.framebuffer = currentRenderVfb_->fbo_vk->GetFramebuffer();
+		rpbi.renderArea.offset = { 0, 0 };
+		rpbi.clearValueCount = 0;
+		rpbi.renderArea.extent.width = currentRenderVfb_->renderWidth;
+		rpbi.renderArea.extent.height = currentRenderVfb_->renderHeight;
+		rpbi.renderPass = rpLoadColorLoadDepth_;
+		vkCmdBeginRenderPass(curCmd_, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
+	}
+}
 
+bool FramebufferManagerVulkan::UpdateRenderPass() {
+	assert(currentRenderVfb_);
+	if (currentRenderVfb_ == renderPassVFB_) {
+		return false;
+	}
+
+	// if (currentRenderVfb_->width == 64) 
+	// Framebuffer has changed! Update render passes.
+
+	// If FBO object already has a render pass, resume it if possible.
+	FBRenderPass *frp = GetRenderPass(currentRenderVfb_);
+	bool isSecondary = false;
+	if (frp) {
+		switch (frp->state) {
+		case RPState::PAUSED:
+			// Resume pass.
+			frp->resumes++;
+			frp->state = RPState::RECORDING;
+			assert(frp->vfb == currentRenderVfb_);
+			curRenderPass_ = frp;
+			if (useBufferedRendering_) {
+				curCmd_ = frp->cmd;
+			}
+			drawEngine_->SetCmdBuffer(curCmd_);
+			renderPassVFB_ = currentRenderVfb_;
+			if (pendingDependency_) {
+				frp->AddDependency(pendingDependency_);
+				pendingDependency_ = nullptr;
+			}
+			return false;  // Nothing more to do. Don't start a new render pass.
+		case RPState::CAPPED:
+			// We need to create a new render pass.
+			// ERROR_LOG(G3D, "Unimplemented - Resuming renderer to a CAPPED render pass");
+			// return false;
+			isSecondary = true;
+			break;
+		case RPState::FLUSHED:
+			// TODO: Resume the existing render pass (really, begin a new one but in the same one...)
+			break;
+		case RPState::RECORDING:
+			// Should never happen.
+			ERROR_LOG(G3D, "Logic failure");
+			break;
+		}
+	}
+
+	if (curRenderPass_) {
+		// We simply switched render target. Presumably some later pass will turn it into a texture.
+		if (curRenderPass_->state == RPState::RECORDING) {
+			curRenderPass_->state = RPState::PAUSED;
+			// Don't end the command buffer, don't end the render pass.
+		} else if (curRenderPass_->state == RPState::CAPPED) {
+			// Probably coming from SetTexture in Flush, using the results of the last render pass
+			// to draw something into a new one. Quite likely in this situation that we do not
+			// need to care about the existing contents of the framebuffer, if blending is off.
+		} else {
+			Crash();
+		}
+	}
+
+	FBRenderPass *rp = new FBRenderPass();
+	rp->id = (int)passes_.size() + 1;
+	rp->executed = false;
+	rp->state = RPState::RECORDING;
+	rp->vfb = currentRenderVfb_;
+	rp->resumes = 0;
+	rp->isSecondary = isSecondary;
+	if (useBufferedRendering_) {
+		rp->cmd = AllocFrameCommandBuffer();
+		curCmd_ = rp->cmd;
+		VkCommandBufferBeginInfo bi = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+		bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+		bi.pInheritanceInfo = nullptr;
+		vkBeginCommandBuffer(curCmd_, &bi);
+	} else {
+		rp->cmd = VK_NULL_HANDLE;
+	}
+
+	drawEngine_->SetCmdBuffer(curCmd_);
+
+	passes_.push_back(rp);
+
+	curRenderPass_ = rp;
+	renderPassVFB_ = currentRenderVfb_;
+	if (pendingDependency_) {
+		rp->AddDependency(pendingDependency_);
+		pendingDependency_ = nullptr;
+	}
+	return useBufferedRendering_;
 }
 
 void FramebufferManagerVulkan::UpdatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight) {
@@ -465,10 +606,10 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 		return;
 
 	float texCoords[8] = {
-		u0,v0,
-		u1,v0,
-		u1,v1,
-		u0,v1,
+		u0, v0,
+		u1, v0,
+		u1, v1,
+		u0, v1,
 	};
 
 	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
@@ -512,24 +653,25 @@ void FramebufferManagerVulkan::DrawTexture(VulkanTexture *texture, float x, floa
 	vkCmdDraw(cmd, 4, 1, 0, 0);
 }
 
-void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *v) {
-	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
-	if (v->fbo_vk) {
-		delete v->fbo_vk;
-		v->fbo_vk = 0;
+void FramebufferManagerVulkan::DestroyFramebuf(VirtualFramebuffer *vfb) {
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
+	if (vfb->fbo_vk) {
+		vfb->fbo_vk->Destroy(vulkan_);
+		delete vfb->fbo_vk;
+		vfb->fbo_vk = 0;
 	}
 
 	// Wipe some pointers
-	if (currentRenderVfb_ == v)
+	if (currentRenderVfb_ == vfb)
 		currentRenderVfb_ = 0;
-	if (displayFramebuf_ == v)
+	if (displayFramebuf_ == vfb)
 		displayFramebuf_ = 0;
-	if (prevDisplayFramebuf_ == v)
+	if (prevDisplayFramebuf_ == vfb)
 		prevDisplayFramebuf_ = 0;
-	if (prevPrevDisplayFramebuf_ == v)
+	if (prevPrevDisplayFramebuf_ == vfb)
 		prevPrevDisplayFramebuf_ = 0;
 
-	delete v;
+	delete vfb;
 }
 
 void FramebufferManagerVulkan::RebindFramebuffer() {
@@ -537,9 +679,7 @@ void FramebufferManagerVulkan::RebindFramebuffer() {
 }
 
 void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
-	return;
-
-	/*
+	// Copy the whole framebuffer object? Probably not a great idea.
 	VirtualFramebuffer old = *vfb;
 
 	if (force) {
@@ -558,7 +698,7 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	SetRenderSize(vfb);
 
 	bool trueColor = g_Config.bTrueColor;
-	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
+	if (!trueColor && hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
 		trueColor = true;
 	}
 
@@ -583,36 +723,28 @@ void FramebufferManagerVulkan::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w,
 	}
 
 	textureCache_->ForgetLastTexture();
-
 	if (!useBufferedRendering_) {
 		if (vfb->fbo_vk) {
 			delete vfb->fbo_vk;
-			vfb->fbo_vk = 0;
+			vfb->fbo_vk = nullptr;
 		}
 		return;
 	}
 
 	vfb->fbo_vk = new VulkanFBO();
-	// bo_create(vfb->renderWidth, vfb->renderHeight, 1, true, (FBOColorDepth)vfb->colorDepth);
+	vfb->fbo_vk->Create(vulkan_, rpLoadColorLoadDepth_, vfb->renderWidth, vfb->renderHeight, framebufFormat);
 	if (old.fbo_vk) {
 		INFO_LOG(SCEGE, "Resizing FBO for %08x : %i x %i x %i", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo_vk) {
 			/// fbo_bind_as_render_target(vfb->fbo_vk);
-			ClearBuffer();
-			if (!g_Config.bDisableSlowFramebufEffects) {
-				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
-			}
+			//ClearBuffer();
+			//if (!g_Config.bDisableSlowFramebufEffects) {
+			//	BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
+			//}
 		}
+		old.fbo_vk->Destroy(vulkan_);
 		delete old.fbo_vk;
-		if (vfb->fbo_vk) {
-			// fbo_bind_as_render_target(vfb->fbo_vk);
-		}
 	}
-
-	if (!vfb->fbo_vk) {
-		ERROR_LOG(SCEGE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
-	}
-	*/
 }
 
 void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
@@ -750,8 +882,9 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 }
 
 VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
-	if (framebuffer == NULL) {
-		framebuffer = currentRenderVfb_;
+	if (!framebuffer) {
+		Crash();
+		return nullptr;
 	}
 
 	if (!framebuffer->fbo_vk || !useBufferedRendering_) {
@@ -765,7 +898,7 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
 		skipCopy = true;
 	}
-	if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
+	if (false && !skipCopy && currentRenderVfb_ && framebuffer->fb_address == fbRawAddress) {
 		// TODO: Enable the below code
 		return framebuffer->fbo_vk->GetColor();
 		/*
@@ -803,6 +936,24 @@ VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, V
 		}
 		*/
 	} else {
+		// if framebuffer == currentRenderVfb here, that's probably OK - the game is just using the just 
+		// rendered texture as an input for the next draw call. At this point we haven't updated curRenderPass yet.
+
+		FBRenderPass *rp = GetRenderPass(framebuffer);
+		if (rp) {
+			// TODO: This is wrong - curRenderPass has not been updated yet at this point.
+			// Should latch some state.
+			pendingDependency_ = rp;
+
+			if (rp->state != RPState::CAPPED) {
+				// Transition to a layout appropriate for texturing
+				framebuffer->fbo_vk->GetColor()->Transition(rp->cmd, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+				vkCmdEndRenderPass(rp->cmd);
+				vkEndCommandBuffer(rp->cmd);
+				rp->state = RPState::CAPPED;
+			}
+		} // else probably from an older frame.
+
 		return framebuffer->fbo_vk->GetColor();
 	}
 }
@@ -812,30 +963,92 @@ struct CardboardSettings * FramebufferManagerVulkan::GetCardboardSettings(struct
 	return nullptr;
 }
 
-void FramebufferManagerVulkan::CopyDisplayToOutput() {
-	// This is where we should collect all the renderpasses from this frame,
-	// sort them in order according to texturing dependencies, and enqueue
-	// them on the Vulkan context.
+FBRenderPass *FramebufferManagerVulkan::GetRenderPass(VirtualFramebuffer *vfb) {
+	for (auto rp : passes_) {
+		if (rp->vfb == vfb) {
+			return rp;
+		}
+	}
+	return nullptr;
+}
+
+void FramebufferManagerVulkan::WalkRenderPasses(std::vector<FBRenderPass *> &rpOrder) {
+	rpOrder.clear();
+
+	// This is stupid and must be improved later. Cannot recurse from the display framebuffer,
+	// as generally that's from the previous frame...
+
+	// First grab all the passes without dependencies
+	for (auto rp : passes_) {
+		if (rp->dependencies.empty()) {
+			rpOrder.push_back(rp);
+			rp->executed = true;
+		}
+	}
+
+	// Then grab all rest.
+	for (auto rp : passes_) {
+		if (!rp->executed) {
+			rpOrder.push_back(rp);
+			rp->executed = true;
+		}
+	}
 	
+	// OK, now we should have the complete render pass order.
+}
+
+void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &passOrder) {
+	// TODO: Maybe there's some more optimal way.
+	FBRenderPass *last = nullptr;
+	for (auto &rp : passOrder) {
+		if (rp == last) {
+			Crash();
+		}
+		last = rp;
+		switch (rp->state) {
+		case RPState::RECORDING:  // Should usually only have one left in this state - the main RT from the last frame.
+		{
+			VkCommandBuffer cmd = rp->cmd;
+			vkCmdEndRenderPass(cmd);
+			vkEndCommandBuffer(cmd);
+			rp->state = RPState::SUBMITTED;
+			// TODO: Collect transitions from dependencies of the next renderpass and 
+			// tack them onto rp->cmd here before queueing it.
+			vulkan_->QueueBeforeSurfaceRender(rp->cmd);
+			break;
+		}
+		case RPState::CAPPED:
+			// Already done. Let's just enqueue it.
+			vulkan_->QueueBeforeSurfaceRender(rp->cmd);
+			break;
+		case RPState::PAUSED:
+			// Should we keep it around for the next frame?
+			break;
+		case RPState::FLUSHED:
+			// Nothing to do
+			break;
+		case RPState::SUBMITTED:
+			// I guess we got called twice before EndFrame?
+			break;
+		}
+	}
 	// Then, we will simply perform a blit of the currently displayed framebuffer to the backbuffer.
 	// If there's no extra graphics to draw like framerate counters or controls,
 	// then in theory, we can even avoid starting up a render pass at all for the backbuffer (!). not sure if that
 	// is worth the needed refactoring trouble though.
+}
 
-	// fbo_unbind();
+void FramebufferManagerVulkan::ResetRenderPassInfo() {
+	passOrder_.clear();
+	for (auto rp : passes_) {
+		delete rp;
+	}
+	passes_.clear();
+	curRenderPass_ = nullptr;
+}
 
+void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	currentRenderVfb_ = 0;
-
-	if (useBufferedRendering_) {
-		// TODO: Clear here. Although it will be done through the surface pass instead..
-	}
-
-	if (displayFramebufPtr_ == 0) {
-		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
-		// No framebuffer to display! Clear to black.
-		ClearBuffer();
-		return;
-	}
 
 	u32 offsetX = 0;
 	u32 offsetY = 0;
@@ -881,6 +1094,12 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		}
 	}
 
+	curCmd_ = vulkan_->GetSurfaceCommandBuffer();
+	VkRect2D scissor = {};
+	scissor.extent.width = pixelWidth_;
+	scissor.extent.height = pixelHeight_;
+	vkCmdSetScissor(curCmd_, 0, 1, &scissor);
+	
 	if (!vfb) {
 		if (Memory::IsValidAddress(displayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
@@ -917,6 +1136,14 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 		prevDisplayFramebuf_ = displayFramebuf_;
 	}
 	displayFramebuf_ = vfb;
+
+	curCmd_ = vulkan_->GetSurfaceCommandBuffer();
+	if (displayFramebufPtr_ == 0) {
+		DEBUG_LOG(SCEGE, "Display disabled, displaying only black");
+		// No framebuffer to display! Clear to black.
+		ClearBuffer();
+		return;
+	}
 
 	if (vfb->fbo_vk) {
 		struct CardboardSettings cardboardSettings;
@@ -1427,19 +1654,14 @@ void ShowScreenResolution();
 VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
 	FrameData &frame = frameData_[curFrame_];
 	int num = frame.numCommandBuffers_;
-	if (!frame.commandBuffers_[num]) {
-		VkCommandBufferAllocateInfo cmd = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-		cmd.commandBufferCount = 1;
-		cmd.commandPool = frame.cmdPool_;
-		cmd.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd, &frame.commandBuffers_[num]);
-		frame.totalCommandBuffers_ = num + 1;
-	}
+	frame.numCommandBuffers_ = num + 1;
 	return frame.commandBuffers_[num];
 }
 
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
+
+	ResetRenderPassInfo();
 
 	FrameData &frame = frameData_[curFrame_];
 	vkResetCommandPool(vulkan_->GetDevice(), frame.cmdPool_, 0);
@@ -1447,7 +1669,7 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 	frame.push_->Reset();
 	frame.push_->Begin(vulkan_);
-	
+
 	if (!useBufferedRendering_) {
 		// We only use a single command buffer in this case.
 		curCmd_ = vulkan_->GetSurfaceCommandBuffer();
@@ -1456,9 +1678,14 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 		scissor.extent = { (uint32_t)pixelWidth_, (uint32_t)pixelHeight_ };
 		vkCmdSetScissor(curCmd_, 0, 1, &scissor);
 	}
+	renderPassVFB_ = nullptr;
 }
 
 void FramebufferManagerVulkan::EndFrame() {
+	if (pendingDependency_) {
+		Crash();
+	}
+
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
 		DestroyAllFBOs();
@@ -1511,6 +1738,14 @@ void FramebufferManagerVulkan::EndFrame() {
 		PackFramebufferAsync_(nullptr);
 	FrameData &frame = frameData_[curFrame_];
 	frame.push_->End();
+
+	// We collect all the renderpasses from this frame, but only do anything
+	// with them if we are running buffered.
+	// TODO: Remove walking when non-buffered - only useful for debugging in the beginning.
+	WalkRenderPasses(passOrder_);
+	if (useBufferedRendering_) {
+		SubmitRenderPasses(passOrder_);
+	}
 
 	curFrame_++;
 	curFrame_ &= 1;
@@ -1689,7 +1924,6 @@ bool FramebufferManagerVulkan::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	return false;
 }
 
-
 void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
 	// keepState is irrelevant.
 	if (!currentRenderVfb_) {
@@ -1707,4 +1941,36 @@ void FramebufferManagerVulkan::ClearBuffer(bool keepState) {
 	rc.rect.extent.width = currentRenderVfb_->bufferWidth;
 	rc.rect.extent.height = currentRenderVfb_->bufferHeight;
 	vkCmdClearAttachments(curCmd_, 2, clear, 1, &rc);
+}
+
+void FramebufferManagerVulkan::GetRenderPassInfo(char *buf, size_t bufsize) {
+	if (!useBufferedRendering_) {
+		snprintf(buf, bufsize, "(non-buffered rendering - single render pass)");
+		return;
+	}
+
+	if (passOrder_.empty()) {
+		snprintf(buf, bufsize, "(no render passes)");
+		return;
+	}
+
+#define WRITE p+=sprintf
+
+	// TODO: Check against bufsize
+	char *p = buf;
+	for (FBRenderPass *rp : passOrder_) {
+		char depstr[256];
+		if (rp->dependencies.size()) {
+			snprintf(depstr, sizeof(depstr), " (%d)", rp->dependencies[0]->id);
+		} else {
+			depstr[0] = '\0';
+		}
+		WRITE(p, "RP %d at %08x/%08x (%dx%d, %d deps%s, %d resumes, %d sec, %d draws, %d clears) vfb: %p\n",
+			rp->id, rp->vfb->fb_address, rp->vfb->z_address,
+			rp->vfb->width, rp->vfb->height,
+			(int)rp->dependencies.size(), depstr, rp->resumes, (int)rp->isSecondary, rp->numDraws, rp->numClears, rp->vfb);
+	}
+	WRITE(p, "Display: %08x", displayFramebuf_ ? displayFramebuf_->fb_address : -1);
+	*p = '\0';
+#undef WRITE
 }
