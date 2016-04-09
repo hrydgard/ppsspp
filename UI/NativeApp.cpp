@@ -611,7 +611,9 @@ void NativeShutdownGraphics() {
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
 
-	uiTexture->Release();
+	if (uiTexture->Release()) {
+		uiTexture = nullptr;
+	}
 
 	delete uiContext;
 	uiContext = NULL;
@@ -619,7 +621,10 @@ void NativeShutdownGraphics() {
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
 
-	thin3d->Release();
+	// TODO: Reconsider this annoying ref counting stuff.
+	if (thin3d->Release()) {
+		thin3d = nullptr;
+	}
 }
 
 void TakeScreenshot() {

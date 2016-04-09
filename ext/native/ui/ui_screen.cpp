@@ -58,6 +58,9 @@ void UIScreen::update(InputState &input) {
 
 void UIScreen::preRender() {
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	if (!thin3d) {
+		return;
+	}
 	thin3d->Begin(true, 0xFF000000, 0.0f, 0);
 
 	T3DViewport viewport;
@@ -73,6 +76,9 @@ void UIScreen::preRender() {
 
 void UIScreen::postRender() {
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
+	if (!thin3d) {
+		return;
+	}
 	thin3d->End();
 }
 

@@ -677,7 +677,3 @@ bool ElfReader::LoadSymbols()
 	}
 	return hasSymbols;
 }
-
-
-
-

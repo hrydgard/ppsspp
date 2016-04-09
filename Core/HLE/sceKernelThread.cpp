@@ -1703,29 +1703,29 @@ void __KernelReSchedule(const char *reason)
 
 	// Execute any pending events while we're doing scheduling.
 	CoreTiming::Advance();
-	if (__IsInInterrupt() || !__KernelIsDispatchEnabled())
-	{
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
 		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";
 		return;
 	}
 
 	Thread *nextThread = __KernelNextThread();
-	if (nextThread)
+	if (nextThread) {
 		__KernelSwitchContext(nextThread, reason);
+	}
 	// Otherwise, no need to switch.
 }
 
 void __KernelReSchedule(bool doCallbacks, const char *reason)
 {
 	Thread *thread = __GetCurrentThread();
-	if (doCallbacks)
-	{
-		if (thread)
-			thread->isProcessingCallbacks = doCallbacks;
+	if (doCallbacks && thread != nullptr) {
+		thread->isProcessingCallbacks = doCallbacks;
 	}
+
+	// Note - this calls the function above, not this one. Overloading...
 	__KernelReSchedule(reason);
-	if (doCallbacks && thread != NULL && thread->GetUID() == currentThread) {
+	if (doCallbacks && thread != nullptr && thread->GetUID() == currentThread) {
 		if (thread->isRunning()) {
 			thread->isProcessingCallbacks = false;
 		}

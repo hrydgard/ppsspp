@@ -73,19 +73,22 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 		framesPerBuffer = 256;
 	if (framesPerBuffer < 32)
 		framesPerBuffer = 32;
+	if (framesPerBuffer > 4096)
+		framesPerBuffer = 4096;
+
 	sampleRate = _SampleRate;
 	if (sampleRate != 44100 && sampleRate != 48000) {
 		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
 		sampleRate = 44100;
 	}
 
-	buffer[0] = new short[framesPerBuffer * 2];
-	buffer[1] = new short[framesPerBuffer * 2];
-
 	SLresult result;
 	// create engine
 	result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
-	assert(SL_RESULT_SUCCESS == result);
+	if (result != SL_RESULT_SUCCESS) {
+		ELOG("OpenSL ES: Failed to create the engine: %d", (int)result);
+		return false;
+	}
 	result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
 	result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
@@ -98,7 +101,7 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 	SLuint32 sr = SL_SAMPLINGRATE_44_1;
 	if (sampleRate == 48000) {
 		sr = SL_SAMPLINGRATE_48;
-	}
+	} // Don't allow any other sample rates.
 
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
 	SLDataFormat_PCM format_pcm = {
@@ -121,7 +124,11 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 	const SLInterfaceID ids[2] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
 	const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk, 2, ids, req);
-	assert(SL_RESULT_SUCCESS == result);
+	if (result != SL_RESULT_SUCCESS) {
+		ELOG("OpenSL ES: CreateAudioPlayer failed: %d", (int)result);
+		// Should really tear everything down here. Sigh.
+		return false;
+	}
 
 	result = (*bqPlayerObject)->Realize(bqPlayerObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
@@ -138,6 +145,9 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 	assert(SL_RESULT_SUCCESS == result);
 
 	// Render and enqueue a first buffer. (or should we just play the buffer empty?)
+	buffer[0] = new short[framesPerBuffer * 2];
+	buffer[1] = new short[framesPerBuffer * 2];
+
 	curBuffer = 0;
 	audioCallback(buffer[curBuffer], framesPerBuffer);
 
@@ -151,40 +161,44 @@ bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleR
 
 // shut down the native audio system
 void OpenSLWrap_Shutdown() {
-	SLresult result;
-	ILOG("OpenSLWrap_Shutdown - stopping playback");
-	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
-	if (SL_RESULT_SUCCESS != result) {
-		ELOG("SetPlayState failed");
+	if (bqPlayerPlay) {
+		ILOG("OpenSLWrap_Shutdown - stopping playback");
+		SLresult result;
+		result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
+		if (SL_RESULT_SUCCESS != result) {
+			ELOG("SetPlayState failed");
+		}
 	}
 
 	ILOG("OpenSLWrap_Shutdown - deleting player object");
 
-	if (bqPlayerObject != NULL) {
+	if (bqPlayerObject) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
-		bqPlayerObject = NULL;
-		bqPlayerPlay = NULL;
-		bqPlayerBufferQueue = NULL;
-		bqPlayerMuteSolo = NULL;
-		bqPlayerVolume = NULL;
+		bqPlayerObject = nullptr;
+		bqPlayerPlay = nullptr;
+		bqPlayerBufferQueue = nullptr;
+		bqPlayerMuteSolo = nullptr;
+		bqPlayerVolume = nullptr;
 	}
 
 	ILOG("OpenSLWrap_Shutdown - deleting mix object");
 
-	if (outputMixObject != NULL) {
+	if (outputMixObject) {
 		(*outputMixObject)->Destroy(outputMixObject);
-		outputMixObject = NULL;
+		outputMixObject = nullptr;
 	}
 
 	ILOG("OpenSLWrap_Shutdown - deleting engine object");
 
-	if (engineObject != NULL) {
+	if (engineObject) {
 		(*engineObject)->Destroy(engineObject);
-		engineObject = NULL;
-		engineEngine = NULL;
+		engineObject = nullptr;
+		engineEngine = nullptr;
 	}
 	delete [] buffer[0];
 	delete [] buffer[1];
+	buffer[0] = nullptr;
+	buffer[1] = nullptr;
 	ILOG("OpenSLWrap_Shutdown - finished");
 }	
 

@@ -155,15 +155,18 @@ namespace Reporting
 		if (output == NULL)
 			output = &theVoid;
 
-		if (http.Resolve(ServerHostname(), ServerPort()))
-		{
+		const char *serverHost = ServerHostname();
+		if (!serverHost)
+			return false;
+
+		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
 			http.POST(uri, data, mimeType, output);
 			http.Disconnect();
-			result = true;
+			return true;
+		} else {
+			return false;
 		}
-
-		return result;
 	}
 
 	std::string StripTrailingNull(const std::string &str)

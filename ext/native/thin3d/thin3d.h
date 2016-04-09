@@ -11,6 +11,8 @@
 #include <vector>
 #include <string>
 
+#include "base/logging.h"
+
 class Matrix4x4;
 
 enum T3DBlendEquation : int {
@@ -212,8 +214,20 @@ public:
 	Thin3DObject() : refcount_(1) {}
 	virtual ~Thin3DObject() {}
 
+	// TODO: Reconsider this annoying ref counting stuff.
 	virtual void AddRef() { refcount_++; }
-	virtual void Release() { refcount_--; if (!refcount_) delete this; }
+	virtual bool Release() {
+		if (refcount_ > 0 && refcount_ < 10000) {
+			refcount_--;
+			if (refcount_ == 0) {
+				delete this;
+				return true;
+			}
+		} else {
+			ELOG("Refcount (%d) invalid for object %p - corrupt?", refcount_, this);
+		}
+		return false;
+	}
 
 private:
 	int refcount_;
