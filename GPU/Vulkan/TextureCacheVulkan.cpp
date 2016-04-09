@@ -928,7 +928,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	TexCacheEntry *entry = NULL;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool replaceImages = false;
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
@@ -1081,17 +1080,11 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1 && entry->vkTex) {
-					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
-					// Instead, let's use glTexSubImage to replace the images.
-					replaceImages = true;
-				} else {
-					if (entry->vkTex == lastBoundTexture) {
-						lastBoundTexture = nullptr;
-					}
-					delete entry->vkTex;
-					entry->vkTex = nullptr;
+				if (entry->vkTex == lastBoundTexture) {
+					lastBoundTexture = nullptr;
 				}
+				delete entry->vkTex;
+				entry->vkTex = nullptr;
 			}
 			// Clear the reliable bit if set.
 			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -1237,9 +1230,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	}
 
 	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
-
-	if (!replaceImages || !entry->vkTex) {
-		delete entry->vkTex;
+	if (!entry->vkTex) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
 		VulkanTexture *image = entry->vkTex->texture_;
@@ -1305,7 +1296,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
 			void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
-			LoadTextureLevel(*entry, (uint8_t *)data, stride, i, replaceImages, scaleFactor, dstFmt);
+			LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 		}
 	}
@@ -1545,7 +1536,7 @@ TextureCacheVulkan::TexCacheEntry::Status TextureCacheVulkan::CheckAlpha(const u
 	return (TexCacheEntry::Status)res;
 }
 
-void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, bool replaceImages, int scaleFactor, VkFormat dstFmt) {
+void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
 	CachedTextureVulkan *tex = entry.vkTex;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
