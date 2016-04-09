@@ -381,7 +381,7 @@ bool FramebufferManagerVulkan::UpdateRenderPass() {
 			// to draw something into a new one. Quite likely in this situation that we do not
 			// need to care about the existing contents of the framebuffer, if blending is off.
 		} else {
-			DebugBreak();
+			Crash();
 		}
 	}
 
@@ -883,7 +883,7 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 VulkanTexture *FramebufferManagerVulkan::GetFramebufferColor(u32 fbRawAddress, VirtualFramebuffer *framebuffer, int flags) {
 	if (!framebuffer) {
-		DebugBreak();
+		Crash();
 		return nullptr;
 	}
 
@@ -1002,7 +1002,7 @@ void FramebufferManagerVulkan::SubmitRenderPasses(std::vector<FBRenderPass *> &p
 	FBRenderPass *last = nullptr;
 	for (auto &rp : passOrder) {
 		if (rp == last) {
-			DebugBreak();
+			Crash();
 		}
 		last = rp;
 		switch (rp->state) {
@@ -1683,7 +1683,7 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 
 void FramebufferManagerVulkan::EndFrame() {
 	if (pendingDependency_) {
-		DebugBreak();
+		Crash();
 	}
 
 	if (resized_) {
