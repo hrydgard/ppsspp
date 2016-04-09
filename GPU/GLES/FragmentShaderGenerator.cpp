@@ -98,7 +98,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		highpTexcoord = highpFog;
 
 		if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
-			if (gl_extensions.GLES3 && gl_extensions.EXT_shader_framebuffer_fetch) {
+			if ((gstate_c.featureFlags & GPU_SUPPORTS_GLSL_ES_300) != 0 && gl_extensions.EXT_shader_framebuffer_fetch) {
 				WRITE(p, "#extension GL_EXT_shader_framebuffer_fetch : require\n");
 				lastFragData = "fragColor0";
 			} else if (gl_extensions.EXT_shader_framebuffer_fetch) {
