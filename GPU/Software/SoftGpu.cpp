@@ -103,6 +103,8 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 {
+	if (!thin3d)
+		return;
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
@@ -123,7 +125,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 
 	float u0 = 0.0f;
 	float u1;
-	if (displayFramebuf_ == 0) {
+	if (!Memory::IsValidAddress(displayFramebuf_)) {
 		u8 data[] = {0, 0, 0, 0};
 		fbTex->SetImageData(0, 0, 0, 1, 1, 1, 0, 4, data);
 		u1 = 1.0f;
@@ -215,6 +217,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 		0.0f, 0.0f, 1.0f, 0.0f,
 		0.0f, 0.0f, 0.0f, 1.0f,
 	};
+
 	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
 	thin3d->DrawIndexed(T3DPrimitive::PRIM_TRIANGLES, texColor, vformat, vdata, idata, 6, 0);
 }
