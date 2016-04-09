@@ -1058,6 +1058,11 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 
 	JsonReader reader(data.c_str(), data.size());
 	const json_value *root = reader.root();
+	if (!root) {
+		ERROR_LOG(LOADER, "Failed to parse json");
+		return;
+	}
+
 	std::string version = root->getString("version", "");
 
 	const char *gitVer = PPSSPP_GIT_VERSION;

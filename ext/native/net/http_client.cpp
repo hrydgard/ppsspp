@@ -46,11 +46,15 @@ bool Connection::Resolve(const char *host, int port) {
 		ELOG("Resolve: Already have a socket");
 		return false;
 	}
+	if (!host || port < 1 || port > 65535) {
+		ELOG("Resolve: Invalid host or port (%d)", port);
+		return false;
+	}
 
 	host_ = host;
 	port_ = port;
 
-	char port_str[10];
+	char port_str[16];
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
 	std::string err;
