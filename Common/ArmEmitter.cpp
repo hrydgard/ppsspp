@@ -641,7 +641,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
 #if defined(ARM)
-#ifdef __clang__
+#if defined(__clang__) || defined(ANDROID)
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);

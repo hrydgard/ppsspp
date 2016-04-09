@@ -316,7 +316,7 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #else
-#if defined(__clang__) && !defined(_M_IX86) && !defined(_M_X64)
+#if (defined(__clang__) && !defined(_M_IX86) && !defined(_M_X64)) || defined(ANDROID)
 	__clear_cache(start, end);
 #else
 #if !defined(_M_IX86) && !defined(_M_X64)
