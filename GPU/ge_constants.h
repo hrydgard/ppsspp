@@ -335,6 +335,7 @@ enum GEBufferFormat
 #define GE_VTYPE_IDX_NONE  (0<<11)
 #define GE_VTYPE_IDX_8BIT  (1<<11)
 #define GE_VTYPE_IDX_16BIT (2<<11)
+#define GE_VTYPE_IDX_32BIT (3<<11)
 #define GE_VTYPE_IDX_MASK  (3<<11)
 #define GE_VTYPE_IDX_SHIFT 11
 

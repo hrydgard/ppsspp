@@ -33,6 +33,7 @@ public:
 	void AddPrim(int prim, int vertexCount);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
 	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u32 *inds, int indexOffset);
 
 	void Advance(int numVerts) {
 		index_ += numVerts;
@@ -64,23 +65,23 @@ private:
 	// Rectangles
 	void AddRectangles(int numVerts);
 
-	void TranslatePoints(int numVerts, const u8 *inds, int indexOffset);	
-	void TranslatePoints(int numVerts, const u16 *inds, int indexOffset);
-	// Translates already indexed lists
-	void TranslateLineList(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateLineList(int numVerts, const u16 *inds, int indexOffset);
-	void TranslateLineStrip(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateLineStrip(int numVerts, const u16 *inds, int indexOffset);
+	// These translate already indexed lists
+	template <class IType, class ITypeLE, int flag>
+	void TranslatePoints(int numVerts, const IType *inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	void TranslateList(int numVerts, const IType *_inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	inline void TranslateLineList(int numVerts, const IType *inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	inline void TranslateLineStrip(int numVerts, const IType *inds, int indexOffset);
 
-	void TranslateRectangles(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateRectangles(int numVerts, const u16 *inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	void TranslateStrip(int numVerts, const IType *inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	void TranslateFan(int numVerts, const IType *inds, int indexOffset);
 
-	void TranslateList(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateList(int numVerts, const u16 *inds, int indexOffset);
-	void TranslateStrip(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateStrip(int numVerts, const u16 *inds, int indexOffset);
-	void TranslateFan(int numVerts, const u8 *inds, int indexOffset);
-	void TranslateFan(int numVerts, const u16 *inds, int indexOffset);
+	template <class IType, class ITypeLE, int flag>
+	inline void TranslateRectangles(int numVerts, const IType *inds, int indexOffset);
 
 	enum {
 		SEEN_INDEX8 = 1 << 16,

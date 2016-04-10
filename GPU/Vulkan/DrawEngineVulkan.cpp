@@ -377,6 +377,11 @@ void DrawEngineVulkan::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
 			}
 			break;
+		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
 		}
 
 		const int vertexCount = indexUpperBound - indexLowerBound + 1;

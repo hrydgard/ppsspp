@@ -187,239 +187,156 @@ void IndexGenerator::AddRectangles(int numVerts) {
 	seenPrims_ |= 1 << GE_PRIM_RECTANGLES;
 }
 
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslatePoints(int numInds, const IType *_inds, int indexOffset) {
+	indexOffset = index_ - indexOffset;
+	const ITypeLE *inds = (const IType *)_inds;
+	u16 *outInds = inds_;
+	for (int i = 0; i < numInds; i++)
+		*outInds++ = indexOffset + inds[i];
+	inds_ = outInds;
+	count_ += numInds;
+	prim_ = GE_PRIM_POINTS;
+	seenPrims_ |= (1 << GE_PRIM_POINTS) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslateLineList(int numInds, const IType *_inds, int indexOffset) {
+	indexOffset = index_ - indexOffset;
+	const ITypeLE *inds = (ITypeLE*)_inds;
+	u16 *outInds = inds_;
+	numInds = numInds & ~1;
+	for (int i = 0; i < numInds; i += 2) {
+		*outInds++ = indexOffset + inds[i];
+		*outInds++ = indexOffset + inds[i + 1];
+	}
+	inds_ = outInds;
+	count_ += numInds;
+	prim_ = GE_PRIM_LINES;
+	seenPrims_ |= (1 << GE_PRIM_LINES) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslateLineStrip(int numInds, const IType *_inds, int indexOffset) {
+	indexOffset = index_ - indexOffset;
+	const ITypeLE *inds = (const ITypeLE*)_inds;
+	int numLines = numInds - 1;
+	u16 *outInds = inds_;
+	for (int i = 0; i < numLines; i++) {
+		*outInds++ = indexOffset + inds[i];
+		*outInds++ = indexOffset + inds[i + 1];
+	}
+	inds_ = outInds;
+	count_ += numLines * 2;
+	prim_ = GE_PRIM_LINES;
+	seenPrims_ |= (1 << GE_PRIM_LINE_STRIP) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslateList(int numInds, const IType *_inds, int indexOffset) {
+	const ITypeLE *inds = (const IType *)_inds;
+	indexOffset = index_ - indexOffset;
+	u16 *outInds = inds_;
+	int numTris = numInds / 3;  // Round to whole triangles
+	numInds = numTris * 3;
+	for (int i = 0; i < numInds; i += 3) {
+		*outInds++ = indexOffset + inds[i];
+		*outInds++ = indexOffset + inds[i + 1];
+		*outInds++ = indexOffset + inds[i + 2];
+	}
+	inds_ = outInds;
+	count_ += numInds;
+	prim_ = GE_PRIM_TRIANGLES;
+	seenPrims_ |= (1 << GE_PRIM_TRIANGLES) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslateStrip(int numInds, const IType *_inds, int indexOffset) {
+	const IType *inds = (ITypeLE*)_inds;
+	int wind = 1;
+	indexOffset = index_ - indexOffset;
+	int numTris = numInds - 2;
+	u16 *outInds = inds_;
+	for (int i = 0; i < numTris; i++) {
+		*outInds++ = indexOffset + inds[i];
+		*outInds++ = indexOffset + inds[i + wind];
+		wind ^= 3;  // Toggle between 1 and 2
+		*outInds++ = indexOffset + inds[i + wind];
+	}
+	inds_ = outInds;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
+	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+void IndexGenerator::TranslateFan(int numInds, const IType *_inds, int indexOffset) {
+	const ITypeLE *inds = (IType*)_inds;
+	if (numInds <= 0) return;
+	indexOffset = index_ - indexOffset;
+	int numTris = numInds - 2;
+	u16 *outInds = inds_;
+	for (int i = 0; i < numTris; i++) {
+		*outInds++ = indexOffset + inds[0];
+		*outInds++ = indexOffset + inds[i + 1];
+		*outInds++ = indexOffset + inds[i + 2];
+	}
+	inds_ = outInds;
+	count_ += numTris * 3;
+	prim_ = GE_PRIM_TRIANGLES;
+	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_FAN) | flag;
+}
+
+template <class IType, class ITypeLE, int flag>
+inline void IndexGenerator::TranslateRectangles(int numInds, const IType *_inds, int indexOffset) {
+	indexOffset = index_ - indexOffset;
+	const ITypeLE *inds = (const ITypeLE*)_inds;
+	u16 *outInds = inds_;
+	//rectangles always need 2 vertices, disregard the last one if there's an odd number
+	numInds = numInds & ~1;
+	for (int i = 0; i < numInds; i += 2) {
+		*outInds++ = indexOffset + inds[i];
+		*outInds++ = indexOffset + inds[i+1];
+	}
+	inds_ = outInds;
+	count_ += numInds;
+	prim_ = GE_PRIM_RECTANGLES;
+	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | flag;
+}
+
+// Could template this too, but would have to define in header.
 void IndexGenerator::TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset) {
 	switch (prim) {
-	case GE_PRIM_POINTS: TranslatePoints(numInds, inds, indexOffset); break;
-	case GE_PRIM_LINES: TranslateLineList(numInds, inds, indexOffset); break;
-	case GE_PRIM_LINE_STRIP: TranslateLineStrip(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLES: TranslateList(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan(numInds, inds, indexOffset); break;
-	case GE_PRIM_RECTANGLES: TranslateRectangles(numInds, inds, indexOffset); break;  // Same
+	case GE_PRIM_POINTS: TranslatePoints<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINES: TranslateLineList<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLES: TranslateList<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_RECTANGLES: TranslateRectangles<u8, u8, SEEN_INDEX16>(numInds, inds, indexOffset); break;  // Same
 	}
 }
 
 void IndexGenerator::TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset) {
 	switch (prim) {
-	case GE_PRIM_POINTS: TranslatePoints(numInds, inds, indexOffset); break;
-	case GE_PRIM_LINES: TranslateLineList(numInds, inds, indexOffset); break;
-	case GE_PRIM_LINE_STRIP: TranslateLineStrip(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLES: TranslateList(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip(numInds, inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan(numInds, inds, indexOffset); break;
-	case GE_PRIM_RECTANGLES: TranslateRectangles(numInds, inds, indexOffset); break;  // Same
+	case GE_PRIM_POINTS: TranslatePoints<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINES: TranslateLineList<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLES: TranslateList<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_RECTANGLES: TranslateRectangles<u16, u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;  // Same
 	}
 }
 
-void IndexGenerator::TranslatePoints(int numInds, const u8 *inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numInds; i++)
-		*outInds++ = indexOffset + inds[i];
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_POINTS;
-	seenPrims_ |= (1 << GE_PRIM_POINTS) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslatePoints(int numInds, const u16 *_inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	const u16_le *inds = (u16_le*)_inds;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numInds; i++)
-		*outInds++ = indexOffset + inds[i];
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_POINTS;
-	seenPrims_ |= (1 << GE_PRIM_POINTS) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateList(int numInds, const u8 *inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	int numTris = numInds / 3;  // Round to whole triangles
-	numInds = numTris * 3;
-	for (int i = 0; i < numInds; i += 3) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
+void IndexGenerator::TranslatePrim(int prim, int numInds, const u32 *inds, int indexOffset) {
+	switch (prim) {
+	case GE_PRIM_POINTS: TranslatePoints<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINES: TranslateLineList<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLES: TranslateList<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_RECTANGLES: TranslateRectangles<u32, u32_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;  // Same
 	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLES) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateStrip(int numInds, const u8 *inds, int indexOffset) {
-	int wind = 1;
-	indexOffset = index_ - indexOffset;
-	int numTris = numInds - 2;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numTris; i++) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + wind];
-		wind ^= 3;  // Toggle between 1 and 2
-		*outInds++ = indexOffset + inds[i + wind];
-	}
-	inds_ = outInds;
-	count_ += numTris * 3;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateFan(int numInds, const u8 *inds, int indexOffset) {
-	if (numInds <= 0) return;
-	indexOffset = index_ - indexOffset;
-	int numTris = numInds - 2;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numTris; i++) {
-		*outInds++ = indexOffset + inds[0];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
-	}
-	inds_ = outInds;
-	count_ += numTris * 3;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_FAN) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateList(int numInds, const u16 *_inds, int indexOffset) {
-	const u16_le *inds = (u16_le*)_inds;
-	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	int numTris = numInds / 3;  // Round to whole triangles
-	numInds = numTris * 3;
-	for (int i = 0; i < numInds; i += 3) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
-	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLES) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateStrip(int numInds, const u16 *_inds, int indexOffset) {
-	const u16_le *inds = (u16_le*)_inds;
-	int wind = 1;
-	indexOffset = index_ - indexOffset;
-	int numTris = numInds - 2;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numTris; i++) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + wind];
-		wind ^= 3;  // Toggle between 1 and 2
-		*outInds++ = indexOffset + inds[i + wind];
-	}
-	inds_ = outInds;
-	count_ += numTris * 3;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_STRIP) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateFan(int numInds, const u16 *_inds, int indexOffset) {
-	const u16_le *inds = (u16_le*)_inds;
-	if (numInds <= 0) return;
-	indexOffset = index_ - indexOffset;
-	int numTris = numInds - 2;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numTris; i++) {
-		*outInds++ = indexOffset + inds[0];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
-	}
-	inds_ = outInds;
-	count_ += numTris * 3;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= (1 << GE_PRIM_TRIANGLE_FAN) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateLineList(int numInds, const u8 *inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	numInds = numInds & ~1;
-	for (int i = 0; i < numInds; i += 2) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i+1];
-	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= (1 << GE_PRIM_LINES) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateLineStrip(int numInds, const u8 *inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	int numLines = numInds - 1;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numLines; i++) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + 1];
-	}
-	inds_ = outInds;
-	count_ += numLines * 2;
-	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= (1 << GE_PRIM_LINE_STRIP) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateLineList(int numInds, const u16 *_inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	const u16_le *inds = (u16_le*)_inds;
-	u16 *outInds = inds_;
-	numInds = numInds & ~1;
-	for (int i = 0; i < numInds; i += 2) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i+1];
-	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= (1 << GE_PRIM_LINES) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateLineStrip(int numInds, const u16 *_inds, int indexOffset) {	
-	indexOffset = index_ - indexOffset;
-	const u16_le *inds = (u16_le*)_inds;
-	int numLines = numInds - 1;
-	u16 *outInds = inds_;
-	for (int i = 0; i < numLines; i++) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i + 1];
-	}
-	inds_ = outInds;
-	count_ += numLines * 2;
-	prim_ = GE_PRIM_LINES;
-	seenPrims_ |= (1 << GE_PRIM_LINE_STRIP) | SEEN_INDEX16;
-}
-
-void IndexGenerator::TranslateRectangles(int numInds, const u8 *inds, int indexOffset) {
-	indexOffset = index_ - indexOffset;
-	u16 *outInds = inds_;
-	//rectangles always need 2 vertices, disregard the last one if there's an odd number
-	numInds = numInds & ~1; 
-	for (int i = 0; i < numInds; i += 2) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i+1];
-	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_RECTANGLES;
-	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | SEEN_INDEX8;
-}
-
-void IndexGenerator::TranslateRectangles(int numInds, const u16 *_inds, int indexOffset) {	
-	indexOffset = index_ - indexOffset;
-	const u16_le *inds = (u16_le*)_inds;
-	u16 *outInds = inds_;
-	//rectangles always need 2 vertices, disregard the last one if there's an odd number
-	numInds = numInds & ~1;
-	for (int i = 0; i < numInds; i += 2) {
-		*outInds++ = indexOffset + inds[i];
-		*outInds++ = indexOffset + inds[i+1];
-	}
-	inds_ = outInds;
-	count_ += numInds;
-	prim_ = GE_PRIM_RECTANGLES;
-	seenPrims_ |= (1 << GE_PRIM_RECTANGLES) | SEEN_INDEX16;
 }

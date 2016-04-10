@@ -511,19 +511,25 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
 		const u16 *inds16 = (const u16 *)inds;
+		const u32 *inds32 = (const u32 *)inds;
 
 		if (inds) {
 			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
 			indices.resize(count);
 			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
+			case GE_VTYPE_IDX_8BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds[i];
+				}
+				break;
 			case GE_VTYPE_IDX_16BIT:
 				for (int i = 0; i < count; ++i) {
 					indices[i] = inds16[i];
 				}
 				break;
-			case GE_VTYPE_IDX_8BIT:
+			case GE_VTYPE_IDX_32BIT:
 				for (int i = 0; i < count; ++i) {
-					indices[i] = inds[i];
+					indices[i] = inds32[i];
 				}
 				break;
 			default:

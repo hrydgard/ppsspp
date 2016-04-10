@@ -98,9 +98,7 @@ extern const GLuint glprim[8] = {
 	GL_TRIANGLE_STRIP,
 	GL_TRIANGLE_FAN,
 	GL_TRIANGLES,
-	// With OpenGL ES we have to expand sprites (rects) into triangles, tripling the data instead of doubling.
-	// Sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
-	// We can use it on the desktop though, but we don't yet. There we could also use geometry shaders anyway.
+	// Rectangles need to be expanded into triangles.
 };
 
 enum {
@@ -426,6 +424,11 @@ void DrawEngineGLES::DecodeVertsStep() {
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16 *)drawCalls[j].inds, indexLowerBound);
+			}
+			break;
+		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
+			for (int j = i; j <= lastMatch; j++) {
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32 *)drawCalls[j].inds, indexLowerBound);
 			}
 			break;
 		}
