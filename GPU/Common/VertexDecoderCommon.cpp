@@ -95,9 +95,23 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 				lowerBound = value;
 		}
 	} else if (idx == GE_VTYPE_IDX_16BIT) {
-		const u16 *ind16 = (const u16*)inds;
+		const u16 *ind16 = (const u16 *)inds;
 		for (int i = 0; i < count; i++) {
 			u16 value = ind16[i];
+			if (value > upperBound)
+				upperBound = value;
+			if (value < lowerBound)
+				lowerBound = value;
+		}
+	} else if (idx == GE_VTYPE_IDX_32BIT) {
+		WARN_LOG_REPORT_ONCE(indexBounds32, G3D, "GetIndexBounds: Decoding 32-bit indexes");
+		const u32 *ind32 = (const u32 *)inds;
+		for (int i = 0; i < count; i++) {
+			u16 value = (u16)ind32[i];
+			// These aren't documented and should be rare.  Let's bounds check each one.
+			if (ind32[i] != value) {
+				ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, G3D, "GetIndexBounds: Index outside 16-bit range");
+			}
 			if (value > upperBound)
 				upperBound = value;
 			if (value < lowerBound)

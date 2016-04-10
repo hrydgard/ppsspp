@@ -1009,6 +1009,8 @@ void GPU_GLES::Execute_Prim(u32 op, u32 diff) {
 		int indexSize = 1;
 		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
 			indexSize = 2;
+		else if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT)
+			indexSize = 4;
 		gstate_c.indexAddr += count * indexSize;
 	} else {
 		gstate_c.vertexAddr += bytesRead;

@@ -791,10 +791,12 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	bool indices_16bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	const u8* indices8 = (const u8*)indices;
-	const u16* indices16 = (const u16*)indices;
+	bool indices_32bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	const u8 *indices8 = (const u8 *)indices;
+	const u16 *indices16 = (const u16 *)indices;
+	const u32 *indices32 = (const u32 *)indices;
 	if (indices)
-		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
+		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
@@ -815,10 +817,19 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	for (int idx = 0; idx < count_u * count_v; idx++) {
-		if (indices)
-			points[idx] = simplified_control_points + (indices_16bit ? indices16[idx] : indices8[idx]);
-		else
+		if (indices) {
+			u32 ind;
+			if (indices_32bit) {
+				ind = indices32[idx];
+			} else if (indices_16bit) {
+				ind = indices16[idx];
+			} else {
+				ind = indices8[idx];
+			}
+			points[idx] = simplified_control_points + ind;
+		} else {
 			points[idx] = simplified_control_points + idx;
+		}
 	}
 
 	int count = 0;
@@ -876,8 +887,10 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	bool indices_16bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	const u8* indices8 = (const u8*)indices;
-	const u16* indices16 = (const u16*)indices;
+	bool indices_32bit = (vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	const u8 *indices8 = (const u8 *)indices;
+	const u16 *indices16 = (const u16 *)indices;
+	const u32 *indices32 = (const u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
 
@@ -905,10 +918,19 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
 			for (int point = 0; point < 16; ++point) {
 				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
-				if (indices)
-					patch.points[point] = simplified_control_points + (indices_16bit ? indices16[idx] : indices8[idx]);
-				else
+				if (indices) {
+					u32 ind;
+					if (indices_32bit) {
+						ind = indices32[idx];
+					} else if (indices_16bit) {
+						ind = indices16[idx];
+					} else {
+						ind = indices8[idx];
+					}
+					patch.points[point] = simplified_control_points + ind;
+				} else {
 					patch.points[point] = simplified_control_points + idx;
+				}
 			}
 			patch.u_index = patch_u * 3;
 			patch.v_index = patch_v * 3;

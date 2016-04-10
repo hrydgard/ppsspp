@@ -227,8 +227,10 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	u8* indices8 = (u8*)indices;
-	u16* indices16 = (u16*)indices;
+	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	u8 *indices8 = (u8 *)indices;
+	u16 *indices16 = (u16 *)indices;
+	u32 *indices32 = (u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, count_u*count_v, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, control_points, index_lower_bound, index_upper_bound);
@@ -253,10 +255,17 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 
 			for (int point = 0; point < 16; ++point) {
 				int idx = (patch_u + point%4) + (patch_v + point/4) * count_u;
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[idx] : indices8[idx]);
-				else
+				if (indices) {
+					if (indices_32bit) {
+						vreader.Goto(indices32[idx]);
+					} else if (indices_16bit) {
+						vreader.Goto(indices16[idx]);
+					} else {
+						vreader.Goto(indices8[idx]);
+					}
+				} else {
 					vreader.Goto(idx);
+				}
 
 				patch.points[point] = ReadVertex(vreader);
 			}
@@ -318,8 +327,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
 	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	u8* indices8 = (u8*)indices;
-	u16* indices16 = (u16*)indices;
+	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	u8 *indices8 = (u8 *)indices;
+	u16 *indices16 = (u16 *)indices;
+	u32 *indices32 = (u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
@@ -349,10 +360,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		{
 			for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
 				for (int i = 0; i < vtcs_per_prim; ++i) {
-					if (indices)
-						vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
-					else
+					if (indices) {
+						if (indices_32bit) {
+							vreader.Goto(indices32[vtx + i]);
+						} else if (indices_16bit) {
+							vreader.Goto(indices16[vtx + i]);
+						} else {
+							vreader.Goto(indices8[vtx + i]);
+						}
+					} else {
 						vreader.Goto(vtx+i);
+					}
 
 					data[i] = ReadVertex(vreader);
 					if (outside_range_flag)
@@ -528,12 +546,15 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 				}
 				break;
 			case GE_VTYPE_IDX_32BIT:
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
 				for (int i = 0; i < count; ++i) {
-					indices[i] = inds32[i];
+					// These aren't documented and should be rare.  Let's bounds check each one.
+					if (inds32[i] != (u16)inds32[i]) {
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+					}
+					indices[i] = (u16)inds32[i];
 				}
 				break;
-			default:
-				return false;
 			}
 		} else {
 			indices.clear();

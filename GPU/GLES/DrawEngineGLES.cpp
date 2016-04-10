@@ -471,7 +471,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 u32 DrawEngineGLES::ComputeMiniHash() {
 	u32 fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+	const int indexSize = IndexSize(dec_->VertexType());
 
 	int step;
 	if (numDrawCalls < 3) {
@@ -510,7 +510,7 @@ void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
 ReliableHashType DrawEngineGLES::ComputeHash() {
 	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
-	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+	const int indexSize = IndexSize(dec_->VertexType());
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
