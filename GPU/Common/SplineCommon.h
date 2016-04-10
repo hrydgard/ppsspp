@@ -32,21 +32,6 @@ struct SimpleVertex {
 	Vec3Packedf pos;
 };
 
-inline float lerp(float a, float b, float x) {
-	return a + x * (b - a);
-}
-
-// SLOW!
-inline void lerpColor(const Vec4f &a, const Vec4f &b, float x, Vec4f &out) {
-	for (int i = 0; i < 4; i++) {
-		out[i] = a[i] + x * (b[i] - a[i]);
-	}
-}
-
-inline void lerpColor(const u8 *a, const u8 *b, float x, Vec4f &out) {
-	lerpColor(Vec4f::FromRGBA(a), Vec4f::FromRGBA(b), x, out);
-}
-
 // We decode all vertices into a common format for easy interpolation and stuff.
 // Not fast but can be optimized later.
 struct BezierPatch {
@@ -59,56 +44,6 @@ struct BezierPatch {
 	GEPatchPrimType primType;
 	bool computeNormals;
 	bool patchFacing;
-
-	struct SamplingParams {
-		float fracU;
-		float fracV;
-		int tl;
-		int tr;
-		int bl;
-		int br;
-
-		SamplingParams(float u, float v) {
-			u *= 3.0f;
-			v *= 3.0f;
-			int iu = (int)floorf(u);
-			int iv = (int)floorf(v);
-			int iu2 = iu + 1;
-			int iv2 = iv + 1;
-			fracU = u - iu;
-			fracV = v - iv;
-
-			if (iu2 > 3)
-				iu2 = 3;
-			if (iv2 > 3)
-				iv2 = 3;
-
-			tl = iu + 4 * iv;
-			tr = iu2 + 4 * iv;
-			bl = iu + 4 * iv2;
-			br = iu2 + 4 * iv2;
-		}
-	};
-
-	// Interpolate colors between control points (bilinear, should be good enough).
-	void sampleColor(float u, float v, u8 color[4]) const {
-		const SamplingParams params(u, v);
-		Vec4f upperColor, lowerColor, resultColor;
-		lerpColor(points[params.tl]->color, points[params.tr]->color, params.fracU, upperColor);
-		lerpColor(points[params.bl]->color, points[params.br]->color, params.fracU, lowerColor);
-		lerpColor(upperColor, lowerColor, params.fracV, resultColor);
-		resultColor.ToRGBA(color);
-	}
-
-	void sampleTexUV(float u, float v, float &tu, float &tv) const {
-		const SamplingParams params(u, v);
-		float upperTU = lerp(points[params.tl]->uv[0], points[params.tr]->uv[0], params.fracU);
-		float upperTV = lerp(points[params.tl]->uv[1], points[params.tr]->uv[1], params.fracU);
-		float lowerTU = lerp(points[params.bl]->uv[0], points[params.br]->uv[0], params.fracU);
-		float lowerTV = lerp(points[params.bl]->uv[1], points[params.br]->uv[1], params.fracU);
-		tu = lerp(upperTU, lowerTU, params.fracV);
-		tv = lerp(upperTV, lowerTV, params.fracV);
-	}
 };
 
 struct SplinePatchLocal {
@@ -124,7 +59,7 @@ struct SplinePatchLocal {
 	GEPatchPrimType primType;
 };
 
-enum quality {
+enum SplineQuality {
 	LOW_QUALITY = 0,
 	MEDIUM_QUALITY = 1,
 	HIGH_QUALITY = 2,
