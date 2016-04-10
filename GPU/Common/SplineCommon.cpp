@@ -124,13 +124,13 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-static Vec3Packedf Bernstein3D(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
+static Vec3f Bernstein3D(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
 }
 
-static Vec3Packedf Bernstein3DDerivative(const Vec3Packedf& p0, const Vec3Packedf& p1, const Vec3Packedf& p2, const Vec3Packedf& p3, float x) {
+static Vec3f Bernstein3DDerivative(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
 	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
 }
 
@@ -624,15 +624,15 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
-	Vec3Packedf *horiz = new Vec3Packedf[(tess_u + 1) * 4];
-	Vec3Packedf *horiz2 = horiz + (tess_u + 1) * 1;
-	Vec3Packedf *horiz3 = horiz + (tess_u + 1) * 2;
-	Vec3Packedf *horiz4 = horiz + (tess_u + 1) * 3;
+	Vec3f *horiz = (Vec3f *)AllocateAlignedMemory((tess_u + 1) * 4 * sizeof(Vec3f), 16);
+	Vec3f *horiz2 = horiz + (tess_u + 1) * 1;
+	Vec3f *horiz3 = horiz + (tess_u + 1) * 2;
+	Vec3f *horiz4 = horiz + (tess_u + 1) * 3;
 
-	Vec3Packedf *derivU1 = new Vec3Packedf[(tess_u + 1) * 4];
-	Vec3Packedf *derivU2 = derivU1 + (tess_u + 1) * 1;
-	Vec3Packedf *derivU3 = derivU1 + (tess_u + 1) * 2;
-	Vec3Packedf *derivU4 = derivU1 + (tess_u + 1) * 3;
+	Vec3f *derivU1 = (Vec3f *)AllocateAlignedMemory((tess_u + 1) * 4 * sizeof(Vec3f), 16);
+	Vec3f *derivU2 = derivU1 + (tess_u + 1) * 1;
+	Vec3f *derivU3 = derivU1 + (tess_u + 1) * 2;
+	Vec3f *derivU4 = derivU1 + (tess_u + 1) * 3;
 
 	bool computeNormals = patch.computeNormals;
 
@@ -659,22 +659,21 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			float v = ((float)tile_v / (float)tess_v);
 			float bv = v;
 
-			// TODO: Should be able to precompute the four curves per U, then just Bernstein per V. Will benefit large tesselation factors.
-			const Vec3Packedf &pos1 = horiz[tile_u];
-			const Vec3Packedf &pos2 = horiz2[tile_u];
-			const Vec3Packedf &pos3 = horiz3[tile_u];
-			const Vec3Packedf &pos4 = horiz4[tile_u];
+			const Vec3f &pos1 = horiz[tile_u];
+			const Vec3f &pos2 = horiz2[tile_u];
+			const Vec3f &pos3 = horiz3[tile_u];
+			const Vec3f &pos4 = horiz4[tile_u];
 
 			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
 			if (computeNormals) {
-				const Vec3Packedf &derivU1_ = derivU1[tile_u];
-				const Vec3Packedf &derivU2_ = derivU2[tile_u];
-				const Vec3Packedf &derivU3_ = derivU3[tile_u];
-				const Vec3Packedf &derivU4_ = derivU4[tile_u];
+				const Vec3f &derivU1_ = derivU1[tile_u];
+				const Vec3f &derivU2_ = derivU2[tile_u];
+				const Vec3f &derivU3_ = derivU3[tile_u];
+				const Vec3f &derivU4_ = derivU4[tile_u];
 
-				Vec3Packedf derivU = Bernstein3D(derivU1_, derivU2_, derivU3_, derivU4_, bv);
-				Vec3Packedf derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
+				Vec3f derivU = Bernstein3D(derivU1_, derivU2_, derivU3_, derivU4_, bv);
+				Vec3f derivV = Bernstein3DDerivative(pos1, pos2, pos3, pos4, bv);
 
 				vert.nrm = Cross(derivU, derivV).Normalized();
 				if (patch.patchFacing)
@@ -702,8 +701,8 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			}
 		}
 	}
-	delete[] derivU1;
-	delete[] horiz;
+	FreeAlignedMemory(derivU1);
+	FreeAlignedMemory(horiz);
 
 	GEPatchPrimType prim_type = patch.primType;
 	// Combine the vertices into triangles.
