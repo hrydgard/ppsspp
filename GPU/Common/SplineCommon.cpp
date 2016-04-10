@@ -124,6 +124,12 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
+static Math3D::Vec2f Bernstein3D(const Math3D::Vec2f& p0, const Math3D::Vec2f& p1, const Math3D::Vec2f& p2, const Math3D::Vec2f& p3, float x) {
+	if (x == 0) return p0;
+	else if (x == 1) return p3;
+	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
+}
+
 static Vec3f Bernstein3D(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
@@ -644,13 +650,19 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	Vec4f *colHoriz3 = colHoriz1 + (tess_u + 1) * 2;
 	Vec4f *colHoriz4 = colHoriz1 + (tess_u + 1) * 3;
 
+	Math3D::Vec2f *texHoriz1 = (Math3D::Vec2f *)AllocateAlignedMemory((tess_u + 1) * 4 * sizeof(Math3D::Vec2f), 16);
+	Math3D::Vec2f *texHoriz2 = texHoriz1 + (tess_u + 1) * 1;
+	Math3D::Vec2f *texHoriz3 = texHoriz1 + (tess_u + 1) * 2;
+	Math3D::Vec2f *texHoriz4 = texHoriz1 + (tess_u + 1) * 3;
+
 	Vec3f *derivU1 = (Vec3f *)AllocateAlignedMemory((tess_u + 1) * 4 * sizeof(Vec3f), 16);
 	Vec3f *derivU2 = derivU1 + (tess_u + 1) * 1;
 	Vec3f *derivU3 = derivU1 + (tess_u + 1) * 2;
 	Vec3f *derivU4 = derivU1 + (tess_u + 1) * 3;
 
 	const bool computeNormals = patch.computeNormals;
-	const bool computeColors = origVertType & GE_VTYPE_COL_MASK;
+	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
+	const bool sampleTexcoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
 	// Precompute the horizontal curves to we only have to evaluate the vertical ones.
 	for (int i = 0; i < tess_u + 1; i++) {
@@ -660,11 +672,17 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 		posHoriz3[i] = Bernstein3D(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
 		posHoriz4[i] = Bernstein3D(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
 
-		if (computeColors) {
+		if (sampleColors) {
 			colHoriz1[i] = Bernstein3D(patch.points[0]->color_32, patch.points[1]->color_32, patch.points[2]->color_32, patch.points[3]->color_32, u);
 			colHoriz2[i] = Bernstein3D(patch.points[4]->color_32, patch.points[5]->color_32, patch.points[6]->color_32, patch.points[7]->color_32, u);
 			colHoriz3[i] = Bernstein3D(patch.points[8]->color_32, patch.points[9]->color_32, patch.points[10]->color_32, patch.points[11]->color_32, u);
 			colHoriz4[i] = Bernstein3D(patch.points[12]->color_32, patch.points[13]->color_32, patch.points[14]->color_32, patch.points[15]->color_32, u);
+		}
+		if (sampleTexcoords) {
+			texHoriz1[i] = Bernstein3D(Math3D::Vec2f(patch.points[0]->uv), Math3D::Vec2f(patch.points[1]->uv), Math3D::Vec2f(patch.points[2]->uv), Math3D::Vec2f(patch.points[3]->uv), u);
+			texHoriz2[i] = Bernstein3D(Math3D::Vec2f(patch.points[4]->uv), Math3D::Vec2f(patch.points[5]->uv), Math3D::Vec2f(patch.points[6]->uv), Math3D::Vec2f(patch.points[7]->uv), u);
+			texHoriz3[i] = Bernstein3D(Math3D::Vec2f(patch.points[8]->uv), Math3D::Vec2f(patch.points[9]->uv), Math3D::Vec2f(patch.points[10]->uv), Math3D::Vec2f(patch.points[11]->uv), u);
+			texHoriz4[i] = Bernstein3D(Math3D::Vec2f(patch.points[12]->uv), Math3D::Vec2f(patch.points[13]->uv), Math3D::Vec2f(patch.points[14]->uv), Math3D::Vec2f(patch.points[15]->uv), u);
 		}
 
 		if (computeNormals) {
@@ -708,17 +726,22 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 			vert.pos = Bernstein3D(pos1, pos2, pos3, pos4, bv);
 
-			if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
+			if (!sampleTexcoords) {
 				// Generate texcoord
 				vert.uv[0] = u + patch.u_index * third;
 				vert.uv[1] = v + patch.v_index * third;
 			} else {
 				// Sample UV from control points
-				// TODO: We probably need to use bernstein here too?
-				patch.sampleTexUV(u, v, vert.uv[0], vert.uv[1]);
+				const Math3D::Vec2f &tex1 = texHoriz1[tile_u];
+				const Math3D::Vec2f &tex2 = texHoriz2[tile_u];
+				const Math3D::Vec2f &tex3 = texHoriz3[tile_u];
+				const Math3D::Vec2f &tex4 = texHoriz4[tile_u];
+				const Math3D::Vec2f res = Bernstein3D(tex1, tex2, tex3, tex4, bv);
+				vert.uv[0] = res.x;
+				vert.uv[1] = res.y;
 			} 
 
-			if (computeColors) {
+			if (sampleColors) {
 				const Vec4f &col1 = colHoriz1[tile_u];
 				const Vec4f &col2 = colHoriz2[tile_u];
 				const Vec4f &col3 = colHoriz3[tile_u];
@@ -730,6 +753,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 		}
 	}
 	FreeAlignedMemory(derivU1);
+	FreeAlignedMemory(texHoriz1);
 	FreeAlignedMemory(colHoriz1);
 	FreeAlignedMemory(posHoriz1);
 
