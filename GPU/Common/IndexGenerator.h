@@ -19,8 +19,9 @@
 #pragma once
 
 #include <algorithm>
-#include "CommonTypes.h"
-#include "../ge_constants.h"
+#include "Common/CommonTypes.h"
+#include "Common/Swap.h"
+#include "GPU/ge_constants.h"
 
 class IndexGenerator {
 public:
@@ -32,8 +33,8 @@ public:
 
 	void AddPrim(int prim, int vertexCount);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
-	void TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset);
-	void TranslatePrim(int prim, int numInds, const u32 *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset);
 
 	void Advance(int numVerts) {
 		index_ += numVerts;

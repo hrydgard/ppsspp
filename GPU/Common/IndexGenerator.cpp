@@ -310,26 +310,26 @@ void IndexGenerator::TranslatePrim(int prim, int numInds, const u8 *inds, int in
 	}
 }
 
-void IndexGenerator::TranslatePrim(int prim, int numInds, const u16 *inds, int indexOffset) {
+void IndexGenerator::TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset) {
 	switch (prim) {
-	case GE_PRIM_POINTS: TranslatePoints<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_LINES: TranslateLineList<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLES: TranslateList<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;
-	case GE_PRIM_RECTANGLES: TranslateRectangles<u16_le, SEEN_INDEX16>(numInds, (const u16_le *)inds, indexOffset); break;  // Same
+	case GE_PRIM_POINTS: TranslatePoints<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINES: TranslateLineList<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLES: TranslateList<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_RECTANGLES: TranslateRectangles<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;  // Same
 	}
 }
 
-void IndexGenerator::TranslatePrim(int prim, int numInds, const u32 *inds, int indexOffset) {
+void IndexGenerator::TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset) {
 	switch (prim) {
-	case GE_PRIM_POINTS: TranslatePoints<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_LINES: TranslateLineList<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLES: TranslateList<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;
-	case GE_PRIM_RECTANGLES: TranslateRectangles<u32_le, SEEN_INDEX32>(numInds, (const u32_le *)inds, indexOffset); break;  // Same
+	case GE_PRIM_POINTS: TranslatePoints<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINES: TranslateLineList<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLES: TranslateList<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_RECTANGLES: TranslateRectangles<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;  // Same
 	}
 }
