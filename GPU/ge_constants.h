@@ -554,6 +554,7 @@ enum GEPatchPrimType
 	GE_PATCHPRIM_TRIANGLES = 0,
 	GE_PATCHPRIM_LINES = 1,
 	GE_PATCHPRIM_POINTS = 2,
+	// Treated as points.
 	GE_PATCHPRIM_UNKNOWN = 3,
 };
 

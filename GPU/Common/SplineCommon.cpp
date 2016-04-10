@@ -720,8 +720,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				vert.nrm = Cross(derivU, derivV).Normalized();
 				if (patch.patchFacing)
 					vert.nrm *= -1.0f;
-			}
-			else {
+			} else {
 				vert.nrm.SetZero();
 			}
 
@@ -777,8 +776,8 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 	}
 }
 
-
-const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
+// This maps GEPatchPrimType to GEPrimitiveType.
+const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
 	PROFILE_THIS_SCOPE("spline");
@@ -881,6 +880,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	DispatchFlush();
 
 	// Real hardware seems to draw nothing when given < 4 either U or V.
+	// This would result in num_patches_u / num_patches_v being 0.
 	if (count_u < 4 || count_v < 4)
 		return;
 
@@ -912,7 +912,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
-	BezierPatch* patches = new BezierPatch[num_patches_u * num_patches_v];
+	BezierPatch *patches = new BezierPatch[num_patches_u * num_patches_v];
 	for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
 		for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
 			BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
@@ -944,18 +944,13 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int count = 0;
 	u8 *dest = splineBuffer;
 
-	// Simple approximation of the real tesselation factor.
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
 	// like the splines, so we subdivide across the whole "mega-patch".
-	if (num_patches_u == 0) num_patches_u = 1;
-	if (num_patches_v == 0) num_patches_v = 1;
-	if (tess_u < 4) tess_u = 4;
-	if (tess_v < 4) tess_v = 4;
 
 	u16 *inds = quadIndices_;
 	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
-		BezierPatch& patch = patches[patch_idx];
+		const BezierPatch &patch = patches[patch_idx];
 		TesselateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType, maxVertices);
 	}
 	delete[] patches;

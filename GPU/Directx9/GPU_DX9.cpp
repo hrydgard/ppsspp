@@ -871,11 +871,6 @@ void GPU_DX9::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
-		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-		return;
-	}
-
 	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
 		DEBUG_LOG_REPORT(G3D, "Bezier + morph: %i", (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT);
 	}
@@ -912,11 +907,6 @@ void GPU_DX9::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if (gstate.getPatchPrimitiveType() == GE_PATCHPRIM_UNKNOWN) {
-		ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
-		return;
 	}
 
 	if (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) {
