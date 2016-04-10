@@ -856,7 +856,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	// TODO: Verify correct functionality with < 4.
+	// Real hardware seems to draw nothing when given < 4 either U or V.
 	if (count_u < 4 || count_v < 4)
 		return;
 
