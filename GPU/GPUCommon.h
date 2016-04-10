@@ -156,6 +156,8 @@ protected:
 	virtual void FinishDeferred() {
 	}
 
+	void AdvanceVerts(u32 vertType, int count, int bytesRead);
+
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
 	public:

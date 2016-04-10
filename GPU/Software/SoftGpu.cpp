@@ -332,16 +332,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 			// Some games rely on this, they don't bother reloading VADDR and IADDR.
 			// The VADDR/IADDR registers are NOT updated.
-			if (indices) {
-				int indexSize = 1;
-				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
-					indexSize = 2;
-				else if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT)
-					indexSize = 4;
-				gstate_c.indexAddr += count * indexSize;
-			} else {
-				gstate_c.vertexAddr += bytesRead;
-			}
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 

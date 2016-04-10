@@ -1299,3 +1299,16 @@ void GPUCommon::SetCmdValue(u32 op) {
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
 }
+
+void GPUCommon::AdvanceVerts(u32 vertType, int count, int bytesRead) {
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		int indexSize = 1;
+		if ((vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+			indexSize = 2;
+		else if ((vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT)
+			indexSize = 4;
+		gstate_c.indexAddr += count * indexSize;
+	} else {
+		gstate_c.vertexAddr += bytesRead;
+	}
+}
