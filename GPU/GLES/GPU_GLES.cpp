@@ -1076,7 +1076,21 @@ void GPU_GLES::Execute_Bezier(u32 op, u32 diff) {
 	int bz_vcount = (op >> 8) & 0xFF;
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
-	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType);
+	int bytesRead = 0;
+	drawEngine_.SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = bz_ucount * bz_vcount;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != 0) {
+		int indexSize = 1;
+		if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+			indexSize = 2;
+		else if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT)
+			indexSize = 4;
+		gstate_c.indexAddr += count * indexSize;
+	} else {
+		gstate_c.vertexAddr += bytesRead;
+	}
 }
 
 void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
