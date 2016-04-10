@@ -1420,10 +1420,6 @@ void FramebufferManagerVulkan::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 }
 
-#ifdef _WIN32
-void ShowScreenResolution();
-#endif
-
 VkCommandBuffer FramebufferManagerVulkan::AllocFrameCommandBuffer() {
 	FrameData &frame = frameData_[curFrame_];
 	int num = frame.numCommandBuffers_;

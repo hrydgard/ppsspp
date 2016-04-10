@@ -43,8 +43,6 @@
 #include <xmmintrin.h>
 #endif
 
-void ShowScreenResolution();
-
 namespace DX9 {
 	static void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 

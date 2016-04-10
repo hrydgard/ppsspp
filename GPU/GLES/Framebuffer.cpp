@@ -1783,10 +1783,6 @@ void FramebufferManager::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, 
 	fbo_unbind_read();
 }
 
-#ifdef _WIN32
-void ShowScreenResolution();
-#endif
-
 void FramebufferManager::EndFrame() {
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
