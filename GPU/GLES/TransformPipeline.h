@@ -107,10 +107,10 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngine : public DrawEngineCommon, public GfxResourceHolder {
+class DrawEngineGLES : public DrawEngineCommon, public GfxResourceHolder {
 public:
-	TransformDrawEngine();
-	virtual ~TransformDrawEngine();
+	DrawEngineGLES();
+	virtual ~DrawEngineGLES();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 

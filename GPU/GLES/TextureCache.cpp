@@ -862,7 +862,7 @@ public:
 		}
 	}
 
-	void Use(TransformDrawEngine *transformDraw) {
+	void Use(DrawEngineGLES *transformDraw) {
 		glUseProgram(shader_->program);
 
 		// Restore will rebind all of the state below.

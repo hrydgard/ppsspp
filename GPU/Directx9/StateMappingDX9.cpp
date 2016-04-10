@@ -85,7 +85,7 @@ static const D3DSTENCILOP stencilOps[] = {
 	D3DSTENCILOP_KEEP, // reserved
 };
 
-bool TransformDrawEngineDX9::ApplyShaderBlending() {
+bool DrawEngineDX9::ApplyShaderBlending() {
 	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
 		return true;
 	}
@@ -113,14 +113,14 @@ bool TransformDrawEngineDX9::ApplyShaderBlending() {
 	return true;
 }
 
-inline void TransformDrawEngineDX9::ResetShaderBlending() {
+inline void DrawEngineDX9::ResetShaderBlending() {
 	if (fboTexBound_) {
 		pD3Ddevice->SetTexture(1, nullptr);
 		fboTexBound_ = false;
 	}
 }
 
-void TransformDrawEngineDX9::ApplyDrawState(int prim) {
+void DrawEngineDX9::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -302,7 +302,7 @@ void TransformDrawEngineDX9::ApplyDrawState(int prim) {
 	}
 }
 
-void TransformDrawEngineDX9::ApplyDrawStateLate() {
+void DrawEngineDX9::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {

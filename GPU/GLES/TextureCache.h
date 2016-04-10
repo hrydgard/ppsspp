@@ -32,7 +32,7 @@ struct VirtualFramebuffer;
 class FramebufferManager;
 class DepalShaderCache;
 class ShaderManager;
-class TransformDrawEngine;
+class DrawEngineGLES;
 
 inline bool UseBGRA8888() {
 	// TODO: Other platforms?  May depend on vendor which is faster?
@@ -65,7 +65,7 @@ public:
 	void SetShaderManager(ShaderManager *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(TransformDrawEngine *td) {
+	void SetTransformDrawEngine(DrawEngineGLES *td) {
 		transformDraw_ = td;
 	}
 
@@ -132,7 +132,7 @@ private:
 	FramebufferManager *framebufferManager_;
 	DepalShaderCache *depalShaderCache_;
 	ShaderManager *shaderManager_;
-	TransformDrawEngine *transformDraw_;
+	DrawEngineGLES *transformDraw_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);

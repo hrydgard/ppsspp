@@ -153,20 +153,20 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 
 	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (gpuCore_) {
-	case GPU_NULL:
-	case GPU_GLES:
-	case GPU_SOFTWARE:
+	case GPUCORE_NULL:
+	case GPUCORE_GLES:
+	case GPUCORE_SOFTWARE:
 		graphicsContext = new WindowsGLContext();
 		break;
 
-	case GPU_DIRECTX9:
+	case GPUCORE_DIRECTX9:
 		graphicsContext = new D3D9Context();
 		break;
 
-	case GPU_DIRECTX11:
+	case GPUCORE_DIRECTX11:
 		return false;
 
-	case GPU_VULKAN:
+	case GPUCORE_VULKAN:
 		graphicsContext = new WindowsVulkanContext();
 		break;
 	}
@@ -181,7 +181,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		return false;
 	}
 
-	if (gpuCore_ == GPU_GLES) {
+	if (gpuCore_ == GPUCORE_GLES) {
 		// TODO: Do we need to do this here?
 		CheckGLExtensions();
 	}
@@ -200,7 +200,7 @@ void WindowsHeadlessHost::ShutdownGraphics() {
 }
 
 void WindowsHeadlessHost::SwapBuffers() {
-	if (gpuCore_ == GPU_DIRECTX9) {
+	if (gpuCore_ == GPUCORE_DIRECTX9) {
 		MSG msg;
 		PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
 		TranslateMessage(&msg);

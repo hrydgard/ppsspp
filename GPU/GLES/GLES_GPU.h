@@ -32,10 +32,10 @@ class ShaderManager;
 class LinkedShader;
 class GraphicsContext;
 
-class GLES_GPU : public GPUCommon {
+class GPU_GLES : public GPUCommon {
 public:
-	GLES_GPU(GraphicsContext *gfxCtx);
-	~GLES_GPU();
+	GPU_GLES(GraphicsContext *gfxCtx);
+	~GPU_GLES();
 
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures();
@@ -90,10 +90,10 @@ public:
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
-	typedef void (GLES_GPU::*CmdFunc)(u32 op, u32 diff);
+	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
 		u8 flags;
-		GLES_GPU::CmdFunc func;
+		GPU_GLES::CmdFunc func;
 	};
 
 	void Execute_Vaddr(u32 op, u32 diff);
@@ -165,7 +165,7 @@ protected:
 
 private:
 	void Flush() {
-		transformDraw_.Flush();
+		drawEngine_.Flush();
 	}
 	void DoBlockTransfer(u32 skipDrawReason);
 	void CheckFlushOp(int cmd, u32 diff);
@@ -186,7 +186,7 @@ private:
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
 	DepalShaderCache depalShaderCache_;
-	TransformDrawEngine transformDraw_;
+	DrawEngineGLES drawEngine_;
 	FragmentTestCache fragmentTestCache_;
 	ShaderManager *shaderManager_;
 

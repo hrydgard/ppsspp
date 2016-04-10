@@ -114,7 +114,7 @@ static const GLushort logicOps[] = {
 };
 #endif
 
-bool TransformDrawEngine::ApplyShaderBlending() {
+bool DrawEngineGLES::ApplyShaderBlending() {
 	if (gstate_c.featureFlags & GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH) {
 		return true;
 	}
@@ -142,7 +142,7 @@ bool TransformDrawEngine::ApplyShaderBlending() {
 	return true;
 }
 
-inline void TransformDrawEngine::ResetShaderBlending() {
+inline void DrawEngineGLES::ResetShaderBlending() {
 	if (fboTexBound_) {
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -151,7 +151,7 @@ inline void TransformDrawEngine::ResetShaderBlending() {
 	}
 }
 
-void TransformDrawEngine::ApplyDrawState(int prim) {
+void DrawEngineGLES::ApplyDrawState(int prim) {
 	// TODO: All this setup is so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
@@ -369,7 +369,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	}
 }
 
-void TransformDrawEngine::ApplyDrawStateLate() {
+void DrawEngineGLES::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {

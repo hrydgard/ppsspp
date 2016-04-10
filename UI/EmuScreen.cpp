@@ -102,19 +102,19 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	CoreParameter coreParam;
 	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParam.gpuCore = GPU_GLES;
+	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
-		coreParam.gpuCore = GPU_GLES;
+		coreParam.gpuCore = GPUCORE_GLES;
 		break;
 	case GPUBackend::DIRECT3D9:
-		coreParam.gpuCore = GPU_DIRECTX9;
+		coreParam.gpuCore = GPUCORE_DIRECTX9;
 		break;
 	case GPUBackend::DIRECT3D11:
-		coreParam.gpuCore = GPU_DIRECTX11;
+		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
 	case GPUBackend::VULKAN:
-		coreParam.gpuCore = GPU_VULKAN;
+		coreParam.gpuCore = GPUCORE_VULKAN;
 		if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 #ifdef _WIN32
 			if (IDYES == MessageBox(MainWindow::GetHWND(), L"The Vulkan backend is not yet compatible with buffered rendering. Switch to non-buffered (WARNING: This will cause glitches with the other backends unless you switch back)", L"Vulkan Experimental Support", MB_ICONINFORMATION | MB_YESNO)) {
@@ -128,7 +128,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		break;
 	}
 	if (g_Config.bSoftwareRendering) {
-		coreParam.gpuCore = GPU_SOFTWARE;
+		coreParam.gpuCore = GPUCORE_SOFTWARE;
 	}
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;

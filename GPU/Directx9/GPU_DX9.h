@@ -33,10 +33,10 @@ namespace DX9 {
 class ShaderManagerDX9;
 class LinkedShaderDX9;
 
-class DIRECTX9_GPU : public GPUCommon {
+class GPU_DX9 : public GPUCommon {
 public:
-	DIRECTX9_GPU(GraphicsContext *gfxCtx);
-	~DIRECTX9_GPU();
+	GPU_DX9(GraphicsContext *gfxCtx);
+	~GPU_DX9();
 	void CheckGPUFeatures();
 	void InitClear() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -83,10 +83,10 @@ public:
 	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
 
-	typedef void (DIRECTX9_GPU::*CmdFunc)(u32 op, u32 diff);
+	typedef void (GPU_DX9::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
 		u8 flags;
-		DIRECTX9_GPU::CmdFunc func;
+		GPU_DX9::CmdFunc func;
 	};
 
 	void Execute_Generic(u32 op, u32 diff);
@@ -160,7 +160,7 @@ private:
 	void UpdateCmdInfo();
 
 	void Flush() {
-		transformDraw_.Flush();
+		drawEngine_.Flush();
 	}
 	void DoBlockTransfer(u32 skipDrawReason);
 	void ApplyDrawState(int prim);
@@ -177,7 +177,7 @@ private:
 	FramebufferManagerDX9 framebufferManager_;
 	TextureCacheDX9 textureCache_;
 	DepalShaderCacheDX9 depalShaderCache_;
-	TransformDrawEngineDX9 transformDraw_;
+	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManager_;
 
 	static CommandInfo cmdInfo_[256];
@@ -193,4 +193,4 @@ private:
 
 }  // namespace DX9
 
-typedef DX9::DIRECTX9_GPU DIRECTX9_GPU;
+typedef DX9::GPU_DX9 DIRECTX9_GPU;

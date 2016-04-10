@@ -116,7 +116,7 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPU_NULL:
+	case GPUCORE_NULL:
 		return new HeadlessHost();
 #ifdef HEADLESSHOST_CLASS
 	default:
@@ -211,7 +211,7 @@ int main(int argc, const char* argv[])
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPU_NULL;
+	GPUCore gpuCore = GPUCORE_NULL;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -247,21 +247,21 @@ int main(int argc, const char* argv[])
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
-				gpuCore = GPU_GLES;
+				gpuCore = GPUCORE_GLES;
 			else if (!strcasecmp(gpuName, "software"))
-				gpuCore = GPU_SOFTWARE;
+				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
-				gpuCore = GPU_DIRECTX9;
+				gpuCore = GPUCORE_DIRECTX9;
 			else if (!strcasecmp(gpuName, "vulkan"))
-				gpuCore = GPU_VULKAN;
+				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPU_NULL;
+				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
-			gpuCore = GPU_GLES;
+			gpuCore = GPUCORE_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
@@ -312,7 +312,7 @@ int main(int argc, const char* argv[])
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";

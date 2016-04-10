@@ -117,7 +117,7 @@ enum {
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
 
-TransformDrawEngine::TransformDrawEngine()
+DrawEngineGLES::DrawEngineGLES()
 	: decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
@@ -153,7 +153,7 @@ TransformDrawEngine::TransformDrawEngine()
 	register_gl_resource_holder(this);
 }
 
-TransformDrawEngine::~TransformDrawEngine() {
+DrawEngineGLES::~DrawEngineGLES() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -165,7 +165,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 	delete [] uvScale;
 }
 
-void TransformDrawEngine::RestoreVAO() {
+void DrawEngineGLES::RestoreVAO() {
 	if (sharedVao_ != 0) {
 		glBindVertexArray(sharedVao_);
 	} else if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
@@ -176,7 +176,7 @@ void TransformDrawEngine::RestoreVAO() {
 	}
 }
 
-void TransformDrawEngine::InitDeviceObjects() {
+void DrawEngineGLES::InitDeviceObjects() {
 	if (bufferNameCache_.empty()) {
 		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
 		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
@@ -192,7 +192,7 @@ void TransformDrawEngine::InitDeviceObjects() {
 	}
 }
 
-void TransformDrawEngine::DestroyDeviceObjects() {
+void DrawEngineGLES::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 	if (!bufferNameCache_.empty()) {
 		glstate.arrayBuffer.unbind();
@@ -209,7 +209,7 @@ void TransformDrawEngine::DestroyDeviceObjects() {
 	}
 }
 
-void TransformDrawEngine::GLRestore() {
+void DrawEngineGLES::GLRestore() {
 	ILOG("TransformDrawEngine::GLRestore()");
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
@@ -264,11 +264,11 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
 }
 
-void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+void DrawEngineGLES::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
 }
 
-inline void TransformDrawEngine::SetupVertexDecoderInternal(u32 vertType) {
+inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
@@ -280,7 +280,7 @@ inline void TransformDrawEngine::SetupVertexDecoderInternal(u32 vertType) {
 	}
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
@@ -346,7 +346,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 	}
 }
 
-void TransformDrawEngine::DecodeVerts() {
+void DrawEngineGLES::DecodeVerts() {
 	if (uvScale) {
 		const UVScale origUV = gstate_c.uv;
 		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
@@ -367,7 +367,7 @@ void TransformDrawEngine::DecodeVerts() {
 	}
 }
 
-void TransformDrawEngine::DecodeVertsStep() {
+void DrawEngineGLES::DecodeVertsStep() {
 	PROFILE_THIS_SCOPE("vertdec");
 
 	const int i = decodeCounter_;
@@ -465,7 +465,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-u32 TransformDrawEngine::ComputeMiniHash() {
+u32 DrawEngineGLES::ComputeMiniHash() {
 	u32 fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -492,7 +492,7 @@ u32 TransformDrawEngine::ComputeMiniHash() {
 	return fullhash;
 }
 
-void TransformDrawEngine::MarkUnreliable(VertexArrayInfo *vai) {
+void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
 	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
 	if (vai->vbo) {
 		FreeBuffer(vai->vbo);
@@ -504,7 +504,7 @@ void TransformDrawEngine::MarkUnreliable(VertexArrayInfo *vai) {
 	}
 }
 
-ReliableHashType TransformDrawEngine::ComputeHash() {
+ReliableHashType DrawEngineGLES::ComputeHash() {
 	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -543,7 +543,7 @@ ReliableHashType TransformDrawEngine::ComputeHash() {
 	return fullhash;
 }
 
-void TransformDrawEngine::ClearTrackedVertexArrays() {
+void DrawEngineGLES::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
 		FreeVertexArray(vai->second);
 		delete vai->second;
@@ -551,7 +551,7 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 	vai_.clear();
 }
 
-void TransformDrawEngine::DecimateTrackedVertexArrays() {
+void DrawEngineGLES::DecimateTrackedVertexArrays() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -579,7 +579,7 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 	}
 }
 
-GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
+GLuint DrawEngineGLES::AllocateBuffer(size_t sz) {
 	GLuint unused = 0;
 
 	auto freeMatch = freeSizedBuffers_.find(sz);
@@ -630,7 +630,7 @@ GLuint TransformDrawEngine::AllocateBuffer(size_t sz) {
 	return unused;
 }
 
-void TransformDrawEngine::FreeBuffer(GLuint buf) {
+void DrawEngineGLES::FreeBuffer(GLuint buf) {
 	// We can reuse buffers by setting new data on them, so let's actually keep it.
 	auto it = bufferNameInfo_.find(buf);
 	if (it != bufferNameInfo_.end()) {
@@ -645,7 +645,7 @@ void TransformDrawEngine::FreeBuffer(GLuint buf) {
 	}
 }
 
-void TransformDrawEngine::FreeVertexArray(VertexArrayInfo *vai) {
+void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
 	if (vai->vbo) {
 		FreeBuffer(vai->vbo);
 		vai->vbo = 0;
@@ -656,7 +656,7 @@ void TransformDrawEngine::FreeVertexArray(VertexArrayInfo *vai) {
 	}
 }
 
-void TransformDrawEngine::DoFlush() {
+void DrawEngineGLES::DoFlush() {
 	PROFILE_THIS_SCOPE("flush");
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
@@ -1005,7 +1005,7 @@ rotateVBO:
 #endif
 }
 
-void TransformDrawEngine::Resized() {
+void DrawEngineGLES::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
@@ -1022,7 +1022,7 @@ void TransformDrawEngine::Resized() {
 	}
 }
 
-GLuint TransformDrawEngine::BindBuffer(const void *p, size_t sz) {
+GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {
 	// Get a new buffer each time we need one.
 	GLuint buf = AllocateBuffer(sz);
 	glstate.arrayBuffer.bind(buf);
@@ -1034,7 +1034,7 @@ GLuint TransformDrawEngine::BindBuffer(const void *p, size_t sz) {
 	return buf;
 }
 
-GLuint TransformDrawEngine::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
+GLuint DrawEngineGLES::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
 	GLuint buf = AllocateBuffer(sz1 + sz2);
 	glstate.arrayBuffer.bind(buf);
 
@@ -1046,7 +1046,7 @@ GLuint TransformDrawEngine::BindBuffer(const void *p1, size_t sz1, const void *p
 	return buf;
 }
 
-GLuint TransformDrawEngine::BindElementBuffer(const void *p, size_t sz) {
+GLuint DrawEngineGLES::BindElementBuffer(const void *p, size_t sz) {
 	GLuint buf = AllocateBuffer(sz);
 	glstate.elementArrayBuffer.bind(buf);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
@@ -1055,7 +1055,7 @@ GLuint TransformDrawEngine::BindElementBuffer(const void *p, size_t sz) {
 	return buf;
 }
 
-void TransformDrawEngine::DecimateBuffers() {
+void DrawEngineGLES::DecimateBuffers() {
 	for (GLuint buf : buffersThisFrame_) {
 		FreeBuffer(buf);
 	}
@@ -1119,6 +1119,6 @@ void TransformDrawEngine::DecimateBuffers() {
 	}
 }
 
-bool TransformDrawEngine::IsCodePtrVertexDecoder(const u8 *ptr) const {
+bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }

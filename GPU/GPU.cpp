@@ -48,24 +48,24 @@ static void SetGPU(T *obj) {
 
 bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
 	switch (PSP_CoreParameter().gpuCore) {
-	case GPU_NULL:
+	case GPUCORE_NULL:
 		SetGPU(new NullGPU());
 		break;
-	case GPU_GLES:
-		SetGPU(new GLES_GPU(ctx));
+	case GPUCORE_GLES:
+		SetGPU(new GPU_GLES(ctx));
 		break;
-	case GPU_SOFTWARE:
+	case GPUCORE_SOFTWARE:
 		SetGPU(new SoftGPU(ctx, thin3d));
 		break;
-	case GPU_DIRECTX9:
+	case GPUCORE_DIRECTX9:
 #if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU(ctx));
 #endif
 		break;
-	case GPU_DIRECTX11:
+	case GPUCORE_DIRECTX11:
 		return false;
 #ifndef NO_VULKAN
-	case GPU_VULKAN:
+	case GPUCORE_VULKAN:
 		SetGPU(new GPU_Vulkan(ctx));
 		break;
 #endif

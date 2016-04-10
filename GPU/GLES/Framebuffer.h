@@ -35,7 +35,7 @@
 
 struct GLSLProgram;
 class TextureCache;
-class TransformDrawEngine;
+class DrawEngineGLES;
 class ShaderManager;
 
 // Simple struct for asynchronous PBO readbacks
@@ -71,7 +71,7 @@ public:
 	void SetShaderManager(ShaderManager *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(TransformDrawEngine *td) {
+	void SetTransformDrawEngine(DrawEngineGLES *td) {
 		transformDraw_ = td;
 	}
 
@@ -166,7 +166,7 @@ private:
 
 	TextureCache *textureCache_;
 	ShaderManager *shaderManager_;
-	TransformDrawEngine *transformDraw_;
+	DrawEngineGLES *transformDraw_;
 
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;

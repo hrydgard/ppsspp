@@ -107,10 +107,10 @@ public:
 };
 
 // Handles transform, lighting and drawing.
-class TransformDrawEngineDX9 : public DrawEngineCommon {
+class DrawEngineDX9 : public DrawEngineCommon {
 public:
-	TransformDrawEngineDX9();
-	virtual ~TransformDrawEngineDX9();
+	DrawEngineDX9();
+	virtual ~DrawEngineDX9();
 
 	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 

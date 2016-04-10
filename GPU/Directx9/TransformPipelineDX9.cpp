@@ -78,7 +78,7 @@ enum {
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-TransformDrawEngineDX9::TransformDrawEngineDX9()
+DrawEngineDX9::DrawEngineDX9()
 	:	decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
@@ -116,7 +116,7 @@ TransformDrawEngineDX9::TransformDrawEngineDX9()
 	InitDeviceObjects();
 }
 
-TransformDrawEngineDX9::~TransformDrawEngineDX9() {
+DrawEngineDX9::~DrawEngineDX9() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
@@ -132,11 +132,11 @@ TransformDrawEngineDX9::~TransformDrawEngineDX9() {
 	delete [] uvScale;
 }
 
-void TransformDrawEngineDX9::InitDeviceObjects() {
+void DrawEngineDX9::InitDeviceObjects() {
 
 }
 
-void TransformDrawEngineDX9::DestroyDeviceObjects() {
+void DrawEngineDX9::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 }
 
@@ -176,7 +176,7 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 	VertexElement->UsageIndex = usage_index;
 }
 
-IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
+IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
 	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
 
 	if (vertexDeclCached == vertexDeclMap_.end()) {
@@ -244,7 +244,7 @@ IDirect3DVertexDeclaration9 *TransformDrawEngineDX9::SetupDecFmtForDraw(VSShader
 	}
 }
 
-VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
+VertexDecoder *DrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
 		return iter->second;
@@ -254,11 +254,11 @@ VertexDecoder *TransformDrawEngineDX9::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
-void TransformDrawEngineDX9::SetupVertexDecoder(u32 vertType) {
+void DrawEngineDX9::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
 }
 
-inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
+inline void DrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
@@ -270,7 +270,7 @@ inline void TransformDrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 	}
 }
 
-void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
@@ -336,7 +336,7 @@ void TransformDrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType
 	}
 }
 
-void TransformDrawEngineDX9::DecodeVerts() {
+void DrawEngineDX9::DecodeVerts() {
 	if (uvScale) {
 		const UVScale origUV = gstate_c.uv;
 		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
@@ -357,7 +357,7 @@ void TransformDrawEngineDX9::DecodeVerts() {
 	}
 }
 
-void TransformDrawEngineDX9::DecodeVertsStep() {
+void DrawEngineDX9::DecodeVertsStep() {
 	const int i = decodeCounter_;
 
 	const DeferredDrawCall &dc = drawCalls[i];
@@ -454,7 +454,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-u32 TransformDrawEngineDX9::ComputeMiniHash() {
+u32 DrawEngineDX9::ComputeMiniHash() {
 	u32 fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -481,7 +481,7 @@ u32 TransformDrawEngineDX9::ComputeMiniHash() {
 	return fullhash;
 }
 
-void TransformDrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
+void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 	vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
 	if (vai->vbo) {
 		vai->vbo->Release();
@@ -493,7 +493,7 @@ void TransformDrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
 	}
 }
 
-ReliableHashType TransformDrawEngineDX9::ComputeHash() {
+ReliableHashType DrawEngineDX9::ComputeHash() {
 	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -532,14 +532,14 @@ ReliableHashType TransformDrawEngineDX9::ComputeHash() {
 	return fullhash;
 }
 
-void TransformDrawEngineDX9::ClearTrackedVertexArrays() {
+void DrawEngineDX9::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
 		delete vai->second;
 	}
 	vai_.clear();
 }
 
-void TransformDrawEngineDX9::DecimateTrackedVertexArrays() {
+void DrawEngineDX9::DecimateTrackedVertexArrays() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -587,7 +587,7 @@ VertexArrayInfoDX9::~VertexArrayInfoDX9() {
 }
 
 // The inline wrapper in the header checks for numDrawCalls == 0
-void TransformDrawEngineDX9::DoFlush() {
+void DrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
@@ -905,7 +905,7 @@ rotateVBO:
 	host->GPUNotifyDraw();
 }
 
-void TransformDrawEngineDX9::Resized() {
+void DrawEngineDX9::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
@@ -922,7 +922,7 @@ void TransformDrawEngineDX9::Resized() {
 	}
 }
 
-bool TransformDrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
+bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 

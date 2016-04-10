@@ -231,10 +231,10 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		h = PSP_CoreParameter().renderHeight;
 	} else {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			success = GLES_GPU::GetDisplayFramebuffer(buf);
+			success = GPU_GLES::GetDisplayFramebuffer(buf);
 #ifdef _WIN32
 		} else if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-			success = DX9::DIRECTX9_GPU::GetDisplayFramebuffer(buf);
+			success = DX9::GPU_DX9::GetDisplayFramebuffer(buf);
 #endif
 		}
 	}

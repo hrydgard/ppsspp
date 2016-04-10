@@ -37,7 +37,7 @@
 namespace DX9 {
 
 class TextureCacheDX9;
-class TransformDrawEngineDX9;
+class DrawEngineDX9;
 class ShaderManagerDX9;
 
 class FramebufferManagerDX9 : public FramebufferManagerCommon {
@@ -51,7 +51,7 @@ public:
 	void SetShaderManager(ShaderManagerDX9 *sm) {
 		shaderManager_ = sm;
 	}
-	void SetTransformDrawEngine(TransformDrawEngineDX9 *td) {
+	void SetTransformDrawEngine(DrawEngineDX9 *td) {
 		transformDraw_ = td;
 	}
 
@@ -132,7 +132,7 @@ private:
 
 	TextureCacheDX9 *textureCache_;
 	ShaderManagerDX9 *shaderManager_;
-	TransformDrawEngineDX9 *transformDraw_;
+	DrawEngineDX9 *transformDraw_;
 	
 	// Used by post-processing shader
 	std::vector<FBO *> extraFBOs_;
