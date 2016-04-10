@@ -35,13 +35,13 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/GLES/FragmentTestCache.cpp \
 	$$P/GPU/GLES/Framebuffer.cpp \
 	$$P/GPU/GLES/GLStateCache.cpp \
-	$$P/GPU/GLES/GLES_GPU.cpp \
+	$$P/GPU/GLES/GPU_GLES.cpp \
 	$$P/GPU/GLES/ShaderManager.cpp \
 	$$P/GPU/GLES/StateMapping.cpp \
 	$$P/GPU/GLES/StencilBuffer.cpp \
 	$$P/GPU/GLES/TextureCache.cpp \
 	$$P/GPU/GLES/TextureScaler.cpp \
-	$$P/GPU/GLES/TransformPipeline.cpp \
+	$$P/GPU/GLES/DrawEngineGLES.cpp \
 	$$P/GPU/GLES/VertexShaderGenerator.cpp \
 	$$P/GPU/Software/*.cpp \
 	$$P/GPU/Debugger/*.cpp \

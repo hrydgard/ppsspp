@@ -30,7 +30,7 @@
 #ifdef _WIN32
 #include "GPU/Directx9/GPU_DX9.h"
 #endif
-#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 

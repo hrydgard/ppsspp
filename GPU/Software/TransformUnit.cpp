@@ -19,7 +19,7 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
 

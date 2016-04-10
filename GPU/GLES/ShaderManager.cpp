@@ -38,7 +38,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "UI/OnScreenDisplay.h"
 #include "Framebuffer.h"
 #include "i18n/i18n.h"

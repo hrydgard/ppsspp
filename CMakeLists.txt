@@ -1505,8 +1505,8 @@ add_library(GPU OBJECT
 	GPU/GLES/DepalettizeShader.h
 	GPU/GLES/FBO.cpp
 	GPU/GLES/FBO.h
-	GPU/GLES/GLES_GPU.cpp
-	GPU/GLES/GLES_GPU.h
+	GPU/GLES/GPU_GLES.cpp
+	GPU/GLES/GPU_GLES.h
 	GPU/GLES/GLStateCache.cpp
 	GPU/GLES/GLStateCache.h
 	GPU/GLES/FragmentShaderGenerator.cpp
@@ -1524,8 +1524,8 @@ add_library(GPU OBJECT
 	GPU/GLES/TextureCache.h
 	GPU/GLES/TextureScaler.cpp
 	GPU/GLES/TextureScaler.h
-	GPU/GLES/TransformPipeline.cpp
-	GPU/GLES/TransformPipeline.h
+	GPU/GLES/DrawEngineGLES.cpp
+	GPU/GLES/DrawEngineGLES.h
 	GPU/GLES/VertexShaderGenerator.cpp
 	GPU/GLES/VertexShaderGenerator.h
 	GPU/GPUInterface.h

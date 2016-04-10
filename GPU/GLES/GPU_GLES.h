@@ -23,7 +23,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GLES/FBO.h"
 #include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/DepalettizeShader.h"
 #include "GPU/GLES/FragmentTestCache.h"

@@ -20,7 +20,7 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/GPU_GLES.h"
 #ifndef NO_VULKAN
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #endif

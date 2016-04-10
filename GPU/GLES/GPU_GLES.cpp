@@ -37,9 +37,9 @@
 
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCache.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -633,7 +633,7 @@ void GPU_GLES::BuildReportingInfo() {
 }
 
 void GPU_GLES::DeviceLost() {
-	ILOG("GLES_GPU: DeviceLost");
+	ILOG("GPU_GLES: DeviceLost");
 	// Should only be executed on the GL thread.
 
 	// Simply drop all caches and textures.

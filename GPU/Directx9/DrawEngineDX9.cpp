@@ -15,52 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// Ideas for speeding things up on mobile OpenGL ES implementations
-//
-// Use superbuffers! Yes I just invented that name.
-//
-// The idea is to avoid respecifying the vertex format between every draw call (multiple glVertexAttribPointer ...)
-// by combining the contents of multiple draw calls into one buffer, as long as
-// they have exactly the same output vertex format. (different input formats is fine! This way
-// we can combine the data for multiple draws with different numbers of bones, as we consider numbones < 4 to be = 4)
-// into one VBO.
-//
-// This will likely be a win because I believe that between every change of VBO + glVertexAttribPointer*N, the driver will
-// perform a lot of validation, probably at draw call time, while all the validation can be skipped if the only thing
-// that changes between two draw calls is simple state or texture or a matrix etc, not anything vertex related.
-// Also the driver will have to manage hundreds instead of thousands of VBOs in games like GTA.
-//
-// * Every 10 frames or something, do the following:
-//   - Frame 1:
-//		 + Mark all drawn buffers with in-frame sequence numbers (alternatively,
-//		   just log them in an array)
-//	 - Frame 2 (beginning?):
-//	   + Take adjacent buffers that have the same output vertex format, and add them
-//	     to a list of buffers to combine. Create said buffers with appropriate sizes
-//	     and precompute the offsets that the draws should be written into.
-//	 - Frame 2 (end):
-//	   + Actually do the work of combining the buffers. This probably means re-decoding
-//	     the vertices into a new one. Will also have to apply index offsets.
-//
-// Also need to change the drawing code so that we don't glBindBuffer and respecify glVAP if
-// two subsequent drawcalls come from the same superbuffer.
-//
-// Or we ignore all of this including vertex caching and simply find a way to do highly optimized vertex streaming,
-// like Dolphin is trying to. That will likely never be able to reach the same speed as perfectly optimized
-// superbuffers though. For this we will have to JIT the vertex decoder but that's not too hard.
-//
-// Now, when do we delete superbuffers? Maybe when half the buffers within have been killed?
-//
-// Another idea for GTA which switches textures a lot while not changing much other state is to use ES 3 Array
-// textures, if they are the same size (even if they aren't, might be okay to simply resize the textures to match
-// if they're just a multiple of 2 away) or something. Then we'd have to add a W texture coordinate to choose the
-// texture within the bound texture array to the vertex data when merging into superbuffers.
-//
-// There are even more things to try. For games that do matrix palette skinning by quickly switching bones and
-// just drawing a few triangles per call (NBA, FF:CC, Tekken 6 etc) we could even collect matrices, upload them
-// all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
-// draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
-
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -72,7 +26,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 
-#include "profiler/profiler.h"
+#include "helper/dx_state.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -80,61 +34,71 @@
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
-#include "GPU/GLES/GLStateCache.h"
-#include "GPU/GLES/FragmentTestCache.h"
-#include "GPU/GLES/StateMapping.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/TransformPipeline.h"
-#include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/Directx9/StateMappingDX9.h"
+#include "GPU/Directx9/TextureCacheDX9.h"
+#include "GPU/Directx9/DrawEngineDX9.h"
+#include "GPU/Directx9/ShaderManagerDX9.h"
+#include "GPU/Directx9/GPU_DX9.h"
 
-extern const GLuint glprim[8] = {
-	GL_POINTS,
-	GL_LINES,
-	GL_LINE_STRIP,
-	GL_TRIANGLES,
-	GL_TRIANGLE_STRIP,
-	GL_TRIANGLE_FAN,
-	GL_TRIANGLES,
-	// With OpenGL ES we have to expand sprites (rects) into triangles, tripling the data instead of doubling.
-	// Sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
-	// We can use it on the desktop though, but we don't yet. There we could also use geometry shaders anyway.
+namespace DX9 {
+
+const D3DPRIMITIVETYPE glprim[8] = {
+	D3DPT_POINTLIST,
+	D3DPT_LINELIST,
+	D3DPT_LINESTRIP,
+	D3DPT_TRIANGLELIST,
+	D3DPT_TRIANGLESTRIP,
+	D3DPT_TRIANGLEFAN,
+	D3DPT_TRIANGLELIST,	 // With OpenGL ES we have to expand sprites into triangles, tripling the data instead of doubling. sigh. OpenGL ES, Y U NO SUPPORT GL_QUADS?
 };
+
+// hrydgard's quick guesses - TODO verify
+static const int D3DPRIMITIVEVERTEXCOUNT[8][2] = {
+	{0, 0}, // invalid
+	{1, 0}, // 1 = D3DPT_POINTLIST,
+	{2, 0}, // 2 = D3DPT_LINELIST,
+	{2, 1}, // 3 = D3DPT_LINESTRIP,
+	{3, 0}, // 4 = D3DPT_TRIANGLELIST,
+	{1, 2}, // 5 = D3DPT_TRIANGLESTRIP,
+	{1, 2}, // 6 = D3DPT_TRIANGLEFAN,
+};
+
+int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
+	return (size / D3DPRIMITIVEVERTEXCOUNT[prim][0]) - D3DPRIMITIVEVERTEXCOUNT[prim][1];
+}
 
 enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * sizeof(TransformedVertex)
 };
 
 #define VERTEXCACHE_DECIMATION_INTERVAL 17
-#define VERTEXCACHE_NAME_DECIMATION_INTERVAL 41
-#define VERTEXCACHE_NAME_DECIMATION_MAX 100
-#define VERTEXCACHE_NAME_CACHE_SIZE 64
-#define VERTEXCACHE_NAME_CACHE_FULL_BYTES (1024 * 1024)
-#define VERTEXCACHE_NAME_CACHE_MAX_AGE 120
 
 enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MAX = 4 };
 
-
-DrawEngineGLES::DrawEngineGLES()
-	: decodedVerts_(0),
+DrawEngineDX9::DrawEngineDX9()
+	:	decodedVerts_(0),
 		prevPrim_(GE_PRIM_INVALID),
 		lastVType_(-1),
-		shaderManager_(nullptr),
-		textureCache_(nullptr),
-		framebufferManager_(nullptr),
+		shaderManager_(0),
+		textureCache_(0),
+		framebufferManager_(0),
 		numDrawCalls(0),
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(nullptr),
+		uvScale(0),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
-	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
+
 	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = false;
+	decOptions_.expandAllUVtoFloat = true;
+	decOptions_.expandAllWeightsToFloat = true;
+	decOptions_.expand8BitNormalsToFloat = true;
+
+	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -150,125 +114,151 @@ DrawEngineGLES::DrawEngineGLES()
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
-	register_gl_resource_holder(this);
 }
 
-DrawEngineGLES::~DrawEngineGLES() {
+DrawEngineDX9::~DrawEngineDX9() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	for (auto decl = vertexDeclMap_.begin(); decl != vertexDeclMap_.end(); ++decl) {
+		if (decl->second) {
+			decl->second->Release();
+		}
+	}
 
-	unregister_gl_resource_holder(this);
 	delete [] uvScale;
 }
 
-void DrawEngineGLES::RestoreVAO() {
-	if (sharedVao_ != 0) {
-		glBindVertexArray(sharedVao_);
-	} else if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-		// Note: this is here because, InitDeviceObjects() is called before GPU_SUPPORTS_VAO is setup.
-		// So, this establishes it if Supports() returns true and there isn't one yet.
-		glGenVertexArrays(1, &sharedVao_);
-		glBindVertexArray(sharedVao_);
-	}
+void DrawEngineDX9::InitDeviceObjects() {
+
 }
 
-void DrawEngineGLES::InitDeviceObjects() {
-	if (bufferNameCache_.empty()) {
-		bufferNameCache_.resize(VERTEXCACHE_NAME_CACHE_SIZE);
-		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[0]);
-		bufferNameCacheSize_ = 0;
+void DrawEngineDX9::DestroyDeviceObjects() {
+	ClearTrackedVertexArrays();
+}
 
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-			glGenVertexArrays(1, &sharedVao_);
-		} else {
-			sharedVao_ = 0;
+struct DeclTypeInfo {
+	u32 type;
+	const char * name;
+};
+
+static const DeclTypeInfo VComp[] = {
+	{ 0, "NULL" }, // DEC_NONE,
+	{ D3DDECLTYPE_FLOAT1, "D3DDECLTYPE_FLOAT1 " },  // DEC_FLOAT_1,
+	{ D3DDECLTYPE_FLOAT2, "D3DDECLTYPE_FLOAT2 " },  // DEC_FLOAT_2,
+	{ D3DDECLTYPE_FLOAT3, "D3DDECLTYPE_FLOAT3 " },  // DEC_FLOAT_3,
+	{ D3DDECLTYPE_FLOAT4, "D3DDECLTYPE_FLOAT4 " },  // DEC_FLOAT_4,
+
+	{ 0, "UNUSED" }, // DEC_S8_3,
+
+	{ D3DDECLTYPE_SHORT4N, "D3DDECLTYPE_SHORT4N	" },	// DEC_S16_3,
+	{ D3DDECLTYPE_UBYTE4N, "D3DDECLTYPE_UBYTE4N	" },	// DEC_U8_1,
+	{ D3DDECLTYPE_UBYTE4N, "D3DDECLTYPE_UBYTE4N	" },	// DEC_U8_2,
+	{ D3DDECLTYPE_UBYTE4N, "D3DDECLTYPE_UBYTE4N	" },	// DEC_U8_3,
+	{ D3DDECLTYPE_UBYTE4N, "D3DDECLTYPE_UBYTE4N	" },	// DEC_U8_4,
+	{0, "UNUSED_DEC_U16_1" },	// 	DEC_U16_1,
+	{0, "UNUSED_DEC_U16_2" },	// 	DEC_U16_2,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "}, // DEC_U16_3,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N "}, // DEC_U16_4,
+	// Not supported in regular DX9 so faking, will cause graphics bugs until worked around
+	{0,"UNUSED_DEC_U8A_2"}, // DEC_U8A_2,
+	{0,"UNUSED_DEC_U16A_2" }, // DEC_U16A_2,
+};
+
+static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
+	memset(VertexElement, 0, sizeof(D3DVERTEXELEMENT9));
+	VertexElement->Offset = offset;
+	VertexElement->Type = VComp[fmt].type;
+	VertexElement->Usage = usage;
+	VertexElement->UsageIndex = usage_index;
+}
+
+IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader, const DecVtxFormat &decFmt, u32 pspFmt) {
+	auto vertexDeclCached = vertexDeclMap_.find(pspFmt);
+
+	if (vertexDeclCached == vertexDeclMap_.end()) {
+		D3DVERTEXELEMENT9 VertexElements[8];
+		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
+
+		// Vertices Elements orders
+		// WEIGHT
+		if (decFmt.w0fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_TEXCOORD, 1);
+			VertexElement++;
 		}
+
+		if (decFmt.w1fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_TEXCOORD, 2);
+			VertexElement++;
+		}
+
+		// TC
+		if (decFmt.uvfmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD, 0);
+			VertexElement++;
+		}
+
+		// COLOR
+		if (decFmt.c0fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
+			VertexElement++;
+		}
+		// Never used ?
+		if (decFmt.c1fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
+			VertexElement++;
+		}
+
+		// NORMAL
+		if (decFmt.nrmfmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.nrmfmt, decFmt.nrmoff, D3DDECLUSAGE_NORMAL, 0);
+			VertexElement++;
+		}
+
+		// POSITION
+		// Always
+		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
+		VertexElement++;
+
+		// End
+		D3DVERTEXELEMENT9 end = D3DDECL_END();
+		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
+
+		// Create declaration
+		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = nullptr;
+		HRESULT hr = pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+		if (FAILED(hr)) {
+			ERROR_LOG(G3D, "Failed to create vertex declaration!");
+			pHardwareVertexDecl = nullptr;
+		}
+
+		// Add it to map
+		vertexDeclMap_[pspFmt] = pHardwareVertexDecl;
+		return pHardwareVertexDecl;
 	} else {
-		ERROR_LOG(G3D, "Device objects already initialized!");
+		// Set it from map
+		return vertexDeclCached->second;
 	}
 }
 
-void DrawEngineGLES::DestroyDeviceObjects() {
-	ClearTrackedVertexArrays();
-	if (!bufferNameCache_.empty()) {
-		glstate.arrayBuffer.unbind();
-		glstate.elementArrayBuffer.unbind();
-		glDeleteBuffers((GLsizei)bufferNameCache_.size(), &bufferNameCache_[0]);
-		bufferNameCache_.clear();
-		bufferNameInfo_.clear();
-		freeSizedBuffers_.clear();
-		bufferNameCacheSize_ = 0;
-
-		if (sharedVao_ != 0) {
-			glDeleteVertexArrays(1, &sharedVao_);
-		}
-	}
+VertexDecoder *DrawEngineDX9::GetVertexDecoder(u32 vtype) {
+	auto iter = decoderMap_.find(vtype);
+	if (iter != decoderMap_.end())
+		return iter->second;
+	VertexDecoder *dec = new VertexDecoder();
+	dec->SetVertexType(vtype, decOptions_, decJitCache_);
+	decoderMap_[vtype] = dec;
+	return dec;
 }
 
-void DrawEngineGLES::GLRestore() {
-	ILOG("TransformDrawEngine::GLRestore()");
-	// The objects have already been deleted.
-	bufferNameCache_.clear();
-	bufferNameInfo_.clear();
-	freeSizedBuffers_.clear();
-	bufferNameCacheSize_ = 0;
-	ClearTrackedVertexArrays();
-	InitDeviceObjects();
-}
-
-struct GlTypeInfo {
-	u16 type;
-	u8 count;
-	u8 normalized;
-};
-
-static const GlTypeInfo GLComp[] = {
-	{0}, // 	DEC_NONE,
-	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
-	{GL_FLOAT, 2, GL_FALSE}, // 	DEC_FLOAT_2,
-	{GL_FLOAT, 3, GL_FALSE}, // 	DEC_FLOAT_3,
-	{GL_FLOAT, 4, GL_FALSE}, // 	DEC_FLOAT_4,
-	{GL_BYTE, 4, GL_TRUE}, // 	DEC_S8_3,
-	{GL_SHORT, 4, GL_TRUE},// 	DEC_S16_3,
-	{GL_UNSIGNED_BYTE, 1, GL_TRUE},// 	DEC_U8_1,
-	{GL_UNSIGNED_BYTE, 2, GL_TRUE},// 	DEC_U8_2,
-	{GL_UNSIGNED_BYTE, 3, GL_TRUE},// 	DEC_U8_3,
-	{GL_UNSIGNED_BYTE, 4, GL_TRUE},// 	DEC_U8_4,
-	{GL_UNSIGNED_SHORT, 1, GL_TRUE},// 	DEC_U16_1,
-	{GL_UNSIGNED_SHORT, 2, GL_TRUE},// 	DEC_U16_2,
-	{GL_UNSIGNED_SHORT, 3, GL_TRUE},// 	DEC_U16_3,
-	{GL_UNSIGNED_SHORT, 4, GL_TRUE},// 	DEC_U16_4,
-	{GL_UNSIGNED_BYTE,  2, GL_FALSE},// 	DEC_U8A_2,
-	{GL_UNSIGNED_SHORT, 2, GL_FALSE},// 	DEC_U16A_2,
-};
-
-static inline void VertexAttribSetup(int attrib, int fmt, int stride, u8 *ptr) {
-	if (fmt) {
-		const GlTypeInfo &type = GLComp[fmt];
-		glVertexAttribPointer(attrib, type.count, type.type, type.normalized, stride, ptr);
-	}
-}
-
-// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
-	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, vertexData + decFmt.w0off);
-	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, vertexData + decFmt.w1off);
-	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, vertexData + decFmt.uvoff);
-	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, vertexData + decFmt.c0off);
-	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, vertexData + decFmt.c1off);
-	VertexAttribSetup(ATTR_NORMAL, decFmt.nrmfmt, decFmt.stride, vertexData + decFmt.nrmoff);
-	VertexAttribSetup(ATTR_POSITION, decFmt.posfmt, decFmt.stride, vertexData + decFmt.posoff);
-}
-
-void DrawEngineGLES::SetupVertexDecoder(u32 vertType) {
+void DrawEngineDX9::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
 }
 
-inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
+inline void DrawEngineDX9::SetupVertexDecoderInternal(u32 vertType) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
 	// into the top of the verttype where there are unused bits.
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
@@ -280,7 +270,7 @@ inline void DrawEngineGLES::SetupVertexDecoderInternal(u32 vertType) {
 	}
 }
 
-void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls + vertexCount > VERTEX_BUFFER_MAX)
 		Flush();
 
@@ -346,7 +336,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 	}
 }
 
-void DrawEngineGLES::DecodeVerts() {
+void DrawEngineDX9::DecodeVerts() {
 	if (uvScale) {
 		const UVScale origUV = gstate_c.uv;
 		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
@@ -367,9 +357,7 @@ void DrawEngineGLES::DecodeVerts() {
 	}
 }
 
-void DrawEngineGLES::DecodeVertsStep() {
-	PROFILE_THIS_SCOPE("vertdec");
-
+void DrawEngineDX9::DecodeVertsStep() {
 	const int i = decodeCounter_;
 
 	const DeferredDrawCall &dc = drawCalls[i];
@@ -378,7 +366,8 @@ void DrawEngineGLES::DecodeVertsStep() {
 	int indexLowerBound = dc.indexLowerBound, indexUpperBound = dc.indexUpperBound;
 
 	u32 indexType = dc.indexType;
-	if (indexType == (GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT)) {
+	void *inds = dc.inds;
+	if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 		// Decode the verts and apply morphing. Simple.
 		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
 			dc.verts, indexLowerBound, indexUpperBound);
@@ -438,8 +427,8 @@ void DrawEngineGLES::DecodeVertsStep() {
 		}
 
 		// 3. Decode that range of vertex data.
-		int stride = (int)dec_->GetDecVtxFmt().stride;
-		dec_->DecodeVerts(decoded + decodedVerts_ * stride, dc.verts, indexLowerBound, indexUpperBound);
+		dec_->DecodeVerts(decoded + decodedVerts_ * (int)dec_->GetDecVtxFmt().stride,
+			dc.verts, indexLowerBound, indexUpperBound);
 		decodedVerts_ += vertexCount;
 
 		// 4. Advance indexgen vertex counter.
@@ -465,7 +454,7 @@ inline u32 ComputeMiniHashRange(const void *ptr, size_t sz) {
 	}
 }
 
-u32 DrawEngineGLES::ComputeMiniHash() {
+u32 DrawEngineDX9::ComputeMiniHash() {
 	u32 fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -492,19 +481,19 @@ u32 DrawEngineGLES::ComputeMiniHash() {
 	return fullhash;
 }
 
-void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
-	vai->status = VertexArrayInfo::VAI_UNRELIABLE;
+void DrawEngineDX9::MarkUnreliable(VertexArrayInfoDX9 *vai) {
+	vai->status = VertexArrayInfoDX9::VAI_UNRELIABLE;
 	if (vai->vbo) {
-		FreeBuffer(vai->vbo);
-		vai->vbo = 0;
+		vai->vbo->Release();
+		vai->vbo = nullptr;
 	}
 	if (vai->ebo) {
-		FreeBuffer(vai->ebo);
-		vai->ebo = 0;
+		vai->ebo->Release();
+		vai->ebo = nullptr;
 	}
 }
 
-ReliableHashType DrawEngineGLES::ComputeHash() {
+ReliableHashType DrawEngineDX9::ComputeHash() {
 	ReliableHashType fullhash = 0;
 	const int vertexSize = dec_->GetDecVtxFmt().stride;
 	const int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
@@ -543,15 +532,14 @@ ReliableHashType DrawEngineGLES::ComputeHash() {
 	return fullhash;
 }
 
-void DrawEngineGLES::ClearTrackedVertexArrays() {
+void DrawEngineDX9::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
-		FreeVertexArray(vai->second);
 		delete vai->second;
 	}
 	vai_.clear();
 }
 
-void DrawEngineGLES::DecimateTrackedVertexArrays() {
+void DrawEngineDX9::DecimateTrackedVertexArrays() {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	} else {
@@ -563,101 +551,43 @@ void DrawEngineGLES::DecimateTrackedVertexArrays() {
 	int unreliableLeft = VAI_UNRELIABLE_KILL_MAX;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		bool kill;
-		if (iter->second->status == VertexArrayInfo::VAI_UNRELIABLE) {
+		if (iter->second->status == VertexArrayInfoDX9::VAI_UNRELIABLE) {
 			// We limit killing unreliable so we don't rehash too often.
 			kill = iter->second->lastFrame < unreliableThreshold && --unreliableLeft >= 0;
 		} else {
 			kill = iter->second->lastFrame < threshold;
 		}
 		if (kill) {
-			FreeVertexArray(iter->second);
 			delete iter->second;
 			vai_.erase(iter++);
 		} else {
 			++iter;
 		}
 	}
+
+	// Enable if you want to see vertex decoders in the log output. Need a better way.
+#if 0
+	char buffer[16384];
+	for (std::map<u32, VertexDecoder*>::iterator dec = decoderMap_.begin(); dec != decoderMap_.end(); ++dec) {
+		char *ptr = buffer;
+		ptr += dec->second->ToString(ptr);
+		//		*ptr++ = '\n';
+		NOTICE_LOG(G3D, buffer);
+	}
+#endif
 }
 
-GLuint DrawEngineGLES::AllocateBuffer(size_t sz) {
-	GLuint unused = 0;
-
-	auto freeMatch = freeSizedBuffers_.find(sz);
-	if (freeMatch != freeSizedBuffers_.end()) {
-		unused = freeMatch->second;
-		_assert_(!bufferNameInfo_[unused].used);
-
-		freeSizedBuffers_.erase(freeMatch);
-	} else {
-		for (GLuint buf : bufferNameCache_) {
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			if (info.used) {
-				continue;
-			}
-
-			// Just pick the first unused one, we'll have to resize it.
-			unused = buf;
-
-			// Let's also remove from the free list, if it's there.
-			if (info.sz != 0) {
-				auto range = freeSizedBuffers_.equal_range(info.sz);
-				for (auto it = range.first; it != range.second; ++it) {
-					if (it->second == buf) {
-						// It will only be once, so remove and bail.
-						freeSizedBuffers_.erase(it);
-						break;
-					}
-				}
-			}
-			break;
-		}
+VertexArrayInfoDX9::~VertexArrayInfoDX9() {
+	if (vbo) {
+		vbo->Release();
 	}
-
-	if (unused == 0) {
-		size_t oldSize = bufferNameCache_.size();
-		bufferNameCache_.resize(oldSize + VERTEXCACHE_NAME_CACHE_SIZE);
-		glGenBuffers(VERTEXCACHE_NAME_CACHE_SIZE, &bufferNameCache_[oldSize]);
-
-		unused = bufferNameCache_[oldSize];
-	}
-
-	BufferNameInfo &info = bufferNameInfo_[unused];
-
-	// Record the change in size.
-	bufferNameCacheSize_ += sz - info.sz;
-	info.sz = sz;
-	info.used = true;
-	return unused;
-}
-
-void DrawEngineGLES::FreeBuffer(GLuint buf) {
-	// We can reuse buffers by setting new data on them, so let's actually keep it.
-	auto it = bufferNameInfo_.find(buf);
-	if (it != bufferNameInfo_.end()) {
-		it->second.used = false;
-		it->second.lastFrame = gpuStats.numFlips;
-
-		if (it->second.sz != 0) {
-			freeSizedBuffers_.insert(std::make_pair(it->second.sz, buf));
-		}
-	} else {
-		ERROR_LOG(G3D, "Unexpected buffer freed (%d) but not tracked", buf);
+	if (ebo) {
+		ebo->Release();
 	}
 }
 
-void DrawEngineGLES::FreeVertexArray(VertexArrayInfo *vai) {
-	if (vai->vbo) {
-		FreeBuffer(vai->vbo);
-		vai->vbo = 0;
-	}
-	if (vai->ebo) {
-		FreeBuffer(vai->ebo);
-		vai->ebo = 0;
-	}
-}
-
-void DrawEngineGLES::DoFlush() {
-	PROFILE_THIS_SCOPE("flush");
+// The inline wrapper in the header checks for numDrawCalls == 0
+void DrawEngineDX9::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
@@ -667,12 +597,14 @@ void DrawEngineGLES::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	ShaderID vsid;
-	Shader *vshader = shaderManager_->ApplyVertexShader(prim, lastVType_, &vsid);
+	VSShader *vshader = shaderManager_->ApplyShader(prim, lastVType_);
 
 	if (vshader->UseHWTransform()) {
-		GLuint vbo = 0, ebo = 0;
+		LPDIRECT3DVERTEXBUFFER9 vb_ = NULL;
+		LPDIRECT3DINDEXBUFFER9 ib_ = NULL;
+
 		int vertexCount = 0;
+		int maxIndex = 0;
 		bool useElements = true;
 
 		// Cannot cache vertex data with morph enabled.
@@ -684,23 +616,23 @@ void DrawEngineGLES::DoFlush() {
 		if (useCache) {
 			u32 id = dcid_;
 			auto iter = vai_.find(id);
-			VertexArrayInfo *vai;
+			VertexArrayInfoDX9 *vai;
 			if (iter != vai_.end()) {
 				// We've seen this before. Could have been a cached draw.
 				vai = iter->second;
 			} else {
-				vai = new VertexArrayInfo();
+				vai = new VertexArrayInfoDX9();
 				vai_[id] = vai;
 			}
 
 			switch (vai->status) {
-			case VertexArrayInfo::VAI_NEW:
+			case VertexArrayInfoDX9::VAI_NEW:
 				{
 					// Haven't seen this one before.
 					ReliableHashType dataHash = ComputeHash();
 					vai->hash = dataHash;
 					vai->minihash = ComputeMiniHash();
-					vai->status = VertexArrayInfo::VAI_HASHING;
+					vai->status = VertexArrayInfoDX9::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
 					vai->numVerts = indexGen.VertexCount();
@@ -713,7 +645,7 @@ void DrawEngineGLES::DoFlush() {
 
 				// Hashing - still gaining confidence about the buffer.
 				// But if we get this far it's likely to be worth creating a vertex buffer.
-			case VertexArrayInfo::VAI_HASHING:
+			case VertexArrayInfoDX9::VAI_HASHING:
 				{
 					vai->numDraws++;
 					if (vai->lastFrame != gpuStats.numFlips) {
@@ -732,8 +664,8 @@ void DrawEngineGLES::DoFlush() {
 							goto rotateVBO;
 						}
 						if (vai->numVerts > 64) {
-							// exponential backoff up to 16 draws, then every 32
-							vai->drawsUntilNextFullHash = std::min(32, vai->numFrames);
+							// exponential backoff up to 16 draws, then every 24
+							vai->drawsUntilNextFullHash = std::min(24, vai->numFrames);
 						} else {
 							// Lower numbers seem much more likely to change.
 							vai->drawsUntilNextFullHash = 0;
@@ -765,39 +697,38 @@ void DrawEngineGLES::DoFlush() {
 
 						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
-						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						vai->vbo = AllocateBuffer(vsz);
-						glstate.arrayBuffer.bind(vai->vbo);
-						glBufferData(GL_ARRAY_BUFFER, vsz, decoded, GL_STATIC_DRAW);
-						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-						// there is no need for the index buffer we built. We can then use glDrawArrays instead
-						// for a very minor speed boost.
+						void * pVb;
+						u32 size = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
+						pD3Ddevice->CreateVertexBuffer(size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &vai->vbo, NULL);
+						vai->vbo->Lock(0, size, &pVb, 0);
+						memcpy(pVb, decoded, size);
+						vai->vbo->Unlock();
 						if (useElements) {
-							size_t esz = sizeof(short) * indexGen.VertexCount();
-							vai->ebo = AllocateBuffer(esz);
-							glstate.elementArrayBuffer.bind(vai->ebo);
-							glBufferData(GL_ELEMENT_ARRAY_BUFFER, esz, (GLvoid *)decIndex, GL_STATIC_DRAW);
+							void * pIb;
+							u32 size = sizeof(short) * indexGen.VertexCount();
+							pD3Ddevice->CreateIndexBuffer(size, D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &vai->ebo, NULL);
+							vai->ebo->Lock(0, size, &pIb, 0);
+							memcpy(pIb, decIndex, size);
+							vai->ebo->Unlock();
 						} else {
 							vai->ebo = 0;
-							glstate.elementArrayBuffer.bind(vai->ebo);
 						}
 					} else {
 						gpuStats.numCachedDrawCalls++;
-						glstate.arrayBuffer.bind(vai->vbo);
-						glstate.elementArrayBuffer.bind(vai->ebo);
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					}
-					vbo = vai->vbo;
-					ebo = vai->ebo;
+					vb_ = vai->vbo;
+					ib_ = vai->ebo;
 					vertexCount = vai->numVerts;
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
 				// Reliable - we don't even bother hashing anymore. Right now we don't go here until after a very long time.
-			case VertexArrayInfo::VAI_RELIABLE:
+			case VertexArrayInfoDX9::VAI_RELIABLE:
 				{
 					vai->numDraws++;
 					if (vai->lastFrame != gpuStats.numFlips) {
@@ -805,18 +736,19 @@ void DrawEngineGLES::DoFlush() {
 					}
 					gpuStats.numCachedDrawCalls++;
 					gpuStats.numCachedVertsDrawn += vai->numVerts;
-					vbo = vai->vbo;
-					ebo = vai->ebo;
-					glstate.arrayBuffer.bind(vbo);
-					glstate.elementArrayBuffer.bind(ebo);
+					vb_ = vai->vbo;
+					ib_ = vai->ebo;
+
 					vertexCount = vai->numVerts;
+
+					maxIndex = vai->maxIndex;
 					prim = static_cast<GEPrimitiveType>(vai->prim);
 
 					gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
 					break;
 				}
 
-			case VertexArrayInfo::VAI_UNRELIABLE:
+			case VertexArrayInfoDX9::VAI_UNRELIABLE:
 				{
 					vai->numDraws++;
 					if (vai->lastFrame != gpuStats.numFlips) {
@@ -830,25 +762,15 @@ void DrawEngineGLES::DoFlush() {
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts();
-
 rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
+			maxIndex = indexGen.MaxIndex();
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-
 			prim = indexGen.Prim();
-		}
-
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO) && vbo == 0) {
-			vbo = BindBuffer(decoded, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex());
-			if (useElements) {
-				ebo = BindElementBuffer(decIndex, sizeof(short) * indexGen.VertexCount());
-			}
 		}
 
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
@@ -860,13 +782,28 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
-		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
+		IDirect3DVertexDeclaration9 *pHardwareVertexDecl = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 
-		if (useElements) {
-			glDrawElements(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, ebo ? 0 : (GLvoid*)decIndex);
-		} else {
-			glDrawArrays(glprim[prim], 0, vertexCount);
+		if (pHardwareVertexDecl) {
+			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
+			if (vb_ == NULL) {
+				if (useElements) {
+					pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+				} else {
+					pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+				}
+			} else {
+				pD3Ddevice->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
+
+				if (useElements) {
+					pD3Ddevice->SetIndices(ib_);
+
+					pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
+				} else {
+					pD3Ddevice->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+				}
+			}
 		}
 	} else {
 		DecodeVerts();
@@ -882,15 +819,15 @@ rotateVBO:
 		// Undo the strip optimization, not supported by the SW code yet.
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
+		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		TransformedVertex *drawBuffer = NULL;
-		int numTrans;
+		int numTrans = 0;
 		bool drawIndexed = false;
 		u16 *inds = decIndex;
+		TransformedVertex *drawBuffer = NULL;
 		SoftwareTransformResult result;
 		memset(&result, 0, sizeof(result));
 
-		// TODO: Keep this static?  Faster than repopulating?
 		SoftwareTransformParams params;
 		memset(&params, 0, sizeof(params));
 		params.decoded = decoded;
@@ -905,79 +842,44 @@ rotateVBO:
 			prim, indexGen.VertexCount(),
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
-		ApplyDrawStateLate();
 
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
+		ApplyDrawStateLate();
+		vshader = shaderManager_->ApplyShader(prim, lastVType_);
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (result.setStencil) {
-				glstate.stencilFunc.set(GL_ALWAYS, result.stencilValue, 255);
+				dxstate.stencilFunc.set(D3DCMP_ALWAYS, result.stencilValue, 255);
 			}
+
+			// TODO: Add a post-transform cache here for multi-RECTANGLES only.
+			// Might help for text drawing.
+
+			// these spam the gDebugger log.
 			const int vertexSize = sizeof(transformed[0]);
 
-			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-
-			const uint8_t *bufferStart = (const uint8_t *)drawBuffer;
-			if (gstate_c.Supports(GPU_SUPPORTS_VAO)) {
-				bufferStart = 0;
-				BindBuffer(drawBuffer, vertexSize * maxIndex);
-				if (drawIndexed) {
-					BindElementBuffer(inds, sizeof(short) * numTrans);
-					inds = 0;
-				}
-			} else {
-				glstate.arrayBuffer.unbind();
-				glstate.elementArrayBuffer.unbind();
-			}
-
-			glVertexAttribPointer(ATTR_POSITION, 4, GL_FLOAT, GL_FALSE, vertexSize, bufferStart);
-			int attrMask = program->attrMask;
-			if (attrMask & (1 << ATTR_TEXCOORD)) glVertexAttribPointer(ATTR_TEXCOORD, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, bufferStart + offsetof(TransformedVertex, u));
-			if (attrMask & (1 << ATTR_COLOR0)) glVertexAttribPointer(ATTR_COLOR0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color0));
-			if (attrMask & (1 << ATTR_COLOR1)) glVertexAttribPointer(ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, bufferStart + offsetof(TransformedVertex, color1));
+			pD3Ddevice->SetVertexDeclaration(pSoftVertexDecl);
 			if (drawIndexed) {
-				glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
+				pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
-				glDrawArrays(glprim[prim], 0, numTrans);
+				pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
-			const float col[4] = {
-				((clearColor & 0xFF)) / 255.0f,
-				((clearColor & 0xFF00) >> 8) / 255.0f,
-				((clearColor & 0xFF0000) >> 16) / 255.0f,
-				((clearColor & 0xFF000000) >> 24) / 255.0f,
-			};
 
-			bool colorMask = gstate.isClearModeColorMask();
-			bool alphaMask = gstate.isClearModeAlphaMask();
-			bool depthMask = gstate.isClearModeDepthMask();
-			if (depthMask) {
+			int mask = gstate.isClearModeColorMask() ? D3DCLEAR_TARGET : 0;
+			if (gstate.isClearModeAlphaMask()) mask |= D3DCLEAR_STENCIL;
+			if (gstate.isClearModeDepthMask()) mask |= D3DCLEAR_ZBUFFER;
+
+			if (mask & D3DCLEAR_ZBUFFER) {
 				framebufferManager_->SetDepthUpdated();
 			}
+			if (mask & D3DCLEAR_TARGET) {
+				framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+			}
 
-			// Note that scissor may still apply while clearing.  Turn off other tests for the clear.
-			glstate.stencilTest.disable();
-			glstate.stencilMask.set(0xFF);
-			glstate.depthTest.disable();
-
-			GLbitfield target = 0;
-			if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
-			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
-			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
-
-			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-			glClearColor(col[0], col[1], col[2], col[3]);
-#ifdef USING_GLES2
-			glClearDepthf(clearDepth);
-#else
-			glClearDepth(clearDepth);
-#endif
-			// Stencil takes alpha.
-			glClearStencil(clearColor >> 24);
-			glClear(target);
-			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
+			pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
 		}
 	}
 
@@ -1000,12 +902,10 @@ rotateVBO:
 	gstate_c.vertBounds.maxU = 0;
 	gstate_c.vertBounds.maxV = 0;
 
-#ifndef MOBILE_DEVICE
 	host->GPUNotifyDraw();
-#endif
 }
 
-void DrawEngineGLES::Resized() {
+void DrawEngineDX9::Resized() {
 	decJitCache_->Clear();
 	lastVType_ = -1;
 	dec_ = NULL;
@@ -1022,103 +922,8 @@ void DrawEngineGLES::Resized() {
 	}
 }
 
-GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {
-	// Get a new buffer each time we need one.
-	GLuint buf = AllocateBuffer(sz);
-	glstate.arrayBuffer.bind(buf);
-
-	// These aren't used more than once per frame, so let's use GL_STREAM_DRAW.
-	glBufferData(GL_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-GLuint DrawEngineGLES::BindBuffer(const void *p1, size_t sz1, const void *p2, size_t sz2) {
-	GLuint buf = AllocateBuffer(sz1 + sz2);
-	glstate.arrayBuffer.bind(buf);
-
-	glBufferData(GL_ARRAY_BUFFER, sz1 + sz2, nullptr, GL_STREAM_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sz1, p1);
-	glBufferSubData(GL_ARRAY_BUFFER, sz1, sz2, p2);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-GLuint DrawEngineGLES::BindElementBuffer(const void *p, size_t sz) {
-	GLuint buf = AllocateBuffer(sz);
-	glstate.elementArrayBuffer.bind(buf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sz, p, GL_STREAM_DRAW);
-	buffersThisFrame_.push_back(buf);
-
-	return buf;
-}
-
-void DrawEngineGLES::DecimateBuffers() {
-	for (GLuint buf : buffersThisFrame_) {
-		FreeBuffer(buf);
-	}
-	buffersThisFrame_.clear();
-
-	if (--bufferDecimationCounter_ <= 0) {
-		bufferDecimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
-	} else {
-		return;
-	}
-
-	// Let's not keep too many around, will eat up memory.
-	// First check if there's any to free, and only check if it seems somewhat full.
-	bool hasOld = false;
-	if (bufferNameCacheSize_ > VERTEXCACHE_NAME_CACHE_FULL_BYTES) {
-		for (GLuint buf : bufferNameCache_) {
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			const int age = gpuStats.numFlips - info.lastFrame;
-			if (!info.used && age > VERTEXCACHE_NAME_CACHE_MAX_AGE) {
-				hasOld = true;
-				break;
-			}
-		}
-	}
-
-	if (hasOld) {
-		// Okay, it is.  Let's rebuild the array.
-		std::vector<GLuint> toFree;
-		std::vector<GLuint> toKeep;
-
-		toKeep.reserve(bufferNameCache_.size());
-
-		for (size_t i = 0, n = bufferNameCache_.size(); i < n; ++i)  {
-			const GLuint buf = bufferNameCache_[i];
-			const BufferNameInfo &info = bufferNameInfo_[buf];
-			const int age = gpuStats.numFlips - info.lastFrame;
-			if (!info.used && age > VERTEXCACHE_NAME_CACHE_MAX_AGE) {
-				toFree.push_back(buf);
-				bufferNameCacheSize_ -= bufferNameInfo_[buf].sz;
-				bufferNameInfo_.erase(buf);
-
-				// If we've removed all we want to this round, keep the rest and abort.
-				if (toFree.size() >= VERTEXCACHE_NAME_DECIMATION_MAX && i + 1 < bufferNameCache_.size()) {
-					toKeep.insert(toKeep.end(), bufferNameCache_.begin() + i + 1, bufferNameCache_.end());
-					break;
-				}
-			} else {
-				toKeep.push_back(buf);
-			}
-		}
-
-		if (!toFree.empty()) {
-			bufferNameCache_ = toKeep;
-			// TODO: Rebuild?
-			freeSizedBuffers_.clear();
-
-			glstate.arrayBuffer.unbind();
-			glstate.elementArrayBuffer.unbind();
-			glDeleteBuffers((GLsizei)toFree.size(), &toFree[0]);
-		}
-	}
-}
-
-bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
+bool DrawEngineDX9::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
+
+}  // namespace
