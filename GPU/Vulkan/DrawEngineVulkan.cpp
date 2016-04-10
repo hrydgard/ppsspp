@@ -626,7 +626,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// We don't detect clears in this path, so here we can switch framebuffers if necessary.
 
 		int vertexCount = 0;
-		int maxIndex = 0;
 		bool useElements = true;
 
 		// Decode directly into the pushbuffer
@@ -635,7 +634,6 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		useElements = !indexGen.SeenOnlyPurePrims();
 		vertexCount = indexGen.VertexCount();
-		maxIndex = indexGen.MaxIndex();
 		if (!useElements && indexGen.PureCount()) {
 			vertexCount = indexGen.PureCount();
 		}

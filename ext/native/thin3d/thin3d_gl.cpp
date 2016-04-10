@@ -729,7 +729,7 @@ void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures
 		glActiveTexture(GL_TEXTURE0 + i);
 		glTex->Bind();
 
-		if (samplerStates_.size() > i && samplerStates_[i]) {
+		if ((int)samplerStates_.size() > i && samplerStates_[i]) {
 			samplerStates_[i]->Apply(glTex->HasMips(), glTex->CanWrap());
 		}
 	}

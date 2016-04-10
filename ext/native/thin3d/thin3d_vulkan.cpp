@@ -249,7 +249,6 @@ public:
 	void ToVulkan(VkPipelineVertexInputStateCreateInfo *info, VkVertexInputAttributeDescription *attrDescs, VkVertexInputBindingDescription *bindDescs) {
 		memset(info, 0, sizeof(*info));
 		info->sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		int offset = 0;
 		for (uint32_t i = 0; i < components_.size(); i++) {
 			attrDescs[i].binding = 0;
 			attrDescs[i].format = ConvertVertexDataTypeToVk(components_[i].type);
