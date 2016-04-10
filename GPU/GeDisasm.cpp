@@ -48,6 +48,12 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		"u16",
 		"float",
 	};
+	static const char *typeNamesI[] = {
+		NULL,
+		"u8",
+		"u16",
+		"u32",
+	};
 	static const char *typeNamesS[] = {
 		NULL,
 		"s8",
@@ -72,8 +78,8 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
 	if (morphCount > 0 && w < end)
 		w += snprintf(w, end - w, "%d morphs, ", morphCount);
-	if (typeNames[idx] && w < end)
-		w += snprintf(w, end - w, "%s indexes, ", typeNames[idx]);
+	if (typeNamesI[idx] && w < end)
+		w += snprintf(w, end - w, "%s indexes, ", typeNamesI[idx]);
 
 	if (w < buffer + 2)
 		snprintf(buffer, len, "none");

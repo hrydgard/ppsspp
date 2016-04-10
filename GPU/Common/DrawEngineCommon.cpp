@@ -201,23 +201,32 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
 		const u16 *inds16 = (const u16 *)inds;
+		const u32 *inds32 = (const u32 *)inds;
 
 		if (inds) {
 			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
 			indices.resize(count);
 			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			case GE_VTYPE_IDX_16BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds16[i];
-				}
-				break;
 			case GE_VTYPE_IDX_8BIT:
 				for (int i = 0; i < count; ++i) {
 					indices[i] = inds[i];
 				}
 				break;
-			default:
-				return false;
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_32BIT:
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
+				for (int i = 0; i < count; ++i) {
+					// These aren't documented and should be rare.  Let's bounds check each one.
+					if (inds32[i] != (u16)inds32[i]) {
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+					}
+					indices[i] = (u16)inds32[i];
+				}
+				break;
 			}
 		} else {
 			indices.clear();

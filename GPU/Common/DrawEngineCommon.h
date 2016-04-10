@@ -62,6 +62,16 @@ protected:
 
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
+	inline int IndexSize(u32 vtype) const {
+		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
+		if (indexType == GE_VTYPE_IDX_16BIT) {
+			return 2;
+		} else if (indexType == GE_VTYPE_IDX_32BIT) {
+			return 4;
+		}
+		return 1;
+	}
+
 	// Vertex collector buffers
 	u8 *decoded;
 	u16 *decIndex;
