@@ -152,7 +152,7 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 }
 
 void CGEDebugger::UpdatePrimPreview(u32 op) {
-	const u32 prim_type = (op >> 16) & 0xFF;
+	const u32 prim_type = (op >> 16) & 0x7;
 	int count = op & 0xFFFF;
 	if (prim_type >= 7) {
 		ERROR_LOG(COMMON, "Unsupported prim type: %x", op);

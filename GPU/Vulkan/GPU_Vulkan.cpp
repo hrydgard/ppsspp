@@ -822,7 +822,8 @@ void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
 
 	u32 data = op & 0xFFFFFF;
 	u32 count = data & 0xFFFF;
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
 
 	if (count == 0)
 		return;
