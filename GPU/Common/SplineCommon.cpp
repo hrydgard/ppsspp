@@ -720,8 +720,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				vert.nrm = Cross(derivU, derivV).Normalized();
 				if (patch.patchFacing)
 					vert.nrm *= -1.0f;
-			}
-			else {
+			} else {
 				vert.nrm.SetZero();
 			}
 
@@ -777,8 +776,8 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 	}
 }
 
-
-const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS };
+// This maps GEPatchPrimType to GEPrimitiveType.
+const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
 	PROFILE_THIS_SCOPE("spline");
