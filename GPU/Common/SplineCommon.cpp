@@ -779,13 +779,9 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 // This maps GEPatchPrimType to GEPrimitiveType.
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 
-void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
+void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
-
-	// TODO: Verify correct functionality with < 4.
-	if (count_u < 4 || count_v < 4)
-		return;
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -796,6 +792,14 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	const u32 *indices32 = (const u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
+
+	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
+	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
+
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4) {
+		return;
+	}
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
@@ -864,8 +868,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		gstate_c.uv.vOff = 0;
 	}
 
-	int bytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	int generatedBytesRead;
+	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &generatedBytesRead);
 
 	DispatchFlush();
 
