@@ -960,6 +960,14 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
 	// like the splines, so we subdivide across the whole "mega-patch".
 
+	// If specified as 0, uses 1.
+	if (tess_u < 1) {
+		tess_u = 1;
+	}
+	if (tess_v < 1) {
+		tess_v = 1;
+	}
+
 	u16 *inds = quadIndices_;
 	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
