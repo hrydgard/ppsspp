@@ -323,8 +323,13 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
 	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
 	if (quality > 1) {
-		patch_div_s /= quality;
-		patch_div_t /= quality;
+		// Don't cut below 2, though.
+		if (patch_div_s > 2) {
+			patch_div_s /= quality;
+		}
+		if (patch_div_t > 2) {
+			patch_div_t /= quality;
+		}
 	}
 
 	// Downsample until it fits, in case crazy tesselation factors are sent.
@@ -333,8 +338,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 		patch_div_t /= 2;
 	}
 
-	if (patch_div_s < 2) patch_div_s = 2;
-	if (patch_div_t < 2) patch_div_t = 2;
+	if (patch_div_s < 1) patch_div_s = 1;
+	if (patch_div_t < 1) patch_div_t = 1;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
