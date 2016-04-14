@@ -495,6 +495,15 @@ public:
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
+	void Step_TcU8Morph() const;
+	void Step_TcU16Morph() const;
+	void Step_TcU16DoubleMorph() const;
+	void Step_TcFloatMorph() const;
+	void Step_TcU8PrescaleMorph() const;
+	void Step_TcU16PrescaleMorph() const;
+	void Step_TcU16DoublePrescaleMorph() const;
+	void Step_TcFloatPrescaleMorph() const;
+
 	void Step_ColorInvalid() const;
 	void Step_Color4444() const;
 	void Step_Color565() const;
