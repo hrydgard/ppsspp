@@ -484,6 +484,7 @@ public:
 
 	void Step_TcU8Prescale() const;
 	void Step_TcU16Prescale() const;
+	void Step_TcU16DoublePrescale() const;
 	void Step_TcFloatPrescale() const;
 
 	void Step_TcU16Double() const;

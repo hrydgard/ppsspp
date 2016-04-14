@@ -390,6 +390,13 @@ void VertexDecoder::Step_TcU16Prescale() const {
 	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
+void VertexDecoder::Step_TcU16DoublePrescale() const {
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16_le *)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
 void VertexDecoder::Step_TcFloatPrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
@@ -752,6 +759,13 @@ static const StepFunction tcstep_prescale[4] = {
 	&VertexDecoder::Step_TcFloatPrescale,
 };
 
+static const StepFunction tcstep_prescale_remaster[4] = {
+	0,
+	&VertexDecoder::Step_TcU8Prescale,
+	&VertexDecoder::Step_TcU16DoublePrescale,
+	&VertexDecoder::Step_TcFloatPrescale,
+};
+
 static const StepFunction tcstep_through[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -767,28 +781,28 @@ static const StepFunction tcstep_throughToFloat[4] = {
 };
 
 // Some HD Remaster games double the u16 texture coordinates.
-static const StepFunction tcstep_Remaster[4] = {
+static const StepFunction tcstep_remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16Double,
 	&VertexDecoder::Step_TcFloat,
 };
 
-static const StepFunction tcstep_RemasterToFloat[4] = {
+static const StepFunction tcstep_remasterToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
 	&VertexDecoder::Step_TcU16DoubleToFloat,
 	&VertexDecoder::Step_TcFloat,
 };
 
-static const StepFunction tcstep_through_Remaster[4] = {
+static const StepFunction tcstep_through_remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16ThroughDouble,
 	&VertexDecoder::Step_TcFloatThrough,
 };
 
-static const StepFunction tcstep_through_RemasterToFloat[4] = {
+static const StepFunction tcstep_through_remasterToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
 	&VertexDecoder::Step_TcU16ThroughDoubleToFloat,
@@ -955,19 +969,22 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = tcalign[tc];
 
 		// NOTE: That we check getUVGenMode here means that we must include it in the decoder ID!
-		if (g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == 0 || gstate.getUVGenMode() == 3)) {
-			steps_[numSteps_++] = tcstep_prescale[tc];
+		if (g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN)) {
+			if (g_DoubleTextureCoordinates)
+				steps_[numSteps_++] = tcstep_prescale_remaster[tc];
+			else
+				steps_[numSteps_++] = tcstep_prescale[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
 			if (options.expandAllUVtoFloat) {
 				if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_RemasterToFloat[tc] : tcstep_RemasterToFloat[tc];
+					steps_[numSteps_++] = throughmode ? tcstep_through_remasterToFloat[tc] : tcstep_remasterToFloat[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
 				decFmt.uvfmt = DEC_FLOAT_2;
 			} else {
 				if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
+					steps_[numSteps_++] = throughmode ? tcstep_through_remaster[tc] : tcstep_remaster[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
