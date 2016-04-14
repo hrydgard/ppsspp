@@ -85,19 +85,6 @@ int MIPS_SingleStep()
 	return 1;
 }
 
-u32 MIPS_GetNextPC()
-{
-	if (mipsr4k.inDelaySlot)
-		return mipsr4k.nextPC;
-	else
-		return mipsr4k.pc + 4;
-}
-
-void MIPS_ClearDelaySlot()
-{
-	mipsr4k.inDelaySlot = false;
-}
-
 namespace MIPSInt
 {
 	void Int_Cache(MIPSOpcode op)

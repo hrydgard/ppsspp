@@ -2165,6 +2165,7 @@ static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 	return 0;
 }
 
+// Pretty sure this is a badly brute-forced function name...
 static SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr)
 {
 	if (flags != 0) {
