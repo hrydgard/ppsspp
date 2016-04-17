@@ -105,8 +105,8 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
-	{&VertexDecoder::Step_TcU8Morph, &VertexDecoderJitCache::Jit_TcU8Morph},
-	{&VertexDecoder::Step_TcU16Morph, &VertexDecoderJitCache::Jit_TcU16Morph},
+	{&VertexDecoder::Step_TcU8MorphToFloat, &VertexDecoderJitCache::Jit_TcU8MorphToFloat},
+	{&VertexDecoder::Step_TcU16MorphToFloat, &VertexDecoderJitCache::Jit_TcU16MorphToFloat},
 	{&VertexDecoder::Step_TcFloatMorph, &VertexDecoderJitCache::Jit_TcFloatMorph},
 	{&VertexDecoder::Step_TcU8PrescaleMorph, &VertexDecoderJitCache::Jit_TcU8PrescaleMorph},
 	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
@@ -810,14 +810,14 @@ void VertexDecoderJitCache::Jit_TcAnyMorph(int bits) {
 	}
 }
 
-void VertexDecoderJitCache::Jit_TcU8Morph() {
+void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
 	Jit_TcAnyMorph(8);
 	// They were all added (weighted) pre-normalize, we normalize once here.
 	MULPS(fpScratchReg, M(&by128));
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
-void VertexDecoderJitCache::Jit_TcU16Morph() {
+void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
 	Jit_TcAnyMorph(16);
 	// They were all added (weighted) pre-normalize, we normalize once here.
 	MULPS(fpScratchReg, M(&by32768));

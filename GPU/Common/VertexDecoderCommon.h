@@ -498,6 +498,9 @@ public:
 	void Step_TcU8Morph() const;
 	void Step_TcU16Morph() const;
 	void Step_TcU16DoubleMorph() const;
+	void Step_TcU8MorphToFloat() const;
+	void Step_TcU16MorphToFloat() const;
+	void Step_TcU16DoubleMorphToFloat() const;
 	void Step_TcFloatMorph() const;
 	void Step_TcU8PrescaleMorph() const;
 	void Step_TcU16PrescaleMorph() const;
@@ -638,8 +641,8 @@ public:
 	void Jit_TcFloatPrescale();
 
 	void Jit_TcAnyMorph(int bits);
-	void Jit_TcU8Morph();
-	void Jit_TcU16Morph();
+	void Jit_TcU8MorphToFloat();
+	void Jit_TcU16MorphToFloat();
 	void Jit_TcFloatMorph();
 	void Jit_TcU8PrescaleMorph();
 	void Jit_TcU16PrescaleMorph();

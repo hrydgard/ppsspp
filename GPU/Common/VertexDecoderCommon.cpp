@@ -410,6 +410,51 @@ void VertexDecoder::Step_TcU8Morph() const {
 		float w = gstate_c.morphWeights[n];
 		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
 
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u8 *out = decoded_ + decFmt.uvoff;
+	out[0] = (int)uv[0];
+	out[1] = (int)uv[1];
+}
+
+void VertexDecoder::Step_TcU16Morph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
+	out[0] = (int)uv[0];
+	out[1] = (int)uv[1];
+}
+
+void VertexDecoder::Step_TcU16DoubleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
+	out[0] = (int)(uv[0] * 2.0f);
+	out[1] = (int)(uv[1] * 2.0f);
+}
+
+void VertexDecoder::Step_TcU8MorphToFloat() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
+
 		uv[0] += (float)uvdata[0] * (1.f / 128.f) * w;
 		uv[1] += (float)uvdata[1] * (1.f / 128.f) * w;
 	}
@@ -419,7 +464,7 @@ void VertexDecoder::Step_TcU8Morph() const {
 	out[1] = uv[1];
 }
 
-void VertexDecoder::Step_TcU16Morph() const {
+void VertexDecoder::Step_TcU16MorphToFloat() const {
 	float uv[2] = { 0, 0 };
 	for (int n = 0; n < morphcount; n++) {
 		float w = gstate_c.morphWeights[n];
@@ -434,7 +479,7 @@ void VertexDecoder::Step_TcU16Morph() const {
 	out[1] = uv[1];
 }
 
-void VertexDecoder::Step_TcU16DoubleMorph() const {
+void VertexDecoder::Step_TcU16DoubleMorphToFloat() const {
 	float uv[2] = { 0, 0 };
 	for (int n = 0; n < morphcount; n++) {
 		float w = gstate_c.morphWeights[n];
@@ -914,6 +959,20 @@ static const StepFunction tcstep_morph_remaster[4] = {
 	&VertexDecoder::Step_TcFloatMorph,
 };
 
+static const StepFunction tcstep_morphToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8MorphToFloat,
+	&VertexDecoder::Step_TcU16MorphToFloat,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
+static const StepFunction tcstep_morph_remasterToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8MorphToFloat,
+	&VertexDecoder::Step_TcU16DoubleMorphToFloat,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
 static const StepFunction tcstep_through[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -1120,18 +1179,19 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			else
 				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale[tc] : tcstep_prescale_morph[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
-		} else if (morphcount != 1 && !throughmode) {
-			steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remaster[tc] : tcstep_morph[tc];
-			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
 			if (options.expandAllUVtoFloat) {
-				if (g_DoubleTextureCoordinates)
+				if (morphcount != 1 && !throughmode)
+					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remasterToFloat[tc] : tcstep_morphToFloat[tc];
+				else if (g_DoubleTextureCoordinates)
 					steps_[numSteps_++] = throughmode ? tcstep_through_remasterToFloat[tc] : tcstep_remasterToFloat[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
 				decFmt.uvfmt = DEC_FLOAT_2;
 			} else {
-				if (g_DoubleTextureCoordinates)
+				if (morphcount != 1 && !throughmode)
+					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remaster[tc] : tcstep_morph[tc];
+				else if (g_DoubleTextureCoordinates)
 					steps_[numSteps_++] = throughmode ? tcstep_through_remaster[tc] : tcstep_remaster[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
