@@ -105,6 +105,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
+	{&VertexDecoder::Step_TcU8Morph, &VertexDecoderJitCache::Jit_TcU8Morph},
+	{&VertexDecoder::Step_TcU16Morph, &VertexDecoderJitCache::Jit_TcU16Morph},
+	{&VertexDecoder::Step_TcFloatMorph, &VertexDecoderJitCache::Jit_TcFloatMorph},
+	{&VertexDecoder::Step_TcU8PrescaleMorph, &VertexDecoderJitCache::Jit_TcU8PrescaleMorph},
+	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
+	{&VertexDecoder::Step_TcFloatPrescaleMorph, &VertexDecoderJitCache::Jit_TcFloatPrescaleMorph},
+
 	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcU16ThroughToFloat, &VertexDecoderJitCache::Jit_TcU16ThroughToFloat},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
@@ -183,6 +190,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			prescaleStep = true;
+		}
+		if (dec.steps_[i] == &VertexDecoder::Step_TcU8PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescaleMorph) {
 			prescaleStep = true;
 		}
 	}
@@ -747,6 +759,105 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
 }
 
+void VertexDecoderJitCache::Jit_TcAnyMorph(int bits) {
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg4, R(fpScratchReg4));
+	}
+
+	bool first = true;
+	for (int n = 0; n < dec_->morphcount; ++n) {
+		const X64Reg reg = first ? fpScratchReg : fpScratchReg2;
+		const OpArg src = MDisp(srcReg, dec_->onesize_ * n + dec_->tcoff);
+
+		// Load the actual values and convert to float.
+		if (bits == 32) {
+			// Two floats: just load as a MOVQ.
+			MOVQ_xmm(reg, src);
+		} else {
+			if (bits == 8) {
+				MOVZX(32, 16, tempReg2, src);
+				MOVD_xmm(reg, R(tempReg2));
+			} else {
+				MOVD_xmm(reg, src);
+			}
+			if (cpu_info.bSSE4_1) {
+				if (bits == 8) {
+					PMOVZXBD(reg, R(reg));
+				} else {
+					PMOVZXWD(reg, R(reg));
+				}
+			} else {
+				if (bits == 8) {
+					PUNPCKLBW(reg, R(fpScratchReg4));
+				}
+				PUNPCKLWD(reg, R(fpScratchReg4));
+			}
+
+			CVTDQ2PS(reg, R(reg));
+		}
+
+		// And now scale by the weight.
+		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
+		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
+		MULPS(reg, R(fpScratchReg3));
+
+		if (!first) {
+			ADDPS(fpScratchReg, R(fpScratchReg2));
+		} else {
+			first = false;
+		}
+	}
+}
+
+void VertexDecoderJitCache::Jit_TcU8Morph() {
+	Jit_TcAnyMorph(8);
+	// They were all added (weighted) pre-normalize, we normalize once here.
+	MULPS(fpScratchReg, M(&by128));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcU16Morph() {
+	Jit_TcAnyMorph(16);
+	// They were all added (weighted) pre-normalize, we normalize once here.
+	MULPS(fpScratchReg, M(&by32768));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatMorph() {
+	Jit_TcAnyMorph(32);
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcU8PrescaleMorph() {
+	Jit_TcAnyMorph(8);
+	// The scale takes into account the u8 normalization.
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcU16PrescaleMorph() {
+	Jit_TcAnyMorph(16);
+	// The scale takes into account the u16 normalization.
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescaleMorph() {
+	Jit_TcAnyMorph(32);
+	MULPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	ADDPS(fpScratchReg, R(fpScaleOffsetReg));
+	SHUFPS(fpScaleOffsetReg, R(fpScaleOffsetReg), _MM_SHUFFLE(1, 0, 3, 2));
+	MOVQ_xmm(MDisp(dstReg, dec_->decFmt.uvoff), fpScratchReg);
+}
+
 void VertexDecoderJitCache::Jit_TcU16Through() {
 	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
 	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
@@ -960,7 +1071,9 @@ void VertexDecoderJitCache::Jit_Color5551() {
 
 void VertexDecoderJitCache::Jit_Color8888Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	PXOR(fpScratchReg4, R(fpScratchReg4));
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg4, R(fpScratchReg4));
+	}
 
 	bool first = true;
 	for (int n = 0; n < dec_->morphcount; ++n) {
@@ -994,7 +1107,9 @@ static const float MEMORY_ALIGNED16(byColor4444[4]) = { 255.0f / 15.0f, 255.0f /
 
 void VertexDecoderJitCache::Jit_Color4444Morph() {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	PXOR(fpScratchReg4, R(fpScratchReg4));
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg4, R(fpScratchReg4));
+	}
 	MOVDQA(XMM5, M(color4444mask));
 	MOVAPS(XMM6, M(byColor4444));
 
@@ -1376,7 +1491,9 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	PXOR(fpScratchReg4, R(fpScratchReg4));
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg4, R(fpScratchReg4));
+	}
 	MOVAPS(XMM5, M(by128));
 
 	// Sum into fpScratchReg.
@@ -1414,7 +1531,9 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
-	PXOR(fpScratchReg4, R(fpScratchReg4));
+	if (!cpu_info.bSSE4_1) {
+		PXOR(fpScratchReg4, R(fpScratchReg4));
+	}
 	MOVAPS(XMM5, M(by32768));
 
 	// Sum into fpScratchReg.

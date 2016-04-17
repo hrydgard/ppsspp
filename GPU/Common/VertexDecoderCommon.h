@@ -637,6 +637,14 @@ public:
 	void Jit_TcU16Prescale();
 	void Jit_TcFloatPrescale();
 
+	void Jit_TcAnyMorph(int bits);
+	void Jit_TcU8Morph();
+	void Jit_TcU16Morph();
+	void Jit_TcFloatMorph();
+	void Jit_TcU8PrescaleMorph();
+	void Jit_TcU16PrescaleMorph();
+	void Jit_TcFloatPrescaleMorph();
+
 	void Jit_TcU16Double();
 	void Jit_TcU16ThroughDouble();
 
