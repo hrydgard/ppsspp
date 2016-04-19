@@ -262,7 +262,7 @@ static u32 sceUtilityUnloadAvModule(u32 module)
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
-const ModuleLoadInfo *__UtilityModuleInfo(int module) {
+static const ModuleLoadInfo *__UtilityModuleInfo(int module) {
 	const ModuleLoadInfo *info = 0;
 	for (size_t i = 0; i < ARRAY_SIZE(moduleLoadInfo); ++i) {
 		if (moduleLoadInfo[i].mod == module) {
@@ -276,23 +276,19 @@ const ModuleLoadInfo *__UtilityModuleInfo(int module) {
 static u32 sceUtilityLoadModule(u32 module) {
 	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
 	if (!info) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadModule(%i): invalid module id", module);
-		return SCE_ERROR_MODULE_BAD_ID;
+		return hleReportError(SCEUTILITY, SCE_ERROR_MODULE_BAD_ID, "invalid module id");
 	}
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end()) {
-		ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
-		return SCE_ERROR_MODULE_ALREADY_LOADED;
+		return hleLogError(SCEUTILITY, SCE_ERROR_MODULE_ALREADY_LOADED, "already loaded");
 	}
 
 	// Some games, like Kamen Rider Climax Heroes OOO, require an error if dependencies aren't loaded yet.
 	for (const int *dep = info->dependencies; *dep != 0; ++dep) {
 		if (currentlyLoadedModules.find(*dep) == currentlyLoadedModules.end()) {
-			ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): dependent module %i not loaded", module, *dep);
-			return hleDelayResult(SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "utility module load attempt", 25000);
+			u32 result = hleLogError(SCEUTILITY, SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "dependent module %i not loaded", *dep);
+			return hleDelayResult(result, "utility module load attempt", 25000);
 		}
 	}
-
-	INFO_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
 
 	u32 allocSize = info->size;
 	char name[64];
@@ -305,33 +301,30 @@ static u32 sceUtilityLoadModule(u32 module) {
 
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
-		return hleDelayResult(0, "utility module loaded", 130);
+		return hleDelayResult(hleLogSuccessInfoI(SCEUTILITY, 0), "utility module loaded", 130);
 	else
-		return hleDelayResult(0, "utility module loaded", 25000);
+		return hleDelayResult(hleLogSuccessInfoI(SCEUTILITY, 0), "utility module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadModule(u32 module) {
 	const ModuleLoadInfo *info = __UtilityModuleInfo(module);
 	if (!info) {
-		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityUnloadModule(%i): invalid module id", module);
-		return SCE_ERROR_MODULE_BAD_ID;
+		return hleReportError(SCEUTILITY, SCE_ERROR_MODULE_BAD_ID, "invalid module id");
 	}
 
 	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end()) {
-		WARN_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i): not yet loaded", module);
-		return SCE_ERROR_MODULE_NOT_LOADED;
+		return hleLogWarning(SCEUTILITY, SCE_ERROR_MODULE_NOT_LOADED, "not yet loaded");
 	}
 	if (currentlyLoadedModules[module] != 0) {
 		userMemory.Free(currentlyLoadedModules[module]);
 	}
 	currentlyLoadedModules.erase(module);
 
-	INFO_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF)
-		return hleDelayResult(0, "utility module unloaded", 110);
+		return hleDelayResult(hleLogSuccessInfoI(SCEUTILITY, 0), "utility module unloaded", 110);
 	else
-		return hleDelayResult(0, "utility module unloaded", 400);
+		return hleDelayResult(hleLogSuccessInfoI(SCEUTILITY, 0), "utility module unloaded", 400);
 }
 
 static int sceUtilityMsgDialogInitStart(u32 paramAddr)
