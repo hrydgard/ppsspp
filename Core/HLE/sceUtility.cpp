@@ -63,51 +63,57 @@ const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 int oldStatus = 100; //random value
 
+static const int noDeps[] = {0};
+static const int httpModuleDeps[] = {0x0102, 0x0103, 0x0104, 0};
+static const int sslModuleDeps[] = {0x0102, 0};
+static const int httpStorageModuleDeps[] = {0x00100, 0x0102, 0x0103, 0x0104, 0x0105, 0};
+static const int atrac3PlusModuleDeps[] = {0x0300, 0};
+static const int mpegBaseModuleDeps[] = {0x0300, 0};
+static const int mp4ModuleDeps[] = {0x0300, 0x0303, 0};
+
 struct ModuleLoadInfo {
+	ModuleLoadInfo(int m, u32 s) : mod(m), size(s), dependencies(noDeps) {
+	}
+	ModuleLoadInfo(int m, u32 s, const int *d) : mod(m), size(s), dependencies(d) {
+	}
+
 	const int mod;
 	const u32 size;
-	const int *dependencies;
+	const int *const dependencies;
 };
 
-static const int httpModuleDeps[] = {0x0102, 0x0103, 0x0104};
-static const int sslModuleDeps[] = {0x0102};
-static const int httpStorageModuleDeps[] = {0x00100, 0x0102, 0x0103, 0x0104, 0x0105};
-static const int atrac3PlusModuleDeps[] = {0x0300};
-static const int mpegBaseModuleDeps[] = {0x0300};
-static const int mp4ModuleDeps[] = {0x0300, 0x0303};
-
 static const ModuleLoadInfo moduleLoadInfo[] = {
-	{0x0100, 0x00014000},
-	{0x0101, 0x00020000},
-	{0x0102, 0x00058000},
-	{0x0103, 0x00006000},
-	{0x0104, 0x00002000},
-	{0x0105, 0x00028000, httpModuleDeps},
-	{0x0106, 0x00044000, sslModuleDeps},
-	{0x0107, 0x00010000},
-	{0x0108, 0x00008000, httpStorageModuleDeps},
-	{0x0200, 0x00000000},
-	{0x0201, 0x00000000},
-	{0x0202, 0x00000000},
-	{0x0203, 0x00000000},
-	{0x02ff, 0x00000000},
-	{0x0300, 0x00000000},
-	{0x0301, 0x00000000},
-	{0x0302, 0x00008000, atrac3PlusModuleDeps},
-	{0x0303, 0x0000c000, mpegBaseModuleDeps},
-	{0x0304, 0x00004000},
-	{0x0305, 0x0000a300},
-	{0x0306, 0x00004000},
-	{0x0307, 0x00000000},
-	{0x0308, 0x0003c000, mp4ModuleDeps},
-	{0x03ff, 0x00000000},
-	{0x0400, 0x0000c000},
-	{0x0401, 0x00018000},
-	{0x0402, 0x00048000},
-	{0x0403, 0x0000e000},
-	{0x0500, 0x00000000},
-	{0x0600, 0x00000000},
-	{0x0601, 0x00000000},
+	ModuleLoadInfo(0x0100, 0x00014000),
+	ModuleLoadInfo(0x0101, 0x00020000),
+	ModuleLoadInfo(0x0102, 0x00058000),
+	ModuleLoadInfo(0x0103, 0x00006000),
+	ModuleLoadInfo(0x0104, 0x00002000),
+	ModuleLoadInfo(0x0105, 0x00028000, httpModuleDeps),
+	ModuleLoadInfo(0x0106, 0x00044000, sslModuleDeps),
+	ModuleLoadInfo(0x0107, 0x00010000),
+	ModuleLoadInfo(0x0108, 0x00008000, httpStorageModuleDeps),
+	ModuleLoadInfo(0x0200, 0x00000000),
+	ModuleLoadInfo(0x0201, 0x00000000),
+	ModuleLoadInfo(0x0202, 0x00000000),
+	ModuleLoadInfo(0x0203, 0x00000000),
+	ModuleLoadInfo(0x02ff, 0x00000000),
+	ModuleLoadInfo(0x0300, 0x00000000),
+	ModuleLoadInfo(0x0301, 0x00000000),
+	ModuleLoadInfo(0x0302, 0x00008000, atrac3PlusModuleDeps),
+	ModuleLoadInfo(0x0303, 0x0000c000, mpegBaseModuleDeps),
+	ModuleLoadInfo(0x0304, 0x00004000),
+	ModuleLoadInfo(0x0305, 0x0000a300),
+	ModuleLoadInfo(0x0306, 0x00004000),
+	ModuleLoadInfo(0x0307, 0x00000000),
+	ModuleLoadInfo(0x0308, 0x0003c000, mp4ModuleDeps),
+	ModuleLoadInfo(0x03ff, 0x00000000),
+	ModuleLoadInfo(0x0400, 0x0000c000),
+	ModuleLoadInfo(0x0401, 0x00018000),
+	ModuleLoadInfo(0x0402, 0x00048000),
+	ModuleLoadInfo(0x0403, 0x0000e000),
+	ModuleLoadInfo(0x0500, 0x00000000),
+	ModuleLoadInfo(0x0600, 0x00000000),
+	ModuleLoadInfo(0x0601, 0x00000000),
 };
 
 enum UtilityDialogType {
@@ -279,7 +285,7 @@ static u32 sceUtilityLoadModule(u32 module) {
 	}
 
 	// Some games, like Kamen Rider Climax Heroes OOO, require an error if dependencies aren't loaded yet.
-	for (const int *dep = info->dependencies; dep && *dep == 0; ++dep) {
+	for (const int *dep = info->dependencies; *dep != 0; ++dep) {
 		if (currentlyLoadedModules.find(*dep) == currentlyLoadedModules.end()) {
 			ERROR_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): dependent module %i not loaded", module, *dep);
 			return hleDelayResult(SCE_KERNEL_ERROR_LIBRARY_NOTFOUND, "utility module load attempt", 25000);
