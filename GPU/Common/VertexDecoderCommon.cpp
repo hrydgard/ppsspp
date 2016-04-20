@@ -385,9 +385,16 @@ void VertexDecoder::Step_TcU8Prescale() const {
 
 void VertexDecoder::Step_TcU16Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16_le *)(ptr_ + tcoff);
+	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
 	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
 	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
+void VertexDecoder::Step_TcU16DoublePrescale() const {
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16_le *uvdata = (const u16_le *)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescale() const {
@@ -395,6 +402,171 @@ void VertexDecoder::Step_TcFloatPrescale() const {
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
 	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
+void VertexDecoder::Step_TcU8Morph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u8 *out = decoded_ + decFmt.uvoff;
+	out[0] = (int)uv[0];
+	out[1] = (int)uv[1];
+}
+
+void VertexDecoder::Step_TcU16Morph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
+	out[0] = (int)uv[0];
+	out[1] = (int)uv[1];
+}
+
+void VertexDecoder::Step_TcU16DoubleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	u16_le *out = (u16_le *)(decoded_ + decFmt.uvoff);
+	out[0] = (int)(uv[0] * 2.0f);
+	out[1] = (int)(uv[1] * 2.0f);
+}
+
+void VertexDecoder::Step_TcU8MorphToFloat() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 128.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 128.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0];
+	out[1] = uv[1];
+}
+
+void VertexDecoder::Step_TcU16MorphToFloat() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 32768.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 32768.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0];
+	out[1] = uv[1];
+}
+
+void VertexDecoder::Step_TcU16DoubleMorphToFloat() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 16384.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 16384.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0];
+	out[1] = uv[1];
+}
+
+void VertexDecoder::Step_TcFloatMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const float_le *uvdata = (const float_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0];
+	out[1] = uv[1];
+}
+
+void VertexDecoder::Step_TcU8PrescaleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u8 *uvdata = (const u8 *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 128.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 128.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
+void VertexDecoder::Step_TcU16PrescaleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 32768.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 32768.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
+void VertexDecoder::Step_TcU16DoublePrescaleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const u16_le *uvdata = (const u16_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * (1.f / 16384.f) * w;
+		uv[1] += (float)uvdata[1] * (1.f / 16384.f) * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
+}
+
+void VertexDecoder::Step_TcFloatPrescaleMorph() const {
+	float uv[2] = { 0, 0 };
+	for (int n = 0; n < morphcount; n++) {
+		float w = gstate_c.morphWeights[n];
+		const float_le *uvdata = (const float_le *)(ptr_ + onesize_*n + tcoff);
+
+		uv[0] += (float)uvdata[0] * w;
+		uv[1] += (float)uvdata[1] * w;
+	}
+
+	float *out = (float *)(decoded_ + decFmt.uvoff);
+	out[0] = uv[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	out[1] = uv[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
 void VertexDecoder::Step_ColorInvalid() const
@@ -752,6 +924,55 @@ static const StepFunction tcstep_prescale[4] = {
 	&VertexDecoder::Step_TcFloatPrescale,
 };
 
+static const StepFunction tcstep_prescale_remaster[4] = {
+	0,
+	&VertexDecoder::Step_TcU8Prescale,
+	&VertexDecoder::Step_TcU16DoublePrescale,
+	&VertexDecoder::Step_TcFloatPrescale,
+};
+
+static const StepFunction tcstep_prescale_morph[4] = {
+	0,
+	&VertexDecoder::Step_TcU8PrescaleMorph,
+	&VertexDecoder::Step_TcU16PrescaleMorph,
+	&VertexDecoder::Step_TcFloatPrescaleMorph,
+};
+
+static const StepFunction tcstep_prescale_morph_remaster[4] = {
+	0,
+	&VertexDecoder::Step_TcU8PrescaleMorph,
+	&VertexDecoder::Step_TcU16DoublePrescaleMorph,
+	&VertexDecoder::Step_TcFloatPrescaleMorph,
+};
+
+static const StepFunction tcstep_morph[4] = {
+	0,
+	&VertexDecoder::Step_TcU8Morph,
+	&VertexDecoder::Step_TcU16Morph,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
+static const StepFunction tcstep_morph_remaster[4] = {
+	0,
+	&VertexDecoder::Step_TcU8Morph,
+	&VertexDecoder::Step_TcU16DoubleMorph,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
+static const StepFunction tcstep_morphToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8MorphToFloat,
+	&VertexDecoder::Step_TcU16MorphToFloat,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
+static const StepFunction tcstep_morph_remasterToFloat[4] = {
+	0,
+	&VertexDecoder::Step_TcU8MorphToFloat,
+	&VertexDecoder::Step_TcU16DoubleMorphToFloat,
+	&VertexDecoder::Step_TcFloatMorph,
+};
+
 static const StepFunction tcstep_through[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -767,36 +988,33 @@ static const StepFunction tcstep_throughToFloat[4] = {
 };
 
 // Some HD Remaster games double the u16 texture coordinates.
-static const StepFunction tcstep_Remaster[4] = {
+static const StepFunction tcstep_remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16Double,
 	&VertexDecoder::Step_TcFloat,
 };
 
-static const StepFunction tcstep_RemasterToFloat[4] = {
+static const StepFunction tcstep_remasterToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
 	&VertexDecoder::Step_TcU16DoubleToFloat,
 	&VertexDecoder::Step_TcFloat,
 };
 
-static const StepFunction tcstep_through_Remaster[4] = {
+static const StepFunction tcstep_through_remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
 	&VertexDecoder::Step_TcU16ThroughDouble,
 	&VertexDecoder::Step_TcFloatThrough,
 };
 
-static const StepFunction tcstep_through_RemasterToFloat[4] = {
+static const StepFunction tcstep_through_remasterToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
 	&VertexDecoder::Step_TcU16ThroughDoubleToFloat,
 	&VertexDecoder::Step_TcFloatThrough,
 };
-
-
-// TODO: Tc Morph
 
 static const StepFunction colstep[8] = {
 	0,
@@ -955,19 +1173,26 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = tcalign[tc];
 
 		// NOTE: That we check getUVGenMode here means that we must include it in the decoder ID!
-		if (g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == 0 || gstate.getUVGenMode() == 3)) {
-			steps_[numSteps_++] = tcstep_prescale[tc];
+		if (g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN)) {
+			if (g_DoubleTextureCoordinates)
+				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale_remaster[tc] : tcstep_prescale_morph_remaster[tc];
+			else
+				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale[tc] : tcstep_prescale_morph[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
 			if (options.expandAllUVtoFloat) {
-				if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_RemasterToFloat[tc] : tcstep_RemasterToFloat[tc];
+				if (morphcount != 1 && !throughmode)
+					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remasterToFloat[tc] : tcstep_morphToFloat[tc];
+				else if (g_DoubleTextureCoordinates)
+					steps_[numSteps_++] = throughmode ? tcstep_through_remasterToFloat[tc] : tcstep_remasterToFloat[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
 				decFmt.uvfmt = DEC_FLOAT_2;
 			} else {
-				if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
+				if (morphcount != 1 && !throughmode)
+					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remaster[tc] : tcstep_morph[tc];
+				else if (g_DoubleTextureCoordinates)
+					steps_[numSteps_++] = throughmode ? tcstep_through_remaster[tc] : tcstep_remaster[tc];
 				else
 					steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
