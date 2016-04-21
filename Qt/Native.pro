@@ -7,7 +7,7 @@ CONFIG += staticlib
 include(Settings.pri)
 
 # To support Sailfish which is stuck on GCC 4.6
-linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
+linux-g++:system($$QMAKE_CXX --version | grep \"4\.6\.\"): DEFINES+=override
 
 INCLUDEPATH += $$P/ext/native
 
