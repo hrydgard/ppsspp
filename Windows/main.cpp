@@ -59,6 +59,7 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/main.h"
 
+
 // Nvidia drivers >= v302 will check if the application exports a global
 // variable named NvOptimusEnablement to know if it should run the app in high
 // performance graphics mode or using the IGP.
@@ -115,6 +116,7 @@ std::string GetWindowsVersion() {
 	const bool IsWindows8 = DoesVersionMatchWindows(6, 2);
 	const bool IsWindows8_1 = DoesVersionMatchWindows(6, 3);
 
+
 	if (IsWindowsXPSP2)
 		return "Microsoft Windows XP, Service Pack 2";
 
@@ -137,8 +139,8 @@ std::string GetWindowsVersion() {
 		return "Microsoft Windows 7, Service Pack 1";
 
 	if (IsWindows8)
-		return "Microsoft Windows 8";
-
+		return "Microsoft Windows 8 or greater"; // "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
+												
 	if (IsWindows8_1)
 		return "Microsoft Windows 8.1";
 
