@@ -323,8 +323,13 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
 	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
 	if (quality > 1) {
-		patch_div_s /= quality;
-		patch_div_t /= quality;
+		// Don't cut below 2, though.
+		if (patch_div_s > 2) {
+			patch_div_s /= quality;
+		}
+		if (patch_div_t > 2) {
+			patch_div_t /= quality;
+		}
 	}
 
 	// Downsample until it fits, in case crazy tesselation factors are sent.
@@ -333,8 +338,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 		patch_div_t /= 2;
 	}
 
-	if (patch_div_s < 2) patch_div_s = 2;
-	if (patch_div_t < 2) patch_div_t = 2;
+	if (patch_div_s < 1) patch_div_s = 1;
+	if (patch_div_t < 1) patch_div_t = 1;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -779,13 +784,9 @@ void TesselateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int 
 // This maps GEPatchPrimType to GEPrimitiveType.
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
 
-void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType) {
+void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
-
-	// TODO: Verify correct functionality with < 4.
-	if (count_u < 4 || count_v < 4)
-		return;
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -796,6 +797,14 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	const u32 *indices32 = (const u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
+
+	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
+	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
+
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4) {
+		return;
+	}
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
@@ -864,8 +873,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		gstate_c.uv.vOff = 0;
 	}
 
-	int bytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &bytesRead);
+	int generatedBytesRead;
+	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &generatedBytesRead);
 
 	DispatchFlush();
 
@@ -950,6 +959,14 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
 	// like the splines, so we subdivide across the whole "mega-patch".
+
+	// If specified as 0, uses 1.
+	if (tess_u < 1) {
+		tess_u = 1;
+	}
+	if (tess_v < 1) {
+		tess_v = 1;
+	}
 
 	u16 *inds = quadIndices_;
 	int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;

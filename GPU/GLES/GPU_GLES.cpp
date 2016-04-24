@@ -1114,7 +1114,12 @@ void GPU_GLES::Execute_Spline(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
-	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType);
+	int bytesRead = 0;
+	drawEngine_.SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+
+	// After drawing, we advance pointers - see SubmitPrim which does the same.
+	int count = sp_ucount * sp_vcount;
+	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
 void GPU_GLES::Execute_BoundingBox(u32 op, u32 diff) {
