@@ -157,11 +157,6 @@ static void ConvertProjMatrixToVulkan(Matrix4x4 &in, bool invertedX, bool invert
 	in.translateAndScale(trans, scale);
 }
 
-static void ConvertProjMatrixToVulkanThrough(Matrix4x4 &in) {
-	in.translateAndScale(Vec3(0.0f, 0.0f, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
-}
-
-
 ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), globalDirty_(0xFFFFFFFF) {
 	codeBuffer_ = new char[16384];
