@@ -87,7 +87,7 @@ public:
 			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
 			if (File::Exists(image_path)) {
 				PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
-				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new UI::LayoutParams(500, 500/16*9)));
+				toprow->Add(new AsyncImageFileView(image_path, IS_DEFAULT, wq, new LinearLayoutParams(480, 272, Margins(10, 0))));
 			} else {
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
 			}
@@ -100,6 +100,9 @@ public:
 		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
 		root->Add(buttons);
 	}
+
+protected:
+	virtual UI::Size PopupWidth() const { return 500; }
 
 private:
 	UI::EventReturn OnDeleteButtonClick(UI::EventParams &e);

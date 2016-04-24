@@ -229,7 +229,7 @@ void PopupScreen::CreateViews() {
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
 	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(550, FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
+		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), dc.GetBounds().centerY(), NONE, NONE, true));
 
 	root_->Add(box_);
 	box_->SetBG(UI::Drawable(0xFF303030));

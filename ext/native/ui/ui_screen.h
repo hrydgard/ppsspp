@@ -65,6 +65,7 @@ public:
 
 protected:
 	virtual bool FillVertical() const { return false; }
+	virtual UI::Size PopupWidth() const { return 550; }
 	virtual bool ShowButtons() const { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
