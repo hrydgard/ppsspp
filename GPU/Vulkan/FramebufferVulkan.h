@@ -147,19 +147,19 @@ public:
 	}
 
 protected:
-	virtual void DisableState() override {}
-	virtual void ClearBuffer(bool keepState = false);
-	virtual void FlushBeforeCopy() override;
-	virtual void DecimateFBOs() override;
+	void DisableState() override {}
+	void ClearBuffer(bool keepState = false) override;
+	void FlushBeforeCopy() override;
+	void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
-	virtual void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
+	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
 
-	virtual void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
-	virtual void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
-	virtual void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
-	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
-	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) override;
+	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) override;
+	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged) override;
+	bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
+	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 
 private:

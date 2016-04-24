@@ -125,20 +125,20 @@ public:
 	void Comp_Vsgn(MIPSOpcode op) override {}
 	void Comp_Vocp(MIPSOpcode op) override {}
 	void Comp_ColorConv(MIPSOpcode op) override {}
-	int Replace_fabsf() { return 0; }
+	int Replace_fabsf() override { return 0; }
 
 	void Comp_Vbfy(MIPSOpcode op) {}
 
-	JitBlockCache *GetBlockCache() { return &blocks; }
+	JitBlockCache *GetBlockCache() override { return &blocks; }
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
-	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	void ClearCache() override;
+	void InvalidateCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
-	void EatPrefix() { js.EatPrefix(); }
+	void EatPrefix() override { js.EatPrefix(); }
 
 private:
 	void GenerateFixedCode();

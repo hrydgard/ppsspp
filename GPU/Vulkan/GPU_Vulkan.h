@@ -39,8 +39,8 @@ public:
 	void CheckGPUFeatures();
 
 	// These are where we can reset command buffers etc.
-	void BeginHostFrame();
-	void EndHostFrame();
+	void BeginHostFrame() override;
+	void EndHostFrame() override;
 
 	void InitClear() override;
 	void Reinitialize() override;
@@ -145,9 +145,9 @@ public:
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
-	std::vector<FramebufferInfo> GetFramebufferList();
-	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
-	bool DescribeCodePtr(const u8 *ptr, std::string &name);
+	std::vector<FramebufferInfo> GetFramebufferList() override;
+	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 
 protected:

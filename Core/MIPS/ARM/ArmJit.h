@@ -166,7 +166,7 @@ public:
 	void CompNEON_ColorConv(MIPSOpcode op);
 	void CompNEON_Vbfy(MIPSOpcode op);
 
-	int Replace_fabsf();
+	int Replace_fabsf() override;
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 

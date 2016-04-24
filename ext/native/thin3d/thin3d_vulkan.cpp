@@ -402,8 +402,8 @@ public:
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
-	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal);
-	virtual void End();
+	void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) override;
+	void End() override;
 
 	std::string GetInfoString(T3DInfo info) const override {
 		// TODO: Make these actually query the right information
@@ -562,7 +562,7 @@ public:
 
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void Finalize(int zim_flags) override;
-	void AutoGenMipmaps() {}
+	void AutoGenMipmaps() override {}
 
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
