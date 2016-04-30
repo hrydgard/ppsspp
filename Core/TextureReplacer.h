@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
@@ -39,6 +40,12 @@ enum class ReplacedTextureAlpha {
 	UNKNOWN = 0x04,
 	FULL = 0x00,
 	SIMPLE = 0x08,
+};
+
+// For forward comatibility, we specify the hash.
+enum class ReplacedTextureHash {
+	// TODO: Maybe only support crc32c for now?
+	QUICK,
 };
 
 struct ReplacedTexureLevel {
@@ -105,6 +112,8 @@ public:
 	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt);
 
 protected:
+	bool LoadIni();
+	void ParseHashRange(const std::string &key, const std::string &value);
 	bool LookupHashRange(u32 addr, int &w, int &h);
 	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
 	std::string HashName(u64 cachekey, u32 hash, int level);
@@ -113,4 +122,8 @@ protected:
 	bool enabled_;
 	std::string gameID_;
 	std::string basePath_;
+	ReplacedTextureHash hash_;
+	std::unordered_map<std::string, std::string> aliases_;
+	typedef std::pair<int, int> WidthHeightPair;
+	std::unordered_map<u64, WidthHeightPair> hashranges_;
 };

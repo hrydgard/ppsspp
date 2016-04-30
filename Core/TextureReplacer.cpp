@@ -20,6 +20,7 @@
 #endif
 
 #include "ext/xxhash.h"
+#include "file/ini_file.h"
 #include "Common/ColorConv.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -27,6 +28,9 @@
 #include "Core/TextureReplacer.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/Common/TextureDecoder.h"
+
+static const std::string INI_FILENAME = "textures.ini";
+static const int VERSION = 1;
 
 TextureReplacer::TextureReplacer() : enabled_(false) {
 }
@@ -53,7 +57,91 @@ void TextureReplacer::NotifyConfigChanged() {
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
 	}
 
-	// TODO: Load ini file.
+	if (enabled_) {
+		enabled_ = LoadIni();
+	}
+}
+
+bool TextureReplacer::LoadIni() {
+	// TODO: Use crc32c?
+	hash_ = ReplacedTextureHash::QUICK;
+	aliases_.clear();
+	hashranges_.clear();
+
+	if (File::Exists(basePath_ + INI_FILENAME)) {
+		IniFile ini;
+		ini.LoadFromVFS(basePath_ + INI_FILENAME);
+
+		auto options = ini.GetOrCreateSection("options");
+		std::string hash;
+		options->Get("hash", &hash, "");
+		// TODO: crc32c.
+		if (hash == "quick") {
+			hash_ = ReplacedTextureHash::QUICK;
+		} else {
+			ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
+			return false;
+		}
+
+		int version = 0;
+		if (options->Get("version", &version, 0) && version > VERSION) {
+			ERROR_LOG(G3D, "Unsupported texture replacement version %d, trying anyway", version);
+		}
+
+		std::vector<std::string> hashNames;
+		if (ini.GetKeys("hashes", hashNames)) {
+			auto hashes = ini.GetOrCreateSection("hashes");
+			// Format: hashname = filename.png
+			for (std::string hashName : hashNames) {
+				hashes->Get(hashName.c_str(), &aliases_[hashName], "");
+			}
+		}
+
+		std::vector<std::string> hashrangeKeys;
+		if (ini.GetKeys("hashranges", hashrangeKeys)) {
+			auto hashranges = ini.GetOrCreateSection("hashranges");
+			// Format: addr,w,h = newW,newH
+			for (std::string key : hashrangeKeys) {
+				std::string value;
+				if (hashranges->Get(key.c_str(), &value, "")) {
+					ParseHashRange(key, value);
+				}
+			}
+		}
+	}
+
+	// The ini doesn't have to exist for it to be valid.
+	return true;
+}
+
+void TextureReplacer::ParseHashRange(const std::string &key, const std::string &value) {
+	std::vector<std::string> keyParts;
+	SplitString(key, ',', keyParts);
+	std::vector<std::string> valueParts;
+	SplitString(value, ',', valueParts);
+
+	if (keyParts.size() != 3 || valueParts.size() != 2) {
+		ERROR_LOG(G3D, "Ignoring invalid hashrange %s = %s, expecting addr,w,h = w,h", key.c_str(), value.c_str());
+		return;
+	}
+
+	u32 addr;
+	u32 fromW;
+	u32 fromH;
+	if (!TryParse(keyParts[0], &addr) || !TryParse(keyParts[1], &fromW) || !TryParse(keyParts[2], &fromH)) {
+		ERROR_LOG(G3D, "Ignoring invalid hashrange %s = %s, key format is 0x12345678,512,512", key.c_str(), value.c_str());
+		return;
+	}
+
+	u32 toW;
+	u32 toH;
+	if (!TryParse(valueParts[0], &toW) || !TryParse(valueParts[1], &toH)) {
+		ERROR_LOG(G3D, "Ignoring invalid hashrange %s = %s, value format is 512,512", key.c_str(), value.c_str());
+		return;
+	}
+
+	const u64 rangeKey = ((u64)addr << 32) | (fromW << 16) | fromH;
+	hashranges_[rangeKey] = WidthHeightPair(toW, toH);
 }
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
@@ -70,7 +158,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	// TODO: Use hash based on ini file, or always crc32c, or etc.
 	const u32 sizeInRAM = (textureBitsPerPixel[fmt] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-	return DoQuickTexHash(checkp, sizeInRAM);
+	switch (hash_) {
+	case ReplacedTextureHash::QUICK:
+		return DoQuickTexHash(checkp, sizeInRAM);
+	default:
+		return 0;
+	}
 }
 
 ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash) {
@@ -174,8 +267,14 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 }
 
 std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
-	// TODO: Look up via ini for alias / ignored.
-	return HashName(cachekey, hash, level) + ".png";
+	const std::string hashname = HashName(cachekey, hash, level);
+	auto alias = aliases_.find(hashname);
+	if (alias != aliases_.end()) {
+		// Note: this will be blank if explicitly ignored.
+		return alias->second;
+	}
+
+	return hashname + ".png";
 }
 
 std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
@@ -190,7 +289,15 @@ std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 }
 
 bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
-	// TODO: Pull from table loaded via ini.
+	const u64 rangeKey = ((u64)addr << 32) | (w << 16) | h;
+	auto range = hashranges_.find(rangeKey);
+	if (range != hashranges_.end()) {
+		const WidthHeightPair &wh = range->second;
+		w = wh.first;
+		h = wh.second;
+		return true;
+	}
+
 	return false;
 }
 
