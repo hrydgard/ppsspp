@@ -39,6 +39,7 @@ void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch);
 #if defined(_M_SSE)
 u32 QuickTexHashSSE2(const void *checkp, u32 size);
 #define DoQuickTexHash QuickTexHashSSE2
+#define StableQuickTexHash QuickTexHashSSE2
 
 // Pitch must be aligned to 16 bits (as is the case on a PSP)
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
@@ -59,6 +60,7 @@ typedef u32 ReliableHashType;
 // For ARM64, NEON is mandatory, so we also statically link.
 #elif defined(ARM64)
 #define DoQuickTexHash QuickTexHashNEON
+#define StableQuickTexHash QuickTexHashNEON
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON
 #define DoReliableHash32 ReliableHash32NEON
 
@@ -71,6 +73,7 @@ typedef u64 ReliableHashType;
 #else
 typedef u32 (*QuickTexHashFunc)(const void *checkp, u32 size);
 extern QuickTexHashFunc DoQuickTexHash;
+extern QuickTexHashFunc StableQuickTexHash;
 
 typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 extern UnswizzleTex16Func DoUnswizzleTex16;

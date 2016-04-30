@@ -160,7 +160,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
 	switch (hash_) {
 	case ReplacedTextureHash::QUICK:
-		return DoQuickTexHash(checkp, sizeInRAM);
+		return StableQuickTexHash(checkp, sizeInRAM);
 	default:
 		return 0;
 	}

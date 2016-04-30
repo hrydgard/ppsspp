@@ -301,6 +301,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #ifndef _M_SSE
 #ifndef ARM64
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
+QuickTexHashFunc StableQuickTexHash = &QuickTexHashNonSSE;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
 ReliableHash32Func DoReliableHash32 = &XXH32;
 ReliableHash64Func DoReliableHash64 = &XXH64;
@@ -312,6 +313,7 @@ void SetupTextureDecoder() {
 #ifdef HAVE_ARMV7
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
+		StableQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
 #ifndef IOS
 		// Not sure if this is safe on iOS, it's had issues with xxhash.
