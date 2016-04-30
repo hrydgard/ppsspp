@@ -993,7 +993,7 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
-ReplacedTextureFormat FromGLESFormat(GLenum fmt) {
+ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
 	case GL_UNSIGNED_SHORT_5_6_5:
@@ -1004,7 +1004,7 @@ ReplacedTextureFormat FromGLESFormat(GLenum fmt) {
 		return ReplacedTextureFormat::F_4444;
 	case GL_UNSIGNED_BYTE:
 	default:
-		return ReplacedTextureFormat::F_8888;
+		return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;
 	}
 }
 
@@ -1813,8 +1813,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 
 		if (replacer.Enabled()) {
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			// TODO: BGRA.
-			replacer.NotifyTextureDecoded(entry.fullhash, pixelData, w * bpp, w, h, FromGLESFormat(dstFmt));
+			replacer.NotifyTextureDecoded(entry.fullhash, entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, w, h, FromGLESFormat(dstFmt, useBGRA));
 		}
 	}
 

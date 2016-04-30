@@ -1348,7 +1348,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			} else {
 				LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 				if (replacer.Enabled()) {
-					replacer.NotifyTextureDecoded(entry->fullhash, data, stride, mipWidth, mipHeight, FromVulkanFormat(actualFmt));
+					replacer.NotifyTextureDecoded(entry->fullhash, texaddr, data, stride, mipWidth, mipHeight, FromVulkanFormat(actualFmt));
 				}
 			}
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);

@@ -19,6 +19,7 @@
 
 #include <vector>
 #include "Common/Common.h"
+#include "Common/MemoryUtil.h"
 #include "GPU/ge_constants.h"
 
 class TextureCacheCommon;
@@ -29,6 +30,7 @@ enum class ReplacedTextureFormat {
 	F_5551,
 	F_4444,
 	F_8888,
+	F_8888_BGRA,
 };
 
 // These must match the constants in TextureCacheCommon.
@@ -99,11 +101,12 @@ public:
 
 	ReplacedTexture FindReplacement(u32 hash);
 
-	void NotifyTextureDecoded(u32 hash, const void *data, int pitch, int w, int h, ReplacedTextureFormat fmt);
+	void NotifyTextureDecoded(u32 hash, u32 addr, const void *data, int pitch, int w, int h, ReplacedTextureFormat fmt);
 
 protected:
 	bool LookupHashRange(u32 addr, int &w, int &h);
 
+	SimpleBuf<u32> saveBuf;
 	bool enabled_;
 	std::string gameID_;
 	std::string basePath_;

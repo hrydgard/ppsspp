@@ -1674,7 +1674,7 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 
 		if (replacer.Enabled()) {
 			int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-			replacer.NotifyTextureDecoded(entry.fullhash, pixelData, w * bpp, w, h, FromD3D9Format(dstFmt));
+			replacer.NotifyTextureDecoded(entry.fullhash, entry.addr, pixelData, w * bpp, w, h, FromD3D9Format(dstFmt));
 		}
 	}
 
