@@ -21,8 +21,6 @@ class PointerWrap;
 
 #include "Common/CommonTypes.h"
 
-// Generic allocator thingy. Allocates blocks from a range.
-
 class BlockAllocator
 {
 public:

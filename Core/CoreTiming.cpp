@@ -88,8 +88,6 @@ s64 lastGlobalTimeUs;
 
 static recursive_mutex externalEventSection;
 
-// Warning: not included in save state.
-void (*advanceCallback)(int cyclesExecuted) = NULL;
 std::vector<MHzChangeCallback> mhzChangeCallbacks;
 
 void FireMhzChange() {
@@ -416,12 +414,6 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 	return result;
 }
 
-// Warning: not included in save state.
-void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted))
-{
-	advanceCallback = callback;
-}
-
 void RegisterMHzChangeCallback(MHzChangeCallback callback) {
 	mhzChangeCallbacks.push_back(callback);
 }
@@ -614,8 +606,6 @@ void Advance()
 		slicelength += diff;
 		currentMIPS->downcount += diff;
 	}
-	if (advanceCallback)
-		advanceCallback(cyclesExecuted);
 }
 
 void LogPendingEvents()

@@ -115,7 +115,6 @@ namespace CoreTiming
 	void LogPendingEvents();
 
 	// Warning: not included in save states.
-	void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted));
 	void RegisterMHzChangeCallback(MHzChangeCallback callback);
 
 	std::string GetScheduledEventsSummary();
