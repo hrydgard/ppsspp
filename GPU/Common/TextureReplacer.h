@@ -102,6 +102,8 @@ public:
 	void NotifyTextureDecoded(u32 hash, const void *data, int pitch, int w, int h, ReplacedTextureFormat fmt);
 
 protected:
+	bool LookupHashRange(u32 addr, int &w, int &h);
+
 	bool enabled_;
 	std::string gameID_;
 	std::string basePath_;

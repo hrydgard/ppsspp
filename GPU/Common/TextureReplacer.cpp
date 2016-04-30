@@ -15,10 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ext/xxhash.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/TextureReplacer.h"
 
 TextureReplacer::TextureReplacer() : enabled_(false) {
@@ -51,7 +53,19 @@ void TextureReplacer::NotifyConfigChanged() {
 
 u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV) {
 	_dbg_assert_msg_(G3D, enabled_, "Replacement not enabled");
-	return 0;
+
+	if (!LookupHashRange(addr, w, h)) {
+		// There wasn't any hash range, let's fall back to maxSeenV logic.
+		if (h == 512 && maxSeenV < 512 && maxSeenV != 0) {
+			h = (int)maxSeenV;
+		}
+	}
+
+	// TODO: In order to have the most stable hash possible, skip space between w/bufw?
+	// TODO: Use hash based on ini file, or always crc32c, or etc.
+	const u32 sizeInRAM = (textureBitsPerPixel[fmt] * bufw * h) / 8;
+	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
+	return DoQuickTexHash(checkp, sizeInRAM);
 }
 
 ReplacedTexture TextureReplacer::FindReplacement(u32 hash) {
@@ -75,6 +89,11 @@ void TextureReplacer::NotifyTextureDecoded(u32 hash, const void *data, int pitch
 	}
 
 	// TODO
+}
+
+bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
+	// TODO: Pull from table loaded via ini.
+	return false;
 }
 
 void ReplacedTexture::Load(int level, void *out, int rowPitch) {
