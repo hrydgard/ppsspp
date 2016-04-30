@@ -62,11 +62,13 @@ op_agent_t agent;
 #endif
 
 #ifdef ARM
+#include "Core/MIPS/ARM/ArmRegCache.h"
 using namespace ArmGen;
 using namespace ArmJitConstants;
 #elif defined(_M_X64) || defined(_M_IX86)
 using namespace Gen;
 #elif defined(ARM64)
+#include "Core/MIPS/ARM64/Arm64RegCache.h"
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 #endif
@@ -595,7 +597,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	ARMXEmitter emit((u8 *)b->checkedEntry);
 	emit.MOVI2R(R0, b->originalAddress);
 	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
+	emit.B(MIPSComp::jit->GetDispatcher());
 	emit.FlushIcache();
 
 #elif defined(_M_IX86) || defined(_M_X64)
@@ -615,7 +617,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	ARM64XEmitter emit((u8 *)b->checkedEntry);
 	emit.MOVI2R(SCRATCH1, b->originalAddress);
 	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
+	emit.B(MIPSComp::jit->GetDispatcher());
 	emit.FlushIcache();
 
 #endif

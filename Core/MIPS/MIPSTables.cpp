@@ -81,17 +81,7 @@ struct MIPSInstruction {
 #define ENCODING(a) {a}
 #define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, MIPSInfo(flags)}
 
-#ifdef ARM
-#define JITFUNC(f) (&ArmJit::f)
-#elif defined(ARM64)
-#define JITFUNC(f) (&Arm64Jit::f)
-#elif defined(_M_X64) || defined(_M_IX86)
-#define JITFUNC(f) (&Jit::f)
-#elif defined(MIPS)
-#define JITFUNC(f) (&MipsJit::f)
-#else
-#define JITFUNC(f) (&FakeJit::f)
-#endif
+#define JITFUNC(f) (&JitInterface::f)
 
 using namespace MIPSDis;
 using namespace MIPSInt;

@@ -426,6 +426,7 @@
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitState.cpp" />
+    <ClCompile Include="MIPS\JitCommon\NativeJit.cpp" />
     <ClCompile Include="MIPS\MIPS.cpp" />
     <ClCompile Include="MIPS\MIPSAnalyst.cpp" />
     <ClCompile Include="MIPS\MIPSAsm.cpp" />

@@ -18,6 +18,7 @@
 #include <stdlib.h>
 
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
 #include "Common/StringUtils.h"
 
@@ -28,23 +29,6 @@
 #if (defined(_M_IX86) || defined(_M_X64)) && defined(_WIN32)
 #define DISASM_ALL 1
 #endif
-
-namespace MIPSComp {
-#if defined(ARM)
-	ArmJit *jit;
-#elif defined(ARM64)
-	Arm64Jit *jit;
-#elif defined(_M_IX86) || defined(_M_X64)
-	Jit *jit;
-#elif defined(MIPS)
-	MipsJit *jit;
-#else
-	FakeJit *jit;
-#endif
-	void JitAt() {
-		jit->Compile(currentMIPS->pc);
-	}
-}
 
 #if defined(ARM) || defined(DISASM_ALL)
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.

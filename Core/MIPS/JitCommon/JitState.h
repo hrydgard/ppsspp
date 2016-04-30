@@ -19,8 +19,10 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Core/MIPS/MIPS.h"
 
 struct JitBlock;
+class JitBlockCache;
 
 namespace MIPSComp {
 
@@ -203,4 +205,6 @@ namespace MIPSComp {
 		bool continueJumps;
 		int continueMaxInstructions;
 	};
+
 }
+

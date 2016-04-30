@@ -11,7 +11,7 @@
 // You get memory management for free, plus, you can use all emitter functions without
 // having to prefix them with gen-> or something similar.
 // Example implementation:
-// class JIT : public CodeBlock<ARMXEmitter> {}
+// class JIT : public CodeBlock<ARMXEmitter>, public JitInterface {}
 template<class T> class CodeBlock : public T, NonCopyable
 {
 private:

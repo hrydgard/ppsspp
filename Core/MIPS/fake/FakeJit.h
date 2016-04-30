@@ -178,8 +178,5 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (FakeJit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (FakeJit::*MIPSReplaceFunc)();
-
 }	// namespace MIPSComp
 

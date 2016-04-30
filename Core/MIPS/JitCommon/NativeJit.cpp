@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,23 +15,39 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/NativeJit.h"
-#include "Core/MIPS/x86/RegCache.h"
-#include "Core/MIPS/x86/Jit.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 
-static const u64 MEMORY_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFFFFF7FFFFFFFULL};
+#if defined(ARM)
+#include "../ARM/ArmJit.h"
+#elif defined(ARM64)
+#include "../ARM64/Arm64Jit.h"
+#elif defined(_M_IX86) || defined(_M_X64)
+#include "../x86/Jit.h"
+#elif defined(MIPS)
+#include "../MIPS/MipsJit.h"
+#else
+#include "../fake/FakeJit.h"
+#endif
 
 namespace MIPSComp {
-using namespace Gen;
+	JitInterface *jit;
+	void JitAt() {
+		jit->Compile(currentMIPS->pc);
+	}
 
-int Jit::Replace_fabsf() {
-	fpr.SpillLock(0, 12);
-	fpr.MapReg(0, MAP_DIRTY | MAP_NOINIT);
-	MOVSS(fpr.RX(0), fpr.R(12));
-	ANDPS(fpr.RX(0), M(&ssNoSignMask));
-	fpr.ReleaseSpillLocks();
-	return 4;  // Number of instructions in the MIPS function
+JitInterface *CreateNativeJit(MIPSState *mips) {
+#if defined(ARM)
+	return new MIPSComp::ArmJit(mips);
+#elif defined(ARM64)
+	return new MIPSComp::Arm64Jit(mips);
+#elif defined(_M_IX86) || defined(_M_X64)
+	return new MIPSComp::Jit(mips);
+#elif defined(MIPS)
+	return new MIPSComp::MipsJit(mips);
+#else
+	return new MIPSComp::FakeJit(mips);
+#endif
 }
 
 }

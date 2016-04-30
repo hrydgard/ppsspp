@@ -209,17 +209,7 @@ void MIPSState::Init() {
 	rng.Init(0x1337);
 
 	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
-#ifdef ARM
-			MIPSComp::jit = new MIPSComp::ArmJit(this);
-#elif defined(ARM64)
-			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
-#elif defined(_M_IX86) || defined(_M_X64)
-			MIPSComp::jit = new MIPSComp::Jit(this);
-#elif defined(MIPS)
-			MIPSComp::jit = new MIPSComp::MipsJit(this);
-#else
-			MIPSComp::jit = new MIPSComp::FakeJit(this);
-#endif
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 	} else {
 		MIPSComp::jit = nullptr;
 	}
@@ -239,17 +229,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	case CPU_JIT:
 		INFO_LOG(CPU, "Switching to JIT");
 		if (!MIPSComp::jit) {
-#ifdef ARM
-			MIPSComp::jit = new MIPSComp::ArmJit(this);
-#elif defined(ARM64)
-			MIPSComp::jit = new MIPSComp::Arm64Jit(this);
-#elif defined(_M_IX86) || defined(_M_X64)
-			MIPSComp::jit = new MIPSComp::Jit(this);
-#elif defined(MIPS)
-			MIPSComp::jit = new MIPSComp::MipsJit(this);
-#else
-			MIPSComp::jit = new MIPSComp::FakeJit(this);
-#endif
+			MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 		}
 		break;
 
