@@ -109,15 +109,19 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 }
 #endif
 
-void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int w, int h, ReplacedTextureFormat fmt) {
+void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt) {
 	_assert_msg_(G3D, enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
 		// Ignore.
 		return;
 	}
 
-	char hashname[16 + 8 + 4 + 1] = {};
-	snprintf(hashname, sizeof(hashname), "%016llx%08x.png", cachekey, hash);
+	char hashname[16 + 8 + 4 + 1 + 11 + 1] = {};
+	if (level > 0) {
+		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d.png", cachekey, hash, level);
+	} else {
+		snprintf(hashname, sizeof(hashname), "%016llx%08x.png", cachekey, hash);
+	}
 	const std::string filename = basePath_ + hashname;
 
 	// TODO: Check for ini ignored or aliased textures.

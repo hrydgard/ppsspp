@@ -101,7 +101,7 @@ public:
 
 	ReplacedTexture FindReplacement(u64 cachekey, u32 hash);
 
-	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int w, int h, ReplacedTextureFormat fmt);
+	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt);
 
 protected:
 	bool LookupHashRange(u32 addr, int &w, int &h);

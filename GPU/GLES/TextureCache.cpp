@@ -1813,7 +1813,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 
 		if (replacer.Enabled()) {
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			replacer.NotifyTextureDecoded(entry.CacheKey(), entry.fullhash,entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, w, h, FromGLESFormat(dstFmt, useBGRA));
+			replacer.NotifyTextureDecoded(entry.CacheKey(), entry.fullhash,entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h, FromGLESFormat(dstFmt, useBGRA));
 		}
 	}
 
