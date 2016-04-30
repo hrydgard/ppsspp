@@ -224,6 +224,9 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		return;
 	}
 
+	// Only save the hashed portion of the PNG.
+	LookupHashRange(addr, w, h);
+
 #ifdef USING_QT_UI
 	ERROR_LOG(G3D, "Replacement texture saving not implemented for Qt");
 #else
@@ -246,9 +249,6 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 
 		data = saveBuf.data();
 	}
-
-	// Only save the hashed portion of the PNG.
-	LookupHashRange(addr, w, h);
 
 	png_image png;
 	memset(&png, 0, sizeof(png));
