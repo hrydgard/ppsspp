@@ -207,7 +207,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/SoftwareTransformCommon.cpp.arm \
   $(SRC)/GPU/Common/VertexDecoderCommon.cpp.arm \
   $(SRC)/GPU/Common/TextureCacheCommon.cpp.arm \
-  $(SRC)/GPU/Common/TextureReplacer.cpp \
   $(SRC)/GPU/Common/TextureScalerCommon.cpp.arm \
   $(SRC)/GPU/Common/SplineCommon.cpp.arm \
   $(SRC)/GPU/Common/DrawEngineCommon.cpp.arm \
@@ -269,6 +268,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/SaveState.cpp \
   $(SRC)/Core/Screenshot.cpp \
   $(SRC)/Core/System.cpp \
+  $(SRC)/Core/TextureReplacer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
   $(SRC)/Core/Dialog/PSPDialog.cpp \

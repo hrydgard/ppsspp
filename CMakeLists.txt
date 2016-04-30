@@ -1432,6 +1432,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
+	Core/TextureReplacer.cpp
+	Core/TextureReplacer.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp
@@ -1491,8 +1493,6 @@ add_library(GPU OBJECT
 	GPU/Common/TextureDecoder.h
 	GPU/Common/TextureCacheCommon.cpp
 	GPU/Common/TextureCacheCommon.h
-	GPU/Common/TextureReplacer.cpp
-	GPU/Common/TextureReplacer.h
 	GPU/Common/TextureScalerCommon.cpp
 	GPU/Common/TextureScalerCommon.h
 	${GPU_NEON}

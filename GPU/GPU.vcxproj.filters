@@ -240,9 +240,6 @@
     <ClInclude Include="Vulkan\VulkanUtil.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
-    <ClInclude Include="Common\TextureReplacer.h">
-      <Filter>Common</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -463,9 +460,6 @@
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanUtil.cpp">
       <Filter>Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Common\TextureReplacer.cpp">
-      <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

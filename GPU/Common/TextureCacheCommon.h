@@ -22,8 +22,8 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemoryUtil.h"
+#include "Core/TextureReplacer.h"
 #include "GPU/Common/GPUDebugInterface.h"
-#include "GPU/Common/TextureReplacer.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,

@@ -16,8 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifndef USING_QT_UI
-// TODO: Make this <libpng17/png.h> and change the include path?  Or move to Core?
-#include "ext/libpng17/png.h"
+#include <libpng17/png.h>
 #endif
 
 #include "ext/xxhash.h"
@@ -25,9 +24,9 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/TextureReplacer.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/TextureReplacer.h"
 
 TextureReplacer::TextureReplacer() : enabled_(false) {
 }
