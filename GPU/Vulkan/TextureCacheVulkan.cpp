@@ -591,7 +591,11 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheVulkan::TexCacheEntry *entry) {
+static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheVulkan::TexCacheEntry *entry) {
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+	}
+
 	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
 		h = (int)entry->maxSeenV;
 	}
@@ -874,6 +878,34 @@ bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
+ReplacedTextureFormat FromVulkanFormat(VkFormat fmt) {
+	switch (fmt) {
+	case VULKAN_565_FORMAT:
+		return ReplacedTextureFormat::F_5650;
+	case VULKAN_1555_FORMAT:
+		return ReplacedTextureFormat::F_5551;
+	case VULKAN_4444_FORMAT:
+		return ReplacedTextureFormat::F_4444;
+	case VULKAN_8888_FORMAT:
+	default:
+		return ReplacedTextureFormat::F_8888;
+	}
+}
+
+VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
+	switch (fmt) {
+	case ReplacedTextureFormat::F_5650:
+		return VULKAN_565_FORMAT;
+	case ReplacedTextureFormat::F_5551:
+		return VULKAN_1555_FORMAT;
+	case ReplacedTextureFormat::F_4444:
+		return VULKAN_4444_FORMAT;
+	case ReplacedTextureFormat::F_8888:
+	default:
+		return VULKAN_8888_FORMAT;
+	}
+}
+
 void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
@@ -993,13 +1025,13 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 
 			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				hashFail = true;
 				rehash = false;
 			}
 
 			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
 				} else {
@@ -1142,7 +1174,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format, entry) : fullhash;
+	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
@@ -1205,6 +1237,15 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
+	ReplacedTexture replaced = replacer.FindReplacement(entry->fullhash);
+	if (replaced.GetSize(0, w, h)) {
+		// We're replacing, so we won't scale.
+		scaleFactor = 1;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+		}
+	}
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
@@ -1230,6 +1271,9 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	}
 
 	VkFormat actualFmt = scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
+	if (replaced.Valid()) {
+		actualFmt = ToVulkanFormat(replaced.Format(0));
+	}
 	if (!entry->vkTex) {
 		entry->vkTex = new CachedTextureVulkan();
 		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
@@ -1290,14 +1334,28 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		for (int i = 0; i <= maxLevel; i++) {
 			int mipWidth = gstate.getTextureWidth(i) * scaleFactor;
 			int mipHeight = gstate.getTextureHeight(i) * scaleFactor;
+			if (replaced.Valid()) {
+				replaced.GetSize(i, mipWidth, mipHeight);
+			}
 			int bpp = actualFmt == VULKAN_8888_FORMAT ? 4 : 2;
 			int stride = (mipWidth * bpp + 15) & ~15;
 			int size = stride * mipHeight;
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
 			void *data = uploadBuffer->Push(size, &bufferOffset, &texBuf);
-			LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+			if (replaced.Valid()) {
+				replaced.Load(i, data, stride);
+			} else {
+				LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
+				if (replacer.Enabled()) {
+					replacer.NotifyTextureDecoded(entry->fullhash, data, stride, mipWidth, mipHeight, FromVulkanFormat(actualFmt));
+				}
+			}
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+		}
+
+		if (replaced.Valid()) {
+			entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 		}
 	}
 
@@ -1581,6 +1639,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			// TODO: bufw may be wrong.
 			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, bufw, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {

@@ -51,6 +51,8 @@ TextureCacheCommon::TextureCacheCommon()
 	tmpTexBuf32.resize(512 * 512);  // 1MB
 	tmpTexBuf16.resize(512 * 512);  // 0.5MB
 	tmpTexBufRearrange.resize(512 * 512);   // 1MB
+
+	replacer.Init();
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -287,6 +289,8 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	}
 
 	standardScaleFactor_ = scaleFactor;
+
+	replacer.NotifyConfigChanged();
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {

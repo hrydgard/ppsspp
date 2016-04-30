@@ -585,7 +585,11 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheDX9::TexCacheEntry *entry) {
+static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCacheDX9::TexCacheEntry *entry) {
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+	}
+
 	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
 		h = (int)entry->maxSeenV;
 	}
@@ -1035,13 +1039,13 @@ void TextureCacheDX9::SetTexture(bool force) {
 
 			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				hashFail = true;
 				rehash = false;
 			}
 
 			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
 				} else {
@@ -1188,7 +1192,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format, entry) : fullhash;
+	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
@@ -1251,6 +1255,16 @@ void TextureCacheDX9::SetTexture(bool force) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
+	ReplacedTexture replaced = replacer.FindReplacement(entry->fullhash);
+	if (replaced.GetSize(0, w, h)) {
+		// We're replacing, so we won't scale.
+		scaleFactor = 1;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
+	}
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
@@ -1279,7 +1293,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		maxLevel = 0;
 	}
 
-	LoadTextureLevel(*entry, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+	LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (!texture) {
 		return;
@@ -1288,8 +1302,12 @@ void TextureCacheDX9::SetTexture(bool force) {
 	// Mipmapping is only enabled when texture scaling is disabled.
 	if (maxLevel > 0 && scaleFactor == 1) {
 		for (u32 i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, i, maxLevel, replaceImages, scaleFactor, dstFmt);
+			LoadTextureLevel(*entry, replaced, i, maxLevel, replaceImages, scaleFactor, dstFmt);
 		}
+	}
+
+	if (replaced.Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
@@ -1590,31 +1608,74 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 	}
 }
 
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
+ReplacedTextureFormat FromD3D9Format(u32 fmt) {
+	switch (fmt) {
+	case D3DFMT_R5G6B5:
+		return ReplacedTextureFormat::F_5650;
+	case D3DFMT_A1R5G5B5:
+		return ReplacedTextureFormat::F_5551;
+	case D3DFMT_A4R4G4B4:
+		return ReplacedTextureFormat::F_4444;
+	case D3DFMT_A8R8G8B8:
+	default:
+		return ReplacedTextureFormat::F_8888;
+	}
+}
+
+u32 ToD3D9Format(ReplacedTextureFormat fmt) {
+	switch (fmt) {
+	case ReplacedTextureFormat::F_5650:
+		return D3DFMT_R5G6B5;
+	case ReplacedTextureFormat::F_5551:
+		return D3DFMT_A1R5G5B5;
+	case ReplacedTextureFormat::F_4444:
+		return D3DFMT_A4R4G4B4;
+	case ReplacedTextureFormat::F_8888:
+	default:
+		return D3DFMT_A8R8G8B8;
+	}
+}
+
+void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
-	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	int bufw;
-	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
-	if (finalBuf == NULL) {
-		return;
-	}
-
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
+	int bufw;
 
+	u32 *pixelData;
 	gpuStats.numTexturesDecoded++;
+	if (replaced.GetSize(level, w, h)) {
+		tmpTexBufRearrange.resize(w * h);
+		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
+		bufw = w;
+		replaced.Load(level, tmpTexBufRearrange.data(), bpp * w);
+		pixelData = tmpTexBufRearrange.data();
 
-	u32 *pixelData = (u32 *)finalBuf;
-	if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
-		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
-
-	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-		TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, w, w, h);
-		entry.SetAlphaStatus(alphaStatus, level);
+		dstFmt = ToD3D9Format(replaced.Format(level));
 	} else {
-		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+		void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, &bufw);
+		if (finalBuf == NULL) {
+			return;
+		}
+
+		pixelData = (u32 *)finalBuf;
+		if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
+			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
+
+		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, w, w, h);
+			entry.SetAlphaStatus(alphaStatus, level);
+		} else {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+		}
+
+		if (replacer.Enabled()) {
+			int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
+			replacer.NotifyTextureDecoded(entry.fullhash, pixelData, w * bpp, w, h, FromD3D9Format(dstFmt));
+		}
 	}
 
 	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);

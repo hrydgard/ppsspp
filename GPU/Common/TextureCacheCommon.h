@@ -21,8 +21,9 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
-#include "GPU/Common/GPUDebugInterface.h"
 #include "Common/MemoryUtil.h"
+#include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/TextureReplacer.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -153,6 +154,8 @@ protected:
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
+
+	TextureReplacer replacer;
 
 	TexCache cache;
 	u32 cacheSizeEstimate_;

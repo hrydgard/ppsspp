@@ -54,6 +54,7 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Common/TextureScalerCommon.cpp \
 	$$P/GPU/Common/VertexDecoderCommon.cpp \
 	$$P/GPU/Common/TextureCacheCommon.cpp \
+	$$P/GPU/Common/TextureReplacer.cpp \
 	$$P/GPU/Common/TransformCommon.cpp \
 	$$P/GPU/Common/SoftwareTransformCommon.cpp \
 	$$P/GPU/Common/PostShader.cpp \
