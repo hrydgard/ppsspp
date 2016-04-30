@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
@@ -105,6 +106,8 @@ public:
 
 protected:
 	bool LookupHashRange(u32 addr, int &w, int &h);
+	std::string LookupHashFile(u64 cachekey, u32 hash, int level);
+	std::string HashName(u64 cachekey, u32 hash, int level);
 
 	SimpleBuf<u32> saveBuf;
 	bool enabled_;

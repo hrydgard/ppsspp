@@ -81,7 +81,12 @@ ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash) {
 
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (g_Config.bReplaceTextures) {
-		// TODO
+		std::string hashfile = LookupHashFile(cachekey, hash, 0);
+		const std::string filename = basePath_ + hashfile;
+
+		if (!hashfile.empty() && File::Exists(filename)) {
+			// TODO: Count levels that exist, etc.
+		}
 	}
 	return result;
 }
@@ -116,18 +121,12 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		return;
 	}
 
-	char hashname[16 + 8 + 4 + 1 + 11 + 1] = {};
-	if (level > 0) {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d.png", cachekey, hash, level);
-	} else {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x.png", cachekey, hash);
-	}
-	const std::string filename = basePath_ + hashname;
+	std::string hashfile = LookupHashFile(cachekey, hash, level);
+	const std::string filename = basePath_ + hashfile;
 
-	// TODO: Check for ini ignored or aliased textures.
-
-	if (File::Exists(filename)) {
-		// Must've been decoded and saved as a new texture already.
+	// If it's empty, it's an ignored hash, we intentionally don't save.
+	if (hashfile.empty() || File::Exists(filename)) {
+		// If it exists, must've been decoded and saved as a new texture already.
 		return;
 	}
 
@@ -172,6 +171,22 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", hash, w, h);
 	}
 #endif
+}
+
+std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
+	// TODO: Look up via ini for alias / ignored.
+	return HashName(cachekey, hash, level) + ".png";
+}
+
+std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
+	char hashname[16 + 8 + 1 + 11 + 1] = {};
+	if (level > 0) {
+		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d.png", cachekey, hash, level);
+	} else {
+		snprintf(hashname, sizeof(hashname), "%016llx%08x.png", cachekey, hash);
+	}
+
+	return hashname;
 }
 
 bool TextureReplacer::LookupHashRange(u32 addr, int &w, int &h) {
