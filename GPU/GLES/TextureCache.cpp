@@ -1364,7 +1364,7 @@ void TextureCache::SetTexture(bool force) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	ReplacedTexture replaced = replacer.FindReplacement(entry->fullhash);
+	ReplacedTexture replaced = replacer.FindReplacement(cachekey, entry->fullhash);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
@@ -1813,7 +1813,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 
 		if (replacer.Enabled()) {
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			replacer.NotifyTextureDecoded(entry.fullhash, entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, w, h, FromGLESFormat(dstFmt, useBGRA));
+			replacer.NotifyTextureDecoded(entry.CacheKey(), entry.fullhash,entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, w, h, FromGLESFormat(dstFmt, useBGRA));
 		}
 	}
 

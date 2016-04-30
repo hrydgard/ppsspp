@@ -1237,7 +1237,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	ReplacedTexture replaced = replacer.FindReplacement(entry->fullhash);
+	ReplacedTexture replaced = replacer.FindReplacement(cachekey, entry->fullhash);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
@@ -1348,7 +1348,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			} else {
 				LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 				if (replacer.Enabled()) {
-					replacer.NotifyTextureDecoded(entry->fullhash, texaddr, data, stride, mipWidth, mipHeight, FromVulkanFormat(actualFmt));
+					replacer.NotifyTextureDecoded(cachekey, entry->fullhash, texaddr, data, stride, mipWidth, mipHeight, FromVulkanFormat(actualFmt));
 				}
 			}
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
