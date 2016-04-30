@@ -166,7 +166,7 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash) {
+ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
 	_assert_msg_(G3D, enabled_, "Replacement not enabled");
 
 	ReplacedTexture result;
@@ -179,6 +179,7 @@ ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash) {
 
 		if (!hashfile.empty() && File::Exists(filename)) {
 			// TODO: Count levels that exist, etc.
+			// TODO: Use w/h to determine actual size based on hash range (png may be smaller)?
 		}
 	}
 	return result;
