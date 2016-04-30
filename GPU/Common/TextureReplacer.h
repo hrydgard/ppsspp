@@ -42,6 +42,7 @@ struct ReplacedTexureLevel {
 	int w;
 	int h;
 	ReplacedTextureFormat fmt;
+	std::string file;
 };
 
 struct ReplacedTexture {
@@ -102,4 +103,6 @@ public:
 
 protected:
 	bool enabled_;
+	std::string gameID_;
+	std::string basePath_;
 };

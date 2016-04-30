@@ -586,6 +586,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory + "PSP/PPSSPP_STATE/";
 	case DIRECTORY_CACHE:
 		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
+	case DIRECTORY_TEXTURES:
+		return g_Config.memStickDirectory + "PSP/TEXTURES/";
 	case DIRECTORY_APP_CACHE:
 		if (!g_Config.appCacheDirectory.empty()) {
 			return g_Config.appCacheDirectory;
