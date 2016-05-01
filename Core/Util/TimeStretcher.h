@@ -46,6 +46,7 @@ namespace AudioCore {
 		int GetSamplesQueued();
 
 		double GetCurrentRatio();
+		double GetCurrentRate();
 
 	private:
 		struct Impl;

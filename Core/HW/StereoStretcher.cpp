@@ -3,6 +3,7 @@
 #include "base/basictypes.h"
 #include "base/timeutil.h"
 #include "StereoStretcher.h"
+#include "Globals.h"
 
 StereoStretcher::StereoStretcher() {
 	stretch_.SetOutputSampleRate(48000);
@@ -42,7 +43,7 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 	while (num_samples > 0) {
 		int mono_count = std::min(num_samples * 2, (unsigned int)ARRAY_SIZE(buffer));
 		for (int i = 0; i < mono_count; i++) {
-			buffer[i] = (s16)samples[i];
+			buffer[i] = clamp_s16(samples[i]);
 		}
 		stretch_.AddSamples(buffer, mono_count / 2);
 		num_samples -= mono_count / 2;

@@ -33,11 +33,17 @@ namespace AudioCore {
 
 		double smoothed_ratio = 1.0;
 
+		double rate = 1.0;
 		double sample_rate = static_cast<double>(native_sample_rate);
+		double smoothed_rate = 1.0;
 	};
 
 	double TimeStretcher::GetCurrentRatio() {
 		return impl->smoothed_ratio;
+	}
+
+	double TimeStretcher::GetCurrentRate() {
+		return impl->smoothed_rate;
 	}
 
 	std::vector<s16> TimeStretcher::Process(size_t samples_in_queue, double now) {
@@ -48,8 +54,17 @@ namespace AudioCore {
 		impl->smoothed_ratio = (1.0 - SMOOTHING_FACTOR) * impl->smoothed_ratio + SMOOTHING_FACTOR * ratio;
 		impl->smoothed_ratio = ClampRatio(impl->smoothed_ratio);
 
+		// If ratio is very close to 1.0, don't bother stretching, just resample instead.
+		ratio = impl->smoothed_ratio;
+		double rate = impl->rate;
+		if (ratio > 0.97 && ratio < 1.03) {
+			ratio = 1.0;
+			rate /= ratio;
+		}
+
 		// SoundTouch's tempo definition the inverse of our ratio definition.
-		impl->soundtouch.setTempo(1.0 / impl->smoothed_ratio);
+		impl->soundtouch.setTempo(1.0 / ratio);
+		impl->soundtouch.setRate(rate);
 
 		std::vector<s16> samples = GetSamples();
 		if (samples_in_queue >= DROP_FRAMES_SAMPLE_DELAY) {
@@ -73,7 +88,8 @@ namespace AudioCore {
 
 	void TimeStretcher::SetOutputSampleRate(unsigned int sample_rate) {
 		impl->sample_rate = static_cast<double>(sample_rate);
-		impl->soundtouch.setRate(1.0 / (impl->sample_rate / static_cast<double>(native_sample_rate)));
+		impl->rate = 1.0 / (impl->sample_rate / static_cast<double>(native_sample_rate));
+		impl->soundtouch.setRate(impl->rate);
 	}
 
 	void TimeStretcher::AddSamples(const s16* buffer, size_t num_samples) {
