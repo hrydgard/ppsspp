@@ -273,6 +273,10 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		// Ignore.
 		return;
 	}
+	if (addr > 0x05000000 && addr < 0x08800000) {
+		// Don't save the PPGe texture.
+		return;
+	}
 
 	std::string hashfile = LookupHashFile(cachekey, hash, level);
 	const std::string filename = basePath_ + hashfile;
