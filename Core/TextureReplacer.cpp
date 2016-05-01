@@ -19,6 +19,7 @@
 #include <libpng17/png.h>
 #endif
 
+#include <algorithm>
 #include "ext/xxhash.h"
 #include "file/ini_file.h"
 #include "Common/ColorConv.h"
@@ -79,7 +80,7 @@ bool TextureReplacer::LoadIni() {
 		std::string hash;
 		options->Get("hash", &hash, "");
 		// TODO: crc32c.
-		if (hash == "quick") {
+		if (strcasecmp(hash.c_str(), "quick") == 0) {
 			hash_ = ReplacedTextureHash::QUICK;
 		} else {
 			ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
@@ -95,7 +96,8 @@ bool TextureReplacer::LoadIni() {
 		if (ini.GetKeys("hashes", hashNames)) {
 			auto hashes = ini.GetOrCreateSection("hashes");
 			// Format: hashname = filename.png
-			for (const std::string &hashName : hashNames) {
+			for (std::string hashName : hashNames) {
+				std::transform(hashName.begin(), hashName.end(), hashName.begin(), tolower);
 				hashes->Get(hashName.c_str(), &aliases_[hashName], "");
 			}
 		}
