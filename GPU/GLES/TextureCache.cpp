@@ -780,7 +780,7 @@ void TextureCache::ApplyTexture() {
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
-			u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 		}
 		if (nextNeedsChange_) {
 			// This texture existed previously, let's handle the change.
@@ -1525,7 +1525,6 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 	}
 
 	// This will rebind it, but that's okay.
-	nextTexture_ = entry;
 	UpdateSamplingParams(*entry, true);
 
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
