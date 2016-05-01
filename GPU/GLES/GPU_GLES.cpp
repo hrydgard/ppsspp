@@ -2261,6 +2261,7 @@ void GPU_GLES::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
 	}
+	textureCache_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 

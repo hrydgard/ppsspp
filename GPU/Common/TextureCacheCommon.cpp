@@ -33,6 +33,9 @@
 #include <emmintrin.h>
 #endif
 
+// Videos should be updated every few frames, so we forge quickly.
+#define VIDEO_DECIMATE_AGE 4
+
 // Ugly.
 extern int g_iNumVideos;
 
@@ -141,6 +144,18 @@ void TextureCacheCommon::UpdateMaxSeenV(bool throughMode) {
 			// Can't tell how much is used.
 			// TODO: We could tell for texcoord UV gen, and apply scale to max?
 			nextTexture_->maxSeenV = 512;
+		}
+	}
+}
+
+void TextureCacheCommon::DecimateVideos() {
+	if (!videos_.empty()) {
+		for (auto iter = videos_.begin(); iter != videos_.end(); ) {
+			if (iter->second + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
+				videos_.erase(iter++);
+			} else {
+				++iter;
+			}
 		}
 	}
 }
@@ -291,6 +306,10 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	standardScaleFactor_ = scaleFactor;
 
 	replacer.NotifyConfigChanged();
+}
+
+void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+	videos_[addr] = gpuStats.numFlips;
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {

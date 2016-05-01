@@ -177,6 +177,7 @@ void TextureCacheVulkan::Clear(bool delete_them) {
 		secondCacheSizeEstimate_ = 0;
 	}
 	fbTexInfo_.clear();
+	videos_.clear();
 }
 
 void TextureCacheVulkan::DeleteTexture(TexCache::iterator it) {
@@ -230,6 +231,8 @@ void TextureCacheVulkan::Decimate() {
 
 		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
 	}
+
+	DecimateVideos();
 }
 
 void TextureCacheVulkan::Invalidate(u32 addr, int size, GPUInvalidationType type) {

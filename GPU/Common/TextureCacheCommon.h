@@ -55,6 +55,7 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyConfigChanged();
+	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	int AttachedDrawingHeight();
 
@@ -155,6 +156,8 @@ protected:
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
 
+	void DecimateVideos();
+
 	TextureReplacer replacer;
 
 	TexCache cache;
@@ -170,6 +173,8 @@ protected:
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+
+	std::map<u32, int> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;
