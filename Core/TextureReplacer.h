@@ -58,6 +58,27 @@ struct ReplacedTexureLevel {
 	std::string file;
 };
 
+struct ReplacementCacheKey {
+	u64 cachekey;
+	u32 hash;
+
+	ReplacementCacheKey(u64 c, u32 h) : cachekey(c), hash(h) {
+	}
+
+	bool operator ==(const ReplacementCacheKey &k) const {
+		return k.cachekey == cachekey && k.hash == hash;
+	}
+};
+
+namespace std {
+	template <>
+	struct hash<ReplacementCacheKey> {
+		size_t operator()(const ReplacementCacheKey &k) const {
+			return std::hash<u64>()(k.cachekey ^ ((u64)k.hash << 32));
+		}
+	};
+}
+
 struct ReplacedTexture {
 	inline bool Valid() {
 		return !levels_.empty();
@@ -110,7 +131,7 @@ public:
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, GETextureFormat fmt, u16 maxSeenV);
 
-	ReplacedTexture FindReplacement(u64 cachekey, u32 hash, int w, int h);
+	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
 
 	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt);
 
@@ -130,4 +151,7 @@ protected:
 	std::unordered_map<std::string, std::string> aliases_;
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
+
+	ReplacedTexture none_;
+	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
 };

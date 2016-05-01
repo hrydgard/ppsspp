@@ -34,6 +34,7 @@ static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 64;
 
 TextureReplacer::TextureReplacer() : enabled_(false) {
+	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
 TextureReplacer::~TextureReplacer() {
@@ -195,16 +196,24 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 	}
 }
 
-ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
+ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
 	_assert_msg_(G3D, enabled_, "Replacement not enabled");
 
-	ReplacedTexture result;
-	result.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
-
 	// Only actually replace if we're replacing.  We might just be saving.
-	if (g_Config.bReplaceTextures) {
-		PopulateReplacement(&result, cachekey, hash, w, h);
+	if (!g_Config.bReplaceTextures) {
+		return none_;
 	}
+
+	ReplacementCacheKey replacementKey(cachekey, hash);
+	auto it = cache_.find(replacementKey);
+	if (it != cache_.end()) {
+		return it->second;
+	}
+
+	// Okay, let's construct the result.
+	ReplacedTexture &result = cache_[replacementKey];
+	result.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
+	PopulateReplacement(&result, cachekey, hash, w, h);
 	return result;
 }
 
