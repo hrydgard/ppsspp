@@ -200,10 +200,8 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 }
 
 ReplacedTexture &TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, int h) {
-	_assert_msg_(G3D, enabled_, "Replacement not enabled");
-
 	// Only actually replace if we're replacing.  We might just be saving.
-	if (!g_Config.bReplaceTextures) {
+	if (!Enabled() || !g_Config.bReplaceTextures) {
 		return none_;
 	}
 
