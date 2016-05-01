@@ -165,6 +165,7 @@ protected:
 
 	SimpleBuf<u32> saveBuf;
 	bool enabled_;
+	bool allowVideo_;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_;

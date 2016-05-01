@@ -35,7 +35,7 @@ static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 64;
 
-TextureReplacer::TextureReplacer() : enabled_(false) {
+TextureReplacer::TextureReplacer() : enabled_(false), allowVideo_(false), hash_(ReplacedTextureHash::QUICK) {
 	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
@@ -86,6 +86,8 @@ bool TextureReplacer::LoadIni() {
 			ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
 			return false;
 		}
+
+		options->Get("video", &allowVideo_, false);
 
 		int version = 0;
 		if (options->Get("version", &version, 0) && version > VERSION) {
@@ -288,6 +290,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	}
 	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < 0x08800000) {
 		// Don't save the PPGe texture.
+		return;
+	}
+	if (replacedInfo.isVideo && !allowVideo_) {
 		return;
 	}
 
