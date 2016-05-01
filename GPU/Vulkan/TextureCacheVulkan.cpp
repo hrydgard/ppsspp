@@ -1634,13 +1634,13 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 			// We always end up at 8888.  Other parts assume this.
 			assert(dstFmt == VULKAN_8888_FORMAT);
-			decPitch = w * sizeof(u32);
-			rowBytes = w * sizeof(u32);
+			bpp = sizeof(u32);
+			decPitch = w * bpp;
+			rowBytes = w * bpp;
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			// TODO: bufw may be wrong.
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, bufw, w, h);
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
