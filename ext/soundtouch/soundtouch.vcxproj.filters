@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\AAFilter.cpp" />
+    <ClCompile Include="src\cpu_detect_x86.cpp" />
+    <ClCompile Include="src\FIFOSampleBuffer.cpp" />
+    <ClCompile Include="src\FIRFilter.cpp" />
+    <ClCompile Include="src\InterpolateLinear.cpp" />
+    <ClCompile Include="src\RateTransposer.cpp" />
+    <ClCompile Include="src\SoundTouch.cpp" />
+    <ClCompile Include="src\TDStretch.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\AAFilter.h" />
+    <ClInclude Include="src\cpu_detect.h" />
+    <ClInclude Include="src\FIRFilter.h" />
+    <ClInclude Include="src\InterpolateLinear.h" />
+    <ClInclude Include="src\RateTransposer.h" />
+    <ClInclude Include="src\TDStretch.h" />
+    <ClInclude Include="include\FIFOSampleBuffer.h" />
+    <ClInclude Include="include\FIFOSamplePipe.h" />
+    <ClInclude Include="include\SoundTouch.h" />
+    <ClInclude Include="include\STTypes.h" />
+  </ItemGroup>
+</Project>

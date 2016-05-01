@@ -76,6 +76,7 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "glslang", "..\ext\glslang.vcxproj", "{EDFA2E87-8AC1-4853-95D4-D7594FF81947}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SPIRV-Cross", "..\ext\SPIRV-Cross.vcxproj", "{4328A62C-F1E9-47ED-B816-A1A81DAF4363}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "soundtouch", "..\ext\soundtouch\soundtouch.vcxproj", "{49A815FB-2093-4EB9-A612-46BE75650245}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -243,6 +244,18 @@ Global
 		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|Win32.Build.0 = Release|Win32
 		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|x64.ActiveCfg = Release|x64
 		{4328A62C-F1E9-47ED-B816-A1A81DAF4363}.Tests|x64.Build.0 = Release|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Debug|Win32.ActiveCfg = Debug|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Debug|Win32.Build.0 = Debug|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Debug|x64.ActiveCfg = Debug|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Debug|x64.Build.0 = Debug|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Release|Win32.ActiveCfg = Release|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Release|Win32.Build.0 = Release|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Release|x64.ActiveCfg = Release|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Release|x64.Build.0 = Release|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Tests|Win32.ActiveCfg = Release|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Tests|Win32.Build.0 = Release|Win32
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Tests|x64.ActiveCfg = Release|x64
+		{49A815FB-2093-4EB9-A612-46BE75650245}.Tests|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
