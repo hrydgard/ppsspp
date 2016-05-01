@@ -237,6 +237,9 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		level.fmt = ReplacedTextureFormat::F_8888;
 		level.file = filename;
 
+#ifdef USING_QT_UI
+		ERROR_LOG(G3D, "Replacement texture loading not implemented for Qt");
+#else
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
 		FILE *fp = File::OpenCFile(filename, "rb");
@@ -251,6 +254,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		}
 		fclose(fp);
 		png_image_free(&png);
+#endif
 	}
 
 	// TODO: Could calculate alpha status, or maybe from ini?  Let's ignore for now.
@@ -427,6 +431,9 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	const ReplacedTextureLevel &info = levels_[level];
 
+#ifdef USING_QT_UI
+	ERROR_LOG(G3D, "Replacement texture loading not implemented for Qt");
+#else
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
 	png.format = PNG_FORMAT_RGBA;
@@ -443,4 +450,5 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	fclose(fp);
 	png_image_free(&png);
+#endif
 }
