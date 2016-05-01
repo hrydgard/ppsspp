@@ -52,8 +52,6 @@
 
 #include "UI/OnScreenDisplay.h"
 
-extern int g_iNumVideos;
-
 const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
 static const char tex_fs[] = R"(#version 400

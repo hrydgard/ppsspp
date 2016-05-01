@@ -38,8 +38,6 @@
 #include "math/math_util.h"
 
 
-extern int g_iNumVideos;
-
 namespace DX9 {
 
 #define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
@@ -503,7 +501,7 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr);
 
 	if (entry.maxLevel != 0) {
 		GETexLevelMode mode = gstate.getTexLevelMode();
@@ -543,7 +541,7 @@ void TextureCacheDX9::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHe
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	dxstate.texMinFilter.set(MinFilt[minFilt]);
 	dxstate.texMipFilter.set(MipFilt[minFilt]);

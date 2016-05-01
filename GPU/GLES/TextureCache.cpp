@@ -71,9 +71,6 @@
 
 #define INVALID_TEX -1
 
-// Hack!
-extern int g_iNumVideos;
-
 TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
@@ -490,7 +487,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr);
 
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
@@ -544,7 +541,7 @@ void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeigh
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 

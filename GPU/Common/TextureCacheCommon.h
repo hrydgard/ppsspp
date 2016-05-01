@@ -149,7 +149,7 @@ protected:
 	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
 	void UpdateMaxSeenV(bool throughMode);
 
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;

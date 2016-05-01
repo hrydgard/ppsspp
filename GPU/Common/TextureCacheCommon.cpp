@@ -36,9 +36,6 @@
 // Videos should be updated every few frames, so we forge quickly.
 #define VIDEO_DECIMATE_AGE 4
 
-// Ugly.
-extern int g_iNumVideos;
-
 TextureCacheCommon::TextureCacheCommon()
 	: cacheSizeEstimate_(0), nextTexture_(nullptr),
 	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF) {
@@ -79,7 +76,7 @@ int TextureCacheCommon::AttachedDrawingHeight() {
 	return 0;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = (gstate.texfilter >> 8) & 1;
 	sClamp = gstate.isTexCoordClampedS();
@@ -96,9 +93,12 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO && g_iNumVideos > 0 && (gstate.getTextureDimension(0) & 0xF) >= 9) {
-		magFilt |= 1;
-		minFilt |= 1;
+	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
+		bool isVideo = videos_.find(addr & 0x3FFFFFFF) != videos_.end();
+		if (isVideo) {
+			magFilt |= 1;
+			minFilt |= 1;
+		}
 	}
 	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
 		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
@@ -309,6 +309,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 }
 
 void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+	addr &= 0x3FFFFFFF;
 	videos_[addr] = gpuStats.numFlips;
 }
 
