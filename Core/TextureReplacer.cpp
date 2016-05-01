@@ -435,19 +435,27 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 #else
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
-	png.format = PNG_FORMAT_RGBA;
 
 	FILE *fp = File::OpenCFile(info.file, "rb");
 	if (!png_image_begin_read_from_stdio(&png, fp)) {
 		ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
 		return;
 	}
+
+	bool checkedAlpha = false;
+	if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
+		// Well, we know for sure it doesn't have alpha.
+		alphaStatus_ = ReplacedTextureAlpha::FULL;
+		checkedAlpha = true;
+	}
+	png.format = PNG_FORMAT_RGBA;
+
 	if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
 		ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
 		return;
 	}
 
-	if (level == 0) {
+	if (level == 0 && !checkedAlpha) {
 		// This will only check the hashed bits.
 		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
 		alphaStatus_ = ReplacedTextureAlpha(res);
