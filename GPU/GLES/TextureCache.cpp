@@ -766,7 +766,7 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 }
 
 void TextureCache::ApplyTexture() {
-	TexCacheEntry *const entry = nextTexture_;
+	TexCacheEntry *entry = nextTexture_;
 	if (entry == nullptr) {
 		return;
 	}
@@ -1179,6 +1179,13 @@ void TextureCache::SetTexture(bool force) {
 				gstate_c.curTextureWidth = w;
 				gstate_c.curTextureHeight = h;
 			}
+			if (rehash) {
+				// Update in case any of these changed.
+				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+				entry->bufw = bufw;
+				entry->cluthash = cluthash;
+			}
+
 			nextTexture_ = entry;
 			nextNeedsRehash_ = false;
 			nextNeedsRebuild_= false;
@@ -1186,7 +1193,7 @@ void TextureCache::SetTexture(bool force) {
 			return; //Done!
 		} else {
 			entry->cluthash = cluthash;
-			HandleTextureChange(entry, reason, initialMatch, doDelete);
+			replaceImages = HandleTextureChange(entry, reason, initialMatch, doDelete);
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
