@@ -107,6 +107,9 @@ private:
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
+	bool HandleTextureChange(const char *reason, bool initialMatch, bool doDelete);
+	void BuildTexture(bool replaceImages);
+
 	std::vector<u32> nameCache_;
 	TexCache secondCache;
 	u32 secondCacheSizeEstimate_;
@@ -133,6 +136,9 @@ private:
 	DepalShaderCache *depalShaderCache_;
 	ShaderManager *shaderManager_;
 	DrawEngineGLES *transformDraw_;
+
+	bool nextNeedsRehash_;
+	bool nextNeedsRebuild_;
 };
 
 GLenum getClutDestFormat(GEPaletteFormat format);

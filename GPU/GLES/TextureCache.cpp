@@ -766,23 +766,27 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 }
 
 void TextureCache::ApplyTexture() {
-	if (nextTexture_ == nullptr) {
+	TexCacheEntry *const entry = nextTexture_;
+	if (entry == nullptr) {
 		return;
 	}
-
-	if (nextTexture_->framebuffer) {
-		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
-	} else {
-		UpdateMaxSeenV(gstate.isModeThrough());
-
-		if (nextTexture_->textureName != lastBoundTexture) {
-			glBindTexture(GL_TEXTURE_2D, nextTexture_->textureName);
-			lastBoundTexture = nextTexture_->textureName;
-		}
-		UpdateSamplingParams(*nextTexture_, false);
-	}
-
 	nextTexture_ = nullptr;
+
+	entry->lastFrame = gpuStats.numFlips;
+	if (entry->framebuffer) {
+		ApplyTextureFramebuffer(entry, entry->framebuffer);
+	} else {
+		UpdateMaxSeenV(entry, gstate.isModeThrough());
+
+		if (entry->textureName != lastBoundTexture) {
+			glBindTexture(GL_TEXTURE_2D, entry->textureName);
+			lastBoundTexture = entry->textureName;
+		}
+		UpdateSamplingParams(*entry, false);
+
+		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
+		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+	}
 }
 
 void TextureCache::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
@@ -986,7 +990,6 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	if (success && entry->framebuffer) {
 		// This will not apply the texture immediately.
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		entry->lastFrame = gpuStats.numFlips;
 		return true;
 	}
 
@@ -1084,6 +1087,7 @@ void TextureCache::SetTexture(bool force) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
+		bool initialMatch = match;
 		const char *reason = "different params";
 
 		// Check for FBO - slow!
@@ -1094,7 +1098,6 @@ void TextureCache::SetTexture(bool force) {
 				}
 
 				SetTextureFramebuffer(entry, entry->framebuffer);
-				entry->lastFrame = gpuStats.numFlips;
 				return;
 			} else {
 				// Make sure we re-evaluate framebuffers.
@@ -1217,46 +1220,19 @@ void TextureCache::SetTexture(bool force) {
 		if (match) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
-			entry->lastFrame = gpuStats.numFlips;
 			if (entry->textureName != lastBoundTexture) {
-				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+				gstate_c.curTextureWidth = w;
+				gstate_c.curTextureHeight = h;
 			}
 			nextTexture_ = entry;
+			nextNeedsRehash_ = false;
+			nextNeedsRebuild_= false;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-			entry->numInvalidated++;
-			gpuStats.numTextureInvalidations++;
-			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
-			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && standardScaleFactor_ == 1) {
-					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
-					// Instead, let's use glTexSubImage to replace the images.
-					replaceImages = true;
-				} else {
-					if (entry->textureName == lastBoundTexture) {
-						lastBoundTexture = INVALID_TEX;
-					}
-					glDeleteTextures(1, &entry->textureName);
-				}
-			}
-			// Clear the reliable bit if set.
-			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-			}
-
-			// Also, mark any textures with the same address but different clut.  They need rechecking.
-			if (cluthash != 0) {
-				const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
-				const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-				for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
-					if (it->second.cluthash != cluthash) {
-						it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
-					}
-				}
-			}
+			entry->cluthash = cluthash;
+			nextTexture_ = entry;
+			HandleTextureChange(reason, initialMatch, doDelete);
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
@@ -1275,35 +1251,73 @@ void TextureCache::SetTexture(bool force) {
 		}
 	}
 
-	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
-		return;
-	}
-
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
 	entry->hash = texhash;
+	entry->dim = dim;
 	entry->format = format;
-	entry->lastFrame = gpuStats.numFlips;
-	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
-	entry->lodBias = 0.0f;
-
-	entry->dim = gstate.getTextureDimension(0);
-	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->bufw = bufw;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	nextTexture_ = entry;
+	nextNeedsRehash_ = true;
+	nextNeedsRebuild_= true;
+	BuildTexture(replaceImages);
+}
+
+bool TextureCache::HandleTextureChange(const char *reason, bool initialMatch, bool doDelete) {
+	TexCacheEntry *const entry = nextTexture_;
+	bool replaceImages = false;
+
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+	entry->numInvalidated++;
+	gpuStats.numTextureInvalidations++;
+	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
+	if (doDelete) {
+		if (initialMatch && standardScaleFactor_ == 1) {
+			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
+			// Instead, let's use glTexSubImage to replace the images.
+			replaceImages = true;
+		} else {
+			if (entry->textureName == lastBoundTexture) {
+				lastBoundTexture = INVALID_TEX;
+			}
+			glDeleteTextures(1, &entry->textureName);
+		}
+	}
+	// Clear the reliable bit if set.
+	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+	}
+
+	// Also, mark any textures with the same address but different clut.  They need rechecking.
+	if (entry->cluthash != 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
+			if (it->second.cluthash != entry->cluthash) {
+				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
+			}
+		}
+	}
+
+	return replaceImages;
+}
+
+void TextureCache::BuildTexture(bool replaceImages) {
+	TexCacheEntry *const entry = nextTexture_;
+
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
@@ -1314,6 +1328,7 @@ void TextureCache::SetTexture(bool force) {
 	}
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
+	entry->framebuffer = 0;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
@@ -1322,15 +1337,22 @@ void TextureCache::SetTexture(bool force) {
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		entry->lastFrame = gpuStats.numFlips;
 		return;
 	}
+
+	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
+		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		// Proceeding here can cause a crash.
+		return;
+	}
+
 	glBindTexture(GL_TEXTURE_2D, entry->textureName);
 	lastBoundTexture = entry->textureName;
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
-	for (u32 i = 0; i <= maxLevel; i++) {
+	int maxLevel = entry->maxLevel;
+	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
@@ -1354,7 +1376,7 @@ void TextureCache::SetTexture(bool force) {
 	}
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	GLenum dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
+	GLenum dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 
@@ -1364,6 +1386,9 @@ void TextureCache::SetTexture(bool force) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
+	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
@@ -1458,9 +1483,6 @@ void TextureCache::SetTexture(bool force) {
 		float anisotropyLevel = (float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 	}
-
-	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
 	// This will rebind it, but that's okay.
 	nextTexture_ = entry;

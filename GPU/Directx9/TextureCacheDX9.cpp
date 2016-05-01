@@ -704,7 +704,7 @@ void TextureCacheDX9::ApplyTexture() {
 	if (nextTexture_->framebuffer) {
 		ApplyTextureFramebuffer(nextTexture_, nextTexture_->framebuffer);
 	} else {
-		UpdateMaxSeenV(gstate.isModeThrough());
+		UpdateMaxSeenV(nextTexture_, gstate.isModeThrough());
 
 		LPDIRECT3DTEXTURE9 texture = DxTex(nextTexture_);
 		pD3Ddevice->SetTexture(0, texture);
