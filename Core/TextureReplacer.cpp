@@ -31,6 +31,7 @@
 
 static const std::string INI_FILENAME = "textures.ini";
 static const int VERSION = 1;
+static const int MAX_MIP_LEVELS = 64;
 
 TextureReplacer::TextureReplacer() : enabled_(false) {
 }
@@ -140,6 +141,11 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 		return;
 	}
 
+	if (toW > fromW || toH > fromH) {
+		ERROR_LOG(G3D, "Ignoring invalid hashrange %s = %s, range bigger than source", key.c_str(), value.c_str());
+		return;
+	}
+
 	const u64 rangeKey = ((u64)addr << 32) | (fromW << 16) | fromH;
 	hashranges_[rangeKey] = WidthHeightPair(toW, toH);
 }
@@ -197,15 +203,45 @@ ReplacedTexture TextureReplacer::FindReplacement(u64 cachekey, u32 hash, int w, 
 
 	// Only actually replace if we're replacing.  We might just be saving.
 	if (g_Config.bReplaceTextures) {
-		std::string hashfile = LookupHashFile(cachekey, hash, 0);
-		const std::string filename = basePath_ + hashfile;
-
-		if (!hashfile.empty() && File::Exists(filename)) {
-			// TODO: Count levels that exist, etc.
-			// TODO: Use w/h to determine actual size based on hash range (png may be smaller)?
-		}
+		PopulateReplacement(&result, cachekey, hash, w, h);
 	}
 	return result;
+}
+
+void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h) {
+	int newW = w;
+	int newH = h;
+	LookupHashRange(cachekey >> 32, newW, newH);
+
+	for (int i = 0; i < MAX_MIP_LEVELS; ++i) {
+		const std::string hashfile = LookupHashFile(cachekey, hash, i);
+		const std::string filename = basePath_ + hashfile;
+		if (hashfile.empty() || !File::Exists(filename)) {
+			// Out of valid mip levels.  Bail out.
+			break;
+		}
+
+		ReplacedTexureLevel level;
+		level.fmt = ReplacedTextureFormat::F_8888;
+		level.file = filename;
+
+		png_image png = {};
+		png.version = PNG_IMAGE_VERSION;
+		FILE *fp = File::OpenCFile(filename, "rb");
+		if (png_image_begin_read_from_stdio(&png, fp)) {
+			// We pad files that have been hashrange'd so they are the same texture size.
+			level.w = (png.width * w) / newW;
+			level.h = (png.height * h) / newH;
+
+			result->levels_.push_back(level);
+		} else {
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s", filename.c_str());
+		}
+		fclose(fp);
+		png_image_free(&png);
+	}
+
+	// TODO: Could calculate alpha status, or maybe from ini?  Let's ignore for now.
 }
 
 #ifndef USING_QT_UI
@@ -304,9 +340,9 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
 	char hashname[16 + 8 + 1 + 11 + 1] = {};
 	if (level > 0) {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d.png", cachekey, hash, level);
+		snprintf(hashname, sizeof(hashname), "%016llx%08x_%d", cachekey, hash, level);
 	} else {
-		snprintf(hashname, sizeof(hashname), "%016llx%08x.png", cachekey, hash);
+		snprintf(hashname, sizeof(hashname), "%016llx%08x", cachekey, hash);
 	}
 
 	return hashname;
@@ -329,5 +365,22 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_(G3D, (size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(G3D, out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
-	// TODO
+	const ReplacedTexureLevel &info = levels_[level];
+
+	png_image png = {};
+	png.version = PNG_IMAGE_VERSION;
+	png.format = PNG_FORMAT_RGBA;
+
+	FILE *fp = File::OpenCFile(info.file, "rb");
+	if (!png_image_begin_read_from_stdio(&png, fp)) {
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s", info.file.c_str());
+		return;
+	}
+	if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
+		ERROR_LOG(G3D, "Could not load texture replacement: %s", info.file.c_str());
+		return;
+	}
+
+	fclose(fp);
+	png_image_free(&png);
 }
