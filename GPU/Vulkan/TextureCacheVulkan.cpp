@@ -1329,6 +1329,17 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	}
 	lastBoundTexture = entry->vkTex;
 
+	ReplacedTextureDecodeInfo replacedInfo;
+	if (replacer.Enabled() && !replaced.Valid()) {
+		replacedInfo.cachekey = cachekey;
+		replacedInfo.hash = entry->fullhash;
+		replacedInfo.addr = texaddr;
+		replacedInfo.isVideo = videos_.find(texaddr & 0x3FFFFFFF) != videos_.end();
+		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+		replacedInfo.scaleFactor = scaleFactor;
+		replacedInfo.fmt = FromVulkanFormat(actualFmt);
+	}
+
 	if (entry->vkTex) {
 		// Upload the texture data.
 		for (int i = 0; i <= maxLevel; i++) {
@@ -1348,7 +1359,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			} else {
 				LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
 				if (replacer.Enabled()) {
-					replacer.NotifyTextureDecoded(cachekey, entry->fullhash, texaddr, data, stride, i, mipWidth, mipHeight, scaleFactor, FromVulkanFormat(actualFmt));
+					replacer.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}
 			}
 			entry->vkTex->texture_->UploadMip(i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);

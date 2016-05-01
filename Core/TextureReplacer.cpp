@@ -280,18 +280,18 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 }
 #endif
 
-void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, int scaleFactor, ReplacedTextureFormat fmt) {
+void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h) {
 	_assert_msg_(G3D, enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
 		// Ignore.
 		return;
 	}
-	if (addr > 0x05000000 && addr < 0x08800000) {
+	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < 0x08800000) {
 		// Don't save the PPGe texture.
 		return;
 	}
 
-	std::string hashfile = LookupHashFile(cachekey, hash, level);
+	std::string hashfile = LookupHashFile(replacedInfo.cachekey, replacedInfo.hash, level);
 	const std::string filename = basePath_ + hashfile;
 	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
 
@@ -301,7 +301,7 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		return;
 	}
 
-	ReplacementCacheKey replacementKey(cachekey, hash);
+	ReplacementCacheKey replacementKey(replacedInfo.cachekey, replacedInfo.hash);
 	auto it = savedCache_.find(replacementKey);
 	if (it != savedCache_.end() && File::Exists(saveFilename)) {
 		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
@@ -311,19 +311,19 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 	}
 
 	// Only save the hashed portion of the PNG.
-	int lookupW = w / scaleFactor;
-	int lookupH = h / scaleFactor;
-	if (LookupHashRange(addr, lookupW, lookupH)) {
-		w = lookupW * scaleFactor;
-		h = lookupH * scaleFactor;
+	int lookupW = w / replacedInfo.scaleFactor;
+	int lookupH = h / replacedInfo.scaleFactor;
+	if (LookupHashRange(replacedInfo.addr, lookupW, lookupH)) {
+		w = lookupW * replacedInfo.scaleFactor;
+		h = lookupH * replacedInfo.scaleFactor;
 	}
 
 #ifdef USING_QT_UI
 	ERROR_LOG(G3D, "Replacement texture saving not implemented for Qt");
 #else
-	if (fmt != ReplacedTextureFormat::F_8888) {
+	if (replacedInfo.fmt != ReplacedTextureFormat::F_8888) {
 		saveBuf.resize((pitch * h) / sizeof(u16));
-		switch (fmt) {
+		switch (replacedInfo.fmt) {
 		case ReplacedTextureFormat::F_5650:
 			ConvertRGBA565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
@@ -348,7 +348,7 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		}
 
 		data = saveBuf.data();
-		if (fmt != ReplacedTextureFormat::F_8888_BGRA) {
+		if (replacedInfo.fmt != ReplacedTextureFormat::F_8888_BGRA) {
 			// We doubled our pitch.
 			pitch *= 2;
 		}
@@ -366,7 +366,7 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 	if (png.warning_or_error >= 2) {
 		ERROR_LOG(COMMON, "Saving screenshot to PNG produced errors.");
 	} else if (success) {
-		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", hash, w, h);
+		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", replacedInfo.hash, w, h);
 	}
 #endif
 

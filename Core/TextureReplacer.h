@@ -127,6 +127,16 @@ protected:
 	friend TextureReplacer;
 };
 
+struct ReplacedTextureDecodeInfo {
+	u64 cachekey;
+	u32 hash;
+	u32 addr;
+	bool isVideo;
+	bool isFinal;
+	int scaleFactor;
+	ReplacedTextureFormat fmt;
+};
+
 class TextureReplacer {
 public:
 	TextureReplacer();
@@ -143,7 +153,7 @@ public:
 
 	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
 
-	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, int scaleFactor, ReplacedTextureFormat fmt);
+	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
 protected:
 	bool LoadIni();

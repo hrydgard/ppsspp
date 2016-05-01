@@ -1812,8 +1812,17 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 		}
 
 		if (replacer.Enabled()) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			replacedInfo.cachekey = entry.CacheKey();
+			replacedInfo.hash = entry.fullhash;
+			replacedInfo.addr = entry.addr;
+			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = scaleFactor;
+			replacedInfo.fmt = FromGLESFormat(dstFmt, useBGRA);
+
 			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-			replacer.NotifyTextureDecoded(entry.CacheKey(), entry.fullhash,entry.addr, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h, scaleFactor, FromGLESFormat(dstFmt, useBGRA));
+			replacer.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
 		}
 	}
 

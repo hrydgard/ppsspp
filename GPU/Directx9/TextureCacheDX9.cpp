@@ -1674,8 +1674,17 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		}
 
 		if (replacer.Enabled()) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			replacedInfo.cachekey = entry.CacheKey();
+			replacedInfo.hash = entry.fullhash;
+			replacedInfo.addr = entry.addr;
+			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = scaleFactor;
+			replacedInfo.fmt = FromD3D9Format(dstFmt);
+
 			int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-			replacer.NotifyTextureDecoded(entry.CacheKey(), entry.fullhash, entry.addr, pixelData, w * bpp, level, w, h, scaleFactor, FromD3D9Format(dstFmt));
+			replacer.NotifyTextureDecoded(replacedInfo, pixelData, w * bpp, level, w, h);
 		}
 	}
 
