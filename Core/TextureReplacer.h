@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -68,8 +69,16 @@ struct ReplacementCacheKey {
 	bool operator ==(const ReplacementCacheKey &k) const {
 		return k.cachekey == cachekey && k.hash == hash;
 	}
+
+	bool operator <(const ReplacementCacheKey &k) const {
+		if (k.cachekey == cachekey) {
+			return k.hash < hash;
+		}
+		return k.cachekey < cachekey;
+	}
 };
 
+#ifndef __SYMBIAN32__
 namespace std {
 	template <>
 	struct hash<ReplacementCacheKey> {
@@ -78,6 +87,7 @@ namespace std {
 		}
 	};
 }
+#endif
 
 struct ReplacedTexture {
 	inline bool Valid() {
@@ -150,9 +160,18 @@ protected:
 	ReplacedTextureHash hash_;
 	std::unordered_map<std::string, std::string> aliases_;
 	typedef std::pair<int, int> WidthHeightPair;
+#ifdef __SYMBIAN32__
+	std::map<u64, WidthHeightPair> hashranges_;
+#else
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
+#endif
 
 	ReplacedTexture none_;
+#ifdef __SYMBIAN32__
+	std::map<ReplacementCacheKey, ReplacedTexture> cache_;
+	std::map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
+#else
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
+#endif
 };
