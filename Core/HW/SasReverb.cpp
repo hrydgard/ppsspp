@@ -182,7 +182,7 @@ void SasReverb::SetPreset(int preset) {
 template<int bufsize>
 class BufferWrapper {
 public:
-	BufferWrapper(int16_t *buffer, int position, int usedSize) : buf_(buffer), pos_(position), base_(bufsize - usedSize), end_(bufsize), size_(usedSize) {}
+	BufferWrapper(int16_t *buffer, int position, int usedSize) : buf_(buffer), pos_(position), end_(bufsize), base_(bufsize - usedSize), size_(usedSize) {}
 	int16_t &operator [](int index) {
 		int addr = pos_ + index;
 		if (addr >= end_) { addr -= size_; }
