@@ -107,8 +107,8 @@ private:
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
-	bool HandleTextureChange(const char *reason, bool initialMatch, bool doDelete);
-	void BuildTexture(bool replaceImages);
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
 
 	std::vector<u32> nameCache_;
 	TexCache secondCache;

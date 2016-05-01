@@ -1231,8 +1231,7 @@ void TextureCache::SetTexture(bool force) {
 			return; //Done!
 		} else {
 			entry->cluthash = cluthash;
-			nextTexture_ = entry;
-			HandleTextureChange(reason, initialMatch, doDelete);
+			HandleTextureChange(entry, reason, initialMatch, doDelete);
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
@@ -1272,11 +1271,10 @@ void TextureCache::SetTexture(bool force) {
 	nextTexture_ = entry;
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_= true;
-	BuildTexture(replaceImages);
+	BuildTexture(entry, replaceImages);
 }
 
-bool TextureCache::HandleTextureChange(const char *reason, bool initialMatch, bool doDelete) {
-	TexCacheEntry *const entry = nextTexture_;
+bool TextureCache::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
 	bool replaceImages = false;
 
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
@@ -1314,9 +1312,7 @@ bool TextureCache::HandleTextureChange(const char *reason, bool initialMatch, bo
 	return replaceImages;
 }
 
-void TextureCache::BuildTexture(bool replaceImages) {
-	TexCacheEntry *const entry = nextTexture_;
-
+void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
