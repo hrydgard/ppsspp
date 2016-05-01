@@ -937,7 +937,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 SoundTouch ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET glew)
   target_link_libraries(native glew)
 endif()

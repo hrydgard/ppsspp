@@ -141,10 +141,21 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/VulkanUtil.cpp
 #endif
 
+SOUNDTOUCH_FILES := \
+  $(SRC)/ext/soundtouch/src/AAFilter.cpp \
+  $(SRC)/ext/soundtouch/src/cpu_detect_x86.cpp \
+  $(SRC)/ext/soundtouch/src/FIFOSampleBuffer.cpp \
+  $(SRC)/ext/soundtouch/src/FIRFilter.cpp \
+  $(SRC)/ext/soundtouch/src/InterpolateLinear.cpp \
+  $(SRC)/ext/soundtouch/src/RateTransposer.cpp \
+  $(SRC)/ext/soundtouch/src/SoundTouch.cpp \
+  $(SRC)/ext/soundtouch/src/TDStretch.cpp
+
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(EGL_FILES) \
   $(VULKAN_FILES) \
+  $(SOUNDTOUCH_FILES) \
   TestRunner.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \

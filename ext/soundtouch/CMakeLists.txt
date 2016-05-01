@@ -12,3 +12,8 @@ set(SRCS
 include_directories(src include)
 
 add_library(SoundTouch STATIC ${SRCS})
+
+if(UNIX)
+  add_definitions(-fPIC)
+endif(UNIX)
+

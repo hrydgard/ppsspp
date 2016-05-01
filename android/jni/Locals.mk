@@ -10,6 +10,8 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../.. \
   $(LOCAL_PATH)/../../ext \
   $(LOCAL_PATH)/../../ext/snappy \
+  $(LOCAL_PATH)/../../ext/soundtouch/include \
+  $(LOCAL_PATH)/../../ext/soundtouch/src \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
   $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
