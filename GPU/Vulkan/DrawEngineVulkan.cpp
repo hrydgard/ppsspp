@@ -602,19 +602,16 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	FrameData *frame = &frame_[curFrame_ & 1];
 
+	bool textureNeedsApply = false;
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture(frame->pushUBO);
+		textureNeedsApply = true;
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 		if (gstate_c.needShaderTexClamp) {
 			// We will rarely need to set this, so let's do it every time on use rather than in runloop.
 			// Most of the time non-framebuffer textures will be used which can be clamped themselves.
 			shaderManager_->DirtyUniform(DIRTY_TEXCLAMP);
 		}
-		textureCache_->ApplyTexture(imageView, sampler);
-		if (imageView == VK_NULL_HANDLE)
-			imageView = nullTexture_->GetImageView();
-		if (sampler == VK_NULL_HANDLE)
-			sampler = nullSampler_;
 	}
 
 	GEPrimitiveType prim = prevPrim_;
@@ -649,6 +646,14 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (hasColor || gstate.getMaterialAmbientA() == 255);
 		} else {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
+		}
+
+		if (textureNeedsApply) {
+			textureCache_->ApplyTexture(imageView, sampler);
+			if (imageView == VK_NULL_HANDLE)
+				imageView = nullTexture_->GetImageView();
+			if (sampler == VK_NULL_HANDLE)
+				sampler = nullSampler_;
 		}
 
 		VulkanPipelineRasterStateKey pipelineKey;
@@ -743,6 +748,14 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// Only here, where we know whether to clear or to draw primitives, should we actually set the current framebuffer! Because that gives use the opportunity
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
+			if (textureNeedsApply) {
+				textureCache_->ApplyTexture(imageView, sampler);
+				if (imageView == VK_NULL_HANDLE)
+					imageView = nullTexture_->GetImageView();
+				if (sampler == VK_NULL_HANDLE)
+					sampler = nullSampler_;
+			}
+
 			VulkanPipelineRasterStateKey pipelineKey;
 			VulkanDynamicState dynState;
 			ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey, dynState);
