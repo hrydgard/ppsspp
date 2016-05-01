@@ -772,6 +772,8 @@ void TextureCache::ApplyTexture() {
 	}
 	nextTexture_ = nullptr;
 
+	UpdateMaxSeenV(entry, gstate.isModeThrough());
+
 	bool replaceImages = false;
 	if (nextNeedsRebuild_) {
 		if (nextNeedsRehash_) {
@@ -796,6 +798,7 @@ void TextureCache::ApplyTexture() {
 			// Secondary cache picked a different texture, use it.
 			entry = nextTexture_;
 			nextTexture_ = nullptr;
+			UpdateMaxSeenV(entry, gstate.isModeThrough());
 		}
 	}
 
@@ -808,8 +811,6 @@ void TextureCache::ApplyTexture() {
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
-		UpdateMaxSeenV(entry, gstate.isModeThrough());
-
 		if (entry->textureName != lastBoundTexture) {
 			glBindTexture(GL_TEXTURE_2D, entry->textureName);
 			lastBoundTexture = entry->textureName;
@@ -1210,8 +1211,6 @@ void TextureCache::SetTexture(bool force) {
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
-			entry->cluthash = cluthash;
-			nextTexture_ = entry;
 			nextChangeReason_ = reason;
 			nextNeedsChange_ = true;
 		}
