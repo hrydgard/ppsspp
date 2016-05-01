@@ -1769,7 +1769,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 
 	gpuStats.numTexturesDecoded++;
 
-	if (replaced.Valid()) {
+	if (replaced.GetSize(level, w, h)) {
 		PROFILE_THIS_SCOPE("replacetex");
 
 		tmpTexBufRearrange.resize(w * h);
