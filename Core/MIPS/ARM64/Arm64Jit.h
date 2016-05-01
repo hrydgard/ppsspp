@@ -180,6 +180,9 @@ public:
 		return dispatcher;
 	}
 
+	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
+	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
+
 private:
 	void GenerateFixedCode(const JitOptions &jo);
 	void FlushAll();

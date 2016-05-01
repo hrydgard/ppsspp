@@ -49,6 +49,11 @@ namespace MIPSComp {
 		virtual void ClearCache() = 0;
 		virtual void EatPrefix() = 0;
 
+		// Block linking. This may need to work differently for whole-function JITs and stuff
+		// like that.
+		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
+		virtual void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) = 0;
+
 		virtual void Comp_Generic(MIPSOpcode op) = 0;
 		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
 		virtual void Comp_ReplacementFunc(MIPSOpcode op) = 0;

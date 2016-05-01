@@ -359,7 +359,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	js.PrefixStart();
 
 	// We add a check before the block, used when entering from a linked block.
-	b->checkedEntry = GetCodePtr();
+	b->checkedEntry = (u8 *)GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
 	FixupBranch skip = J_CC(CC_NS);
 	MOV(32, M(&mips_->pc), Imm32(js.blockStart));
@@ -499,6 +499,30 @@ void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock");
+}
+
+void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	XEmitter emit(exitPoint);
+	// Okay, this is a bit ugly, but we check here if it already has a JMP.
+	// That means it doesn't have a full exit to pad with INT 3.
+	bool prelinked = *emit.GetCodePtr() == 0xE9;
+	emit.JMP(checkedEntry, true);
+	if (!prelinked) {
+		ptrdiff_t actualSize = emit.GetWritableCodePtr() - exitPoint;
+		int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
+		for (int i = 0; i < pad; ++i) {
+			emit.INT3();
+		}
+	}
+}
+
+void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. pretty good.
+	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	XEmitter emit(checkedEntry);
+	emit.MOV(32, M(&mips_->pc), Imm32(originalAddress));
+	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
 }
 
 bool Jit::ReplaceJalTo(u32 dest) {
