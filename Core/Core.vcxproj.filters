@@ -683,6 +683,7 @@
     <ClCompile Include="Util\TimeStretcher.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="HW\StereoStretcher.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1255,6 +1256,12 @@
     </ClInclude>
     <ClInclude Include="Util\TimeStretcher.h">
       <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\StereoStretcher.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\AsyncAudioQueue.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

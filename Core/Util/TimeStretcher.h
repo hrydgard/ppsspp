@@ -41,7 +41,11 @@ namespace AudioCore {
 		* @param sample_delay How many samples are buffered downstream of this module and haven't been played yet.
 		* @return Samples to play in interleaved stereo PCM16 format.
 		*/
-		std::vector<s16> Process(size_t sample_delay);
+		std::vector<s16> Process(size_t sample_delay, double now);
+
+		int GetSamplesQueued();
+
+		double GetCurrentRatio();
 
 	private:
 		struct Impl;
@@ -50,7 +54,7 @@ namespace AudioCore {
 		/// INTERNAL: Clamp ratio within limits.
 		static double ClampRatio(double ratio);
 		/// INTERNAL: ratio = wallclock time / emulated time
-		double CalculateCurrentRatio();
+		double CalculateCurrentRatio(double now);
 		/// INTERNAL: If we have too many or too few samples downstream, nudge ratio in the appropriate direction.
 		double CorrectForUnderAndOverflow(double ratio, size_t sample_delay) const;
 		/// INTERNAL: Gets the time-stretched samples from SoundTouch.

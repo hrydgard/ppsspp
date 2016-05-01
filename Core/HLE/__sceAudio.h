@@ -19,15 +19,7 @@
 
 #include "sceAudio.h"
 
-struct AudioDebugStats {
-	int buffered;
-	int watermark;
-	int bufsize;
-	int underrunCount;
-	int overrunCount;
-	int instantSampleRate;
-	int lastPushSize;
-};
+struct AudioDebugStats;
 
 // Easy interface for sceAudio to write to, to keep the complexity in check.
 

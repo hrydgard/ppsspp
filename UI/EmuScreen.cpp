@@ -69,6 +69,8 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 
+#include "Core/HW/AsyncAudioQueue.h"
+
 #ifdef _WIN32
 #include "Windows/MainWindow.h"
 #endif
@@ -933,12 +935,16 @@ static void DrawAudioDebugStats(DrawBuffer *draw2d) {
 		"Underruns: %d\n"
 		"Overruns: %d\n"
 		"Sample rate: %d\n"
-		"Push size: %d\n",
+		"Push size: %d\n"
+		"Ratio: %0.3f\n"
+		"Duration: %0.3f\n",
 		stats->buffered, stats->bufsize, stats->watermark,
 		stats->underrunCount,
 		stats->overrunCount,
 		stats->instantSampleRate,
-		stats->lastPushSize);
+		stats->lastPushSize,
+		stats->ratio,
+		stats->duration);
 	draw2d->SetFontScale(0.7f, 0.7f);
 	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
 	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

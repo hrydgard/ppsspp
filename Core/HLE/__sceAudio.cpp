@@ -40,10 +40,12 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HW/AsyncAudioQueue.h"
 #include "Core/HW/StereoResampler.h"
+#include "Core/HW/StereoStretcher.h"
 #include "Core/Util/AudioFormat.h"
 
-StereoResampler resampler;
+AsyncAudioQueue *audioQueue = new StereoStretcher();
 AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -142,7 +144,7 @@ void __AudioInit() {
 	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	resampler.Clear();
+	audioQueue->Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -159,19 +161,18 @@ void __AudioDoState(PointerWrap &p) {
 	p.Do(mixFrequency);
 
 	if (s >= 2) {
-		resampler.DoState(p);
+		audioQueue->DoState(p);
 	} else {
 		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		resampler.Clear();
+		audioQueue->Clear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
 	p.Do(chanCount);
-	if (chanCount != ARRAY_SIZE(chans))
-	{
+	if (chanCount != ARRAY_SIZE(chans)) {
 		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
 		return;
 	}
@@ -380,7 +381,7 @@ void __AudioUpdate() {
 	}
 
 	if (g_Config.bEnableSound) {
-		resampler.PushSamples(mixBuffer, hwBlockSize);
+		audioQueue->PushSamples(mixBuffer, hwBlockSize);
 #ifndef MOBILE_DEVICE
 		if (!m_logAudio) {
 			if (g_Config.bDumpAudio) {
@@ -407,19 +408,19 @@ void __AudioUpdate() {
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
-    return resampler.Mix(outstereo, numFrames, false, sampleRate);
+    return audioQueue->Mix(outstereo, numFrames, false, sampleRate);
 }
 
 const AudioDebugStats *__AudioGetDebugStats() {
-	resampler.GetAudioDebugStats(&g_AudioDebugStats);
+	audioQueue->GetAudioDebugStats(&g_AudioDebugStats);
 	return &g_AudioDebugStats;
 }
 
 void __PushExternalAudio(const s32 *audio, int numSamples) {
 	if (audio) {
-		resampler.PushSamples(audio, numSamples);
+		audioQueue->PushSamples(audio, numSamples);
 	} else {
-		resampler.Clear();
+		audioQueue->Clear();
 	}
 }
 #ifndef MOBILE_DEVICE
