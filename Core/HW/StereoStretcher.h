@@ -28,4 +28,5 @@ private:
 	int buffered_;
 	int64_t mixed_samples_;
 	AudioDebugStats stats_;
+	bool lastUnthrottle_;
 };

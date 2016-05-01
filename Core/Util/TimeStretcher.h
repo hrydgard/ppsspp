@@ -43,6 +43,8 @@ namespace AudioCore {
 		*/
 		std::vector<s16> Process(size_t sample_delay, double now);
 
+		void ResetRatio(float ratio = 1.0f);
+
 		int GetSamplesQueued();
 
 		double GetCurrentRatio();

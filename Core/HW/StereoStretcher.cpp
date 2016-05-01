@@ -1,13 +1,16 @@
 #include <algorithm>
 #include <numeric>
+
 #include "base/basictypes.h"
 #include "base/timeutil.h"
 #include "StereoStretcher.h"
+#include "Core/System.h"
 #include "Globals.h"
 
 StereoStretcher::StereoStretcher() {
 	stretch_.SetOutputSampleRate(48000);
 	mixed_samples_ = 0;
+	lastUnthrottle_ = false;
 	last_now_ = real_time_now();
 }
 
@@ -38,6 +41,12 @@ unsigned int StereoStretcher::Mix(s16 *buffer, unsigned int numSamples, bool con
 }
 
 void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples) {
+	if (PSP_CoreParameter().unthrottle != lastUnthrottle_) {
+		lastUnthrottle_ = PSP_CoreParameter().unthrottle;
+		if (!lastUnthrottle_) {
+			stretch_.ResetRatio(1.0f);
+		}
+	}
 	stats_.lastPushSize = num_samples;
 	s16 buffer[16384];
 	while (num_samples > 0) {

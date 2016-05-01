@@ -38,6 +38,10 @@ namespace AudioCore {
 		double smoothed_rate = 1.0;
 	};
 
+	void TimeStretcher::ResetRatio(float ratio) {
+		impl->smoothed_ratio = ratio;
+	}
+
 	double TimeStretcher::GetCurrentRatio() {
 		return impl->smoothed_ratio;
 	}
