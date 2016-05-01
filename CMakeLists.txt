@@ -306,8 +306,7 @@ endmacro()
 set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
-		Common/ArmCPUDetect.cpp
-		Common/ArmThunk.cpp)
+		Common/ArmCPUDetect.cpp)
 if(ARMV7)
 	set(CommonExtra ${CommonExtra}
 		Common/ColorConvNEON.cpp)

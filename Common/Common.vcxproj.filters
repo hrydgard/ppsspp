@@ -104,7 +104,6 @@
       <Filter>Crypto</Filter>
     </ClCompile>
     <ClCompile Include="ChunkFile.cpp" />
-    <ClCompile Include="ArmThunk.cpp" />
     <ClCompile Include="MipsEmitter.cpp" />
     <ClCompile Include="Arm64Emitter.cpp" />
     <ClCompile Include="ColorConv.cpp" />

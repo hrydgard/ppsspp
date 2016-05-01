@@ -10,7 +10,7 @@
 
 static bool CheckLast(Arm64Gen::ARM64XEmitter &emit, const char *comp) {
 	u32 instr;
-	memcpy(&instr, emit.GetCodePtr() - 4, 4);
+	memcpy(&instr, emit.GetCodePointer() - 4, 4);
 	char disasm[512];
 	Arm64Dis(0, instr, disasm, sizeof(disasm), true);
 	EXPECT_EQ_STR(std::string(disasm), std::string(comp));

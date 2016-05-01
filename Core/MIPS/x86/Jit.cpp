@@ -505,7 +505,7 @@ void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	XEmitter emit(exitPoint);
 	// Okay, this is a bit ugly, but we check here if it already has a JMP.
 	// That means it doesn't have a full exit to pad with INT 3.
-	bool prelinked = *emit.GetCodePtr() == 0xE9;
+	bool prelinked = *emit.GetCodePointer() == 0xE9;
 	emit.JMP(checkedEntry, true);
 	if (!prelinked) {
 		ptrdiff_t actualSize = emit.GetWritableCodePtr() - exitPoint;

@@ -399,14 +399,14 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 
 void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	ARMXEmitter emit(exitPoint);
-	u32 op = *((const u32 *)emit.GetCodePtr());
+	u32 op = *((const u32 *)emit.GetCodePointer());
 	bool prelinked = (op & 0xFF000000) == 0xEA000000;
 	// Jump directly to the block, yay.
 	emit.B(checkedEntry);
 
 	if (!prelinked) {
 		do {
-			op = *((const u32 *)emit.GetCodePtr());
+			op = *((const u32 *)emit.GetCodePointer());
 			// Overwrite whatever is here with a breakpoint.
 			emit.BKPT(1);
 			// Stop after overwriting the next unconditional branch or BKPT.

@@ -20,11 +20,7 @@
 #include <map>
 
 #include "Common.h"
-#if defined(ARM)
-#include "ArmEmitter.h"
-#else
 #include "x64Emitter.h"
-#endif
 
 // This simple class creates a wrapper around a C/C++ function that saves all fp state
 // before entering it, and restores it upon exit. This is required to be able to selectively
@@ -32,18 +28,14 @@
 // of complexity that it means to protect the generated code from this problem.
 
 // This process is called thunking.
+// Only used for X86 right now.
 
 // There will only ever be one level of thunking on the stack, plus,
 // we don't want to pollute the stack, so we store away regs somewhere global.
 // NOT THREAD SAFE. This may only be used from the CPU thread.
 // Any other thread using this stuff will be FATAL.
-#if defined(ARM)
-typedef ArmGen::ARMXEmitter ThunkEmitter;
-typedef ArmGen::ARMXCodeBlock ThunkCodeBlock;
-#else
 typedef Gen::XEmitter ThunkEmitter;
 typedef Gen::XCodeBlock ThunkCodeBlock;
-#endif
 
 class ThunkManager : public ThunkCodeBlock
 {
