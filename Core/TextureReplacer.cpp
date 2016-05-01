@@ -95,7 +95,7 @@ bool TextureReplacer::LoadIni() {
 		if (ini.GetKeys("hashes", hashNames)) {
 			auto hashes = ini.GetOrCreateSection("hashes");
 			// Format: hashname = filename.png
-			for (std::string hashName : hashNames) {
+			for (const std::string &hashName : hashNames) {
 				hashes->Get(hashName.c_str(), &aliases_[hashName], "");
 			}
 		}
@@ -104,7 +104,7 @@ bool TextureReplacer::LoadIni() {
 		if (ini.GetKeys("hashranges", hashrangeKeys)) {
 			auto hashranges = ini.GetOrCreateSection("hashranges");
 			// Format: addr,w,h = newW,newH
-			for (std::string key : hashrangeKeys) {
+			for (const std::string &key : hashrangeKeys) {
 				std::string value;
 				if (hashranges->Get(key.c_str(), &value, "")) {
 					ParseHashRange(key, value);
@@ -277,7 +277,7 @@ static bool WriteTextureToPNG(png_imagep image, const std::string &filename, int
 }
 #endif
 
-void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt) {
+void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, int scaleFactor, ReplacedTextureFormat fmt) {
 	_assert_msg_(G3D, enabled_, "Replacement not enabled");
 	if (!g_Config.bSaveNewTextures) {
 		// Ignore.
@@ -308,7 +308,12 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 	}
 
 	// Only save the hashed portion of the PNG.
-	LookupHashRange(addr, w, h);
+	int lookupW = w / scaleFactor;
+	int lookupH = h / scaleFactor;
+	if (LookupHashRange(addr, lookupW, lookupH)) {
+		w = lookupW * scaleFactor;
+		h = lookupH * scaleFactor;
+	}
 
 #ifdef USING_QT_UI
 	ERROR_LOG(G3D, "Replacement texture saving not implemented for Qt");

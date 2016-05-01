@@ -133,7 +133,7 @@ public:
 
 	ReplacedTexture &FindReplacement(u64 cachekey, u32 hash, int w, int h);
 
-	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, ReplacedTextureFormat fmt);
+	void NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, const void *data, int pitch, int level, int w, int h, int scaleFactor, ReplacedTextureFormat fmt);
 
 protected:
 	bool LoadIni();
