@@ -503,6 +503,7 @@
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AnySuitable</InlineFunctionExpansion>
     </ClCompile>
     <ClCompile Include="WaveFile.cpp" />
+    <ClCompile Include="Util\TimeStretcher.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\disarm.h" />
@@ -735,6 +736,7 @@
     <ClInclude Include="Util\ppge_atlas.h" />
     <ClInclude Include="..\ext\xxhash.h" />
     <ClInclude Include="WaveFile.h" />
+    <ClInclude Include="Util\TimeStretcher.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />
