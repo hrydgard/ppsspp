@@ -15,17 +15,50 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <stdlib.h>
-
-#include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/JitState.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
-#include "Common/StringUtils.h"
+#include <cstdlib>
 
 #include "ext/disarm.h"
 #include "ext/udis86/udis86.h"
+
+#include "Common/StringUtils.h"
 #include "Core/Util/DisArm64.h"
 
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitState.h"
+
+#if defined(ARM)
+#include "../ARM/ArmJit.h"
+#elif defined(ARM64)
+#include "../ARM64/Arm64Jit.h"
+#elif defined(_M_IX86) || defined(_M_X64)
+#include "../x86/Jit.h"
+#elif defined(MIPS)
+#include "../MIPS/MipsJit.h"
+#else
+#include "../fake/FakeJit.h"
+#endif
+
+namespace MIPSComp {
+	JitInterface *jit;
+	void JitAt() {
+		jit->Compile(currentMIPS->pc);
+	}
+
+	JitInterface *CreateNativeJit(MIPSState *mips) {
+#if defined(ARM)
+		return new MIPSComp::ArmJit(mips);
+#elif defined(ARM64)
+		return new MIPSComp::Arm64Jit(mips);
+#elif defined(_M_IX86) || defined(_M_X64)
+		return new MIPSComp::Jit(mips);
+#elif defined(MIPS)
+		return new MIPSComp::MipsJit(mips);
+#else
+		return new MIPSComp::FakeJit(mips);
+#endif
+	}
+
+}
 #if (defined(_M_IX86) || defined(_M_X64)) && defined(_WIN32)
 #define DISASM_ALL 1
 #endif

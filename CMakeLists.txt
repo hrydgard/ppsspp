@@ -1389,8 +1389,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/RetryingFileLoader.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
-	Core/MIPS/JitCommon/NativeJit.cpp
-	Core/MIPS/JitCommon/NativeJit.h
 	Core/MIPS/JitCommon/JitBlockCache.cpp
 	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/JitCommon/JitState.cpp

@@ -42,7 +42,6 @@
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
 
 // #include "JitBase.h"
 

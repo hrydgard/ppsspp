@@ -114,8 +114,7 @@ public:
 
 	int AllocateBlock(u32 em_address);
 	// When a proxy block is invalidated, the block located at the rootAddress
-	// is invalidated too.
-	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
+	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();

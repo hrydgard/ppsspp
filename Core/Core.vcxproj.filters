@@ -631,9 +631,6 @@
     <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\JitCommon\NativeJit.cpp">
-      <Filter>MIPS\JitCommon</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -679,9 +676,6 @@
       <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitCommon.h">
-      <Filter>MIPS\JitCommon</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\JitCommon\NativeJit.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\DirectoryFileSystem.h">

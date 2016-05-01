@@ -15,7 +15,7 @@
 #include "util/text/utf8.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAsm.h"
 
 namespace MIPSAsm
