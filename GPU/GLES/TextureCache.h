@@ -138,7 +138,9 @@ private:
 	ShaderManager *shaderManager_;
 	DrawEngineGLES *transformDraw_;
 
+	const char *nextChangeReason_;
 	bool nextNeedsRehash_;
+	bool nextNeedsChange_;
 	bool nextNeedsRebuild_;
 };
 

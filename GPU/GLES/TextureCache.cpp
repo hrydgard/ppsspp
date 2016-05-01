@@ -772,6 +772,38 @@ void TextureCache::ApplyTexture() {
 	}
 	nextTexture_ = nullptr;
 
+	bool replaceImages = false;
+	if (nextNeedsRebuild_) {
+		if (nextNeedsRehash_) {
+			// Update the hash on the texture.
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
+			u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+		}
+		if (nextNeedsChange_) {
+			// This texture existed previously, let's handle the change.
+			replaceImages = HandleTextureChange(entry, nextChangeReason_, false, true);
+		}
+
+		// We actually build afterward (shared with rehash rebuild.)
+	} else if (nextNeedsRehash_) {
+		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
+		bool doDelete = true;
+		if (!CheckFullHash(entry, doDelete)) {
+			replaceImages = HandleTextureChange(entry, "hash fail", true, doDelete);
+			nextNeedsRebuild_ = true;
+		} else if (nextTexture_ != nullptr) {
+			// Secondary cache picked a different texture, use it.
+			entry = nextTexture_;
+			nextTexture_ = nullptr;
+		}
+	}
+
+	// Okay, now actually rebuild the texture if needed.
+	if (nextNeedsRebuild_) {
+		BuildTexture(entry, replaceImages);
+	}
+
 	entry->lastFrame = gpuStats.numFlips;
 	if (entry->framebuffer) {
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
@@ -1075,19 +1107,16 @@ void TextureCache::SetTexture(bool force) {
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
-	u32 fullhash = 0;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
 	gstate_c.needShaderTexClamp = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool replaceImages = false;
 
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
 		bool match = entry->Matches(dim, format, maxLevel);
-		bool initialMatch = match;
 		const char *reason = "different params";
 
 		// Check for FBO - slow!
@@ -1108,7 +1137,6 @@ void TextureCache::SetTexture(bool force) {
 		}
 
 		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
-		bool doDelete = true;
 
 		// First let's see if another texture with the same address had a hashfail.
 		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
@@ -1150,18 +1178,6 @@ void TextureCache::SetTexture(bool force) {
 			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
 				rehash = false;
 			}
-
-			if (rehash) {
-				if (!CheckFullHash(entry, doDelete)) {
-					match = false;
-				} else if (nextTexture_ != nullptr) {
-					// Secondary cache picked a different texture, use it.
-					entry = nextTexture_;
-					nextTexture_ = nullptr;
-				}
-				// CheckFullHash updated the entry's fullhash value.
-				fullhash = entry->fullhash;
-			}
 		}
 
 		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
@@ -1187,13 +1203,17 @@ void TextureCache::SetTexture(bool force) {
 			}
 
 			nextTexture_ = entry;
-			nextNeedsRehash_ = false;
+			nextNeedsRehash_ = rehash;
+			nextNeedsChange_ = false;
+			// Might need a rebuild if the hash fails.
 			nextNeedsRebuild_= false;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
 			entry->cluthash = cluthash;
-			replaceImages = HandleTextureChange(entry, reason, initialMatch, doDelete);
+			nextTexture_ = entry;
+			nextChangeReason_ = reason;
+			nextNeedsChange_ = true;
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
@@ -1210,6 +1230,8 @@ void TextureCache::SetTexture(bool force) {
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 		}
+
+		nextNeedsChange_ = false;
 	}
 
 	// We have to decode it, let's setup the cache entry first.
@@ -1224,7 +1246,6 @@ void TextureCache::SetTexture(bool force) {
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 	entry->bufw = bufw;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	gstate_c.curTextureWidth = w;
@@ -1233,7 +1254,6 @@ void TextureCache::SetTexture(bool force) {
 	nextTexture_ = entry;
 	nextNeedsRehash_ = true;
 	nextNeedsRebuild_= true;
-	BuildTexture(entry, replaceImages);
 }
 
 bool TextureCache::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
