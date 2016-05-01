@@ -59,7 +59,7 @@ StereoResampler::StereoResampler()
 		, sample_rate_(0.0f)
 		, lastBufSize_(0) {
 	// Need to have space for the worst case in case it changes.
-	m_buffer = new int16_t[MAX_SAMPLES_EXTRA * 2]();
+	m_buffer.reset(new int16_t[MAX_SAMPLES_EXTRA * 2]());
 
 	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit.
 	// TODO: should only do this if auto frameskip is off?
@@ -71,10 +71,6 @@ StereoResampler::StereoResampler()
 	}
 
 	UpdateBufferSize();
-}
-
-StereoResampler::~StereoResampler() {
-	delete[] m_buffer;
 }
 
 void StereoResampler::UpdateBufferSize() {
@@ -121,7 +117,7 @@ inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
 }
 
 void StereoResampler::Clear() {
-	memset(m_buffer, 0, m_bufsize * 2 * sizeof(int16_t));
+	memset(&m_buffer[0], 0, m_bufsize * 2 * sizeof(int16_t));
 }
 
 // Executed from sound stream thread

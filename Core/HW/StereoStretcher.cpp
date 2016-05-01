@@ -64,9 +64,10 @@ void StereoStretcher::PushSamples(const s32 * samples, unsigned int num_samples)
 
 	stats_.watermark = stretch_.GetSamplesQueued();
 	mutex_.lock();
-	size_t total_size = std::accumulate(queue.begin(), queue.end(), 0, [](size_t sum, const auto& buffer) {
-		return sum + buffer.size();
-	});
+	size_t total_size = 0;
+	for (auto iter = queue.begin(); iter != queue.end(); ++iter) {
+		total_size += iter->size();
+	}
 	double now = real_time_now();
 	stats_.duration = now - last_now_;
 	last_now_ = now;

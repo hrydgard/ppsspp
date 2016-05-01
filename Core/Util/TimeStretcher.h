@@ -52,7 +52,7 @@ namespace AudioCore {
 
 	private:
 		struct Impl;
-		std::unique_ptr<Impl> impl;
+		Impl *impl;
 
 		/// INTERNAL: Clamp ratio within limits.
 		static double ClampRatio(double ratio);

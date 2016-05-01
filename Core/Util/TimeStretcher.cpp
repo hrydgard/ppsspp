@@ -88,6 +88,7 @@ namespace AudioCore {
 
 	TimeStretcher::~TimeStretcher() {
 		impl->soundtouch.clear();
+		delete impl;
 	}
 
 	void TimeStretcher::SetOutputSampleRate(unsigned int sample_rate) {
@@ -102,7 +103,7 @@ namespace AudioCore {
 	}
 
 	int TimeStretcher::GetSamplesQueued() {
-		return impl->samples_queued;
+		return (int)impl->samples_queued;
 	}
 
 	void TimeStretcher::Flush() {

@@ -1468,6 +1468,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
+	Core/HW/AsyncAudioQueue.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp
@@ -1480,6 +1481,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SasReverb.h
 	Core/HW/StereoResampler.cpp
 	Core/HW/StereoResampler.h
+	Core/HW/StereoStretcher.cpp
+	Core/HW/StereoStretcher.h
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
@@ -1552,6 +1555,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/PPGeDraw.h
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
+	Core/Util/TimeStretcher.cpp
+	Core/Util/TimeStretcher.h
 	${CORE_NEON}
 	${GPU_SOURCES}
 	Globals.h

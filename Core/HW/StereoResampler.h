@@ -20,6 +20,7 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 #include "base/mutex.h"
 
@@ -43,6 +44,7 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void GetAudioDebugStats(AudioDebugStats *stats) override;
+	void Clear() override;
 
 protected:
 	void UpdateBufferSize();
@@ -51,7 +53,7 @@ protected:
 	int m_bufsize;
 	int m_lowwatermark;
 	unsigned int m_input_sample_rate;
-	int16_t *m_buffer;
+	std::unique_ptr<int16_t[]> m_buffer;
 	volatile u32 m_indexW;
 	volatile u32 m_indexR;
 	float m_numLeftI;
