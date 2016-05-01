@@ -997,11 +997,11 @@ ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
 	case GL_UNSIGNED_SHORT_5_6_5:
-		return ReplacedTextureFormat::F_5650;
+		return ReplacedTextureFormat::F_0565_ABGR;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		return ReplacedTextureFormat::F_5551;
+		return ReplacedTextureFormat::F_1555_ABGR;
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		return ReplacedTextureFormat::F_4444;
+		return ReplacedTextureFormat::F_4444_ABGR;
 	case GL_UNSIGNED_BYTE:
 	default:
 		return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;

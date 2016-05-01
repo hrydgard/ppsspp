@@ -305,12 +305,25 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		case ReplacedTextureFormat::F_4444:
 			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
+		case ReplacedTextureFormat::F_0565_ABGR:
+			ConvertABGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			break;
+		case ReplacedTextureFormat::F_1555_ABGR:
+			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			break;
+		case ReplacedTextureFormat::F_4444_ABGR:
+			ConvertABGR4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			break;
 		case ReplacedTextureFormat::F_8888_BGRA:
 			ConvertBGRA8888ToRGBA8888(saveBuf.data(), (const u32 *)data, (pitch * h) / sizeof(u32));
 			break;
 		}
 
 		data = saveBuf.data();
+		if (fmt != ReplacedTextureFormat::F_8888_BGRA) {
+			// We doubled our pitch.
+			pitch *= 2;
+		}
 	}
 
 	png_image png;

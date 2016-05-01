@@ -32,6 +32,9 @@ enum class ReplacedTextureFormat {
 	F_5551,
 	F_4444,
 	F_8888,
+	F_0565_ABGR,
+	F_1555_ABGR,
+	F_4444_ABGR,
 	F_8888_BGRA,
 };
 
