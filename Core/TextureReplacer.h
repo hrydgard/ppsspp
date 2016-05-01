@@ -51,7 +51,7 @@ enum class ReplacedTextureHash {
 	QUICK,
 };
 
-struct ReplacedTexureLevel {
+struct ReplacedTextureLevel {
 	int w;
 	int h;
 	ReplacedTextureFormat fmt;
@@ -111,7 +111,7 @@ struct ReplacedTexture {
 	void Load(int level, void *out, int rowPitch);
 
 protected:
-	std::vector<ReplacedTexureLevel> levels_;
+	std::vector<ReplacedTextureLevel> levels_;
 	ReplacedTextureAlpha alphaStatus_;
 
 	friend TextureReplacer;
@@ -154,4 +154,5 @@ protected:
 
 	ReplacedTexture none_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
+	std::unordered_map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
 };

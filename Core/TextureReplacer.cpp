@@ -30,6 +30,7 @@
 #include "GPU/Common/TextureDecoder.h"
 
 static const std::string INI_FILENAME = "textures.ini";
+static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 64;
 
@@ -52,8 +53,8 @@ void TextureReplacer::NotifyConfigChanged() {
 		basePath_ = GetSysDirectory(DIRECTORY_TEXTURES) + gameID_ + "/";
 
 		// If we're saving, auto-create the directory.
-		if (g_Config.bSaveNewTextures && !File::Exists(basePath_)) {
-			File::CreateFullPath(basePath_);
+		if (g_Config.bSaveNewTextures && !File::Exists(basePath_ + NEW_TEXTURE_DIR)) {
+			File::CreateFullPath(basePath_ + NEW_TEXTURE_DIR);
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
@@ -230,7 +231,7 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 			break;
 		}
 
-		ReplacedTexureLevel level;
+		ReplacedTextureLevel level;
 		level.fmt = ReplacedTextureFormat::F_8888;
 		level.file = filename;
 
@@ -289,11 +290,21 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 
 	std::string hashfile = LookupHashFile(cachekey, hash, level);
 	const std::string filename = basePath_ + hashfile;
+	const std::string saveFilename = basePath_ + NEW_TEXTURE_DIR + hashfile;
 
 	// If it's empty, it's an ignored hash, we intentionally don't save.
 	if (hashfile.empty() || File::Exists(filename)) {
 		// If it exists, must've been decoded and saved as a new texture already.
 		return;
+	}
+
+	ReplacementCacheKey replacementKey(cachekey, hash);
+	auto it = savedCache_.find(replacementKey);
+	if (it != savedCache_.end() && File::Exists(saveFilename)) {
+		// We've already saved this texture.  Let's only save if it's bigger (e.g. scaled now.)
+		if (it->second.w >= w && it->second.h >= h) {
+			return;
+		}
 	}
 
 	// Only save the hashed portion of the PNG.
@@ -341,7 +352,7 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 	png.format = PNG_FORMAT_RGBA;
 	png.width = w;
 	png.height = h;
-	bool success = WriteTextureToPNG(&png, filename, 0, data, pitch, nullptr);
+	bool success = WriteTextureToPNG(&png, saveFilename, 0, data, pitch, nullptr);
 	png_image_free(&png);
 
 	if (png.warning_or_error >= 2) {
@@ -350,6 +361,14 @@ void TextureReplacer::NotifyTextureDecoded(u64 cachekey, u32 hash, u32 addr, con
 		NOTICE_LOG(G3D, "Saving texture for replacement: %08x / %dx%d", hash, w, h);
 	}
 #endif
+
+	// Remember that we've saved this for next time.
+	ReplacedTextureLevel saved;
+	saved.fmt = ReplacedTextureFormat::F_8888;
+	saved.file = filename;
+	saved.w = w;
+	saved.h = h;
+	savedCache_[replacementKey] = saved;
 }
 
 std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
@@ -391,7 +410,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	_assert_msg_(G3D, (size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(G3D, out != nullptr && rowPitch > 0, "Invalid out/pitch");
 
-	const ReplacedTexureLevel &info = levels_[level];
+	const ReplacedTextureLevel &info = levels_[level];
 
 	png_image png = {};
 	png.version = PNG_IMAGE_VERSION;
