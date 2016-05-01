@@ -152,7 +152,7 @@ void PrintDecodedVertex(VertexReader &vtx) {
 	printf("P: %f %f %f\n", pos[0], pos[1], pos[2]);
 }
 
-VertexDecoder::VertexDecoder() : jitted_(0), jittedSize_(0), decoded_(nullptr), ptr_(nullptr) {
+VertexDecoder::VertexDecoder() : decoded_(nullptr), ptr_(nullptr), jitted_(0), jittedSize_(0) {
 }
 
 void VertexDecoder::Step_WeightsU8() const

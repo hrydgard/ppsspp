@@ -67,6 +67,11 @@ win32-msvc* {
 	QMAKE_ALLFLAGS_RELEASE += -O3 -ffast-math
 }
 
+symbian {
+	# Silence a common warning in system headers.
+	QMAKE_CXXFLAGS += -Wno-address
+}
+
 contains(QT_CONFIG, opengles.) {
 	DEFINES += USING_GLES2
 	# How else do we know if the environment prefers windows?

@@ -186,7 +186,7 @@ UI::EventReturn UIScreen::OnCancel(UI::EventParams &e) {
 }
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
-	: box_(0), title_(title), defaultButton_(NULL) {
+	: box_(0), defaultButton_(nullptr), title_(title) {
 	I18NCategory *di = GetI18NCategory("Dialog");
 	if (!button1.empty())
 		button1_ = di->T(button1.c_str());
@@ -372,25 +372,25 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), screenManager_(screenManager), units_(units) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoice::PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, int step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager), units_(units) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%i";
 	OnClick.Handle(this, &PopupSliderChoice::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), screenManager_(screenManager), units_(units) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(1.0f), units_(units), screenManager_(screenManager) {
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }
 
 PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, float step, ScreenManager *screenManager, const std::string &units, LayoutParams *layoutParams)
-	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), screenManager_(screenManager), units_(units) {
+	: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), units_(units), screenManager_(screenManager) {
 	fmt_ = "%2.2f";
 	OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
 }

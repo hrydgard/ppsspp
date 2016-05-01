@@ -1430,6 +1430,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Screenshot.h
 	Core/System.cpp
 	Core/System.h
+	Core/TextureReplacer.cpp
+	Core/TextureReplacer.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
 	Core/Util/GameManager.cpp

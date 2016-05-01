@@ -61,7 +61,8 @@ SOURCES += $$P/GPU/GeDisasm.cpp \ # GPU
 	$$P/GPU/Common/SplineCommon.cpp \
 	$$P/GPU/Common/DrawEngineCommon.cpp \
 	$$P/ext/xxhash.c \ # xxHash
-	$$P/ext/xbrz/*.cpp # XBRZ
+	$$P/ext/xbrz/*.cpp \ # XBRZ
+	$$P/Core/TextureReplacer.cpp # Bit of a hack.  Avoids a linking issue.
 
 armv7: SOURCES += $$P/GPU/Common/TextureDecoderNEON.cpp
 

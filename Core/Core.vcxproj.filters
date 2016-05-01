@@ -631,6 +631,9 @@
     <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="TextureReplacer.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1172,6 +1175,9 @@
     </ClInclude>
     <ClInclude Include="FileLoaders\RamCachingFileLoader.h">
       <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="TextureReplacer.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -2167,7 +2167,12 @@ bool GPU_Vulkan::PerformMemorySet(u32 dest, u8 v, int size) {
 }
 
 void GPU_Vulkan::NotifyVideoUpload(u32 addr, int size, int width, int format) {
-
+	if (Memory::IsVRAMAddress(addr)) {
+		// TODO
+		//framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	}
+	textureCache_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
 bool GPU_Vulkan::PerformMemoryDownload(u32 dest, int size) {

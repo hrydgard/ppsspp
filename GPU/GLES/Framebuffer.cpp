@@ -50,8 +50,6 @@
 
 // #define DEBUG_READ_PIXELS 1
 
-extern int g_iNumVideos;
-
 static const char tex_fs[] =
 #ifdef USING_GLES2
 	"precision mediump float;\n"

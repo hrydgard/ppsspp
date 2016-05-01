@@ -477,8 +477,9 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 
 	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),
-
 	ReportedConfigSetting("MipMap", &g_Config.bMipMap, true, true, true),
+	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
+	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),

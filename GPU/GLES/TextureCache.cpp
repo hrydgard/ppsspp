@@ -71,9 +71,6 @@
 
 #define INVALID_TEX -1
 
-// Hack!
-extern int g_iNumVideos;
-
 TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
@@ -114,6 +111,7 @@ void TextureCache::Clear(bool delete_them) {
 		secondCacheSizeEstimate_ = 0;
 	}
 	fbTexInfo_.clear();
+	videos_.clear();
 }
 
 void TextureCache::DeleteTexture(TexCache::iterator it) {
@@ -168,6 +166,8 @@ void TextureCache::Decimate() {
 
 		VERBOSE_LOG(G3D, "Decimated second texture cache, saved %d estimated bytes - now %d bytes", had - secondCacheSizeEstimate_, secondCacheSizeEstimate_);
 	}
+
+	DecimateVideos();
 }
 
 void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
@@ -487,7 +487,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, entry.maxLevel, entry.addr);
 
 	if (entry.maxLevel != 0) {
 		if (force || entry.lodBias != lodBias) {
@@ -541,7 +541,7 @@ void TextureCache::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeigh
 	bool sClamp;
 	bool tClamp;
 	float lodBias;
-	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0);
+	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0);
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 
@@ -606,7 +606,11 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCache::TexCacheEntry *entry) {
+static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, GETextureFormat format, TextureCache::TexCacheEntry *entry) {
+	if (replacer.Enabled()) {
+		return replacer.ComputeHash(addr, bufw, w, h, format, entry->maxSeenV);
+	}
+
 	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
 		h = (int)entry->maxSeenV;
 	}
@@ -989,6 +993,35 @@ bool TextureCache::SetOffsetTexture(u32 offset) {
 	return false;
 }
 
+ReplacedTextureFormat FromGLESFormat(GLenum fmt, bool useBGRA = false) {
+	// TODO: 16-bit formats are incorrect, since swizzled.
+	switch (fmt) {
+	case GL_UNSIGNED_SHORT_5_6_5:
+		return ReplacedTextureFormat::F_0565_ABGR;
+	case GL_UNSIGNED_SHORT_5_5_5_1:
+		return ReplacedTextureFormat::F_1555_ABGR;
+	case GL_UNSIGNED_SHORT_4_4_4_4:
+		return ReplacedTextureFormat::F_4444_ABGR;
+	case GL_UNSIGNED_BYTE:
+	default:
+		return useBGRA ? ReplacedTextureFormat::F_8888_BGRA : ReplacedTextureFormat::F_8888;
+	}
+}
+
+GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
+	switch (fmt) {
+	case ReplacedTextureFormat::F_5650:
+		return GL_UNSIGNED_SHORT_5_6_5;
+	case ReplacedTextureFormat::F_5551:
+		return GL_UNSIGNED_SHORT_5_5_5_1;
+	case ReplacedTextureFormat::F_4444:
+		return GL_UNSIGNED_SHORT_4_4_4_4;
+	case ReplacedTextureFormat::F_8888:
+	default:
+		return GL_UNSIGNED_BYTE;
+	}
+}
+
 void TextureCache::SetTexture(bool force) {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
@@ -1111,13 +1144,13 @@ void TextureCache::SetTexture(bool force) {
 
 			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				hashFail = true;
 				rehash = false;
 			}
 
 			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(texaddr, bufw, w, h, format, entry);
+				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
 				if (fullhash != entry->fullhash) {
 					hashFail = true;
 				} else {
@@ -1264,7 +1297,7 @@ void TextureCache::SetTexture(bool force) {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format, entry) : fullhash;
+	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
@@ -1331,6 +1364,16 @@ void TextureCache::SetTexture(bool force) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
+	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	if (replaced.GetSize(0, w, h)) {
+		// We're replacing, so we won't scale.
+		scaleFactor = 1;
+		if (g_Config.bMipMap) {
+			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
+		}
+	}
+
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < 0x08800000)
 		scaleFactor = 1;
@@ -1355,14 +1398,15 @@ void TextureCache::SetTexture(bool force) {
 	// glTexStorage2D probably has few benefits for us anyway.
 	if (false && gl_extensions.GLES3 && maxLevel > 0) {
 		// glTexStorage2D requires the use of sized formats.
+		GLenum actualFmt = replaced.Valid() ? ToGLESFormat(replaced.Format(0)) : dstFmt;
 		GLenum storageFmt = GL_RGBA8;
-		switch (dstFmt) {
+		switch (actualFmt) {
 		case GL_UNSIGNED_BYTE: storageFmt = GL_RGBA8; break;
 		case GL_UNSIGNED_SHORT_5_6_5: storageFmt = GL_RGB565; break;
 		case GL_UNSIGNED_SHORT_4_4_4_4: storageFmt = GL_RGBA4; break;
 		case GL_UNSIGNED_SHORT_5_5_5_1: storageFmt = GL_RGB5_A1; break;
 		default:
-			ERROR_LOG(G3D, "Unknown dstfmt %i", (int)dstFmt);
+			ERROR_LOG(G3D, "Unknown dstfmt %i", (int)actualFmt);
 			break;
 		}
 		// TODO: This may cause bugs, since it hard-sets the texture w/h, and we might try to reuse it later with a different size.
@@ -1377,7 +1421,7 @@ void TextureCache::SetTexture(bool force) {
 	// be as good quality as the game's own (might even be better in some cases though).
 
 	// Always load base level texture here 
-	LoadTextureLevel(*entry, 0, replaceImages, scaleFactor, dstFmt);
+	LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
 	
 	// Mipmapping only enable when texture scaling disable
 	if (maxLevel > 0 && scaleFactor == 1) {
@@ -1387,7 +1431,7 @@ void TextureCache::SetTexture(bool force) {
 				glGenerateMipmap(GL_TEXTURE_2D);
 			} else {
 				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, i, replaceImages, scaleFactor, dstFmt);
+					LoadTextureLevel(*entry, replaced, i, replaceImages, scaleFactor, dstFmt);
 				}
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
@@ -1403,6 +1447,10 @@ void TextureCache::SetTexture(bool force) {
 		}
 	} else if (gstate_c.Supports(GPU_SUPPORTS_TEXTURE_LOD_CONTROL)) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	}
+
+	if (replaced.Valid()) {
+		entry->SetAlphaStatus(TexCacheEntry::Status(replaced.AlphaStatus()));
 	}
 
 	if (gstate_c.Supports(GPU_SUPPORTS_ANISOTROPY)) {
@@ -1709,49 +1757,76 @@ TextureCache::TexCacheEntry::Status TextureCache::CheckAlpha(const u32 *pixelDat
 	return (TexCacheEntry::Status)res;
 }
 
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
 	bool useBGRA;
 	u32 *pixelData;
-	{
-
-	PROFILE_THIS_SCOPE("decodetex");
 
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
-	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	int bufw;
-	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
-	if (finalBuf == NULL) {
-		return;
-	}
-
 	gpuStats.numTexturesDecoded++;
 
-	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
-	if (scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) && w != bufw) {
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
-		useUnpack = true;
+	if (replaced.GetSize(level, w, h)) {
+		PROFILE_THIS_SCOPE("replacetex");
+
+		tmpTexBufRearrange.resize(w * h);
+		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
+		replaced.Load(level, tmpTexBufRearrange.data(), bpp * w);
+		pixelData = tmpTexBufRearrange.data();
+
+		dstFmt = ToGLESFormat(replaced.Format(level));
+
+		texByteAlign = bpp;
+		useBGRA = false;
+	} else {
+
+		PROFILE_THIS_SCOPE("decodetex");
+
+		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+		int bufw;
+		void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
+		if (finalBuf == NULL) {
+			return;
+		}
+
+		// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
+		if (scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) && w != bufw) {
+			glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
+			useUnpack = true;
+		}
+
+		useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
+
+		pixelData = (u32 *)finalBuf;
+		if (scaleFactor > 1)
+			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
+
+		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
+			entry.SetAlphaStatus(alphaStatus, level);
+		} else {
+			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
+		}
+
+		if (replacer.Enabled()) {
+			ReplacedTextureDecodeInfo replacedInfo;
+			replacedInfo.cachekey = entry.CacheKey();
+			replacedInfo.hash = entry.fullhash;
+			replacedInfo.addr = entry.addr;
+			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
+			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
+			replacedInfo.scaleFactor = scaleFactor;
+			replacedInfo.fmt = FromGLESFormat(dstFmt, useBGRA);
+
+			int bpp = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
+			replacer.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
+		}
 	}
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-
-	useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
-
-	pixelData = (u32 *)finalBuf;
-	if (scaleFactor > 1)
-		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
-
-	if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-		TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, useUnpack ? bufw : w, w, h);
-		entry.SetAlphaStatus(alphaStatus, level);
-	} else {
-		entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
-	}
-	}
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 

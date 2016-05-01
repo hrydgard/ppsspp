@@ -33,8 +33,8 @@
 #include <emmintrin.h>
 #endif
 
-// Ugly.
-extern int g_iNumVideos;
+// Videos should be updated every few frames, so we forge quickly.
+#define VIDEO_DECIMATE_AGE 4
 
 TextureCacheCommon::TextureCacheCommon()
 	: cacheSizeEstimate_(0), nextTexture_(nullptr),
@@ -51,6 +51,8 @@ TextureCacheCommon::TextureCacheCommon()
 	tmpTexBuf32.resize(512 * 512);  // 1MB
 	tmpTexBuf16.resize(512 * 512);  // 0.5MB
 	tmpTexBufRearrange.resize(512 * 512);   // 1MB
+
+	replacer.Init();
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
@@ -74,7 +76,7 @@ int TextureCacheCommon::AttachedDrawingHeight() {
 	return 0;
 }
 
-void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel) {
+void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr) {
 	minFilt = gstate.texfilter & 0x7;
 	magFilt = (gstate.texfilter >> 8) & 1;
 	sClamp = gstate.isTexCoordClampedS();
@@ -91,9 +93,12 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		lodBias = (float)(int)(s8)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 	}
 
-	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO && g_iNumVideos > 0 && (gstate.getTextureDimension(0) & 0xF) >= 9) {
-		magFilt |= 1;
-		minFilt |= 1;
+	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR_VIDEO) {
+		bool isVideo = videos_.find(addr & 0x3FFFFFFF) != videos_.end();
+		if (isVideo) {
+			magFilt |= 1;
+			minFilt |= 1;
+		}
 	}
 	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR && (!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue())) {
 		if (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()) {
@@ -139,6 +144,18 @@ void TextureCacheCommon::UpdateMaxSeenV(bool throughMode) {
 			// Can't tell how much is used.
 			// TODO: We could tell for texcoord UV gen, and apply scale to max?
 			nextTexture_->maxSeenV = 512;
+		}
+	}
+}
+
+void TextureCacheCommon::DecimateVideos() {
+	if (!videos_.empty()) {
+		for (auto iter = videos_.begin(); iter != videos_.end(); ) {
+			if (iter->second + VIDEO_DECIMATE_AGE < gpuStats.numFlips) {
+				videos_.erase(iter++);
+			} else {
+				++iter;
+			}
 		}
 	}
 }
@@ -287,6 +304,13 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	}
 
 	standardScaleFactor_ = scaleFactor;
+
+	replacer.NotifyConfigChanged();
+}
+
+void TextureCacheCommon::NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt) {
+	addr &= 0x3FFFFFFF;
+	videos_[addr] = gpuStats.numFlips;
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {

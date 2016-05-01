@@ -39,8 +39,6 @@ extern "C" {
 }
 #endif // USE_FFMPEG
 
-int g_iNumVideos = 0;
-
 #ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
@@ -149,12 +147,10 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
 	m_audioType = PSP_CODEC_AT3PLUS; // in movie, we use only AT3+ audio
-	g_iNumVideos++;
 }
 
 MediaEngine::~MediaEngine() {
 	closeMedia();
-	g_iNumVideos--;
 }
 
 void MediaEngine::closeMedia() {

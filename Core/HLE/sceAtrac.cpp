@@ -176,7 +176,7 @@ struct Atrac {
 		channels_(0), outputChannels_(2), bitrate_(64), bytesPerFrame_(0), bufferMaxSize_(0), jointStereo_(0),
 		currentSample_(0), endSample_(0), firstSampleOffset_(0), dataOff_(0),
 		loopStartSample_(-1), loopEndSample_(-1), loopNum_(0),
-		failedDecode_(false), codecType_(0), ignoreDataBuf_(false),
+		failedDecode_(false), ignoreDataBuf_(false), codecType_(0),
 		bufferState_(ATRAC_STATUS_NO_DATA) {
 		memset(&first_, 0, sizeof(first_));
 		memset(&second_, 0, sizeof(second_));

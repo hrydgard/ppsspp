@@ -21,8 +21,9 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
-#include "GPU/Common/GPUDebugInterface.h"
 #include "Common/MemoryUtil.h"
+#include "Core/TextureReplacer.h"
+#include "GPU/Common/GPUDebugInterface.h"
 
 enum TextureFiltering {
 	TEX_FILTER_AUTO = 1,
@@ -54,6 +55,7 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to.
 	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyConfigChanged();
+	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
 
 	int AttachedDrawingHeight();
 
@@ -147,12 +149,16 @@ protected:
 	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
-	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel);
+	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
 	void UpdateMaxSeenV(bool throughMode);
 
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
+
+	void DecimateVideos();
+
+	TextureReplacer replacer;
 
 	TexCache cache;
 	u32 cacheSizeEstimate_;
@@ -167,6 +173,8 @@ protected:
 	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+
+	std::map<u32, int> videos_;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;
