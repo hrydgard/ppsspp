@@ -1364,7 +1364,7 @@ void TextureCache::SetTexture(bool force) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
-	ReplacedTexture replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
+	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;

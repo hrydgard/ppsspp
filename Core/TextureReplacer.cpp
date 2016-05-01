@@ -250,14 +250,13 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 
 			result->levels_.push_back(level);
 		} else {
-			ERROR_LOG(G3D, "Could not load texture replacement info: %s", filename.c_str());
+			ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", filename.c_str(), png.message);
 		}
 		fclose(fp);
+
 		png_image_free(&png);
 #endif
 	}
-
-	// TODO: Could calculate alpha status, or maybe from ini?  Let's ignore for now.
 }
 
 #ifndef USING_QT_UI
@@ -440,12 +439,18 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	FILE *fp = File::OpenCFile(info.file, "rb");
 	if (!png_image_begin_read_from_stdio(&png, fp)) {
-		ERROR_LOG(G3D, "Could not load texture replacement info: %s", info.file.c_str());
+		ERROR_LOG(G3D, "Could not load texture replacement info: %s - %s", info.file.c_str(), png.message);
 		return;
 	}
 	if (!png_image_finish_read(&png, nullptr, out, rowPitch, nullptr)) {
-		ERROR_LOG(G3D, "Could not load texture replacement: %s", info.file.c_str());
+		ERROR_LOG(G3D, "Could not load texture replacement: %s - %s", info.file.c_str(), png.message);
 		return;
+	}
+
+	if (level == 0) {
+		// This will only check the hashed bits.
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
+		alphaStatus_ = ReplacedTextureAlpha(res);
 	}
 
 	fclose(fp);
