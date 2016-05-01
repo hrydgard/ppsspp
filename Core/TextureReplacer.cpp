@@ -154,15 +154,38 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, GETextureForm
 		}
 	}
 
-	// TODO: In order to have the most stable hash possible, skip space between w/bufw?
-	// TODO: Use hash based on ini file, or always crc32c, or etc.
-	const u32 sizeInRAM = (textureBitsPerPixel[fmt] * bufw * h) / 8;
-	const u32 *checkp = (const u32 *)Memory::GetPointer(addr);
-	switch (hash_) {
-	case ReplacedTextureHash::QUICK:
-		return StableQuickTexHash(checkp, sizeInRAM);
-	default:
-		return 0;
+	const u8 *checkp = Memory::GetPointer(addr);
+	if (bufw <= w) {
+		// We can assume the data is contiguous.  These are the total used pixels.
+		const u32 totalPixels = bufw * h + (w - bufw);
+		const u32 sizeInRAM = (textureBitsPerPixel[fmt] * totalPixels) / 8;
+
+		switch (hash_) {
+		case ReplacedTextureHash::QUICK:
+			return StableQuickTexHash(checkp, sizeInRAM);
+		default:
+			return 0;
+		}
+	} else {
+		// We have gaps.  Let's hash each row and sum.
+		const u32 bytesPerLine = (textureBitsPerPixel[fmt] * w) / 8;
+		const u32 stride = (textureBitsPerPixel[fmt] * bufw) / 8;
+
+		u32 result = 0;
+		switch (hash_) {
+		case ReplacedTextureHash::QUICK:
+			for (int y = 0; y < h; ++y) {
+				u32 rowHash = StableQuickTexHash(checkp, bytesPerLine);
+				result = (result * 11) ^ rowHash;
+				checkp += stride;
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		return result;
 	}
 }
 
