@@ -384,6 +384,14 @@ std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
 		return alias->second;
 	}
 
+	// Also check for a cachekey-only alias.  This is mainly for ignoring videos.
+	const std::string keyonly = hashname.substr(0, 16);
+	auto keyonlyAlias = aliases_.find(keyonly);
+	if (keyonlyAlias != aliases_.end()) {
+		// Note: this will be blank if explicitly ignored.
+		return keyonlyAlias->second;
+	}
+
 	return hashname + ".png";
 }
 
