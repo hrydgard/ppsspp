@@ -11,7 +11,7 @@
 
 static bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
-	memcpy(&instr, emit.GetCodePtr() - 4, 4);
+	memcpy(&instr, emit.GetCodePointer() - 4, 4);
 	char disasm[512];
 	ArmDis(0, instr, disasm, sizeof(disasm), true);
 	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
@@ -227,7 +227,7 @@ bool TestArmEmitter() {
 	//RET(CheckLast(emitter, "eef70a00 VMOV.f32 s1, #112"));
 
 
-	const u8 *codeStart = emitter.GetCodePtr();
+	const u8 *codeStart = emitter.GetCodePointer();
 
 	MIPSState mips;
 	MIPSComp::JitState js;
@@ -269,7 +269,7 @@ bool TestArmEmitter() {
 	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
 	fpr.FlushAll();
 
-	const u8 *codeEnd = emitter.GetCodePtr();
+	const u8 *codeEnd = emitter.GetCodePointer();
 
 	DisassembleARMBetween(codeStart, codeEnd);
 

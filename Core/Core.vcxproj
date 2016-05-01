@@ -666,7 +666,6 @@
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h" />
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
-    <ClInclude Include="MIPS\JitCommon\NativeJit.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />
     <ClInclude Include="MIPS\MIPS.h" />
     <ClInclude Include="MIPS\MIPSAnalyst.h" />

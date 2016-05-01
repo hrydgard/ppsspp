@@ -374,12 +374,13 @@ public:
 	void WriteModRM(int mod, int rm, int reg);
 	void WriteSIB(int scale, int index, int base);
 
-	void SetCodePtr(u8 *ptr);
+	void SetCodePointer(u8 *ptr);
+	const u8 *GetCodePointer() const;
+
 	void ReserveCodeSpace(int bytes);
 	const u8 *AlignCode4();
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
-	const u8 *GetCodePtr() const;
 	u8 *GetWritableCodePtr();
 
 	void LockFlags() { flags_locked = true; }

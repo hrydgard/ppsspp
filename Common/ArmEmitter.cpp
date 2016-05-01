@@ -589,14 +589,14 @@ void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	}
 }
 
-void ARMXEmitter::SetCodePtr(u8 *ptr)
+void ARMXEmitter::SetCodePointer(u8 *ptr)
 {
 	code = ptr;
 	startcode = code;
 	lastCacheFlushEnd = ptr;
 }
 
-const u8 *ARMXEmitter::GetCodePtr() const
+const u8 *ARMXEmitter::GetCodePointer() const
 {
 	return code;
 }

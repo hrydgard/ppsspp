@@ -265,14 +265,14 @@ static int EncodeSize(int size) {
 	}
 }
 
-void ARM64XEmitter::SetCodePtr(u8* ptr)
+void ARM64XEmitter::SetCodePointer(u8* ptr)
 {
 	m_code = ptr;
 	m_startcode = m_code;
 	m_lastCacheFlushEnd = ptr;
 }
 
-const u8* ARM64XEmitter::GetCodePtr() const
+const u8* ARM64XEmitter::GetCodePointer() const
 {
 	return m_code;
 }
@@ -1914,7 +1914,7 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 		}
 	}
 
-	u64 aligned_pc = (u64)GetCodePtr() & ~0xFFF;
+	u64 aligned_pc = (u64)GetCodePointer() & ~0xFFF;
 	s64 aligned_offset = (s64)imm - (s64)aligned_pc;
 	if (upload_part.Count() > 1 && abs64(aligned_offset) < 0xFFFFFFFFLL)
 	{
@@ -1929,7 +1929,7 @@ void ARM64XEmitter::MOVI2R(ARM64Reg Rd, u64 imm, bool optimize)
 		else
 		{
 			// If the address is within 1MB of PC we can load it in a single instruction still
-			s64 offset = (s64)imm - (s64)GetCodePtr();
+			s64 offset = (s64)imm - (s64)GetCodePointer();
 			if (offset >= -0xFFFFF && offset <= 0xFFFFF)
 			{
 				ADR(Rd, (s32)offset);
@@ -2100,7 +2100,7 @@ void ARM64FloatEmitter::EmitLoadStoreImmediate(u8 size, u32 opc, IndexType type,
 
 	if (type == INDEX_UNSIGNED)
 	{
-		_assert_msg_(DYNA_REC, !(imm & ((size - 1) >> 3)), "%s(INDEX_UNSIGNED) immediate offset must be aligned to size! (%d) (%p)", __FUNCTION__, imm, m_emit->GetCodePtr());
+		_assert_msg_(DYNA_REC, !(imm & ((size - 1) >> 3)), "%s(INDEX_UNSIGNED) immediate offset must be aligned to size! (%d) (%p)", __FUNCTION__, imm, m_emit->GetCodePointer());
 		_assert_msg_(DYNA_REC, imm >= 0, "%s(INDEX_UNSIGNED) immediate offset must be positive!", __FUNCTION__);
 		if (size == 16)
 			imm >>= 1;

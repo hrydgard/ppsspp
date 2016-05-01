@@ -11,20 +11,42 @@
 // You get memory management for free, plus, you can use all emitter functions without
 // having to prefix them with gen-> or something similar.
 // Example implementation:
-// class JIT : public CodeBlock<ARMXEmitter> {}
-template<class T> class CodeBlock : public T, NonCopyable
+// class JIT : public CodeBlock<ARMXEmitter>, public JitInterface {}
+
+class CodeBlockCommon {
+public:
+	CodeBlockCommon() : region(nullptr), region_size(0) {}
+	virtual ~CodeBlockCommon() {}
+
+	bool IsInSpace(const u8 *ptr) {
+		return (ptr >= region) && (ptr < (region + region_size));
+	}
+
+	virtual void SetCodePtr(u8 *ptr) = 0;
+	virtual const u8 *GetCodePtr() const = 0;
+
+	u8 *GetBasePtr() {
+		return region;
+	}
+
+	size_t GetOffset(const u8 *ptr) const {
+		return ptr - region;
+	}
+
+protected:
+	u8 *region;
+	size_t region_size;
+};
+
+template<class T> class CodeBlock : public CodeBlockCommon, public T, NonCopyable
 {
 private:
 	// A privately used function to set the executable RAM space to something invalid.
 	// For debugging usefulness it should be used to set the RAM to a host specific breakpoint instruction
 	virtual void PoisonMemory() = 0;
 
-protected:
-	u8 *region;
-	size_t region_size;
-
 public:
-	CodeBlock() : region(nullptr), region_size(0) {}
+	CodeBlock() {}
 	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
@@ -32,7 +54,7 @@ public:
 	{
 		region_size = size;
 		region = (u8*)AllocateExecutableMemory(region_size);
-		T::SetCodePtr(region);
+		T::SetCodePointer(region);
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
@@ -55,11 +77,6 @@ public:
 		region_size = 0;
 	}
 
-	bool IsInSpace(const u8 *ptr)
-	{
-		return (ptr >= region) && (ptr < (region + region_size));
-	}
-
 	// Cannot currently be undone. Will write protect the entire code region.
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
 	void WriteProtect()
@@ -67,22 +84,21 @@ public:
 		WriteProtectMemory(region, region_size, true);
 	}
 
+	void SetCodePtr(u8 *ptr) override {
+		T::SetCodePointer(ptr);
+	}
+
+	const u8 *GetCodePtr() const override {
+		return T::GetCodePointer();
+	}
+
 	void ResetCodePtr()
 	{
-		T::SetCodePtr(region);
+		T::SetCodePointer(region);
 	}
 
-	size_t GetSpaceLeft() const
-	{
-		return region_size - (T::GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
+	size_t GetSpaceLeft() const {
+		return region_size - (T::GetCodePointer() - region);
 	}
 };
 

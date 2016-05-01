@@ -35,6 +35,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Config.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 namespace Memory {
 

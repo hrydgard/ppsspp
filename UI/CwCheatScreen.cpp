@@ -25,7 +25,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"

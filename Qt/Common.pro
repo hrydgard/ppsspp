@@ -7,8 +7,7 @@ include(Settings.pri)
 
 # CPU
 arm {
-	SOURCES += $$P/Common/ArmCPUDetect.cpp \
-		$$P/Common/ArmThunk.cpp
+	SOURCES += $$P/Common/ArmCPUDetect.cpp
 }
 else:i86 {
 	SOURCES += $$P/Common/ABI.cpp \

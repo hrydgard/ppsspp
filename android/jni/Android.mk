@@ -57,7 +57,6 @@ ARCH_FILES := \
   $(SRC)/Core/Util/AudioFormatNEON.cpp.neon \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Common/ColorConvNEON.cpp.neon \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
@@ -102,7 +101,6 @@ ifeq ($(TARGET_ARCH_ABI),armeabi)
 ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
-  $(SRC)/Common/ArmThunk.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \

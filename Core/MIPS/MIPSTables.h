@@ -111,7 +111,6 @@ struct MIPSInfo {
 typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
-
 void MIPSCompileOp(MIPSOpcode op);
 void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
@@ -124,3 +123,4 @@ const char *MIPSGetName(MIPSOpcode op);
 const char *MIPSDisasmAt(u32 compilerPC);
 
 void FillMIPSTables();
+

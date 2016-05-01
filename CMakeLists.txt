@@ -306,8 +306,7 @@ endmacro()
 set(CommonExtra)
 if(ARM)
 	set(CommonExtra ${CommonExtra}
-		Common/ArmCPUDetect.cpp
-		Common/ArmThunk.cpp)
+		Common/ArmCPUDetect.cpp)
 if(ARMV7)
 	set(CommonExtra ${CommonExtra}
 		Common/ColorConvNEON.cpp)
@@ -1389,7 +1388,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/FileLoaders/RetryingFileLoader.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
-	Core/MIPS/JitCommon/NativeJit.h
 	Core/MIPS/JitCommon/JitBlockCache.cpp
 	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/JitCommon/JitState.cpp

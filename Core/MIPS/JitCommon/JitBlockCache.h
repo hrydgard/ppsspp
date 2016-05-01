@@ -23,30 +23,9 @@
 #include <string>
 
 #include "Common/CommonTypes.h"
+#include "Common/CodeBlock.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
-
-#if defined(ARM)
-#include "Common/ArmEmitter.h"
-namespace ArmGen { class ARMXEmitter; }
-typedef ArmGen::ARMXCodeBlock NativeCodeBlock;
-#elif defined(ARM64)
-#include "Common/Arm64Emitter.h"
-namespace Arm64Gen { class ARM64XEmitter; }
-typedef Arm64Gen::ARM64CodeBlock NativeCodeBlock;
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "Common/x64Emitter.h"
-namespace Gen { class XEmitter; }
-typedef Gen::XCodeBlock NativeCodeBlock;
-#elif defined(MIPS)
-#include "Common/MipsEmitter.h"
-namespace MIPSGen { class MIPSEmitter; }
-typedef MIPSGen::MIPSCodeBlock NativeCodeBlock;
-#else
-#include "Common/FakeEmitter.h"
-namespace FakeGen { class FakeXEmitter; }
-typedef FakeGen::FakeXCodeBlock NativeCodeBlock;
-#endif
 
 #if defined(ARM) || defined(ARM64)
 const int MAX_JIT_BLOCK_EXITS = 2;
@@ -73,7 +52,7 @@ struct BlockCacheStats {
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
 
-	const u8 *checkedEntry;
+	u8 *checkedEntry;  // not const, may need to write through this to unlink
 	const u8 *normalEntry;
 
 	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump
@@ -109,12 +88,11 @@ typedef void (*CompiledCode)();
 
 class JitBlockCache {
 public:
-	JitBlockCache(MIPSState *mips_, NativeCodeBlock *codeBlock);
+	JitBlockCache(MIPSState *mips_, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
-	// When a proxy block is invalidated, the block located at the rootAddress
-	// is invalidated too.
+	// When a proxy block is invalidated, the block located at the rootAddress is invalidated too.
 	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
@@ -174,7 +152,7 @@ private:
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
-	NativeCodeBlock *codeBlock_;
+	CodeBlockCommon *codeBlock_;
 	JitBlock *blocks_;
 	std::unordered_multimap<u32, int> proxyBlockMap_;
 

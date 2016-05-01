@@ -262,13 +262,13 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		const u8 *backJump = GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
 		B((const void *)outerLoopPCInSCRATCH1);
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		B(CC_LT, backJump);
 	} else if (jo.useForwardJump) {
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		bail = B(CC_LT);
 	} else if (jo.enableBlocklink) {
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
 		FixupBranch skip = B(CC_GE);
 		B((const void *)outerLoopPCInSCRATCH1);
@@ -393,6 +393,24 @@ bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+}
+
+void Arm64Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	ARM64XEmitter emit(exitPoint);
+	emit.B(checkedEntry);
+	// TODO: Write stuff after.
+	emit.FlushIcache();
+}
+
+void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. works.
+	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	ARM64XEmitter emit(checkedEntry);
+	emit.MOVI2R(SCRATCH1, originalAddress);
+	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
+	emit.B(MIPSComp::jit->GetDispatcher());
+	emit.FlushIcache();
 }
 
 bool Arm64Jit::ReplaceJalTo(u32 dest) {

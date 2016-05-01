@@ -42,11 +42,7 @@
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/JitCommon/NativeJit.h"
 
-#if defined(_M_IX86) || defined(_M_X64)
-#include "Common/x64Analyzer.h"
-#endif
 // #include "JitBase.h"
 
 #if defined USE_OPROFILE && USE_OPROFILE
@@ -61,19 +57,9 @@ op_agent_t agent;
 #pragma comment(lib, "jitprofiling.lib")
 #endif
 
-#ifdef ARM
-using namespace ArmGen;
-using namespace ArmJitConstants;
-#elif defined(_M_X64) || defined(_M_IX86)
-using namespace Gen;
-#elif defined(ARM64)
-using namespace Arm64Gen;
-using namespace Arm64JitConstants;
-#endif
-
 const u32 INVALID_EXIT = 0xFFFFFFFF;
 
-JitBlockCache::JitBlockCache(MIPSState *mips, NativeCodeBlock *codeBlock) :
+JitBlockCache::JitBlockCache(MIPSState *mips, CodeBlockCommon *codeBlock) :
 	mips_(mips), codeBlock_(codeBlock), blocks_(0), num_blocks_(0) {
 }
 
@@ -196,7 +182,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
-	b.checkedEntry = codePtr;
+	b.checkedEntry = (u8 *)codePtr;  // Ugh, casting away const..
 	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
 	AddBlockMap(num_blocks_);
 
@@ -414,46 +400,8 @@ void JitBlockCache::LinkBlockExits(int i) {
 			JitBlock &eb = blocks_[destinationBlock];
 			// Make sure the destination is not invalid.
 			if (!eb.invalid) {
-#if defined(ARM)
-				ARMXEmitter emit(b.exitPtrs[e]);
-				u32 op = *((const u32 *)emit.GetCodePtr());
-				bool prelinked = (op & 0xFF000000) == 0xEA000000;
-				// Jump directly to the block, yay.
-				emit.B(eb.checkedEntry);
-
-				if (!prelinked) {
-					do {
-						op = *((const u32 *)emit.GetCodePtr());
-						// Overwrite whatever is here with a breakpoint.
-						emit.BKPT(1);
-						// Stop after overwriting the next unconditional branch or BKPT.
-						// It can be a BKPT if we unlinked, and are now linking a different one.
-					} while ((op & 0xFF000000) != 0xEA000000 && (op & 0xFFF000F0) != 0xE1200070);
-				}
-				emit.FlushIcache();
+				MIPSComp::jit->LinkBlock(b.exitPtrs[e], eb.checkedEntry);
 				b.linkStatus[e] = true;
-#elif defined(_M_IX86) || defined(_M_X64)
-				XEmitter emit(b.exitPtrs[e]);
-				// Okay, this is a bit ugly, but we check here if it already has a JMP.
-				// That means it doesn't have a full exit to pad with INT 3.
-				bool prelinked = *emit.GetCodePtr() == 0xE9;
-				emit.JMP(eb.checkedEntry, true);
-
-				if (!prelinked) {
-					ptrdiff_t actualSize = emit.GetWritableCodePtr() - b.exitPtrs[e];
-					int pad = JitBlockCache::GetBlockExitSize() - (int)actualSize;
-					for (int i = 0; i < pad; ++i) {
-						emit.INT3();
-					}
-				}
-				b.linkStatus[e] = true;
-#elif defined(ARM64)
-				ARM64XEmitter emit(b.exitPtrs[e]);
-				emit.B(eb.checkedEntry);
-				// TODO: Write stuff after.
-				emit.FlushIcache();
-				b.linkStatus[e] = true;
-#endif
 			}
 		}
 	}
@@ -586,39 +534,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 		return;
 	}
 
-#if defined(ARM)
-
-	// Send anyone who tries to run this block back to the dispatcher.
-	// Not entirely ideal, but .. pretty good.
-	// I hope there's enough space...
-	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
-	ARMXEmitter emit((u8 *)b->checkedEntry);
-	emit.MOVI2R(R0, b->originalAddress);
-	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
-	emit.FlushIcache();
-
-#elif defined(_M_IX86) || defined(_M_X64)
-
-	// Send anyone who tries to run this block back to the dispatcher.
-	// Not entirely ideal, but .. pretty good.
-	// Spurious entrances from previously linked blocks can only come through checkedEntry
-	XEmitter emit((u8 *)b->checkedEntry);
-	emit.MOV(32, M(&mips_->pc), Imm32(b->originalAddress));
-	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
-
-#elif defined(ARM64)
-
-	// Send anyone who tries to run this block back to the dispatcher.
-	// Not entirely ideal, but .. works.
-	// Spurious entrances from previously linked blocks can only come through checkedEntry
-	ARM64XEmitter emit((u8 *)b->checkedEntry);
-	emit.MOVI2R(SCRATCH1, b->originalAddress);
-	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
-	emit.B(MIPSComp::jit->dispatcher);
-	emit.FlushIcache();
-
-#endif
+	MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
 }
 
 void JitBlockCache::InvalidateICache(u32 address, const u32 length) {

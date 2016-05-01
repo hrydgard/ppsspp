@@ -271,17 +271,17 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 		JumpTarget backJump = GetCodePtr();
 		gpr.SetRegImm(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		SetCC(CC_LT);
 		B(backJump);
 		SetCC(CC_AL);
 	} else if (jo.useForwardJump) {
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		SetCC(CC_LT);
 		bail = B();
 		SetCC(CC_AL);
 	} else {
-		b->checkedEntry = GetCodePtr();
+		b->checkedEntry = (u8 *)GetCodePtr();
 		SetCC(CC_LT);
 		gpr.SetRegImm(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);
@@ -395,6 +395,37 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+}
+
+void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	ARMXEmitter emit(exitPoint);
+	u32 op = *((const u32 *)emit.GetCodePointer());
+	bool prelinked = (op & 0xFF000000) == 0xEA000000;
+	// Jump directly to the block, yay.
+	emit.B(checkedEntry);
+
+	if (!prelinked) {
+		do {
+			op = *((const u32 *)emit.GetCodePointer());
+			// Overwrite whatever is here with a breakpoint.
+			emit.BKPT(1);
+			// Stop after overwriting the next unconditional branch or BKPT.
+			// It can be a BKPT if we unlinked, and are now linking a different one.
+		} while ((op & 0xFF000000) != 0xEA000000 && (op & 0xFFF000F0) != 0xE1200070);
+	}
+	emit.FlushIcache();
+}
+
+void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. pretty good.
+	// I hope there's enough space...
+	// checkedEntry is the only "linked" entrance so it's enough to overwrite that.
+	ARMXEmitter emit(checkedEntry);
+	emit.MOVI2R(R0, originalAddress);
+	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
+	emit.B(MIPSComp::jit->GetDispatcher());
+	emit.FlushIcache();
 }
 
 bool ArmJit::ReplaceJalTo(u32 dest) {
