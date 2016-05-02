@@ -147,7 +147,12 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
 	allocator_->Destroy();
-	delete allocator_;
+
+	// We have to delete on queue, so this can free its queued deletions.
+	vulkan_->Delete().QueueCallback([](void *ptr) {
+		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+		delete allocator;
+	}, allocator_);
 }
 
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
