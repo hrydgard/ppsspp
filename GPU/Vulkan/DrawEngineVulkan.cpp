@@ -581,8 +581,6 @@ void DrawEngineVulkan::DirtyAllUBOs() {
 	if (!gstate.isModeClear()) {
 		// TODO: Test texture?
 
-		textureCache_->ApplyTexture();
-
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferColor(1, nullptr, BINDFBCOLOR_MAY_COPY);
@@ -604,7 +602,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 
 	bool textureNeedsApply = false;
 	if (gstate_c.textureChanged != TEXCHANGE_UNCHANGED && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture(frame->pushUBO);
+		textureCache_->SetTexture();
 		textureNeedsApply = true;
 		gstate_c.textureChanged = TEXCHANGE_UNCHANGED;
 		if (gstate_c.needShaderTexClamp) {
@@ -649,7 +647,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		}
 
 		if (textureNeedsApply) {
-			textureCache_->ApplyTexture(imageView, sampler);
+			textureCache_->ApplyTexture(frame->pushUBO, imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
 				imageView = nullTexture_->GetImageView();
 			if (sampler == VK_NULL_HANDLE)
@@ -749,7 +747,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 		// to use a "pre-clear" render pass, for high efficiency on tilers.
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			if (textureNeedsApply) {
-				textureCache_->ApplyTexture(imageView, sampler);
+				textureCache_->ApplyTexture(frame->pushUBO, imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
 					imageView = nullTexture_->GetImageView();
 				if (sampler == VK_NULL_HANDLE)

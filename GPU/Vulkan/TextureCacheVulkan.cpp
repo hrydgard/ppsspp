@@ -699,50 +699,68 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	}
 }
 
-void TextureCacheVulkan::ApplyTexture(VkImageView &imageView, VkSampler &sampler) {
-	if (nextTexture_ == nullptr) {
+void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler) {
+	TexCacheEntry *entry = nextTexture_;
+	if (entry == nullptr) {
 		imageView = VK_NULL_HANDLE;
 		sampler = VK_NULL_HANDLE;
 		return;
 	}
-	VkCommandBuffer cmd = nullptr;
-	if (nextTexture_->framebuffer) {
-		ApplyTextureFramebuffer(cmd, nextTexture_, nextTexture_->framebuffer, imageView, sampler);
-	} else if (nextTexture_->vkTex) {
-		// If the texture is >= 512 pixels tall...
-		if (nextTexture_->dim >= 0x900) {
-			// Texture scale/offset and gen modes don't apply in through.
-			// So we can optimize how much of the texture we look at.
-			if (gstate.isModeThrough()) {
-				if (nextTexture_->maxSeenV == 0 && gstate_c.vertBounds.maxV > 0) {
-					// Let's not hash less than 272, we might use more later and have to rehash.  272 is very common.
-					nextTexture_->maxSeenV = std::max((u16)272, gstate_c.vertBounds.maxV);
-				} else if (gstate_c.vertBounds.maxV > nextTexture_->maxSeenV) {
-					// The max height changed, so we're better off hashing the entire thing.
-					nextTexture_->maxSeenV = 512;
-					nextTexture_->status |= TexCacheEntry::STATUS_FREE_CHANGE;
-				}
-			} else {
-				// Otherwise, we need to reset to ensure we use the whole thing.
-				// Can't tell how much is used.
-				// TODO: We could tell for texcoord UV gen, and apply scale to max?
-				nextTexture_->maxSeenV = 512;
-			}
+	nextTexture_ = nullptr;
+
+	UpdateMaxSeenV(entry, gstate.isModeThrough());
+
+	if (nextNeedsRebuild_) {
+		if (nextNeedsRehash_) {
+			// Update the hash on the texture.
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
+			entry->fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
 		}
-		
-		imageView = nextTexture_->vkTex->texture_->GetImageView();
+		if (nextNeedsChange_) {
+			// This texture existed previously, let's handle the change.
+			HandleTextureChange(entry, nextChangeReason_, false, true);
+		}
+
+		// We actually build afterward (shared with rehash rebuild.)
+	} else if (nextNeedsRehash_) {
+		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
+		bool doDelete = true;
+		if (!CheckFullHash(entry, doDelete)) {
+			HandleTextureChange(entry, "hash fail", true, doDelete);
+			nextNeedsRebuild_ = true;
+		} else if (nextTexture_ != nullptr) {
+			// Secondary cache picked a different texture, use it.
+			entry = nextTexture_;
+			nextTexture_ = nullptr;
+			UpdateMaxSeenV(entry, gstate.isModeThrough());
+		}
+	}
+
+	// Okay, now actually rebuild the texture if needed.
+	if (nextNeedsRebuild_) {
+		BuildTexture(entry, uploadBuffer);
+	}
+
+	entry->lastFrame = gpuStats.numFlips;
+	VkCommandBuffer cmd = nullptr;
+	if (entry->framebuffer) {
+		ApplyTextureFramebuffer(cmd, entry, entry->framebuffer, imageView, sampler);
+	} else if (entry->vkTex) {
+		imageView = entry->vkTex->texture_->GetImageView();
 
 		SamplerCacheKey key;
-		UpdateSamplingParams(*nextTexture_, key);
+		UpdateSamplingParams(*entry, key);
 		sampler = samplerCache_.GetOrCreateSampler(key);
 
-		lastBoundTexture = nextTexture_->vkTex;
+		gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
+		gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+
+		lastBoundTexture = entry->vkTex;
 	} else {
 		imageView = VK_NULL_HANDLE;
 		sampler = VK_NULL_HANDLE;
 	}
-
-	nextTexture_ = nullptr;
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &imageView, VkSampler &sampler) {
@@ -836,7 +854,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	*/
 
 	SamplerCacheKey key;
-	UpdateSamplingParams(*nextTexture_, key);
+	UpdateSamplingParams(*entry, key);
 	key.mipEnable = false;
 	sampler = samplerCache_.GetOrCreateSampler(key);
 
@@ -871,7 +889,6 @@ bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
 	if (success && entry->framebuffer) {
 		// This will not apply the texture immediately.
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		entry->lastFrame = gpuStats.numFlips;
 		return true;
 	}
 
@@ -906,7 +923,7 @@ VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
+void TextureCacheVulkan::SetTexture() {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
 		// A different texture was bound, let's rebind next time.
@@ -954,7 +971,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointerUnchecked(texaddr));
-	u32 fullhash = 0;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
@@ -975,7 +991,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 				}
 
 				SetTextureFramebuffer(entry, entry->framebuffer);
-				entry->lastFrame = gpuStats.numFlips;
 				return;
 			} else {
 				// Make sure we re-evaluate framebuffers.
@@ -986,7 +1001,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		}
 
 		bool rehash = entry->GetHashStatus() == TexCacheEntry::STATUS_UNRELIABLE;
-		bool doDelete = true;
 
 		// First let's see if another texture with the same address had a hashfail.
 		if (entry->status & TexCacheEntry::STATUS_CLUT_RECHECK) {
@@ -1023,67 +1037,10 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 				rehash = true;
 			}
 
-			bool hashFail = false;
 			if (texhash != entry->hash) {
-				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
-				hashFail = true;
-				rehash = false;
-			}
-
-			if (rehash && entry->GetHashStatus() != TexCacheEntry::STATUS_RELIABLE) {
-				fullhash = QuickTexHash(replacer, texaddr, bufw, w, h, format, entry);
-				if (fullhash != entry->fullhash) {
-					hashFail = true;
-				} else {
-					if (g_Config.bTextureBackoffCache) {
-						if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-							// Reset to STATUS_HASHING.
-							entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-							entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-						}
-					} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
-						entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
-					}
-				}
-			}
-
-			if (hashFail) {
 				match = false;
-				reason = "hash fail";
-				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-				if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
-					if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
-						entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
-					} else {
-						entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
-					}
-				}
-				entry->numFrames = 0;
-
-				// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-				// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-				if (g_Config.bTextureSecondaryCache) {
-					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-						u64 secondKey = fullhash | (u64)cluthash << 32;
-						TexCache::iterator secondIter = secondCache.find(secondKey);
-						if (secondIter != secondCache.end()) {
-							TexCacheEntry *secondEntry = &secondIter->second;
-							if (secondEntry->Matches(dim, format, maxLevel)) {
-								// Reset the numInvalidated value lower, we got a match.
-								if (entry->numInvalidated > 8) {
-									--entry->numInvalidated;
-								}
-								entry = secondEntry;
-								match = true;
-							}
-						} else {
-							secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
-							secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
-							secondCache[secondKey] = *entry;
-							doDelete = false;
-						}
-					}
-				}
+			} else if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+				rehash = false;
 			}
 		}
 
@@ -1098,41 +1055,27 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		if (match) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
-			entry->lastFrame = gpuStats.numFlips;
 			if (entry->vkTex != lastBoundTexture) {
-				gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
-				gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+				gstate_c.curTextureWidth = w;
+				gstate_c.curTextureHeight = h;
 			}
+			if (rehash) {
+				// Update in case any of these changed.
+				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+				entry->bufw = bufw;
+				entry->cluthash = cluthash;
+			}
+
 			nextTexture_ = entry;
+			nextNeedsRehash_ = rehash;
+			nextNeedsChange_ = false;
+			// Might need a rebuild if the hash fails.
+			nextNeedsRebuild_= false;
 			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
-			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
-			entry->numInvalidated++;
-			gpuStats.numTextureInvalidations++;
-			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", texaddr, reason);
-			if (doDelete) {
-				if (entry->vkTex == lastBoundTexture) {
-					lastBoundTexture = nullptr;
-				}
-				delete entry->vkTex;
-				entry->vkTex = nullptr;
-			}
-			// Clear the reliable bit if set.
-			if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
-				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
-			}
-
-			// Also, mark any textures with the same address but different clut.  They need rechecking.
-			if (cluthash != 0) {
-				const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
-				const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-				for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
-					if (it->second.cluthash != cluthash) {
-						it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
-					}
-				}
-			}
+			nextChangeReason_ = reason;
+			nextNeedsChange_ = true;
 		}
 	} else {
 		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
@@ -1149,43 +1092,134 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		} else {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 		}
-	}
 
-	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetKernelMemoryEnd()) {
-		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
-		// Proceeding here can cause a crash.
-		nextTexture_ = nullptr;
-		return;
+		nextNeedsChange_ = false;
 	}
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
 	entry->hash = texhash;
+	entry->dim = dim;
 	entry->format = format;
-	entry->lastFrame = gpuStats.numFlips;
-	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
-	entry->lodBias = 0.0f;
-
-	entry->dim = gstate.getTextureDimension(0);
-	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
+	entry->bufw = bufw;
 
-	entry->fullhash = fullhash == 0 ? QuickTexHash(replacer, texaddr, bufw, w, h, format, entry) : fullhash;
 	entry->cluthash = cluthash;
-
-	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	nextTexture_ = entry;
+	nextNeedsRehash_ = true;
+	nextNeedsRebuild_= true;
+}
+
+bool TextureCacheVulkan::CheckFullHash(TexCacheEntry *const entry, bool &doDelete) {
+	bool hashFail = false;
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
+	u32 fullhash = QuickTexHash(replacer, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	if (fullhash != entry->fullhash) {
+		hashFail = true;
+	} else {
+		if (g_Config.bTextureBackoffCache) {
+			if (entry->GetHashStatus() != TexCacheEntry::STATUS_HASHING && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+				// Reset to STATUS_HASHING.
+				entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+				entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			}
+		} else if (entry->numFrames > TEXCACHE_FRAME_CHANGE_FREQUENT_REGAIN_TRUST) {
+			entry->status &= ~TexCacheEntry::STATUS_CHANGE_FREQUENT;
+		}
+	}
+
+	if (hashFail) {
+		entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+		if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+			if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
+				entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
+			} else {
+				entry->status |= TexCacheEntry::STATUS_CHANGE_FREQUENT;
+			}
+		}
+		entry->numFrames = 0;
+
+		// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
+		// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+		if (g_Config.bTextureSecondaryCache) {
+			if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+				u64 secondKey = fullhash | (u64)entry->cluthash << 32;
+				TexCache::iterator secondIter = secondCache.find(secondKey);
+				if (secondIter != secondCache.end()) {
+					TexCacheEntry *secondEntry = &secondIter->second;
+					if (secondEntry->Matches(entry->dim, entry->format, entry->maxLevel)) {
+						// Reset the numInvalidated value lower, we got a match.
+						if (entry->numInvalidated > 8) {
+							--entry->numInvalidated;
+						}
+						nextTexture_ = secondEntry;
+						return true;
+					}
+				} else {
+					secondKey = entry->fullhash | ((u64)entry->cluthash << 32);
+					secondCacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
+					secondCache[secondKey] = *entry;
+					doDelete = false;
+				}
+			}
+		}
+
+		// We know it failed, so update the full hash right away.
+		entry->fullhash = fullhash;
+		return false;
+	}
+
+	return true;
+}
+
+bool TextureCacheVulkan::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
+	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
+	entry->numInvalidated++;
+	gpuStats.numTextureInvalidations++;
+	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
+	if (doDelete) {
+		if (entry->vkTex == lastBoundTexture) {
+			lastBoundTexture = nullptr;
+		}
+		delete entry->vkTex;
+		entry->vkTex = nullptr;
+	}
+	// Clear the reliable bit if set.
+	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
+		entry->SetHashStatus(TexCacheEntry::STATUS_HASHING);
+	}
+
+	// Also, mark any textures with the same address but different clut.  They need rechecking.
+	if (entry->cluthash != 0) {
+		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+		for (auto it = cache.lower_bound(cachekeyMin), end = cache.upper_bound(cachekeyMax); it != end; ++it) {
+			if (it->second.cluthash != entry->cluthash) {
+				it->second.status |= TexCacheEntry::STATUS_CLUT_RECHECK;
+			}
+		}
+	}
+
+	return false;
+}
+
+void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry,VulkanPushBuffer *uploadBuffer) {
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
+	entry->framebuffer = 0;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
@@ -1194,13 +1228,19 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
 		SetTextureFramebuffer(entry, entry->framebuffer);
-		entry->lastFrame = gpuStats.numFlips;
+		return;
+	}
+
+	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
+		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		// Proceeding here can cause a crash.
 		return;
 	}
 
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
-	for (u32 i = 0; i <= maxLevel; i++) {
+	int maxLevel = entry->maxLevel;
+	for (int i = 0; i <= maxLevel; i++) {
 		// If encountering levels pointing to nothing, adjust max level.
 		u32 levelTexaddr = gstate.getTextureAddress(i);
 		if (!Memory::IsValidAddress(levelTexaddr)) {
@@ -1223,11 +1263,8 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		maxLevel = 0;
 	}
 
-	// Disable mipmapping. Something is wrong.
-	// maxLevel = 0;
-
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	VkFormat dstFmt = GetDestFormat(format, gstate.getClutPaletteFormat());
+	VkFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 
@@ -1237,12 +1274,16 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 		scaleFactor = scaleFactor > 4 ? 4 : (scaleFactor > 2 ? 2 : 1);
 	}
 
+	u64 cachekey = replacer.Enabled() ? entry->CacheKey() : 0;
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		if (g_Config.bMipMap) {
 			maxLevel = replaced.MaxLevel();
+			badMipSizes = false;
 		}
 	}
 
@@ -1333,8 +1374,8 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 	if (replacer.Enabled() && !replaced.Valid()) {
 		replacedInfo.cachekey = cachekey;
 		replacedInfo.hash = entry->fullhash;
-		replacedInfo.addr = texaddr;
-		replacedInfo.isVideo = videos_.find(texaddr & 0x3FFFFFFF) != videos_.end();
+		replacedInfo.addr = entry->addr;
+		replacedInfo.isVideo = videos_.find(entry->addr & 0x3FFFFFFF) != videos_.end();
 		replacedInfo.isFinal = (entry->status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 		replacedInfo.scaleFactor = scaleFactor;
 		replacedInfo.fmt = FromVulkanFormat(actualFmt);
@@ -1374,8 +1415,6 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 
 	gstate_c.textureFullAlpha = entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL;
 	gstate_c.textureSimpleAlpha = entry->GetAlphaStatus() != TexCacheEntry::STATUS_ALPHA_UNKNOWN;
-
-	nextTexture_ = entry;
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
