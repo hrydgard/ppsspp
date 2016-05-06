@@ -22,9 +22,11 @@
 
 #include "Common/StringUtils.h"
 #include "Core/Util/DisArm64.h"
+#include "Core/Config.h"
 
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/IR/IRJit.h"
 
 #if defined(ARM)
 #include "../ARM/ArmJit.h"
@@ -45,17 +47,21 @@ namespace MIPSComp {
 	}
 
 	JitInterface *CreateNativeJit(MIPSState *mips) {
+		if (false && g_Config.iCpuCore == (int)CPUCore::CPU_JIT) {
 #if defined(ARM)
-		return new MIPSComp::ArmJit(mips);
+			return new MIPSComp::ArmJit(mips);
 #elif defined(ARM64)
-		return new MIPSComp::Arm64Jit(mips);
+			return new MIPSComp::IRJit(mips);
 #elif defined(_M_IX86) || defined(_M_X64)
-		return new MIPSComp::Jit(mips);
+			return new MIPSComp::Jit(mips);
 #elif defined(MIPS)
-		return new MIPSComp::MipsJit(mips);
+			return new MIPSComp::MipsJit(mips);
 #else
-		return new MIPSComp::FakeJit(mips);
+			return new MIPSComp::FakeJit(mips);
 #endif
+		} else if (true || g_Config.iCpuCore == (int)CPUCore::CPU_IRJIT) {
+			return new MIPSComp::IRJit(mips);
+		}
 	}
 
 }

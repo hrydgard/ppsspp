@@ -24,6 +24,7 @@
 enum CPUCore {
 	CPU_INTERPRETER,
 	CPU_JIT,
+	CPU_IRJIT,
 };
 
 enum GPUCore {

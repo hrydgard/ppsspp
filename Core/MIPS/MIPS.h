@@ -166,6 +166,10 @@ public:
 		float v[128];
 		u32 vi[128];
 	};
+	// Used for temporary variables by IR Interpreter.
+	// Can be indexed through r[] using indices 192+.
+	u32 t[16];
+
 	// Temps don't get flushed so we don't reserve space for them.
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
 	u32 vfpuCtrl[16];
@@ -177,7 +181,7 @@ public:
 		struct {
 			u32 pc;
 
-			u32 lo;
+			u32 lo;  // offset 192 + 16 + 16 + 1 + 1
 			u32 hi;
 
 			u32 fcr31; //fpu control register

@@ -120,6 +120,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	int iCpuCore;
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;

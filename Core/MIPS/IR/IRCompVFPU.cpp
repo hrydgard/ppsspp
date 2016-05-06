@@ -1,0 +1,326 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <cmath>
+#include "math/math_util.h"
+
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Common/CPUDetect.h"
+#include "Core/Config.h"
+#include "Core/Reporting.h"
+
+#include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRRegCache.h"
+
+// All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
+// Currently known non working ones should have DISABLE.
+
+// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
+#define DISABLE { Comp_Generic(op); return; }
+
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
+
+namespace MIPSComp {
+
+	void IRJit::Comp_VPFX(MIPSOpcode op)	{
+		CONDITIONAL_DISABLE;
+		int data = op & 0xFFFFF;
+		int regnum = (op >> 24) & 3;
+		switch (regnum) {
+		case 0:  // S
+			js.prefixS = data;
+			js.prefixSFlag = JitState::PREFIX_KNOWN_DIRTY;
+			break;
+		case 1:  // T
+			js.prefixT = data;
+			js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
+			break;
+		case 2:  // D
+			js.prefixD = data;
+			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
+			break;
+		default:
+			ERROR_LOG(CPU, "VPFX - bad regnum %i : data=%08x", regnum, data);
+			break;
+		}
+	}
+
+	void IRJit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
+		if (prefix == 0xE4)
+			return;
+
+		int n = GetNumVectorElements(sz);
+		u8 origV[4];
+		static const float constantArray[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
+
+		for (int i = 0; i < n; i++)
+			origV[i] = vregs[i];
+
+		for (int i = 0; i < n; i++) {
+			int regnum = (prefix >> (i * 2)) & 3;
+			int abs = (prefix >> (8 + i)) & 1;
+			int negate = (prefix >> (16 + i)) & 1;
+			int constants = (prefix >> (12 + i)) & 1;
+
+			// Unchanged, hurray.
+			if (!constants && regnum == i && !abs && !negate)
+				continue;
+
+			/*
+			// This puts the value into a temp reg, so we won't write the modified value back.
+			vregs[i] = fpr.GetTempV();
+			if (!constants) {
+				fpr.MapDirtyInV(vregs[i], origV[regnum]);
+				fpr.SpillLockV(vregs[i]);
+
+				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
+				// TODO: But some ops seem to use const 0 instead?
+				if (regnum >= n) {
+					WARN_LOG(CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(GetCompilerPC()));
+					regnum = 0;
+				}
+
+				if (abs) {
+					fp.FABS(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					if (negate)
+						fp.FNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
+				} else {
+					if (negate)
+						fp.FNEG(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					else
+						fp.FMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+				}
+			} else {
+				fpr.MapRegV(vregs[i], MAP_DIRTY | MAP_NOINIT);
+				fpr.SpillLockV(vregs[i]);
+				fp.MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs << 2)], SCRATCH1, (bool)negate);
+			}
+			*/
+		}
+	}
+
+	void IRJit::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+
+		GetVectorRegs(regs, sz, vectorReg);
+		if (js.prefixD == 0)
+			return;
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++) {
+			// Hopefully this is rare, we'll just write it into a reg we drop.
+			//if (js.VfpuWriteMask(i))
+			//	regs[i] = fpr.GetTempV();
+		}
+	}
+
+	void IRJit::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
+		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
+		if (!js.prefixD)
+			return;
+
+		/*
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++) {
+			if (js.VfpuWriteMask(i))
+				continue;
+
+			int sat = (js.prefixD >> (i * 2)) & 3;
+			if (sat == 1) {
+				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
+				fpr.MapRegV(vregs[i], MAP_DIRTY);
+
+				fp.MOVI2F(S0, 0.0f, SCRATCH1);
+				fp.MOVI2F(S1, 1.0f, SCRATCH1);
+				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
+				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+			} else if (sat == 3) {
+				// clamped = x < -1 ? (x > 1 ? 1 : x) : x [-1, 1]
+				fpr.MapRegV(vregs[i], MAP_DIRTY);
+
+				fp.MOVI2F(S0, -1.0f, SCRATCH1);
+				fp.MOVI2F(S1, 1.0f, SCRATCH1);
+				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
+				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+			}
+		}
+		*/
+	}
+
+	void IRJit::Comp_SV(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_SVQ(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VVectorInit(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VIdt(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VMatrixInit(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VHdp(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
+
+	void IRJit::Comp_Vhoriz(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VDot(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VecDo3(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VV2Op(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vi2f(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vh2f(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vf2i(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Mftv(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vmfvc(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vmtvc(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vmmov(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VScl(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vmmul(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vmscl(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vtfm(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VCrs(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VDet(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vi2x(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vx2i(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_VCrossQuat(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vcmp(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vcmov(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Viim(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vfim(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vcst(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
+	// calling the math library.
+	void IRJit::Comp_VRot(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vsgn(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vocp(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_ColorConv(MIPSOpcode op) {
+		DISABLE;
+	}
+
+	void IRJit::Comp_Vbfy(MIPSOpcode op) {
+		DISABLE;
+	}
+}
