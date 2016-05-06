@@ -911,20 +911,20 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	return instr;
 }
 
-void MIPSCompileOp(MIPSOpcode op) {
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit) {
 	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	const MIPSInfo info = MIPSGetInfo(op);
 	if (instr) {
 		if (instr->compile) {
-			(MIPSComp::jit->*(instr->compile))(op);
+			(jit->*(instr->compile))(op);
 		} else {
 			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
 		}
 
 		if (info & OUT_EAT_PREFIX)
-			MIPSComp::jit->EatPrefix();
+			jit->EatPrefix();
 	} else {
 		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
