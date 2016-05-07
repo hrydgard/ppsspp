@@ -33,6 +33,8 @@
 
 #pragma once
 
+#include <map>
+
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
