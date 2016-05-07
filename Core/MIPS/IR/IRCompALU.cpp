@@ -153,7 +153,7 @@ void IRJit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, IROp op, IROp co
 		}
 		return;
 	}
-
+	/*
 	if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
 		MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
 		MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
@@ -167,7 +167,7 @@ void IRJit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, IROp op, IROp co
 			gpr.SetImm(rhs, rhsImm);
 		}
 		return;
-	}
+	}*/
 
 	// Can't do the RSB optimization on ARM64 - no RSB!
 
@@ -343,7 +343,57 @@ void IRJit::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void IRJit::Comp_Special3(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	MIPSGPReg rs = _RS;
+	MIPSGPReg rt = _RT;
+
+	int pos = _POS;
+	int size = _SIZE + 1;
+	u32 mask = 0xFFFFFFFFUL >> (32 - size);
+
+	// Don't change $zr.
+	if (rt == 0)
+		return;
+
+	switch (op & 0x3f) {
+	case 0x0: //ext
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (gpr.GetImm(rs) >> pos) & mask);
+			return;
+		}
+
+		gpr.MapDirtyIn(rt, rs);
+		ir.Write(IROp::Shl, rt, rs);
+		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(mask));
+		break;
+
+	case 0x4: //ins
+	{
+		u32 sourcemask = mask >> pos;
+		u32 destmask = ~(sourcemask << pos);
+		if (gpr.IsImm(rs)) {
+			u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
+			if (gpr.IsImm(rt)) {
+				gpr.SetImm(rt, (gpr.GetImm(rt) & destmask) | inserted);
+				return;
+			}
+
+			gpr.MapDirty(rt);
+			ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
+			if (inserted != 0) {
+				ir.Write(IROp::OrConst, rt, rt, inserted);
+			}
+		} else {
+			gpr.MapDirtyIn(rt, rs);
+			ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
+			ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
+			ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+			ir.Write(IROp::Or, rt, rt, IRTEMP_0);
+		}
+	}
+	break;
+	}
 }
 
 void IRJit::Comp_Allegrex(MIPSOpcode op) {

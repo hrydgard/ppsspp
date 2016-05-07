@@ -48,7 +48,7 @@ IRJit::IRJit(MIPSState *mips) : gpr(), mips_(mips) {
 	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 	u32 size = 128 * 1024;
 	blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
-	logBlocks = 100;
+	logBlocks = 0;
 	InitIR();
 }
 
@@ -184,6 +184,12 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// ApplyRoundingMode(true);
 	// IR Dispatcher
 	
+	FILE *f;
+	int numBlocks = 0;
+	if (numBlocks) {
+		f = fopen("E:\\blockir.txt", "w");
+	}
+
 	while (true) {
 		// RestoreRoundingMode(true);
 		CoreTiming::Advance();
@@ -197,11 +203,18 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 data = inst & 0xFFFFFF;
 			if (opcode == (MIPS_EMUHACK_OPCODE >> 24)) {
 				IRBlock *block = blocks_.GetBlock(data);
-				ILOG("Run block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
+				if (numBlocks > 0) {
+					// ILOG("Run block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
+					fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
+					fflush(f);
+					numBlocks--;
+				}
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
 			} else {
+				if (mips_->pc == 0x0880de94)
+					logBlocks = 10;
 				// RestoreRoundingMode(true);
-				ILOG("Compile block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
+				// ILOG("Compile block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
 				Compile(mips_->pc);
 				// ApplyRoundingMode(true);
 			}
@@ -252,7 +265,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
-		ILOG("=============== mips %d ===============", blocks_.GetNumBlocks());
+		ILOG("=============== mips %d %08x ===============", blocks_.GetNumBlocks(), em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
@@ -304,7 +317,8 @@ void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
 }
 
 void IRJit::Comp_Generic(MIPSOpcode op) {
-	ir.Write(IROp::Interpret, ir.AddConstant(op.encoding));
+	FlushAll();
+	ir.Write(IROp::Interpret, 0, ir.AddConstant(op.encoding));
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
@@ -351,7 +365,7 @@ void IRBlockCache::InvalidateICache(u32 addess, u32 length) {
 }
 
 void IRBlock::Finalize(int number) {
-	origFirstOpcode_= Memory::Read_Opcode_JIT(origAddr_);
+	origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
 	MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
 	Memory::Write_Opcode_JIT(origAddr_, opcode);
 }

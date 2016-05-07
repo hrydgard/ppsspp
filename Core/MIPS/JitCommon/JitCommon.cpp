@@ -47,21 +47,21 @@ namespace MIPSComp {
 	}
 
 	JitInterface *CreateNativeJit(MIPSState *mips) {
-		if (false && g_Config.iCpuCore == (int)CPUCore::CPU_JIT) {
-#if defined(ARM)
-			return new MIPSComp::ArmJit(mips);
-#elif defined(ARM64)
-			return new MIPSComp::IRJit(mips);
-#elif defined(_M_IX86) || defined(_M_X64)
-			return new MIPSComp::Jit(mips);
-#elif defined(MIPS)
-			return new MIPSComp::MipsJit(mips);
+#if 1
+		return new MIPSComp::IRJit(mips);
 #else
-			return new MIPSComp::FakeJit(mips);
+#if defined(ARM)
+		return new MIPSComp::ArmJit(mips);
+#elif defined(ARM64)
+		return new MIPSComp::IRJit(mips);
+#elif defined(_M_IX86) || defined(_M_X64)
+		return new MIPSComp::Jit(mips);
+#elif defined(MIPS)
+		return new MIPSComp::MipsJit(mips);
+#else
+		return new MIPSComp::FakeJit(mips);
 #endif
-		} else if (true || g_Config.iCpuCore == (int)CPUCore::CPU_IRJIT) {
-			return new MIPSComp::IRJit(mips);
-		}
+#endif
 	}
 
 }

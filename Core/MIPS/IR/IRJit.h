@@ -42,6 +42,7 @@ public:
 		numInstructions_ = b.numInstructions_;
 		numConstants_ = b.numConstants_;
 		origAddr_ = b.origAddr_;
+		origFirstOpcode_ = b.origFirstOpcode_;
 		b.instr_ = nullptr;
 		b.const_ = nullptr;
 	}
@@ -86,7 +87,11 @@ public:
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
-		return &blocks_[i];
+		if (i >= 0 && i < blocks_.size()) {
+			return &blocks_[i];
+		} else {
+			return nullptr;
+		}
 	}
 private:
 	std::vector<IRBlock> blocks_;

@@ -72,12 +72,14 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
 
 	MIPSGPReg lhs = rs;
 	MIPSGPReg rhs = rt;
-	if (!delaySlotIsNice && !likely) {  // if likely, we don't need this
+	if (!delaySlotIsNice) {  // if likely, we don't need this
 		if (rs != 0) {
+			gpr.MapIn(rs);
 			ir.Write(IROp::Mov, IRTEMP_0, rs);
 			lhs = (MIPSGPReg)IRTEMP_0;
 		}
 		if (rt != 0) {
+			gpr.MapIn(rt);
 			ir.Write(IROp::Mov, IRTEMP_1, rt);
 			rhs = (MIPSGPReg)IRTEMP_1;
 		}
@@ -113,21 +115,22 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 
 	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
 
-	if (!likely && delaySlotIsNice)
-		CompileDelaySlot();
-	int lhs = rs;
-	gpr.MapIn(rs);
-	if (!delaySlotIsNice && !likely) {  // if likely, we don't need this
+	MIPSGPReg lhs = rs;
+	if (!delaySlotIsNice) {  // if likely, we don't need this
 		ir.Write(IROp::Mov, IRTEMP_0, rs);
-		lhs = IRTEMP_0;
+		lhs = (MIPSGPReg)IRTEMP_0;
 	}
 	if (andLink)
 		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+
+	if (!likely)
+		CompileDelaySlot();
+
+	gpr.MapIn(lhs);
 	FlushAll();
 	ir.Write(ComparisonToExit(cc), ir.AddConstant(GetCompilerPC() + 8), lhs);
-	if (likely) {
+	if (likely)
 		CompileDelaySlot();
-	}
 	// Taken
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
@@ -327,6 +330,7 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 		if (andLink)
 			gpr.SetImm(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
+		// Syscall (the delay slot) does FlushAll.
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)

@@ -28,6 +28,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "base/logging.h"
 
 #include "JitCommon/JitCommon.h"
 
@@ -973,10 +974,13 @@ void MIPSInterpret(MIPSOpcode op) {
 
 int MIPSInterpret_RunUntil(u64 globalTicks)
 {
+	int blockCount = 150000;
+	FILE *f = fopen("E:\\blockjit.txt", "w");
 	MIPSState *curMips = currentMIPS;
 	while (coreState == CORE_RUNNING)
 	{
 		CoreTiming::Advance();
+		u32 lastPC = 0;
 
 		// NEVER stop in a delay slot!
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
@@ -1014,6 +1018,16 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 #endif
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
+
+				if (curMips->pc != lastPC + 4) {
+					if (blockCount > 0) {
+						MIPSState *mips_ = curMips;
+						fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
+						fflush(f);
+						blockCount--;
+					}
+				}
+				lastPC = curMips->pc;
 
 				MIPSInterpret(op);
 

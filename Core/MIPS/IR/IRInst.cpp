@@ -170,13 +170,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::ShlImm:
-			mips->r[inst->dest] = mips->r[inst->src1] << inst->src2;
+			mips->r[inst->dest] = mips->r[inst->src1] << (int)inst->src2;
 			break;
 		case IROp::ShrImm:
-			mips->r[inst->dest] = mips->r[inst->src1] >> inst->src2;
+			mips->r[inst->dest] = mips->r[inst->src1] >> (int)inst->src2;
 			break;
 		case IROp::SarImm:
-			mips->r[inst->dest] = (s32)mips->r[inst->src1] >> inst->src2;
+			mips->r[inst->dest] = (s32)mips->r[inst->src1] >> (int)inst->src2;
 			break;
 		case IROp::RorImm:
 		{
@@ -202,6 +202,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->r[inst->dest] = (x >> sa) | (x << (32 - sa));
 		}
 		break;
+
+		case IROp::Clz:
+		{
+			int x = 31;
+			int count = 0;
+			int value = mips->r[inst->src1];
+			while (x >= 0 && !(value & (1 << x))) {
+				count++;
+				x--;
+			}
+			mips->r[inst->dest] = count;
+			break;
+		}
 
 		case IROp::Slt:
 			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)mips->r[inst->src2];

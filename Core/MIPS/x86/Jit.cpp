@@ -81,8 +81,7 @@ u32 JitBreakpoint()
 	host->SetDebugMode(true);
 
 	// There's probably a better place for this.
-	if (USE_JIT_MISSMAP)
-	{
+	if (USE_JIT_MISSMAP) {
 		std::map<u32, std::string> notJitSorted;
 		std::transform(notJitOps.begin(), notJitOps.end(), std::inserter(notJitSorted, notJitSorted.begin()), flip_pair<std::string, u32>);
 
