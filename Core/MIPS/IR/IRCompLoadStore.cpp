@@ -82,7 +82,8 @@ namespace MIPSComp {
 			return;
 		}
 
-		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
+		gpr.MapIn(rs);
+		gpr.MapDirty(rt);
 		int addrReg = IRTEMP_0;
 		switch (o) {
 			// Load

@@ -17,7 +17,6 @@
 
 enum class IROp : u8 {
 	SetConst,
-	SetConstImm,
 	FSetConst,
 
 	Mov,
@@ -202,6 +201,8 @@ enum {
 	// Hacky way to get to other state
 	IRREG_LO = 226,  // offset of lo in MIPSState / 4
 	IRREG_HI = 227,
+	IRREG_FCR31 = 228,
+	IRREG_FPCOND = 229
 };
 
 enum class IRParam {
@@ -249,6 +250,8 @@ public:
 		constPool_.clear();
 	}
 
+	void Simplify();
+
 	const std::vector<IRInst> &GetInstructions() { return insts_; }
 	const std::vector<u32> &GetConstants() { return constPool_; }
 
@@ -258,3 +261,4 @@ private:
 };
 
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool);
+void InitIR();

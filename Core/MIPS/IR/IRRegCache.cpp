@@ -42,5 +42,7 @@ void IRRegCache::Start(IRWriter *ir) {
 }
 
 void IRRegCache::FlushAll() {
-
+	for (int i = 0; i < TOTAL_MAPPABLE_MIPSREGS; i++) {
+		Dirty((MIPSGPReg)i);
+	}
 }

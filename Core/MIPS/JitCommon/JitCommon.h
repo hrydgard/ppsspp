@@ -57,6 +57,7 @@ namespace MIPSComp {
 		virtual void Compile(u32 em_address) = 0;
 		virtual void ClearCache() = 0;
 		virtual void EatPrefix() = 0;
+		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
 
 		// Block linking. This may need to work differently for whole-function JITs and stuff
 		// like that.

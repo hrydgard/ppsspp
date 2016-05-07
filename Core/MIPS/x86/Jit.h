@@ -161,6 +161,7 @@ public:
 	void UpdateRoundingMode();
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void ClearCache();
 	void InvalidateCache() override;

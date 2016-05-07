@@ -479,13 +479,7 @@ Opcode Read_Opcode_JIT(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
-		if (block_num >= 0) {
-			return bc->GetOriginalFirstOp(block_num);
-		} else {
-			return inst;
-		}
+		return MIPSComp::jit->GetOriginalOp(inst);
 	} else {
 		return inst;
 	}

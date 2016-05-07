@@ -38,32 +38,18 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
-void DisassembleArm64Print(const u8 *data, int size) {
-	std::vector<std::string> lines = DisassembleArm64(data, size);
-	for (auto s : lines) {
-		ILOG("%s", s.c_str());
-	}
-	/*
-	ILOG("+++");
-	// A format friendly to Online Disassembler which gets endianness wrong
-	for (size_t i = 0; i < lines.size(); i++) {
-		uint32_t opcode = ((const uint32_t *)data)[i];
-		ILOG("%d/%d: %08x", (int)(i+1), (int)lines.size(), swap32(opcode));
-	}
-	ILOG("===");
-	ILOG("===");*/
-}
-
 namespace MIPSComp
 {
 
 IRJit::IRJit(MIPSState *mips) : gpr(), mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
-	js.startDefaultPrefix = mips_->HasDefaultPrefix();
+	js.startDefaultPrefix = true;
 	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 	u32 size = 128 * 1024;
 	blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
+	logBlocks = 100;
+	InitIR();
 }
 
 IRJit::~IRJit() {
@@ -102,7 +88,8 @@ void IRJit::DoDummyState(PointerWrap &p) {
 }
 
 void IRJit::FlushAll() {
-	FlushPrefixV();
+	gpr.FlushAll();
+	// FlushPrefixV();
 }
 
 void IRJit::FlushPrefixV() {
@@ -162,6 +149,7 @@ void IRJit::Compile(u32 em_address) {
 	int block_num = blocks_.AllocateBlock(em_address);
 	IRBlock *b = blocks_.GetBlock(block_num);
 	DoJit(em_address, b);
+	b->Finalize(block_num);  // Overwrites the first instruction
 
 	bool cleanSlate = false;
 
@@ -192,7 +180,35 @@ void IRJit::Compile(u32 em_address) {
 
 void IRJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
-	((void (*)())enterDispatcher)();
+
+	// ApplyRoundingMode(true);
+	// IR Dispatcher
+	
+	while (true) {
+		// RestoreRoundingMode(true);
+		CoreTiming::Advance();
+		// ApplyRoundingMode(true);
+		if (coreState != 0) {
+			break;
+		}
+		while (mips_->downcount >= 0) {
+			u32 inst = Memory::ReadUnchecked_U32(mips_->pc);
+			u32 opcode = inst >> 24;
+			u32 data = inst & 0xFFFFFF;
+			if (opcode == (MIPS_EMUHACK_OPCODE >> 24)) {
+				IRBlock *block = blocks_.GetBlock(data);
+				ILOG("Run block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
+				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
+			} else {
+				// RestoreRoundingMode(true);
+				ILOG("Compile block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
+				Compile(mips_->pc);
+				// ApplyRoundingMode(true);
+			}
+		}
+	}
+
+	// RestoreRoundingMode(true);
 }
 
 u32 IRJit::GetCompilerPC() {
@@ -230,24 +246,28 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		js.numInstructions++;
 	}
 
+	ir.Simplify();
+
 	b->SetInstructions(ir.GetInstructions(), ir.GetConstants());
 
-	char temp[256];
 	if (logBlocks > 0 && dontLogBlocks == 0) {
+		char temp2[256];
 		ILOG("=============== mips %d ===============", blocks_.GetNumBlocks());
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, true);
-			ILOG("M: %08x   %s", cpc, temp);
+			temp2[0] = 0;
+			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
+			ILOG("M: %08x   %s", cpc, temp2);
 		}
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== IR (%d instructions) ===============", js.numInstructions);
-		for (int i = 0; i < js.numInstructions; i++) {
+		for (int i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], ir.GetConstants().data());
 			ILOG("%s", buf);
 		}
+		ILOG("===============        end         =================");
 	}
 
 	if (logBlocks > 0)
@@ -328,6 +348,17 @@ void IRBlockCache::Clear() {
 
 void IRBlockCache::InvalidateICache(u32 addess, u32 length) {
 	// TODO
+}
+
+void IRBlock::Finalize(int number) {
+	origFirstOpcode_= Memory::Read_Opcode_JIT(origAddr_);
+	MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
+	Memory::Write_Opcode_JIT(origAddr_, opcode);
+}
+
+MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
+	IRBlock *b = blocks_.GetBlock(op.encoding & 0xFFFFFF);
+	return b->GetOriginalFirstOp();
 }
 
 }  // namespace MIPSComp

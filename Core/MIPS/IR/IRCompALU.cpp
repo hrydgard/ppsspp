@@ -49,15 +49,15 @@ namespace MIPSComp {
 void IRJit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, IROp OP) {
 	if (gpr.IsImm(rs)) {
 		switch (OP) {
-		case IROp::AddConst: gpr.SetImm(rt, rs + uimm); break;
-		case IROp::SubConst: gpr.SetImm(rt, rs - uimm); break;
-		case IROp::AndConst: gpr.SetImm(rt, rs & uimm); break;
-		case IROp::OrConst: gpr.SetImm(rt, rs | uimm); break;
-		case IROp::XorConst: gpr.SetImm(rt, rs ^ uimm); break;
+		case IROp::AddConst: gpr.SetImm(rt, gpr.GetImm(rs) + uimm); break;
+		case IROp::SubConst: gpr.SetImm(rt, gpr.GetImm(rs) - uimm); break;
+		case IROp::AndConst: gpr.SetImm(rt, gpr.GetImm(rs) & uimm); break;
+		case IROp::OrConst: gpr.SetImm(rt, gpr.GetImm(rs) | uimm); break;
+		case IROp::XorConst: gpr.SetImm(rt, gpr.GetImm(rs) ^ uimm); break;
 		}
 	} else {
 		gpr.MapDirtyIn(rt, rs);
-		ir.Write(OP, rt, ir.AddConstant(uimm));
+		ir.Write(OP, rt, rs, ir.AddConstant(uimm));
 	}
 }
 
@@ -95,8 +95,7 @@ void IRJit::Comp_IType(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
-		// Grab the sign bit (< 0) as 1/0.  Slightly faster than a shift.
-		ir.Write(IROp::Slt, rt, rs, ir.AddConstant(simm));
+		ir.Write(IROp::SltConst, rt, rs, ir.AddConstant(simm));
 		break;
 
 	case 11: // R(rt) = R(rs) < suimm; break; //sltiu
@@ -105,7 +104,7 @@ void IRJit::Comp_IType(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
-		ir.Write(IROp::SltU, rt, rs, ir.AddConstant(suimm));
+		ir.Write(IROp::SltUConst, rt, rs, ir.AddConstant(suimm));
 		break;
 
 	case 15: // R(rt) = uimm << 16;	 //lui
@@ -167,6 +166,7 @@ void IRJit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, IROp op, IROp co
 			// Luckily, it was just an imm.
 			gpr.SetImm(rhs, rhsImm);
 		}
+		return;
 	}
 
 	// Can't do the RSB optimization on ARM64 - no RSB!
@@ -220,10 +220,17 @@ void IRJit::Comp_RType3(MIPSOpcode op) {
 	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
 		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 			gpr.SetImm(rd, ~(gpr.GetImm(rs) | gpr.GetImm(rt)));
-		} 
-
-		ir.Write(IROp::Or, IRTEMP_0, rs, rt);
-		ir.Write(IROp::Not, rd, IRTEMP_0);
+		} else {
+			gpr.MapDirtyInIn(rd, rs, rt);
+			if (rs == 0) {
+				ir.Write(IROp::Not, rd, rt);
+			} else if (rt == 0) {
+				ir.Write(IROp::Not, rd, rs);
+			} else {
+				ir.Write(IROp::Or, IRTEMP_0, rs, rt);
+				ir.Write(IROp::Not, rd, IRTEMP_0);
+			}
+		}
 		break;
 
 	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
@@ -323,9 +330,9 @@ void IRJit::Comp_ShiftType(MIPSOpcode op) {
 
 	// WARNING : ROTR
 	switch (op & 0x3f) {
-	case 0: CompShiftImm(op, IROp::Shl, sa); break; //sll
-	case 2: CompShiftImm(op, rs == 1 ? IROp::Ror : IROp::Shr, sa); break;	//srl
-	case 3: CompShiftImm(op, IROp::Sar, sa); break; //sra
+	case 0: CompShiftImm(op, IROp::ShlImm, sa); break; //sll
+	case 2: CompShiftImm(op, (rs == 1 ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
+	case 3: CompShiftImm(op, IROp::SarImm, sa); break; //sra
 	case 4: CompShiftVar(op, IROp::Shl, IROp::ShlImm); break; //sllv
 	case 6: CompShiftVar(op, (fd == 1 ? IROp::Ror : IROp::Shr), (fd == 1 ? IROp::RorImm : IROp::ShrImm)); break; //srlv
 	case 7: CompShiftVar(op, IROp::Sar, IROp::SarImm); break; //srav

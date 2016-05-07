@@ -189,6 +189,7 @@
     <ClCompile Include="MIPS\IR\IRCompVFPU.cpp" />
     <ClCompile Include="MIPS\IR\IRInst.cpp" />
     <ClCompile Include="MIPS\IR\IRJit.cpp" />
+    <ClCompile Include="MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="MIPS\IR\IRRegCache.cpp" />
     <ClCompile Include="TextureReplacer.cpp" />
     <ClCompile Include="Compatibility.cpp" />
@@ -518,6 +519,7 @@
     <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRJit.h" />
+    <ClInclude Include="MIPS\IR\IRPassSimplify.h" />
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
     <ClInclude Include="TextureReplacer.h" />
     <ClInclude Include="Compatibility.h" />

@@ -1,8 +1,13 @@
 #include "Core/MIPS/IR/IRInst.h"
+#include "Core/MIPS/IR/IRPassSimplify.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
 
 IRMeta meta[] = {
-	{ IROp::SetConst, "SetConst", "GC" },
+	{ IROp::SetConst, "SetConst", "GC_" },
+	{ IROp::Mov, "Mov", "GG" },
 	{ IROp::Add, "Add", "GGG" },
 	{ IROp::Sub, "Sub", "GGG" },
 	{ IROp::Neg, "Neg", "GG" },
@@ -23,9 +28,9 @@ IRMeta meta[] = {
 	{ IROp::ShrImm, "ShrImm", "GGI" },
 	{ IROp::SarImm, "SarImm", "GGI" },
 	{ IROp::RorImm, "RorImm", "GGI" },
-	{ IROp::Slt, "Slt","GGC" },
-	{ IROp::SltConst, "SltConst","GGC" },
-	{ IROp::SltU, "SltU", "GGC" },
+	{ IROp::Slt, "Slt", "GGG" },
+	{ IROp::SltConst, "SltConst", "GGC" },
+	{ IROp::SltU, "SltU", "GGG" },
 	{ IROp::SltUConst, "SltUConst", "GGC" },
 	{ IROp::Clz, "Clz", "GG" },
 	{ IROp::MovZ, "MovZ", "GGG" },
@@ -37,6 +42,14 @@ IRMeta meta[] = {
 	{ IROp::Mul, "Mul", "_GG" },
 	{ IROp::Ext8to32, "Ext8to32", "GG" },
 	{ IROp::Ext16to32, "Ext16to32", "GG" },
+	{ IROp::Load8, "Load8", "GGC" },
+	{ IROp::Load8Ext, "Load8", "GGC" },
+	{ IROp::Load16, "Load16", "GGC" },
+	{ IROp::Load16Ext, "Load16Ext", "GGC" },
+	{ IROp::Load32, "Load32", "GGC" },
+	{ IROp::Store8, "Store8", "GGC" },
+	{ IROp::Store16, "Store16", "GGC" },
+	{ IROp::Store32, "Store32", "GGC" },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -57,8 +70,16 @@ IRMeta meta[] = {
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "T" },
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
+	{ IROp::ExitToConst, "Exit", "C" },
+	{ IROp::ExitToConstIfEq, "ExitIfEq", "CGG" },
+	{ IROp::ExitToConstIfNeq, "ExitIfNeq", "CGG" },
+	{ IROp::ExitToConstIfGtZ, "ExitIfGtZ", "CG" },
+	{ IROp::ExitToConstIfGeZ, "ExitIfGeZ", "CG" },
+	{ IROp::ExitToConstIfLeZ, "ExitIfLeZ", "CG" },
+	{ IROp::ExitToConstIfLtZ, "ExitIfLtZ", "CG" },
+	{ IROp::ExitToReg, "ExitToReg", "G" },
 	{ IROp::Syscall, "Syscall", "_C"},
-	{ IROp::SetPC, "SetPC", "_C"},
+	{ IROp::SetPC, "SetPC", "_G"},
 };
 
 const IRMeta *metaIndex[256];
@@ -82,8 +103,38 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Sub:
 			mips->r[inst->dest] = mips->r[inst->src1] - mips->r[inst->src2];
 			break;
+		case IROp::And:
+			mips->r[inst->dest] = mips->r[inst->src1] & mips->r[inst->src2];
+			break;
+		case IROp::Or:
+			mips->r[inst->dest] = mips->r[inst->src1] | mips->r[inst->src2];
+			break;
+		case IROp::Xor:
+			mips->r[inst->dest] = mips->r[inst->src1] ^ mips->r[inst->src2];
+			break;
+		case IROp::Mov:
+			mips->r[inst->dest] = mips->r[inst->src1];
+			break;
+		case IROp::AddConst:
+			mips->r[inst->dest] = mips->r[inst->src1] + constPool[inst->src2];
+			break;
+		case IROp::SubConst:
+			mips->r[inst->dest] = mips->r[inst->src1] - constPool[inst->src2];
+			break;
+		case IROp::AndConst:
+			mips->r[inst->dest] = mips->r[inst->src1] & constPool[inst->src2];
+			break;
+		case IROp::OrConst:
+			mips->r[inst->dest] = mips->r[inst->src1] | constPool[inst->src2];
+			break;
+		case IROp::XorConst:
+			mips->r[inst->dest] = mips->r[inst->src1] ^ constPool[inst->src2];
+			break;
 		case IROp::Neg:
 			mips->r[inst->dest] = -(s32)mips->r[inst->src1];
+			break;
+		case IROp::Not:
+			mips->r[inst->dest] = ~mips->r[inst->src1];
 			break;
 		case IROp::Ext8to32:
 			mips->r[inst->dest] = (s32)(s8)mips->r[inst->src1];
@@ -152,6 +203,22 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		}
 		break;
 
+		case IROp::Slt:
+			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)mips->r[inst->src2];
+			break;
+
+		case IROp::SltU:
+			mips->r[inst->dest] = mips->r[inst->src1] < mips->r[inst->src2];
+			break;
+
+		case IROp::SltConst:
+			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)constPool[inst->src2];
+			break;
+
+		case IROp::SltUConst:
+			mips->r[inst->dest] = mips->r[inst->src1] < constPool[inst->src2];
+			break;
+
 		case IROp::MovZ:
 			if (mips->r[inst->src1] == 0)
 				mips->r[inst->dest] = mips->r[inst->src2];
@@ -208,10 +275,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::ExitToConst:
-			return constPool[inst->src1];
+			return constPool[inst->dest];
 
 		case IROp::ExitToReg:
-			return mips->r[inst->src1];
+			return mips->r[inst->dest];
 
 		case IROp::ExitToConstIfEq:
 			if (mips->r[inst->src1] == mips->r[inst->src2])
@@ -238,8 +305,28 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 				return constPool[inst->dest];
 			break;
 
+		case IROp::Downcount:
+			mips->downcount -= (inst->src1) | ((inst->src2) << 8);
+			break;
+
 		case IROp::SetPC:
-			return mips->pc = mips->r[inst->src1];
+			mips->pc = mips->r[inst->src1];
+			break;
+
+		case IROp::Syscall:
+			// SetPC was executed before.
+		{
+			MIPSOpcode op(constPool[inst->src1]);
+			CallSyscall(op);
+			return mips->pc;
+		}
+
+		case IROp::Interpret:  // SLOW fallback. Can be made faster.
+		{
+			MIPSOpcode op(constPool[inst->src1]);
+			MIPSInterpret(op);
+			break;
+		}
 
 		default:
 			Crash();
@@ -262,14 +349,13 @@ void IRWriter::Write(IROp op, u8 dst, u8 src1, u8 src2) {
 }
 
 void IRWriter::WriteSetConstant(u8 dst, u32 value) {
-	// TODO: Check for the fixed ones first.
-	Write(IROp::SetConstImm, AddConstant(value));
+	Write(IROp::SetConst, dst, AddConstant(value));
 }
 
 int IRWriter::AddConstant(u32 value) {
 	for (size_t i = 0; i < constPool_.size(); i++) {
 		if (constPool_[i] == value)
-			return i;
+			return (int)i;
 	}
 	constPool_.push_back(value);
 	return (int)constPool_.size() - 1;
@@ -281,16 +367,38 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
+void IRWriter::Simplify() {
+	SimplifyInPlace(&insts_[0], insts_.size(), constPool_.data());
+}
+
+const char *GetGPRName(int r) {
+	if (r < 32) {
+		return currentDebugMIPS->GetRegName(0, r);
+	}
+	switch (r) {
+	case IRTEMP_0: return "irtemp0";
+	case IRTEMP_1: return "irtemp1";
+	default: return "(unk)";
+	}
+}
+
 void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *constPool) {
 	switch (type) {
 	case 'G':
-		snprintf(buf, bufSize, "r%d", param);
+		snprintf(buf, bufSize, "%s", GetGPRName(param));
 		break;
 	case 'F':
 		snprintf(buf, bufSize, "r%d", param);
 		break;
 	case 'C':
 		snprintf(buf, bufSize, "%08x", constPool[param]);
+		break;
+	case 'I':
+		snprintf(buf, bufSize, "%02x", param);
+		break;
+	case '_':
+	case '\0':
+		buf[0] = 0;
 		break;
 	default:
 		snprintf(buf, bufSize, "?");
@@ -300,16 +408,20 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool) {
 	const IRMeta *meta = metaIndex[(int)inst.op];
+	if (!meta) {
+		snprintf(buf, bufsize, "Unknown %d", (int)inst.op);
+		return;
+	}
 	char bufDst[16];
 	char bufSrc1[16];
 	char bufSrc2[16];
 	DisassembleParam(bufDst, sizeof(bufDst) - 2, inst.dest, meta->types[0], constPool);
-	DisassembleParam(bufSrc1, sizeof(bufSrc1) - 2, inst.dest, meta->types[1], constPool);
-	DisassembleParam(bufSrc2, sizeof(bufSrc2), inst.dest, meta->types[2], constPool);
-	if (meta->types[1]) {
+	DisassembleParam(bufSrc1, sizeof(bufSrc1) - 2, inst.src1, meta->types[1], constPool);
+	DisassembleParam(bufSrc2, sizeof(bufSrc2), inst.src2, meta->types[2], constPool);
+	if (meta->types[1] && meta->types[0] != '_') {
 		strcat(bufDst, ", ");
 	}
-	if (meta->types[2]) {
+	if (meta->types[2] && meta->types[1] != '_') {
 		strcat(bufSrc1, ", ");
 	}
 	snprintf(buf, bufsize, "%s %s%s%s", meta->name, bufDst, bufSrc1, bufSrc2);

@@ -34,8 +34,18 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() {}
+	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0) {}
 	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), origAddr_(emAddr), numInstructions_(0) {}
+	IRBlock(IRBlock &&b) {
+		instr_ = b.instr_;
+		const_ = b.const_;
+		numInstructions_ = b.numInstructions_;
+		numConstants_ = b.numConstants_;
+		origAddr_ = b.origAddr_;
+		b.instr_ = nullptr;
+		b.const_ = nullptr;
+	}
+
 	~IRBlock() {
 		delete[] instr_;
 		delete[] const_;
@@ -50,12 +60,20 @@ public:
 		memcpy(const_, constants.data(), sizeof(u32) * constants.size());
 	}
 
+	const IRInst *GetInstructions() const { return instr_; }
+	const u32 *GetConstants() const { return const_; }
+	int GetNumInstructions() const { return numInstructions_; }
+	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
+
+	void Finalize(int number);
+
 private:
 	IRInst *instr_;
 	u32 *const_;
 	u16 numInstructions_;
 	u16 numConstants_;
 	u32 origAddr_;
+	MIPSOpcode origFirstOpcode_;
 };
 
 class IRBlockCache {
@@ -170,7 +188,8 @@ public:
 	int Replace_fabsf();
 
 	// Not using a regular block cache.
-	JitBlockCache *GetBlockCache() { return nullptr; }
+	JitBlockCache *GetBlockCache() override { return nullptr; }
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void ClearCache();
 	void InvalidateCache();

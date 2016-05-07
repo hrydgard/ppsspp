@@ -839,4 +839,14 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 a
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }
 
+MIPSOpcode Jit::GetOriginalOp(MIPSOpcode op) {
+	JitBlockCache *bc = GetBlockCache();
+	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
+	if (block_num >= 0) {
+		return bc->GetOriginalFirstOp(block_num);
+	} else {
+		return op;
+	}
+}
+
 } // namespace

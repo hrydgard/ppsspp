@@ -82,7 +82,7 @@ void IRJit::Comp_FPUComp(MIPSOpcode op) {
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
-		gpr.SetImm(MIPS_REG_FPCOND, 0);
+		gpr.SetImm((MIPSGPReg)IRREG_FPCOND, 0);
 		return;
 	}
 
