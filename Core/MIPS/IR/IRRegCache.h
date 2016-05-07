@@ -17,27 +17,28 @@ struct RegIR {
 
 class IRWriter;
 
+// Transient
 class IRRegCache {
 public:
-	void SetImm(MIPSGPReg r, u32 immVal) {
+	IRRegCache(IRWriter *ir);
+
+	void SetImm(int r, u32 immVal) {
 		reg_[r].isImm = true;
 		reg_[r].immVal = immVal;
 	}
 
-	bool IsImm(MIPSGPReg r) const { return reg_[r].isImm; }
-	u32 GetImm(MIPSGPReg r) const { return reg_[r].immVal; }
+	bool IsImm(int r) const { return reg_[r].isImm; }
+	u32 GetImm(int r) const { return reg_[r].immVal; }
 
-	void MapIn(MIPSGPReg rd);
-	void MapInIn(MIPSGPReg rs, MIPSGPReg rt);
-	void MapDirty(MIPSGPReg rd);
-	void MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs);
-	void MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt);
-
-	void Start(IRWriter *ir);
 	void FlushAll();
 
+	void MapInIn(int rs, int rt);
+	void MapDirtyIn(int rd, int rs);
+	void MapDirtyInIn(int rd, int rs, int rt);
+
 private:
-	void Dirty(MIPSGPReg rd);
+	void Flush(int rd);
+	void Discard(int rd);
 	RegIR reg_[TOTAL_MAPPABLE_MIPSREGS];
 	IRWriter *ir_;
 };

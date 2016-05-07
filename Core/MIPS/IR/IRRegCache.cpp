@@ -1,7 +1,7 @@
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInst.h"
 
-void IRRegCache::Dirty(MIPSGPReg rd) {
+void IRRegCache::Flush(int rd) {
 	if (rd == 0) {
 		return;
 	}
@@ -11,31 +11,14 @@ void IRRegCache::Dirty(MIPSGPReg rd) {
 	}
 }
 
-void IRRegCache::MapIn(MIPSGPReg rd) {
-	Dirty(rd);
+void IRRegCache::Discard(int rd) {
+	if (rd == 0) {
+		return;
+	}
+	reg_[rd].isImm = false;
 }
 
-void IRRegCache::MapInIn(MIPSGPReg rs, MIPSGPReg rt) {
-	Dirty(rs);
-	Dirty(rt);
-}
-
-void IRRegCache::MapDirty(MIPSGPReg rd) {
-	Dirty(rd);
-}
-
-void IRRegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs) {
-	Dirty(rd);
-	Dirty(rs);
-}
-
-void IRRegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt) {
-	Dirty(rd);
-	Dirty(rs);
-	Dirty(rt);
-}
-
-void IRRegCache::Start(IRWriter *ir) {
+IRRegCache::IRRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&reg_, 0, sizeof(reg_));
 	reg_[0].isImm = true;
 	ir_ = ir;
@@ -43,6 +26,27 @@ void IRRegCache::Start(IRWriter *ir) {
 
 void IRRegCache::FlushAll() {
 	for (int i = 0; i < TOTAL_MAPPABLE_MIPSREGS; i++) {
-		Dirty((MIPSGPReg)i);
+		Flush(i);
 	}
 }
+
+void IRRegCache::MapInIn(int rs, int rt) {
+	Flush(rs);
+	Flush(rt);
+}
+
+void IRRegCache::MapDirtyIn(int rd, int rs) {
+	if (rs != rd) {
+		Discard(rd);
+	}
+	Flush(rs);
+}
+
+void IRRegCache::MapDirtyInIn(int rd, int rs, int rt) {
+	if (rs != rd && rt != rd) {
+		Discard(rd);
+	}
+	Flush(rs);
+	Flush(rt);
+}
+

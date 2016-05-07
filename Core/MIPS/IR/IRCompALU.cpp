@@ -61,12 +61,7 @@ void IRJit::Comp_IType(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 8:	// same as addiu?
 	case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-		// Special-case for small adjustments of pointerified registers. Commonly for SP but happens for others.
-		if (simm >= 0) {
-			ir.Write(IROp::AddConst, rt, rs, ir.AddConstant(simm));
-		} else if (simm < 0) {
-			ir.Write(IROp::SubConst, rt, rs, ir.AddConstant(-simm));
-		}
+		ir.Write(IROp::AddConst, rt, rs, ir.AddConstant(simm));
 		break;
 
 	case 12: ir.Write(IROp::AndConst, rt, rs, ir.AddConstant(uimm)); break;

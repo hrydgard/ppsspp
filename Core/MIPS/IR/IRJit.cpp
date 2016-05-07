@@ -36,6 +36,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 namespace MIPSComp
@@ -44,11 +45,11 @@ namespace MIPSComp
 IRJit::IRJit(MIPSState *mips) : mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
-	js.startDefaultPrefix = true;
+	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 	u32 size = 128 * 1024;
 	blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
-	logBlocks = 100;
+	logBlocks = 12;
 	InitIR();
 }
 
@@ -88,8 +89,7 @@ void IRJit::DoDummyState(PointerWrap &p) {
 }
 
 void IRJit::FlushAll() {
-	// gpr.FlushAll();
-	// FlushPrefixV();
+	FlushPrefixV();
 }
 
 void IRJit::FlushPrefixV() {
@@ -259,7 +259,15 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 
 	ir.Simplify();
 
-	b->SetInstructions(ir.GetInstructions(), ir.GetConstants());
+	IRWriter simplified;
+
+	IRWriter *code = &ir;
+	if (true) {
+		PropagateConstants(ir, simplified);
+		code = &simplified;
+	}
+
+	b->SetInstructions(code->GetInstructions(), code->GetConstants());
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
@@ -272,10 +280,20 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== IR (%d instructions) ===============", js.numInstructions);
+		ILOG("=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
 		for (int i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], ir.GetConstants().data());
+			ILOG("%s", buf);
+		}
+		ILOG("===============        end         =================");
+	}
+
+	if (logBlocks > 0 && dontLogBlocks == 0) {
+		ILOG("=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
+		for (int i = 0; i < code->GetInstructions().size(); i++) {
+			char buf[256];
+			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], code->GetConstants().data());
 			ILOG("%s", buf);
 		}
 		ILOG("===============        end         =================");

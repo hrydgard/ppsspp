@@ -249,6 +249,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 class IRWriter {
 public:
 	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0);
+	void Write(IRInst inst) {
+		insts_.push_back(inst);
+	}
 	void WriteSetConstant(u8 dst, u32 value);
 
 	int AddConstant(u32 value);
@@ -261,13 +264,14 @@ public:
 
 	void Simplify();
 
-	const std::vector<IRInst> &GetInstructions() { return insts_; }
-	const std::vector<u32> &GetConstants() { return constPool_; }
+	const std::vector<IRInst> &GetInstructions() const { return insts_; }
+	const std::vector<u32> &GetConstants() const { return constPool_; }
 
 private:
 	std::vector<IRInst> insts_;
 	std::vector<u32> constPool_;
 };
 
+const IRMeta *GetIRMeta(IROp op);
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool);
 void InitIR();

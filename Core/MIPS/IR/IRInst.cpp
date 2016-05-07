@@ -9,7 +9,7 @@
 #include "math/math_util.h"
 
 static const IRMeta irMeta[] = {
-	{ IROp::SetConst, "SetConst", "GC_" },
+	{ IROp::SetConst, "SetConst", "GC" },
 	{ IROp::Mov, "Mov", "GG" },
 	{ IROp::Add, "Add", "GGG" },
 	{ IROp::Sub, "Sub", "GGG" },
@@ -81,7 +81,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
-	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "T" },
+	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
 	{ IROp::ExitToConst, "Exit", "C" },
@@ -94,7 +94,9 @@ static const IRMeta irMeta[] = {
 	{ IROp::ExitToReg, "ExitToReg", "G" },
 	{ IROp::Syscall, "Syscall", "_C" },
 	{ IROp::Break, "Break", ""},
-	{ IROp::SetPC, "SetPC", "_G"},
+	{ IROp::SetPC, "SetPC", "_G" },
+	{ IROp::SetPCConst, "SetPC", "_C" },
+	{ IROp::CallReplacement, "CallRepl", "_C"},
 };
 
 const IRMeta *metaIndex[256];
@@ -454,6 +456,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			Crash();
 			break;
 
+		case IROp::SetCtrlVFPU:
+			mips->vfpuCtrl[inst->dest] = constPool[inst->src1];
+			break;
+
 		default:
 			Crash();
 		}
@@ -498,7 +504,7 @@ int IRWriter::AddConstantFloat(float value) {
 }
 
 void IRWriter::Simplify() {
-	SimplifyInPlace(&insts_[0], insts_.size(), constPool_.data());
+	SimplifyInPlace(&insts_[0], (int)insts_.size(), constPool_.data());
 }
 
 const char *GetGPRName(int r) {
@@ -536,8 +542,12 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 	}
 }
 
+const IRMeta *GetIRMeta(IROp op) {
+	return metaIndex[(int)op];
+}
+
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool) {
-	const IRMeta *meta = metaIndex[(int)inst.op];
+	const IRMeta *meta = GetIRMeta(inst.op);
 	if (!meta) {
 		snprintf(buf, bufsize, "Unknown %d", (int)inst.op);
 		return;

@@ -121,6 +121,7 @@ void IRJit::Comp_FPUComp(MIPSOpcode op) {
 
 void IRJit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+
 	int fs = _FS;
 	int fd = _FD;
 
