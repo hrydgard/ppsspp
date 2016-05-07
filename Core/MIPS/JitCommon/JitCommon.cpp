@@ -47,9 +47,6 @@ namespace MIPSComp {
 	}
 
 	JitInterface *CreateNativeJit(MIPSState *mips) {
-#if 1
-		return new MIPSComp::IRJit(mips);
-#else
 #if defined(ARM)
 		return new MIPSComp::ArmJit(mips);
 #elif defined(ARM64)
@@ -60,7 +57,6 @@ namespace MIPSComp {
 		return new MIPSComp::MipsJit(mips);
 #else
 		return new MIPSComp::FakeJit(mips);
-#endif
 #endif
 	}
 

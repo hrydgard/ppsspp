@@ -1059,8 +1059,11 @@ void DeveloperToolsScreen::CreateViews() {
 		}
 	}
 #endif
-	if (canUseJit) {
-		list->Add(new CheckBox(&g_Config.bJit, sy->T("Dynarec", "Dynarec (JIT)")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitAffectingSetting);
+
+	static const char *cpuCores[] = { "Interpreter", "Dynarec (JIT)", "IRJit" };
+	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, gr->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), sy->GetName(), screenManager()));
+	if (!canUseJit) {
+		core->HideChoice(1);
 	}
 
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show Developer Menu")));

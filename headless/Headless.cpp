@@ -207,11 +207,11 @@ int main(int argc, const char* argv[])
 #endif
 
 	bool fullLog = false;
-	bool useJit = true;
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_NULL;
+	CPUCore cpuCore = CPU_CORE_JIT;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -236,9 +236,11 @@ int main(int argc, const char* argv[])
 		else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--log"))
 			fullLog = true;
 		else if (!strcmp(argv[i], "-i"))
-			useJit = false;
+			cpuCore = CPU_CORE_INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
-			useJit = true;
+			cpuCore = CPU_CORE_JIT;
+		else if (!strcmp(argv[i], "-ir"))
+			cpuCore = CPU_CORE_IRJIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;
 		else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose"))
@@ -311,7 +313,7 @@ int main(int argc, const char* argv[])
 	}
 
 	CoreParameter coreParameter;
-	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
+	coreParameter.cpuCore = cpuCore;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;

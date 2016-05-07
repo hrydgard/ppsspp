@@ -219,7 +219,7 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 
-	ir.Write(IROp::VfpCondToReg, IRTEMP_0);
+	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, VFPU_CTRL_CC);
 
 	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
 

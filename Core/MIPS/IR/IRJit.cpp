@@ -255,6 +255,12 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
 		js.numInstructions++;
+
+		if (ir.GetConstants().size() > 128) {
+			// Need to break the block
+			ir.Write(IROp::ExitToConst, ir.AddConstant(js.compilerPC));
+			js.compiling = false;
+		}
 	}
 
 	ir.Simplify();

@@ -20,12 +20,7 @@
 #include <string>
 
 #include "Core/Compatibility.h"
-
-enum CPUCore {
-	CPU_INTERPRETER,
-	CPU_JIT,
-	CPU_IRJIT,
-};
+#include "Core/Config.h"
 
 enum GPUCore {
 	GPUCORE_NULL,
@@ -47,6 +42,7 @@ struct CoreParameter {
 
 	CPUCore cpuCore;
 	GPUCore gpuCore;
+
 	GraphicsContext *graphicsContext;  // TODO: Find a better place.
 	Thin3DContext *thin3d;
 	bool enableSound;  // there aren't multiple sound cores.

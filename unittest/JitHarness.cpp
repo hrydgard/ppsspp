@@ -83,7 +83,7 @@ static void SetupJitHarness() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
-	PSP_CoreParameter().cpuCore = CPU_INTERPRETER;
+	PSP_CoreParameter().cpuCore = CPU_CORE_INTERPRETER;
 	PSP_CoreParameter().unthrottle = true;
 
 	Memory::Init();
@@ -169,7 +169,7 @@ bool TestJit() {
 	double jit_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
-		mipsr4k.UpdateCore(CPU_JIT);
+		mipsr4k.UpdateCore(CPU_CORE_JIT);
 		jit_speed = ExecCPUTest();
 
 		// Disassemble

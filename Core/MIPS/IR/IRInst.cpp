@@ -81,6 +81,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
+	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
@@ -328,6 +329,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;
+			break;
+		case IROp::VfpuCtrlToReg:
+			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
 		case IROp::FRound:
 			mips->r[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);

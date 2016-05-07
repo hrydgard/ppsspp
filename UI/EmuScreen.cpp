@@ -101,7 +101,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	invalid_ = true;
 
 	CoreParameter coreParam;
-	coreParam.cpuCore = g_Config.bJit ? CPU_JIT : CPU_INTERPRETER;
+	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
 	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
@@ -282,7 +282,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "clear jit")) {
 		currentMIPS->ClearJitCache();
 		if (PSP_IsInited()) {
-			currentMIPS->UpdateCore(g_Config.bJit ? CPU_JIT : CPU_INTERPRETER);
+			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 		}
 	} else if (!strcmp(message, "window minimized")) {
 		if (!strcmp(value, "true")) {

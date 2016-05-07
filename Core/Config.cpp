@@ -282,9 +282,20 @@ static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
 
-static bool DefaultJit() {
+// TODO: Default to IRJit on iOS when it's done.
+static int DefaultCpuCore() {
 #ifdef IOS
-	return iosCanUseJit;
+	return iosCanUseJit ? CPU_CORE_JIT : CPU_CORE_INTERPRETER;
+#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+	return CPU_CORE_JIT;
+#else
+	return CPU_CORE_INTERPRETER;
+#endif
+}
+
+static bool DefaultCodeGen() {
+#ifdef IOS
+	return iosCanUseJit ? true : false;
 #elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return true;
 #else
@@ -353,8 +364,7 @@ static bool DefaultSasThread() {
 }
 
 static ConfigSetting cpuSettings[] = {
-	ReportedConfigSetting("Jit", &g_Config.bJit, &DefaultJit, true, true),
-	ReportedConfigSetting("CPUCore", &g_Config.bJit, &DefaultJit, true, true),
+	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
 	ReportedConfigSetting("SeparateCPUThread", &g_Config.bSeparateCPUThread, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
@@ -464,7 +474,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("VertexCache", &g_Config.bVertexCache, true, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
-	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultJit, false),
+	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),
 
 #ifndef MOBILE_DEVICE
 	ConfigSetting("FullScreen", &g_Config.bFullScreen, false),
@@ -959,16 +969,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 
 	// Override ppsspp.ini JIT value to prevent crashing
-	if (!DefaultJit() && g_Config.bJit) {
+	if (DefaultCpuCore() != CPU_CORE_JIT && g_Config.iCpuCore == CPU_CORE_JIT) {
 		jitForcedOff = true;
-		g_Config.bJit = false;
+		g_Config.iCpuCore = CPU_CORE_INTERPRETER;
 	}
 }
 
 void Config::Save() {
 	if (jitForcedOff) {
 		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
-		g_Config.bJit = true;
+		g_Config.iCpuCore = CPU_CORE_JIT;
 	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		
@@ -1037,7 +1047,7 @@ void Config::Save() {
 	}
 	if (jitForcedOff) {
 		// force JIT off again just in case Config::Save() is called without exiting PPSSPP
-		g_Config.bJit = false;
+		g_Config.iCpuCore = CPU_CORE_INTERPRETER;
 	}
 }
 
