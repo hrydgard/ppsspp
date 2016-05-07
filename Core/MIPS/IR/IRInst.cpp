@@ -372,6 +372,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			}
 			break; //cvt.w.s
 		}
+		case IROp::ZeroFpCond:
+			mips->fpcond = 0;
+			break;
 
 		case IROp::FMovFromGPR:
 			memcpy(&mips->f[inst->dest], &mips->r[inst->src1], 4);
@@ -481,6 +484,10 @@ int IRWriter::AddConstant(u32 value) {
 			return (int)i;
 	}
 	constPool_.push_back(value);
+	if (constPool_.size() > 255) {
+		// Cannot have more than 256 constants in a block!
+		Crash();
+	}
 	return (int)constPool_.size() - 1;
 }
 

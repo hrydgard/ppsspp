@@ -84,16 +84,18 @@ public:
 	int GetNumBlocks() const { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.emplace_back(IRBlock(emAddr));
+		size_ = (int)blocks_.size();
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
-		if (i >= 0 && i < blocks_.size()) {
-			return &blocks_[i];
+		if (i >= 0 && i < size_) {
+			return blocks_.data() + i;
 		} else {
 			return nullptr;
 		}
 	}
 private:
+	int size_;
 	std::vector<IRBlock> blocks_;
 };
 
@@ -231,8 +233,6 @@ private:
 	void BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely);
 
 	// Utilities to reduce duplicated code
-	void CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, IROp op);
-	void CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, IROp op, IROp constOp, bool symmetric = false);
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);
 	void CompShiftVar(MIPSOpcode op, IROp shiftType, IROp shiftTypeConst);
 
@@ -257,9 +257,6 @@ private:
 	JitState js;
 
 	IRBlockCache blocks_;
-
-	IRRegCache gpr;
-	// Arm64RegCacheFPU fpr;
 
 	MIPSState *mips_;
 

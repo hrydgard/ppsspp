@@ -82,7 +82,7 @@ void IRJit::Comp_FPUComp(MIPSOpcode op) {
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
 	if (opc == 0) {  // f, sf (signalling false)
-		gpr.SetImm((MIPSGPReg)IRREG_FPCOND, 0);
+		ir.Write(IROp::ZeroFpCond);
 		return;
 	}
 
@@ -186,7 +186,6 @@ void IRJit::Comp_mxc1(MIPSOpcode op)
 		if (rt == MIPS_REG_ZERO) {
 			return;
 		}
-		gpr.MapDirty(rt);
 		ir.Write(IROp::FMovToGPR, rt, fs);
 		return;
 
@@ -196,16 +195,16 @@ void IRJit::Comp_mxc1(MIPSOpcode op)
 		}
 		if (fs == 31) {
 			DISABLE;
-		} else if (fs == 0) {
-			gpr.SetImm(rt, MIPSState::FCR0_VALUE);
+		}
+		else if (fs == 0) {
+			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
 		} else {
 			// Unsupported regs are always 0.
-			gpr.SetImm(rt, 0);
+			ir.Write(IROp::SetConst, rt, ir.AddConstant(0));
 		}
 		return;
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
-		gpr.MapDirty(rt);
 		ir.Write(IROp::FMovFromGPR, fs, rt);
 		return;
 

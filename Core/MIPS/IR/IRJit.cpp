@@ -41,14 +41,14 @@
 namespace MIPSComp
 {
 
-IRJit::IRJit(MIPSState *mips) : gpr(), mips_(mips) { 
+IRJit::IRJit(MIPSState *mips) : mips_(mips) { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	js.startDefaultPrefix = true;
 	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 	u32 size = 128 * 1024;
 	blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
-	logBlocks = 0;
+	logBlocks = 100;
 	InitIR();
 }
 
@@ -88,7 +88,7 @@ void IRJit::DoDummyState(PointerWrap &p) {
 }
 
 void IRJit::FlushAll() {
-	gpr.FlushAll();
+	// gpr.FlushAll();
 	// FlushPrefixV();
 }
 
@@ -246,8 +246,6 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 	js.PrefixStart();
 	ir.Clear();
 
-	gpr.Start(&ir);
-
 	int partialFlushOffset = 0;
 
 	js.numInstructions = 0;
@@ -272,7 +270,6 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 			ILOG("M: %08x   %s", cpc, temp2);
 		}
 	}
-
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== IR (%d instructions) ===============", js.numInstructions);

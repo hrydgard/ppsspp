@@ -29,7 +29,6 @@
 #include "Core/MIPS/MIPSTables.h"
 
 #include "Core/MIPS/IR/IRJit.h"
-#include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 #include "Common/Arm64Emitter.h"
@@ -74,12 +73,10 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
 	MIPSGPReg rhs = rt;
 	if (!delaySlotIsNice) {  // if likely, we don't need this
 		if (rs != 0) {
-			gpr.MapIn(rs);
 			ir.Write(IROp::Mov, IRTEMP_0, rs);
 			lhs = (MIPSGPReg)IRTEMP_0;
 		}
 		if (rt != 0) {
-			gpr.MapIn(rt);
 			ir.Write(IROp::Mov, IRTEMP_1, rt);
 			rhs = (MIPSGPReg)IRTEMP_1;
 		}
@@ -88,7 +85,6 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
 	if (!likely)
 		CompileDelaySlot();
 
-	gpr.MapInIn(lhs, rhs);
 	FlushAll();
 	ir.Write(ComparisonToExit(cc), ir.AddConstant(GetCompilerPC() + 8), lhs, rhs);
 	// This makes the block "impure" :(
@@ -121,12 +117,11 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 		lhs = (MIPSGPReg)IRTEMP_0;
 	}
 	if (andLink)
-		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+		ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 8);
 
 	if (!likely)
 		CompileDelaySlot();
 
-	gpr.MapIn(lhs);
 	FlushAll();
 	ir.Write(ComparisonToExit(cc), ir.AddConstant(GetCompilerPC() + 8), lhs);
 	if (likely)
@@ -294,7 +289,7 @@ void IRJit::Comp_Jump(MIPSOpcode op) {
 		break;
 
 	case 3: //jal
-		gpr.SetImm(MIPS_REG_RA, GetCompilerPC() + 8);
+		ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		FlushAll();
 		ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
@@ -325,27 +320,24 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 
 	int destReg;
 	if (IsSyscall(delaySlotOp)) {
-		gpr.MapDirty(rs);
 		ir.Write(IROp::SetPC, 0, rs);
 		if (andLink)
-			gpr.SetImm(rd, GetCompilerPC() + 8);
+			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		// Syscall (the delay slot) does FlushAll.
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)
-			gpr.SetImm(rd, GetCompilerPC() + 8);
+			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
-		gpr.MapDirty(rs);
 		destReg = rs;  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
 		// Bad delay slot.
-		gpr.MapDirty(rs);
 		ir.Write(IROp::Mov, IRTEMP_0, rs);
 		destReg = IRTEMP_0;
 		if (andLink)
-			gpr.SetImm(rd, GetCompilerPC() + 8);
+			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		FlushAll();
 	}

@@ -82,8 +82,6 @@ namespace MIPSComp {
 			return;
 		}
 
-		gpr.MapIn(rs);
-		gpr.MapDirty(rt);
 		int addrReg = IRTEMP_0;
 		switch (o) {
 			// Load

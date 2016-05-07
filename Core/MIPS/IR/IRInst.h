@@ -121,6 +121,7 @@ enum class IROp : u8 {
 	FpCondToReg,
 	VfpCondToReg,
 
+	ZeroFpCond,
 	FCmpUnordered,
 	FCmpEqual,
 	FCmpEqualUnordered,
