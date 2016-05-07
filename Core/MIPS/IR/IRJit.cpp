@@ -313,7 +313,33 @@ bool IRJit::ReplaceJalTo(u32 dest) {
 }
 
 void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
-	Crash();
+	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+
+	const ReplacementTableEntry *entry = GetReplacementFunc(index);
+	if (!entry) {
+		ERROR_LOG(HLE, "Invalid replacement op %08x", op.encoding);
+		return;
+	}
+
+	if (entry->flags & REPFLAG_DISABLED) {
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+	} else if (entry->replaceFunc) {
+		FlushAll();
+		RestoreRoundingMode();
+		ir.Write(IROp::SetPC, 0, ir.AddConstant(GetCompilerPC()));
+		ir.Write(IROp::CallReplacement, 0, ir.AddConstant(index));
+
+		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			// Compile the original instruction at this address.  We ignore cycles for hooks.
+			ApplyRoundingMode();
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		} else {
+			ApplyRoundingMode();
+			js.compiling = false;
+		}
+	} else {
+		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
+	}
 }
 
 void IRJit::Comp_Generic(MIPSOpcode op) {

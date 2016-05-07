@@ -152,6 +152,7 @@ enum class IROp : u8 {
 
 	Syscall,
 	SetPC,  // hack to make syscall returns work
+	CallReplacement,
 	Break,
 };
 

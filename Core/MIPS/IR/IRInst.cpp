@@ -4,6 +4,9 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ReplaceTables.h"
+
+#include "math/math_util.h"
 
 IRMeta meta[] = {
 	{ IROp::SetConst, "SetConst", "GC_" },
@@ -286,6 +289,58 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;
 			break;
+		case IROp::FRound:
+			mips->r[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);
+			break;
+		case IROp::FTrunc:
+		{
+			float src = mips->f[inst->src1];
+			if (src >= 0.0f) {
+				mips->fs[inst->dest] = (int)floorf(src);
+				// Overflow, but it was positive.
+				if (mips->fs[inst->dest] == -2147483648LL) {
+					mips->fs[inst->dest] = 2147483647LL;
+				}
+			} else {
+				// Overflow happens to be the right value anyway.
+				mips->fs[inst->dest] = (int)ceilf(src);
+			}
+			break;
+		}
+		case IROp::FCeil:
+			mips->r[inst->dest] = (int)ceilf(mips->f[inst->src1]);
+			break;
+		case IROp::FFloor:
+			mips->r[inst->dest] = (int)floorf(mips->f[inst->src1]);
+			break;
+
+		case IROp::FCvtSW:
+			mips->f[inst->dest] = (float)mips->fs[inst->src1];
+			break;
+		case IROp::FCvtWS:
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnanorinf(src))
+			{
+				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			}
+			switch (mips->fcr31 & 3)
+			{
+			case 0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;  // RINT_0
+			case 1: mips->fs[inst->dest] = (int)src; break;  // CAST_1
+			case 2: mips->fs[inst->dest] = (int)ceilf(src); break;  // CEIL_2
+			case 3: mips->fs[inst->dest] = (int)floorf(src); break;  // FLOOR_3
+			}
+			break; //cvt.w.s
+		}
+
+		case IROp::FMovFromGPR:
+			memcpy(&mips->f[inst->dest], &mips->r[inst->src1], 4);
+			break;
+		case IROp::FMovToGPR:
+			memcpy(&mips->r[inst->dest], &mips->f[inst->src1], 4);
+			break;
 
 		case IROp::ExitToConst:
 			return constPool[inst->dest];
@@ -338,6 +393,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		{
 			MIPSOpcode op(constPool[inst->src1]);
 			MIPSInterpret(op);
+			break;
+		}
+
+		case IROp::CallReplacement:
+		{
+			int funcIndex = constPool[inst->src1];
+			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
+			int cycles = f->replaceFunc();
+			mips->downcount -= cycles;
 			break;
 		}
 

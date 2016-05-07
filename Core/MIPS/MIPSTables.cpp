@@ -974,8 +974,6 @@ void MIPSInterpret(MIPSOpcode op) {
 
 int MIPSInterpret_RunUntil(u64 globalTicks)
 {
-	int blockCount = 150000;
-	FILE *f = fopen("E:\\blockjit.txt", "w");
 	MIPSState *curMips = currentMIPS;
 	while (coreState == CORE_RUNNING)
 	{
@@ -1019,6 +1017,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
 
+				/*
 				if (curMips->pc != lastPC + 4) {
 					if (blockCount > 0) {
 						MIPSState *mips_ = curMips;
@@ -1028,7 +1027,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 					}
 				}
 				lastPC = curMips->pc;
-
+				*/
 				MIPSInterpret(op);
 
 				if (curMips->inDelaySlot)
