@@ -273,6 +273,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		}
 	}
 
+
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== IR (%d instructions) ===============", js.numInstructions);
 		for (int i = 0; i < ir.GetInstructions().size(); i++) {
@@ -326,7 +327,7 @@ void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
-		ir.Write(IROp::SetPC, 0, ir.AddConstant(GetCompilerPC()));
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
 		ir.Write(IROp::CallReplacement, 0, ir.AddConstant(index));
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {

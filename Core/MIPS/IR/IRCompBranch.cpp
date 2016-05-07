@@ -380,7 +380,7 @@ void IRJit::Comp_Syscall(MIPSOpcode op) {
 }
 
 void IRJit::Comp_Break(MIPSOpcode op) {
-	Comp_Generic(op);
+	ir.Write(IROp::Break);
 	js.compiling = false;
 }
 

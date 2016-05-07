@@ -8,7 +8,7 @@
 
 #include "math/math_util.h"
 
-IRMeta meta[] = {
+static const IRMeta irMeta[] = {
 	{ IROp::SetConst, "SetConst", "GC_" },
 	{ IROp::Mov, "Mov", "GG" },
 	{ IROp::Add, "Add", "GGG" },
@@ -42,7 +42,18 @@ IRMeta meta[] = {
 	{ IROp::Min, "Min", "GGG" },
 	{ IROp::BSwap16, "BSwap16", "GG" },
 	{ IROp::BSwap32, "BSwap32", "GG" },
-	{ IROp::Mul, "Mul", "_GG" },
+	{ IROp::Mult, "Mult", "_GG" },
+	{ IROp::MultU, "MultU", "_GG" },
+	{ IROp::Madd, "Madd", "_GG" },
+	{ IROp::MaddU, "MaddU", "_GG" },
+	{ IROp::Msub, "Msub", "_GG" },
+	{ IROp::MsubU, "MsubU", "_GG" },
+	{ IROp::Div, "Div", "_GG" },
+	{ IROp::DivU, "DivU", "_GG" },
+	{ IROp::MtLo, "MtLo", "_G" },
+	{ IROp::MtHi, "MtHi", "_G" },
+	{ IROp::MfLo, "MfLo", "G" },
+	{ IROp::MfHi, "MfHi", "G" },
 	{ IROp::Ext8to32, "Ext8to32", "GG" },
 	{ IROp::Ext16to32, "Ext16to32", "GG" },
 	{ IROp::Load8, "Load8", "GGC" },
@@ -81,15 +92,16 @@ IRMeta meta[] = {
 	{ IROp::ExitToConstIfLeZ, "ExitIfLeZ", "CG" },
 	{ IROp::ExitToConstIfLtZ, "ExitIfLtZ", "CG" },
 	{ IROp::ExitToReg, "ExitToReg", "G" },
-	{ IROp::Syscall, "Syscall", "_C"},
+	{ IROp::Syscall, "Syscall", "_C" },
+	{ IROp::Break, "Break", ""},
 	{ IROp::SetPC, "SetPC", "_G"},
 };
 
 const IRMeta *metaIndex[256];
 
 void InitIR() {
-	for (size_t i = 0; i < ARRAY_SIZE(meta); i++) {
-		metaIndex[(int)meta[i].op] = &meta[i];
+	for (size_t i = 0; i < ARRAY_SIZE(irMeta); i++) {
+		metaIndex[(int)irMeta[i].op] = &irMeta[i];
 	}
 }
 
@@ -251,6 +263,32 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)mips->r[inst->src2] ? mips->r[inst->src1] : mips->r[inst->src2];
 			break;
 
+		case IROp::MtLo:
+			mips->lo = mips->r[inst->src1];
+			break;
+		case IROp::MtHi:
+			mips->hi = mips->r[inst->src1];
+			break;
+		case IROp::MfLo:
+			mips->r[inst->dest] = mips->lo;
+			break;
+		case IROp::MfHi:
+			mips->r[inst->dest] = mips->hi;
+			break;
+
+		case IROp::Mult:
+		{
+			s64 result = (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MultU:
+		{
+			u64 result = (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+
 		case IROp::BSwap16:
 		{
 			u32 x = mips->r[inst->src1];
@@ -381,6 +419,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->pc = mips->r[inst->src1];
 			break;
 
+		case IROp::SetPCConst:
+			mips->pc = constPool[inst->src1];
+			break;
+
 		case IROp::Syscall:
 			// SetPC was executed before.
 		{
@@ -402,8 +444,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			int cycles = f->replaceFunc();
 			mips->downcount -= cycles;
-			break;
+			return mips->r[MIPS_REG_RA];
 		}
+
+		case IROp::Break:
+			Crash();
+			break;
 
 		default:
 			Crash();
@@ -412,7 +458,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 	}
 
 	// If we got here, the block was badly constructed.
-	// Crash();
+	Crash();
 	return 0;
 }
 

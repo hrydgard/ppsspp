@@ -66,13 +66,19 @@ enum class IROp : u8 {
 	BSwap16,  // Swaps both the high and low byte pairs.
 	BSwap32,
 
-	// Hi/Lo semantics preserved.
-	Mul,
-	MulU,
+	// Weird Hi/Lo semantics preserved. Too annoying to do something more generic.
+	MtLo,
+	MtHi,
+	MfLo,
+	MfHi,
+	Mult,
+	MultU,
 	Madd,
 	MaddU,
 	Msub,
 	MsubU,
+	Div,
+	DivU,
 	
 	// These take a constant from the pool as an offset.
 	// Loads from a constant address can be represented by using r0.
@@ -152,6 +158,7 @@ enum class IROp : u8 {
 
 	Syscall,
 	SetPC,  // hack to make syscall returns work
+	SetPCConst,  // hack to make replacement know PC
 	CallReplacement,
 	Break,
 };

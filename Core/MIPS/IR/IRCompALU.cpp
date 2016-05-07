@@ -153,21 +153,6 @@ void IRJit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, IROp op, IROp co
 		}
 		return;
 	}
-	/*
-	if (gpr.IsImm(rt) || (gpr.IsImm(rs) && symmetric)) {
-		MIPSGPReg lhs = gpr.IsImm(rs) ? rt : rs;
-		MIPSGPReg rhs = gpr.IsImm(rs) ? rs : rt;
-		u32 rhsImm = gpr.GetImm(rhs);
-		gpr.MapDirtyIn(rd, lhs);
-		ir.Write(constOp, rd, lhs, ir.AddConstant(rhsImm));
-		// If rd is rhs, we may have lost it in the MapDirtyIn().  lhs was kept.
-		// This means the rhsImm value was never flushed to rhs, and would be garbage.
-		if (rd == rhs) {
-			// Luckily, it was just an imm.
-			gpr.SetImm(rhs, rhsImm);
-		}
-		return;
-	}*/
 
 	// Can't do the RSB optimization on ARM64 - no RSB!
 
@@ -463,15 +448,77 @@ void IRJit::Comp_Allegrex2(MIPSOpcode op) {
 
 void IRJit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 
-	// Note that in all cases below, LO is actually mapped to HI:LO.
-	// That is, the host reg is 64 bits and has HI at the top.
-	// HI is not mappable.
+	switch (op & 63) {
+	case 16: // R(rd) = HI; //mfhi
+		if (rd != MIPS_REG_ZERO) {
+			gpr.MapDirty(rd);
+			ir.Write(IROp::MfHi, rd);
+		}
+		break;
 
-	DISABLE;
+	case 17: // HI = R(rs); //mthi
+		gpr.MapIn(rs);
+		ir.Write(IROp::MtHi, 0, rs);
+		break;
+
+	case 18: // R(rd) = LO; break; //mflo
+		if (rd != MIPS_REG_ZERO) {
+			gpr.MapDirty(rd);
+			ir.Write(IROp::MfLo, rd);
+		}
+		break;
+
+	case 19: // LO = R(rs); break; //mtlo
+		gpr.MapIn(rs);
+		ir.Write(IROp::MtLo, 0, rs);
+		break;
+
+	case 24: //mult (the most popular one). lo,hi  = signed mul (rs * rt)
+		ir.Write(IROp::Mult, 0, rs, rt);
+		break;
+
+	case 25: //multu (2nd) lo,hi  = unsigned mul (rs * rt)
+		ir.Write(IROp::MultU, 0, rs, rt);
+		break;
+
+	case 26: //div
+		DISABLE;
+		ir.Write(IROp::Div, 0, rs, rt);
+		break;
+
+	case 27: //divu
+		DISABLE;
+		ir.Write(IROp::DivU, 0, rs, rt);
+		break;
+
+	case 28: //madd
+		DISABLE;
+		ir.Write(IROp::Madd, 0, rs, rt);
+		break;
+
+	case 29: //maddu
+		DISABLE;
+		ir.Write(IROp::MaddU, 0, rs, rt);
+		break;
+
+	case 46: // msub
+		DISABLE;
+		ir.Write(IROp::Msub, 0, rs, rt);
+		break;
+
+	case 47: // msubu
+		DISABLE;
+		ir.Write(IROp::MsubU, 0, rs, rt);
+		break;
+
+	default:
+		DISABLE;
+	}
 }
 
 }
