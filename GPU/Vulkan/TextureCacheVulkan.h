@@ -86,7 +86,7 @@ public:
 	TextureCacheVulkan(VulkanContext *vulkan);
 	~TextureCacheVulkan();
 
-	void SetTexture(VulkanPushBuffer *uploadBuffer);
+	void SetTexture();
 	virtual bool SetOffsetTexture(u32 offset) override;
 
 	void Clear(bool delete_them);
@@ -118,7 +118,7 @@ public:
 		gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
 	}
 
-	void ApplyTexture(VkImageView &imageView, VkSampler &sampler);
+	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
 
 protected:
 	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes);
@@ -140,6 +140,10 @@ private:
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEntry *entry, VirtualFramebuffer *framebuffer, VkImageView &image, VkSampler &sampler);
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, SamplerCacheKey &key);
+
+	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
+	void BuildTexture(TexCacheEntry *const entry, VulkanPushBuffer *uploadBuffer);
 
 	VulkanContext *vulkan_;
 	VulkanDeviceAllocator *allocator_;
@@ -170,6 +174,11 @@ private:
 	DepalShaderCacheVulkan *depalShaderCache_;
 	ShaderManagerVulkan *shaderManager_;
 	DrawEngineVulkan *transformDraw_;
+
+	const char *nextChangeReason_;
+	bool nextNeedsRehash_;
+	bool nextNeedsChange_;
+	bool nextNeedsRebuild_;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

@@ -92,6 +92,10 @@ private:
 	void SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer);
 
+	bool CheckFullHash(TexCacheEntry *const entry, bool &doDelete);
+	bool HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);
+	void BuildTexture(TexCacheEntry *const entry, bool replaceImages);
+
 	LPDIRECT3DTEXTURE9 &DxTex(TexCacheEntry *entry) {
 		return *(LPDIRECT3DTEXTURE9 *)&entry->texturePtr;
 	}
@@ -126,6 +130,11 @@ private:
 	FramebufferManagerDX9 *framebufferManager_;
 	DepalShaderCacheDX9 *depalShaderCache_;
 	ShaderManagerDX9 *shaderManager_;
+
+	const char *nextChangeReason_;
+	bool nextNeedsRehash_;
+	bool nextNeedsChange_;
+	bool nextNeedsRebuild_;
 };
 
 D3DFORMAT getClutDestFormat(GEPaletteFormat format);
