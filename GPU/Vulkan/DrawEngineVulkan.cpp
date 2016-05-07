@@ -138,7 +138,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 2048;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200;
+	dpTypes[1].descriptorCount = 512;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
@@ -151,8 +151,18 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < 2; i++) {
-		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
-		assert(VK_SUCCESS == res);
+		// If we run out of memory, try with less descriptors.
+		for (int tries = 0; tries < 3; ++tries) {
+			VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
+			if (res == VK_SUCCESS) {
+				break;
+			}
+
+			// Let's try to reduce the counts.
+			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
+			dpTypes[0].descriptorCount /= 2;
+			dpTypes[1].descriptorCount /= 2;
+		}
 		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);
 		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);

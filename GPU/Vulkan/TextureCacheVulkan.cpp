@@ -147,7 +147,12 @@ TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 TextureCacheVulkan::~TextureCacheVulkan() {
 	Clear(true);
 	allocator_->Destroy();
-	delete allocator_;
+
+	// We have to delete on queue, so this can free its queued deletions.
+	vulkan_->Delete().QueueCallback([](void *ptr) {
+		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+		delete allocator;
+	}, allocator_);
 }
 
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
@@ -1087,7 +1092,7 @@ void TextureCacheVulkan::SetTexture(VulkanPushBuffer *uploadBuffer) {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && g_Config.iTexScalingLevel != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
