@@ -57,10 +57,10 @@ public:
 	void SetInstructions(const std::vector<IRInst> &inst, const std::vector<u32> &constants) {
 		instr_ = new IRInst[inst.size()];
 		numInstructions_ = (u16)inst.size();
-		memcpy(instr_, inst.data(), sizeof(IRInst) * inst.size());
+		memcpy(instr_, &inst[0], sizeof(IRInst) * inst.size());
 		const_ = new u32[constants.size()];
 		numConstants_ = (u16)constants.size();
-		memcpy(const_, constants.data(), sizeof(u32) * constants.size());
+		memcpy(const_, &constants[0], sizeof(u32) * constants.size());
 	}
 
 	const IRInst *GetInstructions() const { return instr_; }
@@ -85,13 +85,13 @@ public:
 	void InvalidateICache(u32 addess, u32 length);
 	int GetNumBlocks() const { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
-		blocks_.emplace_back(IRBlock(emAddr));
+		blocks_.push_back(IRBlock(emAddr));
 		size_ = (int)blocks_.size();
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
 		if (i >= 0 && i < size_) {
-			return blocks_.data() + i;
+			return &blocks_[i];
 		} else {
 			return nullptr;
 		}

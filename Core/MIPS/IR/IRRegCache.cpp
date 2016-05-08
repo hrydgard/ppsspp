@@ -1,3 +1,4 @@
+#include <cstring>
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInst.h"
 
