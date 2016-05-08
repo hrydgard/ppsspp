@@ -37,6 +37,28 @@ u32 Evaluate(u32 a, u32 b, IROp op) {
 	}
 }
 
+u32 Evaluate(u32 a, IROp op) {
+	switch (op) {
+	case IROp::Not: return ~a;
+	case IROp::Neg: return -(s32)a;
+	case IROp::BSwap16: return ((a & 0xFF00FF00) >> 8) | ((a & 0x00FF00FF) << 8);
+	case IROp::BSwap32: return swap32(a);
+	case IROp::Ext8to32: return (u32)(s32)(s8)(u8)a;
+	case IROp::Ext16to32: return (u32)(s32)(s16)(u16)a;
+	case IROp::Clz: {
+		int x = 31;
+		int count = 0;
+		while (x >= 0 && !(a & (1 << x))) {
+			count++;
+			x--;
+		}
+		return count;
+	}
+	default:
+		return -1;
+	}
+}
+
 IROp ArithToArithConst(IROp op) {
 	switch (op) {
 	case IROp::Add: return IROp::AddConst;
@@ -121,6 +143,21 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
+		case IROp::Neg:
+		case IROp::Not:
+		case IROp::BSwap16:
+		case IROp::BSwap32:
+		case IROp::Ext8to32:
+		case IROp::Ext16to32:
+		case IROp::Clz:
+			if (gpr.IsImm(inst.src1)) {
+				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.op));
+			} else {
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				goto doDefault;
+			}
+			break;
+
 		case IROp::AddConst:
 		case IROp::SubConst:
 		case IROp::AndConst:
@@ -172,14 +209,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::Min:
 		case IROp::Max:
 			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
-			goto doDefault;
-
-		case IROp::Clz:
-		case IROp::BSwap16:
-		case IROp::BSwap32:
-		case IROp::Ext16to32:
-		case IROp::Ext8to32:
-			gpr.MapDirtyIn(inst.dest, inst.src1);
 			goto doDefault;
 
 		case IROp::FMovFromGPR:
