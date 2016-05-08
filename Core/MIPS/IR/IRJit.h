@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"

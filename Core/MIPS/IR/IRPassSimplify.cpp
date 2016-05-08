@@ -60,6 +60,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		bool symmetric = true;
+		if (out.GetConstants().size() > 128) {
+			// Avoid causing a constant explosion.
+			goto doDefault;
+		}
 		switch (inst.op) {
 		case IROp::SetConst:
 			gpr.SetImm(inst.dest, constants[inst.src1]);
