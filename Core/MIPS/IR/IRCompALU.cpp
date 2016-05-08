@@ -47,6 +47,7 @@ namespace MIPSComp {
 
 void IRJit::Comp_IType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+
 	s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 	u32 uimm = op & 0xFFFF;
 	u32 suimm = (u32)(s32)simm;
@@ -236,7 +237,7 @@ void IRJit::Comp_Special3(MIPSOpcode op) {
 		return;
 
 	switch (op & 0x3f) {
-	case 0x0:
+	case 0x0: // ext
 		if (pos != 0) {
 			ir.Write(IROp::ShrImm, rt, rs, pos);
 			ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(mask));
@@ -247,16 +248,20 @@ void IRJit::Comp_Special3(MIPSOpcode op) {
 
 	case 0x4: //ins
 	{
+		logBlocks = 1;
 		u32 sourcemask = mask >> pos;
 		u32 destmask = ~(sourcemask << pos);
 		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
+		if (pos != 0) {
+			ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
+		}
 		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
-		ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
 		ir.Write(IROp::Or, rt, rt, IRTEMP_0);
 	}
 	break;
 	}
 }
+
 
 void IRJit::Comp_Allegrex(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;

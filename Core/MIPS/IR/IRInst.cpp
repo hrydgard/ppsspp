@@ -478,6 +478,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		default:
 			Crash();
 		}
+#ifdef _DEBUG
+		if (mips->r[0] != 0)
+			Crash();
+#endif
 		inst++;
 	}
 
@@ -529,6 +533,8 @@ const char *GetGPRName(int r) {
 	switch (r) {
 	case IRTEMP_0: return "irtemp0";
 	case IRTEMP_1: return "irtemp1";
+	case IRTEMP_LHS: return "irtemp_lhs";
+	case IRTEMP_RHS: return "irtemp_rhs";
 	default: return "(unk)";
 	}
 }

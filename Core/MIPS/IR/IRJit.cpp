@@ -269,7 +269,8 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 
 	IRWriter *code = &ir;
 	if (true) {
-		PropagateConstants(ir, simplified);
+		if (PropagateConstants(ir, simplified))
+			logBlocks = 1;
 		code = &simplified;
 	}
 
@@ -362,7 +363,7 @@ void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
 	} else {
 		ERROR_LOG(HLE, "Replacement function %s has neither jit nor regular impl", entry->name);
 	}
-}
+} 
 
 void IRJit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();

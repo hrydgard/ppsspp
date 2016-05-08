@@ -6,4 +6,4 @@
 void SimplifyInPlace(IRInst *inst, int count, const u32 *constPool);
 
 
-void PropagateConstants(const IRWriter &in, IRWriter &out);
+bool PropagateConstants(const IRWriter &in, IRWriter &out);

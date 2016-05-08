@@ -204,8 +204,8 @@ inline IROp ComparisonToExit(IRComparison comp) {
 enum {
 	IRTEMP_0 = 192,
 	IRTEMP_1,
-	IRTEMP_2,
-	IRTEMP_3,
+	IRTEMP_LHS,  // Reserved for use in branches
+	IRTEMP_RHS,  // Reserved for use in branches
 
 	// Hacky way to get to other state
 	IRREG_LO = 226,  // offset of lo in MIPSState / 4

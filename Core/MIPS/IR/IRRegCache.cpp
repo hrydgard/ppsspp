@@ -26,8 +26,17 @@ IRRegCache::IRRegCache(IRWriter *ir) : ir_(ir) {
 
 void IRRegCache::FlushAll() {
 	for (int i = 0; i < TOTAL_MAPPABLE_MIPSREGS; i++) {
-		Flush(i);
+		if (i < IRTEMP_0)
+			Flush(i);
 	}
+}
+
+void IRRegCache::MapIn(int rd) {
+	Flush(rd);
+}
+
+void IRRegCache::MapDirty(int rd) {
+	Discard(rd);
 }
 
 void IRRegCache::MapInIn(int rs, int rt) {

@@ -73,12 +73,12 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
 	MIPSGPReg rhs = rt;
 	if (!delaySlotIsNice) {  // if likely, we don't need this
 		if (rs != 0) {
-			ir.Write(IROp::Mov, IRTEMP_0, rs);
-			lhs = (MIPSGPReg)IRTEMP_0;
+			ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+			lhs = (MIPSGPReg)IRTEMP_LHS;
 		}
 		if (rt != 0) {
-			ir.Write(IROp::Mov, IRTEMP_1, rt);
-			rhs = (MIPSGPReg)IRTEMP_1;
+			ir.Write(IROp::Mov, IRTEMP_RHS, rt);
+			rhs = (MIPSGPReg)IRTEMP_RHS;
 		}
 	}
 
@@ -113,8 +113,8 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 
 	MIPSGPReg lhs = rs;
 	if (!delaySlotIsNice) {  // if likely, we don't need this
-		ir.Write(IROp::Mov, IRTEMP_0, rs);
-		lhs = (MIPSGPReg)IRTEMP_0;
+		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+		lhs = (MIPSGPReg)IRTEMP_LHS;
 	}
 	if (andLink)
 		ir.WriteSetConstant(MIPS_REG_RA, GetCompilerPC() + 8);
@@ -179,7 +179,7 @@ void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
-	ir.Write(IROp::FpCondToReg, IRTEMP_0);
+	ir.Write(IROp::FpCondToReg, IRTEMP_LHS);
 	if (!likely)
 		CompileDelaySlot();
 
@@ -187,7 +187,7 @@ void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	FlushAll();
 	// Not taken
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(GetCompilerPC() + 8), IRTEMP_0, 0);
+	ir.Write(ComparisonToExit(cc), ir.AddConstant(GetCompilerPC() + 8), IRTEMP_LHS, 0);
 	// Taken
 	if (likely)
 		CompileDelaySlot();
@@ -218,8 +218,8 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
-
-	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, VFPU_CTRL_CC);
+	logBlocks = 1;
+	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_LHS, VFPU_CTRL_CC);
 
 	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
 
@@ -237,9 +237,9 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	
 	u32 notTakenTarget = GetCompilerPC() + (delaySlotIsBranch ? 4 : 8);
 
-	ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(1 << imm3));
+	ir.Write(IROp::AndConst, IRTEMP_LHS, IRTEMP_LHS, ir.AddConstant(1 << imm3));
 	FlushAll();
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(notTakenTarget), IRTEMP_0, 0);
+	ir.Write(ComparisonToExit(cc), ir.AddConstant(notTakenTarget), IRTEMP_LHS, 0);
 
 	if (likely)
 		CompileDelaySlot();
@@ -334,8 +334,8 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 		FlushAll();
 	} else {
 		// Bad delay slot.
-		ir.Write(IROp::Mov, IRTEMP_0, rs);
-		destReg = IRTEMP_0;
+		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+		destReg = IRTEMP_LHS;
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
