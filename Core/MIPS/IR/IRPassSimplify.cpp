@@ -157,6 +157,15 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			gpr.MapDirtyIn(inst.dest, inst.src1);
 			goto doDefault;
 
+		case IROp::FMovFromGPR:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(IROp::SetConstF, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
+			} else {
+				gpr.MapIn(inst.src1);
+				goto doDefault;
+			}
+			break;
+
 		case IROp::MfHi:
 		case IROp::MfLo:
 			gpr.MapDirty(inst.dest);
@@ -174,8 +183,15 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				gpr.MapIn(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
 			} else {
-				// Just pass through, no excessive flushing
 				gpr.MapInIn(inst.dest, inst.src1);
+				goto doDefault;
+			}
+			break;
+		case IROp::StoreFloat:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+			} else {
+				gpr.MapIn(inst.src1);
 				goto doDefault;
 			}
 			break;
@@ -192,6 +208,26 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
 			}
+			break;
+		case IROp::LoadFloat:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+			} else {
+				gpr.MapIn(inst.src1);
+				goto doDefault;
+			}
+			break;
+
+		// FP-only instructions don't need to flush immediates.
+		case IROp::FAdd:
+		case IROp::FMul:
+		case IROp::FDiv:
+		case IROp::FSub:
+		case IROp::FNeg:
+		case IROp::FAbs:
+		case IROp::FSqrt:
+		case IROp::FMov:
+			out.Write(inst);
 			break;
 
 		case IROp::Syscall:
