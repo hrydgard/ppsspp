@@ -50,7 +50,7 @@ namespace MIPSComp {
 #if defined(ARM)
 		return new MIPSComp::ArmJit(mips);
 #elif defined(ARM64)
-		return new MIPSComp::IRJit(mips);
+		return new MIPSComp::Arm64Jit(mips);
 #elif defined(_M_IX86) || defined(_M_X64)
 		return new MIPSComp::Jit(mips);
 #elif defined(MIPS)

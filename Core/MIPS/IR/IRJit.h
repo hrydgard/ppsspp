@@ -265,9 +265,9 @@ private:
 
 	IRWriter ir;
 
-	// where to write branch-likely trampolines
-	u32 blTrampolines_;
-	int blTrampolineCount_;
+	// where to write branch-likely trampolines. not used atm
+	// u32 blTrampolines_;
+	// int blTrampolineCount_;
 
 public:
 	// Code pointers

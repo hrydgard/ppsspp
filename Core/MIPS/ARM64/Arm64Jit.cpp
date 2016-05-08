@@ -284,8 +284,6 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	gpr.Start(analysis);
 	fpr.Start(analysis);
 
-	int partialFlushOffset = 0;
-
 	js.numInstructions = 0;
 	while (js.compiling) {
 		gpr.SetCompilerPC(GetCompilerPC());  // Let it know for log messages

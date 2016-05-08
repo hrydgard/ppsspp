@@ -87,7 +87,7 @@ inline void ReadFromHardware(T &var, const u32 address) {
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
 		// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-		if (g_Config.iCpuCore != CPU_CORE_INTERPRETER && g_Config.bIgnoreBadMemAccess) {
+		if (g_Config.iCpuCore == CPU_CORE_JIT && g_Config.bIgnoreBadMemAccess) {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
 		} else {
 			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);

@@ -40,7 +40,7 @@ namespace MIPSComp
 
 //TODO - make an option
 //#if _DEBUG
-	static bool enableDebug = true;
+static bool enableDebug = false;
 
 //#else
 //		bool enableDebug = false; 

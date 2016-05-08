@@ -53,8 +53,7 @@ namespace MIPSComp
 {
 	using namespace Arm64Gen;
 
-void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
-{
+void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -67,11 +66,12 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely)
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	MIPSGPReg lhs = rs;
 	MIPSGPReg rhs = rt;
-	if (!delaySlotIsNice) {  // if likely, we don't need this
+	if (!delaySlotIsNice && !likely) {  // if likely, we don't need this
 		if (rs != 0) {
 			ir.Write(IROp::Mov, IRTEMP_LHS, rs);
 			lhs = (MIPSGPReg)IRTEMP_LHS;
@@ -109,7 +109,8 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	MIPSGPReg lhs = rs;
 	if (!delaySlotIsNice) {  // if likely, we don't need this
@@ -136,13 +137,13 @@ void IRJit::Comp_RelBranch(MIPSOpcode op) {
 	// The CC flags here should be opposite of the actual branch becuase they skip the branching action.
 	switch (op >> 26) {
 	case 4: BranchRSRTComp(op, IRComparison::NotEqual, false); break;//beq
-	case 5: BranchRSRTComp(op, IRComparison::Equal,  false); break;//bne
+	case 5: BranchRSRTComp(op, IRComparison::Equal, false); break;//bne
 
 	case 6: BranchRSZeroComp(op, IRComparison::Greater, false, false); break;//blez
 	case 7: BranchRSZeroComp(op, IRComparison::LessEqual, false, false); break;//bgtz
 
 	case 20: BranchRSRTComp(op, IRComparison::NotEqual, true); break;//beql
-	case 21: BranchRSRTComp(op, IRComparison::Equal,  true); break;//bnel
+	case 21: BranchRSRTComp(op, IRComparison::Equal, true); break;//bnel
 
 	case 22: BranchRSZeroComp(op, IRComparison::Greater, false, true); break;//blezl
 	case 23: BranchRSZeroComp(op, IRComparison::LessEqual, false, true); break;//bgtzl
@@ -183,7 +184,8 @@ void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (!likely)
 		CompileDelaySlot();
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	FlushAll();
 	// Not taken
@@ -221,7 +223,8 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	logBlocks = 1;
 	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_LHS, VFPU_CTRL_CC);
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
@@ -268,7 +271,8 @@ void IRJit::Comp_Jump(MIPSOpcode op) {
 	u32 off = _IMM26 << 2;
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
@@ -316,7 +320,8 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
 
-	ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	int destReg;
 	if (IsSyscall(delaySlotOp)) {
@@ -362,6 +367,9 @@ void IRJit::Comp_Syscall(MIPSOpcode op) {
 	const int offset = js.inDelaySlot ? -1 : 0;
 	RestoreRoundingMode();
 	js.downcountAmount = -offset;
+
+	int dcAmount = js.downcountAmount + 1;
+	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
 
 	FlushAll();
 

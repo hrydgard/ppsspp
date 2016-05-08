@@ -39,8 +39,7 @@
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
 IRJit::IRJit(MIPSState *mips) : mips_(mips) { 
 	logBlocks = 0;
@@ -48,8 +47,7 @@ IRJit::IRJit(MIPSState *mips) : mips_(mips) {
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 	u32 size = 128 * 1024;
-	blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
-	logBlocks = 12;
+	// blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
 	InitIR();
 }
 
@@ -110,7 +108,7 @@ void IRJit::FlushPrefixV() {
 }
 
 void IRJit::ClearCache() {
-	ILOG("ARM64Jit: Clearing the cache!");
+	ILOG("IRJit: Clearing the cache!");
 	blocks_.Clear();
 }
 
@@ -184,12 +182,6 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// ApplyRoundingMode(true);
 	// IR Dispatcher
 	
-	FILE *f;
-	int numBlocks = 0;
-	if (numBlocks) {
-		f = fopen("E:\\blockir.txt", "w");
-	}
-
 	while (true) {
 		// RestoreRoundingMode(true);
 		CoreTiming::Advance();
@@ -203,18 +195,9 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			u32 data = inst & 0xFFFFFF;
 			if (opcode == (MIPS_EMUHACK_OPCODE >> 24)) {
 				IRBlock *block = blocks_.GetBlock(data);
-				if (numBlocks > 0) {
-					// ILOG("Run block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
-					fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
-					fflush(f);
-					numBlocks--;
-				}
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
 			} else {
-				if (mips_->pc == 0x0880de94)
-					logBlocks = 10;
 				// RestoreRoundingMode(true);
-				// ILOG("Compile block at %08x : v1=%08x a0=%08x", mips_->pc, mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0]);
 				Compile(mips_->pc);
 				// ApplyRoundingMode(true);
 			}
@@ -245,8 +228,6 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 	js.inDelaySlot = false;
 	js.PrefixStart();
 	ir.Clear();
-
-	int partialFlushOffset = 0;
 
 	js.numInstructions = 0;
 	while (js.compiling) {

@@ -219,16 +219,6 @@ enum {
 	IRREG_FPCOND = 229
 };
 
-enum class IRParam {
-	Ignore = '_',
-	UImm8 = 'U',
-	Const = 'C',
-	GPR = 'G',
-	FPR = 'F',
-	VPR = 'V',
-	VCtrl = 'T',
-};
-
 struct IRMeta {
 	IROp op;
 	const char *name;

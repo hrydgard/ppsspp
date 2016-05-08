@@ -80,15 +80,12 @@ void IRJit::Comp_FPULS(MIPSOpcode op) {
 
 	switch (op >> 26) {
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
-	{
 		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));
-	}
-	break;
+		break;
+
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
-	{
 		ir.Write(IROp::StoreFloat, ft, rs, ir.AddConstant(offset));
-	}
-	break;
+		break;
 
 	default:
 		_dbg_assert_msg_(CPU, 0, "Trying to interpret FPULS instruction that can't be interpreted");
@@ -97,7 +94,7 @@ void IRJit::Comp_FPULS(MIPSOpcode op) {
 }
 
 void IRJit::Comp_FPUComp(MIPSOpcode op) {
-	DISABLE;
+	DISABLE;  // IROps not yet implemented
 
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -195,8 +192,7 @@ void IRJit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_mxc1(MIPSOpcode op)
-{
+void IRJit::Comp_mxc1(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -215,9 +211,8 @@ void IRJit::Comp_mxc1(MIPSOpcode op)
 			return;
 		}
 		if (fs == 31) {
-			DISABLE;
-		}
-		else if (fs == 0) {
+			DISABLE;  // TODO: Add a new op
+		} else if (fs == 0) {
 			ir.Write(IROp::SetConst, rt, ir.AddConstant(MIPSState::FCR0_VALUE));
 		} else {
 			// Unsupported regs are always 0.

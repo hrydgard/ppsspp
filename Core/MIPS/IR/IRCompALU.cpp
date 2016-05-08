@@ -192,8 +192,6 @@ void IRJit::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpConst) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
-	// Not sure if ARM64 wraps like this so let's do it for it.  (TODO: According to the ARM ARM, it will indeed mask for us so this is not necessary)
-	// ANDI2R(SCRATCH1, gpr.R(rs), 0x1F, INVALID_REG);
 	ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(31));
 	ir.Write(shiftOp, rd, rt, IRTEMP_0);
 }
@@ -248,7 +246,6 @@ void IRJit::Comp_Special3(MIPSOpcode op) {
 
 	case 0x4: //ins
 	{
-		logBlocks = 1;
 		u32 sourcemask = mask >> pos;
 		u32 destmask = ~(sourcemask << pos);
 		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
