@@ -186,6 +186,14 @@ inline u32 ReadUnchecked_U32(const u32 address) {
 #endif
 }
 
+inline float ReadUnchecked_Float(const u32 address) {
+#ifdef _ARCH_32
+	return *(float *)(base + (address & MEMVIEW32_MASK));
+#else
+	return *(float *)(base + address);
+#endif
+}
+
 inline u16 ReadUnchecked_U16(const u32 address) {
 #ifdef _ARCH_32
 	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
@@ -207,6 +215,14 @@ inline void WriteUnchecked_U32(u32 data, u32 address) {
 	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u32_le *)(base + address) = data;
+#endif
+}
+
+inline void WriteUnchecked_Float(float data, u32 address) {
+#ifdef _ARCH_32
+	*(float *)(base + (address & MEMVIEW32_MASK)) = data;
+#else
+	*(float *)(base + address) = data;
 #endif
 }
 

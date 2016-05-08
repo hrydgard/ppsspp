@@ -61,9 +61,11 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load16, "Load16", "GGC" },
 	{ IROp::Load16Ext, "Load16Ext", "GGC" },
 	{ IROp::Load32, "Load32", "GGC" },
+	{ IROp::LoadFloat, "LoadFloat", "FGC" },
 	{ IROp::Store8, "Store8", "GGC" },
 	{ IROp::Store16, "Store16", "GGC" },
 	{ IROp::Store32, "Store32", "GGC" },
+	{ IROp::StoreFloat, "StoreFloat", "FGC" },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -176,6 +178,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Load32:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + constPool[inst->src2]);
 			break;
+		case IROp::LoadFloat:
+			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
+			break;
 
 		case IROp::Store8:
 			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
@@ -185,6 +190,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::Store32:
 			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			break;
+		case IROp::StoreFloat:
+			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 
 		case IROp::ShlImm:

@@ -73,7 +73,27 @@ void IRJit::Comp_FPU3op(MIPSOpcode op) {
 }
 
 void IRJit::Comp_FPULS(MIPSOpcode op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+	s32 offset = _IMM16;
+	int ft = _FT;
+	MIPSGPReg rs = _RS;
+
+	switch (op >> 26) {
+	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+	{
+		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));
+	}
+	break;
+	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+	{
+		ir.Write(IROp::StoreFloat, ft, rs, ir.AddConstant(offset));
+	}
+	break;
+
+	default:
+		_dbg_assert_msg_(CPU, 0, "Trying to interpret FPULS instruction that can't be interpreted");
+		break;
+	}
 }
 
 void IRJit::Comp_FPUComp(MIPSOpcode op) {
