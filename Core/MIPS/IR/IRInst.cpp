@@ -10,6 +10,8 @@
 
 static const IRMeta irMeta[] = {
 	{ IROp::SetConst, "SetConst", "GC" },
+	{ IROp::SetConstF, "SetConstF", "FC" },
+	{ IROp::SetConstV, "SetConstV", "VC" },
 	{ IROp::Mov, "Mov", "GG" },
 	{ IROp::Add, "Add", "GGG" },
 	{ IROp::Sub, "Sub", "GGG" },
@@ -62,10 +64,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load16Ext, "Load16Ext", "GGC" },
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
+	{ IROp::LoadFloatV, "LoadFloatV", "VGC" },
 	{ IROp::Store8, "Store8", "GGC" },
 	{ IROp::Store16, "Store16", "GGC" },
 	{ IROp::Store32, "Store32", "GGC" },
 	{ IROp::StoreFloat, "StoreFloat", "FGC" },
+	{ IROp::StoreFloatV, "StoreFloatV", "VGC" },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -82,6 +86,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
+	{ IROp::VMovFromGPR, "VMovFromGPR", "VG" },
+	{ IROp::VMovToGPR, "VMovToGPR", "GV" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
@@ -116,6 +122,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		switch (inst->op) {
 		case IROp::SetConst:
 			mips->r[inst->dest] = constPool[inst->src1];
+			break;
+		case IROp::SetConstF:
+			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
+			break;
+		case IROp::SetConstV:
+			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
 			break;
 		case IROp::Add:
 			mips->r[inst->dest] = mips->r[inst->src1] + mips->r[inst->src2];
@@ -181,6 +193,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::LoadFloat:
 			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
 			break;
+		case IROp::LoadFloatV:
+			mips->v[voffset[inst->dest]] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
+			break;
 
 		case IROp::Store8:
 			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
@@ -193,6 +208,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::StoreFloat:
 			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			break;
+		case IROp::StoreFloatV:
+			Memory::WriteUnchecked_Float(mips->v[voffset[inst->src3]], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 
 		case IROp::ShlImm:
@@ -389,6 +407,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			}
 			break; //cvt.w.s
 		}
+
 		case IROp::ZeroFpCond:
 			mips->fpcond = 0;
 			break;
@@ -398,6 +417,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::FMovToGPR:
 			memcpy(&mips->r[inst->dest], &mips->f[inst->src1], 4);
+			break;
+
+		case IROp::VMovFromGPR:
+			memcpy(&mips->v[voffset[inst->dest]], &mips->r[inst->src1], 4);
+			break;
+		case IROp::VMovToGPR:
+			memcpy(&mips->r[inst->dest], &mips->v[voffset[inst->src1]], 4);
 			break;
 
 		case IROp::ExitToConst:
@@ -540,18 +566,43 @@ const char *GetGPRName(int r) {
 }
 
 void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *constPool) {
+	static const char *vfpuCtrlNames[VFPU_CTRL_MAX] = {
+		"SPFX",
+		"TPFX",
+		"DPFX",
+		"CC",
+		"INF4",
+		"RSV5",
+		"RSV6",
+		"REV",
+		"RCX0",
+		"RCX1",
+		"RCX2",
+		"RCX3",
+		"RCX4",
+		"RCX5",
+		"RCX6",
+		"RCX7",
+	};
+
 	switch (type) {
 	case 'G':
 		snprintf(buf, bufSize, "%s", GetGPRName(param));
 		break;
 	case 'F':
-		snprintf(buf, bufSize, "r%d", param);
+		snprintf(buf, bufSize, "f%d", param);
 		break;
 	case 'C':
 		snprintf(buf, bufSize, "%08x", constPool[param]);
 		break;
 	case 'I':
 		snprintf(buf, bufSize, "%02x", param);
+		break;
+	case 'V':
+		snprintf(buf, bufSize, "v%d", param);
+		break;
+	case 'T':
+		snprintf(buf, bufSize, "%s", vfpuCtrlNames[param]);
 		break;
 	case '_':
 	case '\0':

@@ -181,7 +181,38 @@ namespace MIPSComp {
 	}
 
 	void IRJit::Comp_SVQ(MIPSOpcode op) {
-		DISABLE;
+		int imm = (signed short)(op & 0xFFFC);
+		int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
+		MIPSGPReg rs = _RS;
+
+		u8 vregs[4];
+		GetVectorRegs(vregs, V_Quad, vt);
+
+		switch (op >> 26) {
+		case 54: //lv.q
+		{
+			// TODO: Add vector load/store instruction to the IR
+			ir.Write(IROp::LoadFloatV, vregs[0], rs, ir.AddConstant(imm));
+			ir.Write(IROp::LoadFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
+			ir.Write(IROp::LoadFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
+			ir.Write(IROp::LoadFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+		}
+		break;
+
+		case 62: //sv.q
+		{
+			// CC might be set by slow path below, so load regs first.
+			ir.Write(IROp::StoreFloatV, vregs[0], rs, ir.AddConstant(imm));
+			ir.Write(IROp::StoreFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
+			ir.Write(IROp::StoreFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
+			ir.Write(IROp::StoreFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+		}
+		break;
+
+		default:
+			DISABLE;
+			break;
+		}
 	}
 
 	void IRJit::Comp_VVectorInit(MIPSOpcode op) {
@@ -215,6 +246,11 @@ namespace MIPSComp {
 	}
 
 	void IRJit::Comp_VV2Op(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
+		if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
+			return;
+		}
 		DISABLE;
 	}
 
@@ -231,7 +267,33 @@ namespace MIPSComp {
 	}
 
 	void IRJit::Comp_Mftv(MIPSOpcode op) {
-		DISABLE;
+		int imm = op & 0xFF;
+		MIPSGPReg rt = _RT;
+		switch ((op >> 21) & 0x1f) {
+		case 3: //mfv / mfvc
+						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
+			if (rt != 0) {
+				if (imm < 128) {  //R(rt) = VI(imm);
+					ir.Write(IROp::VMovToGPR, rt, imm);
+					logBlocks = 1;
+				} else {
+					DISABLE;
+				}
+			}
+			break;
+
+		case 7: // mtv
+			if (imm < 128) {
+				ir.Write(IROp::VMovFromGPR, imm, rt);
+				logBlocks = 1;
+			} else {
+				DISABLE;
+			}
+			break;
+
+		default:
+			DISABLE;
+		}
 	}
 
 	void IRJit::Comp_Vmfvc(MIPSOpcode op) {

@@ -17,7 +17,8 @@
 
 enum class IROp : u8 {
 	SetConst,
-	FSetConst,
+	SetConstF,
+	SetConstV,
 
 	Mov,
 
@@ -88,11 +89,13 @@ enum class IROp : u8 {
 	Load16Ext,
 	Load32,
 	LoadFloat,
+	LoadFloatV,
 
 	Store8,
 	Store16,
 	Store32,
 	StoreFloat,
+	StoreFloatV,
 
 	Ext8to32,
 	Ext16to32,
@@ -136,6 +139,8 @@ enum class IROp : u8 {
 	UpdateRoundingMode,
 
 	SetCtrlVFPU,
+	VMovFromGPR,
+	VMovToGPR,
 
 	// Fake/System instructions
 	Interpret,
