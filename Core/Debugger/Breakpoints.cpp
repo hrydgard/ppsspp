@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdio>
+
+#include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -22,7 +25,6 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
-#include <cstdio>
 
 std::vector<BreakPoint> CBreakPoints::breakPoints_;
 u32 CBreakPoints::breakSkipFirstAt_ = 0;
@@ -38,7 +40,7 @@ MemCheck::MemCheck()
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc)
 {
 	if (result & MEMCHECK_LOG)
-		NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr).c_str(), pc, symbolMap.GetDescription(pc).c_str());
+		NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 }
 
 void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
@@ -148,6 +150,18 @@ bool CBreakPoints::IsTempBreakPoint(u32 addr)
 {
 	size_t bp = FindBreakpoint(addr, true, true);
 	return bp != INVALID_BREAKPOINT;
+}
+
+bool CBreakPoints::RangeContainsBreakPoint(u32 addr, u32 size)
+{
+	const u32 end = addr + size;
+	for (const auto &bp : breakPoints_)
+	{
+		if (bp.addr >= addr && bp.addr < end)
+			return true;
+	}
+
+	return false;
 }
 
 void CBreakPoints::AddBreakPoint(u32 addr, bool temp)

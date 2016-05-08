@@ -19,7 +19,7 @@
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
 
@@ -28,7 +28,7 @@
 #include "GPU/Software/Lighting.h"
 
 static u8 buf[65536 * 48];  // yolo
-static bool outside_range_flag = false;
+bool TransformUnit::outside_range_flag = false;
 
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
@@ -55,39 +55,41 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 	return ClipCoords(projection_matrix * coords4);
 }
 
-// TODO: This is ugly
-static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool set_flag = true)
-{
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *outside_range_flag) {
 	ScreenCoords ret;
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	float vpx1 = getFloat24(gstate.viewportx1);
-	float vpx2 = getFloat24(gstate.viewportx2);
-	float vpy1 = getFloat24(gstate.viewporty1);
-	float vpy2 = getFloat24(gstate.viewporty2);
-	float vpz1 = getFloat24(gstate.viewportz1);
-	float vpz2 = getFloat24(gstate.viewportz2);
 
-	float retx = coords.x * vpx1 / coords.w + vpx2;
-	float rety = coords.y * vpy1 / coords.w + vpy2;
-	float retz = coords.z * vpz1 / coords.w + vpz2;
+	// Parameters here can seem invalid, but the PSP is fine with negative viewport widths etc.
+	// The checking that OpenGL and D3D do is actually quite superflous as the calculations still "work"
+	// with some pretty crazy inputs, which PSP games are happy to do at times.
+	float xScale = gstate.getViewportXScale();
+	float xCenter = gstate.getViewportXCenter();
+	float yScale = gstate.getViewportYScale();
+	float yCenter = gstate.getViewportYCenter();
+	float zScale = gstate.getViewportZScale();
+	float zCenter = gstate.getViewportZCenter();
 
+	float x = coords.x * xScale / coords.w + xCenter;
+	float y = coords.y * yScale / coords.w + yCenter;
+	float z = coords.z * zScale / coords.w + zCenter;
+
+	// Is this really right?
 	if (gstate.clipEnable & 0x1) {
-		if (retz < 0.f)
-			retz = 0.f;
-		if (retz > 65535.f)
-			retz = 65535.f;
+		if (z < 0.f)
+			z = 0.f;
+		if (z > 65535.f)
+			z = 65535.f;
 	}
 
-	if (set_flag && (retx > 4095.9375f || rety > 4095.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
-		outside_range_flag = true;
+	if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0 || z < 0 || z > 65535.f))
+		*outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375
-	return ScreenCoords(retx * 16, rety * 16, retz);
+	return ScreenCoords(x * 16, y * 16, z);
 }
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 {
-	return ClipToScreenInternal(coords, false);
+	return ClipToScreenInternal(coords, nullptr);
 }
 
 DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
@@ -109,13 +111,13 @@ ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords& coords)
 	return ret;
 }
 
-static VertexData ReadVertex(VertexReader& vreader)
+VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 {
 	VertexData vertex;
 
 	float pos[3];
 	// VertexDecoder normally scales z, but we want it unscaled.
-	vreader.ReadPosZ16(pos);
+	vreader.ReadPosThroughZ16(pos);
 
 	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
 		float uv[2];
@@ -141,7 +143,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 
 		for (int i = 0; i < vertTypeGetNumBoneWeights(gstate.vertType); ++i) {
 			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
-			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) * W[i] + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
+			tmppos += (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11])) * W[i];
 			if (vreader.hasNormal())
 				tmpnrm += (bone * vertex.normal) * W[i];
 		}
@@ -172,8 +174,14 @@ static VertexData ReadVertex(VertexReader& vreader)
 	if (!gstate.isModeThrough()) {
 		vertex.modelpos = ModelCoords(pos[0], pos[1], pos[2]);
 		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
-		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
-		vertex.screenpos = ClipToScreenInternal(vertex.clippos);
+		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
+		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
+		if (gstate.isFogEnabled()) {
+			vertex.fogdepth = (viewpos.z + getFloat24(gstate.fog1)) * getFloat24(gstate.fog2);
+		} else {
+			vertex.fogdepth = 1.0f;
+		}
+		vertex.screenpos = ClipToScreenInternal(vertex.clippos, &outside_range_flag);
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
@@ -187,6 +195,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 		vertex.screenpos.y = (u32)pos[1] * 16 + gstate.getOffsetY16();
 		vertex.screenpos.z = pos[2];
 		vertex.clippos.w = 1.f;
+		vertex.fogdepth = 1.f;
 	}
 
 	return vertex;
@@ -206,8 +215,7 @@ struct SplinePatch {
 SplinePatch *TransformUnit::patchBuffer_ = 0;
 int TransformUnit::patchBufferSize_ = 0;
 
-void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
-{
+void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options;
 	memset(&options, 0, sizeof(options));
@@ -219,8 +227,10 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	u8* indices8 = (u8*)indices;
-	u16* indices16 = (u16*)indices;
+	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	u8 *indices8 = (u8 *)indices;
+	u16 *indices16 = (u16 *)indices;
+	u32 *indices32 = (u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, count_u*count_v, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, control_points, index_lower_bound, index_upper_bound);
@@ -245,10 +255,17 @@ void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_
 
 			for (int point = 0; point < 16; ++point) {
 				int idx = (patch_u + point%4) + (patch_v + point/4) * count_u;
-				if (indices)
-					vreader.Goto(indices_16bit ? indices16[idx] : indices8[idx]);
-				else
+				if (indices) {
+					if (indices_32bit) {
+						vreader.Goto(indices32[idx]);
+					} else if (indices_16bit) {
+						vreader.Goto(indices16[idx]);
+					} else {
+						vreader.Goto(indices8[idx]);
+					}
+				} else {
 					vreader.Goto(idx);
+				}
 
 				patch.points[point] = ReadVertex(vreader);
 			}
@@ -310,8 +327,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
 	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
-	u8* indices8 = (u8*)indices;
-	u16* indices16 = (u16*)indices;
+	bool indices_32bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT;
+	u8 *indices8 = (u8 *)indices;
+	u16 *indices16 = (u16 *)indices;
+	u32 *indices32 = (u32 *)indices;
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
 	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
@@ -341,10 +360,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		{
 			for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
 				for (int i = 0; i < vtcs_per_prim; ++i) {
-					if (indices)
-						vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
-					else
+					if (indices) {
+						if (indices_32bit) {
+							vreader.Goto(indices32[vtx + i]);
+						} else if (indices_16bit) {
+							vreader.Goto(indices16[vtx + i]);
+						} else {
+							vreader.Goto(indices8[vtx + i]);
+						}
+					} else {
 						vreader.Goto(vtx+i);
+					}
 
 					data[i] = ReadVertex(vreader);
 					if (outside_range_flag)
@@ -503,23 +529,32 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
 		const u16 *inds16 = (const u16 *)inds;
+		const u32 *inds32 = (const u32 *)inds;
 
 		if (inds) {
 			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);
 			indices.resize(count);
 			switch (gstate.vertType & GE_VTYPE_IDX_MASK) {
-			case GE_VTYPE_IDX_16BIT:
-				for (int i = 0; i < count; ++i) {
-					indices[i] = inds16[i];
-				}
-				break;
 			case GE_VTYPE_IDX_8BIT:
 				for (int i = 0; i < count; ++i) {
 					indices[i] = inds[i];
 				}
 				break;
-			default:
-				return false;
+			case GE_VTYPE_IDX_16BIT:
+				for (int i = 0; i < count; ++i) {
+					indices[i] = inds16[i];
+				}
+				break;
+			case GE_VTYPE_IDX_32BIT:
+				WARN_LOG_REPORT_ONCE(simpleIndexes32, G3D, "SimpleVertices: Decoding 32-bit indexes");
+				for (int i = 0; i < count; ++i) {
+					// These aren't documented and should be rare.  Let's bounds check each one.
+					if (inds32[i] != (u16)inds32[i]) {
+						ERROR_LOG_REPORT_ONCE(simpleIndexes32Bounds, G3D, "SimpleVertices: Index outside 16-bit range");
+					}
+					indices[i] = (u16)inds32[i];
+				}
+				break;
 			}
 		} else {
 			indices.clear();

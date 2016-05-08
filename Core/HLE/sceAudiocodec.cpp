@@ -75,7 +75,7 @@ void __AudioCodecShutdown() {
 	clearDecoders();
 }
 
-int sceAudiocodecInit(u32 ctxPtr, int codec) {
+static int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	if (IsValidCodec(codec)) {
 		// Create audio decoder for given audio codec and push it into AudioList
 		if (removeDecoder(ctxPtr)) {
@@ -92,7 +92,7 @@ int sceAudiocodecInit(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecDecode(u32 ctxPtr, int codec) {
+static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	if (!ctxPtr){
 		ERROR_LOG_REPORT(ME, "sceAudiocodecDecode(%08x, %i (%s)) got NULL pointer", ctxPtr, codec, GetCodecName(codec));
 		return -1;
@@ -124,22 +124,22 @@ int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 	return 0;
 }
 
-int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
+static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
+static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	WARN_LOG(ME, "UNIMPL sceAudiocodecCheckNeedMem(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
+static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	WARN_LOG(ME, "UNIMPL sceAudiocodecGetEDRAM(%08x, %i (%s))", ctxPtr, codec, GetCodecName(codec));
 	return 0;
 }
 
-int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
+static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 	if (removeDecoder(ctxPtr)){
 		INFO_LOG(ME, "sceAudiocodecReleaseEDRAM(%08x, %i)", ctxPtr, id);
 		return 0;
@@ -149,13 +149,13 @@ int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
 }
 
 const HLEFunction sceAudiocodec[] = {
-	{ 0x70A703F8, WrapI_UI<sceAudiocodecDecode>, "sceAudiocodecDecode" },
-	{ 0x5B37EB1D, WrapI_UI<sceAudiocodecInit>, "sceAudiocodecInit" },
-	{ 0x8ACA11D5, WrapI_UI<sceAudiocodecGetInfo>, "sceAudiocodecGetInfo" },
-	{ 0x3A20A200, WrapI_UI<sceAudiocodecGetEDRAM>, "sceAudiocodecGetEDRAM" },
-	{ 0x29681260, WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM" },
-	{ 0x9D3F790C, WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem" },
-	{ 0x59176a0f, 0, "sceAudiocodec_59176A0F" },
+	{0X70A703F8, &WrapI_UI<sceAudiocodecDecode>,       "sceAudiocodecDecode",       'i', "xi"},
+	{0X5B37EB1D, &WrapI_UI<sceAudiocodecInit>,         "sceAudiocodecInit",         'i', "xi"},
+	{0X8ACA11D5, &WrapI_UI<sceAudiocodecGetInfo>,      "sceAudiocodecGetInfo",      'i', "xi"},
+	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,     "sceAudiocodecGetEDRAM",     'i', "xi"},
+	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>, "sceAudiocodecReleaseEDRAM", 'i', "xi"},
+	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>, "sceAudiocodecCheckNeedMem", 'i', "xi"},
+	{0X59176A0F, nullptr,                              "sceAudiocodec_59176A0F",    '?', ""  },
 };
 
 void Register_sceAudiocodec()
@@ -180,6 +180,8 @@ void __sceAudiocodecDoState(PointerWrap &p){
 			// loadstate if audioList is nonempty
 			auto codec_ = new int[count];
 			auto ctxPtr_ = new u32[count];
+			// These sizeof(pointers) are wrong, but kept to avoid breaking on old saves.
+			// They're not used in new savestates.
 			p.DoArray(codec_, s >= 2 ? count : (int)ARRAY_SIZE(codec_));
 			p.DoArray(ctxPtr_, s >= 2 ? count : (int)ARRAY_SIZE(ctxPtr_));
 			for (int i = 0; i < count; i++) {

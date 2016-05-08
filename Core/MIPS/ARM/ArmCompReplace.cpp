@@ -23,7 +23,7 @@
 
 namespace MIPSComp {
 
-int Jit::Replace_fabsf() {
+int ArmJit::Replace_fabsf() {
 	fpr.MapDirtyIn(0, 12);
 	VABS(fpr.R(0), fpr.R(12));
 	return 4;  // Number of instructions in the MIPS function

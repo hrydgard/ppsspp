@@ -30,6 +30,7 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 				SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
+		break;
 	case WM_KEYUP:
 		if( wParam == VK_RETURN ) return 0;
 		break;
@@ -93,7 +94,7 @@ void CMemoryDlg::NotifyMapLoaded()
 	if (m_hDlg)
 	{
 		HWND list = GetDlgItem(m_hDlg,IDC_SYMBOLS);
-		symbolMap.FillSymbolListBox(list,ST_DATA);	
+		g_symbolMap->FillSymbolListBox(list,ST_DATA);	
 		HWND lb = GetDlgItem(m_hDlg,IDC_REGIONS);
 		int sel = ComboBox_GetCurSel(lb);
 		ComboBox_ResetContent(lb);

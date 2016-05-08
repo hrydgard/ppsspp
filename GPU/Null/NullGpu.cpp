@@ -459,13 +459,13 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 	}
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ2:
-		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZCENTER:
+		DEBUG_LOG(G3D,"DL Viewport param %i: %f", cmd-GE_CMD_VIEWPORTXSCALE, getFloat24(data));
 		break;
 	case GE_CMD_LIGHTENABLE0:
 	case GE_CMD_LIGHTENABLE1:
@@ -676,15 +676,16 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void NullGPU::UpdateStats() {
-	gpuStats.numVertexShaders = 0;
-	gpuStats.numFragmentShaders = 0;
-	gpuStats.numShaders = 0;
-	gpuStats.numTextures = 0;
+void NullGPU::GetStats(char *buffer, size_t bufsize) {
+	snprintf(buffer, bufsize, "NullGPU: (N/A)");
 }
 
 void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	// Nothing to invalidate.
+}
+
+void NullGPU::NotifyVideoUpload(u32 addr, int size, int width, int format) {
+	// Nothing to do.
 }
 
 bool NullGPU::PerformMemoryCopy(u32 dest, u32 src, int size) {
@@ -713,4 +714,8 @@ bool NullGPU::PerformMemoryUpload(u32 dest, int size) {
 
 bool NullGPU::PerformStencilUpload(u32 dest, int size) {
 	return false;
+}
+
+bool NullGPU::FramebufferReallyDirty() {
+	return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
 }

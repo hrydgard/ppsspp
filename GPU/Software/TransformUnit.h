@@ -93,8 +93,9 @@ struct VertexData
 		screenpos = ::Lerp(a.screenpos, b.screenpos, t);  // TODO: Should use a LerpInt (?)
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
 		normal = ::Lerp(a.normal, b.normal, t);
+		fogdepth = ::Lerp(a.fogdepth, b.fogdepth, t);
 
-		u16 t_int =(u16)(t*256);
+		u16 t_int = (u16)(t*256);
 		color0 = LerpInt<Vec4<int>,256>(a.color0, b.color0, t_int);
 		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
 	}
@@ -108,11 +109,16 @@ struct VertexData
 	WorldCoords worldnormal;
 	Vec4<int> color0;
 	Vec3<int> color1;
+	float fogdepth;
 };
+
+class VertexReader;
 
 class TransformUnit
 {
 public:
+	TransformUnit() {}
+
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ViewCoords WorldToView(const WorldCoords& coords);
@@ -125,7 +131,10 @@ public:
 	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type, int *bytesRead);
 
 	static bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices);
+	static VertexData ReadVertex(VertexReader& vreader);
 
 	static SplinePatch *patchBuffer_;
 	static int patchBufferSize_;
+
+	static bool outside_range_flag;
 };

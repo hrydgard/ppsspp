@@ -28,7 +28,7 @@ struct MIPSInfo {
 	explicit MIPSInfo(u64 v) : value(v) {
 	}
 
-	u64 operator & (const u32 &arg) const {
+	u64 operator & (const u64 &arg) const {
 		return value & arg;
 	}
 
@@ -100,6 +100,7 @@ struct MIPSInfo {
 
 #define IN_VS           0x010000000000ULL
 #define IN_VT           0x020000000000ULL
+#define OUT_FT          0x040000000000ULL
 
 #define OUT_VD          0x100000000000ULL
 
@@ -110,8 +111,11 @@ struct MIPSInfo {
 typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
+namespace MIPSComp {
+	class JitInterface;
+}
 
-void MIPSCompileOp(MIPSOpcode op);
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit);
 void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
 void MIPSInterpret(MIPSOpcode op); //only for those rare ones
@@ -123,3 +127,4 @@ const char *MIPSGetName(MIPSOpcode op);
 const char *MIPSDisasmAt(u32 compilerPC);
 
 void FillMIPSTables();
+

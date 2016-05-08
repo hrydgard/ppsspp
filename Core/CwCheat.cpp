@@ -1,3 +1,5 @@
+#include "i18n/i18n.h"
+#include "UI/OnScreenDisplay.h"
 #include "Common/StringUtils.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
@@ -9,6 +11,8 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+
 #ifdef _WIN32
 #include "util/text/utf8.h"
 #endif
@@ -39,7 +43,16 @@ static void __CheatStart() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
 	if (!File::Exists(activeCheatFile)) {
-		File::CreateEmptyFile(activeCheatFile);
+		FILE *f = File::OpenCFile(activeCheatFile, "wb");
+		if (f) {
+			fwrite("\xEF\xBB\xBF", 1, 3, f);
+			fclose(f);
+		}
+		if (!File::Exists(activeCheatFile)) {
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Unable to create cheat file, disk may be full"));
+		}
+
 	}
 
 	cheatEngine = new CWCheatEngine();
@@ -56,8 +69,10 @@ void __CheatInit() {
 		__CheatStart();
 	}
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 }
 
 void __CheatShutdown() {
@@ -73,11 +88,13 @@ void __CheatDoState(PointerWrap &p) {
 	p.Do(CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	if (s < 2) {
 		// Before this we didn't have a checkpoint, so reset didn't work.
 		// Let's just force one in.
 		CoreTiming::RemoveEvent(CheatEvent);
-		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 	}
 }
 
@@ -91,8 +108,10 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		}
 	}
 
+	int refresh = g_Config.iCwCheatRefreshRate;
+
 	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? 77 : 1000), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
 
 	if (!cheatEngine || !cheatsEnabled)
 		return;
@@ -105,21 +124,21 @@ void hleCheat(u64 userdata, int cyclesLate) {
 }
 
 CWCheatEngine::CWCheatEngine() {
-
 }
 
 void CWCheatEngine::Exit() {
 	exit2 = true;
 }
 
-static inline std::vector<std::string> makeCodeParts(const std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+// Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
+static inline std::vector<std::string> makeCodeParts(const std::vector<std::string>& CodesList) {
 	std::string currentcode;
 	std::vector<std::string> finalList;
 	char split_char = '\n';
 	char empty = ' ';
 	for (size_t i = 0; i < CodesList.size(); i++) {
 		currentcode = CodesList[i];
-		for (size_t j=0; j < currentcode.length(); j++) {
+		for (size_t j = 0; j < currentcode.length(); j++) {
 			if (currentcode[j] == empty) {
 				currentcode[j] = '\n';
 			}
@@ -181,6 +200,7 @@ std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints
 	std::vector<int> finalCode;
 	std::string modifier2 = "0";
 	while (true)  {
+		// Shouldn't splitCode be cleared here? Otherwise var1 and var2 will always be set to the first two codes.. I don't get it
 		if (currentCode >= parts.size()) {
 			code1.clear();
 			code2.clear();
@@ -188,6 +208,11 @@ std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints
 		}
 		code1 = parts[currentCode++];
 		trim2(code1);
+		if (currentCode >= parts.size()) {
+			code1.clear();
+			code2.clear();
+			break;
+		}
 		code2 = parts[currentCode++];
 		trim2(code2);
 		splitCode.push_back(code1);
@@ -206,20 +231,24 @@ std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints
 
 void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
-		if (GetNextCode()[0] == 0) {
+		auto code = GetNextCode();
+		if (code.empty())
+		{
+			WARN_LOG(COMMON, "CWCHEAT: Tried to skip more codes than there are, the cheat is most likely wrong");
+			break;
+		}
+		if (code[0] == 0) {
 			break;
 		}
 	}
 }
 
 void CWCheatEngine::SkipAllCodes() {
-	currentCode = codes.size();
+	currentCode = codes.size() - 1;
 }
 
 int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
 	int address = (value + 0x08800000) & 0x3FFFFFFF;
-	if (gameTitle == "ULUS10563" || gameTitle == "ULJS-00351" || gameTitle == "NPJH50352" ) //Offset to make God Eater Burst codes work
-		address -= 0x7EF00;
 	return address;
 }
 
@@ -257,6 +286,10 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	return codesList;
 }
 
+void CWCheatEngine::InvalidateICache(u32 addr, int size) {
+	currentMIPS->InvalidateICache(addr & ~3, size);
+}
+
 void CWCheatEngine::Run() {
 	exit2 = false;
 	while (!exit2) {
@@ -276,7 +309,8 @@ void CWCheatEngine::Run() {
 
 			switch (comm >> 28) {
 			case 0: // 8-bit write.But need more check
-				if (Memory::IsValidAddress(addr)){
+				if (Memory::IsValidAddress(addr)) {
+					InvalidateICache(addr & ~3, 4);
 					if (arg < 0x00000100) // 8-bit 
 						Memory::Write_U8((u8) arg, addr);
 					else if (arg < 0x00010000) // 16-bit
@@ -286,18 +320,21 @@ void CWCheatEngine::Run() {
 				}
 				break;
 			case 0x1: // 16-bit write
-				if (Memory::IsValidAddress(addr)){
+				if (Memory::IsValidAddress(addr)) {
+					InvalidateICache(addr & ~3, 4);
 					Memory::Write_U16((u16) arg, addr);
 				}
 				break;
 			case 0x2: // 32-bit write
 				if (Memory::IsValidAddress(addr)){
+					InvalidateICache(addr & ~3, 4);
 					Memory::Write_U32((u32) arg, addr);
 				}
 				break;
 			case 0x3: // Increment/Decrement
 				{
 					addr = GetAddress(arg & 0x0FFFFFFF);
+					InvalidateICache(addr & ~3, 4);
 					value = 0;
 					int increment = 0;
 					// Read value from memory
@@ -357,9 +394,11 @@ void CWCheatEngine::Run() {
 					int data = code[0];
 					int dataAdd = code[1];
 
-					int maxAddr = (arg >> 16) & 0xFFFF;
+					int count = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * 4;
-					for (int a  = 0; a < maxAddr; a++) {
+
+					InvalidateICache(addr, count * stepAddr);
+					for (int a  = 0; a < count; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							Memory::Write_U32((u32) data, addr);
 						}
@@ -372,23 +411,30 @@ void CWCheatEngine::Run() {
 				code = GetNextCode();
 				if (true) {
 					int destAddr = GetAddress(code[0]);
+					int len = arg;
+					InvalidateICache(destAddr, len);
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
-						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
+						Memory::MemcpyUnchecked(destAddr, addr, len);
 					}
 				}
 				break;
 			case 0x6: // Pointer commands
 				code = GetNextCode();
-				if (true) {
+				if (code.size() >= 2) {
 					int arg2 = code[0];
 					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;
+					InvalidateICache(addr + baseOffset, 4);
 					int base = Memory::Read_U32(addr + baseOffset);
 					int count = arg2 & 0xFFFF;
 					int type = (arg2 >> 16) & 0xF;
 					for (int i = 1; i < count; i ++ ) {
 						if (i+1 < count) {
 							code = GetNextCode();
+							if (code.size() < 2) {
+								// Code broken. Should warn but would be very spammy...
+								break;
+							}
 							int arg3 = code[0];
 							int arg4 = code[1];
 							int comm3 = arg3 >> 28;
@@ -397,7 +443,9 @@ void CWCheatEngine::Run() {
 								{
 									int srcAddr = Memory::Read_U32(addr) + offset;
 									int dstAddr = Memory::Read_U16(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
-									Memory::Memcpy(dstAddr, Memory::GetPointer(srcAddr), arg);
+									if (Memory::IsValidAddress(dstAddr) && Memory::IsValidAddress(srcAddr)) {
+										Memory::MemcpyUnchecked(dstAddr, srcAddr, arg);
+									}
 									type = -1; //Done
 									break; }
 							case 0x2:
@@ -459,6 +507,7 @@ void CWCheatEngine::Run() {
 				switch (arg >> 16) {
 				case 0x0000: // 8-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 | val2), addr);
@@ -466,6 +515,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0002: // 8-bit AND.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 & val2), addr);
@@ -473,6 +523,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0004: // 8-bit XOR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						int val1 = (int) (arg & 0xFF);
 						int val2 = (int) Memory::Read_U8(addr);
 						Memory::Write_U8((u8) (val1 ^ val2), addr);
@@ -480,6 +531,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0001: // 16-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 | val2), addr);
@@ -487,6 +539,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0003: // 16-bit AND.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 & val2), addr);
@@ -494,6 +547,7 @@ void CWCheatEngine::Run() {
 					break;
 				case 0x0005: // 16-bit OR.
 					if (Memory::IsValidAddress(addr)) {
+						InvalidateICache(addr & ~3, 4);
 						short val1 = (short) (arg & 0xFFFF);
 						short val2 = (short) Memory::Read_U16(addr);
 						Memory::Write_U16((u16) (val1 ^ val2), addr);
@@ -503,14 +557,15 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x8: // 8-bit and 16-bit patch code
 				code = GetNextCode();
-				if (true) {
+				if (code.size() >= 2) {
 					int data = code[0];
 					int dataAdd = code[1];
 
 					bool is8Bit = (data >> 16) == 0x0000;
-					int maxAddr = (arg >> 16) & 0xFFFF;
+					int count = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * (is8Bit ? 1 : 2);
-					for (int a = 0; a < maxAddr; a++) {
+					InvalidateICache(addr, count * stepAddr);
+					for (int a = 0; a < count; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							if (is8Bit) {
 								Memory::Write_U8((u8) (data & 0xFF), addr);
@@ -528,6 +583,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0xC: // Code stopper
 				if (Memory::IsValidAddress(addr)) { 
+					InvalidateICache(addr, 4);
 					value = Memory::Read_U32(addr);
 					if ((u32)value != arg) {
 						SkipAllCodes();
@@ -535,7 +591,7 @@ void CWCheatEngine::Run() {
 				}
 				break;
 			case 0xD: // Test commands & Jocker codes
-				if (arg >> 28 == 0x0 || arg >> 28 == 0x2) { // 8Bit & 16Bit ignore next line cheat code
+				if ((arg >> 28) == 0x0 || (arg >> 28) == 0x2) { // 8Bit & 16Bit ignore next line cheat code
 					bool is8Bit = (arg >> 28) == 0x2;
 					addr = GetAddress(comm & 0x0FFFFFFF);
 					if (Memory::IsValidAddress(addr)) {
@@ -563,7 +619,7 @@ void CWCheatEngine::Run() {
 					}
 					break;
 				}
-				else if (arg >> 28 == 0x1 || arg >> 28 == 0x3) { // Buttons dependent ignore cheat code
+				else if ((arg >> 28) == 0x1 || (arg >> 28) == 0x3) { // Buttons dependent ignore cheat code
 					// Button	Code
 					// SELECT	0x00000001
 					// START	0x00000008
@@ -587,23 +643,26 @@ void CWCheatEngine::Run() {
 					// NOTE		0x00800000
 					u32 buttonStatus = __CtrlPeekButtons();
 					int skip = (comm & 0xFF) + 1;
-					if (arg >> 28 == 0x1)
-						if (buttonStatus == (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+					u32 mask = arg & 0x0FFFFFFF;
+					if ((arg >> 28) == 0x1)
+						// Old, too specific check: if (buttonStatus == (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
+						if ((buttonStatus & mask) == mask)	// cheat code likes: 0xD00000nn 0x1bbbbbbb;
 							break;
 						else
 							SkipCodes(skip);
-					else
-						if (buttonStatus != (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
-							break;
-						else
+					else // (arg >> 28) == 2?
+						// Old, too specific check: if (buttonStatus != (arg & 0x0FFFFFFF))	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
+						if ((buttonStatus & mask) == mask)	// cheat code likes: 0xD00000nn 0x3bbbbbbb;
 							SkipCodes(skip);
+						else
+							break;
 					break;
 				}
-				else if (arg >> 28 == 0x4 || arg >> 28 == 0x5 || arg >> 28 == 0x6 || arg >> 28 == 0x7) {
+				else if ((arg >> 28) == 0x4 || (arg >> 28) == 0x5 || (arg >> 28) == 0x6 || (arg >> 28) == 0x7) {
 					int addr1 = GetAddress(comm & 0x0FFFFFFF);
 					int addr2 = GetAddress(arg & 0x0FFFFFFF);
 					code = GetNextCode();
-					if (true)
+					if (code.size() >= 2)
 						if (Memory::IsValidAddress(addr1) && Memory::IsValidAddress(addr2)) {
 							int comm2 = code[0];
 							int arg2 = code[1];

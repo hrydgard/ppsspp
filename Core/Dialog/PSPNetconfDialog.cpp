@@ -18,7 +18,7 @@
 #include "PSPNetconfDialog.h"
 #include "ChunkFile.h"
 #include "Core/Config.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
@@ -62,13 +62,13 @@ void PSPNetconfDialog::DrawBanner() {
 
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
-	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawText(d->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	I18NCategory *di = GetI18NCategory("Dialog");
+	PPGeDrawText(di->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
 	UpdateButtons();
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *err = GetI18NCategory("Error");
 	const float WRAP_WIDTH = 254.0f;
 	const int confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? I_CROSS : I_CIRCLE;
@@ -83,7 +83,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("OK"), 225, 252, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("OK"), 225, 252, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(confirmBtn)) {
 			StartFade(false);
@@ -114,7 +114,7 @@ int PSPNetconfDialog::Shutdown(bool force) {
 	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	return PSPDialog::Shutdown();
+	return PSPDialog::Shutdown(force);
 }
 
 void PSPNetconfDialog::DoState(PointerWrap &p) {	

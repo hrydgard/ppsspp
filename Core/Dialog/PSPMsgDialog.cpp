@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPMsgDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "../Core/MemMap.h"
+#include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
 
@@ -155,18 +155,18 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 
 	if (hasYesNo)
 	{
-		I18NCategory *d = GetI18NCategory("Dialog");
+		I18NCategory *di = GetI18NCategory("Dialog");
 		const char *choiceText;
 		u32 yesColor, noColor;
 		float x, w;
 		if (yesnoChoice == 1) {
-			choiceText = d->T("Yes");
+			choiceText = di->T("Yes");
 			x = 204.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
 		else {
-			choiceText = d->T("No");
+			choiceText = di->T("No");
 			x = 273.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
@@ -178,10 +178,10 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		h2 += h + 5.0f;
 		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("Yes"), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(di->T("Yes"), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("Yes"), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(di->T("No"), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("No"), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -192,7 +192,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	} 
 	
 	if (hasOK) {
-		I18NCategory *d = GetI18NCategory("Dialog");
+		I18NCategory *di = GetI18NCategory("Dialog");
 		float x, w;
 		x = 240.0f;
 		w = 15.0f;
@@ -201,8 +201,8 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		h2 += h + 5.0f;
 		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("OK"), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("OK"), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("OK"), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("OK"), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 		ey = y2 + 25.0f;
 	}
 

@@ -15,40 +15,50 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
-#define SHADERLOG
-#endif
+// #define SHADERLOG
 
-#ifdef SHADERLOG
+#if defined(_WIN32) && defined(SHADERLOG)
 #include "Common/CommonWindows.h"
 #endif
 
 #include <map>
+#include <cstdio>
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "math/math_util.h"
-#include "gfx_es2/gl_state.h"
 #include "math/lin/matrix4x4.h"
+#include "profiler/profiler.h"
 
+#include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
-#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "UI/OnScreenDisplay.h"
 #include "Framebuffer.h"
+#include "i18n/i18n.h"
 
-Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
+Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
+	  : failed_(false), useHWTransform_(useHWTransform) {
+	PROFILE_THIS_SCOPE("shadercomp");
+	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
 #ifdef SHADERLOG
+#ifdef _WIN32
 	OutputDebugStringUTF8(code);
+#else
+	printf("%s\n", code);
 #endif
-	shader = glCreateShader(shaderType);
+#endif
+	shader = glCreateShader(glShaderType);
 	glShaderSource(shader, 1, &code, 0);
 	glCompileShader(shader);
-	GLint success;
+	GLint success = 0;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 	if (!success) {
 #define MAX_INFO_LOG_SIZE 2048
@@ -79,8 +89,10 @@ Shader::~Shader() {
 		glDeleteShader(shader);
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous)
+LinkedShader::LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform)
 		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
+	PROFILE_THIS_SCOPE("shaderlink");
+
 	program = glCreateProgram();
 	vs_ = vs;
 	glAttachShader(program, vs->shader);
@@ -97,13 +109,20 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glBindAttribLocation(program, ATTR_COLOR0, "color0");
 	glBindAttribLocation(program, ATTR_COLOR1, "color1");
 
-#ifndef USING_GLES2
-	if (gl_extensions.ARB_blend_func_extended) {
+#if !defined(USING_GLES2)
+	if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
 		// Dual source alpha
 		glBindFragDataLocationIndexed(program, 0, 0, "fragColor0");
 		glBindFragDataLocationIndexed(program, 0, 1, "fragColor1");
 	} else if (gl_extensions.VersionGEThan(3, 3, 0)) {
 		glBindFragDataLocation(program, 0, "fragColor0");
+	}
+#elif !defined(IOS)
+	if (gl_extensions.GLES3) {
+		if (gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND) {
+			glBindFragDataLocationIndexedEXT(program, 0, 0, "fragColor0");
+			glBindFragDataLocationIndexedEXT(program, 0, 1, "fragColor1");
+		}
 	}
 #endif
 
@@ -121,18 +140,25 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 			ELOG("Could not link program:\n %s", buf);
 #endif
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
-			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
-			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
-			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs->source().c_str(), vs->source().c_str());
+			ERROR_LOG(G3D, "VS desc:\n%s\n", vs->GetShaderString(SHADER_STRING_SHORT_DESC, VSID).c_str());
+			ERROR_LOG(G3D, "FS desc:\n%s\n", fs->GetShaderString(SHADER_STRING_SHORT_DESC, FSID).c_str());
+			std::string vs_source = vs->GetShaderString(SHADER_STRING_SOURCE_CODE, VSID);
+			std::string fs_source = fs->GetShaderString(SHADER_STRING_SOURCE_CODE, FSID);
+			ERROR_LOG(G3D, "VS:\n%s\n", vs_source.c_str());
+			ERROR_LOG(G3D, "FS:\n%s\n", fs_source.c_str());
+			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs_source.c_str(), vs_source.c_str());
 #ifdef SHADERLOG
 			OutputDebugStringUTF8(buf);
-			OutputDebugStringUTF8(vs->source().c_str());
-			OutputDebugStringUTF8(fs->source().c_str());
+			OutputDebugStringUTF8(vs_source.c_str());
+			OutputDebugStringUTF8(fs_source.c_str());
 #endif
 			delete [] buf;	// we're dead!
 		}
 		// Prevent a buffer overflow.
 		numBones = 0;
+		// Avoid weird attribute enables.
+		attrMask = 0;
+		availableUniforms = 0;
 		return;
 	}
 
@@ -158,10 +184,11 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	if (vertTypeGetWeightMask(vertType) != GE_VTYPE_WEIGHT_NONE)
-		numBones = TranslateNumBones(vertTypeGetNumBoneWeights(vertType));
+	if (VSID.Bit(VS_BIT_ENABLE_BONES))
+		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
 	else
 		numBones = 0;
+	u_depthRange = glGetUniformLocation(program, "u_depthRange");
 
 #ifdef USE_BONE_ARRAY
 	u_bone = glGetUniformLocation(program, "u_bone");
@@ -228,6 +255,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	if (u_texmtx != -1) availableUniforms |= DIRTY_TEXMATRIX;
 	if (u_stencilReplaceValue != -1) availableUniforms |= DIRTY_STENCILREPLACEVALUE;
 	if (u_blendFixA != -1 || u_blendFixB != -1 || u_fbotexSize != -1) availableUniforms |= DIRTY_SHADERBLEND;
+	if (u_depthRange != -1)
+		availableUniforms |= DIRTY_DEPTHRANGE;
 
 	// Looping up to numBones lets us avoid checking u_bone[i]
 #ifdef USE_BONE_ARRAY
@@ -262,7 +291,6 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTrans
 	glUniform1i(u_testtex, 2);
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL;
-	use(vertType, previous);
 }
 
 LinkedShader::~LinkedShader() {
@@ -338,15 +366,29 @@ static void SetFloat24Uniform3(int uniform, const u32 data[3]) {
 	glUniform3fv(uniform, 1, (const GLfloat *)&col[0]);
 }
 
+static void SetFloatUniform4(int uniform, float data[4]) {
+	glUniform4fv(uniform, 1, data);
+}
+
 static void SetMatrix4x3(int uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x4, m4x3);
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
-void LinkedShader::use(u32 vertType, LinkedShader *previous) {
+static inline void ScaleProjMatrix(Matrix4x4 &in) {
+	float yOffset = gstate_c.vpYOffset;
+	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+		// GL upside down is a pain as usual.
+		yOffset = -yOffset;
+	}
+	const Vec3 trans(gstate_c.vpXOffset, yOffset, gstate_c.vpZOffset);
+	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale);
+	in.translateAndScale(trans, scale);
+}
+
+void LinkedShader::use(const ShaderID &VSID, LinkedShader *previous) {
 	glUseProgram(program);
-	UpdateUniforms(vertType);
 	int enable, disable;
 	if (previous) {
 		enable = attrMask & ~previous->attrMask;
@@ -370,7 +412,7 @@ void LinkedShader::stop() {
 	}
 }
 
-void LinkedShader::UpdateUniforms(u32 vertType) {
+void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	u32 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 	if (!dirty)
@@ -378,25 +420,34 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		float flippedMatrix[16];
-		memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
-		if (gstate_c.vpHeight < 0) {
+		Matrix4x4 flippedMatrix;
+		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
+
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+		const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+		if (invertedY) {
+			flippedMatrix[1] = -flippedMatrix[1];
 			flippedMatrix[5] = -flippedMatrix[5];
+			flippedMatrix[9] = -flippedMatrix[9];
 			flippedMatrix[13] = -flippedMatrix[13];
 		}
-		if (gstate_c.vpWidth < 0) {
+		const bool invertedX = gstate_c.vpWidth < 0;
+		if (invertedX) {
 			flippedMatrix[0] = -flippedMatrix[0];
+			flippedMatrix[4] = -flippedMatrix[4];
+			flippedMatrix[8] = -flippedMatrix[8];
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
 		// In Phantasy Star Portable 2, depth range sometimes goes negative and is clamped by glDepthRange to 0,
 		// causing graphics clipping glitch (issue #1788). This hack modifies the projection matrix to work around it.
-		if (g_Config.bDepthRangeHack) {
-			float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
-			float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
+		if (gstate_c.Supports(GPU_USE_DEPTH_RANGE_HACK)) {
+			float zScale = gstate.getViewportZScale() / 65535.0f;
+			float zCenter = gstate.getViewportZCenter() / 65535.0f;
 
 			// if far depth range < 0
-			if (zOff + zScale < 0.0f) {
+			if (zCenter + zScale < 0.0f) {
 				// if perspective projection
 				if (flippedMatrix[11] < 0.0f) {
 					float depthMax = gstate.getDepthRangeMax() / 65535.0f;
@@ -408,7 +459,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 					float n = b / (a - 1.0f);
 					float f = b / (a + 1.0f);
 
-					f = (n * f) / (n + ((zOff + zScale) * (n - f) / (depthMax - depthMin)));
+					f = (n * f) / (n + ((zCenter + zScale) * (n - f) / (depthMax - depthMin)));
 
 					a = (n + f) / (n - f);
 					b = (2.0f * n * f) / (n - f);
@@ -421,12 +472,19 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			}
 		}
 
-		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix);
+		ScaleProjMatrix(flippedMatrix);
+
+		glUniformMatrix4fv(u_proj, 1, GL_FALSE, flippedMatrix.m);
 	}
 	if (dirty & DIRTY_PROJTHROUGHMATRIX)
 	{
 		Matrix4x4 proj_through;
-		proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0, 0, 1);
+		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		if (useBufferedRendering) {
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, 0.0f, gstate_c.curRTHeight, 0.0f, 1.0f);
+		} else {
+			proj_through.setOrtho(0.0f, gstate_c.curRTWidth, gstate_c.curRTHeight, 0.0f, 0.0f, 1.0f);
+		}
 		glUniformMatrix4fv(u_proj_through, 1, GL_FALSE, proj_through.getReadPtr());
 	}
 	if (dirty & DIRTY_TEXENV) {
@@ -489,7 +547,6 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 		case GE_TEXMAP_UNKNOWN:
 			if (g_Config.bPrescaleUV) {
-				// Shouldn't even get here as we won't use the uniform in the shader.
 				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
 				// except consider *Scale and *Off to be 1 and 0.
 				uvscaleoff[0] = widthFactor;
@@ -531,7 +588,7 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 
-	if (dirty & DIRTY_TEXCLAMP) {
+	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
 		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
 		const int w = gstate.getTextureWidth(0);
@@ -565,6 +622,32 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
+	}
+	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
+		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
+		float vpZScale = gstate.getViewportZScale();
+		float vpZCenter = gstate.getViewportZCenter();
+
+		// These are just the reverse of the formulas in GPUStateUtils.
+		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
+		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
+		float viewZScale = halfActualZRange;
+		float viewZCenter = minz + halfActualZRange;
+
+		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			viewZScale = vpZScale;
+			viewZCenter = vpZCenter;
+		}
+
+		float viewZInvScale;
+		if (viewZScale != 0.0) {
+			viewZInvScale = 1.0f / viewZScale;
+		} else {
+			viewZInvScale = 0.0;
+		}
+
+		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
+		SetFloatUniform4(u_depthRange, data);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
@@ -667,8 +750,11 @@ void LinkedShader::UpdateUniforms(u32 vertType) {
 	}
 }
 
-ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
+ShaderManager::ShaderManager()
+		: lastShader_(nullptr), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0), diskCacheDirty_(false) {
 	codeBuffer_ = new char[16384];
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 }
 
 ShaderManager::~ShaderManager() {
@@ -690,19 +776,20 @@ void ShaderManager::Clear() {
 	fsCache_.clear();
 	vsCache_.clear();
 	globalDirty_ = 0xFFFFFFFF;
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	DirtyShader();
 }
 
 void ShaderManager::ClearCache(bool deleteThem) {
+	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
 }
 
 void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID_.clear();
-	lastVSID_.clear();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	DirtyLastShader();
 	globalDirty_ = 0xFFFFFFFF;
 	shaderSwitchDirty_ = 0;
@@ -711,15 +798,24 @@ void ShaderManager::DirtyShader() {
 void ShaderManager::DirtyLastShader() { // disables vertex arrays
 	if (lastShader_)
 		lastShader_->stop();
-	lastShader_ = 0;
+	lastShader_ = nullptr;
+	lastVShaderSame_ = false;
 }
 
-Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
-	// This doesn't work - we miss some events that really do need to dirty the prescale.
-	// like changing the texmapmode.
-	// if (g_Config.bPrescaleUV)
-	//	 globalDirty_ &= ~DIRTY_UVSCALEOFFSET;
+Shader *ShaderManager::CompileFragmentShader(ShaderID FSID) {
+	if (!GenerateFragmentShader(FSID, codeBuffer_)) {
+		return nullptr;
+	}
+	return new Shader(codeBuffer_, GL_FRAGMENT_SHADER, false);
+}
 
+Shader *ShaderManager::CompileVertexShader(ShaderID VSID) {
+	bool useHWTransform = VSID.Bit(VS_BIT_USE_HW_TRANSFORM);
+	GenerateVertexShader(VSID, codeBuffer_);
+	return new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+}
+
+Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID) {
 	if (globalDirty_) {
 		if (lastShader_)
 			lastShader_->dirtyUniforms |= globalDirty_;
@@ -729,29 +825,27 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
 
-	VertexShaderID VSID;
-	ComputeVertexShaderID(&VSID, vertType, prim, useHWTransform);
+	ComputeVertexShaderID(VSID, vertType, useHWTransform);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader_ != 0 && VSID == lastVSID_) {
+	if (lastShader_ != 0 && *VSID == lastVSID_) {
 		lastVShaderSame_ = true;
-		return lastShader_->vs_;	// Already all set.
+		return lastShader_->vs_;  	// Already all set.
 	} else {
 		lastVShaderSame_ = false;
 	}
 
-	lastVSID_ = VSID;
+	lastVSID_ = *VSID;
 
-	VSCache::iterator vsIter = vsCache_.find(VSID);
+	VSCache::iterator vsIter = vsCache_.find(*VSID);
 	Shader *vs;
 	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, vertType, codeBuffer_, useHWTransform);
-		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
-
+		vs = CompileVertexShader(*VSID);
 		if (vs->Failed()) {
+			I18NCategory *gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
-			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
+			osm.Show(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
 			delete vs;
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
@@ -759,22 +853,25 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType) {
 			// next time and we'll do this over and over...
 
 			// Can still work with software transform.
-			GenerateVertexShader(prim, vertType, codeBuffer_, false);
+			ShaderID vsidTemp;
+			ComputeVertexShaderID(&vsidTemp, vertType, false);
+			GenerateVertexShader(vsidTemp, codeBuffer_);
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
 		}
 
-		vsCache_[VSID] = vs;
+		vsCache_[*VSID] = vs;
+		diskCacheDirty_ = true;
 	} else {
 		vs = vsIter->second;
 	}
 	return vs;
 }
 
-LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertType) {
-	FragmentShaderID FSID;
+LinkedShader *ShaderManager::ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim) {
+	ShaderID FSID;
 	ComputeFragmentShaderID(&FSID);
 	if (lastVShaderSame_ && FSID == lastFSID_) {
-		lastShader_->UpdateUniforms(vertType);
+		lastShader_->UpdateUniforms(vertType, VSID);
 		return lastShader_;
 	}
 
@@ -784,19 +881,20 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	Shader *fs;
 	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
-		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, vs->UseHWTransform());
+		fs = CompileFragmentShader(FSID);
 		fsCache_[FSID] = fs;
+		diskCacheDirty_ = true;
 	} else {
 		fs = fsIter->second;
 	}
 
 	// Okay, we have both shaders. Let's see if there's a linked one.
-	LinkedShader *ls = NULL;
+	LinkedShader *ls = nullptr;
 
+	u32 switchDirty = shaderSwitchDirty_;
 	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
-		iter->ls->dirtyUniforms |= shaderSwitchDirty_;
+		iter->ls->dirtyUniforms |= switchDirty;
 
 		if (iter->vs == vs && iter->fs == fs) {
 			ls = iter->ls;
@@ -804,14 +902,217 @@ LinkedShader *ShaderManager::ApplyFragmentShader(Shader *vs, int prim, u32 vertT
 	}
 	shaderSwitchDirty_ = 0;
 
-	if (ls == NULL) {
-		ls = new LinkedShader(vs, fs, vertType, vs->UseHWTransform(), lastShader_);  // This does "use" automatically
+
+	if (ls == nullptr) {
+		// Check if we can link these.
+		ls = new LinkedShader(VSID, vs, FSID, fs, vs->UseHWTransform());
+		ls->use(VSID, lastShader_);
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
-		ls->use(vertType, lastShader_);
+		ls->use(VSID, lastShader_);
 	}
+	ls->UpdateUniforms(vertType, VSID);
 
 	lastShader_ = ls;
 	return ls;
+}
+
+std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) const {
+	switch (type) {
+	case SHADER_STRING_SOURCE_CODE:
+		return source_;
+	case SHADER_STRING_SHORT_DESC:
+		return isFragment_ ? FragmentShaderDesc(id) : VertexShaderDesc(id);
+	default:
+		return "N/A";
+	}
+}
+
+std::vector<std::string> ShaderManager::DebugGetShaderIDs(DebugShaderType type) {
+	std::string id;
+	std::vector<std::string> ids;
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+		{
+			for (auto iter : vsCache_) {
+				iter.first.ToString(&id);
+				ids.push_back(id);
+			}
+		}
+		break;
+	case SHADER_TYPE_FRAGMENT:
+		{
+			for (auto iter : fsCache_) {
+				iter.first.ToString(&id);
+				ids.push_back(id);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	return ids;
+}
+
+std::string ShaderManager::DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) {
+	ShaderID shaderId;
+	shaderId.FromString(id);
+	switch (type) {
+	case SHADER_TYPE_VERTEX:
+	{
+		auto iter = vsCache_.find(shaderId);
+		if (iter == vsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType, iter->first);
+	}
+
+	case SHADER_TYPE_FRAGMENT:
+	{
+		auto iter = fsCache_.find(shaderId);
+		if (iter == fsCache_.end()) {
+			return "";
+		}
+		return iter->second->GetShaderString(stringType, iter->first);
+	}
+	default:
+		return "N/A";
+	}
+}
+
+// Shader pseudo-cache.
+//
+// We simply store the IDs of the shaders used during gameplay. On next startup of
+// the same game, we simply compile all the shaders from the start, so we don't have to
+// compile them on the fly later. Ideally we would store the actual compiled shaders
+// rather than just their IDs, but OpenGL does not support this, except for a few obscure
+// vendor-specific extensions.
+//
+// If things like GPU supported features have changed since the last time, we discard the cache
+// as sometimes these features might have an effect on the ID bits.
+
+#define CACHE_HEADER_MAGIC 0x83277592
+#define CACHE_VERSION 1
+struct CacheHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t featureFlags;
+	uint32_t reserved;
+	int numVertexShaders;
+	int numFragmentShaders;
+	int numLinkedPrograms;
+};
+
+void ShaderManager::LoadAndPrecompile(const std::string &filename) {
+	File::IOFile f(filename, "rb");
+	if (!f.IsOpen()) {
+		return;
+	}
+	CacheHeader header;
+	if (!f.ReadArray(&header, 1)) {
+		return;
+	}
+	if (header.magic != CACHE_HEADER_MAGIC || header.version != CACHE_VERSION || header.featureFlags != gstate_c.featureFlags) {
+		return;
+	}
+	time_update();
+	double start = time_now_d();
+
+	for (int i = 0; i < header.numVertexShaders; i++) {
+		ShaderID id;
+		if (!f.ReadArray(&id, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		Shader *vs = CompileVertexShader(id);
+		if (vs->Failed()) {
+			// Give up on using the cache, just bail. We can't safely create the fallback shaders here
+			// without trying to deduce the vertType from the VSID.
+			ERROR_LOG(G3D, "Failed to compile a vertex shader loading from cache. Skipping rest of shader cache.");
+			delete vs;
+			return;
+		}
+		vsCache_[id] = vs;
+	}
+	for (int i = 0; i < header.numFragmentShaders; i++) {
+		ShaderID id;
+		if (!f.ReadArray(&id, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		fsCache_[id] = CompileFragmentShader(id);
+	}
+	for (int i = 0; i < header.numLinkedPrograms; i++) {
+		ShaderID vsid, fsid;
+		if (!f.ReadArray(&vsid, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		if (!f.ReadArray(&fsid, 1)) {
+			ERROR_LOG(G3D, "Truncated shader cache file, aborting.");
+			return;
+		}
+		VSCache::iterator vs = vsCache_.find(vsid);
+		FSCache::iterator fs = fsCache_.find(fsid);
+		if (vs != vsCache_.end() && fs != fsCache_.end()) {
+			LinkedShader *ls = new LinkedShader(vsid, vs->second, fsid, fs->second, vs->second->UseHWTransform());
+			LinkedShaderCacheEntry entry(vs->second, fs->second, ls);
+			linkedShaderCache_.push_back(entry);
+		}
+	}
+	time_update();
+	double end = time_now_d();
+
+	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", header.numLinkedPrograms, header.numVertexShaders, header.numFragmentShaders, 1000 * (end - start));
+	NOTICE_LOG(G3D, "Loaded the shader cache from '%s'", filename.c_str());
+	diskCacheDirty_ = false;
+}
+
+void ShaderManager::Save(const std::string &filename) {
+	if (!diskCacheDirty_) {
+		return;
+	}
+	if (linkedShaderCache_.empty()) {
+		return;
+	}
+	INFO_LOG(G3D, "Saving the shader cache to '%s'", filename.c_str());
+	FILE *f = File::OpenCFile(filename, "wb");
+	if (!f) {
+		// Can't save, give up for now.
+		diskCacheDirty_ = false;
+		return;
+	}
+	CacheHeader header;
+	header.magic = CACHE_HEADER_MAGIC;
+	header.version = CACHE_VERSION;
+	header.reserved = 0;
+	header.featureFlags = gstate_c.featureFlags;
+	header.numVertexShaders = NumVertexShaders();
+	header.numFragmentShaders = NumFragmentShaders();
+	header.numLinkedPrograms = NumPrograms();
+	fwrite(&header, 1, sizeof(header), f);
+	for (auto iter : vsCache_) {
+		ShaderID id = iter.first;
+		fwrite(&id, 1, sizeof(id), f);
+	}
+	for (auto iter : fsCache_) {
+		ShaderID id = iter.first;
+		fwrite(&id, 1, sizeof(id), f);
+	}
+	for (auto iter : linkedShaderCache_) {
+		ShaderID vsid, fsid;
+		for (auto iter2 : vsCache_) {
+			if (iter.vs == iter2.second)
+				vsid = iter2.first;
+		}
+		for (auto iter2 : fsCache_) {
+			if (iter.fs == iter2.second)
+				fsid = iter2.first;
+		}
+		fwrite(&vsid, 1, sizeof(vsid), f);
+		fwrite(&fsid, 1, sizeof(fsid), f);
+	}
+	fclose(f);
+	diskCacheDirty_ = false;
 }

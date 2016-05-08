@@ -38,15 +38,14 @@ namespace Memory
 // GetPointer must always return an address in the bottom 32 bits of address space, so that 64-bit
 // programs don't have problems directly addressing any part of memory.
 
-u8 *GetPointer(const u32 address)
-{
+u8 *GetPointer(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
 		// RAM
 		return GetPointerUnchecked(address);
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		// VRAM
 		return GetPointerUnchecked(address);
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
+	} else if ((address & 0xBFFF0000) == 0x00010000 && (address & 0x0000FFFF) < SCRATCHPAD_SIZE) {
 		// Scratchpad
 		return GetPointerUnchecked(address);
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
@@ -63,13 +62,12 @@ u8 *GetPointer(const u32 address)
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
-		return 0;
+		return nullptr;
 	}
 }
 
 template <typename T>
-inline void ReadFromHardware(T &var, const u32 address)
-{
+inline void ReadFromHardware(T &var, const u32 address) {
 	// TODO: Figure out the fastest order of tests for both read and write (they are probably different).
 	// TODO: Make sure this represents the mirrors in a correct way.
 
@@ -81,7 +79,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		// VRAM
 		var = *((const T*)GetPointerUnchecked(address));
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
+	} else if ((address & 0xBFFF0000) == 0x00010000 && (address & 0x0000FFFF) < SCRATCHPAD_SIZE) {
 		// Scratchpad
 		var = *((const T*)GetPointerUnchecked(address));
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
@@ -108,8 +106,7 @@ inline void ReadFromHardware(T &var, const u32 address)
 }
 
 template <typename T>
-inline void WriteToHardware(u32 address, const T data)
-{
+inline void WriteToHardware(u32 address, const T data) {
 	// Could just do a base-relative write, too.... TODO
 
 	if ((address & 0x3E000000) == 0x08000000) {
@@ -118,7 +115,7 @@ inline void WriteToHardware(u32 address, const T data)
 	} else if ((address & 0x3F800000) == 0x04000000) {
 		// VRAM
 		*(T*)GetPointerUnchecked(address) = data;
-	} else if ((address & 0xBFFF0000) == 0x00010000) {
+	} else if ((address & 0xBFFF0000) == 0x00010000 && (address & 0x0000FFFF) < SCRATCHPAD_SIZE) {
 		// Scratchpad
 		*(T*)GetPointerUnchecked(address) = data;
 	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
@@ -160,7 +157,7 @@ bool IsVRAMAddress(const u32 address) {
 }
 
 bool IsScratchpadAddress(const u32 address) {
-	return (address & 0xBFFF0000) == 0x00010000;
+	return (address & 0xBFFF0000) == 0x00010000 && (address & 0x0000FFFF) < SCRATCHPAD_SIZE;
 }
 
 u8 Read_U8(const u32 _Address)

@@ -202,22 +202,25 @@ void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 	mappers_.clear();
 
-	I18NCategory *k = GetI18NCategory("KeyMapping");
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *km = GetI18NCategory("KeyMapping");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
-	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
-	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
-	if (KeyMap::GetSeenPads().size()) {
-		leftColumn->Add(new Choice(k->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, Margins(10, 0, 0, 10)));
+	leftColumn->Add(new Choice(km->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
+	leftColumn->Add(new Choice(km->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
+
+	std::string sysName = System_GetProperty(SYSPROP_NAME);
+	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
+	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
+		leftColumn->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
-	leftColumn->Add(new Choice(k->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
+	leftColumn->Add(new Choice(km->T("Test Analogs")))->OnClick.Handle(this, &ControlMappingScreen::OnTestAnalogs);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	AddStandardBack(leftColumn);
 
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightScroll_->SetTag("ControlMapping");
 	rightScroll_->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll_->Add(rightColumn);
@@ -260,8 +263,8 @@ UI::EventReturn ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	for (auto s = seenPads.begin(), end = seenPads.end(); s != end; ++s) {
 		items.push_back(*s);
 	}
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
-	ListPopupScreen *autoConfList = new ListPopupScreen(keyI18N->T("Autoconfigure for device"), items, -1);
+	I18NCategory *km = GetI18NCategory("KeyMapping");
+	ListPopupScreen *autoConfList = new ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
 	screenManager()->push(autoConfList);
 	return UI::EVENT_DONE;
 }
@@ -289,11 +292,11 @@ void ControlMappingScreen::KeyMapped(int pspkey) {  // Notification to let us re
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *km = GetI18NCategory("KeyMapping");
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
+	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + pspButtonName, new LinearLayoutParams(Margins(10,0))));
 }
 
 bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -356,13 +359,13 @@ class JoystickHistoryView : public UI::InertView {
 public:
 	JoystickHistoryView(int xAxis, int xDevice, int yAxis, int yDevice, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-		  xAxis_(xAxis), xDevice_(xDevice),
-			yAxis_(yAxis), yDevice_(yDevice), 
+			xAxis_(xAxis), xDevice_(xDevice),
+			yAxis_(yAxis), yDevice_(yDevice),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
 	void Update(const InputState &input_state) override;
-	void Axis(const AxisInput &input) {
+	void Axis(const AxisInput &input) override{
 		if (input.axisId == xAxis_) {
 			curX_ = input.value;
 		} else if (input.axisId == yAxis_) {
@@ -379,8 +382,8 @@ private:
 	};
 
 	int xAxis_;
-	int yAxis_;
 	int xDevice_;
+	int yAxis_;
 	int yDevice_;
 
 	float curX_;
@@ -421,10 +424,47 @@ void JoystickHistoryView::Update(const InputState &input_state) {
 	}
 }
 
-void AnalogTestScreen::CreateViews() {
-	root_ = new UI::LinearLayout(UI::ORIENT_VERTICAL);
+bool AnalogTestScreen::key(const KeyInput &key) {
+	bool retval = true;
+	if (UI::IsEscapeKey(key)) {
+		screenManager()->finishDialog(this, DR_BACK);
+		return true;
+	}
+	char buf[512];
+	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
+		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
+		(key.flags & KEY_UP) ? "UP" : "",
+		(key.flags & KEY_DOWN) ? "DOWN" : "",
+		(key.flags & KEY_CHAR) ? "CHAR" : "");
+	lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
+	lastKeyEvent_->SetText(buf);
+	return retval;
+}
 
-	UI::LinearLayout *theTwo = new UI::LinearLayout(UI::ORIENT_HORIZONTAL, new UI::LinearLayoutParams(1.0f));
+bool AnalogTestScreen::axis(const AxisInput &axis) {
+	UIScreen::axis(axis);
+	// This is mainly to catch axis events that would otherwise get translated
+	// into arrow keys, since seeing keyboard arrow key events appear when using
+	// a controller would be confusing for the user.
+	char buf[512];
+	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
+		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
+			axis.axisId, axis.value, axis.deviceId);
+		lastLastKeyEvent_->SetText(lastKeyEvent_->GetText());
+		lastKeyEvent_->SetText(buf);
+		return true;
+	}
+	return false;
+}
+
+void AnalogTestScreen::CreateViews() {
+	using namespace UI;
+
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+
+	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 
 	int axis1, device1, dir1;
 	int axis2, device2, dir2;
@@ -432,14 +472,18 @@ void AnalogTestScreen::CreateViews() {
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
 
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_X_MAX, &device1, &axis1, &dir1)) axis1 = -1;
 	if (!KeyMap::AxisFromPspButton(VIRTKEY_AXIS_RIGHT_Y_MAX, &device2, &axis2, &dir2)) axis2 = -1;
 
-	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new UI::LinearLayoutParams(1.0f)));
+	theTwo->Add(new JoystickHistoryView(axis1, device1, axis2, device2, new LinearLayoutParams(1.0f)));
 
 	root_->Add(theTwo);
 
-	root_->Add(new UI::Button("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	lastLastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	lastLastKeyEvent_->SetTextColor(0x80FFFFFF);   // semi-transparent
+	lastKeyEvent_ = root_->Add(new TextView("-", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

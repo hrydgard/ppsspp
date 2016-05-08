@@ -29,6 +29,7 @@ public:
 	bool HasCheats();
 
 private:
+	void InvalidateICache(u32 addr, int size);
 	void SkipCodes(int count);
 	void SkipAllCodes();
 	bool cheatsOn, exit2, cheatEnabled;

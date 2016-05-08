@@ -32,4 +32,7 @@ public:
 
 	static void BeginPolling();
 	static void StopPolling();
+
+	static void GainFocus();
+	static void LoseFocus();
 };

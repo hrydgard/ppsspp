@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "Common/ColorConv.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
@@ -27,20 +28,13 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
-#include "gfx/gl_common.h"
-#include "gfx_es2/gl_state.h"
+#include "profiler/profiler.h"
+#include "thin3d/thin3d.h"
 
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
-#include "GPU/Software/Colors.h"
 #include "GPU/Software/Rasterizer.h"
-
-static GLuint temp_texture = 0;
-
-static GLint attr_pos = -1, attr_tex = -1;
-static GLint uni_tex = -1;
-
-static GLuint program;
+#include "GPU/Common/FramebufferCommon.h"
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
@@ -48,113 +42,27 @@ FormatBuffer fb;
 FormatBuffer depthbuf;
 u32 clut[4096];
 
-// TODO: This one lives in GPU/GLES/Framebuffer.cpp, move it to somewhere common.
-void CenterRect(float *x, float *y, float *w, float *h,
-								float origW, float origH, float frameW, float frameH);
+static Thin3DVertexFormat *vformat = nullptr;
+static Thin3DDepthStencilState *depth = nullptr;
+static Thin3DBuffer *vdata = nullptr;
+static Thin3DBuffer *idata = nullptr;
 
-GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
+SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
+	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
-	// generate objects
-	GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-	GLuint fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-	GLuint programID = glCreateProgram();
+	fbTex = thin3d->CreateTexture(LINEAR2D, RGBA8888, 480, 272, 1, 1);
 
-	// compile vertex shader
-	glShaderSource(vertexShaderID, 1, &vertexShader, NULL);
-	glCompileShader(vertexShaderID);
+	std::vector<Thin3DVertexComponent> components;
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
 
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	GLint Result = GL_FALSE;
-	char stringBuffer[1024];
-	GLsizei stringBufferUsage = 0;
-	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderInfoLog(vertexShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result) {
-		// not nice
-	} else {
-		// not nice
-	}
-	bool shader_errors = !Result;
-#endif
+	Thin3DShader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
+	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
 
-	// compile fragment shader
-	glShaderSource(fragmentShaderID, 1, &fragmentShader, NULL);
-	glCompileShader(fragmentShaderID);
-
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &Result);
-	glGetShaderInfoLog(fragmentShaderID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result) {
-		// not nice
-	} else {
-		// not nice
-	}
-	shader_errors |= !Result;
-#endif
-
-	// link them
-	glAttachShader(programID, vertexShaderID);
-	glAttachShader(programID, fragmentShaderID);
-	glLinkProgram(programID);
-
-#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
-	glGetProgramiv(programID, GL_LINK_STATUS, &Result);
-	glGetProgramInfoLog(programID, 1024, &stringBufferUsage, stringBuffer);
-	if (Result && stringBufferUsage) {
-		// not nice
-	} else if (!Result && !shader_errors) {
-		// not nice
-	}
-#endif
-
-	// cleanup
-	glDeleteShader(vertexShaderID);
-	glDeleteShader(fragmentShaderID);
-
-	return programID;
-}
-
-SoftGPU::SoftGPU()
-{
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // 4-byte pixel alignment
-	glGenTextures(1, &temp_texture);
-
-	// TODO: Use highp for GLES
-	static const char *fragShaderText =
-#ifdef USING_GLES2
-		"#version 100\n"
-#endif
-		"varying vec2 TexCoordOut;\n"
-		"uniform sampler2D Texture;\n"
-		"void main() {\n"
-		"   vec4 tmpcolor;\n"
-		"   tmpcolor = texture2D(Texture, TexCoordOut);\n"
-		"   gl_FragColor = tmpcolor;\n"
-		"}\n";
-	static const char *vertShaderText =
-#ifdef USING_GLES2
-		"#version 100\n"
-#endif
-		"attribute vec4 pos;\n"
-		"attribute vec2 TexCoordIn;\n "
-		"varying vec2 TexCoordOut;\n "
-		"void main() {\n"
-		"   gl_Position = pos;\n"
-		"   TexCoordOut = TexCoordIn;\n"
-		"}\n";
-
-	program = OpenGL_CompileProgram(vertShaderText, fragShaderText);
-
-	glUseProgram(program);
-
-	uni_tex = glGetUniformLocation(program, "Texture");
-	attr_pos = glGetAttribLocation(program, "pos");
-	attr_tex = glGetAttribLocation(program, "TexCoordIn");
+	vdata = thin3d->CreateBuffer(24 * 4, T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
+	idata = thin3d->CreateBuffer(sizeof(int) * 6, T3DBufferUsage::DYNAMIC | T3DBufferUsage::INDEXDATA);
+	depth = thin3d->CreateDepthStencilState(false, false, T3DComparison::LESS);
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
@@ -166,10 +74,22 @@ SoftGPU::SoftGPU()
 	displayFormat_ = GE_FORMAT_8888;
 }
 
-SoftGPU::~SoftGPU()
-{
-	glDeleteProgram(program);
-	glDeleteTextures(1, &temp_texture);
+void SoftGPU::DeviceLost() {
+	// Handled by thin3d.
+}
+
+SoftGPU::~SoftGPU() {
+	vformat->Release();
+	vformat = nullptr;
+	fbTex->Release();
+	fbTex = nullptr;
+
+	vdata->Release();
+	vdata = nullptr;
+	idata->Release();
+	idata = nullptr;
+	depth->Release();
+	depth = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -183,51 +103,56 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 {
+	if (!thin3d)
+		return;
 	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
 	float dstheight = (float)PSP_CoreParameter().pixelHeight;
 
-	glstate.blend.disable();
-	glstate.viewport.set(0, 0, dstwidth, dstheight);
-	glstate.scissorTest.disable();
+	T3DViewport viewport = {0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f};
+	thin3d->SetViewports(1, &viewport);
 
-	glBindTexture(GL_TEXTURE_2D, temp_texture);
+	thin3d->SetBlendState(thin3d->GetBlendStatePreset(BS_OFF));
+	Thin3DSamplerState *sampler;
+	if (g_Config.iBufFilter == SCALE_NEAREST) {
+		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_NEAREST);
+	} else {
+		sampler = thin3d->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
+	}
+	thin3d->SetSamplerStates(0, 1, &sampler);
+	thin3d->SetDepthStencilState(depth);
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d->SetScissorEnabled(false);
 
-	GLfloat texvert_u;
-	if (displayFramebuf_ == 0) {
-		u32 data[] = {0};
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		texvert_u = 1.0f;
+	float u0 = 0.0f;
+	float u1;
+	if (!Memory::IsValidAddress(displayFramebuf_)) {
+		u8 data[] = {0, 0, 0, 0};
+		fbTex->SetImageData(0, 0, 0, 1, 1, 1, 0, 4, data);
+		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)displayStride_, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		texvert_u = (float)srcwidth / displayStride_;
+		fbTex->SetImageData(0, 0, 0, displayStride_, srcheight, 1, 0, displayStride_ * 4, data);
+		u1 = (float)srcwidth / displayStride_;
 	} else {
 		// TODO: This should probably be converted in a shader instead..
-		// TODO: Do something less brain damaged to manage this buffer...
-		u32 *buf = new u32[srcwidth * srcheight];
+		fbTexBuffer.resize(srcwidth * srcheight);
 		FormatBuffer displayBuffer;
 		displayBuffer.data = Memory::GetPointer(displayFramebuf_);
 		for (int y = 0; y < srcheight; ++y) {
-			u32 *buf_line = &buf[y * srcwidth];
+			u32 *buf_line = &fbTexBuffer[y * srcwidth];
 			const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
 
 			switch (displayFormat_) {
 			case GE_FORMAT_565:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGB565(fb_line[x]);
-				}
+				ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_5551:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA5551(fb_line[x]);
-				}
+				ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			case GE_FORMAT_4444:
-				for (int x = 0; x < srcwidth; ++x) {
-					buf_line[x] = DecodeRGBA4444(fb_line[x]);
-				}
+				ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
 				break;
 
 			default:
@@ -235,19 +160,18 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 			}
 		}
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)srcwidth, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-		texvert_u = 1.0f;
-
-		delete[] buf;
+		fbTex->SetImageData(0, 0, 0, srcwidth, srcheight, 1, 0, srcwidth * 4, (const uint8_t *)&fbTexBuffer[0]);
+		u1 = 1.0f;
 	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-	glUseProgram(program);
+	fbTex->Finalize(0);
 
 	float x, y, w, h;
-	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight);
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
+
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+		x += 0.5f;
+		y += 0.5f;
+	}
 
 	x /= 0.5f * dstwidth;
 	y /= 0.5f * dstheight;
@@ -260,31 +184,42 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	const GLfloat verts[4][2] = {
-		{ x, y }, // Left top
-		{ x, y2}, // left bottom
-		{ x2, y2}, // right bottom
-		{ x2, y}  // right top
+	struct Vertex {
+		float x, y, z;
+		float u, v;
+		uint32_t rgba;
 	};
 
-	const GLfloat texverts[4][2] = {
-		{0, 1},
-		{0, 0},
-		{texvert_u, 0},
-		{texvert_u, 1}
+	float v0 = 1.0f;
+	float v1 = 0.0f;
+
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		std::swap(v0, v1);
+	}
+
+	const Vertex verts[4] = {
+		{x, y, 0,    u0, v0,  0xFFFFFFFF}, // TL
+		{x, y2, 0,   u0, v1,  0xFFFFFFFF}, // BL
+		{x2, y2, 0,  u1, v1,  0xFFFFFFFF}, // BR
+		{x2, y, 0,   u1, v0,  0xFFFFFFFF}, // TR
+	};
+	vdata->SetData((const uint8_t *)verts, sizeof(verts));
+
+	int indexes[] = {0, 1, 2, 0, 2, 3};
+	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
+
+	thin3d->SetTexture(0, fbTex);
+	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
+
+	static const float identity4x4[16] = {
+		1.0f, 0.0f, 0.0f, 0.0f,
+		0.0f, 1.0f, 0.0f, 0.0f,
+		0.0f, 0.0f, 1.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 1.0f,
 	};
 
-	glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
-	glEnableVertexAttribArray(attr_pos);
-	glEnableVertexAttribArray(attr_tex);
-	glUniform1i(uni_tex, 0);
-	glActiveTexture(GL_TEXTURE0);
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	glDisableVertexAttribArray(attr_pos);
-	glDisableVertexAttribArray(attr_tex);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
+	texColor->SetMatrix4x4("WorldViewProj", identity4x4);
+	thin3d->DrawIndexed(T3DPrimitive::PRIM_TRIANGLES, texColor, vformat, vdata, idata, 6, 0);
 }
 
 void SoftGPU::CopyDisplayToOutput()
@@ -311,6 +246,7 @@ void SoftGPU::ProcessEvent(GPUEvent ev) {
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("soft_runloop");
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
@@ -372,23 +308,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		{
 			u32 count = data & 0xFFFF;
 			u32 type = data >> 16;
-			static const char* types[7] = {
-				"POINTS=0,",
-				"LINES=1,",
-				"LINE_STRIP=2,",
-				"TRIANGLES=3,",
-				"TRIANGLE_STRIP=4,",
-				"TRIANGLE_FAN=5,",
-				"RECTANGLES=6,",
-			};
-
-			/*
-			if (type == GE_PRIM_POINTS || type == GE_PRIM_LINES || type == GE_PRIM_LINE_STRIP) {
-				ERROR_LOG_REPORT(G3D, "Software: DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
-				cyclesExecuted += EstimatePerVertexCost() * count;
-				break;
-			}
-			*/
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG_REPORT(G3D, "Software: Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -413,18 +332,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 			// Some games rely on this, they don't bother reloading VADDR and IADDR.
 			// The VADDR/IADDR registers are NOT updated.
-			if (indices) {
-				int indexSize = 1;
-				if ((gstate.vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
-					indexSize = 2;
-				gstate_c.indexAddr += count * indexSize;
-			} else {
-				gstate_c.vertexAddr += bytesRead;
-			}
+			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
 
-	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
 			int bz_ucount = data & 0xFF;
@@ -446,13 +357,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = NULL;
+			// void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 					ERROR_LOG_REPORT(G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
-				indices = Memory::GetPointer(gstate_c.indexAddr);
+				// indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
@@ -461,7 +372,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			}
 
 			if (!(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME)) {
-				TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
+				//TransformUnit::SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, gstate.getPatchPrimitiveType(), gstate.vertType);
 			}
 			framebufferDirty_ = true;
 			DEBUG_LOG(G3D,"DL DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
@@ -574,12 +485,16 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 			if (Memory::IsValidAddress(clutAddr)) {
-				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
-			// TODO: Do something to the CLUT with 0?
+				u32 validSize = Memory::ValidSize(clutAddr, clutTotalBytes);
+				Memory::MemcpyUnchecked(clut, clutAddr, validSize);
+				if (validSize < clutTotalBytes) {
+					// Zero out the parts that were outside valid memory.
+					memset((u8 *)clut + validSize, 0x00, clutTotalBytes - validSize);
+				}
 			} else if (clutAddr != 0) {
-				// TODO: Does this make any sense?
-				ERROR_LOG_REPORT_ONCE(badClut, G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
-				memset(clut, 0xFF, clutTotalBytes);
+				// Some invalid addresses trigger a crash, others fill with zero.  We always fill zero.
+				DEBUG_LOG(G3D, "Software: Invalid CLUT address, filling with garbage instead of crashing");
+				memset(clut, 0x00, clutTotalBytes);
 			}
 		}
 		break;
@@ -691,12 +606,12 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_LSC0:case GE_CMD_LSC1:case GE_CMD_LSC2:case GE_CMD_LSC3:
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTZ1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTZSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+	case GE_CMD_VIEWPORTZCENTER:
 		break;
 
 	case GE_CMD_LIGHTENABLE0:
@@ -768,7 +683,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_WORLDMATRIXNUMBER:
-		gstate.worldmtxnum = data&0xF;
+		gstate.worldmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_WORLDMATRIXDATA:
@@ -782,7 +697,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_VIEWMATRIXNUMBER:
-		gstate.viewmtxnum = data&0xF;
+		gstate.viewmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_VIEWMATRIXDATA:
@@ -796,7 +711,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_PROJMATRIXNUMBER:
-		gstate.projmtxnum = data&0xF;
+		gstate.projmtxnum = data & 0xF;
 		break;
 
 	case GE_CMD_PROJMATRIXDATA:
@@ -841,17 +756,18 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	}
 }
 
-void SoftGPU::UpdateStats()
-{
-	gpuStats.numVertexShaders = 0;
-	gpuStats.numFragmentShaders = 0;
-	gpuStats.numShaders = 0;
-	gpuStats.numTextures = 0;
+void SoftGPU::GetStats(char *buffer, size_t bufsize) {
+	snprintf(buffer, bufsize, "SoftGPU: (N/A)");
 }
 
 void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 {
 	// Nothing to invalidate.
+}
+
+void SoftGPU::NotifyVideoUpload(u32 addr, int size, int width, int format)
+{
+	// Ignore.
 }
 
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size)
@@ -947,6 +863,16 @@ bool SoftGPU::GetCurrentStencilbuffer(GPUDebugBuffer &buffer)
 bool SoftGPU::GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 {
 	return Rasterizer::GetCurrentTexture(buffer, level);
+}
+
+bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer)
+{
+	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	const u32 pixels = 1024 / bpp;
+
+	buffer.Allocate(pixels, 1, (GEBufferFormat)gstate.getClutPaletteFormat());
+	memcpy(buffer.GetData(), clut, 1024);
+	return true;
 }
 
 bool SoftGPU::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices)

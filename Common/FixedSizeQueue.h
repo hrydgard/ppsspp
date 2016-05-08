@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _FIXED_SIZE_QUEUE_H_
-#define _FIXED_SIZE_QUEUE_H_
+#pragma once
 
 #include <cstring>
 #include "ChunkFile.h"
@@ -166,7 +165,8 @@ private:
 	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
 
 	// Make copy constructor private for now.
-	FixedSizeQueue(FixedSizeQueue &other) {	}
+	FixedSizeQueue(FixedSizeQueue &other);
+	FixedSizeQueue& operator=(const FixedSizeQueue &other);
 };
 
 
@@ -211,7 +211,7 @@ public:
 	T *BeginPop() {
 		return blocks[curReadBlock];
 	}
-	T *EndPop() {
+	void EndPop() {
 		curReadBlock++;
 		if (curReadBlock == NUM_BLOCKS)
 			curReadBlock = 0;
@@ -224,6 +224,4 @@ private:
 	volatile int curReadBlock;
 	volatile int curWriteBlock;
 };
-
-#endif // _FIXED_SIZE_QUEUE_H_
 

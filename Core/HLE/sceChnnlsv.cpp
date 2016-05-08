@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 
@@ -37,19 +37,19 @@ static const u8 key19DC[16]  = {0xEC, 0x6D, 0x29, 0x59, 0x26, 0x35, 0xA5, 0x7F, 
 static const u8 key199C[16]  = {0x36, 0xA5, 0x3E, 0xAC, 0xC5, 0x26, 0x9E, 0xA3, 0x83, 0xD9, 0xEC, 0x25, 0x6C, 0x48, 0x48, 0x72};
 static const u8 key19AC[16]  = {0xD8, 0xC0, 0xB0, 0xF3, 0x3E, 0x6B, 0x76, 0x85, 0xFD, 0xFB, 0x4D, 0x7D, 0x45, 0x1E, 0x92, 0x03};
 
-void *memxor(void * dest, const void * src, size_t n)
+static void *memxor(void * dest, const void * src, size_t n)
 {
-  char const *s = (char const*)src;
-  char *d = (char*)dest;
+	char const *s = (char const*)src;
+	char *d = (char*)dest;
 
-  for (; n > 0; n--)
-    *d++ ^= *s++;
+	for (; n > 0; n--)
+		*d++ ^= *s++;
 
-  return dest;
+	return dest;
 }
 
 // The reason for the values from *FromMode calculations are not known.
-int numFromMode(int mode)
+static int numFromMode(int mode)
 {
 	int num = 0;
 	switch(mode)
@@ -75,7 +75,7 @@ int numFromMode(int mode)
 	}
 	return num;
 }
-int numFromMode2(int mode)
+static int numFromMode2(int mode)
 {
 	int num = 18;
 	if (mode == 1)
@@ -85,13 +85,13 @@ int numFromMode2(int mode)
 	return num;
 }
 
-int typeFromMode(int mode)
+static int typeFromMode(int mode)
 {
 	return (mode == 1 || mode == 2) ? 83 :
 	      ((mode == 3 || mode == 4) ? 87 : 100);	
 }
 
-int kirkSendCmd(u8* data, int length, int num, bool encrypt)
+static int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 {
 	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
 	*(int*)(data+4) = 0;
@@ -105,7 +105,7 @@ int kirkSendCmd(u8* data, int length, int num, bool encrypt)
 	return 0;
 }
 
-int kirkSendFuseCmd(u8* data, int length, bool encrypt)
+static int kirkSendFuseCmd(u8* data, int length, bool encrypt)
 {
 	*(int*)(data+0) = encrypt ? KIRK_MODE_ENCRYPT_CBC : KIRK_MODE_DECRYPT_CBC;
 	*(int*)(data+4) = 0;
@@ -120,7 +120,7 @@ int kirkSendFuseCmd(u8* data, int length, bool encrypt)
 	return 0;
 }
 
-int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
+static int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
 {
 	u8 sp0[16];
 	memcpy(sp0, data+alignedLen+4, 16);
@@ -134,7 +134,7 @@ int sub_15B0(u8* data, int alignedLen, u8* buf, int val)
 	return 0;
 }
 
-int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data3, int mode)
+static int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data3, int mode)
 {
 	memcpy(data_out+20, data2, 16);
 	// Mode 1:2 is 83, 3:4 is 87, 5:6 is 100
@@ -195,7 +195,7 @@ int sub_0000(u8* data_out, u8* data, int alignedLen, u8* data2, int& data3, int 
 	return 0;
 }
 
-int sub_1510(u8* data, int size, u8* result , int num)
+static int sub_1510(u8* data, int size, u8* result , int num)
 {
 	memxor(data+20, result, 16);
 
@@ -207,14 +207,14 @@ int sub_1510(u8* data, int size, u8* result , int num)
 	return 0;
 }
 
-int sub_17A8(u8* data)
+static int sub_17A8(u8* data)
 {
 	if (sceUtilsBufferCopyWithRange(data, 20, 0, 0, 14) == 0)
 		return 0;
 	return -261;
 }
 
-int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey)
+static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey)
 {
 	pspChnnlsvContext1 ctx;
 	Memory::ReadStruct(addressCtx, &ctx);
@@ -325,7 +325,7 @@ int sceSdGetLastIndex_(pspChnnlsvContext1& ctx, u8* in_hash, u8* in_key)
 	return 0;
 }
 
-int sceSdSetIndex(u32 addressCtx, int value)
+static int sceSdSetIndex(u32 addressCtx, int value)
 {
 	pspChnnlsvContext1 ctx;
 	Memory::ReadStruct(addressCtx,&ctx);
@@ -344,7 +344,7 @@ int sceSdSetIndex_(pspChnnlsvContext1& ctx, int value)
 }
 
 
-int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length)
+static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length)
 {
 	pspChnnlsvContext1 ctx;
 	Memory::ReadStruct(addressCtx, &ctx);
@@ -396,7 +396,7 @@ int sceSdRemoveValue_(pspChnnlsvContext1& ctx, u8* data, int length)
 	return 0;
 }
 
-int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 cryptkeyAddr)
+static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 cryptkeyAddr)
 {
 	pspChnnlsvContext2 ctx2;
 	Memory::ReadStruct(ctx2Addr, &ctx2);
@@ -464,7 +464,7 @@ int sceSdCreateList_(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, u8*
 	return 0;
 }
 
-int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen)
+static int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen)
 {
 	pspChnnlsvContext2 ctx;
 	Memory::ReadStruct(ctxAddr, &ctx);
@@ -511,7 +511,7 @@ int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 	return res;
 }
 
-int sceChnnlsv_21BE78B4(u32 ctxAddr)
+static int sceChnnlsv_21BE78B4(u32 ctxAddr)
 {
 	pspChnnlsvContext2 ctx;
 	Memory::ReadStruct(ctxAddr, &ctx);
@@ -533,12 +533,12 @@ int sceChnnlsv_21BE78B4_(pspChnnlsvContext2& ctx)
 
 const HLEFunction sceChnnlsv[] =
 {
-	{0xE7833020,WrapI_UI<sceSdSetIndex>,"sceSdSetIndex"},
-	{0xF21A1FCA,WrapI_UUI<sceSdRemoveValue>,"sceSdRemoveValue"},
-	{0xC4C494F8,WrapI_UUU<sceSdGetLastIndex>,"sceSdGetLastIndex"},
-	{0xABFDFC8B,WrapI_UIIUU<sceSdCreateList>,"sceSdCreateList"},
-	{0x850A7FA1,WrapI_UUI<sceSdSetMember>,"sceSdSetMember"},
-	{0x21BE78B4,WrapI_U<sceChnnlsv_21BE78B4>,"sceChnnlsv_21BE78B4"},
+	{0XE7833020, &WrapI_UI<sceSdSetIndex>,           "sceSdSetIndex",       'i', "xi"   },
+	{0XF21A1FCA, &WrapI_UUI<sceSdRemoveValue>,       "sceSdRemoveValue",    'i', "xxi"  },
+	{0XC4C494F8, &WrapI_UUU<sceSdGetLastIndex>,      "sceSdGetLastIndex",   'i', "xxx"  },
+	{0XABFDFC8B, &WrapI_UIIUU<sceSdCreateList>,      "sceSdCreateList",     'i', "xiixx"},
+	{0X850A7FA1, &WrapI_UUI<sceSdSetMember>,         "sceSdSetMember",      'i', "xxi"  },
+	{0X21BE78B4, &WrapI_U<sceChnnlsv_21BE78B4>,      "sceChnnlsv_21BE78B4", 'i', "x"    },
 };
 
 void Register_sceChnnlsv()

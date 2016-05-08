@@ -15,8 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _CORETIMING_H
-#define _CORETIMING_H
+#pragma once
 
 #include <string>
 #include "Common/CommonTypes.h"
@@ -116,7 +115,6 @@ namespace CoreTiming
 	void LogPendingEvents();
 
 	// Warning: not included in save states.
-	void RegisterAdvanceCallback(void (*callback)(int cyclesExecuted));
 	void RegisterMHzChangeCallback(MHzChangeCallback callback);
 
 	std::string GetScheduledEventsSummary();
@@ -128,5 +126,3 @@ namespace CoreTiming
 	extern int slicelength;
 
 }; // end of namespace
-
-#endif

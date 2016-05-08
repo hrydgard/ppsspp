@@ -18,6 +18,7 @@
 #if (_MSC_VER == 1800)
 #pragma optimize( "", off )
 #endif
+#pragma warning(disable:4996)   // for strncpy
 #endif 
 /*************************************************************/
 

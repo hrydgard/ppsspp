@@ -20,7 +20,6 @@
 
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
-#include "ControlMapping.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
@@ -177,8 +176,8 @@ DinputDevice::DinputDevice(int devnum) {
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	dipw.diph.dwHow        = DIPH_DEVICE;
 	dipw.diph.dwObj        = 0;
-	// dwData 1000 is deadzone(0% - 10%)
-	dipw.dwData            = 1000;
+	// dwData 10000 is deadzone(0% - 100%), multiply by config scalar
+	dipw.dwData            = (int)(g_Config.fDInputAnalogDeadzone * 10000);
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
@@ -208,10 +207,18 @@ void SendNativeAxis(int deviceId, short value, short &lastValue, int axisId) {
 	AxisInput axis;
 	axis.deviceId = deviceId;
 	axis.axisId = axisId;
-	axis.value = NormalizedDeadzoneFilter(value);
+	axis.value = (float)value / 10000.0f; // Convert axis to normalised float
 	NativeAxis(axis);
 
 	lastValue = value;
+}
+
+inline float Signs(short val) {
+	return (0 < val) - (val < 0);
+}
+
+inline float LinearMaps(short val, short a0, short a1, short b0, short b1) {
+	return b0 + (((val - a0) * (b1 - b0)) / (a1 - a0));
 }
 
 int DinputDevice::UpdateState(InputState &input_state) {
@@ -233,6 +240,54 @@ int DinputDevice::UpdateState(InputState &input_state) {
 		AxisInput axis;
 		axis.deviceId = DEVICE_ID_PAD_0 + pDevNum;
 
+		// Circle to Square mapping, cribbed from XInputDevice
+		float sx = js.lX;
+		float sy = js.lY;
+		float scaleFactor = sqrtf((sx * sx + sy * sy) / std::max(sx * sx, sy * sy));
+		js.lX = (short)(sx * scaleFactor);
+		js.lY = (short)(sy * scaleFactor);
+		
+		// Linear range mapping (used to invert deadzones)
+		float dz = g_Config.fDInputAnalogDeadzone;
+		int idzm = g_Config.iDInputAnalogInverseMode;
+		float idz = g_Config.fDInputAnalogInverseDeadzone;
+		float md = std::max(dz, idz);
+		float st = g_Config.fDInputAnalogSensitivity;
+
+		float magnitude = sqrtf(js.lX * js.lX + js.lY * js.lY);
+		if (magnitude > dz * 10000.0f) {
+			if (idzm == 1)
+			{
+				short xSign = Signs(js.lX);
+				if (xSign != 0.0f) {
+					js.lX = LinearMaps(js.lX, xSign * (short)(dz * 10000), xSign * 10000, xSign * (short)(md * 10000), xSign * 10000 * st);
+				}
+			}
+			else if (idzm == 2)
+			{
+				short ySign = Signs(js.lY);
+				if (ySign != 0.0f) {
+					js.lY = LinearMaps(js.lY, ySign * (short)(dz * 10000.0f), ySign * 10000, ySign * (short)(md * 10000.0f), ySign * 10000 * st);
+				}
+			}
+			else if (idzm == 3)
+			{
+				float xNorm = (float)js.lX / magnitude;
+				float yNorm = (float)js.lY / magnitude;
+				float mapMag = LinearMaps(magnitude, dz * 10000.0f, 10000.0f, md * 10000.0f, 10000.0f * st);
+				js.lX = (short)(xNorm * mapMag);
+				js.lY = (short)(yNorm * mapMag);
+			}
+		}
+		else
+		{
+			js.lX = 0;
+			js.lY = 0;
+		}
+
+		js.lX = (short)std::min(10000.0f, std::max((float)js.lX, -10000.0f));
+		js.lY = (short)std::min(10000.0f, std::max((float)js.lY, -10000.0f));
+
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lY, last_lY_, JOYSTICK_AXIS_Y);
 		SendNativeAxis(DEVICE_ID_PAD_0 + pDevNum, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
@@ -251,15 +306,6 @@ int DinputDevice::UpdateState(InputState &input_state) {
 		return UPDATESTATE_SKIP_PAD;
 	}
 	return -1;
-}
-
-static float NormalizedDeadzoneFilter(short value) {
-	float result = (float)value / 10000.0f;
-
-	// Expand and clamp. Hack to let us reach the corners on most pads.
-	result = std::min(1.0f, std::max(result * 1.2f, -1.0f));
-
-	return result;
 }
 
 void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {

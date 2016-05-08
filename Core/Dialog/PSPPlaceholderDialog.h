@@ -25,6 +25,6 @@ public:
 	virtual ~PSPPlaceholderDialog();
 
 	virtual int Init();
-	virtual int Update(int animSpeed);
+	virtual int Update(int animSpeed) override;
 };
 

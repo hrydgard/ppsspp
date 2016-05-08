@@ -291,6 +291,10 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				value = cpu->GetLo();
 				len = sprintf(temp,"lo");
 				break;
+			default:
+				temp[0] = '\0';
+				len = 0;
+				break;
 			}
 
 			SetTextColor(hdc,0x600000);
@@ -366,22 +370,18 @@ void CtrlRegisterList::redraw()
 	UpdateWindow(wnd); 
 }
 
-void CtrlRegisterList::copyRegisterValue()
+u32 CtrlRegisterList::getSelectedRegValue(char *out, size_t size)
 {
-	if (!Core_IsStepping())
-	{
-		MessageBox(wnd,L"Can't copy register values while the core is running.",L"Error",MB_OK);
-		return;
-	}
-
-	int cat = category;
 	int reg = selection;
 	u32 val;
 
-	if (selection >= cpu->GetNumRegsInCategory(cat))
+	if (selection >= cpu->GetNumRegsInCategory(category))
 	{
-		if (cat != 0 || selection >= REGISTERS_END)
-			return;
+		if (category != 0 || selection >= REGISTERS_END)
+		{
+			*out = '\0';
+			return -1;
+		}
 
 		switch (selection)
 		{
@@ -394,14 +394,29 @@ void CtrlRegisterList::copyRegisterValue()
 		case REGISTER_LO:
 			val = cpu->GetLo();
 			break;
+		default:
+			*out = '\0';
+			return -1;
 		}
-	} else {
-		val = cpu->GetRegValue(cat,reg);	
+	}
+	else
+		val = cpu->GetRegValue(category, reg);
+
+	snprintf(out, size, "%08X", val);
+	return val;
+}
+
+void CtrlRegisterList::copyRegisterValue()
+{
+	if (!Core_IsStepping())
+	{
+		MessageBox(wnd,L"Can't copy register values while the core is running.",L"Error",MB_OK);
+		return;
 	}
 
 	char temp[24];
-	sprintf(temp,"%08X",val);
-	W32Util::CopyTextToClipboard(wnd,temp);
+	getSelectedRegValue(temp, 24);
+	W32Util::CopyTextToClipboard(wnd, temp);
 }
 
 void CtrlRegisterList::editRegisterValue()
@@ -412,33 +427,9 @@ void CtrlRegisterList::editRegisterValue()
 		return;
 	}
 
-	int cat = category;
+	char temp[24];
+	u32 val = getSelectedRegValue(temp, 24);
 	int reg = selection;
-	u32 val;
-	
-	if (selection >= cpu->GetNumRegsInCategory(cat))
-	{
-		if (cat != 0 || selection >= REGISTERS_END)
-			return;
-
-		switch (selection)
-		{
-		case REGISTER_PC:
-			val = cpu->GetPC();
-			break;
-		case REGISTER_HI:
-			val = cpu->GetHi();
-			break;
-		case REGISTER_LO:
-			val = cpu->GetLo();
-			break;
-		}
-	} else {
-		val = cpu->GetRegValue(cat,reg);	
-	}
-
-	char temp[256];
-	sprintf(temp,"0x%08X",val);
 
 	std::string value = temp;
 	if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Set new value",value,value)) {
@@ -457,7 +448,7 @@ void CtrlRegisterList::editRegisterValue()
 				cpu->SetLo(val);
 				break;
 			default:
-				cpu->SetRegValue(cat,reg,val);
+				cpu->SetRegValue(category, reg, val);
 				break;
 			}
 			redraw();
@@ -531,6 +522,8 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			case REGISTER_LO:
 				val = cpu->GetLo();
 				break;
+			default:
+				return;
 			}
 		}
 		else

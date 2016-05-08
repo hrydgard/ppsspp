@@ -15,6 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <ctype.h>
 #include "Common.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"
@@ -42,11 +43,39 @@ std::string GetCPUString()
 		if (line.find(marker) != std::string::npos)
 		{
 			cpu_string = line.substr(marker.length());
-			cpu_string.pop_back(); // Drop the new-line character
+			if (cpu_string.back() == '\n')
+				cpu_string.pop_back(); // Drop the new-line character
 		}
 	}
 
 	return cpu_string;
+}
+
+std::string GetCPUBrandString()
+{
+	std::string line, marker = "Processor\t: ";
+	std::string brand_string = "Unknown";
+	std::fstream file;
+	if (!File::OpenCPPFile(file, procfile, std::ios::in))
+		return brand_string;
+
+	while (std::getline(file, line))
+	{
+		if (line.find(marker) != std::string::npos)
+		{
+			brand_string = line.substr(marker.length());
+			if (brand_string.back() == '\n')
+				brand_string.pop_back(); // Drop the new-line character
+
+			if (brand_string.length() == 0 || isdigit(brand_string[0])) {
+				brand_string = "Unknown";
+				continue;
+			}
+			break;
+		}
+	}
+
+	return brand_string;
 }
 
 unsigned char GetCPUImplementer()
@@ -100,7 +129,7 @@ bool CheckCPUFeature(const std::string& feature)
 
 	if (!File::OpenCPPFile(file, procfile, std::ios::in))
 		return 0;
-	
+
 	while (std::getline(file, line))
 	{
 		if (line.find(marker) != std::string::npos)
@@ -114,7 +143,7 @@ bool CheckCPUFeature(const std::string& feature)
 			}
 		}
 	}
-	
+
 	return false;
 }
 
@@ -159,7 +188,7 @@ void CPUInfo::Detect()
 {
 	// Set some defaults here
 	HTT = false;
-#ifdef _M_ARM_64
+#ifdef ARM64
 	OS64bit = true;
 	CPU64bit = true;
 	Mode64bit = true;
@@ -169,7 +198,7 @@ void CPUInfo::Detect()
 	Mode64bit = false;
 #endif
 	vendor = VENDOR_ARM;
-	
+
 	// Get the information about the CPU 
 #if !defined(__linux__)
 	bool isVFP3 = false;
@@ -217,6 +246,8 @@ void CPUInfo::Detect()
 	bASIMD = false;
 #else // __linux__
 	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
+	strncpy(brand_string, GetCPUBrandString().c_str(), sizeof(brand_string));
+
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
 	bThumb = CheckCPUFeature("thumb");
@@ -238,6 +269,11 @@ void CPUInfo::Detect()
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
 	num_cores = GetCoreCount();
+#endif
+#ifdef ARM64
+	// Whether the above detection failed or not, on ARM64 we do have ASIMD/NEON.
+	bNEON = true;
+	bASIMD = true;
 #endif
 }
 

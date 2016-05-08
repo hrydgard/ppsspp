@@ -17,13 +17,12 @@
 
 #pragma once
 
+#include <set>
+#include "base/mutex.h"
+#include "file/ini_file.h"
 #include "Log.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
-#include "file/ini_file.h" 
-
-#include <set>
-#include "StdMutex.h"
 
 #define	MAX_MESSAGES 8000   
 #define MAX_MSGLEN  1024
@@ -51,7 +50,7 @@ public:
 	const char* GetName() const { return "file"; }
 
 private:
-	std::mutex m_log_lock;
+	recursive_mutex m_log_lock;
 	std::ofstream m_logfile;
 	bool m_enable;
 };
@@ -59,6 +58,27 @@ private:
 class DebuggerLogListener : public LogListener {
 public:
 	void Log(LogTypes::LOG_LEVELS, const char *msg);
+};
+
+class RingbufferLogListener : public LogListener {
+public:
+	RingbufferLogListener() : curMessage_(0), count_(0), enabled_(false) {}
+	void Log(LogTypes::LOG_LEVELS, const char *msg);
+
+	bool IsEnabled() const { return enabled_; }
+	void SetEnable(bool enable) { enabled_ = enable; }
+
+	int GetCount() const { return count_ < MAX_LOGS ? count_ : MAX_LOGS; }
+	const char *TextAt(int i) { return messages_[(curMessage_ - i - 1) & (MAX_LOGS - 1)]; }
+	LogTypes::LOG_LEVELS LevelAt(int i) { return (LogTypes::LOG_LEVELS)levels_[(curMessage_ - i - 1) & (MAX_LOGS - 1)]; }
+
+private:
+	enum { MAX_LOGS = 128 };
+	char messages_[MAX_LOGS][1024];
+	u8 levels_[MAX_LOGS];
+	int curMessage_;
+	int count_;
+	bool enabled_;
 };
 
 // TODO: A simple buffered log that can be used to display the log in-window
@@ -92,7 +112,7 @@ public:
 private:
 	char m_fullName[128];
 	char m_shortName[32];
-	std::mutex m_listeners_lock;
+	recursive_mutex m_listeners_lock;
 	std::set<LogListener*> m_listeners;
 	bool m_hasListeners;
 };
@@ -105,8 +125,9 @@ private:
 	FileLogListener *fileLog_;
 	ConsoleListener *consoleLog_;
 	DebuggerLogListener *debuggerLog_;
+	RingbufferLogListener *ringLog_;
 	static LogManager *logManager_;  // Singleton. Ugh.
-	std::mutex log_lock_;
+	recursive_mutex log_lock_;
 
 	LogManager();
 	~LogManager();
@@ -118,6 +139,7 @@ public:
 
 	void Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 			 const char *file, int line, const char *fmt, va_list args);
+	bool IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 
 	LogChannel *GetLogChannel(LogTypes::LOG_TYPE type) {
 		return log_[type];
@@ -157,7 +179,11 @@ public:
 		return debuggerLog_;
 	}
 
-	static LogManager* GetInstance() {
+	RingbufferLogListener *GetRingbufferListener() const {
+		return ringLog_;
+	}
+
+	static inline LogManager* GetInstance() {
 		return logManager_;
 	}
 

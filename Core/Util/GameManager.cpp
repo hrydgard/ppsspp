@@ -20,7 +20,11 @@
 #include <cstring>
 
 #include "file/file_util.h"
+#ifdef SHARED_LIBZIP
+#include <zip.h>
+#else
 #include "ext/libzip/zip.h"
+#endif
 #include "thread/thread.h"
 #include "util/text/utf8.h"
 
@@ -29,6 +33,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
+#include "i18n/i18n.h"
 
 GameManager g_GameManager;
 
@@ -105,10 +110,10 @@ void GameManager::Update() {
 			InstallGame(zipName);
 			// Doesn't matter if the install succeeds or not, we delete the temp file to not squander space.
 			// TODO: Handle disk full?
-			deleteFile(zipName.c_str());
+			File::Delete(zipName.c_str());
 		} else {
 			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled.", curDownload_->ResultCode());
-			deleteFile(zipName.c_str());
+			File::Delete(zipName.c_str());
 		}
 		curDownload_.reset();
 	}
@@ -120,6 +125,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		return false;
 	}
 
+	I18NCategory *sy = GetI18NCategory("System");
 	installInProgress_ = true;
 
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
@@ -178,7 +184,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		installProgress_ = 0.0f;
 		installInProgress_ = false;
-		installError_ = "Not a PSP game";
+		installError_ = sy->T("Not a PSP game");
 		InstallDone();
 		return false;
 	}
@@ -230,13 +236,13 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			}
 
 			zip_file *zf = zip_fopen_index(z, i, 0);
-			FILE *f = fopen(outFilename.c_str(), "wb");
+			FILE *f = File::OpenCFile(outFilename, "wb");
 			if (f) {
 				size_t pos = 0;
 				const size_t blockSize = 1024 * 128;
 				u8 *buffer = new u8[blockSize];
 				while (pos < size) {
-					size_t bs = std::min(blockSize, pos - size);
+					size_t bs = std::min(blockSize, size - pos);
 					zip_fread(zf, buffer, bs);
 					size_t written = fwrite(buffer, 1, bs, f);
 					if (written != bs) {
@@ -245,7 +251,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 						buffer = 0;
 						fclose(f);
 						zip_fclose(zf);
-						deleteFile(outFilename.c_str());
+						File::Delete(outFilename.c_str());
 						// Yes it's a goto. Sue me. I think it's appropriate here.
 						goto bail;
 					}
@@ -272,7 +278,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	installInProgress_ = false;
 	installError_ = "";
 	if (deleteAfter) {
-		deleteFile(zipfile.c_str());
+		File::Delete(zipfile.c_str());
 	}
 	InstallDone();
 	return true;
@@ -282,15 +288,15 @@ bail:
 	// We end up here if disk is full or couldn't write to storage for some other reason.
 	installProgress_ = 0.0f;
 	installInProgress_ = false;
-	installError_ = "Storage full";
+	installError_ = sy->T("Storage full");
 	if (deleteAfter) {
-		deleteFile(zipfile.c_str());
+		File::Delete(zipfile.c_str());
 	}
 	for (size_t i = 0; i < createdFiles.size(); i++) {
-		deleteFile(createdFiles[i].c_str());
+		File::Delete(createdFiles[i].c_str());
 	}
 	for (auto iter = createdDirs.begin(); iter != createdDirs.end(); ++iter) {
-		deleteDir(iter->c_str());
+		File::DeleteDir(iter->c_str());
 	}
 	InstallDone();
 	return false;

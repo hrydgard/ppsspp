@@ -15,12 +15,11 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!!
-
 #ifndef _DOLPHIN_INTEL_CODEGEN_
 #define _DOLPHIN_INTEL_CODEGEN_
 
 #include "Common.h"
+#include "CodeBlock.h"
 
 #if defined(_M_X64) && !defined(_ARCH_64)
 #define _ARCH_64
@@ -35,7 +34,7 @@
 namespace Gen
 {
 
-enum X64Reg
+enum X64Reg : u32
 {
 	EAX = 0, EBX = 3, ECX = 1, EDX = 2,
 	ESI = 6, EDI = 7, EBP = 5, ESP = 4,
@@ -210,6 +209,16 @@ struct OpArg
 		}
 	}
 
+	void SetImmBits(int bits) {
+		switch (bits)
+		{
+			case 8: scale = SCALE_IMM8; break;
+			case 16: scale = SCALE_IMM16; break;
+			case 32: scale = SCALE_IMM32; break;
+			case 64: scale = SCALE_IMM64; break;
+		}
+	}
+
 	X64Reg GetSimpleReg() const
 	{
 		if (scale == SCALE_NONE)
@@ -365,12 +374,13 @@ public:
 	void WriteModRM(int mod, int rm, int reg);
 	void WriteSIB(int scale, int index, int base);
 
-	void SetCodePtr(u8 *ptr);
+	void SetCodePointer(u8 *ptr);
+	const u8 *GetCodePointer() const;
+
 	void ReserveCodeSpace(int bytes);
 	const u8 *AlignCode4();
 	const u8 *AlignCode16();
 	const u8 *AlignCodePage();
-	const u8 *GetCodePtr() const;
 	u8 *GetWritableCodePtr();
 
 	void LockFlags() { flags_locked = true; }
@@ -581,6 +591,7 @@ public:
 	void MAXSD(X64Reg regOp, OpArg arg);
 	void SQRTSS(X64Reg regOp, OpArg arg);
 	void SQRTSD(X64Reg regOp, OpArg arg);
+	void RCPSS(X64Reg regOp, OpArg& arg);
 	void RSQRTSS(X64Reg regOp, OpArg arg);
 
 	// SSE/SSE2: Floating point bitwise (yes)
@@ -612,6 +623,7 @@ public:
 	void MAXPD(X64Reg regOp, OpArg arg);
 	void SQRTPS(X64Reg regOp, OpArg arg);
 	void SQRTPD(X64Reg regOp, OpArg arg);
+	void RCPPS(X64Reg regOp, OpArg& arg);
 	void RSQRTPS(X64Reg regOp, OpArg arg);
 
 	// SSE/SSE2: Floating point packed bitwise (x4 for float, x2 for double)
@@ -686,9 +698,14 @@ public:
 	void MOVSS(OpArg arg, X64Reg regOp);
 	void MOVSD(OpArg arg, X64Reg regOp);
 
+	void MOVLPS(X64Reg regOp, OpArg arg);
 	void MOVLPD(X64Reg regOp, OpArg arg);
-	void MOVHPD(X64Reg regOp, OpArg arg);
+	void MOVLPS(OpArg arg, X64Reg regOp);
 	void MOVLPD(OpArg arg, X64Reg regOp);
+
+	void MOVHPS(X64Reg regOp, OpArg arg);
+	void MOVHPD(X64Reg regOp, OpArg arg);
+	void MOVHPS(OpArg arg, X64Reg regOp);
 	void MOVHPD(OpArg arg, X64Reg regOp);
 
 	void MOVHLPS(X64Reg regOp1, X64Reg regOp2);
@@ -872,13 +889,85 @@ public:
 	void VMULPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VDIVPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VSQRTSD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VSHUFPD(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 shuffle);
+	void VUNPCKLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VUNPCKHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
+	void VANDPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDNPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VANDNPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VXORPS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VXORPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
 	void VPAND(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPANDN(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPOR(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 	void VPXOR(X64Reg regOp1, X64Reg regOp2, OpArg arg);
-	void VSHUFPD(X64Reg regOp1, X64Reg regOp2, OpArg arg, u8 shuffle);
-	void VUNPCKLPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
-	void VUNPCKHPD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+
+	// FMA3
+	void VFMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMADD231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231SS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB132SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB213SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFNMSUB231SD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMADDSUB231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD132PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD213PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD231PS(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD132PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD213PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
+	void VFMSUBADD231PD(X64Reg regOp1, X64Reg regOp2, OpArg arg);
 
 	// VEX GPR instructions
 	void SARX(int bits, X64Reg regOp1, OpArg arg, X64Reg regOp2);
@@ -969,49 +1058,10 @@ public:
 // Everything that needs to generate X86 code should inherit from this.
 // You get memory management for free, plus, you can use all the MOV etc functions without
 // having to prefix them with gen-> or something similar.
-class XCodeBlock : public XEmitter
-{
-protected:
-	u8 *region;
-	size_t region_size;
 
+class XCodeBlock : public CodeBlock<XEmitter> {
 public:
-	XCodeBlock() : region(NULL), region_size(0) {}
-	virtual ~XCodeBlock() { if (region) FreeCodeSpace(); }
-
-	// Call this before you generate any code.
-	void AllocCodeSpace(int size);
-
-	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace();
-
-	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace();
-
-	bool IsInSpace(const u8 *ptr) const {
-		return ptr >= region && ptr < region + region_size;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect();
-
-	void ResetCodePtr() {
-		SetCodePtr(region);
-	}
-
-	size_t GetSpaceLeft() const {
-		return region_size - (GetCodePtr() - region);
-	}
-
-	u8 *GetBasePtr() {
-		return region;
-	}
-
-	size_t GetOffset(const u8 *ptr) const {
-		return ptr - region;
-	}
+	void PoisonMemory() override;
 };
 
 }  // namespace

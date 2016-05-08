@@ -1,6 +1,3 @@
-[submodule "native"]
-	path = native
-	url = https://github.com/hrydgard/native.git
 [submodule "pspautotests"]
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
@@ -13,9 +10,9 @@
 [submodule "dx9sdk"]
 	path = dx9sdk
 	url = https://github.com/hrydgard/minidx9.git
-[submodule "redist"]
-	path = redist
-	url = https://github.com/hrydgard/ppsspp-redist.git
 [submodule "ext/armips"]
 	path = ext/armips
 	url = https://github.com/Kingcom/armips
+[submodule "ext/ppsspp-glslang"]
+	path = ext/glslang
+	url = https://github.com/hrydgard/ppsspp-glslang.git

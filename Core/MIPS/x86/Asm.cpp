@@ -28,14 +28,20 @@
 #include "Common/MemoryUtil.h"
 
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/MIPS/x86/Asm.h"
 #include "Core/MIPS/x86/Jit.h"
 
 using namespace Gen;
+using namespace X64JitConstants;
+
+extern volatile CoreState coreState;
+
+namespace MIPSComp
+{
 
 //TODO - make an option
 //#if _DEBUG
 static bool enableDebug = false; 
+
 //#else
 //		bool enableDebug = false; 
 //#endif
@@ -44,42 +50,96 @@ static bool enableDebug = false;
 
 //GLOBAL STATIC ALLOCATIONS x86
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
+//EBP - Pointer to fpr/gpr regs
 
 //GLOBAL STATIC ALLOCATIONS x64
 //EAX - ubiquitous scratch register - EVERYBODY scratches this
 //RBX - Base pointer of memory
-//R15 - Pointer to array of block pointers 
+//R14 - Pointer to fpr/gpr regs
+//R15 - Pointer to array of block pointers
 
-extern volatile CoreState coreState;
-
-void Jit()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
-// IDEA, NOT IMPLEMENTED: no more block numbers - hack opcodes just contain offset within
-// dynarec buffer, gets rid of lookup into block buffer
-// At this offset - 4, there is an int specifying the block number if needed.
-
-void ImHere()
-{
+void ImHere() {
 	DEBUG_LOG(CPU, "JIT Here: %08x", currentMIPS->pc);
 }
 
-void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
-{
-	enterCode = AlignCode16();
+void Jit::GenerateFixedCode(JitOptions &jo) {
+	const u8 *start = AlignCode16();
+
+	restoreRoundingMode = AlignCode16(); {
+		STMXCSR(M(&mips_->temp));
+		// Clear the rounding mode and flush-to-zero bits back to 0.
+		AND(32, M(&mips_->temp), Imm32(~(7 << 13)));
+		LDMXCSR(M(&mips_->temp));
+		RET();
+	}
+
+	applyRoundingMode = AlignCode16(); {
+		MOV(32, R(EAX), M(&mips_->fcr31));
+		AND(32, R(EAX), Imm32(0x01000003));
+
+		// If it's 0 (nearest + no flush0), we don't actually bother setting - we cleared the rounding
+		// mode out in restoreRoundingMode anyway. This is the most common.
+		FixupBranch skip = J_CC(CC_Z);
+		STMXCSR(M(&mips_->temp));
+
+		// The MIPS bits don't correspond exactly, so we have to adjust.
+		// 0 -> 0 (skip2), 1 -> 3, 2 -> 2 (skip2), 3 -> 1
+		TEST(8, R(AL), Imm8(1));
+		FixupBranch skip2 = J_CC(CC_Z);
+		XOR(32, R(EAX), Imm8(2));
+		SetJumpTarget(skip2);
+
+		// Adjustment complete, now reconstruct MXCSR
+		SHL(32, R(EAX), Imm8(13));
+		// Before setting new bits, we must clear the old ones.
+		AND(32, M(&mips_->temp), Imm32(~(7 << 13)));   // Clearing bits 13-14 (rounding mode) and 15 (flush to zero)
+		OR(32, M(&mips_->temp), R(EAX));
+
+		TEST(32, M(&mips_->fcr31), Imm32(1 << 24));
+		FixupBranch skip3 = J_CC(CC_Z);
+		OR(32, M(&mips_->temp), Imm32(1 << 15));
+		SetJumpTarget(skip3);
+
+		LDMXCSR(M(&mips_->temp));
+		SetJumpTarget(skip);
+		RET();
+	}
+
+	updateRoundingMode = AlignCode16(); {
+		// If it's only ever 0, we don't actually bother applying or restoring it.
+		// This is the most common situation.
+		TEST(32, M(&mips_->fcr31), Imm32(0x01000003));
+		FixupBranch skip = J_CC(CC_Z);
+#ifdef _M_X64
+		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
+		MOV(64, R(RAX), Imm64((uintptr_t)&js.hasSetRounding));
+		MOV(8, MatR(RAX), Imm8(1));
+#else
+		MOV(8, M(&js.hasSetRounding), Imm8(1));
+#endif
+		SetJumpTarget(skip);
+
+		RET();
+	}
+
+	enterDispatcher = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64
 	// Two statically allocated registers.
-	MOV(64, R(RBX), ImmPtr(Memory::base));
-	MOV(64, R(R15), ImmPtr(jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	uintptr_t jitbase = (uintptr_t)GetBasePtr();
+	if (jitbase > 0x7FFFFFFFULL) {
+		MOV(64, R(JITBASEREG), ImmPtr(GetBasePtr()));
+		jo.reserveR15ForAsm = true;
+	}
 #endif
+	// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
+	MOV(PTRBITS, R(CTXREG), ImmPtr(&mips_->f[0]));
 
 	outerLoop = GetCodePtr();
-		jit->RestoreRoundingMode(true, this);
+		RestoreRoundingMode(true);
 		ABI_CallFunction(reinterpret_cast<void *>(&CoreTiming::Advance));
-		jit->ApplyRoundingMode(true, this);
+		ApplyRoundingMode(true);
 		FixupBranch skipToRealDispatch = J(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
@@ -103,40 +163,42 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 
 			dispatcherNoCheck = GetCodePtr();
 
-			// TODO: Find a less costly place to put this (or multiple..)?
-			// From the start of the FP reg, a single byte offset can reach all GPR + all FPR (but no VFPUR)
-			MOV(PTRBITS, R(CTXREG), ImmPtr(&mips->f[0]));
+			MOV(32, R(EAX), M(&mips_->pc));
+			dispatcherInEAXNoCheck = GetCodePtr();
 
-			MOV(32, R(EAX), M(&mips->pc));
 #ifdef _M_IX86
 			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
 			_assert_msg_(CPU, Memory::base != 0, "Memory base bogus");
 			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
 #elif _M_X64
-			MOV(32, R(EAX), MComplex(RBX, RAX, SCALE_1, 0));
+			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
 #endif
 			MOV(32, R(EDX), R(EAX));
-			AND(32, R(EDX), Imm32(MIPS_JITBLOCK_MASK));
-			CMP(32, R(EDX), Imm32(MIPS_EMUHACK_OPCODE));
-			FixupBranch notfound = J_CC(CC_NZ);
+			_assert_msg_(JIT, MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
+			SHR(32, R(EDX), Imm8(24));
+			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
+			FixupBranch notfound = J_CC(CC_NE);
 				if (enableDebug)
 				{
-					ADD(32, M(&mips->debugCount), Imm8(1));
+					ADD(32, M(&mips_->debugCount), Imm8(1));
 				}
 				//grab from list and jump to it
 				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
 #ifdef _M_IX86
-				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
+				ADD(32, R(EAX), ImmPtr(GetBasePtr()));
 #elif _M_X64
-				ADD(64, R(RAX), R(R15));
+				if (jo.reserveR15ForAsm)
+					ADD(64, R(RAX), R(JITBASEREG));
+				else
+					ADD(64, R(EAX), Imm32(jitbase));
 #endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
-			jit->RestoreRoundingMode(true, this);
-			ABI_CallFunction(&Jit);
-			jit->ApplyRoundingMode(true, this);
+			RestoreRoundingMode(true);
+			ABI_CallFunction(&MIPSComp::JitAt);
+			ApplyRoundingMode(true);
 			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 
 		SetJumpTarget(bail);
@@ -146,12 +208,16 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 		J_CC(CC_Z, outerLoop, true);
 
 	SetJumpTarget(badCoreState);
-	jit->RestoreRoundingMode(true, this);
+	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
 	breakpointBailout = GetCodePtr();
-	jit->RestoreRoundingMode(true, this);
+	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
+
+	endOfPregeneratedCode = GetCodePtr();
 }
+
+}  // namespace

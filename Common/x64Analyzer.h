@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _X64ANALYZER_H_
-#define _X64ANALYZER_H_
+#pragma once
 
 #include "Common.h"
 
@@ -46,7 +45,7 @@ struct ModRM
 	}
 };
 
-enum{
+enum {
 	MOVZX_BYTE      = 0xB6, //movzx on byte
 	MOVZX_SHORT     = 0xB7, //movzx on short
 	MOVSX_BYTE      = 0xBE, //movsx on byte
@@ -56,11 +55,9 @@ enum{
 	MOVE_REG_TO_MEM = 0x89, //move reg to memory
 };
 
-enum AccessType{
+enum AccessType {
 	OP_ACCESS_READ = 0,
 	OP_ACCESS_WRITE = 1
 };
 
 bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info, int accessType);
-
-#endif // _X64ANALYZER_H_

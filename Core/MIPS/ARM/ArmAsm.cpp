@@ -23,15 +23,15 @@
 #include "Common/MemoryUtil.h"
 #include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/ARM/ArmJit.h"
-#include "Core/MIPS/ARM/ArmAsm.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 using namespace ArmGen;
 
 //static int temp32; // unused?
 
 static const bool enableDebug = false;
+static const bool disasm = false;
 
 //static bool enableStatistics = false; //unused?
 
@@ -53,12 +53,6 @@ static const bool enableDebug = false;
 // R7 :  Down counter
 extern volatile CoreState coreState;
 
-void JitAt()
-{
-	MIPSComp::jit->Compile(currentMIPS->pc);
-}
-
-
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
 		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
@@ -75,9 +69,77 @@ void DisassembleArm(const u8 *data, int size);
 
 namespace MIPSComp {
 
-void Jit::GenerateFixedCode()
-{
-	enterCode = AlignCode16();
+using namespace ArmJitConstants;
+
+void ArmJit::GenerateFixedCode() {
+	const u8 *start = GetCodePtr();
+
+	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.
+	restoreRoundingMode = AlignCode16(); {
+		PUSH(1, R_LR);
+		VMRS(SCRATCHREG2);
+		// Outside the JIT we run with round-to-nearest and flush0 off.
+		BIC(SCRATCHREG2, SCRATCHREG2, AssumeMakeOperand2((3 | 4) << 22));
+		VMSR(SCRATCHREG2);
+		POP(1, R_PC);
+	}
+
+	// Must preserve SCRATCHREG1 (R0), destroys SCRATCHREG2 (LR)
+	applyRoundingMode = AlignCode16(); {
+		PUSH(2, SCRATCHREG1, R_LR);
+		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
+
+		TST(SCRATCHREG2, AssumeMakeOperand2(1 << 24));
+		AND(SCRATCHREG2, SCRATCHREG2, Operand2(3));
+		SetCC(CC_NEQ);
+		ADD(SCRATCHREG2, SCRATCHREG2, Operand2(4));
+		SetCC(CC_AL);
+
+		// We can skip if the rounding mode is nearest (0) and flush is not set.
+		// (as restoreRoundingMode cleared it out anyway)
+		CMP(SCRATCHREG2, Operand2(0));
+		FixupBranch skip = B_CC(CC_EQ);
+
+		// MIPS Rounding Mode:       ARM Rounding Mode
+		//   0: Round nearest        0
+		//   1: Round to zero        3
+		//   2: Round up (ceil)      1
+		//   3: Round down (floor)   2
+		AND(SCRATCHREG1, SCRATCHREG2, Operand2(3));
+		CMP(SCRATCHREG1, Operand2(1));
+
+		SetCC(CC_EQ); ADD(SCRATCHREG2, SCRATCHREG2, Operand2(2));
+		SetCC(CC_GT); SUB(SCRATCHREG2, SCRATCHREG2, Operand2(1));
+		SetCC(CC_AL);
+
+		VMRS(SCRATCHREG1);
+		// Assume we're always in round-to-nearest mode beforehand.
+		// But we need to clear flush to zero in this case anyway.
+		BIC(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2((3 | 4) << 22));
+		ORR(SCRATCHREG1, SCRATCHREG1, Operand2(SCRATCHREG2, ST_LSL, 22));
+		VMSR(SCRATCHREG1);
+
+		SetJumpTarget(skip);
+		POP(2, SCRATCHREG1, R_PC);
+	}
+
+	// Must preserve SCRATCHREG1 (R0), destroys SCRATCHREG2 (LR)
+	updateRoundingMode = AlignCode16(); {
+		PUSH(2, SCRATCHREG1, R_LR);
+		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
+		MOVI2R(SCRATCHREG1, 0x1000003);
+		TST(SCRATCHREG2, SCRATCHREG1);
+		FixupBranch skip = B_CC(CC_EQ);  // zero
+		MOVI2R(SCRATCHREG2, 1);
+		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
+		STRB(SCRATCHREG2, SCRATCHREG1, 0);
+		SetJumpTarget(skip);
+		POP(2, SCRATCHREG1, R_PC);
+	}
+
+	FlushLitPool();
+
+	enterDispatcher = AlignCode16();
 
 	DEBUG_LOG(JIT, "Base: %08x", (u32)Memory::base);
 
@@ -99,9 +161,10 @@ void Jit::GenerateFixedCode()
 	//   * r2-r4
 	// Really starting to run low on registers already though...
 
-	MOVP2R(R11, Memory::base);
-	MOVP2R(R10, mips_);
-	MOVP2R(R9, GetBasePtr());
+	// R11, R10, R9
+	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(CTXREG, mips_);
+	MOVP2R(JITBASEREG, GetBasePtr());
 
 	// Doing this down here for better pipelining, just in case.
 	if (cpu_info.bNEON) {
@@ -166,17 +229,17 @@ void Jit::GenerateFixedCode()
 				// Another idea: Shift the bloc number left by two in the op, this would let us do
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
-				// TODO: Fix me, I'm ugly.
-				MOVI2R(R9, (u32)GetBasePtr());
+				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
+				MOVI2R(JITBASEREG, (u32)GetBasePtr());
 #endif
-				ADD(R0, R0, R9);
+				ADD(R0, R0, JITBASEREG);
 				B(R0);
 			SetCC(CC_AL);
 
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
-			QuickCallFunction(R2, (void *)&JitAt);
+			QuickCallFunction(R2, (void *)&MIPSComp::JitAt);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 
@@ -207,9 +270,11 @@ void Jit::GenerateFixedCode()
 
 
 	// Uncomment if you want to see the output...
-	// INFO_LOG(JIT, "THE DISASM ========================");
-	// DisassembleArm(enterCode, GetCodePtr() - enterCode);
-	// INFO_LOG(JIT, "END OF THE DISASM ========================");
+	if (disasm) {
+		INFO_LOG(JIT, "THE DISASM ========================");
+		DisassembleArm(start, GetCodePtr() - start);
+		INFO_LOG(JIT, "END OF THE DISASM ========================");
+	}
 
 	// Don't forget to zap the instruction cache!
 	FlushLitPool();

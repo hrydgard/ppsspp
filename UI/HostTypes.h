@@ -37,10 +37,10 @@ public:
 
 	void SetDebugMode(bool mode) override { }
 
-	bool InitGraphics(std::string *error_message) override { return true; }
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}
 
-	void InitSound(PMixer *mixer) override;
+	void InitSound() override;
 	void UpdateSound() override {}
 	void ShutdownSound() override;
 
@@ -93,16 +93,16 @@ public:
 			mainWindow->GetDialogDisasm()->SetDebugMode(mode);
 	}
 
-	virtual bool InitGraphics(std::string *error_message) override { return true; }
+	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	virtual void ShutdownGraphics() override {}
 
-	virtual void InitSound(PMixer *mixer) override;
+	virtual void InitSound() override;
 	virtual void UpdateSound() override {}
 	virtual void ShutdownSound();
 
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {
-		symbolMap.SortSymbols();
+		g_symbolMap->SortSymbols();
 		mainWindow->Boot();
 	}
 
@@ -114,10 +114,10 @@ public:
 #endif
 	}
 	virtual bool AttemptLoadSymbolMap() {
-		return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		return g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 	}
 	virtual void PrepareShutdown() {
-		symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 	}
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}

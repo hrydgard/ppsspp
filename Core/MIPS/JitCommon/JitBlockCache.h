@@ -18,50 +18,30 @@
 #pragma once
 
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-}
-#else
 #include <unordered_map>
-#endif
 #include <vector>
 #include <string>
 
 #include "Common/CommonTypes.h"
+#include "Common/CodeBlock.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPS.h"
 
-#if defined(ARM)
-#include "Common/ArmEmitter.h"
-namespace ArmGen { class ARMXEmitter; }
-typedef ArmGen::ARMXCodeBlock CodeBlock;
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "Common/x64Emitter.h"
-namespace Gen { class XEmitter; }
-typedef Gen::XCodeBlock CodeBlock;
-#elif defined(PPC)
-#include "Common/ppcEmitter.h"
-namespace PpcGen { class PPCXEmitter; }
-typedef PpcGen::PPCXCodeBlock CodeBlock;
-#elif defined(MIPS)
-#include "Common/MipsEmitter.h"
-namespace MIPSGen { class MIPSEmitter; }
-typedef MIPSGen::MIPSCodeBlock CodeBlock;
-#else
-#warning "Unsupported arch!"
-#include "Common/FakeEmitter.h"
-namespace FakeGen { class FakeXEmitter; }
-typedef FakeGen::FakeXCodeBlock CodeBlock;
-#endif
-
-#if defined(ARM)
+#if defined(ARM) || defined(ARM64)
 const int MAX_JIT_BLOCK_EXITS = 2;
 #else
 const int MAX_JIT_BLOCK_EXITS = 8;
 #endif
+
+struct BlockCacheStats {
+	int numBlocks;
+	float avgBloat;  // In code bytes, not instructions!
+	float minBloat;
+	u32 minBloatBlock;
+	float maxBloat;
+	u32 maxBloatBlock;
+	std::map<float, u32> bloatMap;
+};
 
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
@@ -72,7 +52,7 @@ const int MAX_JIT_BLOCK_EXITS = 8;
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
 
-	const u8 *checkedEntry;
+	u8 *checkedEntry;  // not const, may need to write through this to unlink
 	const u8 *normalEntry;
 
 	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump
@@ -108,12 +88,11 @@ typedef void (*CompiledCode)();
 
 class JitBlockCache {
 public:
-	JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock);
+	JitBlockCache(MIPSState *mips_, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
-	// When a proxy block is invalidated, the block located at the rootAddress
-	// is invalidated too.
+	// When a proxy block is invalidated, the block located at the rootAddress is invalidated too.
 	void ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, const u8 *codePtr);
 	void FinalizeBlock(int block_num, bool block_link);
 
@@ -123,6 +102,7 @@ public:
 	void Reset();
 
 	bool IsFull() const;
+	void ComputeStats(BlockCacheStats &bcStats);
 
 	// Code Cache
 	JitBlock *GetBlock(int block_num);
@@ -145,6 +125,7 @@ public:
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
+	void InvalidateChangedBlocks();
 	void DestroyBlock(int block_num, bool invalidate);
 
 	// No jit operations may be run between these calls.
@@ -171,7 +152,7 @@ private:
 	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips_;
-	CodeBlock *codeBlock_;
+	CodeBlockCommon *codeBlock_;
 	JitBlock *blocks_;
 	std::unordered_multimap<u32, int> proxyBlockMap_;
 

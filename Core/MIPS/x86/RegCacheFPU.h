@@ -24,8 +24,6 @@
 
 #undef MAP_NOINIT
 
-using namespace Gen;
-
 // GPRs are numbered 0 to 31
 // VFPU regs are numbered 32 to 159.
 // Then we have some temp regs for VFPU handling from 160 to 175.
@@ -66,7 +64,7 @@ struct X64CachedFPReg {
 };
 
 struct MIPSCachedFPReg {
-	OpArg location;
+	Gen::OpArg location;
 	int lane;
 	bool away;  // value not in source register (memory)
 	u8 locked;
@@ -81,6 +79,7 @@ struct FPURegCacheState {
 
 namespace MIPSComp {
 	struct JitOptions;
+	struct JitState;
 }
 
 enum {
@@ -99,70 +98,72 @@ public:
 	FPURegCache();
 	~FPURegCache() {}
 
-	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
+	void Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats);
 	void MapReg(int preg, bool doLoad = true, bool makeDirty = true);
 	void StoreFromRegister(int preg);
 	void StoreFromRegisterV(int preg) {
 		StoreFromRegister(preg + 32);
 	}
-	OpArg GetDefaultLocation(int reg) const;
+	Gen::OpArg GetDefaultLocation(int reg) const;
 	void DiscardR(int freg);
 	void DiscardV(int vreg) {
 		DiscardR(vreg + 32);
 	}
 	void DiscardVS(int vreg);
-	bool IsTempX(X64Reg xreg);
+	bool IsTempX(Gen::X64Reg xreg);
 	int GetTempR();
 	int GetTempV() {
 		return GetTempR() - 32;
 	}
 	int GetTempVS(u8 *v, VectorSize vsz);
 
-	void SetEmitter(XEmitter *emitter) {emit = emitter;}
-	void SetOptions(MIPSComp::JitOptions *jo) {jo_ = jo;}
+	void SetEmitter(Gen::XEmitter *emitter) {emit = emitter;}
+
+	// Flushes one register and reuses the register for another one. Dirtyness is implied.
+	void FlushRemap(int oldreg, int newreg);
 
 	void Flush();
 	int SanityCheck() const;
 
-	const OpArg &R(int freg) const {return regs[freg].location;}
-	const OpArg &V(int vreg) const {
+	const Gen::OpArg &R(int freg) const {return regs[freg].location;}
+	const Gen::OpArg &V(int vreg) const {
 		if (vregs[vreg].lane != 0)
 			PanicAlert("SIMD reg %d used as V reg (use VS instead)", vreg);
 		return vregs[vreg].location;
 	}
-	const OpArg &VS(const u8 *vs) const {
+	const Gen::OpArg &VS(const u8 *vs) const {
 		if (vregs[vs[0]].lane == 0)
 			PanicAlert("V reg %d used as VS reg (use V instead)", vs[0]);
 		return vregs[vs[0]].location;
 	}
 
-	X64Reg RX(int freg) const {
+	Gen::X64Reg RX(int freg) const {
 		if (regs[freg].away && regs[freg].location.IsSimpleReg())
 			return regs[freg].location.GetSimpleReg();
 		PanicAlert("Not so simple - f%i", freg);
-		return (X64Reg)-1;
+		return (Gen::X64Reg)-1;
 	}
 
-	X64Reg VX(int vreg) const {
+	Gen::X64Reg VX(int vreg) const {
 		if (vregs[vreg].lane != 0)
 			PanicAlert("SIMD reg %d used as V reg (use VSX instead)", vreg);
 		if (vregs[vreg].away && vregs[vreg].location.IsSimpleReg())
 			return vregs[vreg].location.GetSimpleReg();
 		PanicAlert("Not so simple - v%i", vreg);
-		return (X64Reg)-1;
+		return (Gen::X64Reg)-1;
 	}
 
-	X64Reg VSX(const u8 *vs) const {
+	Gen::X64Reg VSX(const u8 *vs) const {
 		if (vregs[vs[0]].lane == 0)
 			PanicAlert("V reg %d used as VS reg (use VX instead)", vs[0]);
 		if (vregs[vs[0]].away && vregs[vs[0]].location.IsSimpleReg())
 			return vregs[vs[0]].location.GetSimpleReg();
 		PanicAlert("Not so simple - v%i", vs[0]);
-		return (X64Reg)-1;
+		return (Gen::X64Reg)-1;
 	}
 
 	// Just to avoid coding mistakes, defined here to prevent compilation.
-	void R(X64Reg r);
+	void R(Gen::X64Reg r);
 
 	// Register locking. Prevents them from being spilled.
 	void SpillLock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
@@ -208,13 +209,13 @@ public:
 	void SimpleRegV(const u8 v, int flags);
 
 	void GetState(FPURegCacheState &state) const;
-	void RestoreState(const FPURegCacheState state);
+	void RestoreState(const FPURegCacheState& state);
 
 	MIPSState *mips;
 
-	void FlushX(X64Reg reg);
-	X64Reg GetFreeXReg();
-	int GetFreeXRegs(X64Reg *regs, int n, bool spill = true);
+	void FlushX(Gen::X64Reg reg);
+	Gen::X64Reg GetFreeXReg();
+	int GetFreeXRegs(Gen::X64Reg *regs, int n, bool spill = true);
 
 	void Invariant() const;
 
@@ -229,7 +230,7 @@ private:
 	}
 	void ReduceSpillLockV(const u8 *vec, VectorSize sz);
 
-	X64Reg LoadRegsVS(const u8 *v, int n);
+	Gen::X64Reg LoadRegsVS(const u8 *v, int n);
 
 	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
 	X64CachedFPReg xregs[NUM_X_FPREGS];
@@ -243,6 +244,7 @@ private:
 	// TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	static float tempValues[NUM_TEMPS];
 
-	XEmitter *emit;
+	Gen::XEmitter *emit;
+	MIPSComp::JitState *js_;
 	MIPSComp::JitOptions *jo_;
 };

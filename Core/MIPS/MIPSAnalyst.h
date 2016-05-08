@@ -79,6 +79,8 @@ namespace MIPSAnalyst
 
 	// This tells us if the reg is used within intrs of addr (also includes likely delay slots.)
 	bool IsRegisterUsed(MIPSGPReg reg, u32 addr, int instrs);
+	// This tells us if the reg is clobbered within intrs of addr (e.g. it is surely not used.)
+	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs);
 
 	struct AnalyzedFunction {
 		u32 start;

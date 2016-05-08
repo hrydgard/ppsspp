@@ -45,7 +45,7 @@ class MipsExpressionFunctions: public IExpressionFunctions
 public:
 	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { };
 
-	virtual bool parseReference(char* str, uint32& referenceIndex)
+	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
 		for (int i = 0; i < 32; i++)
 		{
@@ -109,12 +109,12 @@ public:
 		return false;
 	}
 
-	virtual bool parseSymbol(char* str, uint32& symbolValue)
+	bool parseSymbol(char* str, uint32_t& symbolValue) override
 	{
-		return symbolMap.GetLabelValue(str,symbolValue); 
+		return g_symbolMap->GetLabelValue(str,symbolValue); 
 	}
 
-	virtual uint32 getReferenceValue(uint32 referenceIndex)
+	uint32_t getReferenceValue(uint32_t referenceIndex) override
 	{
 		if (referenceIndex < 32)
 			return cpu->GetRegValue(0, referenceIndex);
@@ -131,14 +131,14 @@ public:
 		return -1;
 	}
 
-	virtual ExpressionType getReferenceType(uint32 referenceIndex) {
+	ExpressionType getReferenceType(uint32_t referenceIndex) override {
 		if (referenceIndex & REF_INDEX_IS_FLOAT) {
 			return EXPR_TYPE_FLOAT;
 		}
 		return EXPR_TYPE_UINT;
 	}
 	
-	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error)
+	bool getMemoryValue(uint32_t address, int size, uint32_t& dest, char* error) override
 	{
 		switch (size)
 		{
@@ -220,13 +220,13 @@ void MIPSDebugInterface::toggleBreakpoint(unsigned int address)
 int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
-	int n=symbolMap.GetFunctionNum(address);
+	int n=g_symbolMap->GetFunctionNum(address);
 	if (n==-1) return 0xFFFFFF;
 	return colors[n%6];
 }
 std::string MIPSDebugInterface::getDescription(unsigned int address) 
 {
-	return symbolMap.GetDescription(address);
+	return g_symbolMap->GetDescription(address);
 }
 
 bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)

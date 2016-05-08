@@ -28,7 +28,7 @@
 class WindowsHeadlessHost : public HeadlessHost
 {
 public:
-	virtual bool InitGraphics(std::string *error_message) override;
+	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
 	virtual void ShutdownGraphics() override;
 
 	virtual void SwapBuffers() override;
@@ -38,12 +38,12 @@ public:
 	virtual void SetComparisonScreenshot(const std::string &filename) override;
 
 protected:
-	virtual bool ResizeGL();
 	void LoadNativeAssets();
 	void SendOrCollectDebugOutput(const std::string &output);
 
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
+	GraphicsContext *gfx_;
 	std::string comparisonScreenshot;
 };

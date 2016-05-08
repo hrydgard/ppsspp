@@ -4,13 +4,15 @@
 #include "base/NativeApp.h"
 #include "base/mutex.h"
 #include "i18n/i18n.h"
+#include "input/input_state.h"
 #include "util/text/utf8.h"
+
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "../Globals.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 #include "Windows/resource.h"
 #include "Core/Reporting.h"
 #include "Core/MemMap.h"
@@ -28,6 +30,8 @@
 static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
 static volatile long emuThreadReady;
+
+InputState input_state;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 
@@ -110,27 +114,21 @@ unsigned int WINAPI TheThread(void *)
 		args.push_back(string.c_str());
 	}
 
-	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", "1234");
+	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
 
 	Host *nativeHost = host;
 	host = oldHost;
 
 	host->UpdateUI();
-	
-	//Check Colour depth
-	HDC dc = GetDC(NULL);
-	u32 colour_depth = GetDeviceCaps(dc, BITSPIXEL);
-	ReleaseDC(NULL, dc);
-	if (colour_depth != 32){
-		MessageBox(0, L"Please switch your display to 32-bit colour mode", L"OpenGL Error", MB_OK);
-		ExitProcess(1);
-	}
+
+	GraphicsContext *graphicsContext;
 
 	std::string error_string;
-	if (!host->InitGraphics(&error_string)) {
+	if (!host->InitGraphics(&error_string, &graphicsContext)) {
 		I18NCategory *err = GetI18NCategory("Error");
 		Reporting::ReportMessage("Graphics init error: %s", error_string.c_str());
 
+		const char *defaultErrorVulkan = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *defaultErrorOpenGL = "Failed initializing graphics. Try upgrading your graphics drivers.\n\nWould you like to try switching to DirectX 9?\n\nError message:";
 		const char *defaultErrorDirect3D9 = "Failed initializing graphics. Try upgrading your graphics drivers and directx 9 runtime.\n\nWould you like to try switching to OpenGL?\n\nError message:";
 		const char *genericError;
@@ -139,6 +137,10 @@ unsigned int WINAPI TheThread(void *)
 		case GPU_BACKEND_DIRECT3D9:
 			nextBackend = GPU_BACKEND_OPENGL;
 			genericError = err->T("GenericDirect3D9Error", defaultErrorDirect3D9);
+			break;
+		case GPU_BACKEND_VULKAN:
+			nextBackend = GPU_BACKEND_OPENGL;
+			genericError = err->T("GenericVulkanError", defaultErrorVulkan);
 			break;
 		case GPU_BACKEND_OPENGL:
 		default:
@@ -163,7 +165,9 @@ unsigned int WINAPI TheThread(void *)
 		ExitProcess(1);
 	}
 
-	NativeInitGraphics();
+	PSP_CoreParameter().graphicsContext = graphicsContext;
+
+	NativeInitGraphics(graphicsContext);
 	NativeResized();
 
 	INFO_LOG(BOOT, "Done.");
@@ -188,7 +192,7 @@ unsigned int WINAPI TheThread(void *)
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
 
-		Core_Run();
+		Core_Run(graphicsContext);
 	}
 
 shutdown:

@@ -24,6 +24,7 @@
 #include "objbase.h"
 #include "objidl.h"
 #include "shlguid.h"
+#pragma warning(disable:4091)  // workaround bug in VS2015 headers
 #include "shlobj.h"
 
 // native stuff
@@ -37,12 +38,13 @@
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
-#include "EmuThread.h"
-#include "DSoundStream.h"
-#include "WindowsHost.h"
-#include "WndMainWindow.h"
-#include "OpenGLBase.h"
-#include "D3D9Base.h"
+#include "Windows/EmuThread.h"
+#include "Windows/DSoundStream.h"
+#include "Windows/WindowsHost.h"
+#include "Windows/MainWindow.h"
+#include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/WindowsVulkanContext.h"
+#include "Windows/GPU/D3D9Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -55,24 +57,22 @@
 #include "Core/Debugger/SymbolMap.h"
 
 #include "Common/StringUtils.h"
-#include "main.h"
+#include "Windows/main.h"
 
 static const int numCPUs = 1;
-
-extern PMixer *g_mixer;
 
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
 
-static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
-{
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0) {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
-WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
+WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
+	: gfx_(nullptr), hInstance_(hInstance),
+		mainWindow_(mainWindow),
+		displayWindow_(displayWindow)
 {
-	mainWindow_ = mainWindow;
-	displayWindow_ = displayWindow;
 	mouseDeltaX = 0;
 	mouseDeltaY = 0;
 
@@ -89,31 +89,57 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 	SetConsolePosition();
 }
 
-bool WindowsHost::InitGraphics(std::string *error_message) {
+void WindowsHost::SetConsolePosition() {
+	HWND console = GetConsoleWindow();
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void WindowsHost::UpdateConsolePosition() {
+	RECT rc;
+	HWND console = GetConsoleWindow();
+	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console)) {
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
+}
+
+bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
+	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (g_Config.iGPUBackend) {
 	case GPU_BACKEND_OPENGL:
-		return GL_Init(displayWindow_, error_message);
+		graphicsContext = new WindowsGLContext();
+		break;
 	case GPU_BACKEND_DIRECT3D9:
-		return D3D9_Init(displayWindow_, true, error_message);
+		graphicsContext = new D3D9Context();
+		break;
+	case GPU_BACKEND_VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
 	default:
+		return false;
+	}
+
+	if (graphicsContext->Init(hInstance_, displayWindow_, error_message)) {
+		*ctx = graphicsContext;
+		gfx_ = graphicsContext;
+		return true;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		gfx_ = nullptr;
 		return false;
 	}
 }
 
 void WindowsHost::ShutdownGraphics() {
-	switch (g_Config.iGPUBackend) {
-	case GPU_BACKEND_OPENGL:
-		GL_Shutdown();
-		break;
-	case GPU_BACKEND_DIRECT3D9:
-		D3D9_Shutdown();
-		break;
-	}
+	gfx_->Shutdown();
+	delete gfx_;
+	gfx_ = nullptr;
 	PostMessage(mainWindow_, WM_CLOSE, 0, 0);
 }
 
-void WindowsHost::SetWindowTitle(const char *message)
-{
+void WindowsHost::SetWindowTitle(const char *message) {
 	std::wstring winTitle = ConvertUTF8ToWString(std::string("PPSSPP ") + PPSSPP_GIT_VERSION);
 	if (message != nullptr) {
 		winTitle.append(ConvertUTF8ToWString(" - "));
@@ -124,56 +150,43 @@ void WindowsHost::SetWindowTitle(const char *message)
 	PostMessage(mainWindow_, MainWindow::WM_USER_WINDOW_TITLE_CHANGED, 0, 0);
 }
 
-void WindowsHost::InitSound(PMixer *mixer)
-{
-	g_mixer = mixer;
+void WindowsHost::InitSound() {
 }
 
-void WindowsHost::UpdateSound()
-{
-	DSound::DSound_UpdateSound();
+// UGLY!
+extern WindowsAudioBackend *winAudioBackend;
+
+void WindowsHost::UpdateSound() {
+	if (winAudioBackend)
+		winAudioBackend->Update();
 }
 
-void WindowsHost::ShutdownSound()
-{
-	if (g_mixer)
-		delete g_mixer;
-	g_mixer = 0;
+void WindowsHost::ShutdownSound() {
 }
 
-void WindowsHost::UpdateUI()
-{
+void WindowsHost::UpdateUI() {
 	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
-void WindowsHost::UpdateScreen()
-{
-	PostMessage(mainWindow_, MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
-}
-
-void WindowsHost::UpdateMemView() 
-{
+void WindowsHost::UpdateMemView() {
 	for (int i = 0; i < numCPUs; i++)
 		if (memoryWindow[i])
 			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
 }
 
-void WindowsHost::UpdateDisassembly()
-{
+void WindowsHost::UpdateDisassembly() {
 	for (int i = 0; i < numCPUs; i++)
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
 }
 
-void WindowsHost::SetDebugMode(bool mode)
-{
+void WindowsHost::SetDebugMode(bool mode) {
 	for (int i = 0; i < numCPUs; i++)
 		if (disasmWindow[i])
 			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 }
 
-void WindowsHost::PollControllers(InputState &input_state)
-{
+void WindowsHost::PollControllers(InputState &input_state) {
 	bool doPad = true;
 	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
 	{
@@ -203,25 +216,22 @@ void WindowsHost::PollControllers(InputState &input_state)
 	//if (fabsf(my) > 0.1f) NativeAxis(axisY);
 }
 
-void WindowsHost::BootDone()
-{
-	symbolMap.SortSymbols();
+void WindowsHost::BootDone() {
+	g_symbolMap->SortSymbols();
 	SendMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
 	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename, char* ext)
-{
+static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
 	FileInfo info;
 
 	std::string result = currentFilename;
 
 	// can't fail, definitely exists if it gets this far
 	getFileInfo(currentFilename, &info);
-	if (info.isDirectory)
-	{
+	if (info.isDirectory) {
 #ifdef _WIN32
 		char* slash = "\\";
 #else
@@ -241,23 +251,20 @@ static std::string SymbolMapFilename(const char *currentFilename, char* ext)
 	}
 }
 
-bool WindowsHost::AttemptLoadSymbolMap()
-{
-	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+bool WindowsHost::AttemptLoadSymbolMap() {
+	bool result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 	// Load the old-style map file.
 	if (!result1)
-		result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
-	bool result2 = symbolMap.LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
+		result1 = g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	bool result2 = g_symbolMap->LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
 	return result1 || result2;
 }
 
-void WindowsHost::SaveSymbolMap()
-{
-	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
+void WindowsHost::SaveSymbolMap() {
+	g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".ppmap").c_str());
 }
 
-bool WindowsHost::IsDebuggingEnabled()
-{
+bool WindowsHost::IsDebuggingEnabled() {
 #ifdef _DEBUG
 	return true;
 #else
@@ -265,29 +272,11 @@ bool WindowsHost::IsDebuggingEnabled()
 #endif
 }
 
-void WindowsHost::SetConsolePosition()
-{
-	HWND console = GetConsoleWindow();
-	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
-		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
-}
-
-void WindowsHost::UpdateConsolePosition()
-{
-	RECT rc;
-	HWND console = GetConsoleWindow();
-	if (console != NULL && GetWindowRect(console, &rc) && !IsIconic(console))
-	{
-		g_Config.iConsoleWindowX = rc.left;
-		g_Config.iConsoleWindowY = rc.top;
-	}
-}
-
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
 	HRESULT hres; 
 	IShellLink* psl; 
-	CoInitialize(0);
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 
 	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
 	// has already been called.
@@ -353,7 +342,7 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 }
 
 void WindowsHost::GoFullscreen(bool viewFullscreen) {
-	MainWindow::ToggleFullscreen(mainWindow_, viewFullscreen);
+	MainWindow::SendToggleFullscreen(viewFullscreen);
 }
 
 void WindowsHost::ToggleDebugConsoleVisibility() {

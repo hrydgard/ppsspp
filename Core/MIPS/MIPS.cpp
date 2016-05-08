@@ -27,22 +27,9 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
-
-#if defined(PPC)
-#include "PPC/PpcJit.h"
-#elif defined(ARM)
-#include "ARM/ArmJit.h"
-#elif defined(_M_IX86) || defined(_M_X64)
-#include "x86/Jit.h"
-#elif defined(MIPS)
-#include "MIPS/MipsJit.h"
-#else
-#include "fake/FakeJit.h"
-#endif
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
@@ -219,8 +206,11 @@ void MIPSState::Init() {
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 
-	if (PSP_CoreParameter().cpuCore == CPU_JIT)
-		MIPSComp::jit = new MIPSComp::Jit(this);
+	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+	} else {
+		MIPSComp::jit = nullptr;
+	}
 }
 
 bool MIPSState::HasDefaultPrefix() const {
@@ -235,12 +225,14 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	PSP_CoreParameter().cpuCore = desired;
 	switch (PSP_CoreParameter().cpuCore) {
 	case CPU_JIT:
+		INFO_LOG(CPU, "Switching to JIT");
 		if (!MIPSComp::jit) {
-			MIPSComp::jit = new MIPSComp::Jit(this);
+			MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 		}
 		break;
 
 	case CPU_INTERPRETER:
+		INFO_LOG(CPU, "Switching to interpreter");
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
 		break;
@@ -258,7 +250,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);
 	else
-		MIPSComp::Jit::DoDummyState(p);
+		MIPSComp::jit->DoDummyState(p);
 
 	p.DoArray(r, sizeof(r) / sizeof(r[0]));
 	p.DoArray(f, sizeof(f) / sizeof(f[0]));
@@ -275,6 +267,7 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(pc);
 	p.Do(nextPC);
 	p.Do(downcount);
+	// Reversed, but we can just leave it that way.
 	p.Do(hi);
 	p.Do(lo);
 	p.Do(fpcond);
@@ -313,4 +306,9 @@ void MIPSState::InvalidateICache(u32 address, int length) {
 	// Only really applies to jit.
 	if (MIPSComp::jit)
 		MIPSComp::jit->InvalidateCacheAt(address, length);
+}
+
+void MIPSState::ClearJitCache() {
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCache();
 }

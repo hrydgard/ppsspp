@@ -49,7 +49,7 @@ void __SslDoState(PointerWrap &p)
 	p.Do(currentMemSize);
 }
 
-int sceSslInit(int heapSize)
+static int sceSslInit(int heapSize)
 {
 	DEBUG_LOG(HLE, "sceSslInit %d", heapSize);
 	if (isSslInit) 
@@ -67,7 +67,7 @@ int sceSslInit(int heapSize)
 	return 0;
 }
 
-int sceSslEnd() 
+static int sceSslEnd()
 {
 	DEBUG_LOG(HLE, "sceSslEnd");
 	if (!isSslInit) 
@@ -78,7 +78,7 @@ int sceSslEnd()
 	return 0;
 }
 
-int sceSslGetUsedMemoryMax(u32 maxMemPtr) 
+static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 {
 	DEBUG_LOG(HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
 	if (!isSslInit) 
@@ -93,7 +93,7 @@ int sceSslGetUsedMemoryMax(u32 maxMemPtr)
 	return 0;
 }
 
-int sceSslGetUsedMemoryCurrent(u32 currentMemPtr) 
+static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
 {
 	DEBUG_LOG(HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
 	if (!isSslInit) 
@@ -110,18 +110,18 @@ int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
 
 const HLEFunction sceSsl[] = 
 {
-	{0x957ECBE2, WrapI_I<sceSslInit>, "sceSslInit"},
-	{0x191CDEFF, WrapI_V<sceSslEnd>, "sceSslEnd"},
-	{0x5BFB6B61, 0, "sceSslGetNotAfter"},
-	{0x17A10DCC, 0, "sceSslGetNotBefore"},
-	{0x3DD5E023, 0, "sceSslGetSubjectName"},
-	{0x1B7C8191, 0, "sceSslGetIssuerName"},
-	{0xCC0919B0, 0, "sceSslGetSerialNumber"},
-	{0x058D21C0, 0, "sceSslGetNameEntryCount"},
-	{0xD6D097B4, 0, "sceSslGetNameEntryInfo"},
-	{0xB99EDE6A, WrapI_U<sceSslGetUsedMemoryMax>, "sceSslGetUsedMemoryMax"},
-	{0x0EB43B06, WrapI_U<sceSslGetUsedMemoryCurrent>, "sceSslGetUsedMemoryCurrent"},
-	{0xF57765D3, 0, "sceSslGetKeyUsage"},
+	{0X957ECBE2, &WrapI_I<sceSslInit>,                 "sceSslInit",                 'i', "i"},
+	{0X191CDEFF, &WrapI_V<sceSslEnd>,                  "sceSslEnd",                  'i', "" },
+	{0X5BFB6B61, nullptr,                              "sceSslGetNotAfter",          '?', "" },
+	{0X17A10DCC, nullptr,                              "sceSslGetNotBefore",         '?', "" },
+	{0X3DD5E023, nullptr,                              "sceSslGetSubjectName",       '?', "" },
+	{0X1B7C8191, nullptr,                              "sceSslGetIssuerName",        '?', "" },
+	{0XCC0919B0, nullptr,                              "sceSslGetSerialNumber",      '?', "" },
+	{0X058D21C0, nullptr,                              "sceSslGetNameEntryCount",    '?', "" },
+	{0XD6D097B4, nullptr,                              "sceSslGetNameEntryInfo",     '?', "" },
+	{0XB99EDE6A, &WrapI_U<sceSslGetUsedMemoryMax>,     "sceSslGetUsedMemoryMax",     'i', "x"},
+	{0X0EB43B06, &WrapI_U<sceSslGetUsedMemoryCurrent>, "sceSslGetUsedMemoryCurrent", 'i', "x"},
+	{0XF57765D3, nullptr,                              "sceSslGetKeyUsage",          '?', "" },
 };
 
 void Register_sceSsl()

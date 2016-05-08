@@ -22,13 +22,9 @@
 #include <map>
 #include <string>
 
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 
 #include "Common/CommonTypes.h"
-
-#ifdef _WIN32
-#include "ext/armips/Core/Assembler.h"
-#endif
 
 enum SymbolType {
 	ST_NONE     = 0,
@@ -61,6 +57,8 @@ enum DataType {
 	DATATYPE_NONE, DATATYPE_BYTE, DATATYPE_HALFWORD, DATATYPE_WORD, DATATYPE_ASCII
 };
 
+struct LabelDefinition;
+
 #ifdef _WIN32
 struct HWND__;
 typedef struct HWND__ *HWND;
@@ -85,8 +83,8 @@ public:
 
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symType) const;
-	void getLabels(std::vector<LabelDefinition>& dest) const;
 #endif
+	void GetLabels(std::vector<LabelDefinition> &dest) const;
 
 	void AddModule(const char *name, u32 address, u32 size);
 	void UnloadModule(u32 address, u32 size);
@@ -175,5 +173,5 @@ private:
 	bool sawUnknownModule;
 };
 
-extern SymbolMap symbolMap;
+extern SymbolMap *g_symbolMap;
 

@@ -43,6 +43,9 @@ enum IdentifiedFileType {
 
 	FILETYPE_NORMAL_DIRECTORY,
 
+	FILETYPE_PSP_SAVEDATA_DIRECTORY,
+	FILETYPE_PPSSPP_SAVESTATE,
+
 	FILETYPE_UNKNOWN
 };
 
@@ -76,6 +79,8 @@ public:
 };
 
 FileLoader *ConstructFileLoader(const std::string &filename);
+// Resolve to the target binary, ISO, or other file (e.g. from a directory.)
+FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader);
 
 // This can modify the string, for example for stripping off the "/EBOOT.PBP"
 // for a FILETYPE_PSP_PBP_DIRECTORY.

@@ -21,3 +21,5 @@ void Register_sceUsb();
 
 void __UsbInit();
 void __UsbDoState(PointerWrap &p);
+
+void Register_sceUsbCam();

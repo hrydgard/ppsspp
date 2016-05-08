@@ -17,10 +17,16 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceMt19937.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
+#ifdef USE_CRT_DBG
+#undef new
+#endif
+
+
+static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
 	WARN_LOG(HLE, "sceMt19937Init(%08x, %08x)", mt19937Addr, seed);
 	if (!Memory::IsValidAddress(mt19937Addr))
@@ -32,7 +38,7 @@ u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 	return 0;
 }
 
-u32 sceMt19937UInt(u32 mt19937Addr)
+static u32 sceMt19937UInt(u32 mt19937Addr)
 {
 	WARN_LOG(HLE, "sceMt19937UInt(%08x)", mt19937Addr);
 	if (!Memory::IsValidAddress(mt19937Addr))
@@ -43,8 +49,8 @@ u32 sceMt19937UInt(u32 mt19937Addr)
 
 const HLEFunction sceMt19937[] =
 {
-	{0xECF5D379, WrapU_UU<sceMt19937Init>, "sceMt19937Init"},
-	{0xF40C98E6, WrapU_U<sceMt19937UInt>, "sceMt19937UInt"},
+	{0XECF5D379, &WrapU_UU<sceMt19937Init>,          "sceMt19937Init", 'x', "xx"},
+	{0XF40C98E6, &WrapU_U<sceMt19937UInt>,           "sceMt19937UInt", 'x', "x" },
 };
 
 void Register_sceMt19937()

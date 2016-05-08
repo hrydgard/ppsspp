@@ -23,14 +23,24 @@
 #include "Common/FixedSizeQueue.h"
 #include "Common/Atomics.h"
 
-#include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
-#include "Core/Host.h"
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
+
 #include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/Host.h"
+#include "Core/MemMapHelpers.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HW/StereoResampler.h"
+#include "Core/Util/AudioFormat.h"
+
+StereoResampler resampler;
+AudioDebugStats g_AudioDebugStats;
 
 // Should be used to lock anything related to the outAudioQueue.
 // atomic locks are used on the lock. TODO: make this lock-free
@@ -62,34 +72,14 @@ static s32 *mixBuffer;
 static int chanQueueMaxSizeFactor;
 static int chanQueueMinSizeFactor;
 
-// TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
-// is bad mojo.
-FixedSizeQueue<s16, 512 * 16> outAudioQueue;
-
-bool __gainAudioQueueLock();
-void __releaseAcquiredLock();
-void __blockForAudioQueueLock();
-
-static inline s16 adjustvolume(s16 sample, int vol) {
-#ifdef ARM
-	register int r;
-	asm volatile("smulwb %0, %1, %2\n\t" \
-	             "ssat %0, #16, %0" \
-	             : "=r"(r) : "r"(vol), "r"(sample));
-	return r;
-#else
-	return clamp_s16((sample * vol) >> 16);
-#endif
-}
-
-void hleAudioUpdate(u64 userdata, int cyclesLate) {
+static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
 	CoreTiming::ScheduleEvent(audioIntervalCycles - cyclesLate, eventAudioUpdate, 0);
 
 	__AudioUpdate();
 }
 
-void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
+static void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(audioHostIntervalCycles - cyclesLate, eventHostAudioUpdate, 0);
 
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
@@ -97,13 +87,14 @@ void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	host->UpdateSound();
 }
 
-void __AudioCPUMHzChange() {
+static void __AudioCPUMHzChange() {
 	audioIntervalCycles = (int)(usToCycles(1000000ULL) * hwBlockSize / hwSampleRate);
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * hostAttemptBlockSize / hwSampleRate);
 }
 
 
 void __AudioInit() {
+	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
 	mixFrequency = 44100;
 
 	switch (g_Config.iAudioLatency) {
@@ -141,9 +132,7 @@ void __AudioInit() {
 	mixBuffer = new s32[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	__blockForAudioQueueLock();
-	outAudioQueue.clear();
-	__releaseAcquiredLock();
+	resampler.Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
 }
 
@@ -159,16 +148,14 @@ void __AudioDoState(PointerWrap &p) {
 
 	p.Do(mixFrequency);
 
-	{	
-		//block until a lock is achieved. Not a good idea at all, but
-		//can't think of a better one...
-		__blockForAudioQueueLock();
-
+	if (s >= 2) {
+		resampler.DoState(p);
+	} else {
+		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
+		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
 
-		//release the atomic lock
-		__releaseAcquiredLock();
-		
+		resampler.Clear();
 	}
 
 	int chanCount = ARRAY_SIZE(chans);
@@ -265,26 +252,17 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 				s16 *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-
-				// TODO: SSE/NEON (VQDMULH) implementations
-				for (u32 i = 0; i < sz1; i += 2) {
-					buf1[i] = adjustvolume(sampleData[i], leftVol);
-					buf1[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-				}
+				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
 				if (buf2) {
-					sampleData += sz1;
-					for (u32 i = 0; i < sz2; i += 2) {
-						buf2[i] = adjustvolume(sampleData[i], leftVol);
-						buf2[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
-					}
+					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
 				}
 			}
 		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
+			// Rare, so unoptimized. Expands to stereo.
 			for (u32 i = 0; i < chan.sampleCount; i++) {
-				// Expand to stereo
 				s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-				chan.sampleQueue.push(adjustvolume(sample, leftVol));
-				chan.sampleQueue.push(adjustvolume(sample, rightVol));
+				chan.sampleQueue.push(ApplySampleVolume(sample, leftVol));
+				chan.sampleQueue.push(ApplySampleVolume(sample, rightVol));
 			}
 		}
 	}
@@ -323,7 +301,11 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 }
 
 void __AudioSetOutputFrequency(int freq) {
-	WARN_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	if (freq != 44100) {
+		WARN_LOG_REPORT(SCEAUDIO, "Switching audio frequency to %i", freq);
+	} else {
+		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
+	}
 	mixFrequency = freq;
 }
 
@@ -364,6 +346,8 @@ void __AudioUpdate() {
 			}
 			firstChannel = false;
 		} else {
+			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
+			// Actually, the cmple/pack trick should work fine...
 			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
@@ -374,112 +358,30 @@ void __AudioUpdate() {
 	}
 
 	if (firstChannel) {
+		// Nothing was written above, let's memset.
 		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
 	if (g_Config.bEnableSound) {
-
-		__blockForAudioQueueLock();
-		/*
-		if (!__gainAudioQueueLock()){
-			return;
-		}
-		*/
-
-		if (outAudioQueue.room() >= hwBlockSize * 2) {
-			s16 *buf1 = 0, *buf2 = 0;
-			size_t sz1, sz2;
-			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
-			
-			for (size_t s = 0; s < sz1; s++)
-				buf1[s] = clamp_s16(mixBuffer[s]);
-			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					buf2[s] = clamp_s16(mixBuffer[s + sz1]);
-			}
-		} else {
-			// This happens quite a lot. There's still something slightly off
-			// about the amount of audio we produce.
-		}
-		//release the atomic lock
-		__releaseAcquiredLock();
+		resampler.PushSamples(mixBuffer, hwBlockSize);
 	}
 }
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
-int __AudioMix(short *outstereo, int numFrames)
-{
-
-	// TODO: if mixFrequency != the actual output frequency, resample!
-	int underrun = -1;
-	s16 sampleL = 0;
-	s16 sampleR = 0;
-
-	const s16 *buf1 = 0, *buf2 = 0;
-	size_t sz1, sz2;
-	{
-		
-		//TODO: do rigorous testing to see whether just blind locking will improve speed.
-		if (!__gainAudioQueueLock()){
-			 memset(outstereo, 0, numFrames * 2 * sizeof(short)); 
-			 return 0;
-		}
-		
-		outAudioQueue.popPointers(numFrames * 2, &buf1, &sz1, &buf2, &sz2);
-
-		memcpy(outstereo, buf1, sz1 * sizeof(s16));
-		if (buf2) {
-			memcpy(outstereo + sz1, buf2, sz2 * sizeof(s16));
-		}
-
-		//release the atomic lock
-		__releaseAcquiredLock();
-	}
-
-	int remains = (int)(numFrames * 2 - sz1 - sz2);
-	if (remains > 0)
-		memset(outstereo + numFrames * 2 - remains, 0, remains*sizeof(s16));
-
-	if (sz1 + sz2 < (size_t)numFrames) {
-		underrun = (int)(sz1 + sz2) / 2;
-		VERBOSE_LOG(SCEAUDIO, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
-	}
-	return underrun >= 0 ? underrun : numFrames;
+int __AudioMix(short *outstereo, int numFrames, int sampleRate) {
+    return resampler.Mix(outstereo, numFrames, false, sampleRate);
 }
 
-
-
-/*returns whether the lock was successfully gained or not.
-i.e - whether the lock belongs to you 
-*/
-inline bool __gainAudioQueueLock(){
-	if (g_Config.bAtomicAudioLocks){
-		/*if the previous state was 0, that means the lock was "unlocked". So,
-		we return !0, which is true thanks to C's int to bool conversion
-
-		One the other hand, if it was locked, then the lock would return 1.
-		so, !1 = 0 = false.
-		*/		
-		return atomicLock_.test_and_set() == 0;
-	} else {
-		mutex_.lock();
-		return true;
-	}
-};
-
-inline void __releaseAcquiredLock(){
-	if (g_Config.bAtomicAudioLocks){
-		atomicLock_.clear();
-	} else {
-		mutex_.unlock();
-	}
+const AudioDebugStats *__AudioGetDebugStats() {
+	resampler.GetAudioDebugStats(&g_AudioDebugStats);
+	return &g_AudioDebugStats;
 }
 
-inline void __blockForAudioQueueLock(){
-	if (g_Config.bAtomicAudioLocks){
-		while ((atomicLock_.test_and_set() == 0)){ }
+void __PushExternalAudio(const s32 *audio, int numSamples) {
+	if (audio) {
+		resampler.PushSamples(audio, numSamples);
 	} else {
-		mutex_.lock();
+		resampler.Clear();
 	}
 }

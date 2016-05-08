@@ -15,20 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <stdio.h>
+
 #include "WindowsHeadlessHost.h"
 #include "Compare.h"
 
-#include <stdio.h>
+#include "Common/FileUtil.h"
 #include "Common/CommonWindows.h"
-#include <io.h>
 
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/GPUState.h"
+#include "Windows/GPU/WindowsGLContext.h"
+#include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/WindowsVulkanContext.h"
 
 #include "base/logging.h"
-#include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gpu_features.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -36,11 +41,7 @@ const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;
 const int WINDOW_HEIGHT = 272;
 
-typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)(int value);
-PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = NULL;
-
-HWND CreateHiddenWindow()
-{
+HWND CreateHiddenWindow() {
 	static WNDCLASSEX wndClass = {
 		sizeof(WNDCLASSEX),
 		CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
@@ -59,18 +60,6 @@ HWND CreateHiddenWindow()
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
 	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
-}
-
-void SetVSync(int value)
-{
-	const char *extensions = (const char *) glGetString(GL_EXTENSIONS);
-
-	if (!strstr(extensions, "WGL_EXT_swap_control"))
-		return;
-
-	wglSwapIntervalEXT = (PFNWGLSWAPINTERVALFARPROC) wglGetProcAddress("wglSwapIntervalEXT");
-	if (wglSwapIntervalEXT != NULL)
-		wglSwapIntervalEXT(value);
 }
 
 void WindowsHeadlessHost::LoadNativeAssets()
@@ -130,14 +119,14 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	{
 		// Lazy, just read in the original header to output the failed screenshot.
 		u8 header[14 + 40] = {0};
-		FILE *bmp = fopen(comparisonScreenshot.c_str(), "rb");
+		FILE *bmp = File::OpenCFile(comparisonScreenshot, "rb");
 		if (bmp)
 		{
 			fread(&header, sizeof(header), 1, bmp);
 			fclose(bmp);
 		}
 
-		FILE *saved = fopen("__testfailure.bmp", "wb");
+		FILE *saved = File::OpenCFile("__testfailure.bmp", "wb");
 		if (saved)
 		{
 			fwrite(&header, sizeof(header), 1, saved);
@@ -154,80 +143,68 @@ void WindowsHeadlessHost::SetComparisonScreenshot(const std::string &filename)
 	comparisonScreenshot = filename;
 }
 
-bool WindowsHeadlessHost::InitGraphics(std::string *error_message)
-{
+bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
 	hWnd = CreateHiddenWindow();
 
-	if (WINDOW_VISIBLE)
-	{
+	if (WINDOW_VISIBLE) {
 		ShowWindow(hWnd, TRUE);
 		SetFocus(hWnd);
 	}
 
-	int pixelFormat;
+	WindowsGraphicsContext *graphicsContext = nullptr;
+	switch (gpuCore_) {
+	case GPUCORE_NULL:
+	case GPUCORE_GLES:
+	case GPUCORE_SOFTWARE:
+		graphicsContext = new WindowsGLContext();
+		break;
 
-	static PIXELFORMATDESCRIPTOR pfd = {0};
-	pfd.nSize = sizeof(pfd);
-	pfd.nVersion = 1;
-	pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-	pfd.iPixelType = PFD_TYPE_RGBA;
-	pfd.cColorBits = 32;
-	pfd.cDepthBits = 16;
-	pfd.iLayerType = PFD_MAIN_PLANE;
+	case GPUCORE_DIRECTX9:
+		graphicsContext = new D3D9Context();
+		break;
 
-#define ENFORCE(x, msg) { if (!(x)) { fprintf(stderr, msg); *error_message = msg; return false; } }
+	case GPUCORE_DIRECTX11:
+		return false;
 
-	ENFORCE(hDC = GetDC(hWnd), "Unable to create DC.");
-	ENFORCE(pixelFormat = ChoosePixelFormat(hDC, &pfd), "Unable to match pixel format.");
-	ENFORCE(SetPixelFormat(hDC, pixelFormat, &pfd), "Unable to set pixel format.");
-	ENFORCE(hRC = wglCreateContext(hDC), "Unable to create GL context.");
-	ENFORCE(wglMakeCurrent(hDC, hRC), "Unable to activate GL context.");
+	case GPUCORE_VULKAN:
+		graphicsContext = new WindowsVulkanContext();
+		break;
+	}
 
-	SetVSync(0);
+	if (graphicsContext->Init(NULL, hWnd, error_message)) {
+		*ctx = graphicsContext;
+		gfx_ = graphicsContext;
+	} else {
+		delete graphicsContext;
+		*ctx = nullptr;
+		gfx_ = nullptr;
+		return false;
+	}
 
-	glewInit();
-	glstate.Initialize();
+	if (gpuCore_ == GPUCORE_GLES) {
+		// TODO: Do we need to do this here?
+		CheckGLExtensions();
+	}
 
 	LoadNativeAssets();
 
-	return ResizeGL();
+	return true;
 }
 
-void WindowsHeadlessHost::ShutdownGraphics()
-{
-	if (hRC)
-	{
-		wglMakeCurrent(NULL, NULL);
-		wglDeleteContext(hRC);
-		hRC = NULL;
-	}
-
-	if (hDC)
-		ReleaseDC(hWnd, hDC);
-	hDC = NULL;
+void WindowsHeadlessHost::ShutdownGraphics() {
+	gfx_->Shutdown();
+	delete gfx_;
+	gfx_ = nullptr;
 	DestroyWindow(hWnd);
 	hWnd = NULL;
 }
 
-bool WindowsHeadlessHost::ResizeGL()
-{
-	if (!hWnd)
-		return false;
-
-	RECT rc;
-	GetWindowRect(hWnd, &rc);
-
-	glstate.viewport.set(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-	glstate.viewport.restore();
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0.0f, WINDOW_WIDTH, WINDOW_HEIGHT, 0.0f, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	return true;
-}
-
-void WindowsHeadlessHost::SwapBuffers()
-{
-	::SwapBuffers(hDC);
+void WindowsHeadlessHost::SwapBuffers() {
+	if (gpuCore_ == GPUCORE_DIRECTX9) {
+		MSG msg;
+		PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	gfx_->SwapBuffers();
 }

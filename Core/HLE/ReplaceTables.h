@@ -61,13 +61,14 @@ void Replacement_Init();
 void Replacement_Shutdown();
 
 int GetNumReplacementFuncs();
-int GetReplacementFuncIndex(u64 hash, int funcSize);
+std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(int index);
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size);
 void RestoreReplacedInstruction(u32 address);
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
 bool GetReplacedOpAt(u32 address, u32 *op);
+bool CanReplaceJalTo(u32 dest, const ReplacementTableEntry **entry, u32 *funcSize);
 
 // For savestates.  If you call SaveAndClearReplacements(), you must call RestoreSavedReplacements().
 std::map<u32, u32> SaveAndClearReplacements();

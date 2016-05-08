@@ -23,8 +23,11 @@
 #include "Common/CommonTypes.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderCommon.h"
 #ifdef ARM
 #include "Common/ArmEmitter.h"
+#elif defined(ARM64)
+#include "Common/Arm64Emitter.h"
 #elif defined(_M_IX86) || defined(_M_X64)
 #include "Common/x64Emitter.h"
 #elif defined(MIPS)
@@ -72,11 +75,20 @@ struct DecVtxFormat {
 	short stride;
 };
 
-// This struct too.
 struct TransformedVertex
 {
-	float x, y, z, fog;     // in case of morph, preblend during decode
-	float u; float v; float w;   // scaled by uscale, vscale, if there
+	union {
+		struct {
+			float x, y, z, fog;     // in case of morph, preblend during decode
+		};
+		float pos[4];
+	};
+	union {
+		struct {
+			float u; float v; float w;   // scaled by uscale, vscale, if there
+		};
+		float uv[3];
+	};
 	union {
 		u8 color0[4];   // prelit
 		u32 color0_32;
@@ -94,8 +106,7 @@ inline int RoundUp4(int x) {
 }
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
-class VertexReader
-{
+class VertexReader {
 public:
 	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
@@ -107,9 +118,9 @@ public:
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					pos[2] = pos[2] > 65535.0f ? 1.0f : (pos[2] < 0.0f ? 0.0f : pos[2] * (1.0f / 65535.0f));
+					const float z = (int)pos[2] * (1.0f / 65535.0f);
+					pos[2] = z > 1.0f ? 1.0f : (z < 0.0f ? 0.0f : z);
 				}
-				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
 			break;
 		case DEC_S16_3:
@@ -149,7 +160,7 @@ public:
 		}
 	}
 
-	void ReadPosZ16(float pos[3]) const {
+	void ReadPosThroughZ16(float pos[3]) const {
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			{
@@ -157,9 +168,9 @@ public:
 				memcpy(pos, f, 12);
 				if (isThrough()) {
 					// Integer value passed in a float. Clamped to 0, 65535.
-					pos[2] = pos[2] > 65535.0f ? 65535.0f : (pos[2] < 0.0f ? 0.0f : pos[2]);
+					const float z = (int)pos[2];
+					pos[2] = z > 65535.0f ? 65535.0f : (z < 0.0f ? 0.0f : z);
 				}
-				// TODO: Does non-through need conversion?
 			}
 			break;
 		case DEC_S16_3:
@@ -174,7 +185,6 @@ public:
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = s[i] * (1.0f / 32768.0f);
-					// TODO: Does depth need conversion?
 				}
 			}
 			break;
@@ -190,7 +200,6 @@ public:
 				} else {
 					for (int i = 0; i < 3; i++)
 						pos[i] = b[i] * (1.0f / 128.0f);
-					// TODO: Does depth need conversion?
 				}
 			}
 			break;
@@ -364,7 +373,7 @@ public:
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
-			memset(weights, 0, sizeof(float) * 4);
+			memset(weights, 0, sizeof(float) * 8);
 			break;
 		}
 
@@ -438,8 +447,7 @@ struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
 };
 
-class VertexDecoder
-{
+class VertexDecoder {
 public:
 	VertexDecoder();
 
@@ -455,6 +463,8 @@ public:
 	bool hasColor() const { return col != 0; }
 	bool hasTexcoord() const { return tc != 0; }
 	int VertexSize() const { return size; }  // PSP format size
+
+	std::string GetString(DebugShaderStringType stringType);
 
 	void Step_WeightsU8() const;
 	void Step_WeightsU16() const;
@@ -474,6 +484,7 @@ public:
 
 	void Step_TcU8Prescale() const;
 	void Step_TcU16Prescale() const;
+	void Step_TcU16DoublePrescale() const;
 	void Step_TcFloatPrescale() const;
 
 	void Step_TcU16Double() const;
@@ -484,6 +495,19 @@ public:
 	void Step_TcU16ThroughDoubleToFloat() const;
 	void Step_TcFloatThrough() const;
 
+	void Step_TcU8Morph() const;
+	void Step_TcU16Morph() const;
+	void Step_TcU16DoubleMorph() const;
+	void Step_TcU8MorphToFloat() const;
+	void Step_TcU16MorphToFloat() const;
+	void Step_TcU16DoubleMorphToFloat() const;
+	void Step_TcFloatMorph() const;
+	void Step_TcU8PrescaleMorph() const;
+	void Step_TcU16PrescaleMorph() const;
+	void Step_TcU16DoublePrescaleMorph() const;
+	void Step_TcFloatPrescaleMorph() const;
+
+	void Step_ColorInvalid() const;
 	void Step_Color4444() const;
 	void Step_Color565() const;
 	void Step_Color5551() const;
@@ -533,6 +557,7 @@ public:
 	mutable const u8 *ptr_;
 
 	JittedVertexDecoder jitted_;
+	int32_t jittedSize_;
 
 	// "Immutable" state, set at startup
 
@@ -579,6 +604,8 @@ public:
 
 #ifdef ARM
 class VertexDecoderJitCache : public ArmGen::ARMXCodeBlock {
+#elif defined(ARM64)
+class VertexDecoderJitCache : public Arm64Gen::ARM64CodeBlock {
 #elif defined(_M_IX86) || defined(_M_X64)
 class VertexDecoderJitCache : public Gen::XCodeBlock {
 #elif defined(MIPS)
@@ -590,7 +617,7 @@ public:
 	VertexDecoderJitCache();
 
 	// Returns a pointer to the code to run.
-	JittedVertexDecoder Compile(const VertexDecoder &dec);
+	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
 
 	void Jit_WeightsU8();
@@ -612,6 +639,14 @@ public:
 	void Jit_TcU8Prescale();
 	void Jit_TcU16Prescale();
 	void Jit_TcFloatPrescale();
+
+	void Jit_TcAnyMorph(int bits);
+	void Jit_TcU8MorphToFloat();
+	void Jit_TcU16MorphToFloat();
+	void Jit_TcFloatMorph();
+	void Jit_TcU8PrescaleMorph();
+	void Jit_TcU16PrescaleMorph();
+	void Jit_TcFloatPrescaleMorph();
 
 	void Jit_TcU16Double();
 	void Jit_TcU16ThroughDouble();
@@ -672,4 +707,7 @@ private:
 	void Jit_AnyFloatMorph(int srcoff, int dstoff);
 
 	const VertexDecoder *dec_;
+#ifdef ARM64
+	Arm64Gen::ARM64FloatEmitter fp;
+#endif
 };

@@ -68,8 +68,15 @@ enum CmdFormatType {
 	CMD_FMT_TEXMODE,
 	CMD_FMT_LOGICOP,
 	CMD_FMT_TEXWRAP,
+	CMD_FMT_TEXLEVEL,
 	CMD_FMT_TEXFILTER,
 	CMD_FMT_TEXMAPMODE,
+	CMD_FMT_TEXSHADELS,
+	CMD_FMT_SHADEMODEL,
+	CMD_FMT_LIGHTMODE,
+	CMD_FMT_LIGHTTYPE,
+	CMD_FMT_CULL,
+	CMD_FMT_PATCHPRIMITIVE,
 };
 
 struct TabStateRow {
@@ -114,14 +121,12 @@ static const TabStateRow stateLightingRows[] = {
 	{ L"Material specular",    GE_CMD_MATERIALSPECULAR,        CMD_FMT_HEX },
 	{ L"Mat. specular coef",   GE_CMD_MATERIALSPECULARCOEF,    CMD_FMT_FLOAT24 },
 	{ L"Reverse normals",      GE_CMD_REVERSENORMAL,           CMD_FMT_FLAG },
-	// TODO: Format?
-	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_NUM },
-	// TODO: Format?
-	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_NUM, GE_CMD_LIGHTINGENABLE },
-	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE0 },
-	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE1 },
-	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE2 },
-	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              CMD_FMT_NUM, GE_CMD_LIGHTENABLE3 },
+	{ L"Shade model",          GE_CMD_SHADEMODE,               CMD_FMT_SHADEMODEL },
+	{ L"Light mode",           GE_CMD_LIGHTMODE,               CMD_FMT_LIGHTMODE, GE_CMD_LIGHTINGENABLE },
+	{ L"Light type 0",         GE_CMD_LIGHTTYPE0,              CMD_FMT_LIGHTTYPE, GE_CMD_LIGHTENABLE0 },
+	{ L"Light type 1",         GE_CMD_LIGHTTYPE1,              CMD_FMT_LIGHTTYPE, GE_CMD_LIGHTENABLE1 },
+	{ L"Light type 2",         GE_CMD_LIGHTTYPE2,              CMD_FMT_LIGHTTYPE, GE_CMD_LIGHTENABLE2 },
+	{ L"Light type 3",         GE_CMD_LIGHTTYPE3,              CMD_FMT_LIGHTTYPE, GE_CMD_LIGHTENABLE3 },
 	{ L"Light pos 0",          GE_CMD_LX0,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE0, GE_CMD_LY0, GE_CMD_LZ0 },
 	{ L"Light pos 1",          GE_CMD_LX1,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE1, GE_CMD_LY1, GE_CMD_LZ1 },
 	{ L"Light pos 2",          GE_CMD_LX2,                     CMD_FMT_XYZ, GE_CMD_LIGHTENABLE2, GE_CMD_LY2, GE_CMD_LZ2 },
@@ -163,16 +168,13 @@ static const TabStateRow stateTextureRows[] = {
 	{ L"Tex U offset",         GE_CMD_TEXOFFSETU,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex V offset",         GE_CMD_TEXOFFSETV,              CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mapping mode",     GE_CMD_TEXMAPMODE,              CMD_FMT_TEXMAPMODE, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex shade srcs",       GE_CMD_TEXSHADELS,              CMD_FMT_TEXSHADELS, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex mode",             GE_CMD_TEXMODE,                 CMD_FMT_TEXMODE, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex format",           GE_CMD_TEXFORMAT,               CMD_FMT_TEXFMT, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex filtering",        GE_CMD_TEXFILTER,               CMD_FMT_TEXFILTER, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex wrapping",         GE_CMD_TEXWRAP,                 CMD_FMT_TEXWRAP, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
-	// TODO: Format.
-	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex level/bias",       GE_CMD_TEXLEVEL,                CMD_FMT_TEXLEVEL, GE_CMD_TEXTUREMAPENABLE },
+	{ L"Tex lod slope",        GE_CMD_TEXLODSLOPE,             CMD_FMT_FLOAT24, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex func",             GE_CMD_TEXFUNC,                 CMD_FMT_TEXFUNC, GE_CMD_TEXTUREMAPENABLE },
 	{ L"Tex env color",        GE_CMD_TEXENVCOLOR,             CMD_FMT_HEX, GE_CMD_TEXTUREMAPENABLE },
 	{ L"CLUT",                 GE_CMD_CLUTADDR,                CMD_FMT_PTRWIDTH, GE_CMD_TEXTUREMAPENABLE, GE_CMD_CLUTADDRUPPER },
@@ -208,11 +210,10 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Scissor",              GE_CMD_SCISSOR1,                CMD_FMT_XYXY, 0, GE_CMD_SCISSOR2 },
 	{ L"Min Z",                GE_CMD_MINZ,                    CMD_FMT_HEX },
 	{ L"Max Z",                GE_CMD_MAXZ,                    CMD_FMT_HEX },
-	{ L"Viewport 1",           GE_CMD_VIEWPORTX1,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY1, GE_CMD_VIEWPORTZ1 },
-	{ L"Viewport 2",           GE_CMD_VIEWPORTX2,              CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTY2, GE_CMD_VIEWPORTZ2 },
+	{ L"Viewport Scale",       GE_CMD_VIEWPORTXSCALE,          CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYSCALE, GE_CMD_VIEWPORTZSCALE },
+	{ L"Viewport Offset",      GE_CMD_VIEWPORTXCENTER,         CMD_FMT_XYZ, 0, GE_CMD_VIEWPORTYCENTER, GE_CMD_VIEWPORTZCENTER },
 	{ L"Offset",               GE_CMD_OFFSETX,                 CMD_FMT_F16_XY, 0, GE_CMD_OFFSETY },
-	// TODO: Format.
-	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_NUM, GE_CMD_CULLFACEENABLE },
+	{ L"Cull mode",            GE_CMD_CULL,                    CMD_FMT_CULL, GE_CMD_CULLFACEENABLE },
 	{ L"Color test",           GE_CMD_COLORTEST,               CMD_FMT_COLORTEST, GE_CMD_COLORTESTENABLE, GE_CMD_COLORREF, GE_CMD_COLORTESTMASK },
 	{ L"Alpha test",           GE_CMD_ALPHATEST,               CMD_FMT_ALPHATEST, GE_CMD_ALPHATESTENABLE },
 	{ L"Stencil test",         GE_CMD_STENCILTEST,             CMD_FMT_STENCILTEST, GE_CMD_STENCILTESTENABLE },
@@ -235,10 +236,11 @@ static const TabStateRow stateSettingsRows[] = {
 	{ L"Morph Weight 5",       GE_CMD_MORPHWEIGHT5,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 6",       GE_CMD_MORPHWEIGHT6,            CMD_FMT_FLOAT24 },
 	{ L"Morph Weight 7",       GE_CMD_MORPHWEIGHT7,            CMD_FMT_FLOAT24 },
-	// TODO: Enabled?  Formats?
+	// TODO: Format?
 	{ L"Patch division",       GE_CMD_PATCHDIVISION,           CMD_FMT_HEX },
-	{ L"Patch primitive",      GE_CMD_PATCHPRIMITIVE,          CMD_FMT_HEX },
-	{ L"Patch facing",         GE_CMD_PATCHFACING,             CMD_FMT_HEX },
+	{ L"Patch primitive",      GE_CMD_PATCHPRIMITIVE,          CMD_FMT_PATCHPRIMITIVE },
+	// TODO: Format?
+	{ L"Patch facing",         GE_CMD_PATCHFACING,             CMD_FMT_HEX, GE_CMD_PATCHCULLENABLE },
 	{ L"Dither 0",             GE_CMD_DITH0,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 1",             GE_CMD_DITH1,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
 	{ L"Dither 2",             GE_CMD_DITH2,                   CMD_FMT_HEX, GE_CMD_DITHERENABLE },
@@ -460,6 +462,16 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		}
 		break;
 
+	case CMD_FMT_SHADEMODEL:
+		if (value == 0) {
+			swprintf(dest, L"flat");
+		} else if (value == 1) {
+			swprintf(dest, L"gouraud");
+		} else {
+			swprintf(dest, L"%06x", value);
+		}
+		break;
+
 	case CMD_FMT_STENCILOP:
 		{
 			static const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT" };
@@ -619,6 +631,27 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 		}
 		break;
 
+	case CMD_FMT_TEXLEVEL:
+		{
+			const char *mipLevelModes[] = {
+				"auto",
+				"bias",
+				"slope + bias",
+			};
+			const int mipLevel = value & 0xFFFF;
+			const int biasFixed = (s8)(value >> 16);
+			const float bias = (float)biasFixed / 16.0f;
+
+			if (mipLevel == 0 && bias == 0) {
+				swprintf(dest, L"%S", mipLevelModes[mipLevel]);
+			} else if (mipLevel == 1 || mipLevel == 2) {
+				swprintf(dest, L"%S: %f", mipLevelModes[mipLevel], bias);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
 	case CMD_FMT_TEXFILTER:
 		{
 			const char *textureFilters[] = {
@@ -659,6 +692,75 @@ void FormatStateRow(wchar_t *dest, const TabStateRow &info, u32 value, bool enab
 				const int uvGen = (value & 0x0003) >> 0;
 				const int uvProj = (value & 0x0300) >> 8;
 				swprintf(dest, L"gen: %S, proj: %S", uvGenModes[uvGen], uvProjModes[uvProj]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_TEXSHADELS:
+		if ((value & ~0x0303) == 0) {
+			const int sLight = (value & 0x0003) >> 0;
+			const int tLight = (value & 0x0300) >> 8;
+			swprintf(dest, L"s: %d, t: %d", sLight, tLight);
+		} else {
+			swprintf(dest, L"%06x", value);
+		}
+		break;
+
+	case CMD_FMT_LIGHTMODE:
+		if (value == 0) {
+			swprintf(dest, L"mixed color");
+		} else if (value == 1) {
+			swprintf(dest, L"separate specular");
+		} else {
+			swprintf(dest, L"%06x", value);
+		}
+		break;
+
+	case CMD_FMT_LIGHTTYPE:
+		{
+			const char *lightComputations[] = {
+				"diffuse",
+				"diffuse + spec",
+				"pow(diffuse) + spec",
+				"unknown (diffuse?)",
+			};
+			const char *lightTypes[] = {
+				"directional",
+				"point",
+				"spot",
+				"unknown (directional?)",
+			};
+			if ((value & ~0x0303) == 0) {
+				const int comp = (value & 0x0003) >> 0;
+				const int type = (value & 0x0300) >> 8;
+				swprintf(dest, L"type: %S, comp: %S", lightTypes[type], lightComputations[comp]);
+			} else {
+				swprintf(dest, L"%06x", value);
+			}
+		}
+		break;
+
+	case CMD_FMT_CULL:
+		if (value == 0) {
+			swprintf(dest, L"front (CW)");
+		} else if (value == 1) {
+			swprintf(dest, L"back (CCW)");
+		} else {
+			swprintf(dest, L"%06x", value);
+		}
+		break;
+
+	case CMD_FMT_PATCHPRIMITIVE:
+		{
+			const char *patchPrims[] = {
+				"triangles",
+				"lines",
+				"points",
+			};
+			if (value < (u32)ARRAY_SIZE(patchPrims)) {
+				swprintf(dest, L"%S", patchPrims[value]);
 			} else {
 				swprintf(dest, L"%06x", value);
 			}

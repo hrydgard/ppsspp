@@ -36,14 +36,22 @@ const char *hleCurrentThreadName = NULL;
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...) {
-	if (!g_Config.bEnableLogging) return;
+	if (!g_Config.bEnableLogging)
+		return;
 
 	va_list args;
 	va_start(args, fmt);
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->Log(level, type,
-			file, line, fmt, args);
+	LogManager *instance = LogManager::GetInstance();
+	if (instance) {
+		instance->Log(level, type, file, line, fmt, args);
+	}
 	va_end(args);
+}
+
+bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
+	if (LogManager::GetInstance())
+		return g_Config.bEnableLogging && LogManager::GetInstance()->IsEnabled(level, type);
+	return false;
 }
 
 LogManager *LogManager::logManager_ = NULL;
@@ -103,16 +111,18 @@ LogManager::LogManager() {
 	consoleLog_ = NULL;
 	debuggerLog_ = NULL;
 #endif
+	ringLog_ = new RingbufferLogListener();
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		log_[i]->SetEnable(true);
 #if !(defined(MOBILE_DEVICE) || defined(_XBOX)) || defined(_DEBUG)
 		log_[i]->AddListener(fileLog_);
 		log_[i]->AddListener(consoleLog_);
-#if defined(_MSC_VER) && !defined(_XBOX)
+#if defined(_MSC_VER) && defined(USING_WIN_UI)
 		if (IsDebuggerPresent() && debuggerLog_ != NULL && LOG_MSC_OUTPUTDEBUG)
 			log_[i]->AddListener(debuggerLog_);
 #endif
+		log_[i]->AddListener(ringLog_);
 #endif
 	}
 }
@@ -123,7 +133,7 @@ LogManager::~LogManager() {
 		if (fileLog_ != NULL)
 			logManager_->RemoveListener((LogTypes::LOG_TYPE)i, fileLog_);
 		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, consoleLog_);
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && defined(USING_WIN_UI)
 		logManager_->RemoveListener((LogTypes::LOG_TYPE)i, debuggerLog_);
 #endif
 #endif
@@ -137,6 +147,7 @@ LogManager::~LogManager() {
 	delete consoleLog_;
 	delete debuggerLog_;
 #endif
+	delete ringLog_;
 }
 
 void LogManager::ChangeFileLog(const char *filename) {
@@ -176,7 +187,7 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
 		return;
 
-	std::lock_guard<std::mutex> lk(log_lock_);
+	lock_guard lk(log_lock_);
 	static const char level_to_char[8] = "-NEWIDV";
 	char formattedTime[13];
 	Common::Timer::GetTimeFormatted(formattedTime);
@@ -195,26 +206,42 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 			file = fileshort + 1;
 	}
 	
-	char msg[MAX_MSGLEN * 2];
+	char msg[MAX_MSGLEN];
 	char *msgPos = msg;
+	size_t prefixLen;
 	if (hleCurrentThreadName != NULL) {
-		msgPos += sprintf(msgPos, "%s %-12.12s %c[%s]: %s:%d ",
+		prefixLen = snprintf(msgPos, MAX_MSGLEN, "%s %-12.12s %c[%s]: %s:%d ",
 			formattedTime,
 			hleCurrentThreadName, level_to_char[(int)level],
 			log->GetShortName(),
 			file, line);
 	} else {
-		msgPos += sprintf(msgPos, "%s %s:%d %c[%s]: ",
+		prefixLen = snprintf(msgPos, MAX_MSGLEN, "%s %s:%d %c[%s]: ",
 			formattedTime,
 			file, line, level_to_char[(int)level],
 			log->GetShortName());
 	}
 
-	msgPos += vsnprintf(msgPos, MAX_MSGLEN, format, args);
-	// This will include the null terminator.
-	memcpy(msgPos, "\n", sizeof("\n"));
-
+	msgPos += prefixLen;
+	size_t space = MAX_MSGLEN - prefixLen - 2;
+	size_t neededBytes = vsnprintf(msgPos, space, format, args);
+	if (neededBytes > space) {
+		// Cut at the end.
+		msg[MAX_MSGLEN - 2] = '\n';
+		msg[MAX_MSGLEN - 1] = '\0';
+	} else {
+		// Plenty of space left.
+		msgPos[neededBytes] = '\n';
+		msgPos[neededBytes + 1] = '\0';
+	}
 	log->Trigger(level, msg);
+}
+
+bool LogManager::IsEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type) {
+	LogChannel *log = log_[type];
+	if (level > log->GetLevel() || !log->IsEnabled() || !log->HasListeners())
+		return false;
+	return true;
 }
 
 void LogManager::Init() {
@@ -239,13 +266,13 @@ LogChannel::LogChannel(const char* shortName, const char* fullName, bool enable)
 
 // LogContainer
 void LogChannel::AddListener(LogListener *listener) {
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
+	lock_guard lk(m_listeners_lock);
 	m_listeners.insert(listener);
 	m_hasListeners = true;
 }
 
 void LogChannel::RemoveListener(LogListener *listener) {
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
+	lock_guard lk(m_listeners_lock);
 	m_listeners.erase(listener);
 	m_hasListeners = !m_listeners.empty();
 }
@@ -254,7 +281,7 @@ void LogChannel::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
 #ifdef __SYMBIAN32__
 	RDebug::Printf("%s",msg);
 #else
-	std::lock_guard<std::mutex> lk(m_listeners_lock);
+	lock_guard lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
 	for (i = m_listeners.begin(); i != m_listeners.end(); ++i) {
@@ -276,7 +303,7 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 	if (!IsEnabled() || !IsValid())
 		return;
 
-	std::lock_guard<std::mutex> lk(m_log_lock);
+	lock_guard lk(m_log_lock);
 	m_logfile << msg << std::flush;
 }
 
@@ -284,4 +311,19 @@ void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 #if _MSC_VER
 	OutputDebugStringUTF8(msg);
 #endif
+}
+
+void RingbufferLogListener::Log(LogTypes::LOG_LEVELS level, const char *msg) {
+	if (!enabled_)
+		return;
+	levels_[curMessage_] = (u8)level;
+	size_t len = (int)strlen(msg);
+	if (len >= sizeof(messages_[0]))
+		len = sizeof(messages_[0]) - 1;
+	memcpy(messages_[curMessage_], msg, len);
+	messages_[curMessage_][len] = 0;
+	curMessage_++;
+	if (curMessage_ >= MAX_LOGS)
+		curMessage_ -= MAX_LOGS;
+	count_++;
 }

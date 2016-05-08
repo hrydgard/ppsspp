@@ -17,14 +17,13 @@
 
 #pragma once
 
+#include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Debugger/SymbolMap.h"
 
 // TODO: Get rid of this junk
-class HeadlessHost : public Host
-{
+class HeadlessHost : public Host {
 public:
-	// void StartThread() override
 	void UpdateUI() override {}
 
 	void UpdateMemView() override {}
@@ -32,10 +31,11 @@ public:
 
 	void SetDebugMode(bool mode) { }
 
-	bool InitGraphics(std::string *error_message) override {return false;}
+	void SetGraphicsCore(GPUCore core) { gpuCore_ = core; }
+	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override {return false;}
 	void ShutdownGraphics() override {}
 
-	void InitSound(PMixer *mixer) override {}
+	void InitSound() override {}
 	void UpdateSound() override {}
 	void ShutdownSound() override {}
 
@@ -43,7 +43,7 @@ public:
 	void BootDone() override {}
 
 	bool IsDebuggingEnabled() override { return false; }
-	bool AttemptLoadSymbolMap() override { symbolMap.Clear(); return false; }
+	bool AttemptLoadSymbolMap() override { g_symbolMap->Clear(); return false; }
 
 	bool ShouldSkipUI() override { return true; }
 
@@ -72,4 +72,5 @@ public:
 
 protected:
 	std::string debugOutputBuffer_;
+	GPUCore gpuCore_;
 };

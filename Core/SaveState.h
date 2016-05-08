@@ -18,48 +18,55 @@
 #include <string>
 #include <vector>
 
+#include "base/functional.h"
 #include "Common/ChunkFile.h"
 
 namespace SaveState
 {
-	typedef void (*Callback)(bool status, void *cbUserData);
+	typedef std::function<void(bool status, void *cbUserData)> Callback;
 
-	// TODO: Better place for this?
-	const int REVISION = 4;
-	const int SAVESTATESLOTS = 5;
+	static const int NUM_SLOTS = 5;
+	static const char *STATE_EXTENSION = "ppst";
+	static const char *SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();
 
 	// Cycle through the 5 savestate slots
 	void NextSlot();
-	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
-	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
+	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	// Checks whether there's an existing save in the specified slot.
-	bool HasSaveInSlot(int slot);
-	bool HasScreenshotInSlot(int slot);
-	// Returns -1 if there's no newest slot.
-	int GetNewestSlot();
+	bool HasSaveInSlot(const std::string &gameFilename, int slot);
+	bool HasScreenshotInSlot(const std::string &gameFilename, int slot);
 
-	std::string GenerateSaveSlotFilename(int slot, const char *extension);
+	int GetCurrentSlot();
+
+	// Returns -1 if there's no newest slot.
+	int GetNewestSlot(const std::string &gameFilename);
+
+	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
+	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
+
+	std::string GetTitle(const std::string &filename);
 
 	// Load the specified file into the current state (async.)
 	// Warning: callback will be called on a different thread.
-	void Load(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+	void Load(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	// Save the current state to the specified file (async.)
 	// Warning: callback will be called on a different thread.
-	void Save(const std::string &filename, Callback callback = 0, void *cbUserData = 0);
+	void Save(const std::string &filename, Callback callback = Callback(), void *cbUserData = 0);
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = 0, void *cbUserData = 0);
+	void Verify(Callback callback = Callback(), void *cbUserData = 0);
 
 	// To go back to a previous snapshot (only if enabled.)
 	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = 0, void *cbUserData = 0);
+	void Rewind(Callback callback = Callback(), void *cbUserData = 0);
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();

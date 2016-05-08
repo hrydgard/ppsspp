@@ -15,12 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <vector>
 
+#include "base/mutex.h"
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "i18n/i18n.h"
 
-#include "Common/StdMutex.h"
 #include "Common/FileUtil.h"
 #include "Common/ChunkFile.h"
 
@@ -29,6 +31,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Host.h"
+#include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/ELF/ParamSFO.h"
@@ -38,7 +41,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "HW/MemoryStick.h"
 #include "GPU/GPUState.h"
 #include "UI/OnScreenDisplay.h"
@@ -56,6 +59,7 @@ namespace SaveState
 		SAVESTATE_LOAD,
 		SAVESTATE_VERIFY,
 		SAVESTATE_REWIND,
+		SAVESTATE_SAVE_SCREENSHOT,
 	};
 
 	struct Operation
@@ -204,7 +208,7 @@ namespace SaveState
 
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
-	static std::recursive_mutex mutex;
+	static recursive_mutex mutex;
 	static bool hasLoadedState = false;
 
 	// TODO: Should this be configurable?
@@ -248,7 +252,7 @@ namespace SaveState
 
 	void Enqueue(SaveState::Operation op)
 	{
-		std::lock_guard<std::recursive_mutex> guard(mutex);
+		lock_guard guard(mutex);
 		pending.push_back(op);
 
 		// Don't actually run it until next frame.
@@ -277,75 +281,161 @@ namespace SaveState
 		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
 	}
 
+	void SaveScreenshot(const std::string &filename, Callback callback, void *cbUserData)
+	{
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, callback, cbUserData));
+	}
+
 	bool CanRewind()
 	{
 		return !rewindStates.Empty();
 	}
 
-	static const char *STATE_EXTENSION = "ppst";
-	static const char *SCREENSHOT_EXTENSION = "jpg";
 	// Slot utilities
 
-	std::string GenerateSaveSlotFilename(int slot, const char *extension)
+	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
+		if (!endsWith(filename, std::string(".") + STATE_EXTENSION)) {
+			return title + " (" + filename + ")";
+		}
+
+		// Usually these are slots, let's check the slot # after the last '_'.
+		size_t slotNumPos = filename.find_last_of('_');
+		if (slotNumPos == filename.npos) {
+			return title + " (" + filename + ")";
+		}
+
+		const size_t extLength = strlen(STATE_EXTENSION) + 1;
+		// If we take out the extension, '_', etc. we should be left with only a single digit.
+		if (slotNumPos + 1 + extLength != filename.length() - 1) {
+			return title + " (" + filename + ")";
+		}
+
+		std::string slot = filename.substr(slotNumPos + 1, 1);
+		if (slot[0] < '0' || slot[0] > '8') {
+			return title + " (" + filename + ")";
+		}
+
+		// Change from zero indexed to human friendly.
+		slot[0]++;
+		return title + " (" + slot + ")";
+	}
+
+	std::string GetTitle(const std::string &filename) {
+		std::string title;
+		if (CChunkFileReader::GetFileTitle(filename, &title) == CChunkFileReader::ERROR_NONE) {
+			if (title.empty()) {
+				return File::GetFilename(filename);
+			}
+
+			return AppendSlotTitle(filename, title);
+		}
+
+		// The file can't be loaded - let's note that.
+		I18NCategory *sy = GetI18NCategory("System");
+		return File::GetFilename(filename) + " " + sy->T("(broken)");
+	}
+
+	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension)
 	{
-		char discID[256];
-		char temp[2048];
-		snprintf(discID, sizeof(discID), "%s_%s",
-			g_paramSFO.GetValueString("DISC_ID").c_str(),
-			g_paramSFO.GetValueString("DISC_VERSION").c_str());
-		snprintf(temp, sizeof(temp), "ms0:/PSP/PPSSPP_STATE/%s_%i.%s", discID, slot, extension);
+		std::string discId = g_paramSFO.GetValueString("DISC_ID");
+		std::string fullDiscId;
+		if (discId.size()) {
+			fullDiscId = StringFromFormat("%s_%s",
+				g_paramSFO.GetValueString("DISC_ID").c_str(),
+				g_paramSFO.GetValueString("DISC_VERSION").c_str());
+		} else {
+			// Okay, no discId. Probably homebrew, let's use the last part of the path name.
+			if (File::IsDirectory(gameFilename)) {
+				// EBOOT.PBP directory, most likely.
+				std::string path = gameFilename;
+				size_t slash = path.rfind('/');  // Always '/', not '\\', as we're in a virtual directory
+				if (slash != std::string::npos && slash < path.size() - 1)
+					path = path.substr(slash + 1);
+				fullDiscId = path;
+			} else {
+				// Probably a loose elf.
+				std::string fn = File::GetFilename(gameFilename);
+				size_t dot = fn.rfind('.');
+				if (dot != std::string::npos) {
+					fullDiscId = fn.substr(0, dot);
+				} else {
+					fullDiscId = "elf";  // Fallback
+				}
+			}
+		}
+
+		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%i.%s", fullDiscId.c_str(), slot, extension);
 		std::string hostPath;
-		if (pspFileSystem.GetHostPath(std::string(temp), hostPath)) {
+		if (pspFileSystem.GetHostPath(temp, hostPath)) {
 			return hostPath;
 		} else {
 			return "";
 		}
 	}
 
+	int GetCurrentSlot()
+	{
+		return g_Config.iCurrentStateSlot;
+	}
+
 	void NextSlot()
 	{
 		I18NCategory *sy = GetI18NCategory("System");
-		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
-		char msg[128];
-		snprintf(msg, sizeof(msg), "%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
+		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
+		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
+		NativeMessageReceived("slotchanged", "");
 	}
 
-	void LoadSlot(int slot, Callback callback, void *cbUserData)
+	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
 		} else {
-			I18NCategory *s = GetI18NCategory("Screen");
-			osm.Show("Failed to load state. Error in the file system.", 2.0);
+			I18NCategory *sy = GetI18NCategory("System");
+			osm.Show(sy->T("Failed to load state. Error in the file system."), 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 
-	void SaveSlot(int slot, Callback callback, void *cbUserData)
+	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
-			Save(fn, callback, cbUserData);
+			auto renameCallback = [=](bool status, void *data) {
+				if (status) {
+					if (File::Exists(fn)) {
+						File::Delete(fn);
+					}
+					File::Rename(fn + ".tmp", fn);
+				}
+				if (callback) {
+					callback(status, data);
+				}
+			};
+			// Let's also create a screenshot.
+			SaveScreenshot(shot, Callback(), 0);
+			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
-			I18NCategory *s = GetI18NCategory("Screen");
+			I18NCategory *sc = GetI18NCategory("Screen");
 			osm.Show("Failed to save state. Error in the file system.", 2.0);
 			if (callback)
-				(*callback)(false, cbUserData);
+				callback(false, cbUserData);
 		}
 	}
 
-	bool HasSaveInSlot(int slot)
+	bool HasSaveInSlot(const std::string &gameFilename, int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot, STATE_EXTENSION);
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
 	}
 
-	bool HasScreenshotInSlot(int slot)
+	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)
 	{
-		std::string fn = GenerateSaveSlotFilename(slot, SCREENSHOT_EXTENSION);
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
 		return File::Exists(fn);
 	}
 
@@ -365,14 +455,15 @@ namespace SaveState
 		return false;
 	}
 
-	int GetNewestSlot() {
+	int GetNewestSlot(const std::string &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
-		for (int i = 0; i < SAVESTATESLOTS; i++) {
-			std::string fn = GenerateSaveSlotFilename(i, STATE_EXTENSION);
+		for (int i = 0; i < NUM_SLOTS; i++) {
+			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
 			if (File::Exists(fn)) {
-				tm time = File::GetModifTime(fn);
-				if (newestDate < time) {
+				tm time;
+				bool success = File::GetModifTime(fn, time);
+				if (success && newestDate < time) {
 					newestDate = time;
 					newestSlot = i;
 				}
@@ -381,10 +472,23 @@ namespace SaveState
 		return newestSlot;
 	}
 
+	std::string GetSlotDateAsString(const std::string &gameFilename, int slot) {
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		if (File::Exists(fn)) {
+			tm time;
+			if (File::GetModifTime(fn, time)) {
+				char buf[256];
+				// TODO: Use local time format? Americans and some others might not like ISO standard :)
+				strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &time);
+				return std::string(buf);
+			}
+		}
+		return "";
+	}
 
 	std::vector<Operation> Flush()
 	{
-		std::lock_guard<std::recursive_mutex> guard(mutex);
+		lock_guard guard(mutex);
 		std::vector<Operation> copy = pending;
 		pending.clear();
 
@@ -467,22 +571,21 @@ namespace SaveState
 			bool callbackResult;
 			std::string reason;
 
-			I18NCategory *s = GetI18NCategory("Screen");
-			// I couldn't stand the inconsistency.  But trying not to break old lang files.
-			const char *i18nLoadFailure = s->T("Load savestate failed", "");
-			const char *i18nSaveFailure = s->T("Save State Failed", "");
+			I18NCategory *sc = GetI18NCategory("Screen");
+			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
+			const char *i18nSaveFailure = sc->T("Save State Failed", "");
 			if (strlen(i18nLoadFailure) == 0)
-				i18nLoadFailure = s->T("Failed to load state");
+				i18nLoadFailure = sc->T("Failed to load state");
 			if (strlen(i18nSaveFailure) == 0)
-				i18nSaveFailure = s->T("Failed to save state");
+				i18nSaveFailure = sc->T("Failed to save state");
 
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, REVISION, PPSSPP_GIT_VERSION, state, &reason);
+				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
@@ -491,16 +594,17 @@ namespace SaveState
 					ERROR_LOG(COMMON, "Load state failure: %s", reason.c_str());
 					callbackResult = false;
 				} else {
-					osm.Show(s->T(reason.c_str(), i18nLoadFailure), 2.0);
+					osm.Show(sc->T(reason.c_str(), i18nLoadFailure), 2.0);
 					callbackResult = false;
 				}
 				break;
 
 			case SAVESTATE_SAVE:
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				result = CChunkFileReader::Save(op.filename, REVISION, PPSSPP_GIT_VERSION, state);
+				result = CChunkFileReader::Save(op.filename, g_paramSFO.GetValueString("TITLE"), PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Saved State"), 2.0);
+
+					osm.Show(sc->T("Saved State"), 2.0);
 					callbackResult = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleFailure();
@@ -522,14 +626,14 @@ namespace SaveState
 				INFO_LOG(COMMON, "Rewinding to recent savestate snapshot");
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
-					osm.Show(s->T("Loaded State"), 2.0);
+					osm.Show(sc->T("Loaded State"), 2.0);
 					callbackResult = true;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleFailure()) {
 						// Well, we did rewind, even if too much...
-						osm.Show(s->T("Loaded State"), 2.0);
+						osm.Show(sc->T("Loaded State"), 2.0);
 						callbackResult = true;
 						hasLoadedState = true;
 					} else {
@@ -539,6 +643,13 @@ namespace SaveState
 				} else {
 					osm.Show(i18nLoadFailure, 2.0);
 					callbackResult = false;
+				}
+				break;
+
+			case SAVESTATE_SAVE_SCREENSHOT:
+				callbackResult = TakeGameScreenshot(op.filename.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER);
+				if (!callbackResult) {
+					ERROR_LOG(COMMON, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
 
@@ -562,7 +673,7 @@ namespace SaveState
 		// Make sure there's a directory for save slots
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 
-		std::lock_guard<std::recursive_mutex> guard(mutex);
+		lock_guard guard(mutex);
 		rewindStates.Clear();
 
 		hasLoadedState = false;

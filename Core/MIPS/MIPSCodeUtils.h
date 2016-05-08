@@ -23,6 +23,7 @@
 // Invalid branch target address
 #define INVALIDTARGET 0xFFFFFFFF
 
+#define MIPS_MAKE_B(offs)   (0x10000000 | ((offs) & 0xFFFF))
 #define MIPS_MAKE_J(addr)   (0x08000000 | ((addr)>>2))
 #define MIPS_MAKE_JAL(addr) (0x0C000000 | ((addr)>>2))
 #define MIPS_MAKE_JR_RA()   (0x03e00008)

@@ -1,9 +1,27 @@
 #include "stdafx.h"
+#include "CommonWindows.h"
+
 #include <WinUser.h>
 #include <shellapi.h>
+#include <commctrl.h>
+
 #include "Misc.h"
 #include "util/text/utf8.h"
-#include <commctrl.h>
+
+bool IsVistaOrHigher() {
+	OSVERSIONINFOEX osvi;
+	DWORDLONG dwlConditionMask = 0;
+	int op = VER_GREATER_EQUAL;
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;  // Vista is 6.0
+	osvi.dwMinorVersion = 0;
+
+	VER_SET_CONDITION(dwlConditionMask, VER_MAJORVERSION, op);
+	VER_SET_CONDITION(dwlConditionMask, VER_MINORVERSION, op);
+
+	return VerifyVersionInfo(&osvi, VER_MAJORVERSION | VER_MINORVERSION, dwlConditionMask) != FALSE;
+}
 
 namespace W32Util
 {
@@ -55,9 +73,9 @@ namespace W32Util
 		}
 		float f = (float)size + ((float)frac / 1024.0f);
 		if (s==0)
-			sprintf(out,"%d B",size);
+			sprintf(out, "%d B", (int)size);
 		else
-			sprintf(out,"%3.1f %s",f,sizes[s]);
+			sprintf(out, "%3.1f %s", f, sizes[s]);
 	}
 
 	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {

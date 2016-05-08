@@ -23,8 +23,6 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-#include "Core/MIPS/JitCommon/JitCommon.h"
-
 #define _RS   ((op>>21) & 0x1F)
 #define _RT   ((op>>16) & 0x1F)
 #define _RD   ((op>>11) & 0x1F)
@@ -197,7 +195,6 @@ namespace MIPSDis
 	}
 	void Dis_ori(MIPSOpcode op, char *out)
 	{
-		s32 simm = (s32)(s16)(op & 0xFFFF);
 		u32 uimm = (u32)(u16)(op & 0xFFFF);
 		int rt = _RT;
 		int rs = _RS;

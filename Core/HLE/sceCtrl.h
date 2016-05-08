@@ -40,6 +40,8 @@ const int CTRL_STICK_RIGHT = 1;
 #define CTRL_LTRIGGER   0x0100
 #define CTRL_RTRIGGER   0x0200
 
+#define CTRL_ALL_BUTTONS 0xF3F9
+
 void __CtrlInit();
 void __CtrlDoState(PointerWrap &p);
 void __CtrlShutdown();

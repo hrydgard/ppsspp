@@ -84,7 +84,7 @@ static std::map<u32, Mp3Context *> mp3Map_old;
 static std::map<u32, AuCtx *> mp3Map;
 static const int mp3DecodeDelay = 4000;
 
-AuCtx *getMp3Ctx(u32 mp3) {
+static AuCtx *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
 		return NULL;
 	return mp3Map[mp3];
@@ -137,7 +137,7 @@ void __Mp3DoState(PointerWrap &p) {
 	}
 }
 
-int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
+static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -154,7 +154,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	return pcmBytes;
 }
 
-int sceMp3ResetPlayPosition(u32 mp3) {
+static int sceMp3ResetPlayPosition(u32 mp3) {
 	DEBUG_LOG(ME, "SceMp3ResetPlayPosition(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -166,7 +166,7 @@ int sceMp3ResetPlayPosition(u32 mp3) {
 	return ctx->AuResetPlayPosition();
 }
 
-int sceMp3CheckStreamDataNeeded(u32 mp3) {
+static int sceMp3CheckStreamDataNeeded(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3CheckStreamDataNeeded(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -178,7 +178,7 @@ int sceMp3CheckStreamDataNeeded(u32 mp3) {
 	return ctx->AuCheckStreamDataNeeded();
 }
 
-u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
+static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	INFO_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
 	if (!Memory::IsValidAddress(mp3Addr)){
 		ERROR_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address %08x", mp3Addr, mp3Addr);
@@ -218,19 +218,19 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	return mp3Addr;
 }
 
-int sceMp3InitResource() {
+static int sceMp3InitResource() {
 	WARN_LOG(ME, "UNIMPL: sceMp3InitResource");
 	// Do nothing here 
 	return 0;
 }
 
-int sceMp3TermResource() {
+static int sceMp3TermResource() {
 	WARN_LOG(ME, "UNIMPL: sceMp3TermResource");
 	// Do nothing here 
 	return 0;
 }
 
-int __CalculateMp3Channels(int bitval) {
+static int __CalculateMp3Channels(int bitval) {
 	if (bitval == 0 || bitval == 1 || bitval == 2) { // Stereo / Joint Stereo / Dual Channel.
 		return 2;
 	}
@@ -242,7 +242,7 @@ int __CalculateMp3Channels(int bitval) {
 	}
 }
 
-int __CalculateMp3SampleRates(int bitval, int mp3version) {
+static int __CalculateMp3SampleRates(int bitval, int mp3version) {
 	if (mp3version == 3) { // MPEG Version 1
 		int valuemapping[] = { 44100, 48000, 32000, -1 };
 		return valuemapping[bitval];
@@ -260,7 +260,7 @@ int __CalculateMp3SampleRates(int bitval, int mp3version) {
 	}
 }
 
-int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
+static int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
 	if (mp3version == 3) { // MPEG Version 1
 		if (mp3layer == 3) { // Layer I
 			int valuemapping[] = { 0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, -1 };
@@ -296,7 +296,7 @@ int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
 	}
 }
 
-int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
+static int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
 	int header = bswap32(Memory::Read_U32(ctx->AuBuf));
 	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
 	static const int ID3 = 0x49443300;
@@ -310,7 +310,7 @@ int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
 	return header;
 }
 
-int sceMp3Init(u32 mp3) {
+static int sceMp3Init(u32 mp3) {
 	INFO_LOG(ME, "sceMp3Init(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -350,7 +350,7 @@ int sceMp3Init(u32 mp3) {
 	return 0;
 }
 
-int sceMp3GetLoopNum(u32 mp3) {
+static int sceMp3GetLoopNum(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -362,7 +362,7 @@ int sceMp3GetLoopNum(u32 mp3) {
 	return ctx->AuGetLoopNum();
 }
 
-int sceMp3GetMaxOutputSample(u32 mp3) {
+static int sceMp3GetMaxOutputSample(u32 mp3) {
 	DEBUG_LOG(ME, "sceMp3GetMaxOutputSample(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -373,7 +373,7 @@ int sceMp3GetMaxOutputSample(u32 mp3) {
 	return ctx->AuGetMaxOutputSample();
 }
 
-int sceMp3GetSumDecodedSample(u32 mp3) {
+static int sceMp3GetSumDecodedSample(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetSumDecodedSample(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -385,7 +385,7 @@ int sceMp3GetSumDecodedSample(u32 mp3) {
 	return ctx->AuGetSumDecodedSample();
 }
 
-int sceMp3SetLoopNum(u32 mp3, int loop) {
+static int sceMp3SetLoopNum(u32 mp3, int loop) {
 	INFO_LOG(ME, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -397,7 +397,7 @@ int sceMp3SetLoopNum(u32 mp3, int loop) {
 	return ctx->AuSetLoopNum(loop);
 }
 
-int sceMp3GetMp3ChannelNum(u32 mp3) {
+static int sceMp3GetMp3ChannelNum(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -409,7 +409,7 @@ int sceMp3GetMp3ChannelNum(u32 mp3) {
 	return ctx->AuGetChannelNum();
 }
 
-int sceMp3GetBitRate(u32 mp3) {
+static int sceMp3GetBitRate(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -421,7 +421,7 @@ int sceMp3GetBitRate(u32 mp3) {
 	return ctx->AuGetBitRate();
 }
 
-int sceMp3GetSamplingRate(u32 mp3) {
+static int sceMp3GetSamplingRate(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -433,7 +433,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 	return ctx->AuGetSamplingRate();
 }
 
-int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
+static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
 	DEBUG_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -445,7 +445,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 	return ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr);
 }
 
-int sceMp3NotifyAddStreamData(u32 mp3, int size) {
+static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	DEBUG_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -457,7 +457,7 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	return ctx->AuNotifyAddStreamData(size);
 }
 
-int sceMp3ReleaseMp3Handle(u32 mp3) {
+static int sceMp3ReleaseMp3Handle(u32 mp3) {
 	INFO_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
 
 	AuCtx *ctx = getMp3Ctx(mp3);
@@ -472,17 +472,17 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 	return 0;
 }
 
-u32 sceMp3EndEntry() {
+static u32 sceMp3EndEntry() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
-u32 sceMp3StartEntry() {
+static u32 sceMp3StartEntry() {
 	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
-u32 sceMp3GetFrameNum(u32 mp3) {
+static u32 sceMp3GetFrameNum(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetFrameNum(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -492,7 +492,7 @@ u32 sceMp3GetFrameNum(u32 mp3) {
 	return ctx->AuGetFrameNum();
 }
 
-u32 sceMp3GetMPEGVersion(u32 mp3) {
+static u32 sceMp3GetMPEGVersion(u32 mp3) {
 	INFO_LOG(ME, "sceMp3GetMPEGVersion(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -503,7 +503,7 @@ u32 sceMp3GetMPEGVersion(u32 mp3) {
 	return ctx->AuGetVersion();
 }
 
-u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
+static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 	DEBUG_LOG(ME, "sceMp3ResetPlayPositionByFrame(%08x, %i)", mp3, position);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -514,7 +514,7 @@ u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 	return ctx->AuResetPlayPositionByFrame(position);
 }
 
-u32 sceMp3LowLevelInit(u32 mp3) {
+static u32 sceMp3LowLevelInit(u32 mp3) {
 	INFO_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
 	auto ctx = new AuCtx;
 
@@ -532,7 +532,7 @@ u32 sceMp3LowLevelInit(u32 mp3) {
 	return 0;
 }
 
-u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
+static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	// sourceAddr: input mp3 stream buffer
 	// sourceBytesConsumedAddr: consumed bytes decoded in source
 	// samplesAddr: output pcm buffer
@@ -563,30 +563,30 @@ u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumedAddr, u
 }
 
 const HLEFunction sceMp3[] = {
-	{0x07EC321A,WrapU_U<sceMp3ReserveMp3Handle>,"sceMp3ReserveMp3Handle"},
-	{0x0DB149F4,WrapI_UI<sceMp3NotifyAddStreamData>,"sceMp3NotifyAddStreamData"},
-	{0x2A368661,WrapI_U<sceMp3ResetPlayPosition>,"sceMp3ResetPlayPosition"},
-	{0x354D27EA,WrapI_U<sceMp3GetSumDecodedSample>,"sceMp3GetSumDecodedSample"},
-	{0x35750070,WrapI_V<sceMp3InitResource>,"sceMp3InitResource"},
-	{0x3C2FA058,WrapI_V<sceMp3TermResource>,"sceMp3TermResource"},
-	{0x3CEF484F,WrapI_UI<sceMp3SetLoopNum>,"sceMp3SetLoopNum"},
-	{0x44E07129,WrapI_U<sceMp3Init>,"sceMp3Init"},
-	{0x732B042A,WrapU_V<sceMp3EndEntry>,"sceMp3EndEntry"},
-	{0x7F696782,WrapI_U<sceMp3GetMp3ChannelNum>,"sceMp3GetMp3ChannelNum"},
-	{0x87677E40,WrapI_U<sceMp3GetBitRate>,"sceMp3GetBitRate"},
-	{0x87C263D1,WrapI_U<sceMp3GetMaxOutputSample>,"sceMp3GetMaxOutputSample"},
-	{0x8AB81558,WrapU_V<sceMp3StartEntry>,"sceMp3StartEntry"},
-	{0x8F450998,WrapI_U<sceMp3GetSamplingRate>,"sceMp3GetSamplingRate"},
-	{0xA703FE0F,WrapI_UUUU<sceMp3GetInfoToAddStreamData>,"sceMp3GetInfoToAddStreamData"},
-	{0xD021C0FB,WrapI_UU<sceMp3Decode>,"sceMp3Decode"},
-	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
-	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
-	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetMPEGVersion>,"sceMp3GetMPEGVersion"},
-	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
-	{0x0840e808,WrapU_UI<sceMp3ResetPlayPositionByFrame>,"sceMp3ResetPlayPositionByFrame"},
-	{0x1b839b83,WrapU_U<sceMp3LowLevelInit>,"sceMp3LowLevelInit"},
-	{0xe3ee2c81,WrapU_UUUUU<sceMp3LowLevelDecode>,"sceMp3LowLevelDecode"}
+	{0X07EC321A, &WrapU_U<sceMp3ReserveMp3Handle>,          "sceMp3ReserveMp3Handle",         'x', "x"    },
+	{0X0DB149F4, &WrapI_UI<sceMp3NotifyAddStreamData>,      "sceMp3NotifyAddStreamData",      'i', "xi"   },
+	{0X2A368661, &WrapI_U<sceMp3ResetPlayPosition>,         "sceMp3ResetPlayPosition",        'i', "x"    },
+	{0X354D27EA, &WrapI_U<sceMp3GetSumDecodedSample>,       "sceMp3GetSumDecodedSample",      'i', "x"    },
+	{0X35750070, &WrapI_V<sceMp3InitResource>,              "sceMp3InitResource",             'i', ""     },
+	{0X3C2FA058, &WrapI_V<sceMp3TermResource>,              "sceMp3TermResource",             'i', ""     },
+	{0X3CEF484F, &WrapI_UI<sceMp3SetLoopNum>,               "sceMp3SetLoopNum",               'i', "xi"   },
+	{0X44E07129, &WrapI_U<sceMp3Init>,                      "sceMp3Init",                     'i', "x"    },
+	{0X732B042A, &WrapU_V<sceMp3EndEntry>,                  "sceMp3EndEntry",                 'x', ""     },
+	{0X7F696782, &WrapI_U<sceMp3GetMp3ChannelNum>,          "sceMp3GetMp3ChannelNum",         'i', "x"    },
+	{0X87677E40, &WrapI_U<sceMp3GetBitRate>,                "sceMp3GetBitRate",               'i', "x"    },
+	{0X87C263D1, &WrapI_U<sceMp3GetMaxOutputSample>,        "sceMp3GetMaxOutputSample",       'i', "x"    },
+	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
+	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
+	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xxxx" },
+	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xx"   },
+	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
+	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
+	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
+	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
+	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'x', "x"    },
+	{0X0840E808, &WrapU_UI<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'x', "xi"   },
+	{0X1B839B83, &WrapU_U<sceMp3LowLevelInit>,              "sceMp3LowLevelInit",             'x', "x"    },
+	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
 };
 
 void Register_sceMp3() {

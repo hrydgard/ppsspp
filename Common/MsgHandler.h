@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _MSGHANDLER_H_
-#define _MSGHANDLER_H_
+#pragma once
 
 // Message alerts
 enum MSG_TYPE {
@@ -46,5 +45,3 @@ void SetEnableAlert(bool enable);
 	#define PanicAlert(format, ...) ;
 	#define PanicYesNo(format, ...) ;
 #endif
-
-#endif // _MSGHANDLER_H_

@@ -18,12 +18,13 @@
 #include <algorithm>
 
 #include "base/compat.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui.h"
+#include "profiler/profiler.h"
 
 #include "Common/LogManager.h"
 #include "Common/CPUDetect.h"
@@ -33,12 +34,18 @@
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
 #include "UI/GameSettingsScreen.h"
+
+#ifdef _WIN32
+// Want to avoid including the full header here as it includes d3dx.h
+int GetD3DXVersion();
+#endif
 
 static const char *logLevelList[] = {
 	"Notice",
@@ -51,12 +58,45 @@ static const char *logLevelList[] = {
 
 void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
+	I18NCategory *dev = GetI18NCategory("Developer");
+	I18NCategory *sy = GetI18NCategory("System");
 
-	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
-	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
-	parent->Add(new Choice("Jit Compare"))->OnClick.Handle(this, &DevMenu::OnJitCompare);
-	parent->Add(new Choice("Toggle Freeze"))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
-	parent->Add(new Choice("Dump Frame GPU Commands"))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+
+#if !defined(MOBILE_DEVICE)
+	items->Add(new Choice(dev->T("Log View")))->OnClick.Handle(this, &DevMenu::OnLogView);
+#endif
+	items->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DevMenu::OnLogConfig);
+	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
+	items->Add(new Choice(dev->T("Jit Compare")))->OnClick.Handle(this, &DevMenu::OnJitCompare);
+	items->Add(new Choice(dev->T("Shader Viewer")))->OnClick.Handle(this, &DevMenu::OnShaderView);
+	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
+	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
+	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenu::OnToggleAudioDebug);
+#ifdef USE_PROFILER
+	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
+#endif
+
+	scroll->Add(items);
+	parent->Add(scroll);
+
+	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
+	if (ring) {
+		ring->SetEnable(true);
+	}
+}
+
+UI::EventReturn DevMenu::OnToggleAudioDebug(UI::EventParams &e) {
+	g_Config.bShowAudioDebug = !g_Config.bShowAudioDebug;
+	return UI::EVENT_DONE;
+}
+
+
+UI::EventReturn DevMenu::OnLogView(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+	screenManager()->push(new LogScreen());
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
@@ -77,6 +117,14 @@ UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn DevMenu::OnShaderView(UI::EventParams &e) {
+	UpdateUIState(UISTATE_PAUSEMENU);
+	screenManager()->push(new ShaderListScreen());
+	return UI::EVENT_DONE;
+}
+
+
+
 UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
 	if (PSP_CoreParameter().frozen) {
 		PSP_CoreParameter().frozen = false;
@@ -92,18 +140,80 @@ UI::EventReturn DevMenu::OnDumpFrame(UI::EventParams &e) {
 }
 
 void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
+	UpdateUIState(UISTATE_INGAME);
 	// Close when a subscreen got closed.
 	// TODO: a bug in screenmanager causes this not to work here.
 	// screenManager()->finishDialog(this, DR_OK);
 }
 
+void LogScreen::UpdateLog() {
+	using namespace UI;
+	RingbufferLogListener *ring = LogManager::GetInstance()->GetRingbufferListener();
+	if (!ring)
+		return;
+	vert_->Clear();
+	for (int i = ring->GetCount() - 1; i >= 0; i--) {
+		TextView *v = vert_->Add(new TextView(ring->TextAt(i), FLAG_DYNAMIC_ASCII, false));
+		uint32_t color = 0xFFFFFF;
+		switch (ring->LevelAt(i)) {
+		case LogTypes::LDEBUG: color = 0xE0E0E0; break;
+		case LogTypes::LWARNING: color = 0x50FFFF; break;
+		case LogTypes::LERROR: color = 0x5050FF; break;
+		case LogTypes::LNOTICE: color = 0x30FF30; break;
+		case LogTypes::LINFO: color = 0xFFFFFF; break;
+		case LogTypes::LVERBOSE: color = 0xC0C0C0; break;
+		}
+		v->SetTextColor(0xFF000000 | color);
+	}
+	toBottom_ = true;
+}
 
-// It's not so critical to translate everything here, most of this is developers only.
+void LogScreen::update(InputState &input) {
+	UIDialogScreenWithBackground::update(input);
+	if (toBottom_) {
+		toBottom_ = false;
+		scroll_->ScrollToBottom();
+	}
+}
+
+void LogScreen::CreateViews() {
+	using namespace UI;
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	root_ = outer;
+
+	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
+	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	bottom->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	cmdLine_ = bottom->Add(new TextEdit("", "Command Line", new LinearLayoutParams(1.0)));
+	cmdLine_->OnEnter.Handle(this, &LogScreen::OnSubmit);
+	bottom->Add(new Button(di->T("Submit")))->OnClick.Handle(this, &LogScreen::OnSubmit);
+
+	vert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	vert_->SetSpacing(0);
+
+	UpdateLog();
+}
+
+UI::EventReturn LogScreen::OnSubmit(UI::EventParams &e) {
+	std::string cmd = cmdLine_->GetText();
+
+	// TODO: Can add all sorts of fun stuff here that we can't be bothered writing proper UI for, like various memdumps etc.
+
+	NOTICE_LOG(HLE, "Submitted: %s", cmd.c_str());
+
+	UpdateLog();
+	cmdLine_->SetText("");
+	cmdLine_->SetFocus();
+	return UI::EVENT_DONE;
+}
 
 void LogConfigScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *dev = GetI18NCategory("Developer");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
@@ -111,13 +221,13 @@ void LogConfigScreen::CreateViews() {
 	vert->SetSpacing(0);
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topbar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
-	topbar->Add(new Choice("Log Level"))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
+	topbar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+	topbar->Add(new Choice(dev->T("Log Level")))->OnClick.Handle(this, &LogConfigScreen::OnLogLevel);
 
 	vert->Add(topbar);
 
-	vert->Add(new ItemHeader("Log Channels"));
+	vert->Add(new ItemHeader(dev->T("Logging Channels")));
 
 	LogManager *logMan = LogManager::GetInstance();
 
@@ -156,7 +266,9 @@ UI::EventReturn LogConfigScreen::OnLogLevelChange(UI::EventParams &e) {
 }
 
 UI::EventReturn LogConfigScreen::OnLogLevel(UI::EventParams &e) {
-	auto logLevelScreen = new LogLevelScreen("Log Level");
+	I18NCategory *dev = GetI18NCategory("Developer");
+
+	auto logLevelScreen = new LogLevelScreen(dev->T("Log Level"));
 	logLevelScreen->OnChoice.Handle(this, &LogConfigScreen::OnLogLevelChange);
 	screenManager()->push(logLevelScreen);
 	return UI::EVENT_DONE;
@@ -190,6 +302,8 @@ const char *GetCompilerABI() {
 	return "armeabi-v7a";
 #elif defined(ARM)
 	return "armeabi";
+#elif defined(ARM64)
+	return "arm64";
 #elif defined(_M_IX86)
 	return "x86";
 #elif defined(_M_X64)
@@ -201,7 +315,7 @@ const char *GetCompilerABI() {
 
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	using namespace UI;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -209,12 +323,14 @@ void SystemInfoScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(225, 64, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	AddStandardBack(root_);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 225, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder->SetTag("DevSystemInfo");
 
 	root_->Add(tabHolder);
 	ViewGroup *deviceSpecsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	deviceSpecsScroll->SetTag("DevSystemInfoDeviceSpecs");
 	LinearLayout *deviceSpecs = new LinearLayout(ORIENT_VERTICAL);
 	deviceSpecs->SetSpacing(0);
 	deviceSpecsScroll->Add(deviceSpecs);
@@ -226,7 +342,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem("ABI", GetCompilerABI()));
 	deviceSpecs->Add(new ItemHeader("CPU Information"));
 	deviceSpecs->Add(new InfoItem("Name", cpu_info.brand_string));
-#ifdef ARM
+#if defined(ARM) || defined(ARM64) || defined(MIPS)
 	deviceSpecs->Add(new InfoItem("Cores", StringFromInt(cpu_info.num_cores)));
 #else
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
@@ -238,16 +354,53 @@ void SystemInfoScreen::CreateViews() {
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
 	deviceSpecs->Add(new InfoItem("3D API", thin3d->GetInfoString(T3DInfo::APINAME)));
-	deviceSpecs->Add(new InfoItem("Vendor", thin3d->GetInfoString(T3DInfo::VENDOR)));
+	deviceSpecs->Add(new InfoItem("Vendor", std::string(thin3d->GetInfoString(T3DInfo::VENDORSTRING)) + " (" + thin3d->GetInfoString(T3DInfo::VENDOR) + ")"));
 	deviceSpecs->Add(new InfoItem("Model", thin3d->GetInfoString(T3DInfo::RENDERER)));
 #ifdef _WIN32
 	deviceSpecs->Add(new InfoItem("Driver Version", System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+		deviceSpecs->Add(new InfoItem("D3DX Version", StringFromFormat("%d", GetD3DXVersion())));
+	}
 #endif
+
+#ifdef ANDROID
+	deviceSpecs->Add(new ItemHeader("Audio Information"));
+	deviceSpecs->Add(new InfoItem("Sample rate", StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+	deviceSpecs->Add(new InfoItem("Frames per buffer", StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER))));
+	deviceSpecs->Add(new InfoItem("Optimal sample rate", StringFromFormat("%d Hz", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
+	deviceSpecs->Add(new InfoItem("Optimal frames per buffer", StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
+
+	deviceSpecs->Add(new ItemHeader("Display Information"));
+	deviceSpecs->Add(new InfoItem("Native Resolution", StringFromFormat("%dx%d",
+		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
+		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
+	deviceSpecs->Add(new InfoItem("Refresh rate", StringFromFormat("%0.3f Hz", (float)System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f)));
+#endif
+
+
 	deviceSpecs->Add(new ItemHeader("Version Information"));
-	std::string apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
-	apiVersion.resize(30);
+	std::string apiVersion;
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		if (gl_extensions.IsGLES) {
+			apiVersion = StringFromFormat("v%d.%d.%d ES", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+		} else {
+			apiVersion = StringFromFormat("v%d.%d.%d", gl_extensions.ver[0], gl_extensions.ver[1], gl_extensions.ver[2]);
+		}
+	} else {
+		apiVersion = thin3d->GetInfoString(T3DInfo::APIVERSION);
+		if (apiVersion.size() > 30)
+			apiVersion.resize(30);
+	}
 	deviceSpecs->Add(new InfoItem("API Version", apiVersion));
 	deviceSpecs->Add(new InfoItem("Shading Language", thin3d->GetInfoString(T3DInfo::SHADELANGVERSION)));
+
+#ifdef ANDROID
+	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
+	if (moga.empty()) {
+		moga = "(none detected)";
+	}
+	deviceSpecs->Add(new InfoItem("Moga", moga));
+#endif
 
 #ifdef ANDROID
 	char temp[256];
@@ -256,6 +409,7 @@ void SystemInfoScreen::CreateViews() {
 #endif
 
 	ViewGroup *cpuExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	cpuExtensionsScroll->SetTag("DevSystemInfoCPUExt");
 	LinearLayout *cpuExtensions = new LinearLayout(ORIENT_VERTICAL);
 	cpuExtensions->SetSpacing(0);
 	cpuExtensionsScroll->Add(cpuExtensions);
@@ -266,49 +420,59 @@ void SystemInfoScreen::CreateViews() {
 	std::vector<std::string> exts;
 	SplitString(cpu_info.Summarize(), ',', exts);
 	for (size_t i = 2; i < exts.size(); i++) {
-		cpuExtensions->Add(new TextView(exts[i]));
+		cpuExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
 	}
-	
+
 	ViewGroup *oglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	oglExtensionsScroll->SetTag("DevSystemInfoOGLExt");
 	LinearLayout *oglExtensions = new LinearLayout(ORIENT_VERTICAL);
 	oglExtensions->SetSpacing(0);
 	oglExtensionsScroll->Add(oglExtensions);
 
-	tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
+	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+		tabHolder->AddTab("OGL Extensions", oglExtensionsScroll);
 
-#ifndef USING_GLES2
-	oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
-#else
-	if (gl_extensions.GLES3)
-		oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
-	else
-		oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
-#endif
-
-	exts.clear();
-	SplitString(g_all_gl_extensions, ' ', exts);
-	std::sort(exts.begin(), exts.end());
-	for (size_t i = 0; i < exts.size(); i++) {
-		oglExtensions->Add(new TextView(exts[i]));
-	}
-
-	exts.clear();
-	SplitString(g_all_egl_extensions, ' ', exts);
-	std::sort(exts.begin(), exts.end());
-
-	// If there aren't any EGL extensions, no need to show the tab.
-	if (exts.size() > 0) {
-		ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
-		eglExtensions->SetSpacing(0);
-		eglExtensionsScroll->Add(eglExtensions);
-
-		tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
-
-		eglExtensions->Add(new ItemHeader("EGL Extensions"));
-
+		if (!gl_extensions.IsGLES) {
+			oglExtensions->Add(new ItemHeader("OpenGL Extensions"));
+		} else if (gl_extensions.GLES3) {
+			oglExtensions->Add(new ItemHeader("OpenGL ES 3.0 Extensions"));
+		} else {
+			oglExtensions->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+		}
+		exts.clear();
+		SplitString(g_all_gl_extensions, ' ', exts);
+		std::sort(exts.begin(), exts.end());
 		for (size_t i = 0; i < exts.size(); i++) {
-			eglExtensions->Add(new TextView(exts[i]));
+			oglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+		}
+
+		exts.clear();
+		SplitString(g_all_egl_extensions, ' ', exts);
+		std::sort(exts.begin(), exts.end());
+
+		// If there aren't any EGL extensions, no need to show the tab.
+		if (exts.size() > 0) {
+			ViewGroup *eglExtensionsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+			eglExtensionsScroll->SetTag("DevSystemInfoEGLExt");
+			LinearLayout *eglExtensions = new LinearLayout(ORIENT_VERTICAL);
+			eglExtensions->SetSpacing(0);
+			eglExtensionsScroll->Add(eglExtensions);
+
+			tabHolder->AddTab("EGL Extensions", eglExtensionsScroll);
+
+			eglExtensions->Add(new ItemHeader("EGL Extensions"));
+
+			for (size_t i = 0; i < exts.size(); i++) {
+				eglExtensions->Add(new TextView(exts[i]))->SetFocusable(true);
+			}
+		}
+	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+		tabHolder->AddTab("Vulkan Features", oglExtensionsScroll);
+
+		oglExtensions->Add(new ItemHeader("Vulkan Features"));
+		std::vector<std::string> features = thin3d->GetFeatureList();
+		for (auto &feature : features) {
+			oglExtensions->Add(new TextView(feature))->SetFocusable(true);
 		}
 	}
 }
@@ -316,7 +480,9 @@ void SystemInfoScreen::CreateViews() {
 void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	addrView_ = new TextView("Enter address", ALIGN_HCENTER, false);
+	I18NCategory *dev = GetI18NCategory("Developer");
+
+	addrView_ = new TextView(dev->T("Enter address"), ALIGN_HCENTER, false);
 	parent->Add(addrView_);
 
 	ViewGroup *grid = new GridLayout(GridLayoutSettings(60, 40));
@@ -329,7 +495,7 @@ void AddressPromptScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		grid->Add(buttons_[i])->OnClick.Handle(this, &AddressPromptScreen::OnDigitButton);
 	}
 
-	parent->Add(new Button("Backspace"))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
+	parent->Add(new Button(dev->T("Backspace")))->OnClick.Handle(this, &AddressPromptScreen::OnBackspace);
 }
 
 void AddressPromptScreen::OnCompleted(DialogResult result) {
@@ -368,12 +534,14 @@ void AddressPromptScreen::BackspaceDigit() {
 }
 
 void AddressPromptScreen::UpdatePreviewDigits() {
+	I18NCategory *dev = GetI18NCategory("Developer");
+
 	if (addr_ != 0) {
 		char temp[32];
 		snprintf(temp, 32, "%8X", addr_);
 		addrView_->SetText(temp);
 	} else {
-		addrView_->SetText("Enter address");
+		addrView_->SetText(dev->T("Enter address"));
 	}
 }
 
@@ -400,7 +568,8 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 
 // Three panes: Block chooser, MIPS view, ARM/x86 view
 void JitCompareScreen::CreateViews() {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *dev = GetI18NCategory("Developer");
 
 	using namespace UI;
 	
@@ -411,22 +580,26 @@ void JitCompareScreen::CreateViews() {
 
 	ScrollView *midColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
 	LinearLayout *midColumn = midColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
+	midColumn->SetTag("JitCompareLeftDisasm");
 	leftDisasm_ = midColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	leftDisasm_->SetSpacing(0.0f);
 
 	ScrollView *rightColumnScroll = root_->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(2.0f)));
+	rightColumnScroll->SetTag("JitCompareRightDisasm");
 	LinearLayout *rightColumn = rightColumnScroll->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_ = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL));
 	rightDisasm_->SetSpacing(0.0f);
 
-	leftColumn->Add(new Choice("Current"))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
-	leftColumn->Add(new Choice("By Address"))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
-	leftColumn->Add(new Choice("Prev"))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
-	leftColumn->Add(new Choice("Next"))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
-	leftColumn->Add(new Choice("Random"))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
-	leftColumn->Add(new Choice("Random VFPU"))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
-	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	blockName_ = leftColumn->Add(new TextView("no block"));
+	leftColumn->Add(new Choice(dev->T("Current")))->OnClick.Handle(this, &JitCompareScreen::OnCurrentBlock);
+	leftColumn->Add(new Choice(dev->T("By Address")))->OnClick.Handle(this, &JitCompareScreen::OnSelectBlock);
+	leftColumn->Add(new Choice(dev->T("Prev")))->OnClick.Handle(this, &JitCompareScreen::OnPrevBlock);
+	leftColumn->Add(new Choice(dev->T("Next")))->OnClick.Handle(this, &JitCompareScreen::OnNextBlock);
+	leftColumn->Add(new Choice(dev->T("Random")))->OnClick.Handle(this, &JitCompareScreen::OnRandomBlock);
+	leftColumn->Add(new Choice(dev->T("FPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomFPUBlock);
+	leftColumn->Add(new Choice(dev->T("VFPU")))->OnClick.Handle(this, &JitCompareScreen::OnRandomVFPUBlock);
+	leftColumn->Add(new Choice(dev->T("Stats")))->OnClick.Handle(this, &JitCompareScreen::OnShowStats);
+	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	blockName_ = leftColumn->Add(new TextView(dev->T("No block")));
 	blockAddr_ = leftColumn->Add(new TextEdit("", "", new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	blockAddr_->OnTextChange.Handle(this, &JitCompareScreen::OnAddressChange);
 	blockStats_ = leftColumn->Add(new TextView(""));
@@ -441,6 +614,8 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
+	I18NCategory *dev = GetI18NCategory("Developer");
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 
 	char temp[256];
@@ -448,8 +623,8 @@ void JitCompareScreen::UpdateDisasm() {
 	blockName_->SetText(temp);
 
 	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
-		leftDisasm_->Add(new TextView("No block"));
-		rightDisasm_->Add(new TextView("No block"));
+		leftDisasm_->Add(new TextView(dev->T("No block")));
+		rightDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
@@ -466,17 +641,21 @@ void JitCompareScreen::UpdateDisasm() {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
 		std::string mipsDis = temp;
-		leftDisasm_->Add(new TextView(mipsDis));
+		leftDisasm_->Add(new TextView(mipsDis))->SetFocusable(true);
 	}
 
 #if defined(ARM)
 	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
-#else
+#elif defined(ARM64)
+	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
+#elif defined(_M_IX86) || defined(_M_X64)
 	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
 #endif
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	for (size_t i = 0; i < targetDis.size(); i++) {
-		rightDisasm_->Add(new TextView(targetDis[i]));
+		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
 	}
+#endif
 
 	int numMips = leftDisasm_->GetNumSubviews();
 	int numHost = rightDisasm_->GetNumSubviews();
@@ -486,6 +665,9 @@ void JitCompareScreen::UpdateDisasm() {
 }
 
 UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	u32 addr;
 	if (blockAddr_->GetText().size() > 8)
@@ -499,8 +681,33 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
+	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	BlockCacheStats bcStats;
+	blockCache->ComputeStats(bcStats);
+	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
+	NOTICE_LOG(JIT, "Average Bloat: %0.2f%%", 100 * bcStats.avgBloat);
+	NOTICE_LOG(JIT, "Min Bloat: %0.2f%%  (%08x)", 100 * bcStats.minBloat, bcStats.minBloatBlock);
+	NOTICE_LOG(JIT, "Max Bloat: %0.2f%%  (%08x)", 100 * bcStats.maxBloat, bcStats.maxBloatBlock);
+
+	int ctr = 0, sz = (int)bcStats.bloatMap.size();
+	for (auto iter : bcStats.bloatMap) {
+		if (ctr < 10 || ctr > sz - 10) {
+			NOTICE_LOG(JIT, "%08x: %f", iter.second, iter.first);
+		} else if (ctr == 10) {
+			NOTICE_LOG(JIT, "...");
+		}
+		ctr++;
+	}
+
+	return UI::EVENT_DONE;
+}
+
+
 UI::EventReturn JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
-	auto addressPrompt = new AddressPromptScreen("Block address");
+	I18NCategory *dev = GetI18NCategory("Developer");
+
+	auto addressPrompt = new AddressPromptScreen(dev->T("Block address"));
 	addressPrompt->OnChoice.Handle(this, &JitCompareScreen::OnBlockAddress);
 	screenManager()->push(addressPrompt);
 	return UI::EVENT_DONE;
@@ -519,6 +726,10 @@ UI::EventReturn JitCompareScreen::OnNextBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	if (Memory::IsValidAddress(e.a)) {
 		currentBlock_ = blockCache->GetBlockNumberFromStartAddress(e.a);
@@ -530,6 +741,10 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
+
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
@@ -540,21 +755,34 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 }
 
 UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
+	OnRandomBlock(IS_VFPU);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn JitCompareScreen::OnRandomFPUBlock(UI::EventParams &e) {
+	OnRandomBlock(IS_FPU);
+	return UI::EVENT_DONE;
+}
+
+void JitCompareScreen::OnRandomBlock(int flag) {
+	if (!MIPSComp::jit) {
+		return;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	int numBlocks = blockCache->GetNumBlocks();
 	if (numBlocks > 0) {
-		bool anyVFPU = false;
+		bool anyWanted = false;
 		int tries = 0;
-		while (!anyVFPU && tries < 10000) {
+		while (!anyWanted && tries < 10000) {
 			currentBlock_ = rand() % numBlocks;
 			const JitBlock *b = blockCache->GetBlock(currentBlock_);
 			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
-				if (MIPSGetInfo(opcode) & IS_VFPU) {
+				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
-					anyVFPU = true;
+					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
+					anyWanted = true;
 					break;
 				}
 			}
@@ -562,11 +790,12 @@ UI::EventReturn JitCompareScreen::OnRandomVFPUBlock(UI::EventParams &e) {
 		}
 	}
 	UpdateDisasm();
-	return UI::EVENT_DONE;
 }
 
-
 UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
+	if (!MIPSComp::jit) {
+		return UI::EVENT_DONE;
+	}
 	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
 	std::vector<int> blockNum;
 	blockCache->GetBlockNumbersFromAddress(currentMIPS->pc, &blockNum);
@@ -577,4 +806,79 @@ UI::EventReturn JitCompareScreen::OnCurrentBlock(UI::EventParams &e) {
 	}
 	UpdateDisasm();
 	return UI::EVENT_DONE;
+}
+
+void ShaderListScreen::ListShaders(DebugShaderType shaderType, UI::LinearLayout *view) {
+	using namespace UI;
+	std::vector<std::string> shaderIds_ = gpu->DebugGetShaderIDs(shaderType);
+	for (auto id : shaderIds_) {
+		Choice *choice = view->Add(new Choice(gpu->DebugGetShaderString(id, shaderType, SHADER_STRING_SHORT_DESC)));
+		choice->SetTag(id);
+		choice->OnClick.Handle(this, &ShaderListScreen::OnShaderClick);
+	}
+}
+
+struct { DebugShaderType type; const char *name; } shaderTypes[] = {
+	{ SHADER_TYPE_VERTEX, "Vertex" },
+	{ SHADER_TYPE_FRAGMENT, "Fragment" },
+	// { SHADER_TYPE_GEOMETRY, "Geometry" },
+	{ SHADER_TYPE_VERTEXLOADER, "VertexLoader" },
+};
+
+void ShaderListScreen::CreateViews() {
+	using namespace UI;
+
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
+	root_ = layout;
+
+	tabs_ = new TabHolder(ORIENT_HORIZONTAL, 40, new LinearLayoutParams(1.0));
+	tabs_->SetTag("DevShaderList");
+	layout->Add(tabs_);
+	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	for (size_t i = 0; i < ARRAY_SIZE(shaderTypes); i++) {
+		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+		LinearLayout *shaderList = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		ListShaders(shaderTypes[i].type, shaderList);
+		scroll->Add(shaderList);
+		tabs_->AddTab(shaderTypes[i].name, scroll);
+	}
+}
+
+UI::EventReturn ShaderListScreen::OnShaderClick(UI::EventParams &e) {
+	using namespace UI;
+	std::string id = e.v->Tag();
+	DebugShaderType type = shaderTypes[tabs_->GetCurrentTab()].type;
+	screenManager()->push(new ShaderViewScreen(id, type));
+	return EVENT_DONE;
+}
+
+void ShaderViewScreen::CreateViews() {
+	using namespace UI;
+
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
+	root_ = layout;
+
+	layout->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC)));
+
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	scroll->SetTag("DevShaderView");
+	layout->Add(scroll);
+
+	LinearLayout *lineLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	lineLayout->SetSpacing(0.0);
+	scroll->Add(lineLayout);
+
+	std::vector<std::string> lines;
+	SplitString(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE), '\n', lines);
+
+	for (auto line : lines) {
+		lineLayout->Add(new TextView(line, FLAG_DYNAMIC_ASCII, true));
+	}
+
+	layout->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }

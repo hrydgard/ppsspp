@@ -58,7 +58,7 @@ struct SceMpegRingBuffer {
 	s32_le packets;
 	s32_le packetsRead;
 	s32_le packetsWritten;
-	s32_le packetsFree; // pspsdk: unk2, noxa: iUnk0
+	s32_le packetsAvail; // pspsdk: unk2, noxa: iUnk0
 	s32_le packetSize; // 2048
 	u32_le data; // address, ring buffer
 	u32_le callback_addr; // see sceMpegRingbufferPut

@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{EDFA2E87-8AC1-4853-95D4-D7594FF81947}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>glslang</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140_xp</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140_xp</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140_xp</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140_xp</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MinimalRebuild>false</MinimalRebuild>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <MinimalRebuild>false</MinimalRebuild>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="glslang\glslang\GenericCodeGen\CodeGen.cpp" />
+    <ClCompile Include="glslang\glslang\GenericCodeGen\Link.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\Constant.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\InfoSink.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\Initialize.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\Intermediate.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\intermOut.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\IntermTraverse.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\limits.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\linkValidate.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\parseConst.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\ParseHelper.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\PoolAlloc.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\Pp.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpAtom.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpContext.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpMemory.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpScanner.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpSymbols.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\preprocessor\PpTokens.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\reflection.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\RemoveTree.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\Scan.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\ShaderLang.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\SymbolTable.cpp" />
+    <ClCompile Include="glslang\glslang\MachineIndependent\Versions.cpp" />
+    <ClCompile Include="glslang\glslang\OSDependent\Windows\ossource.cpp" />
+    <ClCompile Include="glslang\OGLCompilersDLL\InitializeDll.cpp" />
+    <ClCompile Include="glslang\SPIRV\disassemble.cpp" />
+    <ClCompile Include="glslang\SPIRV\doc.cpp" />
+    <ClCompile Include="glslang\SPIRV\GlslangToSpv.cpp" />
+    <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp" />
+    <ClCompile Include="glslang\SPIRV\SpvBuilder.cpp" />
+    <ClCompile Include="glslang\SPIRV\SPVRemapper.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="glslang\glslang\Include\arrays.h" />
+    <ClInclude Include="glslang\glslang\Include\BaseTypes.h" />
+    <ClInclude Include="glslang\glslang\Include\Common.h" />
+    <ClInclude Include="glslang\glslang\Include\ConstantUnion.h" />
+    <ClInclude Include="glslang\glslang\Include\InfoSink.h" />
+    <ClInclude Include="glslang\glslang\Include\InitializeGlobals.h" />
+    <ClInclude Include="glslang\glslang\Include\intermediate.h" />
+    <ClInclude Include="glslang\glslang\Include\PoolAlloc.h" />
+    <ClInclude Include="glslang\glslang\Include\ResourceLimits.h" />
+    <ClInclude Include="glslang\glslang\Include\ShHandle.h" />
+    <ClInclude Include="glslang\glslang\Include\Types.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\gl_types.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\Initialize.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\localintermediate.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\ParseHelper.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\preprocessor\PpContext.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\preprocessor\PpTokens.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\reflection.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\RemoveTree.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\Scan.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\ScanContext.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\SymbolTable.h" />
+    <ClInclude Include="glslang\glslang\MachineIndependent\Versions.h" />
+    <ClInclude Include="glslang\glslang\Public\ShaderLang.h" />
+    <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
+    <ClInclude Include="glslang\SPIRV\disassemble.h" />
+    <ClInclude Include="glslang\SPIRV\doc.h" />
+    <ClInclude Include="glslang\SPIRV\GLSL.std.450.h" />
+    <ClInclude Include="glslang\SPIRV\GlslangToSpv.h" />
+    <ClInclude Include="glslang\SPIRV\spirv.hpp" />
+    <ClInclude Include="glslang\SPIRV\SpvBuilder.h" />
+    <ClInclude Include="glslang\SPIRV\spvIR.h" />
+    <ClInclude Include="glslang\SPIRV\SPVRemapper.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="glslang\glslang\MachineIndependent\glslang.y" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

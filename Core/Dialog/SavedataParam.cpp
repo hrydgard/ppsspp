@@ -396,6 +396,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		int decryptMode = DetermineCryptMode(param);
 		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
 		{
+			I18NCategory *err = GetI18NCategory("Error");
+			osm.Show(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
 			cryptedData = 0;
@@ -577,7 +579,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	return true;
 }
 
-bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string dirPath, bool secureMode) {
+bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode) {
 	u8 *data_ = param->dataBuf;
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	s64 readSize;
@@ -639,9 +641,9 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 
 			// Don't notify the user if we're not going to upgrade the save.
 			if (!g_Config.bEncryptSave) {
-				I18NCategory *d = GetI18NCategory("Dialog");
-				osm.Show(d->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
-				osm.Show(d->T("Old savedata detected"), 6.0f);
+				I18NCategory *di = GetI18NCategory("Dialog");
+				osm.Show(di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+				osm.Show(di->T("Old savedata detected"), 6.0f);
 			}
 		} else {
 			if (decryptMode == 5 && prevCryptMode == 3) {
@@ -666,7 +668,7 @@ void SavedataParam::LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data,
 		memcpy(data, saveData, std::min((u32)saveSize, (u32)param->dataBufSize));
 }
 
-void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string dirPath) {
+void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath) {
 	ParamSFOData sfoFile;
 	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
@@ -718,7 +720,7 @@ std::set<std::string> SavedataParam::getSecureFileNames(std::string dirPath) {
 	return secureFileNames;
 }
 
-void SavedataParam::LoadFile(const std::string dirPath, const std::string filename, PspUtilitySavedataFileData *fileData) {
+void SavedataParam::LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData) {
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize = -1;
 	if(!fileData->buf.IsValid())
@@ -914,7 +916,7 @@ std::string SavedataParam::GetSpaceText(u64 size)
 		size /= 1024;
 	}
 
-	snprintf(text, sizeof(text), "%lld TB", size);
+	snprintf(text, sizeof(text), "%llu TB", size);
 	return std::string(text);
 }
 
@@ -975,8 +977,21 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 	if (param->utilityData.IsValid())
 	{
 		int total_size = 0;
-		total_size += getSizeNormalized(1); // SFO;
-		total_size += getSizeNormalized((u32)param->dataSize == 0 ? 1 : (u32)param->dataSize); // Save Data
+
+		// The directory record itself.
+		// TODO: Account for number of files / actual record size?
+		total_size += getSizeNormalized(1);
+		// Account for the SFO (is this always 1 sector?)
+		total_size += getSizeNormalized(1);
+		// Add the size of the data itself (don't forget encryption overhead.)
+		// This is only added if a filename is specified.
+		if (param->fileName[0] != 0) {
+			if (g_Config.bEncryptSave) {
+				total_size += getSizeNormalized((u32)param->dataSize + 16);
+			} else {
+				total_size += getSizeNormalized((u32)param->dataSize);
+			}
+		}
 		total_size += getSizeNormalized(param->icon0FileData.size);
 		total_size += getSizeNormalized(param->icon1FileData.size);
 		total_size += getSizeNormalized(param->pic1FileData.size);

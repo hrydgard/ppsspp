@@ -15,8 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifndef _GE_CONSTANTS_H
-#define _GE_CONSTANTS_H
+#pragma once
 
 enum GECommand
 {
@@ -79,12 +78,12 @@ enum GECommand
 	GE_CMD_PROJMATRIXDATA,
 	GE_CMD_TGENMATRIXNUMBER = 0x40,
 	GE_CMD_TGENMATRIXDATA = 0x41,
-	GE_CMD_VIEWPORTX1,
-	GE_CMD_VIEWPORTY1,
-	GE_CMD_VIEWPORTZ1,
-	GE_CMD_VIEWPORTX2,
-	GE_CMD_VIEWPORTY2,
-	GE_CMD_VIEWPORTZ2,
+	GE_CMD_VIEWPORTXSCALE,
+	GE_CMD_VIEWPORTYSCALE,
+	GE_CMD_VIEWPORTZSCALE,
+	GE_CMD_VIEWPORTXCENTER,
+	GE_CMD_VIEWPORTYCENTER,
+	GE_CMD_VIEWPORTZCENTER,
 	GE_CMD_TEXSCALEU = 0x48,
 	GE_CMD_TEXSCALEV = 0x49,
 	GE_CMD_TEXOFFSETU = 0x4A,
@@ -336,6 +335,7 @@ enum GEBufferFormat
 #define GE_VTYPE_IDX_NONE  (0<<11)
 #define GE_VTYPE_IDX_8BIT  (1<<11)
 #define GE_VTYPE_IDX_16BIT (2<<11)
+#define GE_VTYPE_IDX_32BIT (3<<11)
 #define GE_VTYPE_IDX_MASK  (3<<11)
 #define GE_VTYPE_IDX_SHIFT 11
 
@@ -554,6 +554,7 @@ enum GEPatchPrimType
 	GE_PATCHPRIM_TRIANGLES = 0,
 	GE_PATCHPRIM_LINES = 1,
 	GE_PATCHPRIM_POINTS = 2,
+	// Treated as points.
 	GE_PATCHPRIM_UNKNOWN = 3,
 };
 
@@ -564,5 +565,3 @@ enum GEPaletteFormat
 	GE_CMODE_16BIT_ABGR4444,
 	GE_CMODE_32BIT_ABGR8888,
 };
-
-#endif

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
+#include "GPU/Common/GPUDebugInterface.h"
 #include "Globals.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -51,6 +52,7 @@ class TabStateTexture;
 class TabStateSettings;
 class TabVertices;
 class TabMatrices;
+struct GPUgstate;
 
 class CGEDebugger : public Dialog {
 public:
@@ -65,12 +67,22 @@ protected:
 private:
 	void SetupPreviews();
 	void UpdatePreviews();
+	void UpdatePrimaryPreview(const GPUgstate &state);
+	void UpdateSecondPreview(const GPUgstate &state);
 	void UpdatePrimPreview(u32 op);
 	void CleanupPrimPreview();
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void SetBreakNext(BreakNextType type);
 	void UpdateTextureLevel(int level);
+	void DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[256]);
+	void DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256]);
+	void PrimaryPreviewHover(int x, int y);
+	void SecondPreviewHover(int x, int y);
+	void DescribePixel(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]);
+	void DescribePixelRGBA(u32 pix, GPUDebugBufferFormat fmt, int x, int y, wchar_t desc[256]);
+
+	u32 TexturePreviewFlags(const GPUgstate &state);
 
 	CtrlDisplayListView *displayList;
 	TabDisplayLists *lists;
@@ -80,11 +92,17 @@ private:
 	TabStateSettings *settings;
 	TabVertices *vertices;
 	TabMatrices *matrices;
-	SimpleGLWindow *frameWindow;
-	SimpleGLWindow *texWindow;
+	SimpleGLWindow *primaryWindow;
+	SimpleGLWindow *secondWindow;
 	TabControl *tabs;
 	TabControl *fbTabs;
 	int textureLevel_;
+	bool showClut_;
+	bool forceOpaque_;
+	// The most recent primary/framebuffer and texture buffers.
+	const GPUDebugBuffer *primaryBuffer_;
+	const GPUDebugBuffer *secondBuffer_;
 
-	int minWidth,minHeight;
+	int minWidth_;
+	int minHeight_;
 };

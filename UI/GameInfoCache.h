@@ -22,16 +22,18 @@
 
 #include "base/mutex.h"
 #include "file/file_util.h"
-#include "thread/prioritizedworkqueue.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
 class Thin3DContext;
 class Thin3DTexture;
+class PrioritizedWorkQueue;
 
 // A GameInfo holds information about a game, and also lets you do things that the VSH
 // does on the PSP, namely checking for and deleting savedata, and similar things.
 // Only cares about games that are installed on the current device.
+
+// A GameInfo object can also represent a piece of savedata.
 
 // Guessed from GameID, not necessarily accurate
 enum GameRegion {
@@ -94,13 +96,17 @@ class GameInfo {
 public:
 	GameInfo()
 		: disc_total(0), disc_number(0), region(-1), fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false),
-		  iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantFlags(0),
-		  timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
-		  gameSize(0), saveDataSize(0), installDataSize(0), fileLoader(nullptr) {}
+			hasConfig(false), iconTexture(nullptr), pic0Texture(nullptr), pic1Texture(nullptr), wantFlags(0),
+		  lastAccessedTime(0.0), timeIconWasLoaded(0.0), timePic0WasLoaded(0.0), timePic1WasLoaded(0.0),
+		  gameSize(0), saveDataSize(0), installDataSize(0), pending(true), working(false), fileLoader(nullptr) {}
 	~GameInfo();
 
-	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool Delete();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
+	bool LoadFromPath(const std::string &gamePath);
+
+	FileLoader *GetFileLoader();
+	void DisposeFileLoader();
 
 	u64 GetGameSizeInBytes();
 	u64 GetSaveDataSizeInBytes();
@@ -110,6 +116,11 @@ public:
 
 	std::vector<std::string> GetSaveDataDirectories();
 
+	std::string GetTitle();
+	void SetTitle(const std::string &newTitle);
+
+	bool IsPending();
+	bool IsWorking();
 
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
@@ -117,8 +128,6 @@ public:
 	// to it.
 	recursive_mutex lock;
 
-	std::string path;
-	std::string title;  // for easy access, also available in paramSFO.
 	std::string id;
 	std::string id_version;
 	int disc_total;
@@ -127,6 +136,7 @@ public:
 	IdentifiedFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;
+	bool hasConfig;
 
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
@@ -156,33 +166,40 @@ public:
 	u64 gameSize;
 	u64 saveDataSize;
 	u64 installDataSize;
+	bool pending;
+	bool working;
+
+protected:
+	// Note: this can change while loading, use GetTitle().
+	std::string title;
 
 	FileLoader *fileLoader;
+	std::string filePath_;
 };
 
 class GameInfoCache {
 public:
-	GameInfoCache() : gameInfoWQ_(0) {}
+	GameInfoCache();
 	~GameInfoCache();
 
 	// This creates a background worker thread!
-	void Init();
-	void Shutdown();
 	void Clear();
+	void PurgeType(IdentifiedFileType fileType);
 
 	// All data in GameInfo including iconTexture may be zero the first time you call this
 	// but filled in later asynchronously in the background. So keep calling this,
 	// redrawing the UI often. Only set flags to GAMEINFO_WANTBG or WANTSND if you really want them 
 	// because they're big. bgTextures and sound may be discarded over time as well.
 	GameInfo *GetInfo(Thin3DContext *thin3d, const std::string &gamePath, int wantFlags);
-	void Decimate();  // Deletes old info.
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
-	// TODO - save cache between sessions
-	void Save();
-	void Load();
+	PrioritizedWorkQueue *WorkQueue() { return gameInfoWQ_; }
+
+	void WaitUntilDone(GameInfo *info);
 
 private:
+	void Init();
+	void Shutdown();
 	void SetupTexture(GameInfo *info, std::string &textureData, Thin3DContext *thin3d, Thin3DTexture *&tex, double &loadTime);
 
 	// Maps ISO path to info.
@@ -193,4 +210,4 @@ private:
 };
 
 // This one can be global, no good reason not to.
-extern GameInfoCache g_gameInfoCache;
+extern GameInfoCache *g_gameInfoCache;

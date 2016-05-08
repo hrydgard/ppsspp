@@ -16,14 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
-#include "GPU/GLES/FragmentShaderGenerator.h"
 #include "GPU/GLES/FragmentTestCache.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/ShaderId.h"
 
 // These are small, let's give them plenty of frames.
 static const int FRAGTEST_TEXTURE_OLD_AGE = 307;
+static const int FRAGTEST_DECIMATION_INTERVAL = 113;
 
-FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0) {
+FragmentTestCache::FragmentTestCache() : textureCache_(NULL), lastTexture_(0), decimationCounter_(0) {
 	scratchpad_ = new u8[256 * 4];
 }
 
@@ -37,6 +39,13 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		return;
 	}
 
+	bool alphaNeedsTexture = gstate.isAlphaTestEnabled() && !IsAlphaTestAgainstZero() && !IsAlphaTestTriviallyTrue();
+	bool colorNeedsTexture = gstate.isColorTestEnabled() && !IsColorTestAgainstZero() && !IsColorTestTriviallyTrue();
+	if (!alphaNeedsTexture && !colorNeedsTexture) {
+		// Common case: testing against zero.  Just skip it, faster not to bind anything.
+		return;
+	}
+
 	const FragmentTestID id = GenerateTestID();
 	const auto cached = cache_.find(id);
 	if (cached != cache_.end()) {
@@ -44,10 +53,6 @@ void FragmentTestCache::BindTestTexture(GLenum unit) {
 		GLuint tex = cached->second.texture;
 		if (tex == lastTexture_) {
 			// Already bound, hurray.
-			return;
-		}
-		if (!gstate.isColorTestEnabled() && (IsAlphaTestAgainstZero() || IsAlphaTestTriviallyTrue())) {
-			// Common case: testing against zero.  Just skip it.
 			return;
 		}
 		glActiveTexture(unit);
@@ -105,7 +110,7 @@ GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u
 	// Build the logic map.
 	for (int color = 0; color < 256; ++color) {
 		for (int i = 0; i < 4; ++i) {
-			bool res;
+			bool res = true;
 			if (valid[i]) {
 				switch (funcs[i]) {
 				case GE_COMP_NEVER:
@@ -133,8 +138,6 @@ GLuint FragmentTestCache::CreateTestTexture(const GEComparison funcs[4], const u
 					res = (color & masks[i]) >= (refs[i] & masks[i]);
 					break;
 				}
-			} else {
-				res = true;
 			}
 			scratchpad_[color * 4 + i] = res ? 0xFF : 0;
 		}
@@ -163,13 +166,18 @@ void FragmentTestCache::Clear(bool deleteThem) {
 }
 
 void FragmentTestCache::Decimate() {
-	for (auto tex = cache_.begin(); tex != cache_.end(); ) {
-		if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
-			glDeleteTextures(1, &tex->second.texture);
-			cache_.erase(tex++);
-		} else {
-			++tex;
+	if (--decimationCounter_ <= 0) {
+		for (auto tex = cache_.begin(); tex != cache_.end(); ) {
+			if (tex->second.lastFrame + FRAGTEST_TEXTURE_OLD_AGE < gpuStats.numFlips) {
+				glDeleteTextures(1, &tex->second.texture);
+				cache_.erase(tex++);
+			} else {
+				++tex;
+			}
 		}
+
+		decimationCounter_ = FRAGTEST_DECIMATION_INTERVAL;
 	}
+
 	lastTexture_ = 0;
 }

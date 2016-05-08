@@ -147,13 +147,13 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 				{
 /*					textPen.setColor(0x0000FF);
 					painter.setPen(textPen);
-					int fn = symbolMap.GetSymbolNum(address);
+					int fn = g_symbolMap->GetSymbolNum(address);
 					if (fn==-1)
 					{
 						sprintf(temp, "%s (ns)", Memory::GetAddressName(address));
 					}
 					else
-						sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
+						sprintf(temp, "%s (0x%x b)", g_symbolMap->GetSymbolName(fn),g_symbolMap->GetSymbolSize(fn));
 					painter.drawText(205,rowY1 - 2 + rowHeight, temp);
 
 					textPen.setColor(0xFF000000);
@@ -162,16 +162,16 @@ void CtrlMemView::paintEvent(QPaintEvent *)
 					if (align==4)
 					{
 						u32 value = Memory::ReadUnchecked_U32(address);
-						int symbolnum = symbolMap.GetSymbolNum(value);
+						int symbolnum = g_symbolMap->GetSymbolNum(value);
 						if(symbolnum>=0)
-							sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(symbolnum));
+							sprintf(temp, "%08x [%s]", value, g_symbolMap->GetSymbolName(symbolnum));
 					}
 					else if (align==2)
 					{
 						u16 value = Memory::ReadUnchecked_U16(address);
-						int symbolnum = symbolMap.GetSymbolNum(value);
+						int symbolnum = g_symbolMap->GetSymbolNum(value);
 						if(symbolnum>=0)
-							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolnum));
+							sprintf(temp, "%04x [%s]", value, g_symbolMap->GetSymbolName(symbolnum));
 					}
 
                     painter.drawText(85,rowY1 - 2 + rowHeight, temp);*/

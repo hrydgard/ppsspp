@@ -18,6 +18,7 @@
 #include "base/mutex.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Debugger/Stepping.h"
+#include "GPU/GPUState.h"
 #include "Core/Core.h"
 
 namespace GPUStepping {
@@ -29,6 +30,7 @@ enum PauseAction {
 	PAUSE_GETDEPTHBUF,
 	PAUSE_GETSTENCILBUF,
 	PAUSE_GETTEX,
+	PAUSE_GETCLUT,
 	PAUSE_SETCMDVALUE,
 };
 
@@ -51,6 +53,7 @@ static GPUDebugBuffer bufferFrame;
 static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
 static GPUDebugBuffer bufferTex;
+static GPUDebugBuffer bufferClut;
 static int bufferLevel;
 static u32 pauseSetCmdValue;
 
@@ -94,6 +97,10 @@ static void RunPauseAction() {
 
 	case PAUSE_GETTEX:
 		bufferResult = gpuDebug->GetCurrentTexture(bufferTex, bufferLevel);
+		break;
+
+	case PAUSE_GETCLUT:
+		bufferResult = gpuDebug->GetCurrentClut(bufferClut);
 		break;
 
 	case PAUSE_SETCMDVALUE:
@@ -168,6 +175,10 @@ bool GPU_GetCurrentStencilbuffer(const GPUDebugBuffer *&buffer) {
 bool GPU_GetCurrentTexture(const GPUDebugBuffer *&buffer, int level) {
 	bufferLevel = level;
 	return GetBuffer(buffer, PAUSE_GETTEX, bufferTex);
+}
+
+bool GPU_GetCurrentClut(const GPUDebugBuffer *&buffer) {
+	return GetBuffer(buffer, PAUSE_GETCLUT, bufferClut);
 }
 
 bool GPU_SetCmdValue(u32 op) {

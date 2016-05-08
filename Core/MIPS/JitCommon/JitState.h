@@ -19,8 +19,10 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Core/MIPS/MIPS.h"
 
 struct JitBlock;
+class JitBlockCache;
 
 namespace MIPSComp {
 
@@ -57,6 +59,7 @@ namespace MIPSComp {
 		JitState()
 			: hasSetRounding(0),
 			lastSetRounding(0),
+			currentRoundingFunc(nullptr),
 			startDefaultPrefix(true),
 			prefixSFlag(PREFIX_UNKNOWN),
 			prefixTFlag(PREFIX_UNKNOWN),
@@ -78,6 +81,7 @@ namespace MIPSComp {
 
 		u8 hasSetRounding;
 		u8 lastSetRounding;
+		const u8 *currentRoundingFunc;
 
 		// VFPU prefix magic
 		bool startDefaultPrefix;
@@ -175,4 +179,32 @@ namespace MIPSComp {
 			}
 		}
 	};
+
+	struct JitOptions {
+		JitOptions();
+
+		// x86
+		bool enableVFPUSIMD;
+		bool reserveR15ForAsm;
+
+		// ARM/ARM64
+		bool useBackJump;
+		bool useForwardJump;
+		bool cachePointers;
+		// ARM only
+		bool useNEONVFPU;
+		bool downcountInRegister;
+		// ARM64 only
+		bool useASIMDVFPU;
+		bool useStaticAlloc;
+
+		// Common
+		bool enableBlocklink;
+		bool immBranches;
+		bool continueBranches;
+		bool continueJumps;
+		int continueMaxInstructions;
+	};
+
 }
+

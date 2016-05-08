@@ -22,6 +22,7 @@ namespace WindowsRawInput {
 	LRESULT Process(HWND hWnd, WPARAM wParam, LPARAM lParam);
 	// Not actually RawInput but it kinda belongs here anyway.
 	LRESULT ProcessChar(HWND hWnd, WPARAM wParam, LPARAM lParam);
+	void GainFocus();
 	void LoseFocus();
 	void NotifyMenu();
 	void Shutdown();

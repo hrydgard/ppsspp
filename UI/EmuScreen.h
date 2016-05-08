@@ -28,23 +28,25 @@
 
 struct AxisInput;
 
+class AsyncImageFileView;
+
 class EmuScreen : public UIScreen {
 public:
 	EmuScreen(const std::string &filename);
 	~EmuScreen();
 
-	virtual void update(InputState &input) override;
-	virtual void render() override;
-	virtual void deviceLost() override;
-	virtual void dialogFinished(const Screen *dialog, DialogResult result) override;
-	virtual void sendMessage(const char *msg, const char *value) override;
+	void update(InputState &input) override;
+	void render() override;
+	void deviceLost() override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+	void sendMessage(const char *msg, const char *value) override;
 
-	virtual bool touch(const TouchInput &touch) override;
-	virtual bool key(const KeyInput &key) override;
-	virtual bool axis(const AxisInput &axis) override;
+	bool touch(const TouchInput &touch) override;
+	bool key(const KeyInput &key) override;
+	bool axis(const AxisInput &axis) override;
 
 protected:
-	virtual void CreateViews();
+	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 
 private:
@@ -57,6 +59,8 @@ private:
 	void onVKeyUp(int virtualKeyCode);
 	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
+
+	void releaseButtons();
 
 	void autoLoad();
 	void checkPowerDown();
@@ -82,4 +86,7 @@ private:
 
 	// De-noise mapped axis updates
 	int axisState_[JOYSTICK_AXIS_MAX];
+
+	double saveStatePreviewShownTime_;
+	AsyncImageFileView *saveStatePreview_;
 };

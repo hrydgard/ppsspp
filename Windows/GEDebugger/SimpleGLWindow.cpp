@@ -18,6 +18,7 @@
 #include <WindowsX.h>
 #include "math/lin/matrix4x4.h"
 #include "gfx_es2/glsl_program.h"
+#include "gfx_es2/gpu_features.h"
 #include "Common/Common.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
@@ -67,12 +68,15 @@ static const char basic_vs[] =
 	"}\n";
 
 SimpleGLWindow::SimpleGLWindow(HWND wnd)
-	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), tex_(0), flags_(0), zoom_(false),
-	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr) {
-	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG) this);
+	: hWnd_(wnd), valid_(false), drawProgram_(nullptr), vao_(0), tex_(0), flags_(0), zoom_(false),
+	  dragging_(false), offsetX_(0), offsetY_(0), reformatBuf_(nullptr), hoverCallback_(nullptr) {
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR) this);
 }
 
 SimpleGLWindow::~SimpleGLWindow() {
+	if (vao_ != 0) {
+		glDeleteVertexArrays(1, &vao_);
+	}
 	if (drawProgram_ != nullptr) {
 		glsl_destroy(drawProgram_);
 	}
@@ -152,6 +156,22 @@ void SimpleGLWindow::CreateProgram() {
 	glUniform1i(drawProgram_->sampler0, 0);
 	glsl_unbind();
 
+	if (gl_extensions.ARB_vertex_array_object) {
+		glGenVertexArrays(1, &vao_);
+		glBindVertexArray(vao_);
+
+		glGenBuffers(1, &ibuf_);
+		glGenBuffers(1, &vbuf_);
+
+		const GLubyte indices[4] = {0, 1, 3, 2};
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+	} else {
+		vao_ = 0;
+	}
+
 	glEnableVertexAttribArray(drawProgram_->a_position);
 	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
 }
@@ -199,10 +219,18 @@ void SimpleGLWindow::DrawChecker() {
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoords), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoords), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 }
 
 void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt) {
@@ -222,7 +250,15 @@ void SimpleGLWindow::Draw(const u8 *data, int w, int h, bool flipped, Format fmt
 	} else if (fmt == FORMAT_FLOAT) {
 		glfmt = GL_FLOAT;
 		components = GL_RED;
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
 	} else if (fmt == FORMAT_24BIT_8X) {
+		glfmt = GL_UNSIGNED_INT;
+		components = GL_RED;
+		finalData = Reformat(data, fmt, w * h);
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
 		glfmt = GL_UNSIGNED_INT;
 		components = GL_RED;
 		finalData = Reformat(data, fmt, w * h);
@@ -294,7 +330,7 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 	x = 0.0f;
 	y = 0.0f;
 
-	if (flags_ & (RESIZE_SHRINK_FIT | RESIZE_CENTER) && !zoom_) {
+	if ((flags_ & RESIZE_SHRINK_FIT) != 0 && !zoom_) {
 		float wscale = fw / w_, hscale = fh / h_;
 
 		// Too wide, and width is the biggest problem, so scale based on that.
@@ -302,6 +338,17 @@ void SimpleGLWindow::GetContentSize(float &x, float &y, float &fw, float &fh) {
 			fw = (float)w_;
 			fh /= wscale;
 		} else if (hscale > 1.0f) {
+			fw /= hscale;
+			fh = (float)h_;
+		}
+	}
+	if ((flags_ & RESIZE_GROW_FIT) != 0 && !zoom_) {
+		float wscale = fw / w_, hscale = fh / h_;
+
+		if (wscale > hscale && wscale < 1.0f) {
+			fw = (float)w_;
+			fh /= wscale;
+		} else if (hscale > wscale && hscale < 1.0f) {
 			fw /= hscale;
 			fh = (float)h_;
 		}
@@ -343,17 +390,26 @@ void SimpleGLWindow::Redraw(bool andSwap) {
 	GetContentSize(x, y, fw, fh);
 
 	const float pos[12] = {x,y,0, x+fw,y,0, x+fw,y+fh,0, x,y+fh,0};
-	static const float texCoords[8] = {0,0, 1,0, 1,1, 0,1};
+	static const float texCoordsNormal[8] = {0,0, 1,0, 1,1, 0,1};
 	static const float texCoordsFlipped[8] = {0,1, 1,1, 1,0, 0,0};
 	static const GLubyte indices[4] = {0,1,3,2};
+	const float *texCoords = tflipped_ ? texCoordsFlipped : texCoordsNormal;
 
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)w_, (float)h_, 0, -1, 1);
 	glUniformMatrix4fv(drawProgram_->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
-	glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, tflipped_ ? texCoordsFlipped : texCoords);
+	if (vao_) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(pos) + sizeof(texCoordsNormal), nullptr, GL_DYNAMIC_DRAW);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(pos), pos);
+		glBufferSubData(GL_ARRAY_BUFFER, sizeof(pos), sizeof(texCoordsNormal), texCoords);
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, 0);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, (const void *)sizeof(pos));
+	} else {
+		glVertexAttribPointer(drawProgram_->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+		glVertexAttribPointer(drawProgram_->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	}
 	glActiveTexture(GL_TEXTURE0);
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, vao_ ? 0 : indices);
 
 	if (andSwap) {
 		Swap();
@@ -369,13 +425,25 @@ void SimpleGLWindow::Clear() {
 void SimpleGLWindow::Begin() {
 	Redraw(false);
 
-	glDisableVertexAttribArray(drawProgram_->a_position);
-	glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	} else {
+		glDisableVertexAttribArray(drawProgram_->a_position);
+		glDisableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 }
 
 void SimpleGLWindow::End() {
-	glEnableVertexAttribArray(drawProgram_->a_position);
-	glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	if (vao_) {
+		glBindVertexArray(vao_);
+		glBindBuffer(GL_ARRAY_BUFFER, vbuf_);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf_);
+	} else {
+		glEnableVertexAttribArray(drawProgram_->a_position);
+		glEnableVertexAttribArray(drawProgram_->a_texcoord0);
+	}
 
 	Swap();
 }
@@ -434,6 +502,45 @@ bool SimpleGLWindow::ToggleZoom() {
 	return true;
 }
 
+bool SimpleGLWindow::Hover(int mouseX, int mouseY) {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	float fw, fh;
+	float x, y;
+	GetContentSize(x, y, fw, fh);
+
+	if (mouseX < x || mouseX >= x + fw || mouseY < y || mouseY >= y + fh) {
+		// Outside of bounds.
+		hoverCallback_(-1, -1);
+		return true;
+	}
+
+	float tx = (mouseX - x) * (tw_ / fw);
+	float ty = (mouseY - y) * (th_ / fh);
+
+	hoverCallback_((int)tx, (int)ty);
+
+	// Find out when they are done.
+	TRACKMOUSEEVENT tracking = {0};
+	tracking.cbSize = sizeof(tracking);
+	tracking.dwFlags = TME_LEAVE;
+	tracking.hwndTrack = hWnd_;
+	TrackMouseEvent(&tracking);
+
+	return true;
+}
+
+bool SimpleGLWindow::Leave() {
+	if (hoverCallback_ == nullptr) {
+		return false;
+	}
+
+	hoverCallback_(-1, -1);
+	return true;
+}
+
 const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
 	if (!reformatBuf_ || reformatBufSize_ < numPixels) {
 		delete [] reformatBuf_;
@@ -445,6 +552,19 @@ const u8 *SimpleGLWindow::Reformat(const u8 *data, Format fmt, u32 numPixels) {
 	if (fmt == FORMAT_24BIT_8X) {
 		for (u32 i = 0; i < numPixels; ++i) {
 			reformatBuf_[i] = (data32[i] << 8) | ((data32[i] >> 16) & 0xFF);
+		}
+	} else if (fmt == FORMAT_24BIT_8X_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			int z24 = data32[i] & 0x00FFFFFF;
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
+		}
+	} else if (fmt == FORMAT_FLOAT_DIV_256) {
+		for (u32 i = 0; i < numPixels; ++i) {
+			double z = *(float *)&data32[i];
+			int z24 = (int)(z * 16777215.0);
+			int z16 = z24 - 0x800000 + 0x8000;
+			reformatBuf_[i] = (z16 << 16) | z16;
 		}
 	} else if (fmt == FORMAT_24X_8BIT) {
 		u8 *buf8 = (u8 *)reformatBuf_;
@@ -463,13 +583,24 @@ SimpleGLWindow *SimpleGLWindow::GetFrom(HWND hwnd) {
 LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	SimpleGLWindow *win = SimpleGLWindow::GetFrom(hwnd);
 
-	switch(msg)
-	{
+	int mouseX = 0, mouseY = 0;
+	switch (msg) {
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_MOUSEMOVE:
+		mouseX = GET_X_LPARAM(lParam);
+		mouseY = GET_Y_LPARAM(lParam);
+		break;
+	default:
+		break;
+	}
+
+	switch (msg) {
 	case WM_NCCREATE:
 		win = new SimpleGLWindow(hwnd);
 		
 		// Continue with window creation.
-		return win != NULL ? TRUE : FALSE;
+		return win != nullptr ? TRUE : FALSE;
 
 	case WM_NCDESTROY:
 		delete win;
@@ -482,19 +613,28 @@ LRESULT CALLBACK SimpleGLWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (win->DragStart(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragStart(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_LBUTTONUP:
-		if (win->DragEnd(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragEnd(mouseX, mouseY)) {
 			return 0;
 		}
 		break;
 
 	case WM_MOUSEMOVE:
-		if (win->DragContinue(GET_X_LPARAM(lParam),  GET_Y_LPARAM(lParam))) {
+		if (win->DragContinue(mouseX, mouseY)) {
+			return 0;
+		}
+		if (win->Hover(mouseX, mouseY)) {
+			return 0;
+		}
+		break;
+
+	case WM_MOUSELEAVE:
+		if (win->Leave()) {
 			return 0;
 		}
 		break;

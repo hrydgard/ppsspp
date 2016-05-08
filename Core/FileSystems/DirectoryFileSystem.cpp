@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits>
+#include "file/free.h"
 #include "file/zip_read.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
@@ -25,6 +26,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
+#include "Core/Reporting.h"
 #include "UI/OnScreenDisplay.h"
 
 #ifdef _WIN32
@@ -380,9 +382,13 @@ void DirectoryFileHandle::Close()
 	if (needsTrunc_ != -1) {
 #ifdef _WIN32
 		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
-		SetEndOfFile(hFile);
+		if (SetEndOfFile(hFile) == 0) {
+			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
+		}
 #else
-		ftruncate(hFile, (off_t)needsTrunc_);
+		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
+			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
+		}
 #endif
 	}
 #ifdef _WIN32
@@ -600,9 +606,18 @@ int DirectoryFileSystem::DevType(u32 handle) {
 }
 
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from disk %s", size, iter->second.guestFilename.c_str());
+			return 0;
+		}
+
 		size_t bytesRead = iter->second.hFile.Read(pointer,size);
 		return bytesRead;
 	} else {
@@ -613,6 +628,11 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	int ignored;
+	return WriteFile(handle, pointer, size, ignored);
+}
+
+size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -641,7 +661,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.name = filename;
 
 	std::string fullName = GetLocalPath(filename);
-	if (! File::Exists(fullName)) {
+	if (!File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
 		if (! FixPathCase(basePath,filename, FPC_FILE_MUST_EXIST))
 			return x;
@@ -656,21 +676,26 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
 
-	if (x.type != FILETYPE_DIRECTORY)
-	{
-#ifdef _WIN32
-		struct _stat64i32 s;
-		_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s);
-#else
-		struct stat s;
-		stat(fullName.c_str(), &s);
-#endif
+	if (x.type != FILETYPE_DIRECTORY) {
+		File::FileDetails details;
+		if (!File::GetFileDetails(fullName, &details)) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
+			x.size = 0;
+			x.access = 0;
+			memset(&x.atime, 0, sizeof(x.atime));
+			memset(&x.ctime, 0, sizeof(x.ctime));
+			memset(&x.mtime, 0, sizeof(x.mtime));
+		} else {
+			x.size = details.size;
+			x.access = details.access;
+			time_t atime = details.atime;
+			time_t ctime = details.ctime;
+			time_t mtime = details.mtime;
 
-		x.size = File::GetSize(fullName);
-		x.access = s.st_mode & 0x1FF;
-		localtime_r((time_t*)&s.st_atime,&x.atime);
-		localtime_r((time_t*)&s.st_ctime,&x.ctime);
-		localtime_r((time_t*)&s.st_mtime,&x.mtime);
+			localtime_r((time_t*)&atime, &x.atime);
+			localtime_r((time_t*)&ctime, &x.ctime);
+			localtime_r((time_t*)&mtime, &x.mtime);
+		}
 	}
 
 	return x;
@@ -684,8 +709,7 @@ bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &ou
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
-static void tmFromFiletime(tm &dest, FILETIME &src)
-{
+static void tmFromFiletime(tm &dest, FILETIME &src) {
 	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
 	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
 
@@ -775,35 +799,18 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 }
 
 u64 DirectoryFileSystem::FreeSpace(const std::string &path) {
-#ifdef _WIN32
-	const std::wstring w32path = ConvertUTF8ToWString(GetLocalPath(path));
-	ULARGE_INTEGER free;
-	if (GetDiskFreeSpaceExW(w32path.c_str(), &free, nullptr, nullptr))
-		return free.QuadPart;
-#elif defined(__SYMBIAN32__)
-	QSystemStorageInfo storageInfo;
-	return (u64)storageInfo.availableDiskSpace("E");
-#else
-	std::string localPath = GetLocalPath(path);
-	struct statvfs diskstat;
-	int res = statvfs(localPath.c_str(), &diskstat);
+	uint64_t result = 0;
+	if (free_disk_space(GetLocalPath(path), result)) {
+		return result;
+	}
 
 #if HOST_IS_CASE_SENSITIVE
 	std::string fixedCase = path;
-	if (res != 0 && FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
+	if (FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again.
-		localPath = GetLocalPath(fixedCase);
-		res = statvfs(localPath.c_str(), &diskstat);
-	}
-#endif
-
-	if (res == 0) {
-#ifndef ANDROID
-		if (diskstat.f_flag & ST_RDONLY) {
-			return 0;
+		if (free_disk_space(GetLocalPath(fixedCase), result)) {
+			return result;
 		}
-#endif
-		return (u64)diskstat.f_bavail * (u64)diskstat.f_frsize;
 	}
 #endif
 
@@ -971,6 +978,11 @@ int VFSFileSystem::DevType(u32 handle) {
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	DEBUG_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
@@ -986,6 +998,11 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	int ignored;
+	return WriteFile(handle, pointer, size, ignored);
+}
+
+size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) {
 	// NOT SUPPORTED - READ ONLY
 	return 0;
 }

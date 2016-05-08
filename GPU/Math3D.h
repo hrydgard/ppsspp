@@ -180,6 +180,9 @@ public:
 typedef Vec2<float> Vec2f;
 
 template<typename T>
+class Vec3Packed;
+
+template<typename T>
 class Vec3
 {
 public:
@@ -205,6 +208,11 @@ public:
 #if defined(_M_SSE)
 	Vec3(const __m128 &_vec) : vec(_vec) {}
 	Vec3(const __m128i &_ivec) : ivec(_ivec) {}
+	Vec3(const Vec3Packed<T> &_xyz) {
+		vec = _mm_loadu_ps(_xyz.AsArray());
+	}
+#else
+	Vec3(const Vec3Packed<T> &_xyz) : x(_xyz.x), y(_xyz.y), z(_xyz.z) {}
 #endif
 
 	template<typename T2>
@@ -369,6 +377,9 @@ public:
 	Vec3Packed(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3Packed(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
 	Vec3Packed(const Vec2<T>& _xy, const T& _z) : x(_xy.x), y(_xy.y), z(_z) {}
+	Vec3Packed(const Vec3<T>& _xyz) {
+		memcpy(&x, _xyz.AsArray(), sizeof(float) * 3);
+	}
 
 	template<typename T2>
 	Vec3Packed<T2> Cast() const
@@ -550,7 +561,9 @@ public:
 
 	// Only implemented for T=int and T=float
 	static Vec4 FromRGBA(unsigned int rgba);
+	static Vec4 FromRGBA(const u8 *rgba);
 	unsigned int ToRGBA() const;
+	void ToRGBA(u8 *rgba) const;
 
 	static Vec4 AssignToAll(const T& f)
 	{
@@ -636,7 +649,7 @@ public:
 
 	void SetZero()
 	{
-		x=0; y=0; z=0;
+		x=0; y=0; z=0; w=0;
 	}
 
 	// Common alias: RGBA (colors)
@@ -1001,6 +1014,12 @@ inline Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
 #endif
 }
 
+template<typename T>
+inline Vec4<T> Vec4<T>::FromRGBA(const u8 *rgba)
+{
+	return Vec4<T>::FromRGBA(*(unsigned int *)rgba);
+}
+
 template<>
 inline Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
 {
@@ -1038,6 +1057,12 @@ __forceinline unsigned int Vec4<int>::ToRGBA() const
 #else
 	return clamp_u8(r()) | (clamp_u8(g()) << 8) | (clamp_u8(b()) << 16) | (clamp_u8(a()) << 24);
 #endif
+}
+
+template<typename T>
+__forceinline void Vec4<T>::ToRGBA(u8 *rgba) const
+{
+	*(u32 *)rgba = ToRGBA();
 }
 
 }; // namespace Math3D

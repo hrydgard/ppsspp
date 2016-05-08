@@ -5,7 +5,7 @@
 #include "Common/CommonWindows.h"
 #include "input/input_state.h"
 #include "base/NativeApp.h"
-#include "Windows/WndMainWindow.h"
+#include "Windows/MainWindow.h"
 
 extern InputState input_state;
 

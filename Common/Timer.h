@@ -15,8 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _TIMER_H_
-#define _TIMER_H_
+#pragma once
 
 #include "Common.h"
 #include <string>
@@ -33,7 +32,7 @@ public:
 	void Update();
 
 	// The time difference is always returned in milliseconds, regardless of alternative internal representation
-	u64 GetTimeDifference();
+	u64 GetTimeDifference() const;
 	void AddTimeDifference();
 	void WindBackStartingTime(u64 WindBack);
 
@@ -45,17 +44,17 @@ public:
 
   static void GetTimeFormatted(char formattedTime[13]);
 	std::string GetTimeElapsedFormatted() const;
-	u64 GetTimeElapsed();
+	u64 GetTimeElapsed() const;
 
 	static u32 GetTimeMs();
 
 private:
 	u64 m_LastTime;
 	u64 m_StartTime;
+#ifdef _WIN32
 	u64 m_frequency;
+#endif
 	bool m_Running;
 };
 
 } // Namespace Common
-
-#endif // _TIMER_H_

@@ -21,6 +21,7 @@
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/Reporting.h"
 #include "file/zip_read.h"
 #include "util/text/utf8.h"
 
@@ -129,7 +130,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 				ERROR_LOG(FILESYS, "Unable to open virtual file: %s", entry.fileName.c_str());
 			}
 		} else {
-			entry.totalSize = File::GetSize(GetLocalPath(entry.fileName));
+			entry.totalSize = File::GetFileSize(GetLocalPath(entry.fileName));
 		}
 
 		// Try to keep currentBlockIndex sane, in case there are other files.
@@ -146,7 +147,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
 {
-	auto s = p.Section("VirtualDiscFileSystem", 1);
+	auto s = p.Section("VirtualDiscFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -217,6 +218,12 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 		}
 	}
 
+	if (s >= 2) {
+		p.Do(lastReadBlock_);
+	} else {
+		lastReadBlock_ = 0;
+	}
+
 	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
 }
 
@@ -265,7 +272,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 
 	FileListEntry entry = {""};
 	entry.fileName = fileName;
-	entry.totalSize = File::GetSize(fullName);
+	entry.totalSize = File::GetFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;
 
@@ -422,9 +429,18 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 }
 
 size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
+	int ignored;
+	return ReadFile(handle, pointer, size, ignored);
+}
+
+size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 	EntryMap::iterator iter = entries.find(handle);
-	if (iter != entries.end())
-	{
+	if (iter != entries.end()) {
+		if (size < 0) {
+			ERROR_LOG_REPORT(FILESYS, "Invalid read for %lld bytes from virtual umd", size);
+			return 0;
+		}
+
 		// it's the whole iso... it could reference any of the files on the disc.
 		// For now let's just open and close the files on demand. Can certainly be done
 		// better though
@@ -468,7 +484,20 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			temp.Close();
 
 			iter->second.curOffset += size;
+			// TODO: This probably isn't enough...
+			if (abs((int)lastReadBlock_ - (int)iter->second.curOffset) > 100) {
+				// This is an estimate, sometimes it takes 1+ seconds, but it definitely takes time.
+				usec = 100000;
+			}
+			lastReadBlock_ = iter->second.curOffset;
 			return size;
+		}
+
+		if (iter->second.type == VFILETYPE_LBN && iter->second.curOffset + size > iter->second.size) {
+			// Clamp to the remaining size, but read what we can.
+			const s64 newSize = iter->second.size - iter->second.curOffset;
+			WARN_LOG(FILESYS, "VirtualDiscFileSystem: Reading beyond end of file, clamping size %lld to %lld", size, newSize);
+			size = newSize;
 		}
 
 		size_t bytesRead = iter->second.Read(pointer, size);
@@ -566,17 +595,28 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	}
 
 	if (x.type != FILETYPE_DIRECTORY) {
-		struct stat s;
-		stat(fullName.c_str(), &s);
+		File::FileDetails details;
+		if (!File::GetFileDetails(fullName, &details)) {
+			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
+			x.size = 0;
+			x.access = 0;
+			memset(&x.atime, 0, sizeof(x.atime));
+			memset(&x.ctime, 0, sizeof(x.ctime));
+			memset(&x.mtime, 0, sizeof(x.mtime));
+		} else {
+			x.size = details.size;
+			x.access = details.access;
+			time_t atime = details.atime;
+			time_t ctime = details.ctime;
+			time_t mtime = details.mtime;
 
-		x.size = File::GetSize(fullName);
+			localtime_r((time_t*)&atime, &x.atime);
+			localtime_r((time_t*)&ctime, &x.ctime);
+			localtime_r((time_t*)&mtime, &x.mtime);
+		}
 
 		x.startSector = fileList[fileIndex].firstBlock;
 		x.numSectors = (x.size+2047)/2048;
-
-		localtime_r((time_t*)&s.st_atime,&x.atime);
-		localtime_r((time_t*)&s.st_ctime,&x.ctime);
-		localtime_r((time_t*)&s.st_mtime,&x.mtime);
 	}
 
 	return x;
@@ -696,6 +736,12 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 }
 
 size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
+{
+	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
+	return 0;
+}
+
+size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
 {
 	ERROR_LOG(FILESYS,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
 	return 0;

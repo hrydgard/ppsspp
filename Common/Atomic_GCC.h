@@ -1,30 +1,12 @@
-// Copyright (C) 2003 Dolphin Project.
+// Copyright 2013 Dolphin Emulator Project
+// Licensed under GPLv2
+// Refer to the license.txt file included.
 
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, version 2.0 or later versions.
+// IWYU pragma: private, include "Common/Atomic.h"
 
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License 2.0 for more details.
+#pragma once
 
-// A copy of the GPL 2.0 should have been included with the program.
-// If not, see http://www.gnu.org/licenses/
-
-// Official SVN repository and contact information can be found at
-// http://code.google.com/p/dolphin-emu/
-
-#ifndef _ATOMIC_GCC_H_
-#define _ATOMIC_GCC_H_
-
-#ifdef BLACKBERRY
-#include <atomic.h>
-#elif defined(__SYMBIAN32__)
-#include <e32atomics.h>
-#endif
-
-#include "Common.h"
+#include "CommonTypes.h"
 
 // Atomic operations are performed in a single step by the CPU. It is
 // impossible for other threads to see the operation "half-done."
@@ -43,55 +25,78 @@
 namespace Common
 {
 
-inline void AtomicAdd(volatile u32& target, u32 value) {
+inline void AtomicAdd(volatile u32& target, u32 value)
+{
 	__sync_add_and_fetch(&target, value);
 }
 
-inline void AtomicAnd(volatile u32& target, u32 value) {
+inline void AtomicAnd(volatile u32& target, u32 value)
+{
 	__sync_and_and_fetch(&target, value);
 }
 
-inline void AtomicDecrement(volatile u32& target) {
+inline void AtomicDecrement(volatile u32& target)
+{
 	__sync_add_and_fetch(&target, -1);
 }
 
-inline void AtomicIncrement(volatile u32& target) {
+inline void AtomicIncrement(volatile u32& target)
+{
 	__sync_add_and_fetch(&target, 1);
 }
 
-inline u32 AtomicLoad(volatile u32& src) {
-	return src; // 32-bit reads are always atomic.
-}
-inline u32 AtomicLoadAcquire(volatile u32& src) {
-#ifdef __SYMBIAN32__
-	return __e32_atomic_load_acq32(&src);
-#else
-	//keep the compiler from caching any memory references
-	u32 result = src; // 32-bit reads are always atomic.
-	//__sync_synchronize(); // TODO: May not be necessary.
-	// Compiler instruction only. x86 loads always have acquire semantics.
-	__asm__ __volatile__ ( "":::"memory" );
-	return result;
-#endif
-}
-
-inline void AtomicOr(volatile u32& target, u32 value) {
+inline void AtomicOr(volatile u32& target, u32 value)
+{
 	__sync_or_and_fetch(&target, value);
 }
 
-inline void AtomicStore(volatile u32& dest, u32 value) {
-	dest = value; // 32-bit writes are always atomic.
+// Support clang versions older than 3.4.
+#if __clang__ 
+#if !__has_feature(cxx_atomic)
+template <typename T>
+_Atomic(T)* ToC11Atomic(volatile T* loc)
+{
+	return (_Atomic(T)*) loc;
 }
-inline void AtomicStoreRelease(volatile u32& dest, u32 value) {
-#ifdef BLACKBERRY
-	atomic_set(&dest, value);
-#elif defined(__SYMBIAN32__)
-	__e32_atomic_store_rel32(&dest, value);
-#else
-	__sync_lock_test_and_set(&dest, value); // TODO: Wrong! This function has acquire semantics.
+
+#define __atomic_load_n(p, m) __c11_atomic_load(ToC11Atomic(p), m)
+#define __atomic_store_n(p, v, m) __c11_atomic_store(ToC11Atomic(p), v, m)
+#define __atomic_exchange_n(p, v, m) __c11_atomic_exchange(ToC11Atomic(p), v, m)
 #endif
+#endif
+
+#ifndef __ATOMIC_RELAXED
+#error __ATOMIC_RELAXED not defined; your compiler version is too old.
+#endif
+
+template <typename T>
+inline T AtomicLoad(volatile T& src)
+{
+	return __atomic_load_n(&src, __ATOMIC_RELAXED);
+}
+
+template <typename T>
+inline T AtomicLoadAcquire(volatile T& src)
+{
+	return __atomic_load_n(&src, __ATOMIC_ACQUIRE);
+}
+
+template <typename T, typename U>
+inline void AtomicStore(volatile T& dest, U value)
+{
+	__atomic_store_n(&dest, value, __ATOMIC_RELAXED);
+}
+
+template <typename T, typename U>
+inline void AtomicStoreRelease(volatile T& dest, U value)
+{
+	__atomic_store_n(&dest, value, __ATOMIC_RELEASE);
+}
+
+template <typename T, typename U>
+inline T* AtomicExchangeAcquire(T* volatile& loc, U newval)
+{
+	return __atomic_exchange_n(&loc, newval, __ATOMIC_ACQ_REL);
 }
 
 }
-
-#endif

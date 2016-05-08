@@ -26,10 +26,9 @@
 
 bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize);
 
-class ISOFileSystem : public IFileSystem
-{
+class ISOFileSystem : public IFileSystem {
 public:
-	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice, std::string _restrictPath = "");
+	ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevice);
 	~ISOFileSystem();
 
 	void DoState(PointerWrap &p) override;
@@ -37,6 +36,7 @@ public:
 	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
@@ -46,16 +46,17 @@ public:
 	u64      FreeSpace(const std::string &path) override { return 0; }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;
-	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
+
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	bool MkDir(const std::string &dirname) override {return false;}
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }
 	bool RemoveFile(const std::string &filename) override { return false; }
 
 private:
-	struct TreeEntry
-	{
-		TreeEntry(){}
+	struct TreeEntry {
+		TreeEntry() : flags(0), valid(false) {}
 		~TreeEntry();
 
 		std::string name;
@@ -64,12 +65,16 @@ private:
 		s64 size;
 		bool isDirectory;
 
+		u32 startsector;
+		u32 dirsize;
+
 		TreeEntry *parent;
-		std::vector<TreeEntry*> children;
+
+		bool valid;
+		std::vector<TreeEntry *> children;
 	};
 
-	struct OpenFileEntry
-	{
+	struct OpenFileEntry {
 		TreeEntry *file;
 		unsigned int seekPos;  // TODO: Make 64-bit?
 		bool isRawSector;   // "/sce_lbn" mode
@@ -77,20 +82,18 @@ private:
 		u32 sectorStart;
 		u32 openSize;
 	};
-	
+
 	typedef std::map<u32,OpenFileEntry> EntryMap;
 	EntryMap entries;
 	IHandleAllocator *hAlloc;
 	TreeEntry *treeroot;
 	BlockDevice *blockDevice;
+	u32 lastReadBlock_;
 
 	TreeEntry entireISO;
 
-	// Don't use this in the emu, not savestated.
-	std::vector<std::string> restrictTree;
-
-	void ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root, size_t level);
-	TreeEntry *GetFromPath(std::string path, bool catchError = true);
+	void ReadDirectory(TreeEntry *root);
+	TreeEntry *GetFromPath(const std::string &path, bool catchError = true);
 	std::string EntryFullPath(TreeEntry *e);
 };
 
@@ -116,6 +119,9 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override {
 		return isoFileSystem_->ReadFile(handle, pointer, size);
 	}
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override {
+		return isoFileSystem_->ReadFile(handle, pointer, size, usec);
+	}
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override {
 		return isoFileSystem_->SeekFile(handle, position, type);
 	}
@@ -137,7 +143,10 @@ public:
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override {
 		return isoFileSystem_->WriteFile(handle, pointer, size);
 	}
-	bool GetHostPath(const std::string &inpath, std::string &outpath) { return false; }
+	size_t WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override {
+		return isoFileSystem_->WriteFile(handle, pointer, size, usec);
+	}
+	bool GetHostPath(const std::string &inpath, std::string &outpath) override { return false; }
 	bool MkDir(const std::string &dirname) override { return false; }
 	bool RmDir(const std::string &dirname) override { return false; }
 	int  RenameFile(const std::string &from, const std::string &to) override { return -1; }

@@ -18,7 +18,10 @@
 #include <algorithm>
 
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
+#include "input/input_state.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
@@ -33,15 +36,13 @@ struct InputState;
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
 
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
-
-#ifndef _WIN32
-InputState input_state;
-#endif
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 void UnitTestTerminator() {
 	// Bails out of jit so we can time things.
@@ -144,7 +145,7 @@ bool TestJit() {
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 			p++;
 			if (!MIPSAsm::MipsAssembleOpcode(lines[j], currentDebugMIPS, addr)) {
-				printf("ERROR: %S\n", MIPSAsm::GetAssembleError().c_str());
+				printf("ERROR: %ls\n", MIPSAsm::GetAssembleError().c_str());
 				compileSuccess = false;
 			}
 			addr += 4;
@@ -165,7 +166,7 @@ bool TestJit() {
 
 	printf("\n");
 
-	double jit_speed, interp_speed;
+	double jit_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
 		mipsr4k.UpdateCore(CPU_JIT);
@@ -174,8 +175,10 @@ bool TestJit() {
 		// Disassemble
 		JitBlockCache *cache = MIPSComp::jit->GetBlockCache();
 		JitBlock *block = cache->GetBlock(0);  // Should only be one block.
-#ifdef ARM
+#if defined(ARM)
 		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
+#elif defined(ARM64)
+		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
 #endif

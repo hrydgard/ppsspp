@@ -28,7 +28,6 @@
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HLE/HLE.h"
 
 #include "Core/Core.h"
@@ -36,6 +35,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Config.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 namespace Memory {
 
@@ -186,7 +186,7 @@ static bool Memory_TryBase(u32 flags) {
 			if (!*view.out_ptr_low)
 				goto bail;
 		}
-#ifdef _M_X64
+#if defined(_ARCH_64)
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 #else
@@ -341,7 +341,7 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	auto s = p.Section("Memory", 1, 2);
+	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
 
@@ -349,7 +349,8 @@ void DoState(PointerWrap &p)
 		if (!g_RemasterMode)
 			g_MemorySize = RAM_NORMAL_SIZE;
 		g_PSPModel = PSP_MODEL_FAT;
-	} else {
+	} else if (s == 2) {
+		// In version 2, we determine memory size based on PSP model.
 		u32 oldMemorySize = g_MemorySize;
 		p.Do(g_PSPModel);
 		p.DoMarker("PSPModel");
@@ -359,6 +360,17 @@ void DoState(PointerWrap &p)
 				Shutdown();
 				Init();
 			}
+		}
+	} else {
+		// In version 3, we started just saving the memory size directly.
+		// It's no longer based strictly on the PSP model.
+		u32 oldMemorySize = g_MemorySize;
+		p.Do(g_PSPModel);
+		p.DoMarker("PSPModel");
+		p.Do(g_MemorySize);
+		if (oldMemorySize != g_MemorySize) {
+			Shutdown();
+			Init();
 		}
 	}
 
@@ -481,7 +493,7 @@ Opcode Read_Opcode_JIT(u32 address)
 
 // WARNING! No checks!
 // We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
+void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value)
 {
 	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }
@@ -500,12 +512,6 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)
 #ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 #endif
-}
-
-const char *GetAddressName(u32 address)
-{
-	// TODO, follow GetPointer
-	return "[mem]";
 }
 
 } // namespace

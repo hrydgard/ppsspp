@@ -1,9 +1,13 @@
 #include <algorithm>
-#include "native/base/mutex.h"
-#include "native/base/timeutil.h"
-#include "GeDisasm.h"
-#include "GPUCommon.h"
-#include "GPUState.h"
+#include <type_traits>
+
+#include "base/mutex.h"
+#include "base/timeutil.h"
+#include "Common/ColorConv.h"
+#include "GPU/GeDisasm.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/GPUState.h"
 #include "ChunkFile.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -20,8 +24,29 @@ GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false)
 {
+	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the
+	// "padding" field at the end. This is important for save state compatibility.
+	// The compiler was not rounding the struct size up to an 8 byte boundary, which
+	// you'd expect due to the int64 field, but the Linux ABI apparently does not require that.
+	static_assert(sizeof(DisplayList) == 456, "Bad DisplayList size");
+
 	Reinitialize();
+	SetupColorConv();
 	SetThreadEnabled(g_Config.bSeparateCPUThread);
+	gstate.Reset();
+	gstate_c.Reset();
+	gpuStats.Reset();
+}
+
+GPUCommon::~GPUCommon() {
+}
+
+void GPUCommon::BeginHostFrame() {
+	ReapplyGfxState();
+}
+
+void GPUCommon::EndHostFrame() {
+
 }
 
 void GPUCommon::Reinitialize() {
@@ -69,7 +94,7 @@ bool GPUCommon::BusyDrawing() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}
@@ -124,7 +149,7 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
-	if (g_Config.bSeparateCPUThread) {
+	if (ThreadEnabled()) {
 		// Sync first, because the CPU is usually faster than the emulated GPU.
 		SyncThread();
 	}
@@ -533,6 +558,8 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		}
 	}
 
+	FinishDeferred();
+
 	// We haven't run the op at list.pc, so it shouldn't count.
 	if (cycleLastPC != list.pc) {
 		UpdatePC(list.pc - 4, list.pc);
@@ -570,7 +597,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 				prev = 0;
 			}
 			GeDisassembleOp(list.pc, op, prev, temp, 256);
-			NOTICE_LOG(G3D, "%s", temp);
+			NOTICE_LOG(G3D, "%08x: %s", op, temp);
 		}
 		gstate.cmdmem[cmd] = op;
 
@@ -610,7 +637,6 @@ void GPUCommon::ReapplyGfxState() {
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
-	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
@@ -628,14 +654,14 @@ void GPUCommon::ReapplyGfxStateInternal() {
 
 	// There are a few here in the middle that we shouldn't execute...
 
-	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++) {
+	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
 	// Let's just skip the transfer size stuff, it's just values.
 }
 
-inline void GPUCommon::UpdateState(GPUState state) {
+inline void GPUCommon::UpdateState(GPURunState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
 		downcount = 0;
@@ -687,7 +713,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
-		DEBUG_LOG(G3D, "Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+		DEBUG_LOG(G3D, "Starting DL execution at %08x - stall = %08x", l.pc, l.stall);
 		if (!InterpretList(l)) {
 			return;
 		} else {
@@ -1055,13 +1081,41 @@ struct DisplayList_v2 {
 void GPUCommon::DoState(PointerWrap &p) {
 	easy_guard guard(listLock);
 
-	auto s = p.Section("GPUCommon", 1, 3);
+	auto s = p.Section("GPUCommon", 1, 4);
 	if (!s)
 		return;
 
 	p.Do<int>(dlQueue);
-	if (s >= 3) {
+	if (s >= 4) {
 		p.DoArray(dls, ARRAY_SIZE(dls));
+	} else if (s >= 3) {
+		// This may have been saved with or without padding, depending on platform.
+		// We need to upconvert it to our consistently-padded struct.
+		static const size_t DisplayList_v3_size = 452;
+		static const size_t DisplayList_v4_size = 456;
+		static_assert(DisplayList_v4_size == sizeof(DisplayList), "Make sure to change here when updating DisplayList");
+
+		p.DoVoid(&dls[0], DisplayList_v3_size);
+		dls[0].padding = 0;
+
+		const u8 *savedPtr = *p.GetPPtr();
+		const u32 *savedPtr32 = (const u32 *)savedPtr;
+		// Here's the trick: the first member (id) is always the same as the index.
+		// The second member (startpc) is always an address, or 0, never 1.  So we can see the padding.
+		const bool hasPadding = savedPtr32[1] == 1;
+		if (hasPadding) {
+			u32 padding;
+			p.Do(padding);
+		}
+
+		for (size_t i = 1; i < ARRAY_SIZE(dls); ++i) {
+			p.DoVoid(&dls[i], DisplayList_v3_size);
+			dls[i].padding = 0;
+			if (hasPadding) {
+				u32 padding;
+				p.Do(padding);
+			}
+		}
 	} else if (s >= 2) {
 		for (size_t i = 0; i < ARRAY_SIZE(dls); ++i) {
 			DisplayList_v2 oldDL;
@@ -1085,13 +1139,12 @@ void GPUCommon::DoState(PointerWrap &p) {
 		}
 	}
 	int currentID = 0;
-	if (currentList != NULL) {
-		ptrdiff_t off = currentList - &dls[0];
-		currentID = (int) (off / sizeof(DisplayList));
+	if (currentList != nullptr) {
+		currentID = (int)(currentList - &dls[0]);
 	}
 	p.Do(currentID);
 	if (currentID == 0) {
-		currentList = NULL;
+		currentList = nullptr;
 	} else {
 		currentList = &dls[currentID];
 	}
@@ -1245,4 +1298,17 @@ void GPUCommon::SetCmdValue(u32 op) {
 	PreExecuteOp(op, diff);
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
+}
+
+void GPUCommon::AdvanceVerts(u32 vertType, int count, int bytesRead) {
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		int indexSize = 1;
+		if ((vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT)
+			indexSize = 2;
+		else if ((vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_32BIT)
+			indexSize = 4;
+		gstate_c.indexAddr += count * indexSize;
+	} else {
+		gstate_c.vertexAddr += bytesRead;
+	}
 }

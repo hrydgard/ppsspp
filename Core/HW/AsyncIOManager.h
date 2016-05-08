@@ -17,7 +17,7 @@
 
 #include <map>
 #include <set>
-#include "native/base/mutex.h"
+#include "base/mutex.h"
 #include "Core/ThreadEventQueue.h"
 
 class NoBase {
@@ -37,14 +37,42 @@ struct AsyncIOEvent {
 	u32 handle;
 	u8 *buf;
 	size_t bytes;
+	u32 invalidateAddr;
 
 	operator AsyncIOEventType() const {
 		return type;
 	}
 };
 
-// TODO: Something better.
-typedef s64 AsyncIOResult;
+struct AsyncIOResult {
+	AsyncIOResult() : result(0), finishTicks(0), invalidateAddr(0) {
+	}
+
+	explicit AsyncIOResult(s64 r) : result(r), finishTicks(0), invalidateAddr(0) {
+	}
+
+	AsyncIOResult(s64 r, int usec, u32 addr = 0) : result(r), invalidateAddr(addr) {
+		finishTicks = CoreTiming::GetTicks() + usToCycles(usec);
+	}
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("AsyncIOResult", 1, 2);
+		if (!s)
+			return;
+
+		p.Do(result);
+		p.Do(finishTicks);
+		if (s >= 2) {
+			p.Do(invalidateAddr);
+		} else {
+			invalidateAddr = 0;
+		}
+	}
+
+	s64 result;
+	u64 finishTicks;
+	u32 invalidateAddr;
+};
 
 typedef ThreadEventQueue<NoBase, AsyncIOEvent, AsyncIOEventType, IO_EVENT_INVALID, IO_EVENT_SYNC, IO_EVENT_FINISH> IOThreadEventQueue;
 class AsyncIOManager : public IOThreadEventQueue {
@@ -55,17 +83,20 @@ public:
 	void ScheduleOperation(AsyncIOEvent ev);
 	void Shutdown();
 
+	bool HasResult(u32 handle);
 	bool PopResult(u32 handle, AsyncIOResult &result);
+	bool ReadResult(u32 handle, AsyncIOResult &result);
 	bool WaitResult(u32 handle, AsyncIOResult &result);
+	u64 ResultFinishTicks(u32 handle);
 
 protected:
-	virtual void ProcessEvent(AsyncIOEvent ref);
-	virtual bool ShouldExitEventLoop() {
+	void ProcessEvent(AsyncIOEvent ref) override;
+	bool ShouldExitEventLoop() override {
 		return coreState == CORE_ERROR || coreState == CORE_POWERDOWN;
 	}
 
 private:
-	void Read(u32 handle, u8 *buf, size_t bytes);
+	void Read(u32 handle, u8 *buf, size_t bytes, u32 invalidateAddr);
 	void Write(u32 handle, u8 *buf, size_t bytes);
 
 	void EventResult(u32 handle, AsyncIOResult result);

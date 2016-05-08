@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -27,14 +27,14 @@ HLEHelperThread::HLEHelperThread() : id_(-1), entry_(0) {
 }
 
 HLEHelperThread::HLEHelperThread(const char *threadName, u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
-	u32 bytes = instrCount * sizeof(u32);
-	u32 size = bytes + sizeof(u32) * 2;
-	AllocEntry(bytes);
-	Memory::Memcpy(entry_, instructions, bytes);
+	u32 instrBytes = instrCount * sizeof(u32);
+	u32 totalBytes = instrBytes + sizeof(u32) * 2;
+	AllocEntry(totalBytes);
+	Memory::Memcpy(entry_, instructions, instrBytes);
 
 	// Just to simplify things, we add the return here.
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), entry_ + bytes + 0);
-	Memory::Write_U32(MIPS_MAKE_NOP(), entry_ + bytes + 4);
+	Memory::Write_U32(MIPS_MAKE_JR_RA(), entry_ + instrBytes + 0);
+	Memory::Write_U32(MIPS_MAKE_NOP(), entry_ + instrBytes + 4);
 
 	Create(threadName, prio, stacksize);
 }

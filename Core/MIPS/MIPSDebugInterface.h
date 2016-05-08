@@ -27,77 +27,77 @@ class MIPSDebugInterface : public DebugInterface
 {
 	MIPSState *cpu;
 public:
-	MIPSDebugInterface(MIPSState *_cpu){cpu=_cpu;}
-	virtual const char *disasm(unsigned int address, unsigned int align);
-	virtual int getInstructionSize(int instruction) {return 4;}
-	virtual bool isAlive();
-	virtual bool isBreakpoint(unsigned int address);
-	virtual void setBreakpoint(unsigned int address);
-	virtual void clearBreakpoint(unsigned int address);
-	virtual void clearAllBreakpoints();
-	virtual void toggleBreakpoint(unsigned int address);
-	virtual unsigned int readMemory(unsigned int address);
-	virtual unsigned int getPC() { return cpu->pc; }
-	virtual void setPC(unsigned int address) {cpu->pc = address;}
-	virtual void step() {}
-	virtual void runToBreakpoint();
-	virtual int getColor(unsigned int address);
-	virtual std::string getDescription(unsigned int address);
-	virtual bool initExpression(const char* exp, PostfixExpression& dest);
-	virtual bool parseExpression(PostfixExpression& exp, u32& dest);
+	MIPSDebugInterface(MIPSState *_cpu) { cpu = _cpu; }
+	const char *disasm(unsigned int address, unsigned int align) override;
+	int getInstructionSize(int instruction) override { return 4; }
+	bool isAlive() override;
+	bool isBreakpoint(unsigned int address) override;
+	void setBreakpoint(unsigned int address) override;
+	void clearBreakpoint(unsigned int address) override;
+	void clearAllBreakpoints() override;
+	void toggleBreakpoint(unsigned int address) override;
+	unsigned int readMemory(unsigned int address) override;
+	unsigned int getPC() override { return cpu->pc; }
+	void setPC(unsigned int address) override { cpu->pc = address; }
+	void step() override {}
+	void runToBreakpoint() override;
+	int getColor(unsigned int address) override;
+	std::string getDescription(unsigned int address) override;
+	bool initExpression(const char* exp, PostfixExpression& dest) override;
+	bool parseExpression(PostfixExpression& exp, u32& dest) override;
 
 	//overridden functions
-	const char *GetName();
-	int GetGPRSize() { return GPR_SIZE_32;}
-	u32 GetGPR32Value(int reg) {return cpu->r[reg];}
-	u32 GetPC() {return cpu->pc;}
-	u32 GetLR() {return cpu->r[MIPS_REG_RA];}
-	void SetPC(u32 _pc) {cpu->pc=_pc;}
+	const char *GetName() override;
+	int GetGPRSize() override { return GPR_SIZE_32; }
+	u32 GetGPR32Value(int reg) override { return cpu->r[reg]; }
+	u32 GetPC() override { return cpu->pc; }
+	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
+	void SetPC(u32 _pc) override { cpu->pc = _pc; }
 
-	const char *GetCategoryName(int cat)
+	const char *GetCategoryName(int cat) override
 	{
 		const char *names[3] = {("GPR"),("FPU"),("VFPU")};
 		return names[cat];
 	}
-	int GetNumCategories() { return 3; }
-	int GetNumRegsInCategory(int cat)
+	int GetNumCategories() override { return 3; }
+	int GetNumRegsInCategory(int cat) override
 	{
 		int r[3] = {32,32,32};
 		return r[cat];
 	}
-	const char *GetRegName(int cat, int index);
+	const char *GetRegName(int cat, int index) override;
 
-	virtual void PrintRegValue(int cat, int index, char *out)
+	void PrintRegValue(int cat, int index, char *out) override
 	{
 		switch (cat)
 		{
-		case 0:	sprintf(out, "%08X", cpu->r[index]); break;
-		case 1:	sprintf(out, "%f", cpu->f[index]); break;
-		case 2:	sprintf(out, "N/A"); break;
+		case 0: sprintf(out, "%08X", cpu->r[index]); break;
+		case 1: sprintf(out, "%f", cpu->f[index]); break;
+		case 2: sprintf(out, "N/A"); break;
 		}
 	}
 
-	u32 GetHi()
+	u32 GetHi() override
 	{
 		return cpu->hi;
 	}
 
-	u32 GetLo()
+	u32 GetLo() override
 	{
 		return cpu->lo;
 	}
 	
-	void SetHi(u32 val)
+	void SetHi(u32 val) override
 	{
 		cpu->hi = val;
 	}
 
-	void SetLo(u32 val)
+	void SetLo(u32 val) override
 	{
 		cpu->lo = val;
 	}
 
-	u32 GetRegValue(int cat, int index)
+	u32 GetRegValue(int cat, int index) override
 	{
 		u32 temp;
 		switch (cat)
@@ -118,7 +118,7 @@ public:
 		}
 	}
 
-	void SetRegValue(int cat, int index, u32 value)
+	void SetRegValue(int cat, int index, u32 value) override
 	{
 		switch (cat)
 		{

@@ -589,14 +589,14 @@ void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	}
 }
 
-void ARMXEmitter::SetCodePtr(u8 *ptr)
+void ARMXEmitter::SetCodePointer(u8 *ptr)
 {
 	code = ptr;
 	startcode = code;
 	lastCacheFlushEnd = ptr;
 }
 
-const u8 *ARMXEmitter::GetCodePtr() const
+const u8 *ARMXEmitter::GetCodePointer() const
 {
 	return code;
 }
@@ -641,7 +641,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
 #if defined(ARM)
-#ifdef __clang__
+#if defined(__clang__) || defined(ANDROID)
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);
@@ -710,7 +710,7 @@ FixupBranch ARMXEmitter::B_CC(CCFlags Cond)
 void ARMXEmitter::B_CC(CCFlags Cond, const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - ((intptr_t)(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "B_CC out of range (%p calls %p)", code, fnptr);
 
 	Write32((Cond << 28) | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -728,16 +728,16 @@ FixupBranch ARMXEmitter::BL_CC(CCFlags Cond)
 void ARMXEmitter::SetJumpTarget(FixupBranch const &branch)
 {
 	ptrdiff_t distance =  ((intptr_t)(code) - 8)  - (intptr_t)branch.ptr;
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
 	             "SetJumpTarget out of range (%p calls %p)", code, branch.ptr);
 	u32 instr = (u32)(branch.condition | ((distance >> 2) & 0x00FFFFFF));
 	instr |= branch.type == 0 ? /* B */ 0x0A000000 : /* BL */ 0x0B000000;
 	*(u32*)branch.ptr = instr;
 }
-void ARMXEmitter::B (const void *fnptr)
+void ARMXEmitter::B(const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "B out of range (%p calls %p)", code, fnptr);
 
 	Write32(condition | 0x0A000000 | ((distance >> 2) & 0x00FFFFFF));
@@ -748,9 +748,9 @@ void ARMXEmitter::B(ARMReg src)
 	Write32(condition | 0x012FFF10 | src);
 }
 
-bool ARMXEmitter::BLInRange(const void *fnptr) {
+bool ARMXEmitter::BLInRange(const void *fnptr) const {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	if (distance <= -0x2000000 || distance > 0x2000000)
+	if (distance <= -0x2000000 || distance >= 0x2000000)
 		return false;
 	else
 		return true;
@@ -759,7 +759,7 @@ bool ARMXEmitter::BLInRange(const void *fnptr) {
 void ARMXEmitter::BL(const void *fnptr)
 {
 	ptrdiff_t distance = (intptr_t)fnptr - (intptr_t(code) + 8);
-	_assert_msg_(JIT, distance > -0x2000000 && distance <=  0x2000000,
+	_assert_msg_(JIT, distance > -0x2000000 && distance < 0x2000000,
                      "BL out of range (%p calls %p)", code, fnptr);
 	Write32(condition | 0x0B000000 | ((distance >> 2) & 0x00FFFFFF));
 }
@@ -844,7 +844,9 @@ const char *InstNames[] = { "AND",
                             "ORR",
                             "MOV",
                             "BIC",
-                            "MVN"
+                            "MVN",
+                            "MOVW",
+                            "MOVT",
                             };
 
 void ARMXEmitter::AND (ARMReg Rd, ARMReg Rn, Operand2 Rm) { WriteInstruction(0, Rd, Rn, Rm); }
@@ -2686,6 +2688,68 @@ void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, ARMReg Vn)
 	Write32((0xF2 << 24) | (Size & I_UNSIGNED ? 1 << 24 : 0) | (encodedSize(Size) << 20) | EncodeVn(Vn) | EncodeVd(Vd) | \
 			(0x40 << 4) | (register_quad << 6) | EncodeVm(Vm));
 }
+
+static int EncodeSizeShift(u32 Size, int amount, bool inverse, bool halve) {
+	int sz = 0;
+	switch (Size & 0xF) {
+	case I_8: sz = 8; break;
+	case I_16: sz = 16; break;
+	case I_32: sz = 32; break;
+	case I_64: sz = 64; break;
+	}
+	if (inverse && halve) {
+		_dbg_assert_msg_(JIT, amount <= sz / 2, "Amount %d too large for narrowing shift (max %d)", amount, sz/2);
+		return (sz / 2) + (sz / 2) - amount;
+	} else if (inverse) {
+		return sz + (sz - amount);
+	} else {
+		return sz + amount;
+	}
+}
+
+void ARMXEmitter::EncodeShiftByImm(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount, u8 opcode, bool register_quad, bool inverse, bool halve) {
+	_dbg_assert_msg_(JIT, Vd >= D0, "Pass invalid register to %s", __FUNCTION__);
+	_dbg_assert_msg_(JIT, cpu_info.bNEON, "Can't use %s when CPU doesn't support it", __FUNCTION__);
+	_dbg_assert_msg_(JIT, !(Size & F_32), "%s doesn't support float", __FUNCTION__);
+	int imm7 = EncodeSizeShift(Size, shiftAmount, inverse, halve);
+	int L = (imm7 >> 6) & 1;
+	int U = (Size & I_UNSIGNED) ? 1 : 0;
+	u32 value = (0xF2 << 24) | (U << 24) | (1 << 23) | ((imm7 & 0x3f) << 16) | EncodeVd(Vd) | (opcode << 8) | (L << 7) | (register_quad << 6) | (1 << 4) | EncodeVm(Vm);
+	Write32(value);
+}
+
+void ARMXEmitter::VSHL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0x5, Vd >= Q0, false, false);
+}
+
+void ARMXEmitter::VSHLL(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	if ((u32)shiftAmount == (8 * (Size & 0xF))) {
+		// Entirely different encoding (A2) for size == shift! Bleh.
+		int sz = 0;
+		switch (Size & 0xF) {
+		case I_8: sz = 0; break;
+		case I_16: sz = 1; break;
+		case I_32: sz = 2; break;
+		case I_64:
+			_dbg_assert_msg_(JIT, false, "Cannot VSHLL 64-bit elements");
+		}
+		int imm6 = 0x32 | (sz << 2);
+		u32 value = (0xF3 << 24) | (1 << 23) | (imm6 << 16) | EncodeVd(Vd) | (0x3 << 8) | EncodeVm(Vm);
+		Write32(value);
+	} else {
+		EncodeShiftByImm((Size & ~I_UNSIGNED), Vd, Vm, shiftAmount, 0xA, false, false, false);
+	}
+}
+
+void ARMXEmitter::VSHR(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	EncodeShiftByImm(Size, Vd, Vm, shiftAmount, 0x0, Vd >= Q0, true, false);
+}
+
+void ARMXEmitter::VSHRN(u32 Size, ARMReg Vd, ARMReg Vm, int shiftAmount) {
+	// Reduce Size by 1 to encode correctly.
+	EncodeShiftByImm(Size, Vd, Vm, shiftAmount, 0x8, false, true, true);
+}
+
 void ARMXEmitter::VSUB(u32 Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_dbg_assert_msg_(JIT, Vd >= Q0, "Pass invalid register to %s", __FUNCTION__);
@@ -3147,36 +3211,12 @@ void ARMXEmitter::VCVTF16F32(ARMReg Dest, ARMReg Src) {
 	Write32((0xF3B6 << 16) | ((Dest & 0x10) << 18) | ((Dest & 0xF) << 12) | 0x600 | (op << 8) | ((Src & 0x10) << 1) | (Src & 0xF));
 }
 
-void ARMXCodeBlock::AllocCodeSpace(int size) {
-	region_size = size;
-	region = (u8*)AllocateExecutableMemory(region_size);
-	SetCodePtr(region);
-}
-
 // Always clear code space with breakpoints, so that if someone accidentally executes
 // uninitialized, it just breaks into the debugger.
-void ARMXCodeBlock::ClearCodeSpace() {
-	// x86/64: 0xCC = breakpoint
+void ARMXCodeBlock::PoisonMemory() {
+	// TODO: this isn't right for ARM!
 	memset(region, 0xCC, region_size);
 	ResetCodePtr();
-}
-
-void ARMXCodeBlock::FreeCodeSpace() {
-#ifdef __SYMBIAN32__
-	ResetExecutableMemory(region);
-#else
-	FreeMemoryPages(region, region_size);
-#endif
-	region = NULL;
-	region_size = 0;
-}
-
-void ARMXCodeBlock::WriteProtect() {
-	WriteProtectMemory(region, region_size, true);
-}
-
-void ARMXCodeBlock::UnWriteProtect() {
-	UnWriteProtectMemory(region, region_size, false);
 }
 
 }

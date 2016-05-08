@@ -18,10 +18,13 @@
 #pragma once
 
 #include "base/basictypes.h"
-#include "../../Globals.h"
+#include "Globals.h"
 #include <map>
-#include "VertexShaderGenerator.h"
-#include "FragmentShaderGenerator.h"
+
+#include "GPU/Common/ShaderCommon.h"
+#include "GPU/Common/ShaderId.h"
+#include "GPU/GLES/VertexShaderGenerator.h"
+#include "GPU/GLES/FragmentShaderGenerator.h"
 
 class Shader;
 
@@ -40,12 +43,12 @@ enum {
 
 class LinkedShader {
 public:
-	LinkedShader(Shader *vs, Shader *fs, u32 vertType, bool useHWTransform, LinkedShader *previous);
+	LinkedShader(ShaderID VSID, Shader *vs, ShaderID FSID, Shader *fs, bool useHWTransform);
 	~LinkedShader();
 
-	void use(u32 vertType, LinkedShader *previous);
+	void use(const ShaderID &VSID, LinkedShader *previous);
 	void stop();
-	void UpdateUniforms(u32 vertType);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID);
 
 	Shader *vs_;
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
@@ -66,6 +69,8 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
+	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
+
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
 #else
@@ -110,10 +115,10 @@ public:
 enum {
 	DIRTY_PROJMATRIX = (1 << 0),
 	DIRTY_PROJTHROUGHMATRIX = (1 << 1),
-	DIRTY_FOGCOLOR	 = (1 << 2),
-	DIRTY_FOGCOEF    = (1 << 3),
-	DIRTY_TEXENV		 = (1 << 4),
-	DIRTY_ALPHACOLORREF	 = (1 << 5),
+	DIRTY_FOGCOLOR = (1 << 2),
+	DIRTY_FOGCOEF = (1 << 3),
+	DIRTY_TEXENV = (1 << 4),
+	DIRTY_ALPHACOLORREF = (1 << 5),
 
 	// 1 << 6 is free! Wait, not anymore...
 	DIRTY_STENCILREPLACEVALUE = (1 << 6),
@@ -133,7 +138,10 @@ enum {
 	DIRTY_SHADERBLEND = (1 << 17),  // Used only for in-shader blending.
 
 	DIRTY_UVSCALEOFFSET = (1 << 18),  // this will be dirtied ALL THE TIME... maybe we'll need to do "last value with this shader compares"
+
+	// Texclamp is fairly rare so let's share it's bit with DIRTY_DEPTHRANGE.
 	DIRTY_TEXCLAMP = (1 << 19),
+	DIRTY_DEPTHRANGE = (1 << 19),
 
 	DIRTY_WORLDMATRIX = (1 << 21),
 	DIRTY_VIEWMATRIX = (1 << 22),  // Maybe we'll fold this into projmatrix eventually
@@ -154,23 +162,23 @@ enum {
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t shaderType, bool useHWTransform);
+	Shader(const char *code, uint32_t glShaderType, bool useHWTransform);
 	~Shader();
 	uint32_t shader;
-	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; }
+	bool UseHWTransform() const { return useHWTransform_; } // only relevant for vtx shaders
+
+	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 
 private:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
+	bool isFragment_;
 };
 
-
-class ShaderManager
-{
+class ShaderManager {
 public:
 	ShaderManager();
 	~ShaderManager();
@@ -179,8 +187,8 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(int prim, u32 vertType);
-	LinkedShader *ApplyFragmentShader(Shader *vs, int prim, u32 vertType);
+	Shader *ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(ShaderID VSID, Shader *vs, u32 vertType, int prim);
 
 	void DirtyShader();
 	void DirtyUniform(u32 what) {
@@ -192,8 +200,16 @@ public:
 	int NumFragmentShaders() const { return (int)fsCache_.size(); }
 	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
 
+	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
+	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
+
+	void LoadAndPrecompile(const std::string &filename);
+	void Save(const std::string &filename);
+
 private:
 	void Clear();
+	Shader *CompileFragmentShader(ShaderID id);
+	Shader *CompileVertexShader(ShaderID id);
 
 	struct LinkedShaderCacheEntry {
 		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)
@@ -209,17 +225,19 @@ private:
 
 	bool lastVShaderSame_;
 
-	FragmentShaderID lastFSID_;
-	VertexShaderID lastVSID_;
+	ShaderID lastFSID_;
+	ShaderID lastVSID_;
 
 	LinkedShader *lastShader_;
 	u32 globalDirty_;
 	u32 shaderSwitchDirty_;
 	char *codeBuffer_;
 
-	typedef std::map<FragmentShaderID, Shader *> FSCache;
+	typedef std::map<ShaderID, Shader *> FSCache;
 	FSCache fsCache_;
 
-	typedef std::map<VertexShaderID, Shader *> VSCache;
+	typedef std::map<ShaderID, Shader *> VSCache;
 	VSCache vsCache_;
+
+	bool diskCacheDirty_;
 };

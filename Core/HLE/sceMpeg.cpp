@@ -27,6 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HW/MediaEngine.h"
 #include "Core/Config.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -72,6 +73,7 @@ static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
+static const int avcCscDelayMs = 4000;
 static const int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
 static const int avcEmptyDelayMs = 320;
 static const int mpegDecodeErrorDelayMs = 100;
@@ -95,8 +97,8 @@ static bool pmp_oldStateLoaded = false; // for dostate
 #ifdef USE_FFMPEG 
 
 extern "C" {
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
+#include "libavformat/avformat.h"
+#include "libswscale/swscale.h"
 }
 static AVPixelFormat pmp_want_pix_fmt;
 
@@ -122,9 +124,12 @@ void SceMpegAu::write(u32 addr) {
 	Memory::WriteStruct(addr, this);
 }
 
-int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
+/*
+// Currently unused
+static int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(maxAheadTimestamp, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
+*/
 
 const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
 	0x10,0xc8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -156,15 +161,15 @@ typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
 struct MpegContext {
-	MpegContext() : mediaengine(NULL) { memcpy(mpegheader, defaultMpegheader, 2048); }
+	MpegContext() : mediaengine(nullptr), ringbufferNeedsReverse(false) {
+		memcpy(mpegheader, defaultMpegheader, 2048);
+	}
 	~MpegContext() {
-		if (mediaengine != NULL) {
-			delete mediaengine;
-		}
+		delete mediaengine;
 	}
 
 	void DoState(PointerWrap &p) {
-		auto s = p.Section("MpegContext", 1);
+		auto s = p.Section("MpegContext", 1, 2);
 		if (!s)
 			return;
 
@@ -197,6 +202,7 @@ struct MpegContext {
 		p.Do(isAnalyzed);
 		p.Do<u32, StreamInfo>(streamMap);
 		p.DoClass(mediaengine);
+		ringbufferNeedsReverse = s < 2;
 	}
 
 	u8 mpegheader[2048];
@@ -229,6 +235,7 @@ struct MpegContext {
 	bool ignoreAvc;
 
 	bool isAnalyzed;
+	bool ringbufferNeedsReverse;
 
 	StreamInfoMap streamMap;
 	MediaEngine *mediaengine;
@@ -240,23 +247,30 @@ static u32 streamIdGen;
 static int actionPostPut;
 static std::map<u32, MpegContext *> mpegMap;
 
-MpegContext *getMpegCtx(u32 mpegAddr) {
+static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
-		return NULL;
+		return nullptr;
 		
 	u32 mpeg = Memory::Read_U32(mpegAddr);
+	auto found = mpegMap.find(mpeg);
+	if (found == mpegMap.end())
+		return nullptr;
 
-	if (mpegMap.find(mpeg) == mpegMap.end())
-		return NULL;
-
-	return mpegMap[mpeg];
+	MpegContext *res = found->second;
+	// Take this opportunity to upgrade savestates if necessary.
+	if (res->ringbufferNeedsReverse) {
+		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(res->mpegRingbufferAddr);
+		ringbuffer->packetsAvail = ringbuffer->packets - ringbuffer->packetsAvail;
+		res->ringbufferNeedsReverse = false;
+	}
+	return res;
 }
 
 static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
 	buf->packets = packets;
 	buf->packetsRead = 0;
 	buf->packetsWritten = 0;
-	buf->packetsFree = 0;
+	buf->packetsAvail = 0;
 	buf->packetSize = 2048;
 	buf->data = data;
 	buf->callback_addr = callback_addr;
@@ -269,11 +283,11 @@ static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int si
 		buf->gp = __KernelGetModuleGP(__KernelGetCurThreadModuleId());
 }
 
-u32 convertTimestampToDate(u32 ts) {
+static u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
 
-u32 getMpegVersion(u32 mpegRawVersion) {
+static u32 getMpegVersion(u32 mpegRawVersion) {
 	switch (mpegRawVersion) {
 		case PSMF_VERSION_0012: return MPEG_VERSION_0012;
 		case PSMF_VERSION_0013: return MPEG_VERSION_0013;
@@ -282,7 +296,7 @@ u32 getMpegVersion(u32 mpegRawVersion) {
 		default: return -1;
 	}
 }
-void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
+static void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
@@ -343,14 +357,14 @@ public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
 	static Action *Create() { return new PostPutAction; }
-	void DoState(PointerWrap &p) {
-	auto s = p.Section("PostPutAction", 1);
-	if (!s)
-		return;
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("PostPutAction", 1);
+		if (!s)
+			return;
 
 		p.Do(ringAddr_);
 	}
-	void run(MipsCall &call);
+	void run(MipsCall &call) override;
 private:
 	u32 ringAddr_;
 };
@@ -403,7 +417,7 @@ void __MpegLoadModule(int version) {
 	mpegLibVersion = version;
 }
 
-u32 sceMpegInit() {
+static u32 sceMpegInit() {
 	if (isMpegInit) {
 		WARN_LOG(ME, "sceMpegInit(): already initialized");
 		// TODO: Need to properly hook module load/unload for this to work right.
@@ -415,18 +429,18 @@ u32 sceMpegInit() {
 	return hleDelayResult(0, "mpeg init", 750);
 }
 
-u32 __MpegRingbufferQueryMemSize(int packets) {
+static u32 __MpegRingbufferQueryMemSize(int packets) {
 	return packets * (104 + 2048);
 }
 
-u32 sceMpegRingbufferQueryMemSize(int packets) {
+static u32 sceMpegRingbufferQueryMemSize(int packets) {
 	u32 size = __MpegRingbufferQueryMemSize(packets);
 	DEBUG_LOG(ME, "%i = sceMpegRingbufferQueryMemSize(%i)", size, packets);
 	return size;
 }
 
 
-u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
+static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32 size, u32 callbackAddr, u32 callbackArg) {
 	if (!Memory::IsValidAddress(ringbufferAddr)) {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferConstruct(%08x, %i, %08x, %08x, %08x, %08x): bad ringbuffer, should crash", ringbufferAddr, numPackets, data, size, callbackAddr, callbackArg);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
@@ -453,7 +467,7 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 	return 0;
 }
 
-u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
+static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
 	if (!Memory::IsValidAddress(mpegAddr)) {
 		WARN_LOG(ME, "sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i): invalid addresses", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
@@ -468,9 +482,9 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 	if (ringbuffer.IsValid()) {
 		if (ringbuffer->packetSize == 0) {
-			ringbuffer->packetsFree = 0;
+			ringbuffer->packetsAvail = 0;
 		} else {
-			ringbuffer->packetsFree = (ringbuffer->dataUpperBound - ringbuffer->data) / ringbuffer->packetSize;
+			ringbuffer->packetsAvail = ringbuffer->packets - (ringbuffer->dataUpperBound - ringbuffer->data) / ringbuffer->packetSize;
 		}
 		ringbuffer->mpeg = mpegAddr;
 	}
@@ -520,7 +534,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 	return hleDelayResult(0, "mpeg create", 29000);
 }
 
-int sceMpegDelete(u32 mpeg)
+static int sceMpegDelete(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -537,7 +551,7 @@ int sceMpegDelete(u32 mpeg)
 }
 
 
-int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
+static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 {
 	if (!Memory::IsValidAddress(modeAddr)) {
 		WARN_LOG(ME, "sceMpegAvcDecodeMode(%08x, %08x): invalid addresses", mpeg, modeAddr);
@@ -562,7 +576,7 @@ int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 	return 0;
 }
 
-int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
+static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(offsetAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x): invalid addresses", mpeg, bufferAddr, offsetAddr);
@@ -598,7 +612,7 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	return 0;
 }
 
-u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
+static u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(sizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryStreamSize(%08x, %08x): invalid addresses", bufferAddr, sizeAddr);
@@ -626,7 +640,7 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	return 0;
 }
 
-int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
+static int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -663,12 +677,13 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 	StreamInfo info;
 	info.type = streamType;
 	info.num = streamNum;
+	info.sid = sid;
 	info.needsReset = true;
 	ctx->streamMap[sid] = info;
 	return sid;
 }
 
-int sceMpegMallocAvcEsBuf(u32 mpeg)
+static int sceMpegMallocAvcEsBuf(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -689,7 +704,7 @@ int sceMpegMallocAvcEsBuf(u32 mpeg)
 	return 0;
 }
 
-int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
+static int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -710,28 +725,9 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 	return 0;
 }
 
-// this function is used for dumping a video frame into a file.
-// you can use it when you want to output the decoded frame. 
-static void SaveFrame(AVFrame *pFrame, int width, int height)
-{
-	FILE *pFile;
-	char szFilename[] = "frame.ppm";
-	int y;
-
-	pFile = fopen(szFilename, "wb");
-	if (!pFile)
-		return;
-	// width * 4 is for 32-bit RGBA format. 
-	// You could change to your desired format as width*(4:32-bit,3:24-bit, 2:16-bit,1:8-bit) 
-	for (y = 0; y < height; y++)
-		fwrite(pFrame->data[0] + y * pFrame->linesize[0], 1, width * 4, pFile);
-
-	fclose(pFile);
-}
-
 // check the existence of pmp media context 
-bool isContextExist(u32 ctxAddr){
-	for (std::list<u32>::iterator it = pmp_ContextList.begin(); it != pmp_ContextList.end(); it++){
+static bool isContextExist(u32 ctxAddr){
+	for (auto it = pmp_ContextList.begin(); it != pmp_ContextList.end(); ++it){
 		if (*it == ctxAddr){
 			return true;
 		}
@@ -740,7 +736,7 @@ bool isContextExist(u32 ctxAddr){
 }
 
 // Initialize Pmp video parameters and decoder.
-bool InitPmp(MpegContext * ctx){
+static bool InitPmp(MpegContext * ctx){
 #ifdef USE_FFMPEG
 	InitFFmpeg();
 	auto mediaengine = ctx->mediaengine;
@@ -756,10 +752,10 @@ bool InitPmp(MpegContext * ctx){
 	// GE_CMODE_16BIT_ABGR5551 <--> AV_PIX_FMT_BGR555LE;
 	// GE_CMODE_16BIT_ABGR4444 <--> AV_PIX_FMT_BGR444LE;
 	// GE_CMODE_32BIT_ABGR8888 <--> AV_PIX_FMT_RGBA;
-	pmp_want_pix_fmt = PIX_FMT_RGBA;
+	pmp_want_pix_fmt = AV_PIX_FMT_RGBA;
 
 	// Create H264 video codec
-	AVCodec * pmp_Codec = avcodec_find_decoder(CODEC_ID_H264);
+	AVCodec * pmp_Codec = avcodec_find_decoder(AV_CODEC_ID_H264);
 	if (pmp_Codec == NULL){
 		ERROR_LOG(ME, "Can not find H264 codec, please update ffmpeg");
 		return false;
@@ -891,7 +887,7 @@ public:
 static H264Frames *pmpframes;
 
 // decode pmp video to RGBA format
-bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
+static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 	// the current video is pmp iff pmp_videoSource is a valid addresse
 	MpegContext* ctx = getMpegCtx(pmpctxAddr);
 	if (Memory::IsValidAddress(pmp_videoSource)){
@@ -920,7 +916,7 @@ bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxAddr){
 		// joint all blocks into H264Frames
 		SceMpegLLI lli;
 		for (int i = 0; i < pmp_nBlocks; i++){
-			Memory::ReadStruct(pmp_videoSource, &lli);
+			Memory::ReadStructUnchecked(pmp_videoSource, &lli);
 			// add source block into pmpframes
 			pmpframes->add(Memory::GetPointer(lli.pSrc), lli.iSize);
 			// get next block
@@ -1007,7 +1003,7 @@ void __VideoPmpInit() {
 void __VideoPmpShutdown() {
 #ifdef USE_FFMPEG
 	// We need to empty pmp_queue to not leak memory.
-	for (std::list<AVFrame *>::iterator it = pmp_queue.begin(); it != pmp_queue.end(); it++){
+	for (auto it = pmp_queue.begin(); it != pmp_queue.end(); ++it){
 		av_free(*it);
 	}
 	pmp_queue.clear();
@@ -1033,7 +1029,7 @@ void __VideoPmpDoState(PointerWrap &p){
 	}
 }
 
-u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
+static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1082,7 +1078,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 			// playing all pmp_queue frames
 			ctx->mediaengine->m_pFrameRGB = pmp_queue.front();
 			int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-			gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
+			gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
 			ctx->avc.avcFrameStatus = 1;
 			ctx->videoFrameCount++;
 			
@@ -1093,13 +1089,13 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	}
 	else if(ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		int bufferSize = ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
+		gpu->NotifyVideoUpload(buffer, bufferSize, frameWidth, ctx->videoPixelMode);
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
 	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsFree = ctx->mediaengine->getRemainSize() / 2048;
+	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -1120,7 +1116,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	//return hleDelayResult(0, "mpeg decode", 200);
 }
 
-u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
+static u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)){
 		ERROR_LOG(ME, "sceMpegAvcDecodeStop(%08x, %08x, %08x, %08x): invalid addresses", mpeg, frameWidth, bufferAddr, statusAddr);
@@ -1140,7 +1136,7 @@ u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAdd
 	return 0;
 }
 
-u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
+static u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1176,7 +1172,7 @@ u32 sceMpegUnRegistStream(u32 mpeg, int streamUid)
 	return 0;
 }
 
-int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
+static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
 {
 	if (!Memory::IsValidAddress(detailAddr)){
 		WARN_LOG(ME, "sceMpegAvcDecodeDetail(%08x, %08x): invalid addresses", mpeg, detailAddr);
@@ -1203,7 +1199,7 @@ int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
+static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 {
 	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x): invalid addresses", mpeg, bufferAddr, statusAddr);
@@ -1221,7 +1217,7 @@ u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 	return 0;
 }
 
-int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
+static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1257,7 +1253,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	}else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsFree = ctx->mediaengine->getRemainSize() / 2048;
+	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -1278,7 +1274,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	//return hleDelayResult(0, "mpeg decode", 200);
 }
 
-u32 sceMpegAvcDecodeFlush(u32 mpeg)
+static u32 sceMpegAvcDecodeFlush(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1293,7 +1289,7 @@ u32 sceMpegAvcDecodeFlush(u32 mpeg)
 	return 0;
 }
 
-int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
+static int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1308,7 +1304,9 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 
 	if (bufferAddr >= 1 && bufferAddr <= (u32)MPEG_DATA_ES_BUFFERS && ctx->esBuffers[bufferAddr - 1]) {
 		// This esbuffer has been allocated for Avc.
-		sceAu.esBuffer = bufferAddr;   // Can this be right??? not much of a buffer pointer..
+		// Default to 0, since we stuff the stream id in here.  Technically, we shouldn't.
+		// TODO: Do something better to track the AU data.  This used to be bufferAddr.
+		sceAu.esBuffer = 0;
 		sceAu.esSize = MPEG_AVC_ES_SIZE;
 		sceAu.dts = 0;
 		sceAu.pts = 0;
@@ -1316,7 +1314,9 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 		sceAu.write(auPointer);
 	} else {
 		// This esbuffer has been left as Atrac.
-		sceAu.esBuffer = bufferAddr;
+		// Default to 0, since we stuff the stream id in here.  Technically, we shouldn't.
+		// TODO: Do something better to track the AU data.  This used to be bufferAddr.
+		sceAu.esBuffer = 0;
 		sceAu.esSize = MPEG_ATRAC_ES_SIZE;
 		sceAu.pts = 0;
 		sceAu.dts = UNKNOWN_TIMESTAMP;
@@ -1326,7 +1326,7 @@ int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer)
 	return 0;
 }
 
-int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryAtracEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1346,7 +1346,7 @@ int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 	return 0;
 }
 
-int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
+static int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 {
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringbufferAddr);
 
@@ -1365,14 +1365,14 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	hleEatCycles(2020);
 	hleReSchedule("mpeg ringbuffer avail");
 
-	static int lastFree = 0;
-	if (lastFree != ringbuffer->packetsFree) {
-		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
-		lastFree = ringbuffer->packetsFree;
+	static int lastAvail = 0;
+	if (lastAvail != ringbuffer->packetsAvail) {
+		DEBUG_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packets - ringbuffer->packetsAvail, ringbufferAddr);
+		lastAvail = ringbuffer->packetsAvail;
 	} else {
-		VERBOSE_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+		VERBOSE_LOG(ME, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packets - ringbuffer->packetsAvail, ringbufferAddr);
 	}
-	return ringbuffer->packetsFree;
+	return ringbuffer->packets - ringbuffer->packetsAvail;
 }
 
 void PostPutAction::run(MipsCall &call) {
@@ -1387,9 +1387,9 @@ void PostPutAction::run(MipsCall &call) {
 		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer->packets * ringbuffer->packetSize);
 	}
 	if (packetsAdded > 0) {
-		if (packetsAdded > ringbuffer->packetsFree) {
-			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packetsFree);
-			packetsAdded = ringbuffer->packetsFree;
+		if (packetsAdded > ringbuffer->packets - ringbuffer->packetsAvail) {
+			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packets - ringbuffer->packetsAvail);
+			packetsAdded = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer->data), packetsAdded * 2048) / 2048;
 		if (actuallyAdded != packetsAdded) {
@@ -1397,7 +1397,7 @@ void PostPutAction::run(MipsCall &call) {
 		}
 		ringbuffer->packetsRead += packetsAdded;
 		ringbuffer->packetsWritten += packetsAdded;
-		ringbuffer->packetsFree -= packetsAdded;
+		ringbuffer->packetsAvail += packetsAdded;
 	}
 	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer->packetsRead, ringbuffer->packets);
 
@@ -1406,7 +1406,7 @@ void PostPutAction::run(MipsCall &call) {
 
 
 // Program signals that it has written data to the ringbuffer and gets a callback ?
-u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
+static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 {
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
@@ -1445,7 +1445,7 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 	return 0;
 }
 
-int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
+static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1463,7 +1463,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	if (ringbuffer->packetsRead == 0 || ringbuffer->packetsFree == ringbuffer->packets) {
+	if (ringbuffer->packetsRead == 0 || ringbuffer->packetsAvail == 0) {
 		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		avcAu.pts = -1;
 		avcAu.dts = -1;
@@ -1502,7 +1502,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)avcAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsAvail = 0;
 
 		result = ERROR_MPEG_NO_DATA;
 	}
@@ -1522,7 +1522,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	return hleDelayResult(result, "mpeg get avc", 100);
 }
 
-u32 sceMpegFinish()
+static u32 sceMpegFinish()
 {
 	if (!isMpegInit) {
 		WARN_LOG(ME, "sceMpegFinish(...): not initialized");
@@ -1537,13 +1537,13 @@ u32 sceMpegFinish()
 	return hleDelayResult(0, "mpeg finish", 250);
 }
 
-u32 sceMpegQueryMemSize()
+static u32 sceMpegQueryMemSize()
 {
 	DEBUG_LOG(ME, "%i = sceMpegQueryMemSize()",MPEG_MEMSIZE);
 	return MPEG_MEMSIZE;
 }
 
-int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
+static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1572,7 +1572,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	// The audio can end earlier than the video does.
-	if (ringbuffer->packetsFree == ringbuffer->packets) {
+	if (ringbuffer->packetsAvail == 0) {
 		DEBUG_LOG(ME, "ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
@@ -1589,7 +1589,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
-		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsAvail = 0;
 		result = ERROR_MPEG_NO_DATA;
 	}
 
@@ -1611,7 +1611,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	return hleDelayResult(result, "mpeg get atrac", 100);
 }
 
-int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryPcmEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1624,7 +1624,7 @@ int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 		return -1;
 	}
 
-	ERROR_LOG(ME, "sceMpegQueryPcmEsSize - bad pointers(%08x, %08x, %08x)", mpeg, esSizeAddr, outSizeAddr);
+	ERROR_LOG(ME, "sceMpegQueryPcmEsSize(%08x, %08x, %08x)", mpeg, esSizeAddr, outSizeAddr);
 
 	Memory::Write_U32(MPEG_PCM_ES_SIZE, esSizeAddr);
 	Memory::Write_U32(MPEG_PCM_ES_OUTPUT_SIZE, outSizeAddr);
@@ -1632,18 +1632,25 @@ int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 }
 
 
-u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
+static u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(ME, "sceMpegChangeGetAuMode(%08x, %i, %i): bad mpeg handle", mpeg, streamUid, mode);
-		return -1;
+		return ERROR_MPEG_INVALID_VALUE;
+	}
+	if (mode != MPEG_AU_MODE_DECODE && mode != MPEG_AU_MODE_SKIP) {
+		ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): bad mode", mpeg, streamUid, mode);
+		return ERROR_MPEG_INVALID_VALUE;
 	}
 
-	// NOTE: Where is the info supposed to come from?
-	StreamInfo info = {0};
-	info.sid = streamUid;
-	if (info.sid) {
+	auto stream = ctx->streamMap.find(streamUid);
+	if (stream == ctx->streamMap.end()) {
+		ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): unknown streamID", mpeg, streamUid, mode);
+		return ERROR_MPEG_INVALID_VALUE;
+	} else {
+		StreamInfo &info = stream->second;
+		DEBUG_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): changing type=%d", mpeg, streamUid, mode, info.type);
 		switch (info.type) {
 		case MPEG_AVC_STREAM:
 			if (mode == MPEG_AU_MODE_DECODE) {
@@ -1668,16 +1675,14 @@ u32 sceMpegChangeGetAuMode(u32 mpeg, int streamUid, int mode)
 			}
 			break;
 		default:
-			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
+			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i, %i): unknown streamID", mpeg, streamUid, mode);
 			break;
 		}
-	} else {
-			ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAuMode(%08x, %i): unkown streamID", mpeg, streamUid);
 	}
 	return 0;
 }
 
-u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
+static u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
 {
 	if (!Memory::IsValidAddress(stream_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i): invalid addresses", mpeg, stream_addr, mode);
@@ -1690,32 +1695,55 @@ u32 sceMpegChangeGetAvcAuMode(u32 mpeg, u32 stream_addr, int mode)
 		return -1;
 	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i)", mpeg, stream_addr, mode);
+	ERROR_LOG_REPORT_ONCE(mpegChangeAvcAu, ME, "UNIMPL sceMpegChangeGetAvcAuMode(%08x, %08x, %i)", mpeg, stream_addr, mode);
 	return 0;
 }
 
-u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
+static u32 sceMpegGetPcmAu(u32 mpeg, int streamUid, u32 auAddr, u32 attrAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x): bad mpeg handle", mpeg, streamUid, auAddr, attrAddr);
 		return -1;
 	}
+	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
+	if (!ringbuffer.IsValid()) {
+		// Would have crashed before, TODO test behavior
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x): invalid ringbuffer address", mpeg, streamUid, auAddr, attrAddr);
+		return -1;
+	}
+	if (!Memory::IsValidAddress(streamUid)) {
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x):  didn't get a fake stream", mpeg, streamUid, auAddr, attrAddr);
+		return ERROR_MPEG_INVALID_ADDR;
+	}
+	SceMpegAu atracAu;
+	atracAu.read(auAddr);
+	auto streamInfo = ctx->streamMap.find(streamUid);
+	if (streamInfo == ctx->streamMap.end()) {
+		WARN_LOG(ME, "sceMpegGetPcmAu(%08x, %08x, %08x, %08x):  bad streamUid ", mpeg, streamUid, auAddr, attrAddr);
+		return -1;
+	}
 
-	ERROR_LOG(ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x)", mpeg, streamUid, auAddr, attrAddr);
+	atracAu.write(auAddr);
+	u32 attr = 1 << 7; // Sampling rate (1 = 44.1kHz).
+	attr |= 2;         // Number of channels (1 - MONO / 2 - STEREO).
+	if (Memory::IsValidAddress(attrAddr))
+		Memory::Write_U32(attr, attrAddr);
+
+	ERROR_LOG_REPORT_ONCE(mpegPcmAu, ME, "UNIMPL sceMpegGetPcmAu(%08x, %i, %08x, %08x)", mpeg, streamUid, auAddr, attrAddr);
 	return 0;
 }
 
-int __MpegRingbufferQueryPackNum(u32 memorySize) {
+static int __MpegRingbufferQueryPackNum(u32 memorySize) {
 	return memorySize / (2048 + 104);
 }
 
-int sceMpegRingbufferQueryPackNum(u32 memorySize) {
+static int sceMpegRingbufferQueryPackNum(u32 memorySize) {
 	DEBUG_LOG(ME, "sceMpegRingbufferQueryPackNum(%i)", memorySize);
 	return __MpegRingbufferQueryPackNum(memorySize);
 }
 
-u32 sceMpegFlushAllStream(u32 mpeg)
+static u32 sceMpegFlushAllStream(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1729,7 +1757,7 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 	if (ringbuffer.IsValid()) {
-		ringbuffer->packetsFree = ringbuffer->packets;
+		ringbuffer->packetsAvail = 0;
 		ringbuffer->packetsRead = 0;
 		ringbuffer->packetsWritten = 0;
 	}
@@ -1737,7 +1765,7 @@ u32 sceMpegFlushAllStream(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
+static u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
 {
 	if (!Memory::IsValidAddress(stream_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegFlushStream(%08x, %i): invalid addresses", mpeg , stream_addr);
@@ -1755,7 +1783,7 @@ u32 sceMpegFlushStream(u32 mpeg, int stream_addr)
 	return 0;
 }
 
-u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
+static u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 {
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(YCbCrAddr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcCopyYCbCr(%08x, %08x, %08x): invalid addresses", mpeg, sourceAddr, YCbCrAddr);
@@ -1772,7 +1800,7 @@ u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 	return 0;
 }
 
-u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
+static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -1801,7 +1829,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 }
 
 // YCbCr -> RGB color space conversion
-u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
+static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
 	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(rangeAddr) || !Memory::IsValidAddress(destAddr)) {
 		ERROR_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x): invalid addresses", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
@@ -1822,21 +1850,25 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int height = Memory::Read_U32(rangeAddr + 12);
 	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 
-	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
-	// Do not hleDelayResult
+	gpu->NotifyVideoUpload(destAddr, destSize, frameWidth, ctx->videoPixelMode);
+
+	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6
 	// https://github.com/hrydgard/ppsspp/issues/5535
-	return 0;
+	// If do not use DelayResult,Wil cause flickering in Dengeki no Pilot: Tenkuu no Kizuna
+	// https://github.com/hrydgard/ppsspp/issues/7549
+
+	return hleDelayResult(0, "mpeg avc csc", avcCscDelayMs);
 }
 
-u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
+static u32 sceMpegRingbufferDestruct(u32 ringbufferAddr)
 {
 	DEBUG_LOG(ME, "sceMpegRingbufferDestruct(%08x)", ringbufferAddr);
 	// Apparently, does nothing.
 	return 0;
 }
 
-u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_addr)
+static u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_addr)
 {
 	if (!Memory::IsValidAddress(ycbcr_addr)) {
 		ERROR_LOG(ME, "UNIMPL sceMpegAvcInitYCbCr(%08x, %i, %i, %i, %08x): invalid addresses", mpeg, mode, width, height, ycbcr_addr);
@@ -1853,7 +1885,7 @@ u32 sceMpegAvcInitYCbCr(u32 mpeg, int mode, int width, int height, u32 ycbcr_add
 	return 0;
 }
 
-int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resultAddr)
+static int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resultAddr)
 {
 	if ((width & 15) != 0 || (height & 15) != 0 || height > 272 || width > 480)	{
 		ERROR_LOG(ME, "sceMpegAvcQueryYCbCrSize: bad w/h %i x %i", width, height);
@@ -1867,7 +1899,7 @@ int sceMpegAvcQueryYCbCrSize(u32 mpeg, u32 mode, u32 width, u32 height, u32 resu
 	return 0;
 }
 
-u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
+static u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
 	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
 		ERROR_LOG(ME, "sceMpegQueryUserdataEsSize(%08x, %08x, %08x): invalid addresses", mpeg, esSizeAddr, outSizeAddr);
@@ -1887,26 +1919,26 @@ u32 sceMpegQueryUserdataEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 	return 0;
 }
 
-u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
+static u32 sceMpegAvcResourceGetAvcDecTopAddr(u32 mpeg)
 {
 	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcDecTopAddr(%08x)", mpeg);
 	// it's just a random address
 	return 0x12345678;
 }
 
-u32 sceMpegAvcResourceFinish(u32 mpeg)
+static u32 sceMpegAvcResourceFinish(u32 mpeg)
 {
 	DEBUG_LOG(ME,"UNIMPL sceMpegAvcResourceFinish(%08x)", mpeg);
 	return 0;
 }
 
-u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
+static u32 sceMpegAvcResourceGetAvcEsBuf(u32 mpeg)
 {
-	ERROR_LOG(ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
+	ERROR_LOG_REPORT_ONCE(mpegResourceEsBuf, ME, "UNIMPL sceMpegAvcResourceGetAvcEsBuf(%08x)", mpeg);
 	return 0;
 }
 
-u32 sceMpegAvcResourceInit(u32 mpeg)
+static u32 sceMpegAvcResourceInit(u32 mpeg)
 {
 	if (mpeg != 1) {
 		return ERROR_MPEG_INVALID_VALUE;
@@ -1916,7 +1948,7 @@ u32 sceMpegAvcResourceInit(u32 mpeg)
 	return 0;
 }
 
-u32 convertABGRToYCbCr(u32 abgr) {
+static u32 convertABGRToYCbCr(u32 abgr) {
 	//see http://en.wikipedia.org/wiki/Yuv#Y.27UV444_to_RGB888_conversion for more information.
 	u8  r = (abgr >>  0) & 0xFF;
 	u8  g = (abgr >>  8) & 0xFF;
@@ -1933,7 +1965,7 @@ u32 convertABGRToYCbCr(u32 abgr) {
 	return (y << 16) | (cb << 8) | cr;
 }
 
-int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
+static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, int height) {
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
@@ -1967,7 +1999,7 @@ int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int width, 
 	return (width << 16) | height;
 }
 
-int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
+static int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int unknown2)
 {
 	if (!Memory::IsValidAddress(bufferOutputAddr)) {
 		ERROR_LOG(ME, "sceMpegAvcConvertToYuv420(%08x, %08x, %08x, %08x): invalid addresses", mpeg, bufferOutputAddr, unknown1, unknown2);
@@ -1996,7 +2028,7 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutputAddr, u32 unknown1, int 
 	return 0;
 }
 
-int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
+static int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2015,7 +2047,7 @@ int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 	return ERROR_MPEG_NO_DATA;
 }
 
-u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
+static u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2028,7 +2060,7 @@ u32 sceMpegNextAvcRpAu(u32 mpeg, u32 streamUid)
 	return 0;
 }
 
-u32 sceMpegGetAvcNalAu(u32 mpeg)
+static u32 sceMpegGetAvcNalAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2041,7 +2073,7 @@ u32 sceMpegGetAvcNalAu(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
+static u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2054,7 +2086,7 @@ u32 sceMpegAvcDecodeDetailIndex(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcDecodeDetail2(u32 mpeg)
+static u32 sceMpegAvcDecodeDetail2(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2067,7 +2099,7 @@ u32 sceMpegAvcDecodeDetail2(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegGetAvcEsAu(u32 mpeg)
+static u32 sceMpegGetAvcEsAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2080,7 +2112,7 @@ u32 sceMpegGetAvcEsAu(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcCscInfo(u32 mpeg)
+static u32 sceMpegAvcCscInfo(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2093,7 +2125,7 @@ u32 sceMpegAvcCscInfo(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegAvcCscMode(u32 mpeg)
+static u32 sceMpegAvcCscMode(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2106,7 +2138,7 @@ u32 sceMpegAvcCscMode(u32 mpeg)
 	return 0;
 }
 
-u32 sceMpegFlushAu(u32 mpeg)
+static u32 sceMpegFlushAu(u32 mpeg)
 {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
@@ -2121,65 +2153,65 @@ u32 sceMpegFlushAu(u32 mpeg)
 
 const HLEFunction sceMpeg[] =
 {
-	{0xe1ce83a7,WrapI_UUUU<sceMpegGetAtracAu>,"sceMpegGetAtracAu"},
-	{0xfe246728,WrapI_UUUU<sceMpegGetAvcAu>,"sceMpegGetAvcAu"},
-	{0xd8c5f121,WrapU_UUUUUUU<sceMpegCreate>,"sceMpegCreate"},
-	{0xf8dcb679,WrapI_UUU<sceMpegQueryAtracEsSize>,"sceMpegQueryAtracEsSize"},
-	{0xc132e22f,WrapU_V<sceMpegQueryMemSize>,"sceMpegQueryMemSize"},
-	{0x21ff80e4,WrapI_UUU<sceMpegQueryStreamOffset>,"sceMpegQueryStreamOffset"},
-	{0x611e9e11,WrapU_UU<sceMpegQueryStreamSize>,"sceMpegQueryStreamSize"},
-	{0x42560f23,WrapI_UUU<sceMpegRegistStream>,"sceMpegRegistStream"},
-	{0x591a4aa2,WrapU_UI<sceMpegUnRegistStream>,"sceMpegUnRegistStream"},
-	{0x707b7629,WrapU_U<sceMpegFlushAllStream>,"sceMpegFlushAllStream"},
-	{0x500F0429,WrapU_UI<sceMpegFlushStream>,"sceMpegFlushStream"},
-	{0xa780cf7e,WrapI_U<sceMpegMallocAvcEsBuf>,"sceMpegMallocAvcEsBuf"},
-	{0xceb870b1,WrapI_UI<sceMpegFreeAvcEsBuf>,"sceMpegFreeAvcEsBuf"},
-	{0x167afd9e,WrapI_UUU<sceMpegInitAu>,"sceMpegInitAu"},
-	{0x682a619b,WrapU_V<sceMpegInit>,"sceMpegInit"},
-	{0x606a4649,WrapI_U<sceMpegDelete>,"sceMpegDelete"},
-	{0x874624d6,WrapU_V<sceMpegFinish>,"sceMpegFinish"},
-	{0x800c44df,WrapU_UUUI<sceMpegAtracDecode>,"sceMpegAtracDecode"},
-	{0x0e3c2e9d,&WrapU_UUUUU<sceMpegAvcDecode>,"sceMpegAvcDecode"},
-	{0x740fccd1,&WrapU_UUUU<sceMpegAvcDecodeStop>,"sceMpegAvcDecodeStop"},
-	{0x4571cc64,&WrapU_U<sceMpegAvcDecodeFlush>,"sceMpegAvcDecodeFlush"},
-	{0x0f6c18d7,&WrapI_UU<sceMpegAvcDecodeDetail>,"sceMpegAvcDecodeDetail"},
-	{0xa11c7026,WrapI_UU<sceMpegAvcDecodeMode>,"sceMpegAvcDecodeMode"},
-	{0x37295ed8,WrapU_UUUUUU<sceMpegRingbufferConstruct>,"sceMpegRingbufferConstruct"},
-	{0x13407f13,WrapU_U<sceMpegRingbufferDestruct>,"sceMpegRingbufferDestruct"},
-	{0xb240a59e,WrapU_UUU<sceMpegRingbufferPut>,"sceMpegRingbufferPut"},
-	{0xb5f6dc87,WrapI_U<sceMpegRingbufferAvailableSize>,"sceMpegRingbufferAvailableSize"},
-	{0xd7a29f46,WrapU_I<sceMpegRingbufferQueryMemSize>,"sceMpegRingbufferQueryMemSize"},
-	{0x769BEBB6,WrapI_U<sceMpegRingbufferQueryPackNum>,"sceMpegRingbufferQueryPackNum"},
-	{0x211a057c,WrapI_UUUUU<sceMpegAvcQueryYCbCrSize>,"sceMpegAvcQueryYCbCrSize"},
-	{0xf0eb1125,WrapI_UUUU<sceMpegAvcDecodeYCbCr>,"sceMpegAvcDecodeYCbCr"},
-	{0xf2930c9c,WrapU_UUU<sceMpegAvcDecodeStopYCbCr>,"sceMpegAvcDecodeStopYCbCr"},
-	{0x67179b1b,WrapU_UIIIU<sceMpegAvcInitYCbCr>,"sceMpegAvcInitYCbCr"},
-	{0x0558B075,WrapU_UUU<sceMpegAvcCopyYCbCr>,"sceMpegAvcCopyYCbCr"},
-	{0x31bd0272,WrapU_UUUIU<sceMpegAvcCsc>,"sceMpegAvcCsc"},
-	{0x9DCFB7EA,WrapU_UII<sceMpegChangeGetAuMode>,"sceMpegChangeGetAuMode"},
-	{0x8C1E027D,WrapU_UIUU<sceMpegGetPcmAu>,"sceMpegGetPcmAu"},
-	{0xC02CF6B5,WrapI_UUU<sceMpegQueryPcmEsSize>,"sceMpegQueryPcmEsSize"},
-	{0xC45C99CC,WrapU_UUU<sceMpegQueryUserdataEsSize>,"sceMpegQueryUserdataEsSize"},
-	{0x234586AE,WrapU_UUI<sceMpegChangeGetAvcAuMode>,"sceMpegChangeGetAvcAuMode"},
-	{0x63B9536A,WrapU_U<sceMpegAvcResourceGetAvcDecTopAddr>,"sceMpegAvcResourceGetAvcDecTopAddr"},
-	{0x8160a2fe,WrapU_U<sceMpegAvcResourceFinish>,"sceMpegAvcResourceFinish"},
-	{0xaf26bb01,WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,"sceMpegAvcResourceGetAvcEsBuf"},
-	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
-	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
-	{0x01977054,WrapI_UUUU<sceMpegGetUserdataAu>,"sceMpegGetUserdataAu"},
-	{0x3c37a7a6,WrapU_UU<sceMpegNextAvcRpAu>,"sceMpegNextAvcRpAu"},
-	{0x11f95cf1,WrapU_U<sceMpegGetAvcNalAu>,"sceMpegGetAvcNalAu"},
-	{0xab0e9556,WrapU_U<sceMpegAvcDecodeDetailIndex>,"sceMpegAvcDecodeDetailIndex"},
-	{0xcf3547a2,WrapU_U<sceMpegAvcDecodeDetail2>,"sceMpegAvcDecodeDetail2"},
-	{0x921fcccf,WrapU_U<sceMpegGetAvcEsAu>,"sceMpegGetAvcEsAu"},
-	{0xE95838F6,WrapU_U<sceMpegAvcCscInfo>,"sceMpegAvcCscInfo"},
-	{0xD1CE4950,WrapU_U<sceMpegAvcCscMode>,"sceMpegAvcCscMode"},
-	{0xDBB60658,WrapU_U<sceMpegFlushAu>,"sceMpegFlushAu"},
-	{0xd4dd6e75,0,"sceMpeg_D4DD6E75"},
-	{0x11cab459,0,"sceMpeg_11CAB459"},
-	{0xc345ded2,0,"sceMpeg_C345DED2"},
-	{0xb27711a8,0,"sceMpeg_B27711A8"},
-	{0x988e9e12,0,"sceMpeg_988E9E12"},
+	{0XE1CE83A7, &WrapI_UUUU<sceMpegGetAtracAu>,               "sceMpegGetAtracAu",                  'i', "xxxx"   },
+	{0XFE246728, &WrapI_UUUU<sceMpegGetAvcAu>,                 "sceMpegGetAvcAu",                    'i', "xxxx"   },
+	{0XD8C5F121, &WrapU_UUUUUUU<sceMpegCreate>,                "sceMpegCreate",                      'x', "xxxxxxx"},
+	{0XF8DCB679, &WrapI_UUU<sceMpegQueryAtracEsSize>,          "sceMpegQueryAtracEsSize",            'i', "xxx"    },
+	{0XC132E22F, &WrapU_V<sceMpegQueryMemSize>,                "sceMpegQueryMemSize",                'x', ""       },
+	{0X21FF80E4, &WrapI_UUU<sceMpegQueryStreamOffset>,         "sceMpegQueryStreamOffset",           'i', "xxx"    },
+	{0X611E9E11, &WrapU_UU<sceMpegQueryStreamSize>,            "sceMpegQueryStreamSize",             'x', "xx"     },
+	{0X42560F23, &WrapI_UUU<sceMpegRegistStream>,              "sceMpegRegistStream",                'i', "xxx"    },
+	{0X591A4AA2, &WrapU_UI<sceMpegUnRegistStream>,             "sceMpegUnRegistStream",              'x', "xi"     },
+	{0X707B7629, &WrapU_U<sceMpegFlushAllStream>,              "sceMpegFlushAllStream",              'x', "x"      },
+	{0X500F0429, &WrapU_UI<sceMpegFlushStream>,                "sceMpegFlushStream",                 'x', "xi"     },
+	{0XA780CF7E, &WrapI_U<sceMpegMallocAvcEsBuf>,              "sceMpegMallocAvcEsBuf",              'i', "x"      },
+	{0XCEB870B1, &WrapI_UI<sceMpegFreeAvcEsBuf>,               "sceMpegFreeAvcEsBuf",                'i', "xi"     },
+	{0X167AFD9E, &WrapI_UUU<sceMpegInitAu>,                    "sceMpegInitAu",                      'i', "xxx"    },
+	{0X682A619B, &WrapU_V<sceMpegInit>,                        "sceMpegInit",                        'x', ""       },
+	{0X606A4649, &WrapI_U<sceMpegDelete>,                      "sceMpegDelete",                      'i', "x"      },
+	{0X874624D6, &WrapU_V<sceMpegFinish>,                      "sceMpegFinish",                      'x', ""       },
+	{0X800C44DF, &WrapU_UUUI<sceMpegAtracDecode>,              "sceMpegAtracDecode",                 'x', "xxxi"   },
+	{0X0E3C2E9D, &WrapU_UUUUU<sceMpegAvcDecode>,               "sceMpegAvcDecode",                   'x', "xxxxx"  },
+	{0X740FCCD1, &WrapU_UUUU<sceMpegAvcDecodeStop>,            "sceMpegAvcDecodeStop",               'x', "xxxx"   },
+	{0X4571CC64, &WrapU_U<sceMpegAvcDecodeFlush>,              "sceMpegAvcDecodeFlush",              'x', "x"      },
+	{0X0F6C18D7, &WrapI_UU<sceMpegAvcDecodeDetail>,            "sceMpegAvcDecodeDetail",             'i', "xx"     },
+	{0XA11C7026, &WrapI_UU<sceMpegAvcDecodeMode>,              "sceMpegAvcDecodeMode",               'i', "xx"     },
+	{0X37295ED8, &WrapU_UUUUUU<sceMpegRingbufferConstruct>,    "sceMpegRingbufferConstruct",         'x', "xxxxxx" },
+	{0X13407F13, &WrapU_U<sceMpegRingbufferDestruct>,          "sceMpegRingbufferDestruct",          'x', "x"      },
+	{0XB240A59E, &WrapU_UUU<sceMpegRingbufferPut>,             "sceMpegRingbufferPut",               'x', "xxx"    },
+	{0XB5F6DC87, &WrapI_U<sceMpegRingbufferAvailableSize>,     "sceMpegRingbufferAvailableSize",     'i', "x"      },
+	{0XD7A29F46, &WrapU_I<sceMpegRingbufferQueryMemSize>,      "sceMpegRingbufferQueryMemSize",      'x', "i"      },
+	{0X769BEBB6, &WrapI_U<sceMpegRingbufferQueryPackNum>,      "sceMpegRingbufferQueryPackNum",      'i', "x"      },
+	{0X211A057C, &WrapI_UUUUU<sceMpegAvcQueryYCbCrSize>,       "sceMpegAvcQueryYCbCrSize",           'i', "xxxxx"  },
+	{0XF0EB1125, &WrapI_UUUU<sceMpegAvcDecodeYCbCr>,           "sceMpegAvcDecodeYCbCr",              'i', "xxxx"   },
+	{0XF2930C9C, &WrapU_UUU<sceMpegAvcDecodeStopYCbCr>,        "sceMpegAvcDecodeStopYCbCr",          'x', "xxx"    },
+	{0X67179B1B, &WrapU_UIIIU<sceMpegAvcInitYCbCr>,            "sceMpegAvcInitYCbCr",                'x', "xiiix"  },
+	{0X0558B075, &WrapU_UUU<sceMpegAvcCopyYCbCr>,              "sceMpegAvcCopyYCbCr",                'x', "xxx"    },
+	{0X31BD0272, &WrapU_UUUIU<sceMpegAvcCsc>,                  "sceMpegAvcCsc",                      'x', "xxxix"  },
+	{0X9DCFB7EA, &WrapU_UII<sceMpegChangeGetAuMode>,           "sceMpegChangeGetAuMode",             'x', "xii"    },
+	{0X8C1E027D, &WrapU_UIUU<sceMpegGetPcmAu>,                 "sceMpegGetPcmAu",                    'x', "xixx"   },
+	{0XC02CF6B5, &WrapI_UUU<sceMpegQueryPcmEsSize>,            "sceMpegQueryPcmEsSize",              'i', "xxx"    },
+	{0XC45C99CC, &WrapU_UUU<sceMpegQueryUserdataEsSize>,       "sceMpegQueryUserdataEsSize",         'x', "xxx"    },
+	{0X234586AE, &WrapU_UUI<sceMpegChangeGetAvcAuMode>,        "sceMpegChangeGetAvcAuMode",          'x', "xxi"    },
+	{0X63B9536A, &WrapU_U<sceMpegAvcResourceGetAvcDecTopAddr>, "sceMpegAvcResourceGetAvcDecTopAddr", 'x', "x"      },
+	{0X8160A2FE, &WrapU_U<sceMpegAvcResourceFinish>,           "sceMpegAvcResourceFinish",           'x', "x"      },
+	{0XAF26BB01, &WrapU_U<sceMpegAvcResourceGetAvcEsBuf>,      "sceMpegAvcResourceGetAvcEsBuf",      'x', "x"      },
+	{0XFCBDB5AD, &WrapU_U<sceMpegAvcResourceInit>,             "sceMpegAvcResourceInit",             'x', "x"      },
+	{0XF5E7EA31, &WrapI_UUUI<sceMpegAvcConvertToYuv420>,       "sceMpegAvcConvertToYuv420",          'i', "xxxi"   },
+	{0X01977054, &WrapI_UUUU<sceMpegGetUserdataAu>,            "sceMpegGetUserdataAu",               'i', "xxxx"   },
+	{0X3C37A7A6, &WrapU_UU<sceMpegNextAvcRpAu>,                "sceMpegNextAvcRpAu",                 'x', "xx"     },
+	{0X11F95CF1, &WrapU_U<sceMpegGetAvcNalAu>,                 "sceMpegGetAvcNalAu",                 'x', "x"      },
+	{0XAB0E9556, &WrapU_U<sceMpegAvcDecodeDetailIndex>,        "sceMpegAvcDecodeDetailIndex",        'x', "x"      },
+	{0XCF3547A2, &WrapU_U<sceMpegAvcDecodeDetail2>,            "sceMpegAvcDecodeDetail2",            'x', "x"      },
+	{0X921FCCCF, &WrapU_U<sceMpegGetAvcEsAu>,                  "sceMpegGetAvcEsAu",                  'x', "x"      },
+	{0XE95838F6, &WrapU_U<sceMpegAvcCscInfo>,                  "sceMpegAvcCscInfo",                  'x', "x"      },
+	{0XD1CE4950, &WrapU_U<sceMpegAvcCscMode>,                  "sceMpegAvcCscMode",                  'x', "x"      },
+	{0XDBB60658, &WrapU_U<sceMpegFlushAu>,                     "sceMpegFlushAu",                     'x', "x"      },
+	{0XD4DD6E75, nullptr,                                      "sceMpeg_D4DD6E75",                   '?', ""       },
+	{0X11CAB459, nullptr,                                      "sceMpeg_11CAB459",                   '?', ""       },
+	{0XC345DED2, nullptr,                                      "sceMpeg_C345DED2",                   '?', ""       },
+	{0XB27711A8, nullptr,                                      "sceMpeg_B27711A8",                   '?', ""       },
+	{0X988E9E12, nullptr,                                      "sceMpeg_988E9E12",                   '?', ""       },
 };
 
 void Register_sceMpeg()
@@ -2189,8 +2221,9 @@ void Register_sceMpeg()
 
 // This function is currently only been used for PMP videos
 // p pointing to a SceMpegLLI structure consists of video frame blocks.
-u32 sceMpegbase_BEA18F91(u32 p)
+static u32 sceMpegbase_BEA18F91(u32 p)
 {
+#ifdef _WIN32
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;
 	SceMpegLLI lli;
@@ -2205,17 +2238,22 @@ u32 sceMpegbase_BEA18F91(u32 p)
 	}
 	
 	DEBUG_LOG(ME, "sceMpegbase_BEA18F91(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
+#else
+//	Temporarily disable PMP video for non-windows
+//	See issue #8603
+	WARN_LOG(ME, "Temporarily disable PMP video for non-windows");
+#endif
 	return 0;
 }
 
 const HLEFunction sceMpegbase[] =
 {
-	{ 0xBEA18F91, WrapU_U<sceMpegbase_BEA18F91>, "sceMpegbase_BEA18F91" },
-	{ 0x492B5E4B, 0, "sceMpegBaseCscInit" },
-	{ 0x0530BE4E, 0, "sceMpegbase_0530BE4E" },
-	{ 0x91929A21, 0, "sceMpegBaseCscAvc" },
-	{ 0x304882E1, 0, "sceMpegBaseCscAvcRange" },
-	{ 0x7AC0321A, 0, "sceMpegBaseYCrCbCopy" }
+	{0XBEA18F91, &WrapU_U<sceMpegbase_BEA18F91>,               "sceMpegbase_BEA18F91",               'x', "x"      },
+	{0X492B5E4B, nullptr,                                      "sceMpegBaseCscInit",                 '?', ""       },
+	{0X0530BE4E, nullptr,                                      "sceMpegbase_0530BE4E",               '?', ""       },
+	{0X91929A21, nullptr,                                      "sceMpegBaseCscAvc",                  '?', ""       },
+	{0X304882E1, nullptr,                                      "sceMpegBaseCscAvcRange",             '?', ""       },
+	{0X7AC0321A, nullptr,                                      "sceMpegBaseYCrCbCopy",               '?', ""       }
 };
 
 void Register_sceMpegbase()

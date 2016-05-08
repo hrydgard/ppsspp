@@ -18,13 +18,48 @@
 #pragma once
 
 #include "base/functional.h"
+#include "file/path.h"
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
-// Game screen: Allows you to start a game, delete saves, delete the game,
-// set game specific settings, etc.
-// Uses GameInfoCache heavily to implement the functionality.
+class GameBrowser : public UI::LinearLayout {
+public:
+	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
+
+	UI::Event OnChoice;
+	UI::Event OnHoldChoice;
+	UI::Event OnHighlight;
+
+	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
+
+	void FocusGame(std::string gamePath);
+
+private:
+	void Refresh();
+	bool IsCurrentPathPinned();
+	const std::vector<std::string> GetPinnedPaths();
+	const std::string GetBaseName(const std::string &path);
+
+	UI::EventReturn GameButtonClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHighlight(UI::EventParams &e);
+	UI::EventReturn NavigateClick(UI::EventParams &e);
+	UI::EventReturn LayoutChange(UI::EventParams &e);
+	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn HomeClick(UI::EventParams &e);
+	UI::EventReturn PinToggleClick(UI::EventParams &e);
+
+	UI::ViewGroup *gameList_;
+	PathBrowser path_;
+	bool *gridStyle_;
+	bool allowBrowsing_;
+	std::string lastText_;
+	std::string lastLink_;
+	int flags_;
+	UI::Choice *homebrewStoreButton_;
+	std::string focusGamePath_;
+};
 
 class MainScreen : public UIScreenWithBackground {
 public:
@@ -61,9 +96,13 @@ private:
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
 	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
+	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 
 	UI::LinearLayout *upgradeBar_;
 	UI::TabHolder *tabHolder_;
+
+	std::string restoreFocusGamePath_;
+	std::vector<GameBrowser *> gameBrowsers_;
 
 	std::string highlightedGamePath_;
 	std::string prevHighlightedGamePath_;
@@ -74,38 +113,6 @@ private:
 	bool lastVertical_;
 
 	bool UseVerticalLayout() const;
-};
-
-class GamePauseScreen : public UIDialogScreenWithGameBackground {
-public:
-	GamePauseScreen(const std::string &filename) : UIDialogScreenWithGameBackground(filename), saveSlots_(NULL) {}
-	virtual ~GamePauseScreen();
-
-	virtual void onFinish(DialogResult result);
-
-protected:
-	virtual void CreateViews();
-	virtual void update(InputState &input);
-	virtual void sendMessage(const char *message, const char *value);
-
-private:
-	UI::EventReturn OnMainSettings(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnExitToMenu(UI::EventParams &e);
-	UI::EventReturn OnReportFeedback(UI::EventParams &e);
-
-	UI::EventReturn OnSaveState(UI::EventParams &e);
-	UI::EventReturn OnLoadState(UI::EventParams &e);
-	UI::EventReturn OnRewind(UI::EventParams &e);
-
-	UI::EventReturn OnStateSelected(UI::EventParams &e);
-	UI::EventReturn OnCwCheat(UI::EventParams &e);
-
-	UI::EventReturn OnSwitchUMD(UI::EventParams &e);
-
-	UI::ChoiceStrip *saveSlots_;
-	UI::Choice *saveStateButton_;
-	UI::Choice *loadStateButton_;
 };
 
 class UmdReplaceScreen : public UIDialogScreenWithBackground {

@@ -393,7 +393,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	}
 
 	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
-	BlockAllocator &memblock = kernelModule ? kernelMemory : userMemory;
+
 	std::string modName = "ELF";
 	if (modInfo) {
 		size_t n = strnlen(modInfo->name, 28);
@@ -413,6 +413,11 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 		}
 	}
 	totalSize = totalEnd - totalStart;
+
+	// If a load address is specified that's in regular RAM, override kernel module status
+	bool inUser = totalStart >= PSP_GetUserMemoryBase();
+	BlockAllocator &memblock = (kernelModule && !inUser) ? kernelMemory : userMemory;
+
 	if (!bRelocate)
 	{
 		// Binary is prerelocated, load it where the first segment starts
@@ -433,7 +438,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 		ERROR_LOG_REPORT(LOADER, "Failed to allocate memory for ELF!");
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}
-	
+
 	if (bRelocate) {
 		DEBUG_LOG(LOADER,"Relocatable module");
 		entryPoint += vaddr;
@@ -658,10 +663,10 @@ bool ElfReader::LoadSymbols()
 			switch (type)
 			{
 			case STT_OBJECT:
-				symbolMap.AddData(value,size,DATATYPE_BYTE);
+				g_symbolMap->AddData(value,size,DATATYPE_BYTE);
 				break;
 			case STT_FUNC:
-				symbolMap.AddFunction(name,value,size);
+				g_symbolMap->AddFunction(name,value,size);
 				break;
 			default:
 				continue;
@@ -672,7 +677,3 @@ bool ElfReader::LoadSymbols()
 	}
 	return hasSymbols;
 }
-
-
-
-

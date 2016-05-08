@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// WARNING - THIS LIBRARY IS NOT THREAD SAFE!!! (cargo culted but probably true)
-
 #pragma once
 // Symbian can't build this due to an old gcc/lib combination, and doesn't need to.
 // Kind programmer, if you want to translate this to a proper feature-detection
@@ -168,9 +166,19 @@ public:
 	}
 
 	void LB(MIPSReg dest, MIPSReg base, s16 offset);
+	void LH(MIPSReg dest, MIPSReg base, s16 offset);
 	void LW(MIPSReg dest, MIPSReg base, s16 offset);
 	void SB(MIPSReg value, MIPSReg base, s16 offset);
+	void SH(MIPSReg dest, MIPSReg base, s16 offset);
 	void SW(MIPSReg value, MIPSReg base, s16 offset);
+
+	// These exist for the sole purpose of making compilation fail if you try to load/store from R+R.
+	void LB(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void LH(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void LW(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void SB(MIPSReg value, MIPSReg base, MIPSReg invalid);
+	void SH(MIPSReg dest, MIPSReg base, MIPSReg invalid);
+	void SW(MIPSReg value, MIPSReg base, MIPSReg invalid);
 
 	void SLL(MIPSReg rd, MIPSReg rt, u8 sa);
 	void SRL(MIPSReg rd, MIPSReg rt, u8 sa);
@@ -218,7 +226,11 @@ public:
 		MOVI2R(reg, (u32)val);
 	}
 	template <class T> void MOVP2R(MIPSReg reg, T *val) {
-		MOVI2R(reg, (intptr_t)(const void *)val);
+		if (sizeof(uintptr_t) > sizeof(u32)) {
+			MOVI2R(reg, (u64)(intptr_t)(const void *)val);
+		} else {
+			MOVI2R(reg, (u32)(intptr_t)(const void *)val);
+		}
 	}
 
 protected:

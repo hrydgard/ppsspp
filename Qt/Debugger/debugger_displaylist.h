@@ -2,10 +2,12 @@
 #define DEBUGGER_DISPLAYLIST_H
 
 #include "Core/Debugger/DebugInterface.h"
+
 #include <QDialog>
 #include <QTreeWidgetItem>
+
 #include "GPU/GPUState.h"
-#include "native/gfx_es2/fbo.h"
+#include "GPU/GLES/FBO.h"
 
 class MainWindow;
 namespace Ui {

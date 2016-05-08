@@ -16,11 +16,11 @@ rem // If not, see http://www.gnu.org/licenses/
 rem // Official git repository and contact information can be found at
 rem // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-if not defined vs120comntools (
-  echo "Visual Studio 2013 doesn't appear to be installed properly. Quitting."
+if not defined vs140comntools (
+  echo "Visual Studio 2015 doesn't appear to be installed properly. Quitting."
   goto quit
   ) else (
-    call "%vs120comntools%\vsvars32.bat" x86_amd64
+    call "%vs140comntools%\vsvars32.bat" x86_amd64
 )
 
 set PPSSPP_ROOT=%CD%\..

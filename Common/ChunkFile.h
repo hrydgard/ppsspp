@@ -28,19 +28,11 @@
 // - Serialization code for anything complex has to be manually written.
 
 #include <map>
-#ifdef IOS
-#include <tr1/unordered_map>
-namespace std {
-	using std::tr1::unordered_map;
-	using std::tr1::unordered_multimap;
-}
-#else
 #include <unordered_map>
-#endif
 #include <deque>
 #include <list>
 #include <set>
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 #include <tr1/type_traits>
 #else
 #include <type_traits>
@@ -48,9 +40,13 @@ namespace std {
 
 #include "Common.h"
 #include "FileUtil.h"
+#ifdef SHARED_SNAPPY
+#include <snappy-c.h>
+#else
 #include "../ext/snappy/snappy-c.h"
+#endif
 
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(MACGNUSTD)
 namespace std {
 	using tr1::is_pointer;
 }
@@ -554,6 +550,11 @@ public:
 			}
 			else
 			{
+				if (shouldExist != 0)
+				{
+					WARN_LOG(COMMON, "Savestate failure: incorrect item marker %d", shouldExist);
+					SetError(ERROR_FAILURE);
+				}
 				if (mode == MODE_READ)
 				{
 					if (prev)
@@ -631,38 +632,37 @@ public:
 
 	// Load file template
 	template<class T>
-	static Error Load(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class, std::string* _failureReason) 
+	static Error Load(const std::string &filename, const char *gitVersion, T& _class, std::string *failureReason)
 	{
-		*_failureReason = "LoadStateWrongVersion";
+		*failureReason = "LoadStateWrongVersion";
 
-		u8 *ptr;
+		u8 *ptr = nullptr;
 		size_t sz;
-		Error error = LoadFile(_rFilename, _Revision, _VersionString, ptr, sz, _failureReason);
+		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
 		if (error == ERROR_NONE) {
-			u8 *buf = ptr;
 			error = LoadPtr(ptr, _class);
-			delete[] buf;
+			delete [] ptr;
 		}
 		
-		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
+		INFO_LOG(COMMON, "ChunkReader: Done loading %s", filename.c_str());
 		if (error == ERROR_NONE) {
-			_failureReason->clear();
+			failureReason->clear();
 		}
 		return error;
 	}
 
 	// Save file template
 	template<class T>
-	static Error Save(const std::string& _rFilename, int _Revision, const char *_VersionString, T& _class)
+	static Error Save(const std::string &filename, const std::string &title, const char *gitVersion, T& _class)
 	{
 		// Get data
 		size_t const sz = MeasurePtr(_class);
 		u8 *buffer = new u8[sz];
 		Error error = SavePtr(buffer, _class);
 
+		// SaveFile takes ownership of buffer
 		if (error == ERROR_NONE)
-			error = SaveFile(_rFilename, _Revision, _VersionString, buffer, sz);
-
+			error = SaveFile(filename, title, gitVersion, buffer, sz);
 		return error;
 	}
 	
@@ -690,10 +690,9 @@ public:
 		return ERROR_NONE;
 	}
 
-private:
-	static CChunkFileReader::Error LoadFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *&buffer, size_t &sz, std::string *_failureReason);
-	static CChunkFileReader::Error SaveFile(const std::string& _rFilename, int _Revision, const char *_VersionString, u8 *buffer, size_t sz);
+	static Error GetFileTitle(const std::string &filename, std::string *title);
 
+private:
 	struct SChunkHeader
 	{
 		int Revision;
@@ -702,4 +701,14 @@ private:
 		u32 UncompressedSize;
 		char GitVersion[32];
 	};
+
+	enum {
+		REVISION_MIN = 4,
+		REVISION_TITLE = 5,
+		REVISION_CURRENT = REVISION_TITLE,
+	};
+
+	static Error LoadFile(const std::string &filename, const char *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
+	static Error SaveFile(const std::string &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
+	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };

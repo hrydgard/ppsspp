@@ -19,7 +19,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
-#include "Core/MIPS/x86/Asm.h"
+#include "Common/x64Emitter.h"
 
 #if defined(ARM)
 #error DO NOT BUILD X86 JIT ON ARM
@@ -28,29 +28,17 @@
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/x86/JitSafeMem.h"
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
 class PointerWrap;
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
 // This is called when Jit hits a breakpoint.  Returns 1 when hit.
 u32 JitBreakpoint();
-
-struct JitOptions
-{
-	JitOptions();
-
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-	bool enableVFPUSIMD;
-};
 
 // TODO: Hmm, humongous.
 struct RegCacheState {
@@ -58,100 +46,100 @@ struct RegCacheState {
 	FPURegCacheState fpr;
 };
 
-class Jit : public Gen::XCodeBlock
-{
+class Jit : public Gen::XCodeBlock, public JitInterface {
 public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
 
+	const JitOptions &GetJitOptions() { return jo; }
+
 	void DoState(PointerWrap &p);
-	static void DoDummyState(PointerWrap &p);
+	void DoDummyState(PointerWrap &p);
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
 	// OR NOT
-	void Comp_Generic(MIPSOpcode op);
+	void Comp_Generic(MIPSOpcode op) override;
 
-	void RunLoopUntil(u64 globalticks);
+	void RunLoopUntil(u64 globalticks) override;
 
-	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
+	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name);
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
-	void Comp_RunBlock(MIPSOpcode op);
-	void Comp_ReplacementFunc(MIPSOpcode op);
+	void Comp_RunBlock(MIPSOpcode op) override;
+	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops
-	void Comp_ITypeMem(MIPSOpcode op);
-	void Comp_Cache(MIPSOpcode op);
+	void Comp_ITypeMem(MIPSOpcode op) override;
+	void Comp_Cache(MIPSOpcode op) override;
 
-	void Comp_RelBranch(MIPSOpcode op);
-	void Comp_RelBranchRI(MIPSOpcode op);
-	void Comp_FPUBranch(MIPSOpcode op);
-	void Comp_FPULS(MIPSOpcode op);
-	void Comp_FPUComp(MIPSOpcode op);
-	void Comp_Jump(MIPSOpcode op);
-	void Comp_JumpReg(MIPSOpcode op);
-	void Comp_Syscall(MIPSOpcode op);
-	void Comp_Break(MIPSOpcode op);
+	void Comp_RelBranch(MIPSOpcode op) override;
+	void Comp_RelBranchRI(MIPSOpcode op) override;
+	void Comp_FPUBranch(MIPSOpcode op) override;
+	void Comp_FPULS(MIPSOpcode op) override;
+	void Comp_FPUComp(MIPSOpcode op) override;
+	void Comp_Jump(MIPSOpcode op) override;
+	void Comp_JumpReg(MIPSOpcode op) override;
+	void Comp_Syscall(MIPSOpcode op) override;
+	void Comp_Break(MIPSOpcode op) override;
 
-	void Comp_IType(MIPSOpcode op);
-	void Comp_RType2(MIPSOpcode op);
-	void Comp_RType3(MIPSOpcode op);
-	void Comp_ShiftType(MIPSOpcode op);
-	void Comp_Allegrex(MIPSOpcode op);
-	void Comp_Allegrex2(MIPSOpcode op);
-	void Comp_VBranch(MIPSOpcode op);
-	void Comp_MulDivType(MIPSOpcode op);
-	void Comp_Special3(MIPSOpcode op);
+	void Comp_IType(MIPSOpcode op) override;
+	void Comp_RType2(MIPSOpcode op) override;
+	void Comp_RType3(MIPSOpcode op) override;
+	void Comp_ShiftType(MIPSOpcode op) override;
+	void Comp_Allegrex(MIPSOpcode op) override;
+	void Comp_Allegrex2(MIPSOpcode op) override;
+	void Comp_VBranch(MIPSOpcode op) override;
+	void Comp_MulDivType(MIPSOpcode op) override;
+	void Comp_Special3(MIPSOpcode op) override;
 
-	void Comp_FPU3op(MIPSOpcode op);
-	void Comp_FPU2op(MIPSOpcode op);
-	void Comp_mxc1(MIPSOpcode op);
+	void Comp_FPU3op(MIPSOpcode op) override;
+	void Comp_FPU2op(MIPSOpcode op) override;
+	void Comp_mxc1(MIPSOpcode op) override;
 
-	void Comp_SV(MIPSOpcode op);
-	void Comp_SVQ(MIPSOpcode op);
-	void Comp_VPFX(MIPSOpcode op);
-	void Comp_VVectorInit(MIPSOpcode op);
-	void Comp_VMatrixInit(MIPSOpcode op);
-	void Comp_VDot(MIPSOpcode op);
-	void Comp_VecDo3(MIPSOpcode op);
-	void Comp_VV2Op(MIPSOpcode op);
-	void Comp_Mftv(MIPSOpcode op);
-	void Comp_Vmfvc(MIPSOpcode op);
-	void Comp_Vmtvc(MIPSOpcode op);
-	void Comp_Vmmov(MIPSOpcode op);
-	void Comp_VScl(MIPSOpcode op);
-	void Comp_Vmmul(MIPSOpcode op);
-	void Comp_Vmscl(MIPSOpcode op);
-	void Comp_Vtfm(MIPSOpcode op);
-	void Comp_VHdp(MIPSOpcode op);
-	void Comp_VCrs(MIPSOpcode op);
-	void Comp_VDet(MIPSOpcode op);
-	void Comp_Vi2x(MIPSOpcode op);
-	void Comp_Vx2i(MIPSOpcode op);
-	void Comp_Vf2i(MIPSOpcode op);
-	void Comp_Vi2f(MIPSOpcode op);
-	void Comp_Vh2f(MIPSOpcode op);
-	void Comp_Vcst(MIPSOpcode op);
-	void Comp_Vhoriz(MIPSOpcode op);
-	void Comp_VRot(MIPSOpcode op);
-	void Comp_VIdt(MIPSOpcode op);
-	void Comp_Vcmp(MIPSOpcode op);
-	void Comp_Vcmov(MIPSOpcode op);
-	void Comp_Viim(MIPSOpcode op);
-	void Comp_Vfim(MIPSOpcode op);
-	void Comp_VCrossQuat(MIPSOpcode op);
-	void Comp_Vsgn(MIPSOpcode op);
-	void Comp_Vocp(MIPSOpcode op);
-	void Comp_ColorConv(MIPSOpcode op);
-	void Comp_Vbfy(MIPSOpcode op);
+	void Comp_SV(MIPSOpcode op) override;
+	void Comp_SVQ(MIPSOpcode op) override;
+	void Comp_VPFX(MIPSOpcode op) override;
+	void Comp_VVectorInit(MIPSOpcode op) override;
+	void Comp_VMatrixInit(MIPSOpcode op) override;
+	void Comp_VDot(MIPSOpcode op) override;
+	void Comp_VecDo3(MIPSOpcode op) override;
+	void Comp_VV2Op(MIPSOpcode op) override;
+	void Comp_Mftv(MIPSOpcode op) override;
+	void Comp_Vmfvc(MIPSOpcode op) override;
+	void Comp_Vmtvc(MIPSOpcode op) override;
+	void Comp_Vmmov(MIPSOpcode op) override;
+	void Comp_VScl(MIPSOpcode op) override;
+	void Comp_Vmmul(MIPSOpcode op) override;
+	void Comp_Vmscl(MIPSOpcode op) override;
+	void Comp_Vtfm(MIPSOpcode op) override;
+	void Comp_VHdp(MIPSOpcode op) override;
+	void Comp_VCrs(MIPSOpcode op) override;
+	void Comp_VDet(MIPSOpcode op) override;
+	void Comp_Vi2x(MIPSOpcode op) override;
+	void Comp_Vx2i(MIPSOpcode op) override;
+	void Comp_Vf2i(MIPSOpcode op) override;
+	void Comp_Vi2f(MIPSOpcode op) override;
+	void Comp_Vh2f(MIPSOpcode op) override;
+	void Comp_Vcst(MIPSOpcode op) override;
+	void Comp_Vhoriz(MIPSOpcode op) override;
+	void Comp_VRot(MIPSOpcode op) override;
+	void Comp_VIdt(MIPSOpcode op) override;
+	void Comp_Vcmp(MIPSOpcode op) override;
+	void Comp_Vcmov(MIPSOpcode op) override;
+	void Comp_Viim(MIPSOpcode op) override;
+	void Comp_Vfim(MIPSOpcode op) override;
+	void Comp_VCrossQuat(MIPSOpcode op) override;
+	void Comp_Vsgn(MIPSOpcode op) override;
+	void Comp_Vocp(MIPSOpcode op) override;
+	void Comp_ColorConv(MIPSOpcode op) override;
+	void Comp_Vbfy(MIPSOpcode op) override;
 
-	void Comp_DoNothing(MIPSOpcode op);
+	void Comp_DoNothing(MIPSOpcode op) override;
 
-	int Replace_fabsf();
-	int Replace_dl_write_matrix();
+	int Replace_fabsf() override;
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
@@ -168,28 +156,37 @@ public:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void EatPrefix() { js.EatPrefix(); }
 
-	void RestoreRoundingMode(bool force = false, XEmitter *emitter = NULL);
-	void ApplyRoundingMode(bool force = false, XEmitter *emitter = NULL);
-	void UpdateRoundingMode(XEmitter *emitter = NULL);
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void UpdateRoundingMode();
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
-	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
-	void InvalidateCache();
-	inline void InvalidateCacheAt(u32 em_address, int length = 4) {
+	void InvalidateCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) {
 		if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
 			blocks.InvalidateICache(em_address, length);
 		}
 	}
 
+	const u8 *GetDispatcher() const override {
+		return dispatcher;
+	}
+
+	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
+	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
+
 private:
+	void GenerateFixedCode(JitOptions &jo);
 	void GetStateAndFlushAll(RegCacheState &state);
-	void RestoreState(const RegCacheState state);
+	void RestoreState(const RegCacheState& state);
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);
 	bool ReplaceJalTo(u32 dest);
+
+	u32 GetCompilerPC();
 	// See CompileDelaySlotFlags for flags.
 	void CompileDelaySlot(int flags, RegCacheState *state = NULL);
 	void CompileDelaySlot(int flags, RegCacheState &state) {
@@ -197,10 +194,10 @@ private:
 	}
 	void EatInstruction(MIPSOpcode op);
 	void AddContinuedBlock(u32 dest);
+	MIPSOpcode GetOffsetInstruction(int offset);
 
 	void WriteExit(u32 destination, int exit_num);
-	void WriteExitDestInReg(X64Reg reg);
-	void WriteExitDestInEAX() { WriteExitDestInReg(EAX); }
+	void WriteExitDestInReg(Gen::X64Reg reg);
 
 //	void WriteRfiExitDestInEAX();
 	void WriteSyscallExit();
@@ -215,13 +212,13 @@ private:
 	void BranchLogExit(MIPSOpcode op, u32 dest, bool useEAX);
 
 	// Utilities to reduce duplicated code
-	void CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &));
-	void CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32), bool invertResult = false);
-	void CompShiftImm(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
-	void CompShiftVar(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
-	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), const void *safeFunc);
+	void CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const Gen::OpArg &, const Gen::OpArg &));
+	void CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const Gen::OpArg &, const Gen::OpArg &), u32 (*doImm)(const u32, const u32), bool invertResult = false);
+	void CompShiftImm(MIPSOpcode op, void (XEmitter::*shift)(int, Gen::OpArg, Gen::OpArg), u32 (*doImm)(const u32, const u32));
+	void CompShiftVar(MIPSOpcode op, void (XEmitter::*shift)(int, Gen::OpArg, Gen::OpArg), u32 (*doImm)(const u32, const u32));
+	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, Gen::X64Reg, Gen::OpArg), const void *safeFunc);
 	template <typename T>
-	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), T (*safeFunc)(u32 addr)) {
+	void CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, Gen::X64Reg, Gen::OpArg), T (*safeFunc)(u32 addr)) {
 		CompITypeMemRead(op, bits, mov, (const void *)safeFunc);
 	}
 	void CompITypeMemWrite(MIPSOpcode op, u32 bits, const void *safeFunc);
@@ -230,28 +227,29 @@ private:
 		CompITypeMemWrite(op, bits, (const void *)safeFunc);
 	}
 	void CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore);
-	void CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg);
-	void CompBranchExits(CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
+	void CompITypeMemUnpairedLRInner(MIPSOpcode op, Gen::X64Reg shiftReg);
+	void CompBranchExits(Gen::CCFlags cc, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
 	void CompBranchExit(bool taken, u32 targetAddr, u32 notTakenAddr, bool delaySlotIsNice, bool likely, bool andLink);
-	static CCFlags FlipCCFlag(CCFlags flag);
-	static CCFlags SwapCCFlag(CCFlags flag);
+	static Gen::CCFlags FlipCCFlag(Gen::CCFlags flag);
+	static Gen::CCFlags SwapCCFlag(Gen::CCFlags flag);
 
-	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
+	void CopyFPReg(Gen::X64Reg dst, Gen::OpArg src);
+	void CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(Gen::X64Reg reg, Gen::OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
 	void CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin);
 
-	void CallProtectedFunction(const void *func, const OpArg &arg1);
-	void CallProtectedFunction(const void *func, const OpArg &arg1, const OpArg &arg2);
+	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1);
+	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
 	void CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2, const u32 arg3);
-	void CallProtectedFunction(const void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
+	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const u32 arg2, const u32 arg3);
 
 	template <typename Tr, typename T1>
-	void CallProtectedFunction(Tr (*func)(T1), const OpArg &arg1) {
+	void CallProtectedFunction(Tr (*func)(T1), const Gen::OpArg &arg1) {
 		CallProtectedFunction((const void *)func, arg1);
 	}
 
 	template <typename Tr, typename T1, typename T2>
-	void CallProtectedFunction(Tr (*func)(T1, T2), const OpArg &arg1, const OpArg &arg2) {
+	void CallProtectedFunction(Tr (*func)(T1, T2), const Gen::OpArg &arg1, const Gen::OpArg &arg2) {
 		CallProtectedFunction((const void *)func, arg1, arg2);
 	}
 
@@ -261,7 +259,7 @@ private:
 	}
 
 	template <typename Tr, typename T1, typename T2, typename T3>
-	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const OpArg &arg1, const u32 arg2, const u32 arg3) {
+	void CallProtectedFunction(Tr (*func)(T1, T2, T3), const Gen::OpArg &arg1, const u32 arg2, const u32 arg3) {
 		CallProtectedFunction((const void *)func, arg1, arg2, arg3);
 	}
 
@@ -303,18 +301,31 @@ private:
 	GPRRegCache gpr;
 	FPURegCache fpr;
 
-	AsmRoutineManager asm_;
 	ThunkManager thunks;
 	JitSafeMemFuncs safeMemFuncs;
 
 	MIPSState *mips_;
 
+
+	const u8 *enterDispatcher;
+
+	const u8 *outerLoop;
+	const u8 *dispatcher;
+	const u8 *dispatcherCheckCoreState;
+	const u8 *dispatcherNoCheck;
+	const u8 *dispatcherInEAXNoCheck;
+
+	const u8 *breakpointBailout;
+
+	const u8 *restoreRoundingMode;
+	const u8 *applyRoundingMode;
+	const u8 *updateRoundingMode;
+
+	const u8 *endOfPregeneratedCode;
+
 	friend class JitSafeMem;
 	friend class JitSafeMemFuncs;
 };
-
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

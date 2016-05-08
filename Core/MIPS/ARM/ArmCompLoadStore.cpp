@@ -66,7 +66,10 @@
 
 namespace MIPSComp
 {
-	void Jit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
+	using namespace ArmGen;
+	using namespace ArmJitConstants;
+
+	void ArmJit::SetR0ToEffectiveAddress(MIPSGPReg rs, s16 offset) {
 		Operand2 op2;
 		if (offset) {
 			bool negated;
@@ -91,7 +94,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
+	void ArmJit::SetCCAndR0ForSafeAddress(MIPSGPReg rs, s16 offset, ARMReg tempReg, bool reverse) {
 		SetR0ToEffectiveAddress(rs, offset);
 
 		// There are three valid ranges.  Each one gets a bit.
@@ -126,7 +129,7 @@ namespace MIPSComp
 		SetCC(reverse ? CC_EQ : CC_GT);
 	}
 
-	void Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
+	void ArmJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
@@ -136,7 +139,7 @@ namespace MIPSComp
 		if (!js.inDelaySlot) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
-			MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+			MIPSOpcode nextOp = GetOffsetInstruction(1);
 			// Find a matching shift in opposite direction with opposite offset.
 			if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
 				                  : (op.encoding - (4<<26) + 3)))
@@ -272,7 +275,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_ITypeMem(MIPSOpcode op)
+	void ArmJit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -389,7 +392,38 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Cache(MIPSOpcode op) {
-		DISABLE;
+	void ArmJit::Comp_Cache(MIPSOpcode op) {
+		//		int imm = (s16)(op & 0xFFFF);
+		//		int rs = _RS;
+		//		int addr = R(rs) + imm;
+		int func = (op >> 16) & 0x1F;
+
+		// It appears that a cache line is 0x40 (64) bytes, loops in games
+		// issue the cache instruction at that interval.
+
+		// These codes might be PSP-specific, they don't match regular MIPS cache codes very well
+		switch (func) {
+			// Icache
+		case 8:
+			// Invalidate the instruction cache at this address
+			DISABLE;
+			break;
+			// Dcache
+		case 24:
+			// "Create Dirty Exclusive" - for avoiding a cacheline fill before writing to it.
+			// Will cause garbage on the real machine so we just ignore it, the app will overwrite the cacheline.
+			break;
+		case 25:  // Hit Invalidate - zaps the line if present in cache. Should not writeback???? scary.
+			// No need to do anything.
+			break;
+		case 27:  // D-cube. Hit Writeback Invalidate.  Tony Hawk Underground 2
+			break;
+		case 30:  // GTA LCS, a lot. Fill (prefetch).   Tony Hawk Underground 2
+			break;
+
+		default:
+			DISABLE;
+			break;
+		}
 	}
 }

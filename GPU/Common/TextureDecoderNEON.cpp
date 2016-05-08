@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <arm_neon.h>
+
+#include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoder.h"
 
-#ifndef ARM
+#if !defined(ARM) && !defined(ARM64)
 #error Should not be compiled on non-ARM.
 #endif
 
@@ -29,7 +31,7 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	__builtin_prefetch(checkp, 0, 0);
 
 	if (((intptr_t)checkp & 0xf) == 0 && (size & 0x3f) == 0) {
-#ifdef IOS
+#if defined(IOS) || defined(ARM64)
 		uint32x4_t cursor = vdupq_n_u32(0);
 		uint16x8_t cursor2 = vld1q_u16(QuickTexHashInitial);
 		uint16x8_t update = vdupq_n_u16(0x2455U);
@@ -116,7 +118,10 @@ u32 QuickTexHashNEON(const void *checkp, u32 size) {
 	return check;
 }
 
-void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch, u32 rowWidth) {
+void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch) {
+	// ydestp is in 32-bits, so this is convenient.
+	const u32 pitchBy32 = pitch >> 2;
+
 	__builtin_prefetch(texptr, 0, 0);
 	__builtin_prefetch(ydestp, 1, 1);
 
@@ -132,18 +137,18 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 				uint32x4_t temp3 = vld1q_u32(src + 8);
 				uint32x4_t temp4 = vld1q_u32(src + 12);
 				vst1q_u32(dest, temp1);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp2);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp3);
-				dest += pitch;
+				dest += pitchBy32;
 				vst1q_u32(dest, temp4);
-				dest += pitch;
+				dest += pitchBy32;
 				src += 16;
 			}
 			xdest += 4;
 		}
-		ydestp += (rowWidth * 8) / 4;
+		ydestp += pitchBy32 * 8;
 	}
 }
 
@@ -242,4 +247,123 @@ u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
 	h32 ^= h32 >> 16;
 
 	return h32;
+}
+
+static inline bool VectorIsNonZeroNEON(const uint32x4_t &v) {
+	u64 low = vgetq_lane_u64(vreinterpretq_u64_u32(v), 0);
+	u64 high = vgetq_lane_u64(vreinterpretq_u64_u32(v), 1);
+
+	return (low | high) != 0;
+}
+
+static inline bool VectorIsNonZeroNEON(const uint16x8_t &v) {
+	u64 low = vgetq_lane_u64(vreinterpretq_u64_u16(v), 0);
+	u64 high = vgetq_lane_u64(vreinterpretq_u64_u16(v), 1);
+
+	return (low | high) != 0;
+}
+
+CheckAlphaResult CheckAlphaRGBA8888NEON(const u32 *pixelData, int stride, int w, int h) {
+	const uint32x4_t zero = vdupq_n_u32(0);
+	const uint32x4_t full = vdupq_n_u32(0xFF);
+
+	const u32 *p = (const u32 *)pixelData;
+
+	// Have alpha values == 0 been seen?
+	uint32x4_t foundAZero = zero;
+
+	for (int y = 0; y < h; ++y) {
+		// Have alpha values > 0 and < 0xFF been seen?
+		uint32x4_t foundFraction = zero;
+
+		for (int i = 0; i < w; i += 4) {
+			const uint32x4_t a = vshrq_n_u32(vld1q_u32(&p[i]), 24);
+
+			const uint32x4_t isZero = vceqq_u32(a, zero);
+			foundAZero = vorrq_u32(foundAZero, isZero);
+
+			// If a = FF, isNotFull will be 0 -> foundFraction will be 0.
+			// If a = 00, a & isNotFull will be 0 -> foundFraction will be 0.
+			// In any other case, foundFraction will have some bits set.
+			const uint32x4_t isNotFull = vcltq_u32(a, full);
+			foundFraction = vorrq_u32(foundFraction, vandq_u32(a, isNotFull));
+		}
+		p += stride;
+
+		// We check any early, in case we can skip the rest of the rows.
+		if (VectorIsNonZeroNEON(foundFraction)) {
+			return CHECKALPHA_ANY;
+		}
+	}
+
+	// Now let's sum up the bits.
+	if (VectorIsNonZeroNEON(foundAZero)) {
+		return CHECKALPHA_ZERO;
+	} else {
+		return CHECKALPHA_FULL;
+	}
+}
+
+CheckAlphaResult CheckAlphaABGR4444NEON(const u32 *pixelData, int stride, int w, int h) {
+	const uint16x8_t zero = vdupq_n_u16(0);
+	const uint16x8_t full = vdupq_n_u16(0xF000);
+
+	const u16 *p = (const u16 *)pixelData;
+
+	// Have alpha values == 0 been seen?
+	uint16x8_t foundAZero = zero;
+
+	for (int y = 0; y < h; ++y) {
+		// Have alpha values > 0 and < 0xFF been seen?
+		uint16x8_t foundFraction = zero;
+
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vshlq_n_u16(vld1q_u16(&p[i]), 12);
+
+			const uint16x8_t isZero = vceqq_u16(a, zero);
+			foundAZero = vorrq_u16(foundAZero, isZero);
+
+			// If a = F, isNotFull will be 0 -> foundFraction will be 0.
+			// If a = 0, a & isNotFull will be 0 -> foundFraction will be 0.
+			// In any other case, foundFraction will have some bits set.
+			const uint16x8_t isNotFull = vcltq_u16(a, full);
+			foundFraction = vorrq_u16(foundFraction, vandq_u16(a, isNotFull));
+		}
+		p += stride;
+
+		// We check any early, in case we can skip the rest of the rows.
+		if (VectorIsNonZeroNEON(foundFraction)) {
+			return CHECKALPHA_ANY;
+		}
+	}
+
+	// Now let's sum up the bits.
+	if (VectorIsNonZeroNEON(foundAZero)) {
+		return CHECKALPHA_ZERO;
+	} else {
+		return CHECKALPHA_FULL;
+	}
+}
+
+CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w, int h) {
+	const u16 *p = (const u16 *)pixelData;
+
+	const uint16x8_t mask = vdupq_n_u16(1);
+	uint16x8_t bits = vdupq_n_u16(1);
+	for (int y = 0; y < h; ++y) {
+		for (int i = 0; i < w; i += 8) {
+			const uint16x8_t a = vld1q_u16(&p[i]);
+
+			bits = vandq_u16(bits, a);
+		}
+
+		uint16x8_t result = veorq_u16(bits, mask);
+		if (VectorIsNonZeroNEON(result)) {
+			return CHECKALPHA_ZERO;
+		}
+
+		p += stride;
+	}
+
+	return CHECKALPHA_FULL;
 }

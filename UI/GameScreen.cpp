@@ -41,13 +41,13 @@ GameScreen::GameScreen(const std::string &gamePath) : UIDialogScreenWithGameBack
 }
 
 GameScreen::~GameScreen() {
-	SetBackgroundAudioGame("");
 }
 
 void GameScreen::CreateViews() {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	g_gameInfoCache->WaitUntilDone(info);
 
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 
 	// Information in the top left.
@@ -62,16 +62,21 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
+	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
-		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
+		tvTitle_ = leftColumn->Add(new TextView(info->GetTitle(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
+		tvTitle_->SetShadow(true);
 		// This one doesn't need to be updated.
-		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)));
+		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)))->SetShadow(true);
 		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 290, NONE, NONE)));
+		tvGameSize_->SetShadow(true);
 		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 320, NONE, NONE)));
+		tvSaveDataSize_->SetShadow(true);
 		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 350, NONE, NONE)));
+		tvInstallDataSize_->SetShadow(true);
 		tvRegion_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 380, NONE, NONE)));
+		tvRegion_->SetShadow(true);
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -82,7 +87,18 @@ void GameScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 	Choice *play = new Choice(ga->T("Play"));
 	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
-	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	if (info && !info->id.empty())
+	{
+		if (info->hasConfig)
+		{
+			rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+			rightColumnItems->Add(new Choice(ga->T("Delete Game Config")))->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+		}
+		else
+		{
+			rightColumnItems->Add(new Choice(ga->T("Create Game Config")))->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+		}
+	}
 	std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 	if (saveDirs.size()) {
 		rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
@@ -97,8 +113,39 @@ void GameScreen::CreateViews() {
 #ifdef _WIN32
 	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
+}
 
-	UI::SetFocusedView(play);
+UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
+{
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_,0);
+	g_Config.createGameConfig(info->id);
+	g_Config.saveGameConfig(info->id);
+	info->hasConfig = true;
+
+	screenManager()->topScreen()->RecreateViews();
+	return UI::EVENT_DONE;
+}
+
+void GameScreen::CallbackDeleteConfig(bool yes)
+{
+	if (yes)
+	{
+		GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+		g_Config.deleteGameConfig(info->id);
+		info->hasConfig = false;
+		screenManager()->RecreateAllViews();
+	}
+}
+
+UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
+{
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *ga = GetI18NCategory("Game");
+	screenManager()->push(
+		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
+		std::bind(&GameScreen::CallbackDeleteConfig, this, placeholder::_1)));
+
+	return UI::EVENT_DONE;
 }
 
 void GameScreen::update(InputState &input) {
@@ -108,10 +155,10 @@ void GameScreen::update(InputState &input) {
 
 	Thin3DContext *thin3d = screenManager()->getThin3DContext();
 
-	GameInfo *info = g_gameInfoCache.GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
 	if (tvTitle_)
-		tvTitle_->SetText(info->title + " (" + info->id + ")");
+		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
 		texvGameIcon_->SetTexture(info->iconTexture);
 		// Fade the icon with the background.
@@ -169,24 +216,24 @@ UI::EventReturn GameScreen::OnPlay(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info && info->paramSFOLoaded) {
 		std::string discID = info->paramSFO.GetValueString("DISC_ID");
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID));
+		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
 	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		// Check that there's any savedata to delete
 		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
 		if (saveDirs.size()) {
 			screenManager()->push(
-				new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), d->T("Cancel"),
+				new PromptScreen(di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 		}
 	}
@@ -196,7 +243,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteSaveData(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
 		info->DeleteAllSaveData();
 		info->saveDataSize = 0;
@@ -205,12 +252,12 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
-	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), d->T("Cancel"),
+			new PromptScreen(di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
@@ -218,18 +265,18 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 }
 
 void GameScreen::CallbackDeleteGame(bool yes) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (yes) {
-		info->DeleteGame();
-		g_gameInfoCache.Clear();
+		info->Delete();
+		g_gameInfoCache->Clear();
 		screenManager()->switchScreen(new MainScreen());
 	}
 }
 
 UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
-	GameInfo *info = g_gameInfoCache.GetInfo(NULL, gamePath_, 0);
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	if (info) {
-		host->CreateDesktopShortcut(gamePath_, info->title);
+		host->CreateDesktopShortcut(gamePath_, info->GetTitle());
 	}
 	return UI::EVENT_DONE;
 }

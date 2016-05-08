@@ -86,6 +86,14 @@ u8* ParamSFOData::GetValueData(std::string key, unsigned int *size)
 	return it->second.u_value;
 }
 
+std::vector<std::string> ParamSFOData::GetKeys() {
+	std::vector<std::string> result;
+	for (const auto &pair : values) {
+		result.push_back(pair.first);
+	}
+	return result;
+}
+
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 {
@@ -176,7 +184,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	total_size += sizeof(Header);
 
 	// Get size info
-	for (std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
+	for (auto it = values.begin(); it != values.end(); ++it)
 	{
 		key_size += it->first.size()+1;
 		data_size += it->second.max_size;
@@ -205,7 +213,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	u8* key_ptr = data + header.key_table_start;
 	u8* data_ptr = data + header.data_table_start;
 
-	for (std::map<std::string,ValueData>::iterator it = values.begin(); it != values.end(); it++)
+	for (auto it = values.begin(); it != values.end(); ++it)
 	{
 		u16 offset = (u16)(key_ptr - (data+header.key_table_start));
 		index_ptr->key_table_offset = offset;
@@ -246,8 +254,11 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size)
 	}
 
 	return true;
+}
 
-
+void ParamSFOData::Clear()
+{
+	values.clear();
 }
 
 void ParamSFOData::ValueData::SetData(const u8* data, int size)

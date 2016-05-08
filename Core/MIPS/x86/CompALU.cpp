@@ -37,12 +37,15 @@ using namespace MIPSAnalyst;
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
 {
+	using namespace Gen;
+	using namespace X64JitConstants;
+
 	static bool HasLowSubregister(OpArg arg) {
 #ifndef _M_X64
 		// Can't use ESI or EDI (which we use), no 8-bit versions.  Only these.
@@ -207,7 +210,7 @@ namespace MIPSComp
 				u32 value = gpr.GetImm(rs);
 				int x = 31;
 				int count = 0;
-				while (!(value & (1 << x)) && x >= 0)
+				while (x >= 0 && !(value & (1 << x)))
 				{
 					count++;
 					x--;
@@ -238,7 +241,7 @@ namespace MIPSComp
 				u32 value = gpr.GetImm(rs);
 				int x = 31;
 				int count = 0;
-				while ((value & (1 << x)) && x >= 0)
+				while (x >= 0 && (value & (1 << x)))
 				{
 					count++;
 					x--;
@@ -482,7 +485,7 @@ namespace MIPSComp
 					cc = SwapCCFlag(cc);
 				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
 					// Let's try to pick which makes more sense to load.
-					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+					if (MIPSAnalyst::IsRegisterUsed(rhs, GetCompilerPC() + 4, 3)) {
 						std::swap(lhs, rhs);
 						cc = SwapCCFlag(cc);
 					}
@@ -522,7 +525,7 @@ namespace MIPSComp
 					cc = SwapCCFlag(cc);
 				} else if (!gpr.R(lhs).CanDoOpWith(gpr.R(rhs))) {
 					// Let's try to pick which makes more sense to load.
-					if (MIPSAnalyst::IsRegisterUsed(rhs, js.compilerPC + 4, 3)) {
+					if (MIPSAnalyst::IsRegisterUsed(rhs, GetCompilerPC() + 4, 3)) {
 						std::swap(lhs, rhs);
 						cc = SwapCCFlag(cc);
 					}
@@ -940,8 +943,10 @@ namespace MIPSComp
 		switch (op & 63) 
 		{
 		case 16: // R(rd) = HI; //mfhi
-			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_HI));
+			if (rd != MIPS_REG_ZERO) {
+				gpr.MapReg(rd, false, true);
+				MOV(32, gpr.R(rd), gpr.R(MIPS_REG_HI));
+			}
 			break; 
 
 		case 17: // HI = R(rs); //mthi
@@ -951,8 +956,10 @@ namespace MIPSComp
 			break; 
 
 		case 18: // R(rd) = LO; break; //mflo
-			gpr.MapReg(rd, false, true);
-			MOV(32, gpr.R(rd), gpr.R(MIPS_REG_LO));
+			if (rd != MIPS_REG_ZERO) {
+				gpr.MapReg(rd, false, true);
+				MOV(32, gpr.R(rd), gpr.R(MIPS_REG_LO));
+			}
 			break;
 
 		case 19: // LO = R(rs); break; //mtlo

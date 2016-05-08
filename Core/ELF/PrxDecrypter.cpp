@@ -738,7 +738,6 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 
 	memcpy(outbuf+0xB0, outbuf+0xC0, 0x10);
 	memset(outbuf+0xC0, 0, 0x10);
-	memcpy(outbuf+0xD0, outbuf+0xD0, 0x80);
 
 	// The real decryption
 	if (sceUtilsBufferCopyWithRange(outbuf, size, outbuf + 0x40, size - 0x40, 0x1) != 0)

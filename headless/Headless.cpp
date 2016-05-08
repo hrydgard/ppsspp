@@ -7,6 +7,7 @@
 #include <limits>
 
 #include "file/zip_read.h"
+#include "profiler/profiler.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -24,9 +25,7 @@
 #include "Compare.h"
 #include "StubHost.h"
 #ifdef _WIN32
-#include "Windows/OpenGLBase.h"
 #include "WindowsHeadlessHost.h"
-#include "WindowsHeadlessHostDx9.h"
 #endif
 
 // https://github.com/richq/android-ndk-profiler
@@ -69,18 +68,21 @@ struct InputState;
 // Temporary hacks around annoying linking errors.
 void D3D9_SwapBuffers() { }
 void GL_SwapBuffers() { }
+void GL_SwapInterval(int) { }
+void Vulkan_SwapBuffers() {}
 void NativeUpdate(InputState &input_state) { }
-void NativeRender() { }
+void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
+void NativeMessageReceived(const char *message, const char *value) {}
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
 void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-#ifndef _WIN32
 InputState input_state;
-#endif
 
 int printUsage(const char *progname, const char *reason)
 {
@@ -114,12 +116,8 @@ int printUsage(const char *progname, const char *reason)
 
 static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
-	case GPU_NULL:
+	case GPUCORE_NULL:
 		return new HeadlessHost();
-#ifdef _WIN32
-	case GPU_DIRECTX9:
-		return new WindowsHeadlessHostDx9();
-#endif
 #ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
@@ -200,6 +198,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 
 int main(int argc, const char* argv[])
 {
+	PROFILE_INIT();
+
 #ifdef ANDROID_NDK_PROFILER
 	setenv("CPUPROFILE_FREQUENCY", "500", 1);
 	setenv("CPUPROFILE", "/sdcard/gmon.out", 1);
@@ -211,7 +211,7 @@ int main(int argc, const char* argv[])
 	bool autoCompare = false;
 	bool verbose = false;
 	const char *stateToLoad = 0;
-	GPUCore gpuCore = GPU_NULL;
+	GPUCore gpuCore = GPUCORE_NULL;
 	
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
@@ -247,19 +247,21 @@ int main(int argc, const char* argv[])
 		{
 			const char *gpuName = argv[i] + strlen("--graphics=");
 			if (!strcasecmp(gpuName, "gles"))
-				gpuCore = GPU_GLES;
+				gpuCore = GPUCORE_GLES;
 			else if (!strcasecmp(gpuName, "software"))
-				gpuCore = GPU_SOFTWARE;
+				gpuCore = GPUCORE_SOFTWARE;
 			else if (!strcasecmp(gpuName, "directx9"))
-				gpuCore = GPU_DIRECTX9;
+				gpuCore = GPUCORE_DIRECTX9;
+			else if (!strcasecmp(gpuName, "vulkan"))
+				gpuCore = GPUCORE_VULKAN;
 			else if (!strcasecmp(gpuName, "null"))
-				gpuCore = GPU_NULL;
+				gpuCore = GPUCORE_NULL;
 			else
 				return printUsage(argv[0], "Unknown gpu backend specified after --graphics=");
 		}
 		// Default to GLES if no value selected.
 		else if (!strcmp(argv[i], "--graphics"))
-			gpuCore = GPU_GLES;
+			gpuCore = GPUCORE_GLES;
 		else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
@@ -289,18 +291,19 @@ int main(int argc, const char* argv[])
 		return printUsage(argv[0], argc <= 1 ? NULL : "No executables specified");
 
 	HeadlessHost *headlessHost = getHost(gpuCore);
+	headlessHost->SetGraphicsCore(gpuCore);
 	host = headlessHost;
 
 	std::string error_string;
-	bool glWorking = host->InitGraphics(&error_string);
+	GraphicsContext *graphicsContext;
+	bool glWorking = host->InitGraphics(&error_string, &graphicsContext);
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
 	
 	PrintfLogger *printfLogger = new PrintfLogger();
 
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, fullLog);
 		logman->SetLogLevel(type, LogTypes::LDEBUG);
@@ -309,7 +312,8 @@ int main(int argc, const char* argv[])
 
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = useJit ? CPU_JIT : CPU_INTERPRETER;
-	coreParameter.gpuCore = glWorking ? gpuCore : GPU_NULL;
+	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
+	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
@@ -333,7 +337,7 @@ int main(int argc, const char* argv[])
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
-	g_Config.iAnisotropyLevel = 8;
+	g_Config.iAnisotropyLevel = 4;
 #endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
@@ -352,7 +356,7 @@ int main(int argc, const char* argv[])
 	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
-	g_Config.bSetRoundingMode = true;
+	g_Config.iSplineBezierQuality = 2;
 
 #ifdef _WIN32
 	InitSysDirectories();

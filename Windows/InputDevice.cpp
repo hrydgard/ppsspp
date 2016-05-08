@@ -21,6 +21,7 @@
 #include "input/input_state.h"
 #include "thread/thread.h"
 #include "thread/threadutil.h"
+#include "Core/Config.h"
 #include "Core/Host.h"
 #include "Windows/InputDevice.h"
 #include "Windows/XinputDevice.h"
@@ -33,6 +34,7 @@ static volatile bool inputThreadEnabled = false;
 static std::thread *inputThread = NULL;
 static recursive_mutex inputMutex;
 static condition_variable inputEndCond;
+static bool focused = true;
 
 extern InputState input_state;
 
@@ -46,7 +48,7 @@ inline static void ExecuteInputPoll() {
 	input_state.pad_lstick_y = 0;
 	input_state.pad_rstick_x = 0;
 	input_state.pad_rstick_y = 0;
-	if (host) {
+	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
 		host->PollControllers(input_state);
 	}
 	UpdateInputState(&input_state);
@@ -86,4 +88,12 @@ void InputDevice::StopPolling() {
 	}
 	delete inputThread;
 	inputThread = NULL;
+}
+
+void InputDevice::GainFocus() {
+	focused = true;
+}
+
+void InputDevice::LoseFocus() {
+	focused = false;
 }

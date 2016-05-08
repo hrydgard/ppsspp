@@ -18,6 +18,17 @@
 #include "Common.h"
 #include "StringUtils.h"
 
+void truncate_cpy(char *dest, size_t destSize, const char *src) {
+	size_t len = strlen(src);
+	if (len >= destSize - 1) {
+		memcpy(dest, src, destSize - 1);
+		dest[destSize - 1] = '\0';
+	} else {
+		memcpy(dest, src, len);
+		dest[len] = '\0';
+	}
+}
+
 long parseHexLong(std::string s) {
 	long value = 0;
 

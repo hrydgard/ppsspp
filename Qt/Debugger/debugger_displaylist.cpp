@@ -880,19 +880,19 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 		}
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-		return QString("Viewport param %1: %2").arg(cmd-GE_CMD_VIEWPORTX1).arg(getFloat24(data));
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+		return QString("Viewport param %1: %2").arg(cmd-GE_CMD_VIEWPORTXSCALE).arg(getFloat24(data));
 		break;
-	case GE_CMD_VIEWPORTZ1:
+	case GE_CMD_VIEWPORTZSCALE:
 		{
 			float zScale = getFloat24(data) / 65535.f;
 			return QString("Viewport Z scale: %1").arg(zScale);
 		}
 		break;
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTZCENTER:
 		{
 			float zOff = getFloat24(data) / 65535.f;
 			return QString("Viewport Z pos: %1").arg(zOff);

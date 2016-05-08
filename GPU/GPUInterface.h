@@ -19,11 +19,15 @@
 
 #include <list>
 #include <string>
+#include <vector>
 
-#include "GPU/GPUState.h"
+#include "GPU/GPU.h"
 #include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderCommon.h"
 
 struct PspGeListArgs;
+struct GPUgstate;
 class PointerWrap;
 
 enum DisplayListStatus {
@@ -52,8 +56,7 @@ enum DisplayListState {
   PSP_GE_DL_STATE_PAUSED = 4,
 };
 
-enum SignalBehavior
-{
+enum SignalBehavior {
 	PSP_GE_SIGNAL_NONE             = 0x00,
 	PSP_GE_SIGNAL_HANDLER_SUSPEND  = 0x01,
 	PSP_GE_SIGNAL_HANDLER_CONTINUE = 0x02,
@@ -89,8 +92,7 @@ enum SignalBehavior
 	PSP_GE_SIGNAL_BREAK2           = 0xFF,
 };
 
-enum GPUState
-{
+enum GPURunState {
 	GPUSTATE_RUNNING = 0,
 	GPUSTATE_DONE = 1,
 	GPUSTATE_STALL = 2,
@@ -98,15 +100,13 @@ enum GPUState
 	GPUSTATE_ERROR = 4,
 };
 
-enum GPUSyncType
-{
+enum GPUSyncType {
 	GPU_SYNC_DRAW,
 	GPU_SYNC_LIST,
 };
 
 // Used for debug
-struct FramebufferInfo
-{
+struct FramebufferInfo {
 	u32 fb_address;
 	u32 z_address;
 	int format;
@@ -115,15 +115,13 @@ struct FramebufferInfo
 	void* fbo;
 };
 
-struct DisplayListStackEntry
-{
+struct DisplayListStackEntry {
 	u32 pc;
 	u32 offsetAddr;
 	u32 baseAddr;
 };
 
-struct DisplayList
-{
+struct DisplayList {
 	int id;
 	u32 startpc;
 	u32 pc;
@@ -143,6 +141,8 @@ struct DisplayList
 	u32 offsetAddr;
 	bool bboxResult;
 	u32 stackAddr;
+
+	u32 padding;  // Android x86-32 does not round the structure size up to the closest multiple of 8 like the other platforms.
 };
 
 enum GPUInvalidationType {
@@ -214,6 +214,11 @@ public:
 	virtual void InitClear() = 0;
 	virtual void Reinitialize() = 0;
 
+	// Frame managment
+	virtual void BeginHostFrame() = 0;
+	virtual void EndHostFrame() = 0;
+
+	// Events
 	virtual void RunEventsUntil(u64 globalticks) = 0;
 	virtual void FinishEventLoop() = 0;
 
@@ -243,11 +248,12 @@ public:
 	virtual void CopyDisplayToOutput() = 0;
 
 	// Tells the GPU to update the gpuStats structure.
-	virtual void UpdateStats() = 0;
+	virtual void GetStats(char *buffer, size_t bufsize) = 0;
 
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
+	virtual void NotifyVideoUpload(u32 addr, int size, int width, int format) = 0;
 	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
 	virtual bool PerformMemoryCopy(u32 dest, u32 src, int size) = 0;
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size) = 0;
@@ -275,6 +281,7 @@ public:
 	virtual bool FramebufferDirty() = 0;
 	virtual bool FramebufferReallyDirty() = 0;
 	virtual bool BusyDrawing() = 0;
+	virtual void SetThreadEnabled(bool threadEnabled) = 0;
 
 	// If any jit is being used inside the GPU.
 	virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
@@ -283,6 +290,10 @@ public:
 	virtual void DumpNextFrame() = 0;
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
-	virtual bool DecodeTexture(u8* dest, GPUgstate state) = 0;
+	virtual bool DecodeTexture(u8* dest, const GPUgstate &state) = 0;
 	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
+
+	// For debugging. The IDs returned are opaque, do not poke in them or display them in any way.
+	virtual std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) = 0;
+	virtual std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) = 0;
 };

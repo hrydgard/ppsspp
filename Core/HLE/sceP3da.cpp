@@ -17,17 +17,18 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceP3da.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
 
-u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum)
+static u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum)
 {
 	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
 	return 0;
 }
 
-u32 sceP3daBridgeExit()
+static u32 sceP3daBridgeExit()
 {
 	ERROR_LOG_REPORT(SCEAUDIO, "UNIMPL sceP3daBridgeExit()");
 	return 0;
@@ -42,7 +43,7 @@ static inline int getScaleValue(u32 channelsNum) {
 	return val;
 }
 
-u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
+static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
 	DEBUG_LOG(SCEAUDIO, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
@@ -67,9 +68,9 @@ u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inp
 
 const HLEFunction sceP3da[] =
 {
-	{0x374500a5, WrapU_UU<sceP3daBridgeInit>, "sceP3daBridgeInit"},
-	{0x43F756a2, WrapU_V<sceP3daBridgeExit>, "sceP3daBridgeExit"},
-	{0x013016f3, WrapU_UUUUU<sceP3daBridgeCore>, "sceP3daBridgeCore"},
+	{0X374500A5, &WrapU_UU<sceP3daBridgeInit>,       "sceP3daBridgeInit", 'x', "xx"   },
+	{0X43F756A2, &WrapU_V<sceP3daBridgeExit>,        "sceP3daBridgeExit", 'x', ""     },
+	{0X013016F3, &WrapU_UUUUU<sceP3daBridgeCore>,    "sceP3daBridgeCore", 'x', "xxxxx"},
 };
 
 void Register_sceP3da()

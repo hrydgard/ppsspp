@@ -18,13 +18,15 @@
 #include <map>
 
 #include "Common/CommonTypes.h"
-#include "gfx_es2/gl_state.h"
+#include "gfx/gl_common.h"
 #include "GPU/ge_constants.h"
 
 class DepalShader {
 public:
 	GLuint program;
 	GLuint fragShader;
+	GLint a_position;
+	GLint a_texcoord0;
 };
 
 class DepalTexture {
@@ -40,15 +42,17 @@ public:
 	~DepalShaderCache();
 
 	// This also uploads the palette and binds the correct texture.
-	GLuint GetDepalettizeShader(GEBufferFormat pixelFormat);
-	GLuint GetClutTexture(const u32 clutHash, u32 *rawClut);
+	DepalShader *GetDepalettizeShader(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	GLuint GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
 	void Clear();
 	void Decimate();
 
 private:
-	u32 GenerateShaderID(GEBufferFormat pixelFormat);
+	u32 GenerateShaderID(GEPaletteFormat clutFormat, GEBufferFormat pixelFormat);
+	bool CreateVertexShader();
 
 	bool useGL3_;
+	bool vertexShaderFailed_;
 	GLuint vertexShader_;
 	std::map<u32, DepalShader *> cache_;
 	std::map<u32, DepalTexture *> texCache_;

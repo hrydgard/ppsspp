@@ -26,6 +26,25 @@ class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 
+// Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
+// opcode to represent JIT blocks and other emu hacks.
+// I've chosen 0x68000000.
+#define MIPS_EMUHACK_OPCODE 0x68000000
+#define MIPS_EMUHACK_MASK 0xFC000000
+#define MIPS_JITBLOCK_MASK 0xFF000000
+#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
+
+// There are 2 bits available for sub-opcodes, 0x03000000.
+#define EMUOP_RUNBLOCK 0   // Runs a JIT block
+#define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
+#define EMUOP_CALL_REPLACEMENT 2
+
+#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
+#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
+
+#define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
+
 enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
@@ -40,6 +59,8 @@ enum MIPSGPReg {
 	MIPS_REG_A4=8,
 	MIPS_REG_A5=9,
 
+	MIPS_REG_T0=8,  //alternate names for A4/A5
+	MIPS_REG_T1=9,
 	MIPS_REG_T2=10,
 	MIPS_REG_T3=11,
 	MIPS_REG_T4=12,
@@ -149,12 +170,15 @@ public:
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
 	u32 vfpuCtrl[16];
 
+	// ARM64 wants lo/hi to be aligned to 64 bits from the base of this struct.
+	u32 padLoHi;
+
 	union {
 		struct {
 			u32 pc;
 
-			u32 hi;
 			u32 lo;
+			u32 hi;
 
 			u32 fcr31; //fpu control register
 			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
@@ -189,6 +213,8 @@ public:
 	int RunLoopUntil(u64 globalTicks);
 	// To clear jit caches, etc.
 	void InvalidateICache(u32 address, int length = 4);
+
+	void ClearJitCache();
 };
 
 

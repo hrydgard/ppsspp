@@ -37,7 +37,9 @@
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
 
-SymbolMap symbolMap;
+#include "ext/armips/Core/Assembler.h"
+
+SymbolMap *g_symbolMap;
 
 void SymbolMap::SortSymbols() {
 	lock_guard guard(lock_);
@@ -121,7 +123,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename) {
 		SymbolType type;
 		char name[128] = {0};
 
-		if (sscanf(line, ".module %x %08x %08x %127c", &moduleIndex, &address, &size, name) == 4) {
+		if (sscanf(line, ".module %x %08x %08x %127c", &moduleIndex, &address, &size, name) >= 3) {
 			// Found a module definition.
 			ModuleEntry mod;
 			mod.index = moduleIndex;
@@ -280,7 +282,7 @@ void SymbolMap::SaveNocashSym(const char *filename) const {
 		return;
 	}
 
-	FILE* f = fopen(filename, "w");
+	FILE* f = File::OpenCFile(filename, "w");
 	if (f == NULL)
 		return;
 
@@ -426,6 +428,7 @@ void SymbolMap::AddModule(const char *name, u32 address, u32 size) {
 
 	ModuleEntry mod;
 	strncpy(mod.name, name, ARRAY_SIZE(mod.name));
+	mod.name[ARRAY_SIZE(mod.name) - 1] = '\0';
 	mod.start = address;
 	mod.size = size;
 	mod.index = (int)modules.size() + 1;
@@ -788,7 +791,7 @@ void SymbolMap::SetLabelName(const char* name, u32 address) {
 		auto symbolKey = std::make_pair(labelInfo->second.module, labelInfo->second.addr);
 		auto label = labels.find(symbolKey);
 		if (label != labels.end()) {
-			strcpy(label->second.name,name);
+			strncpy(label->second.name, name, 128);
 			label->second.name[127] = 0;
 
 			// Refresh the active item if it exists.
@@ -942,9 +945,7 @@ DataType SymbolMap::GetDataType(u32 startAddress) const {
 	return it->second.type;
 }
 
-#if defined(_WIN32)
-
-void SymbolMap::getLabels(std::vector<LabelDefinition>& dest) const
+void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) const
 {
 	lock_guard guard(lock_);
 	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
@@ -954,6 +955,8 @@ void SymbolMap::getLabels(std::vector<LabelDefinition>& dest) const
 		dest.push_back(entry);
 	}
 }
+
+#if defined(_WIN32)
 
 struct DefaultSymbol {
 	u32 address;

@@ -2,6 +2,8 @@
 
 #include "Common/CommonWindows.h"
 
+bool IsVistaOrHigher();
+
 namespace W32Util
 {
 	void CenterWindow(HWND hwnd);

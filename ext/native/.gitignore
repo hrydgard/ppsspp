@@ -1,0 +1,6 @@
+Release
+Debug
+*.vcxproj.user
+android/.settings
+local.properties
+.DS_Store

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/FakeEmitter.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"
@@ -25,31 +26,19 @@
 #include "stddef.h"
 #endif
 
-namespace MIPSComp
-{
+namespace MIPSComp {
 
-struct FakeJitOptions
-{
-	FakeJitOptions();
+typedef int FakeReg;
 
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
-class Jit : public FakeGen::FakeXCodeBlock
-{
+class FakeJit : public FakeGen::FakeXCodeBlock {
 public:
-	Jit(MIPSState *mips);
+	FakeJit(MIPSState *mips);
 
 	void DoState(PointerWrap &p);
 	static void DoDummyState(PointerWrap &p);
 
-	// Compiled ops should ignore delay slots
-	// the compiler will take care of them by itself
-	// OR NOT
+	const JitOptions &GetJitOptions() { return jo; }
+
 	void Comp_Generic(MIPSOpcode op);
 
 	void RunLoopUntil(u64 globalticks);
@@ -132,6 +121,7 @@ public:
 	void Comp_Vsgn(MIPSOpcode op) {}
 	void Comp_Vocp(MIPSOpcode op) {}
 	void Comp_ColorConv(MIPSOpcode op) {}
+	void Comp_Vbfy(MIPSOpcode op) {}
 
 	int Replace_fabsf() { return 0; }
 
@@ -166,7 +156,7 @@ private:
 	void WriteSyscallExit();
 
 	JitBlockCache blocks;
-	FakeJitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	MIPSState *mips_;
@@ -187,9 +177,6 @@ public:
 
 	const u8 *breakpointBailout;
 };
-
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

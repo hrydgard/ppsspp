@@ -24,7 +24,8 @@
 #include "file/file_util.h"
 #include "base/functional.h"
 #include "ui/ui_screen.h"
-#include "GPU/Common/PostShader.h"
+
+struct ShaderInfo;
 
 extern std::string boot_filename;
 
@@ -34,7 +35,7 @@ class UIScreenWithBackground : public UIScreen {
 public:
 	UIScreenWithBackground() : UIScreen() {}
 protected:
-	virtual void DrawBackground(UIContext &dc);
+	virtual void DrawBackground(UIContext &dc) override;
 	virtual void sendMessage(const char *message, const char *value) override;
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
 };
@@ -52,23 +53,25 @@ class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
 	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
-	virtual void DrawBackground(UIContext &dc);
+	virtual void DrawBackground(UIContext &dc) override;
 	virtual void sendMessage(const char *message, const char *value) override;
 	virtual UI::EventReturn OnLanguageChange(UI::EventParams &e);
+
+	void AddStandardBack(UI::ViewGroup *parent);
 };
 
 class UIDialogScreenWithGameBackground : public UIDialogScreenWithBackground {
 public:
 	UIDialogScreenWithGameBackground(const std::string &gamePath)
 		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
-	virtual void DrawBackground(UIContext &dc);
+	virtual void DrawBackground(UIContext &dc) override;
 protected:
 	std::string gamePath_;
 };
 
 class PromptScreen : public UIDialogScreenWithBackground {
 public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, 
+	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText,
 		std::function<void(bool)> callback = &NoOpVoidBool);
 
 	virtual void CreateViews() override;
@@ -88,7 +91,7 @@ public:
 	NewLanguageScreen(const std::string &title);
 
 private:
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	virtual bool ShowButtons() const override { return true; }
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
@@ -100,7 +103,7 @@ public:
 	PostProcScreen(const std::string &title);
 
 private:
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	virtual bool ShowButtons() const override { return true; }
 	std::vector<ShaderInfo> shaders_;
 };
@@ -113,7 +116,7 @@ public:
 	virtual void update(InputState &input) override;
 	virtual void render() override;
 	virtual void sendMessage(const char *message, const char *value) override;
-	virtual void CreateViews() {}
+	virtual void CreateViews() override {}
 
 private:
 	void Next();
@@ -127,7 +130,7 @@ public:
 	virtual void update(InputState &input) override;
 	virtual void render() override;
 
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);

@@ -19,9 +19,10 @@
 
 #include <map>
 #include "Common/CommonTypes.h"
-#include "gfx_es2/gl_state.h"
-#include "GPU/ge_constants.h"
+#include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/TextureCache.h"
+
+#include "GPU/ge_constants.h"
 
 struct FragmentTestID {
 	union {
@@ -80,4 +81,5 @@ private:
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
 	u8 *scratchpad_;
 	GLuint lastTexture_;
+	int decimationCounter_;
 };

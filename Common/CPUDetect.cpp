@@ -29,6 +29,8 @@
 #include "StringUtils.h"
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
 #define _interlockedbittestandreset workaround_ms_header_bug_platform_sdk6_reset
 #define _interlockedbittestandset64 workaround_ms_header_bug_platform_sdk6_set64
@@ -62,17 +64,7 @@ static unsigned long long _xgetbv(unsigned int index)
 #define _XCR_XFEATURE_ENABLED_MASK 0
 #endif
 
-#if defined __FreeBSD__
-#include <sys/types.h>
-#include <machine/cpufunc.h>
-
-void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
-	__cpuidex((int *)regs, cpuid_leaf, ecxval);
-}
-void do_cpuid(u32 regs[4], u32 cpuid_leaf) {
-	__cpuid((int *)regs, cpuid_leaf);
-}
-#elif !defined(MIPS)
+#if !defined(MIPS)
 
 void do_cpuidex(u32 regs[4], u32 cpuid_leaf, u32 ecxval) {
 #if defined(__i386__) && defined(__PIC__)
@@ -288,7 +280,7 @@ std::string CPUInfo::Summarize()
 	if (bSSE4_2) sum += ", SSE4.2";
 	if (HTT) sum += ", HTT";
 	if (bAVX) sum += ", AVX";
-	if (bAVX) sum += ", FMA";
+	if (bFMA) sum += ", FMA";
 	if (bAES) sum += ", AES";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;

@@ -22,6 +22,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -31,7 +32,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceGe.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/System.h"
 
 static u32 atlasPtr;
@@ -40,6 +41,12 @@ static int atlasHeight;
 
 struct PPGeVertex {
 	u16_le u, v;
+	u32_le color;
+	float_le x, y, z;
+};
+
+struct PPGeRemasterVertex {
+	float_le u, v;
 	u32_le color;
 	float_le x, y, z;
 };
@@ -117,15 +124,23 @@ static void BeginVertexData() {
 	vertexStart = dataWritePtr;
 }
 
-static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF)
-{
-	PPGeVertex vtx;
-	vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
-	vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
-	vtx.color = color;
-	Memory::WriteStruct(dataWritePtr, &vtx);
+static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
+	if (g_RemasterMode) {
+		PPGeRemasterVertex vtx;
+		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
+		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.color = color;
+		Memory::WriteStruct(dataWritePtr, &vtx);
+		dataWritePtr += sizeof(vtx);
+	} else {
+		PPGeVertex vtx;
+		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
+		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.color = color;
+		Memory::WriteStruct(dataWritePtr, &vtx);
+		dataWritePtr += sizeof(vtx);
+	}
 	vertexCount++;
-	dataWritePtr += sizeof(vtx);
 }
 
 static void EndVertexDataAndDraw(int prim) {
@@ -158,25 +173,25 @@ void __PPGeSetupListArgs()
 void __PPGeInit()
 {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	if (PSP_CoreParameter().gpuCore == GPU_NULL || host->ShouldSkipUI()) {
+	if (PSP_CoreParameter().gpuCore == GPUCORE_NULL || host->ShouldSkipUI()) {
 		// Let's just not bother.
 		dlPtr = 0;
 		NOTICE_LOG(SCEGE, "Not initializing PPGe - GPU is NullGpu");
 		return;
 	}
-	u8 *imageData;
-	int width;
-	int height;
+	u8 *imageData[12];
+	int width[12];
+	int height[12];
 	int flags;
-	if (!LoadZIM("ppge_atlas.zim", &width, &height, &flags, &imageData)) {
+	if (!LoadZIM("ppge_atlas.zim", width, height, &flags, imageData)) {
 		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ERROR_LOG(SCEGE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 		return;
 	}
 
-	u32 atlasSize = height * width / 2;  // it's a 4-bit paletted texture in ram
-	atlasWidth = width;
-	atlasHeight = height;
+	u32 atlasSize = height[0] * width[0] / 2;  // it's a 4-bit paletted texture in ram
+	atlasWidth = width[0];
+	atlasHeight = height[0];
 	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
 	__PPGeSetupListArgs();
@@ -189,11 +204,11 @@ void __PPGeInit()
 		palette[i] = (val << 12) | 0xFFF;
 	}
 
-	const u32_le *imagePtr = (u32_le *)imageData;
+	const u32_le *imagePtr = (u32_le *)imageData[0];
 	u8 *ramPtr = (u8 *)Memory::GetPointer(atlasPtr);
 
 	// Palettize to 4-bit, the easy way.
-	for (int i = 0; i < width * height / 2; i++) {
+	for (int i = 0; i < width[0] * height[0] / 2; i++) {
 		// Each pixel is 16 bits, so this loads two pixels.
 		u32 c = imagePtr[i];
 		// It's white anyway, so we only look at one channel of each pixel.
@@ -203,7 +218,7 @@ void __PPGeInit()
 		ramPtr[i] = cval;
 	}
 	
-	free(imageData);
+	free(imageData[0]);
 
 	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
@@ -298,7 +313,11 @@ void PPGeBegin()
 	WriteCmd(GE_CMD_MAXZ, 0xFFFF);
 
 	// Through mode, so we don't have to bother with matrices
-	WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	if (g_RemasterMode) {
+		WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	} else {
+		WriteCmd(GE_CMD_VERTEXTYPE, GE_VTYPE_TC_16BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT | GE_VTYPE_THROUGH);
+	}
 }
 
 void PPGeEnd()

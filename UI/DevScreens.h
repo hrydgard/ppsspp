@@ -26,32 +26,50 @@
 #include "ui/ui_screen.h"
 
 #include "UI/MiscScreens.h"
+#include "GPU/Common/ShaderCommon.h"
 
 class DevMenu : public PopupScreen {
 public:
 	DevMenu() : PopupScreen("Dev Tools") {}
 
-	virtual void CreatePopupContents(UI::ViewGroup *parent);
-
-	virtual void dialogFinished(const Screen *dialog, DialogResult result);
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 protected:
+	UI::EventReturn OnLogView(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitCompare(UI::EventParams &e);
+	UI::EventReturn OnShaderView(UI::EventParams &e);
 	UI::EventReturn OnFreezeFrame(UI::EventParams &e);
 	UI::EventReturn OnDumpFrame(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
+	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
 };
 
 class LogConfigScreen : public UIDialogScreenWithBackground {
 public:
 	LogConfigScreen() {}
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 
 private:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
 	UI::EventReturn OnLogLevel(UI::EventParams &e);
 	UI::EventReturn OnLogLevelChange(UI::EventParams &e);
+};
+
+class LogScreen : public UIDialogScreenWithBackground {
+public:
+	LogScreen() : toBottom_(false) {}
+	void CreateViews() override;
+	void update(InputState &input) override;
+
+private:
+	void UpdateLog();
+	UI::EventReturn OnSubmit(UI::EventParams &e);
+	UI::TextEdit *cmdLine_;
+	UI::LinearLayout *vert_;
+	UI::ScrollView *scroll_;
+	bool toBottom_;
 };
 
 class LogLevelScreen : public ListPopupScreen {
@@ -81,7 +99,7 @@ public:
 
 protected:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) override;
-	virtual void OnCompleted(DialogResult result);
+	virtual void OnCompleted(DialogResult result) override;
 	UI::EventReturn OnDigitButton(UI::EventParams &e);
 	UI::EventReturn OnBackspace(UI::EventParams &e);
 
@@ -98,18 +116,22 @@ private:
 class JitCompareScreen : public UIDialogScreenWithBackground {
 public:
 	JitCompareScreen() : currentBlock_(-1) {}
-	virtual void CreateViews();
+	virtual void CreateViews() override;
 
 private:
 	void UpdateDisasm();
 	UI::EventReturn OnRandomBlock(UI::EventParams &e);
+	UI::EventReturn OnRandomFPUBlock(UI::EventParams &e);
 	UI::EventReturn OnRandomVFPUBlock(UI::EventParams &e);
+	void OnRandomBlock(int flag);
+
 	UI::EventReturn OnCurrentBlock(UI::EventParams &e);
 	UI::EventReturn OnSelectBlock(UI::EventParams &e);
 	UI::EventReturn OnPrevBlock(UI::EventParams &e);
 	UI::EventReturn OnNextBlock(UI::EventParams &e);
 	UI::EventReturn OnBlockAddress(UI::EventParams &e);
 	UI::EventReturn OnAddressChange(UI::EventParams &e);
+	UI::EventReturn OnShowStats(UI::EventParams &e);
 
 	int currentBlock_;
 
@@ -117,6 +139,32 @@ private:
 	UI::TextEdit *blockAddr_;
 	UI::TextView *blockStats_;
 
-	UI::LinearLayout *leftDisasm_;	
-	UI::LinearLayout *rightDisasm_;	
+	UI::LinearLayout *leftDisasm_;
+	UI::LinearLayout *rightDisasm_;
 };
+
+class ShaderListScreen : public UIDialogScreenWithBackground {
+public:
+	ShaderListScreen() {}
+	void CreateViews() override;
+
+private:
+	void ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
+
+	UI::EventReturn OnShaderClick(UI::EventParams &e);
+
+	UI::TabHolder *tabs_;
+};
+
+class ShaderViewScreen : public UIDialogScreenWithBackground {
+public:
+	ShaderViewScreen(std::string id, DebugShaderType type)
+		: id_(id), type_(type) {}
+
+	void CreateViews() override;
+private:
+	std::string id_;
+	DebugShaderType type_;
+};
+
+void DrawProfile(UIContext &ui);

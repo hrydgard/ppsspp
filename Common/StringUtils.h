@@ -15,12 +15,15 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#ifndef _STRINGUTIL_H_
-#define _STRINGUTIL_H_
+#pragma once
 
 #include <base/stringutil.h>
 
 #include "Common.h"
+
+
+void truncate_cpy(char *dest, size_t destSize, const char *src);
+
 long parseHexLong(std::string s);
 long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);
@@ -38,5 +41,3 @@ inline void CharArrayFromFormat(char (& out)[Count], const char* format, ...)
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
-
-#endif // _STRINGUTIL_H_

@@ -10,7 +10,7 @@ else: LIBS += -lCore -lGPU -lCommon -lNative
 include(Settings.pri)
 
 # To support Sailfish which is stuck on GCC 4.6
-linux-g++:system($$QMAKE_CXX --version | grep "4.6."): DEFINES+=override
+linux-g++:system($$QMAKE_CXX --version | grep \"4\.6\.\"): DEFINES+=override
 
 lessThan(QT_MAJOR_VERSION, 5) {
 	macx: error(PPSSPP requires Qt5 for OS X but $$[QT_VERSION] was detected.)
@@ -38,15 +38,23 @@ macx|equals(PLATFORM_NAME, "linux") {
 	PRE_TARGETDEPS += $$CONFIG_DIR/libCommon.a $$CONFIG_DIR/libCore.a $$CONFIG_DIR/libGPU.a $$CONFIG_DIR/libNative.a
 	CONFIG += link_pkgconfig
 	packagesExist(sdl2) {
-		DEFINES += QT_HAS_SDL
+		DEFINES += SDL
 		SOURCES += $$P/SDL/SDLJoystick.cpp
 		HEADERS += $$P/SDL/SDLJoystick.h
 		PKGCONFIG += sdl2
-		macx {
-			LIBS += -F/Library/Frameworks -framework SDL
-			INCLUDEPATH += /Library/Frameworks/SDL.framework/Versions/A/Headers
-		}
 	}
+}
+
+!symbian:exists( /usr/include/GL/glew.h ) {
+	LIBS += -lGLEW
+}
+
+exists( /usr/include/snappy-c.h ) {
+	LIBS += -lsnappy
+}
+
+exists( /usr/include/zip.h ) {
+	LIBS += -lzip
 }
 
 unix:contains(QT_CONFIG, system-zlib) {
@@ -54,7 +62,7 @@ unix:contains(QT_CONFIG, system-zlib) {
 }
 
 # Qt Multimedia (if SDL is not found)
-!contains(DEFINES, QT_HAS_SDL) {
+!contains(DEFINES, SDL) {
 	lessThan(QT_MAJOR_VERSION,5):!exists($$[QT_INSTALL_HEADERS]/QtMultimedia) {
 		# Fallback to mobility audio
 		CONFIG += mobility
@@ -64,11 +72,11 @@ unix:contains(QT_CONFIG, system-zlib) {
 }
 
 # Main
-SOURCES += $$P/native/base/QtMain.cpp
-HEADERS += $$P/native/base/QtMain.h
+SOURCES += $$P/ext/native/base/QtMain.cpp
+HEADERS += $$P/ext/native/base/QtMain.h
 symbian {
-	SOURCES += $$P/native/base/SymbianMediaKeys.cpp
-	HEADERS += $$P/native/base/SymbianMediaKeys.h
+	SOURCES += $$P/ext/native/base/SymbianMediaKeys.cpp
+	HEADERS += $$P/ext/native/base/SymbianMediaKeys.h
 }
 
 # UI
@@ -77,7 +85,10 @@ SOURCES += $$P/UI/*.cpp \
 arm:android: SOURCES += $$P/android/jni/ArmEmitterTest.cpp
 HEADERS += $$P/UI/*.h
 
-INCLUDEPATH += $$P $$P/Common $$P/native $$P/native/ext $$P/native/ext/glew
+INCLUDEPATH += $$P $$P/Common $$P/ext/native $$P/ext/native/ext
+!exists( /usr/include/GL/glew.h ) {
+	INCLUDEPATH += $$P/ext/native/ext/glew
+}
 
 mobile_platform {
 	!no_assets: RESOURCES += $$P/Qt/assets.qrc
@@ -91,7 +102,7 @@ mobile_platform {
 	INCLUDEPATH += $$P/Qt $$P/Qt/Debugger
 	
 	# Creating translations should be done by Qt, really
-	LREL_TOOL = lrelease
+	isEmpty(LREL_TOOL): LREL_TOOL = lrelease
 	# Grab all possible directories (win32/unix)
 	win32: PATHS = $$split($$(PATH), ;)
 	else: PATHS = $$split($$(PATH), :)

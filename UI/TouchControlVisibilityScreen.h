@@ -27,7 +27,7 @@ namespace UI {
 
 class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
 public:
-	TouchControlVisibilityScreen() { }
+	TouchControlVisibilityScreen() : toggleSwitch(true){ }
 
 	virtual void CreateViews();
 	virtual void onFinish(DialogResult result);

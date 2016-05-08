@@ -26,29 +26,29 @@ enum UsbStatus {
 	GPS_STATE_ON = 3,
 };
 
-int sceUsbGpsGetState(u32 stateAddr) {
+static int sceUsbGpsGetState(u32 stateAddr) {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsGetData(%08x)", stateAddr);
 	return 0;
 }
 
-int sceUsbGpsOpen() {
+static int sceUsbGpsOpen() {
 	ERROR_LOG(HLE, "UNIMPL sceUsbGpsOpen");
 	return 0;
 }
 
 const HLEFunction sceUsbGps[] =
 {
-	{0x268F95CA, 0, "sceUsbGpsSetInitDataLocation"},
-	{0x31F95CDE, 0, "sceUsbGpsGetPowerSaveMode"},
-	{0x54D26AA4, 0, "sceUsbGpsGetInitDataLocation"},
-	{0x63D1F89D, 0, "sceUsbGpsResetInitialPosition"},
-	{0x69E4AAA8, 0, "sceUsbGpsSaveInitData"},
-	{0x6EED4811, 0, "sceUsbGpsClose"},
-	{0x7C16AC3A, WrapI_U<sceUsbGpsGetState>, "sceUsbGpsGetState"},
-	{0x934EC2B2, 0, "sceUsbGpsGetData"},
-	{0x9D8F99E8, 0, "sceUsbGpsSetPowerSaveMode"},
-	{0x9F267D34, WrapI_V<sceUsbGpsOpen>, "sceUsbGpsOpen"},
-	{0xA259CD67, 0, "sceUsbGpsReset"},
+	{0X268F95CA, nullptr,                            "sceUsbGpsSetInitDataLocation",  '?', "" },
+	{0X31F95CDE, nullptr,                            "sceUsbGpsGetPowerSaveMode",     '?', "" },
+	{0X54D26AA4, nullptr,                            "sceUsbGpsGetInitDataLocation",  '?', "" },
+	{0X63D1F89D, nullptr,                            "sceUsbGpsResetInitialPosition", '?', "" },
+	{0X69E4AAA8, nullptr,                            "sceUsbGpsSaveInitData",         '?', "" },
+	{0X6EED4811, nullptr,                            "sceUsbGpsClose",                '?', "" },
+	{0X7C16AC3A, &WrapI_U<sceUsbGpsGetState>,        "sceUsbGpsGetState",             'i', "x"},
+	{0X934EC2B2, nullptr,                            "sceUsbGpsGetData",              '?', "" },
+	{0X9D8F99E8, nullptr,                            "sceUsbGpsSetPowerSaveMode",     '?', "" },
+	{0X9F267D34, &WrapI_V<sceUsbGpsOpen>,            "sceUsbGpsOpen",                 'i', "" },
+	{0XA259CD67, nullptr,                            "sceUsbGpsReset",                '?', "" },
 };
 
 void Register_sceUsbGps()

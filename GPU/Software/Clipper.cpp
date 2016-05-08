@@ -22,6 +22,8 @@
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Rasterizer.h"
 
+#include "profiler/profiler.h"
+
 namespace Clipper {
 
 enum {
@@ -125,7 +127,7 @@ static inline int CalcClipMask(const ClipCoords& v)
 	}															\
 }
 
-static void RotateUVThrough(VertexData &tl, VertexData &tr, VertexData &bl, VertexData &br) {
+static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
 	const fixed16 x1 = tl.screenpos.x;
 	const fixed16 x2 = br.screenpos.x;
 	const fixed16 y1 = tl.screenpos.y;
@@ -194,12 +196,14 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
 		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
 		buf[0].clippos.w = buf[1].clippos.w = buf[2].clippos.w = buf[3].clippos.w = 1.0f;
+		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth = 1.0f;
 
 		VertexData* topleft = &buf[0];
 		VertexData* topright = &buf[1];
 		VertexData* bottomleft = &buf[2];
 		VertexData* bottomright = &buf[3];
 
+		// Um. Why is this stuff needed?
 		for (int i = 0; i < 4; ++i) {
 			if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
 				topleft = &buf[i];
@@ -211,7 +215,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 				bottomright = &buf[i];
 		}
 
-		RotateUVThrough(*topleft, *topright, *bottomleft, *bottomright);
+		RotateUVThrough(v0, v1, *topright, *bottomleft);
 
 		// Four triangles to do backfaces as well. Two of them will get backface culled.
 		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
@@ -223,7 +227,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 
 void ProcessPoint(VertexData& v0)
 {
-	// Points need no clipping.
+	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
 	Rasterizer::DrawPoint(v0);
 }
 
@@ -252,7 +256,7 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 	for (int i = 0; i < NUM_CLIPPED_VERTICES; ++i)
 		Vertices[i+3] = &ClippedVertices[i];
 
-	// TODO: Change logic when it's a backface
+	// TODO: Change logic when it's a backface (why? In what way?)
 	Vertices[0] = &v0;
 	Vertices[1] = &v1;
 	Vertices[2] = &v2;

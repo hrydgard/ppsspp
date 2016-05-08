@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceCcc.h"
 #include "Core/Reporting.h"
 
 typedef PSPPointer<char> PSPCharPointer;
@@ -61,7 +62,7 @@ void __CccDoState(PointerWrap &p)
 	p.Do(jis2ucsTable);
 }
 
-u32 __CccUCStoJIS(u32 c, u32 alt)
+static u32 __CccUCStoJIS(u32 c, u32 alt)
 {
 	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
 	alt &= 0xFFFF;
@@ -72,7 +73,7 @@ u32 __CccUCStoJIS(u32 c, u32 alt)
 	return ucs2jisTable[c];
 }
 
-u32 __CccJIStoUCS(u32 c, u32 alt)
+static u32 __CccJIStoUCS(u32 c, u32 alt)
 {
 	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
 	c &= 0xFFFF;
@@ -81,7 +82,7 @@ u32 __CccJIStoUCS(u32 c, u32 alt)
 	return jis2ucsTable[c];
 }
 
-void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
+static void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
 	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes.
 	DEBUG_LOG(HLE, "sceCccSetTable(%08x, %08x)", jis2ucs, ucs2jis);
@@ -89,7 +90,7 @@ void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 	jis2ucsTable = jis2ucs;
 }
 
-int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPWCharPointer::Create(dstAddr);
@@ -121,7 +122,7 @@ int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -157,7 +158,7 @@ int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstWCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -188,7 +189,7 @@ int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstWCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -224,7 +225,7 @@ int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPCharPointer::Create(dstAddr);
@@ -260,7 +261,7 @@ int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
+static int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 {
 	const auto src = PSPConstCharPointer::Create(srcAddr);
 	auto dst = PSPWCharPointer::Create(dstAddr);
@@ -296,7 +297,7 @@ int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	return n;
 }
 
-int sceCccStrlenUTF8(u32 strAddr)
+static int sceCccStrlenUTF8(u32 strAddr)
 {
 	const auto str = PSPConstCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -308,7 +309,7 @@ int sceCccStrlenUTF8(u32 strAddr)
 	return UTF8(str).length();
 }
 
-int sceCccStrlenUTF16(u32 strAddr)
+static int sceCccStrlenUTF16(u32 strAddr)
 {
 	const auto str = PSPConstWCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -320,7 +321,7 @@ int sceCccStrlenUTF16(u32 strAddr)
 	return UTF16LE(str).length();
 }
 
-int sceCccStrlenSJIS(u32 strAddr)
+static int sceCccStrlenSJIS(u32 strAddr)
 {
 	const auto str = PSPCharPointer::Create(strAddr);
 	if (!str.IsValid())
@@ -332,7 +333,7 @@ int sceCccStrlenSJIS(u32 strAddr)
 	return ShiftJIS(str).length();
 }
 
-u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
+static u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
@@ -346,7 +347,7 @@ u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 	return dstp->ptr;
 }
 
-void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
+static void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 {
 	auto dstp = PSPPointer<PSPWCharPointer>::Create(dstAddrAddr);
 
@@ -362,7 +363,7 @@ void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 	*dstp += UTF16LE::encode(*dstp, ucs);
 }
 
-u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
+static u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 {
 	auto dstp = PSPPointer<PSPCharPointer>::Create(dstAddrAddr);
 
@@ -376,7 +377,7 @@ u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 	return dstp->ptr;
 }
 
-u32 sceCccDecodeUTF8(u32 dstAddrAddr)
+static u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
@@ -396,7 +397,7 @@ u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 	return result;
 }
 
-u32 sceCccDecodeUTF16(u32 dstAddrAddr)
+static u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstWCharPointer>::Create(dstAddrAddr);
 
@@ -417,7 +418,7 @@ u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 	return result;
 }
 
-u32 sceCccDecodeSJIS(u32 dstAddrAddr)
+static u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 {
 	auto dstp = PSPPointer<PSPConstCharPointer>::Create(dstAddrAddr);
 
@@ -437,49 +438,49 @@ u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 	return result;
 }
 
-int sceCccIsValidUTF8(u32 c)
+static int sceCccIsValidUTF8(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF8(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUTF16(u32 c)
+static int sceCccIsValidUTF16(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF16(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidSJIS(u32 c)
+static int sceCccIsValidSJIS(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidSJIS(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUCS2(u32 c)
+static int sceCccIsValidUCS2(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS2(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUCS4(u32 c)
+static int sceCccIsValidUCS4(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS4(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidJIS(u32 c)
+static int sceCccIsValidJIS(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidJIS(%08x)", c);
 	return c != 0;
 }
 
-int sceCccIsValidUnicode(u32 c)
+static int sceCccIsValidUnicode(u32 c)
 {
 	WARN_LOG(HLE, "UNIMPL sceCccIsValidUnicode(%08x)", c);
 	return c != 0;
 }
 
-u32 sceCccSetErrorCharUTF8(u32 c)
+static u32 sceCccSetErrorCharUTF8(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF8(%08x)", c);
 	int result = errorUTF8;
@@ -487,7 +488,7 @@ u32 sceCccSetErrorCharUTF8(u32 c)
 	return result;
 }
 
-u32 sceCccSetErrorCharUTF16(u32 c)
+static u32 sceCccSetErrorCharUTF16(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF16(%08x)", c);
 	int result = errorUTF16;
@@ -495,7 +496,7 @@ u32 sceCccSetErrorCharUTF16(u32 c)
 	return result;
 }
 
-u32 sceCccSetErrorCharSJIS(u32 c)
+static u32 sceCccSetErrorCharSJIS(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharSJIS(%04x)", c);
 	int result = errorSJIS;
@@ -503,7 +504,7 @@ u32 sceCccSetErrorCharSJIS(u32 c)
 	return result;
 }
 
-u32 sceCccUCStoJIS(u32 c, u32 alt)
+static u32 sceCccUCStoJIS(u32 c, u32 alt)
 {
 	if (ucs2jisTable.IsValid())
 	{
@@ -517,7 +518,7 @@ u32 sceCccUCStoJIS(u32 c, u32 alt)
 	}
 }
 
-u32 sceCccJIStoUCS(u32 c, u32 alt)
+static u32 sceCccJIStoUCS(u32 c, u32 alt)
 {
 	if (jis2ucsTable.IsValid())
 	{
@@ -533,34 +534,34 @@ u32 sceCccJIStoUCS(u32 c, u32 alt)
 
 const HLEFunction sceCcc[] =
 {	
-	{0xB4D1CBBF, WrapV_UU<sceCccSetTable>, "sceCccSetTable"},
-	{0x00D1378F, WrapI_UUU<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
-	{0x6F82EE03, WrapI_UUU<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
-	{0x41B724A5, WrapI_UUU<sceCccUTF16toUTF8>, "sceCccUTF16toUTF8"},
-	{0xF1B73D12, WrapI_UUU<sceCccUTF16toSJIS>, "sceCccUTF16toSJIS"},
-	{0xA62E6E80, WrapI_UUU<sceCccSJIStoUTF8>, "sceCccSJIStoUTF8"},
-	{0xBEB47224, WrapI_UUU<sceCccSJIStoUTF16>, "sceCccSJIStoUTF16"},
-	{0xb7d3c112, WrapI_U<sceCccStrlenUTF8>, "sceCccStrlenUTF8"},
-	{0x4BDEB2A8, WrapI_U<sceCccStrlenUTF16>, "sceCccStrlenUTF16"},
-	{0xd9392ccb, WrapI_U<sceCccStrlenSJIS>, "sceCccStrlenSJIS"},
-	{0x92C05851, WrapU_UU<sceCccEncodeUTF8>, "sceCccEncodeUTF8"},
-	{0x8406F469, WrapV_UU<sceCccEncodeUTF16>, "sceCccEncodeUTF16"},
-	{0x068c4320, WrapU_UU<sceCccEncodeSJIS>, "sceCccEncodeSJIS"},
-	{0xc6a8bee2, WrapU_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
-	{0xe0cf8091, WrapU_U<sceCccDecodeUTF16>, "sceCccDecodeUTF16"},
-	{0x953e6c10, WrapU_U<sceCccDecodeSJIS>, "sceCccDecodeSJIS"},
-	{0x90521ac5, WrapI_U<sceCccIsValidUTF8>, "sceCccIsValidUTF8"},
-	{0xcc0a8bda, WrapI_U<sceCccIsValidUTF16>, "sceCccIsValidUTF16"},
-	{0x67bf0d19, WrapI_U<sceCccIsValidSJIS>, "sceCccIsValidSJIS"},
-	{0x76e33e9c, WrapI_U<sceCccIsValidUCS2>, "sceCccIsValidUCS2"},
-	{0xd2b18485, WrapI_U<sceCccIsValidUCS4>, "sceCccIsValidUCS4"},
-	{0xa2d5d209, WrapI_U<sceCccIsValidJIS>, "sceCccIsValidJIS"},
-	{0xbd11eef3, WrapI_U<sceCccIsValidUnicode>, "sceCccIsValidUnicode"},
-	{0x17e1d813, WrapU_U<sceCccSetErrorCharUTF8>, "sceCccSetErrorCharUTF8"},
-	{0xb8476cf4, WrapU_U<sceCccSetErrorCharUTF16>, "sceCccSetErrorCharUTF16"},
-	{0xc56949ad, WrapU_U<sceCccSetErrorCharSJIS>, "sceCccSetErrorCharSJIS"},
-	{0x70ecaa10, WrapU_UU<sceCccUCStoJIS>, "sceCccUCStoJIS"},
-	{0xfb7846e2, WrapU_UU<sceCccJIStoUCS>, "sceCccJIStoUCS"},
+	{0XB4D1CBBF, &WrapV_UU<sceCccSetTable>,          "sceCccSetTable",          'v', "xx" },
+	{0X00D1378F, &WrapI_UUU<sceCccUTF8toUTF16>,      "sceCccUTF8toUTF16",       'i', "xxx"},
+	{0X6F82EE03, &WrapI_UUU<sceCccUTF8toSJIS>,       "sceCccUTF8toSJIS",        'i', "xxx"},
+	{0X41B724A5, &WrapI_UUU<sceCccUTF16toUTF8>,      "sceCccUTF16toUTF8",       'i', "xxx"},
+	{0XF1B73D12, &WrapI_UUU<sceCccUTF16toSJIS>,      "sceCccUTF16toSJIS",       'i', "xxx"},
+	{0XA62E6E80, &WrapI_UUU<sceCccSJIStoUTF8>,       "sceCccSJIStoUTF8",        'i', "xxx"},
+	{0XBEB47224, &WrapI_UUU<sceCccSJIStoUTF16>,      "sceCccSJIStoUTF16",       'i', "xxx"},
+	{0XB7D3C112, &WrapI_U<sceCccStrlenUTF8>,         "sceCccStrlenUTF8",        'i', "x"  },
+	{0X4BDEB2A8, &WrapI_U<sceCccStrlenUTF16>,        "sceCccStrlenUTF16",       'i', "x"  },
+	{0XD9392CCB, &WrapI_U<sceCccStrlenSJIS>,         "sceCccStrlenSJIS",        'i', "x"  },
+	{0X92C05851, &WrapU_UU<sceCccEncodeUTF8>,        "sceCccEncodeUTF8",        'x', "xx" },
+	{0X8406F469, &WrapV_UU<sceCccEncodeUTF16>,       "sceCccEncodeUTF16",       'v', "xx" },
+	{0X068C4320, &WrapU_UU<sceCccEncodeSJIS>,        "sceCccEncodeSJIS",        'x', "xx" },
+	{0XC6A8BEE2, &WrapU_U<sceCccDecodeUTF8>,         "sceCccDecodeUTF8",        'x', "x"  },
+	{0XE0CF8091, &WrapU_U<sceCccDecodeUTF16>,        "sceCccDecodeUTF16",       'x', "x"  },
+	{0X953E6C10, &WrapU_U<sceCccDecodeSJIS>,         "sceCccDecodeSJIS",        'x', "x"  },
+	{0X90521AC5, &WrapI_U<sceCccIsValidUTF8>,        "sceCccIsValidUTF8",       'i', "x"  },
+	{0XCC0A8BDA, &WrapI_U<sceCccIsValidUTF16>,       "sceCccIsValidUTF16",      'i', "x"  },
+	{0X67BF0D19, &WrapI_U<sceCccIsValidSJIS>,        "sceCccIsValidSJIS",       'i', "x"  },
+	{0X76E33E9C, &WrapI_U<sceCccIsValidUCS2>,        "sceCccIsValidUCS2",       'i', "x"  },
+	{0XD2B18485, &WrapI_U<sceCccIsValidUCS4>,        "sceCccIsValidUCS4",       'i', "x"  },
+	{0XA2D5D209, &WrapI_U<sceCccIsValidJIS>,         "sceCccIsValidJIS",        'i', "x"  },
+	{0XBD11EEF3, &WrapI_U<sceCccIsValidUnicode>,     "sceCccIsValidUnicode",    'i', "x"  },
+	{0X17E1D813, &WrapU_U<sceCccSetErrorCharUTF8>,   "sceCccSetErrorCharUTF8",  'x', "x"  },
+	{0XB8476CF4, &WrapU_U<sceCccSetErrorCharUTF16>,  "sceCccSetErrorCharUTF16", 'x', "x"  },
+	{0XC56949AD, &WrapU_U<sceCccSetErrorCharSJIS>,   "sceCccSetErrorCharSJIS",  'x', "x"  },
+	{0X70ECAA10, &WrapU_UU<sceCccUCStoJIS>,          "sceCccUCStoJIS",          'x', "xx" },
+	{0XFB7846E2, &WrapU_UU<sceCccJIStoUCS>,          "sceCccJIStoUCS",          'x', "xx" },
 };
 
 void Register_sceCcc()

@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/basictypes.h"
+#include "profiler/profiler.h"
 
 #include "Common/ThreadPools.h"
+#include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -26,7 +28,6 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
-#include "GPU/Software/Colors.h"
 
 #include <algorithm>
 
@@ -85,16 +86,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA5551ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA4444ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_32BIT_ABGR8888:
-		return DecodeRGBA8888(clut[index + clutSharingOffset]);
+		return clut[index + clutSharingOffset];
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
@@ -102,13 +103,22 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	}
 }
 
+static inline u8 ClampFogDepth(float fogdepth) {
+	if (fogdepth <= 0.0f)
+		return 0;
+	else if (fogdepth >= 1.0f)
+		return 255;
+	else
+		return (u8)(u32)(fogdepth * 255.0f);
+}
+
 static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, int& out_v)
 {
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
-	int u = (int)(s * width);
-	int v = (int)(t * height);
+	int u = (int)(s * width + 0.375f);
+	int v = (int)(t * height + 0.375f);
 
 	if (gstate.isTexCoordClampedS()) {
 		if (u >= width - 1)
@@ -134,8 +144,8 @@ static inline void GetTexelCoordinates(int level, float s, float t, int& out_u, 
 static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, int u[4], int v[4], int &frac_u, int &frac_v)
 {
 	// 8 bits of fractional UV
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
 	int base_u = in_s * width * 256;
 	int base_v = in_t * height * 256;
@@ -180,13 +190,26 @@ static inline void GetTexelCoordinatesQuad(int level, float in_s, float in_t, in
 
 static inline void GetTexelCoordinatesThrough(int level, int s, int t, int& u, int& v)
 {
-	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	// TODO: Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
 
 	// Wrap!
 	u = ((unsigned int)(s) & (width - 1));
 	v = ((unsigned int)(t) & (height - 1));
+}
+
+static inline void GetTexelCoordinatesThroughQuad(int level, int s, int t, int *u, int *v)
+{
+	// Not actually sure which clamp/wrap modes should be applied. Let's just wrap for now.
+	int width = gstate.getTextureWidth(level);
+	int height = gstate.getTextureHeight(level);
+
+	// Wrap!
+	for (int i = 0; i < 4; i++) {
+		u[i] = (s + (i & 1)) & (width - 1);
+		v[i] = (t + ((i & 2) >> 1)) & (height - 1);
+	}
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
@@ -201,9 +224,9 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q0 = 1.f / v0.clippos.w;
 			float q1 = 1.f / v1.clippos.w;
 			float q2 = 1.f / v2.clippos.w;
-			float q = q0 * w0 + q1 * w1 + q2 * w2;
-			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
+			float q_recip = 1.0f / (q0 * w0 + q1 * w1 + q2 * w2);
+			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) * q_recip;
+			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) * q_recip;
 		}
 		break;
 	case GE_TEXMAP_TEXTURE_MATRIX:
@@ -212,11 +235,19 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Vec3<float> source;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
-				source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+				source = (v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0 + w1 + w2);
 				break;
 
 			case GE_PROJMAP_UV:
 				source = Vec3f((v0.texturecoords * w0 + v1.texturecoords * w1 + v2.texturecoords * w2) / (w0 + w1 + w2), 0.0f);
+				break;
+
+			case GE_PROJMAP_NORMALIZED_NORMAL:
+				source = (v0.normal.Normalized() * w0 + v1.normal.Normalized() * w1 + v2.normal.Normalized() * w2) / (w0 + w1 + w2);
+				break;
+
+			case GE_PROJMAP_NORMAL:
+				source = (v0.normal * w0 + v1.normal * w1 + v2.normal * w2) / (w0 + w1 + w2);
 				break;
 
 			default:
@@ -226,8 +257,9 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
 			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			s = stq.x/stq.z;
-			t = stq.y/stq.z;
+			float z_recip = 1.0f / stq.z;
+			s = stq.x * z_recip;
+			t = stq.y * z_recip;
 		}
 		break;
 	default:
@@ -261,28 +293,28 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA4444(*(const u16 *)src);
+			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA5551(*(const u16 *)src);
+			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGB565(*(const u16 *)src);
+			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
 		}
 		return res;
 
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufwidthbits, u[i], v[i]);
-			res.v[i] = DecodeRGBA8888(*(const u32 *)src);
+			res.v[i] = *(const u32 *)src;
 		}
 		return res;
 
@@ -323,7 +355,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT1Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
@@ -332,7 +364,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT3Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
@@ -341,7 +373,7 @@ inline static Nearest4 SampleNearest(int level, int u[N], int v[N], const u8 *sr
 			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufwidthbits / 8 / 4) + (u[i] / 4);
 			u32 data[4 * 4];
 			DecodeDXT5Block(data, block, 4);
-			res.v[i] = DecodeRGBA8888(data[4 * (v[i] % 4) + (u[i] % 4)]);
+			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
 		return res;
 
@@ -357,13 +389,13 @@ static inline u32 GetPixelColor(int x, int y)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		return DecodeRGB565(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGB565ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_5551:
-		return DecodeRGBA5551(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA5551ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_4444:
-		return DecodeRGBA4444(fb.Get16(x, y, gstate.FrameBufStride()));
+		return RGBA4444ToRGBA8888(fb.Get16(x, y, gstate.FrameBufStride()));
 
 	case GE_FORMAT_8888:
 		return fb.Get32(x, y, gstate.FrameBufStride());
@@ -378,15 +410,15 @@ static inline void SetPixelColor(int x, int y, u32 value)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To565(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGB565(value));
 		break;
 
 	case GE_FORMAT_5551:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To5551(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA5551(value));
 		break;
 
 	case GE_FORMAT_4444:
-		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888To4444(value));
+		fb.Set16(x, y, gstate.FrameBufStride(), RGBA8888ToRGBA4444(value));
 		break;
 
 	case GE_FORMAT_8888:
@@ -806,21 +838,18 @@ static inline Vec3<int> GetSourceFactor(const Vec4<int>& source, const Vec4<int>
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_SRCBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-		// TODO: Clamping?
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_SRCBLEND_FIXA:
-		return Vec3<int>::FromRGB(gstate.getFixA());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXA.
+		return Vec3<int>::FromRGB(gstate.getFixA());
 	}
 }
 
@@ -857,25 +886,24 @@ static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& 
 		return Vec3<int>::AssignToAll(2 * source.a());
 
 	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * source.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * source.a(), 255));
 
 	case GE_DSTBLEND_DOUBLEDSTALPHA:
 		return Vec3<int>::AssignToAll(2 * dst.a());
 
 	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+		return Vec3<int>::AssignToAll(255 - std::min(2 * dst.a(), 255));
 
 	case GE_DSTBLEND_FIXB:
-		return Vec3<int>::FromRGB(gstate.getFixB());
-
 	default:
-		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
-		return Vec3<int>();
+		// All other dest factors (> 10) are treated as FIXB.
+		return Vec3<int>::FromRGB(gstate.getFixB());
 	}
 }
 
 static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
+	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
 	Vec3<int> srcfactor = GetSourceFactor(source, dst);
 	Vec3<int> dstfactor = GetDestFactor(source, dst);
 
@@ -935,7 +963,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 }
 
 template <bool clearMode>
-inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &color_in) {
+inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in) {
 	Vec4<int> prim_color = color_in;
 	// Depth range test
 	// TODO: Clear mode?
@@ -954,7 +982,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &colo
 
 	// In clear mode, it uses the alpha color as stencil.
 	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(p.x, p.y);
-	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled? Probably yes
 	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
 			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
@@ -986,6 +1014,14 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, const Vec4<int> &colo
 		prim_color.r() <<= 1;
 		prim_color.g() <<= 1;
 		prim_color.b() <<= 1;
+	}
+
+	if (gstate.isFogEnabled() && !gstate.isModeThrough() && !clearMode) {
+		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
+		fogColor = (prim_color.rgb() * (int)fog + fogColor * (255 - (int)fog)) / 255;
+		prim_color.r() = fogColor.r();
+		prim_color.g() = fogColor.g();
+		prim_color.b() = fogColor.b();
 	}
 
 	const u32 old_color = GetPixelColor(p.x, p.y);
@@ -1044,11 +1080,10 @@ inline void ApplyTexturing(Vec4<int> &prim_color, float s, float t, int maxTexLe
 		if (texlevel > maxTexLevel)
 			texlevel = maxTexLevel;
 
-		GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
 		if (bilinear) {
-			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel, u[1], v[1]);
-			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel + 1, u[2], v[2]);
-			GetTexelCoordinatesThrough(texlevel, u_texel + 1, v_texel + 1, u[3], v[3]);
+			GetTexelCoordinatesThroughQuad(texlevel, u_texel, v_texel, u, v);
+		} else {
+			GetTexelCoordinatesThrough(texlevel, u_texel, v_texel, u[0], v[0]);
 		}
 	} else {
 		// we need to compute UV for a quad of pixels together in order to get the mipmap deltas :(
@@ -1154,10 +1189,18 @@ void DrawTriangleSlice(
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-	float texScaleU = getFloat24(gstate.texscaleu);
-	float texScaleV = getFloat24(gstate.texscalev);
-	float texOffsetU = getFloat24(gstate.texoffsetu);
-	float texOffsetV = getFloat24(gstate.texoffsetv);
+	float texScaleU = gstate_c.uv.uScale;
+	float texScaleV = gstate_c.uv.vScale;
+	float texOffsetU = gstate_c.uv.uOff;
+	float texOffsetV = gstate_c.uv.vOff;
+
+	if (g_Config.bPrescaleUV) {
+		// Already applied during vertex decode.
+		texScaleU = 1.0f;
+		texScaleV = 1.0f;
+		texOffsetU = 0.0f;
+		texOffsetV = 0.0f;
+	}
 
 	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
@@ -1199,6 +1242,7 @@ void DrawTriangleSlice(
 	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
 	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
 
+	// Step forward to y1 (slice..)
 	w0_base += orient2dIncY(d12.x) * 16 * y1;
 	w1_base += orient2dIncY(-d02.x) * 16 * y1;
 	w2_base += orient2dIncY(d01.x) * 16 * y1;
@@ -1225,20 +1269,18 @@ void DrawTriangleSlice(
 			p.x = (p.x + 1) & 0x3FF) {
 
 			// If p is on or inside all edges, render pixel
-			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
 			if (w0 + bias0 >= 0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
-				// TODO: Check if this check is still necessary
-				if (w0 == 0 && w1 == 0 && w2 == 0)
+				int wsum = w0 + w1 + w2;
+				if (wsum == 0.0f)
 					continue;
-
-				float wsum = 1.0f / (w0 + w1 + w2);
+				float wsum_recip = 1.0f / (float)wsum;
 
 				Vec4<int> prim_color;
 				Vec3<int> sec_color;
 				if (gstate.getShadeMode() == GE_SHADE_GOURAUD && !clearMode) {
-					// TODO: Is that the correct way to interpolate?
-					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum);
-					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum);
+					// Does the PSP do perspective-correct color interpolation? The GC doesn't.
+					prim_color = Interpolate(v0.color0, v1.color0, v2.color0, w0, w1, w2, wsum_recip);
+					sec_color = Interpolate(v0.color1, v1.color1, v2.color1, w0, w1, w2, wsum_recip);
 				} else {
 					prim_color = v2.color0;
 					sec_color = v2.color1;
@@ -1246,10 +1288,10 @@ void DrawTriangleSlice(
 
 				if (gstate.isTextureMapEnabled() && !clearMode) {
 					if (gstate.isModeThrough()) {
-						// TODO: Is it really this simple?
-						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum);
+						Vec2<float> texcoords = Interpolate(v0.texturecoords, v1.texturecoords, v2.texturecoords, w0, w1, w2, wsum_recip);
 						ApplyTexturing(prim_color, texcoords.s(), texcoords.t(), maxTexLevel, magFilt, texptr, texbufwidthbits);
 					} else {
+						// Texture coordinate interpolation must definitely be perspective-correct.
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
 						s = s * texScaleU + texOffsetU;
@@ -1268,15 +1310,18 @@ void DrawTriangleSlice(
 #endif
 				}
 
-				// TODO: Fogging
+				int fog = 255;
+				if (gstate.isFogEnabled() && !clearMode) {
+					fog = ClampFogDepth(((float)v0.fogdepth * w0 + (float)v1.fogdepth * w1 + (float)v2.fogdepth * w2) * wsum_recip);
+				}
 
 				u16 z = v2.screenpos.z;
 				// TODO: Is that the correct way to interpolate?
 				// Without the (u32), this causes an ICE in some versions of gcc.
 				if (!flatZ)
-					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum);
+					z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) * wsum_recip);
 
-				DrawSinglePixel<clearMode>(p, z, prim_color);
+				DrawSinglePixel<clearMode>(p, z, fog, prim_color);
 			}
 		}
 	}
@@ -1285,6 +1330,8 @@ void DrawTriangleSlice(
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
+	PROFILE_THIS_SCOPE("draw_tri");
+
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
@@ -1293,11 +1340,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 
-	// Is the division and multiplication just &= ~0xF ?
-	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
-	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
-	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
-	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
+	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
+	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
+	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) & ~0xF;
+	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) & ~0xF;
 
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
 	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
@@ -1308,15 +1354,23 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 	int range = (maxY - minY) / 16 + 1;
 	if (gstate.isModeClear()) {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<true>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
-		else
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
+			GlobalThreadPool::Loop(bound, 0, range);
+		} else {
 			DrawTriangleSlice<true>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+		}
 	} else {
-		if (range >= 24 && (maxX - minX) >= 24 * 16)
-			GlobalThreadPool::Loop(std::bind(&DrawTriangleSlice<false>, v0, v1, v2, minX, minY, maxX, maxY, placeholder::_1, placeholder::_2), 0, range);
-		else
+		if (range >= 24 && (maxX - minX) >= 24 * 16) {
+			auto bound = [&](int a, int b) -> void {
+				DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, a, b);
+			};
+			GlobalThreadPool::Loop(bound, 0, range);
+		} else {
 			DrawTriangleSlice<false>(v0, v1, v2, minX, minY, maxX, maxY, 0, range);
+		}
 	}
 }
 
@@ -1371,10 +1425,18 @@ void DrawPoint(const VertexData &v0)
 			// TODO: Is it really this simple?
 			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		} else {
-			float texScaleU = getFloat24(gstate.texscaleu);
-			float texScaleV = getFloat24(gstate.texscalev);
-			float texOffsetU = getFloat24(gstate.texoffsetu);
-			float texOffsetV = getFloat24(gstate.texoffsetv);
+			float texScaleU = gstate_c.uv.uScale;
+			float texScaleV = gstate_c.uv.vScale;
+			float texOffsetU = gstate_c.uv.uOff;
+			float texOffsetV = gstate_c.uv.vOff;
+
+			if (g_Config.bPrescaleUV) {
+				// Already applied during vertex decode.
+				texScaleU = 1.0f;
+				texScaleV = 1.0f;
+				texOffsetU = 0.0f;
+				texOffsetV = 0.0f;
+			}
 
 			s = s * texScaleU + texOffsetU;
 			t = t * texScaleV + texOffsetV;
@@ -1387,14 +1449,18 @@ void DrawPoint(const VertexData &v0)
 
 	ScreenCoords pprime = pos;
 
-	// TODO: Fogging
 	DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 	u16 z = pos.z;
 
+	u8 fog = 255;
+	if (gstate.isFogEnabled() && !clearMode) {
+		fog = ClampFogDepth(v0.fogdepth);
+	}
+
 	if (clearMode) {
-		DrawSinglePixel<true>(p, z, prim_color);
+		DrawSinglePixel<true>(p, z, fog, prim_color);
 	} else {
-		DrawSinglePixel<false>(p, z, prim_color);
+		DrawSinglePixel<false>(p, z, fog, prim_color);
 	}
 }
 
@@ -1450,10 +1516,18 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	float texScaleU = getFloat24(gstate.texscaleu);
-	float texScaleV = getFloat24(gstate.texscalev);
-	float texOffsetU = getFloat24(gstate.texoffsetu);
-	float texOffsetV = getFloat24(gstate.texoffsetv);
+	float texScaleU = gstate_c.uv.uScale;
+	float texScaleV = gstate_c.uv.vScale;
+	float texOffsetU = gstate_c.uv.uOff;
+	float texOffsetV = gstate_c.uv.vOff;
+
+	if (g_Config.bPrescaleUV) {
+		// Already applied during vertex decode.
+		texScaleU = 1.0f;
+		texScaleV = 1.0f;
+		texOffsetU = 0.0f;
+		texOffsetV = 0.0f;
+	}
 
 	float x = a.x;
 	float y = a.y;
@@ -1463,11 +1537,18 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		if (x < scissorTL.x || y < scissorTL.y || x >= scissorBR.x || y >= scissorBR.y)
 			continue;
 
+		// Interpolate between the two points.
 		Vec4<int> c0 = (v0.color0 * (steps - i) + v1.color0 * i) / steps1;
 		Vec3<int> sec_color = (v0.color1 * (steps - i) + v1.color1 * i) / steps1;
 		// TODO: UVGenMode?
 		Vec2<float> tc = (v0.texturecoords * (float)(steps - i) + v1.texturecoords * (float)i) / steps1;
 		Vec4<int> prim_color = c0;
+
+		u8 fog = 255;
+		if (gstate.isFogEnabled() && !clearMode) {
+			fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+		}
+
 		float s = tc.s();
 		float t = tc.t();
 
@@ -1487,13 +1568,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 
 		ScreenCoords pprime = ScreenCoords(x, y, z);
 
-		// TODO: Fogging
 		DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-
 		if (clearMode) {
-			DrawSinglePixel<true>(p, z, prim_color);
+			DrawSinglePixel<true>(p, z, fog, prim_color);
 		} else {
-			DrawSinglePixel<false>(p, z, prim_color);
+			DrawSinglePixel<false>(p, z, fog, prim_color);
 		}
 
 		x = x + xinc;

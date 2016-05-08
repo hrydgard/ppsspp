@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
+#include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -38,15 +39,7 @@ void DisassembleMIPS(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-MIPSJitOptions::MIPSJitOptions() {
-	enableBlocklink = true;
-	immBranches = false;
-	continueBranches = false;
-	continueJumps = false;
-	continueMaxInstructions = 300;
-}
-
-Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
+MipsJit::MipsJit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 { 
 	logBlocks = 0;
 	dontLogBlocks = 0;
@@ -55,7 +48,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 }
 
-void Jit::DoState(PointerWrap &p)
+void MipsJit::DoState(PointerWrap &p)
 {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
@@ -71,7 +64,7 @@ void Jit::DoState(PointerWrap &p)
 }
 
 // This is here so the savestate matches between jit and non-jit.
-void Jit::DoDummyState(PointerWrap &p)
+void MipsJit::DoDummyState(PointerWrap &p)
 {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
@@ -85,35 +78,35 @@ void Jit::DoDummyState(PointerWrap &p)
 	}
 }
 
-void Jit::FlushAll()
+void MipsJit::FlushAll()
 {
 	//gpr.FlushAll();
 	//fpr.FlushAll();
 	FlushPrefixV();
 }
 
-void Jit::FlushPrefixV()
+void MipsJit::FlushPrefixV()
 {
 }
 
-void Jit::ClearCache()
+void MipsJit::ClearCache()
 {
 	blocks.Clear();
 	ClearCodeSpace();
 	//GenerateFixedCode();
 }
 
-void Jit::InvalidateCache()
+void MipsJit::InvalidateCache()
 {
 	blocks.Clear();
 }
 
-void Jit::InvalidateCacheAt(u32 em_address, int length)
+void MipsJit::InvalidateCacheAt(u32 em_address, int length)
 {
 	blocks.InvalidateICache(em_address, length);
 }
 
-void Jit::EatInstruction(MIPSOpcode op) {
+void MipsJit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
 		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
@@ -127,14 +120,14 @@ void Jit::EatInstruction(MIPSOpcode op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void Jit::CompileDelaySlot(int flags)
+void MipsJit::CompileDelaySlot(int flags)
 {
 	//if (flags & DELAYSLOT_SAFE)
 	//	Save flags here
 
 	js.inDelaySlot = true;
 	MIPSOpcode op = Memory::Read_Opcode_JIT(js.compilerPC + 4);
-	MIPSCompileOp(op);
+	MIPSCompileOp(op, this);
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
@@ -144,7 +137,8 @@ void Jit::CompileDelaySlot(int flags)
 }
 
 
-void Jit::Compile(u32 em_address) {
+void MipsJit::Compile(u32 em_address) {
+	PROFILE_THIS_SCOPE("jitc");
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
@@ -169,12 +163,13 @@ void Jit::Compile(u32 em_address) {
 	}
 }
 
-void Jit::RunLoopUntil(u64 globalticks)
+void MipsJit::RunLoopUntil(u64 globalticks)
 {
+	PROFILE_THIS_SCOPE("jit");
 	((void (*)())enterCode)();
 }
 
-const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
+const u8 *MipsJit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
@@ -193,7 +188,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
-		MIPSCompileOp(inst);
+		MIPSCompileOp(inst, this);
 
 		js.compilerPC += 4;
 		js.numInstructions++;
@@ -224,7 +219,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Jit::AddContinuedBlock(u32 dest)
+void MipsJit::AddContinuedBlock(u32 dest)
 {
 	// The first block is the root block.  When we continue, we create proxy blocks after that.
 	if (js.lastContinuedPC == 0)
@@ -234,27 +229,32 @@ void Jit::AddContinuedBlock(u32 dest)
 	js.lastContinuedPC = dest;
 }
 
-bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name)
+bool MipsJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
 	// TODO: Not used by anything yet.
 	return false;
 }
 
-void Jit::Comp_RunBlock(MIPSOpcode op)
+void MipsJit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-bool Jit::ReplaceJalTo(u32 dest) {
-	return true;
+bool MipsJit::ReplaceJalTo(u32 dest) {
+	const ReplacementTableEntry *entry = nullptr;
+	u32 funcSize = 0;
+	if (!CanReplaceJalTo(dest, &entry, &funcSize)) {
+		return false;
+	}
+	return false;
 }
 
-void Jit::Comp_ReplacementFunc(MIPSOpcode op)
+void MipsJit::Comp_ReplacementFunc(MIPSOpcode op)
 {
 }
 
-void Jit::Comp_Generic(MIPSOpcode op)
+void MipsJit::Comp_Generic(MIPSOpcode op)
 {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
@@ -277,34 +277,34 @@ void Jit::Comp_Generic(MIPSOpcode op)
 	}
 }
 
-void Jit::MovFromPC(MIPSReg r) {
+void MipsJit::MovFromPC(MIPSReg r) {
 }
 
-void Jit::MovToPC(MIPSReg r) {
+void MipsJit::MovToPC(MIPSReg r) {
 }
 
-void Jit::SaveDowncount() {
+void MipsJit::SaveDowncount() {
 }
 
-void Jit::RestoreDowncount() {
+void MipsJit::RestoreDowncount() {
 }
 
-void Jit::WriteDownCount(int offset) {
+void MipsJit::WriteDownCount(int offset) {
 }
 
-void Jit::WriteDownCountR(MIPSReg reg) {
+void MipsJit::WriteDownCountR(MIPSReg reg) {
 }
 
-void Jit::RestoreRoundingMode(bool force) {
+void MipsJit::RestoreRoundingMode(bool force) {
 }
 
-void Jit::ApplyRoundingMode(bool force) {
+void MipsJit::ApplyRoundingMode(bool force) {
 }
 
-void Jit::UpdateRoundingMode() {
+void MipsJit::UpdateRoundingMode() {
 }
 
-void Jit::WriteExit(u32 destination, int exit_num)
+void MipsJit::WriteExit(u32 destination, int exit_num)
 {
 	//WriteDownCount();
 	JitBlock *b = js.curBlock;
@@ -323,7 +323,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	}
 }
 
-void Jit::WriteExitDestInR(MIPSReg Reg) 
+void MipsJit::WriteExitDestInR(MIPSReg Reg)
 {
 	MovToPC(Reg);
 	//WriteDownCount();
@@ -331,7 +331,7 @@ void Jit::WriteExitDestInR(MIPSReg Reg)
 	B((const void *)dispatcher);
 }
 
-void Jit::WriteSyscallExit()
+void MipsJit::WriteSyscallExit()
 {
 	//WriteDownCount();
 	B((const void *)dispatcherCheckCoreState);

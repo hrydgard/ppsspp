@@ -21,18 +21,12 @@
 #include "Common/CommonTypes.h"
 
 struct InputState;
+class GraphicsContext;
 
-class PMixer {
-public:
-	PMixer() {}
-	virtual ~PMixer() {}
-	virtual int Mix(short *stereoout, int numSamples);
-};
-
+// TODO: Whittle this down. Collecting a bunch of random stuff like this isn't good design :P
 class Host {
 public:
 	virtual ~Host() {}
-	//virtual void StartThread()
 	virtual void UpdateUI() {}
 
 	virtual void UpdateMemView() {}
@@ -40,12 +34,11 @@ public:
 
 	virtual void SetDebugMode(bool mode) { }
 
-	virtual bool InitGraphics(std::string *error_string) = 0;
+	virtual bool InitGraphics(std::string *error_string, GraphicsContext **ctx) = 0;
 	virtual void ShutdownGraphics() = 0;
 
-	virtual void InitSound(PMixer *mixer) = 0;
+	virtual void InitSound() = 0;
 	virtual void UpdateSound() {}
-	virtual void UpdateScreen() {}
 	virtual void GoFullscreen(bool) {}
 	virtual void ShutdownSound() = 0;
 	virtual void PollControllers(InputState &input_state) {}

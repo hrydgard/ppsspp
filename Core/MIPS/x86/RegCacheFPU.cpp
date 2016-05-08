@@ -25,6 +25,9 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/x86/RegCacheFPU.h"
 
+using namespace Gen;
+using namespace X64JitConstants;
+
 float FPURegCache::tempValues[NUM_TEMPS];
 
 FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
@@ -33,7 +36,7 @@ FPURegCache::FPURegCache() : mips(0), initialReady(false), emit(0) {
 	vregs = regs + 32;
 }
 
-void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
+void FPURegCache::Start(MIPSState *mips, MIPSComp::JitState *js, MIPSComp::JitOptions *jo, MIPSAnalyst::AnalysisResults &stats) {
 	this->mips = mips;
 
 	if (!initialReady) {
@@ -44,6 +47,9 @@ void FPURegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 	memcpy(xregs, xregsInitial, sizeof(xregs));
 	memcpy(regs, regsInitial, sizeof(regs));
 	pendingFlush = false;
+
+	js_ = js;
+	jo_ = jo;
 }
 
 void FPURegCache::SetupInitialRegs() {
@@ -100,6 +106,36 @@ void FPURegCache::ReduceSpillLockV(const u8 *vec, VectorSize sz) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		vregs[vec[i]].locked--;
 	}
+}
+
+void FPURegCache::FlushRemap(int oldreg, int newreg) {
+	OpArg oldLocation = regs[oldreg].location;
+	if (!oldLocation.IsSimpleReg()) {
+		PanicAlert("FlushRemap: Must already be in an x86 SSE register");
+	}
+	if (regs[oldreg].lane != 0) {
+		PanicAlert("FlushRemap only supports FPR registers");
+	}
+
+	X64Reg xr = oldLocation.GetSimpleReg();
+
+	if (oldreg == newreg) {
+		xregs[xr].dirty = true;
+		return;
+	}
+
+	StoreFromRegister(oldreg);
+
+	// Now, if newreg already was mapped somewhere, get rid of that.
+	DiscardR(newreg);
+
+	// Now, take over the old register.
+	regs[newreg].location = oldLocation;
+	regs[newreg].away = true;
+	regs[newreg].locked = true;
+	regs[newreg].lane = 0;
+	xregs[xr].mipsReg = newreg;
+	xregs[xr].dirty = true;
 }
 
 void FPURegCache::MapRegV(int vreg, int flags) {
@@ -236,9 +272,13 @@ bool FPURegCache::TryMapRegsVS(const u8 *v, VectorSize vsz, int flags) {
 		// Single is easy, just map normally but track as a SIMD reg.
 		// This way V/VS can warn about improper usage properly.
 		MapRegV(v[0], flags);
+		X64Reg vx = VX(v[0]);
+		if (vx == INVALID_REG)
+			return false;
+
 		vregs[v[0]].lane = 1;
 		if ((flags & MAP_DIRTY) != 0)
-			xregs[VSX(v)].dirty = true;
+			xregs[vx].dirty = true;
 		if ((flags & MAP_NOLOCK) == 0)
 			SpillLockV(v, vsz);
 		Invariant();
@@ -326,14 +366,17 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 	// Let's also check if the memory addresses are sequential.
 	int sequential = 1;
 	for (int i = 1; i < n; ++i) {
-		if (v[i] < 128) {
+		if (v[i] < 128 && v[i - 1] < 128) {
 			if (voffset[v[i]] != voffset[v[i - 1]] + 1) {
 				break;
 			}
-		} else {
+		} else if (v[i] >= 128 && v[i - 1] >= 128) {
 			if (v[i] != v[i - 1] + 1) {
 				break;
 			}
+		} else {
+			// Temps can't be sequential with non-temps.
+			break;
 		}
 		++sequential;
 	}
@@ -347,6 +390,9 @@ X64Reg FPURegCache::LoadRegsVS(const u8 *v, int n) {
 		// We spilled, so we assume that all our regs are screwed up now anyway.
 		for (int i = 0; i < 4; ++i) {
 			xrsLoaded[i] = false;
+		}
+		for (int i = 2; i < n; ++i){
+			xrs[i] = INVALID_REG;
 		}
 		regsLoaded = 0;
 	}
@@ -556,11 +602,13 @@ void FPURegCache::ReleaseSpillLocks() {
 
 void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	pendingFlush = true;
-	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - load - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::MapReg - imm");
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::MapReg - invalid mips reg %d", i);
+
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - load - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg %d", (int)xr);
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -602,10 +650,12 @@ static int MMShuffleSwapTo0(int lane) {
 }
 
 void FPURegCache::StoreFromRegister(int i) {
-	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - store - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - FPURegCache::StoreFromRegister - it's an imm");
+	_assert_msg_(JIT, i >= 0 && i < NUM_MIPS_FPRS, "WTF - FPURegCache::StoreFromRegister - invalid mipsreg %i PC=%08x", i, js_->compilerPC);
+
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - store - invalid reg");
+		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
 		if (regs[i].lane != 0) {
 			const int *mri = xregs[xr].mipsRegs;
 			int seq = 1;
@@ -741,6 +791,7 @@ void FPURegCache::DiscardVS(int vreg) {
 				regs[mr].location = GetDefaultLocation(mr);
 				regs[mr].away = false;
 				regs[mr].tempLocked = false;
+				regs[mr].lane = 0;
 			}
 			xregs[xr].mipsRegs[i] = -1;
 		}
@@ -932,6 +983,9 @@ int FPURegCache::SanityCheck() const {
 				hasMoreRegs = false;
 				continue;
 			}
+			if (xr.mipsRegs[j] >= NUM_MIPS_FPRS) {
+				return 13;
+			}
 			// We can't have a hole in the middle / front.
 			if (!hasMoreRegs)
 				return 9;
@@ -1010,6 +1064,8 @@ int FPURegCache::GetFreeXRegs(X64Reg *res, int n, bool spill) {
 		for (int i = 0; i < aCount; i++) {
 			X64Reg xr = (X64Reg)aOrder[i];
 			int preg = xregs[xr].mipsReg;
+			_assert_msg_(JIT, preg >= -1 && preg < NUM_MIPS_FPRS, "WTF - FPURegCache::GetFreeXRegs - invalid mips reg %d in xr %d", preg, (int)xr);
+
 			// We're only spilling here, so don't overlap.
 			if (preg != -1 && !regs[preg].locked) {
 				StoreFromRegister(preg);
@@ -1040,7 +1096,7 @@ void FPURegCache::GetState(FPURegCacheState &state) const {
 	memcpy(state.xregs, xregs, sizeof(xregs));
 }
 
-void FPURegCache::RestoreState(const FPURegCacheState state) {
+void FPURegCache::RestoreState(const FPURegCacheState& state) {
 	memcpy(regs, state.regs, sizeof(regs));
 	memcpy(xregs, state.xregs, sizeof(xregs));
 	pendingFlush = true;

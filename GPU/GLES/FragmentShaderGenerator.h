@@ -19,62 +19,6 @@
 
 #include "Globals.h"
 
-struct FragmentShaderID {
-	FragmentShaderID() {clear();}
-	void clear() {d[0] = 0xFFFFFFFF; d[1] = 0xFFFFFFFF;}
-	u32 d[2];
-	bool operator < (const FragmentShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] < other.d[i])
-				return true;
-			if (d[i] > other.d[i])
-				return false;
-		}
-		return false;
-	}
-	bool operator == (const FragmentShaderID &other) const {
-		for (size_t i = 0; i < sizeof(d) / sizeof(u32); i++) {
-			if (d[i] != other.d[i])
-				return false;
-		}
-		return true;
-	}
-};
+struct ShaderID;
 
-void ComputeFragmentShaderID(FragmentShaderID *id);
-void GenerateFragmentShader(char *buffer);
-
-enum StencilValueType {
-	STENCIL_VALUE_UNIFORM,
-	STENCIL_VALUE_ZERO,
-	STENCIL_VALUE_ONE,
-	STENCIL_VALUE_KEEP,
-	STENCIL_VALUE_INVERT,
-	STENCIL_VALUE_INCR_4,
-	STENCIL_VALUE_INCR_8,
-	STENCIL_VALUE_DECR_4,
-	STENCIL_VALUE_DECR_8,
-};
-
-enum ReplaceAlphaType {
-	REPLACE_ALPHA_NO = 0,
-	REPLACE_ALPHA_YES = 1,
-	REPLACE_ALPHA_DUALSOURCE = 2,
-};
-
-enum ReplaceBlendType {
-	REPLACE_BLEND_NO,
-	REPLACE_BLEND_STANDARD,
-	REPLACE_BLEND_PRE_SRC,
-	REPLACE_BLEND_PRE_SRC_2X_ALPHA,
-	REPLACE_BLEND_2X_ALPHA,
-	REPLACE_BLEND_2X_SRC,
-	REPLACE_BLEND_COPY_FBO,
-};
-
-bool IsAlphaTestAgainstZero();
-bool IsAlphaTestTriviallyTrue();
-bool IsColorTestTriviallyTrue();
-StencilValueType ReplaceAlphaWithStencilType();
-ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
-ReplaceBlendType ReplaceBlendWithShader();
+bool GenerateFragmentShader(const ShaderID &id, char *buffer);

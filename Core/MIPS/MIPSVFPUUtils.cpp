@@ -460,7 +460,10 @@ const char *GetMatrixNotation(int reg, MatrixSize size)
   default:        c='?'; break;
   }
   if (transpose && c=='M') c='E';
-  sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
+  if (transpose)
+    sprintf(hej[yo],"%c%i%i%i",c,mtx,row,col);
+  else
+    sprintf(hej[yo],"%c%i%i%i",c,mtx,col,row);
   return hej[yo];
 }
 

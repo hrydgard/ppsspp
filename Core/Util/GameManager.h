@@ -41,7 +41,10 @@ public:
 
 	// Returns false if no install is in progress.
 	bool IsInstallInProgress() const {
-		return installInProgress_;
+		return installInProgress_ || IsDownloadInProgress();
+	}
+	bool IsDownloadInProgress() const {
+		return curDownload_.get() != nullptr;
 	}
 	float GetCurrentInstallProgress() const {
 		return installProgress_;

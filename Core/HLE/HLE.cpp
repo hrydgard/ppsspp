@@ -15,15 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdarg>
 #include <map>
 #include <vector>
 #include <string>
 
+#include "base/logging.h"
 #include "base/timeutil.h"
+#include "profiler/profiler.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 
 #include "Core/Core.h"
@@ -39,6 +42,10 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
+
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
 
 enum
 {
@@ -62,6 +69,7 @@ static std::vector<HLEModule> moduleDB;
 static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
+static const HLEFunction *latestSyscall = nullptr;
 
 void hleDelayResultFinish(u64 userdata, int cycleslate)
 {
@@ -100,6 +108,7 @@ void HLEDoState(PointerWrap &p)
 void HLEShutdown()
 {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
+	latestSyscall = nullptr;
 	moduleDB.clear();
 }
 
@@ -131,6 +140,9 @@ int GetFuncIndex(int moduleIndex, u32 nib)
 u32 GetNibByName(const char *moduleName, const char *function)
 {
 	int moduleIndex = GetModuleIndex(moduleName);
+	if (moduleIndex == -1)
+		return -1;
+
 	const HLEModule &module = moduleDB[moduleIndex];
 	for (int i = 0; i < module.numFunctions; i++)
 	{
@@ -355,9 +367,8 @@ inline static void SetDeadbeefRegs()
 	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
 	// Set all the arguments and temp regs.
 	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));
-	// Using a magic number since there's confusion/disagreement on reg names.
-	currentMIPS->r[24] = 0xDEADBEEF;
-	currentMIPS->r[25] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T8] = 0xDEADBEEF;
+	currentMIPS->r[MIPS_REG_T9] = 0xDEADBEEF;
 
 	currentMIPS->lo = 0xDEADBEEF;
 	currentMIPS->hi = 0xDEADBEEF;
@@ -394,7 +405,7 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	hleAfterSyscallReschedReason = 0;
 }
 
-inline void updateSyscallStats(int modulenum, int funcnum, double total)
+static void updateSyscallStats(int modulenum, int funcnum, double total)
 {
 	const char *name = moduleDB[modulenum].funcTable[funcnum].name;
 	// Ignore this one, especially for msInSyscalls (although that ignores CoreTiming events.)
@@ -432,19 +443,25 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 
 inline void CallSyscallWithFlags(const HLEFunction *info)
 {
+	latestSyscall = info;
 	const u32 flags = info->flags;
-	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
-	{
+
+	if (flags & HLE_CLEAR_STACK_BYTES) {
+		u32 stackStart = __KernelGetCurThreadStackStart();
+		if (currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear >= stackStart) {
+			Memory::Memset(currentMIPS->r[MIPS_REG_SP] - info->stackBytesToClear, 0, info->stackBytesToClear);
+		}
+	}
+
+	if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled()) {
 		DEBUG_LOG(HLE, "%s: dispatch suspended", info->name);
 		RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
-	}
-	else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
-	{
+	} else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt()) {
 		DEBUG_LOG(HLE, "%s: in interrupt", info->name);
 		RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
-	}
-	else
+	} else {
 		info->func();
+	}
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
 		hleFinishSyscall(*info);
@@ -454,6 +471,7 @@ inline void CallSyscallWithFlags(const HLEFunction *info)
 
 inline void CallSyscallWithoutFlags(const HLEFunction *info)
 {
+	latestSyscall = info;
 	info->func();
 
 	if (hleAfterSyscall != HLE_AFTER_NOTHING)
@@ -508,12 +526,14 @@ void hleSetSteppingTime(double t)
 
 void CallSyscall(MIPSOpcode op)
 {
+	PROFILE_THIS_SCOPE("syscall");
 	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
 	if (g_Config.bShowDebugStats)
 	{
 		time_update();
 		start = time_now_d();
 	}
+
 	const HLEFunction *info = GetSyscallInfo(op);
 	if (!info) {
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
@@ -543,5 +563,145 @@ void CallSyscall(MIPSOpcode op)
 		double total = time_now_d() - start - hleSteppingTime;
 		hleSteppingTime = 0.0;
 		updateSyscallStats(modulenum, funcnum, total);
+	}
+}
+
+size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
+	char *p = message;
+	size_t used = 0;
+
+#define APPEND_FMT(...) do { \
+	if (used < sz) { \
+		size_t c = snprintf(p, sz - used, __VA_ARGS__); \
+		used += c; \
+		p += c; \
+	} \
+} while (false)
+
+	int reg = 0;
+	int regf = 0;
+	for (size_t i = 0, n = strlen(argmask); i < n; ++i, ++reg) {
+		u32 regval;
+		if (reg < 8) {
+			regval = PARAM(reg);
+		} else {
+			u32 sp = currentMIPS->r[MIPS_REG_SP];
+			// Goes upward on stack.
+			// NOTE: Currently we only support > 8 for 32-bit integer args.
+			regval = Memory::Read_U32(sp + (reg - 8) * 4);
+		}
+
+		switch (argmask[i]) {
+		case 'p':
+			if (Memory::IsValidAddress(regval)) {
+				APPEND_FMT("%08x[%08x]", regval, Memory::Read_U32(regval));
+			} else {
+				APPEND_FMT("%08x[invalid]", regval);
+			}
+			break;
+
+		case 'P':
+			if (Memory::IsValidAddress(regval)) {
+				APPEND_FMT("%08x[%016llx]", regval, Memory::Read_U64(regval));
+			} else {
+				APPEND_FMT("%08x[invalid]", regval);
+			}
+			break;
+
+		case 's':
+			if (Memory::IsValidAddress(regval)) {
+				const char *s = Memory::GetCharPointer(regval);
+				if (strnlen(s, 64) >= 64) {
+					APPEND_FMT("%.64s...", Memory::GetCharPointer(regval));
+				} else {
+					APPEND_FMT("%s", Memory::GetCharPointer(regval));
+				}
+			} else {
+				APPEND_FMT("(invalid)");
+			}
+			break;
+
+		case 'x':
+			APPEND_FMT("%08x", regval);
+			break;
+
+		case 'i':
+			APPEND_FMT("%d", regval);
+			break;
+
+		case 'X':
+		case 'I':
+			// 64-bit regs are always aligned.
+			if ((reg & 1))
+				++reg;
+			APPEND_FMT("%016llx", PARAM64(reg));
+			++reg;
+			break;
+
+		case 'f':
+			APPEND_FMT("%f", PARAMF(regf++));
+			// This doesn't consume a gp reg.
+			--reg;
+			break;
+
+		// TODO: Double?  Does it ever happen?
+
+		default:
+			_assert_msg_(HLE, false, "Invalid argmask character: %c", argmask[i]);
+			APPEND_FMT(" -- invalid arg format: %c -- %08x", argmask[i], regval);
+			break;
+		}
+		if (i + 1 < n) {
+			APPEND_FMT(", ");
+		}
+	}
+
+	if (used > sz) {
+		message[sz - 1] = '\0';
+	} else {
+		message[used] = '\0';
+	}
+
+#undef APPEND_FMT
+	return used;
+}
+
+void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
+	char formatted_args[4096];
+	hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
+
+	// This acts as an override (for error returns which are usually hex.)
+	if (retmask == '\0')
+		retmask = latestSyscall->retmask;
+
+	const char *fmt;
+	if (retmask == 'x') {
+		fmt = "%08llx=%s(%s)%s";
+		// Truncate the high bits of the result (from any sign extension.)
+		res = (u32)res;
+	} else if (retmask == 'i' || retmask == 'I') {
+		fmt = "%lld=%s(%s)%s";
+	} else if (retmask == 'f') {
+		// TODO: For now, floats are just shown as bits.
+		fmt = "%08x=%s(%s)%s";
+	} else {
+		_assert_msg_(HLE, false, "Invalid return format: %c", retmask);
+		fmt = "%08llx=%s(%s)%s";
+	}
+
+	GenericLog(level, t, file, line, fmt, res, latestSyscall->name, formatted_args, formatted_reason);
+
+	if (reportTag != nullptr) {
+		// A blank string means always log, not just once.
+		if (reportTag[0] == '\0' || Reporting::ShouldLogOnce(reportTag)) {
+			// Here we want the original key, so that different args, etc. group together.
+			std::string key = std::string("%08x=") + latestSyscall->name + "(%s)";
+			if (reason != nullptr)
+				key += std::string(": ") + reason;
+
+			char formatted_message[8192];
+			snprintf(formatted_message, sizeof(formatted_message), fmt, res, latestSyscall->name, formatted_args, formatted_reason);
+			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
+		}
 	}
 }

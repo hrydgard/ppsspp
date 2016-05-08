@@ -50,6 +50,22 @@
     <ClCompile Include="ReportScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="PauseScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="SavedataScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ProfilerDraw.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="ComboKeyMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayLayoutScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="DisplayLayoutEditor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -100,7 +116,22 @@
     <ClInclude Include="ReportScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-
+    <ClInclude Include="PauseScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SavedataScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ProfilerDraw.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ComboKeyMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="DisplayLayoutEditor.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

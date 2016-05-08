@@ -22,7 +22,6 @@
 #include "ui/viewgroup.h"
 #include "net/http_client.h"
 
-#include "Core/Util/GameManager.h"
 #include "UI/MiscScreens.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
@@ -49,6 +48,7 @@ struct StoreEntry {
 	std::string file;  // This is the folder name of the installed one too, and hence a "unique-ish" identifier.
 	std::string category;
 	std::string downloadURL;  // Only set for games that are not hosted on store.ppsspp.org
+	bool hidden;
 	u64 size;
 };
 
@@ -67,8 +67,8 @@ public:
 protected:
 	virtual void CreateViews();
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
-	UI::EventReturn OnCategorySelected(UI::EventParams &e);
 	UI::EventReturn OnRetry(UI::EventParams &e);
+	UI::EventReturn OnGameLaunch(UI::EventParams &e);
 
 private:
 	void SetFilter(const StoreFilter &filter);

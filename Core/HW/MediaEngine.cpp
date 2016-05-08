@@ -21,6 +21,8 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
+#include "GPU/GPUState.h"  // Used by TextureDecoder.h when templates get instanced
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/SimpleAudioDec.h"
 
@@ -36,8 +38,6 @@ extern "C" {
 
 }
 #endif // USE_FFMPEG
-
-int g_iNumVideos = 0;
 
 #ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
@@ -147,12 +147,10 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
 	m_audioType = PSP_CODEC_AT3PLUS; // in movie, we use only AT3+ audio
-	g_iNumVideos++;
 }
 
 MediaEngine::~MediaEngine() {
 	closeMedia();
-	g_iNumVideos--;
 }
 
 void MediaEngine::closeMedia() {
@@ -279,7 +277,7 @@ bool MediaEngine::openContext() {
 		return false;
 
 	setVideoDim();
-	m_audioContext = new SimpleAudio(m_audioType);
+	m_audioContext = new SimpleAudio(m_audioType, 44100, 2);
 	m_isVideoEnd = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
@@ -482,6 +480,17 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 				NULL,
 				NULL
 			);
+
+		int *inv_coefficients;
+		int *coefficients;
+		int srcRange, dstRange;
+		int brightness, contrast, saturation;
+
+		if (sws_getColorspaceDetails(m_sws_ctx, &inv_coefficients, &srcRange, &coefficients, &dstRange, &brightness, &contrast, &saturation) != -1) {
+			srcRange = 0;
+			dstRange = 0;
+			sws_setColorspaceDetails(m_sws_ctx, inv_coefficients, srcRange, coefficients, dstRange, brightness, contrast, saturation);
+		}
 	}
 #endif
 }
@@ -555,7 +564,7 @@ inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
 	u32_le *dest = (u32_le *)destp;
 	const u32_le *src = (u32_le *)srcp;
 
-	u32 mask = 0x00FFFFFF;
+	const u32 mask = 0x00FFFFFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
@@ -570,7 +579,7 @@ inline void writeVideoLineABGR5551(void *destp, const void *srcp, int width) {
 	u16_le *dest = (u16_le *)destp;
 	const u16_le *src = (u16_le *)srcp;
 
-	u16 mask = 0x7FFF;
+	const u16 mask = 0x7FFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
@@ -581,7 +590,7 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	u16_le *dest = (u16_le *)destp;
 	const u16_le *src = (u16_le *)srcp;
 
-	u16 mask = 0x0FFF;
+	const u16 mask = 0x0FFF;
 	for (int i = 0; i < width; ++i) {
 		dest[i] = src[i] & mask;
 	}
@@ -591,61 +600,82 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return false;
+		return 0;
 	}
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
 #ifdef USE_FFMPEG
-	if ((!m_pFrame)||(!m_pFrameRGB))
-		return false;
-	int videoImageSize = 0;
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
+
 	// lock the image size
 	int height = m_desHeight;
 	int width = m_desWidth;
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
 
+	int videoLineSize = 0;
+	switch (videoPixelMode) {
+	case GE_CMODE_32BIT_ABGR8888:
+		videoLineSize = frameWidth * sizeof(u32);
+		break;
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+		videoLineSize = frameWidth * sizeof(u16);
+		break;
+	}
+
+	int videoImageSize = videoLineSize * height;
+
+	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	if (swizzle) {
+		imgbuf = new u8[videoImageSize];
+	}
+
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineRGBA(imgbuf, data, width);
+			writeVideoLineRGBA(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u32);
-			imgbuf += frameWidth * sizeof(u32);
 		}
-		videoImageSize = frameWidth * sizeof(u32) * height;
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR5650(imgbuf, data, width);
+			writeVideoLineABGR5650(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR5551(imgbuf, data, width);
+			writeVideoLineABGR5551(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
-			writeVideoLineABGR4444(imgbuf, data, width);
+			writeVideoLineABGR4444(imgbuf + videoLineSize * y, data, width);
 			data += width * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
 		}
-		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	default:
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
+	}
+
+	if (swizzle) {
+		const int bxc = videoLineSize / 16;
+		int byc = (height + 7) / 8;
+		if (byc == 0)
+			byc = 1;
+
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
+		delete [] imgbuf;
 	}
 
 #ifndef MOBILE_DEVICE
@@ -661,18 +691,36 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 	if (!Memory::IsValidAddress(bufferPtr) || frameWidth > 2048) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
-		return false;
+		return 0;
 	}
 
 	u8 *buffer = Memory::GetPointer(bufferPtr);
 
 #ifdef USE_FFMPEG
-	if ((!m_pFrame)||(!m_pFrameRGB))
-		return false;
-	int videoImageSize = 0;
+	if (!m_pFrame || !m_pFrameRGB)
+		return 0;
+
 	// lock the image size
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
+
+	int videoLineSize = 0;
+	switch (videoPixelMode) {
+	case GE_CMODE_32BIT_ABGR8888:
+		videoLineSize = frameWidth * sizeof(u32);
+		break;
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+		videoLineSize = frameWidth * sizeof(u16);
+		break;
+	}
+
+	int videoImageSize = videoLineSize * height;
+	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	if (swizzle) {
+		imgbuf = new u8[videoImageSize];
+	}
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
@@ -685,12 +733,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
-			imgbuf += frameWidth * sizeof(u32);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
@@ -698,12 +745,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
@@ -711,12 +757,11 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
@@ -724,19 +769,32 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
-			imgbuf += frameWidth * sizeof(u16);
+			imgbuf += videoLineSize;
 #ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
 #endif
 		}
-		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	default:
 		ERROR_LOG_REPORT(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
-	return videoImageSize;
+
+	if (swizzle) {
+		WARN_LOG_REPORT_ONCE(vidswizzle, ME, "Swizzling Video with range");
+
+		const int bxc = videoLineSize / 16;
+		int byc = (height + 7) / 8;
+		if (byc == 0)
+			byc = 1;
+
+		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
+		delete [] imgbuf;
+	}
+
+	// Account for the y offset as well.
+	return videoImageSize + videoLineSize * ypos;
 #endif // USE_FFMPEG
 	return 0;
 }
@@ -798,24 +856,19 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	}
 	int outbytes = 0;
 
-	if (m_audioContext != NULL) {
+	if (m_audioContext != nullptr) {
+		if (headerCode1 == 0x24) {
+			// This means mono audio - tell the decoder to expect it before the first frame.
+			// Note that it will always send us back stereo audio.
+			m_audioContext->SetChannels(1);
+		}
+
 		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
 #ifndef MOBILE_DEVICE
 		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
 #endif
-	}
-
-	if (headerCode1 == 0x24) {
-		// it a mono atrac3plus, convert it to stereo
-		s16 *outbuf = (s16*)buffer;
-		s16 *inbuf = (s16*)buffer;
-		for (int i = 0x800 - 1; i >= 0; i--) {
-			s16 sample = inbuf[i];
-			outbuf[i * 2] = sample;
-			outbuf[i * 2 + 1] = sample;
-		}
 	}
 
 	return 0x2000;

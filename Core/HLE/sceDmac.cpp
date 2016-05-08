@@ -17,9 +17,10 @@
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceDmac.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -42,18 +43,14 @@ void __DmacDoState(PointerWrap &p) {
 	p.Do(dmacMemcpyDeadline);
 }
 
-int __DmacMemcpy(u32 dst, u32 src, u32 size) {
-#ifndef MOBILE_DEVICE
-	CBreakPoints::ExecMemCheck(src, false, size, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dst, true, size, currentMIPS->pc);
-#endif
-
+static int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	bool skip = false;
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
 	if (!skip) {
 		Memory::Memcpy(dst, Memory::GetPointer(src), size);
+		currentMIPS->InvalidateICache(dst, size);
 	}
 
 	// This number seems strangely reproducible.
@@ -66,7 +63,7 @@ int __DmacMemcpy(u32 dst, u32 src, u32 size) {
 	return 0;
 }
 
-u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		// Some games seem to do this frequently.
 		DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
@@ -92,7 +89,7 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 	return __DmacMemcpy(dst, src, size);
 }
 
-u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		ERROR_LOG(HLE, "sceDmacTryMemcpy(dest=%08x, src=%08x, size=%i): invalid size", dst, src, size);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
@@ -117,8 +114,8 @@ u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 }
 
 const HLEFunction sceDmac[] = {
-	{0x617f3fe6, &WrapU_UUU<sceDmacMemcpy>, "sceDmacMemcpy"},
-	{0xd97f94d8, &WrapU_UUU<sceDmacTryMemcpy>, "sceDmacTryMemcpy"},
+	{0X617F3FE6, &WrapU_UUU<sceDmacMemcpy>,          "sceDmacMemcpy",    'x', "xxx"},
+	{0XD97F94D8, &WrapU_UUU<sceDmacTryMemcpy>,       "sceDmacTryMemcpy", 'x', "xxx"},
 };
 
 void Register_sceDmac() {

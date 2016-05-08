@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "native/thread/thread.h"
-#include "native/base/mutex.h"
+#include "thread/thread.h"
+#include "base/mutex.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/SavedataParam.h"
 
@@ -73,15 +73,15 @@ public:
 	virtual ~PSPSaveDialog();
 
 	virtual int Init(int paramAddr);
-	virtual int Update(int animSpeed);
-	virtual int Shutdown(bool force = false);
-	virtual void DoState(PointerWrap &p);
-	virtual pspUtilityDialogCommon *GetCommonParam();
+	virtual int Update(int animSpeed) override;
+	virtual int Shutdown(bool force = false) override;
+	virtual void DoState(PointerWrap &p) override;
+	virtual pspUtilityDialogCommon *GetCommonParam() override;
 
 	void ExecuteIOAction();
 
 protected:
-	virtual bool UseAutoStatus() {
+	virtual bool UseAutoStatus() override {
 		return false;
 	}
 
@@ -90,7 +90,6 @@ private:
 	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
-	void DisplayTitle(std::string name);
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2();
 	void DisplayMessage(std::string text, bool hasYesNo = false);

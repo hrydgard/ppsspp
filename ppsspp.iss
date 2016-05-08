@@ -20,6 +20,7 @@ Source: "notinstalled.txt"; DestName: "installed.txt"; DestDir: "{app}";
 Source: "assets\ppge_atlas.zim"; DestDir: "{app}\assets"
 Source: "assets\ui_atlas.zim"; DestDir: "{app}\assets"
 Source: "assets\langregion.ini"; DestDir: "{app}\assets"
+Source: "assets\compat.ini"; DestDir: "{app}\assets"
 Source: "assets\Roboto-Condensed.ttf"; DestDir: "{app}\assets"
 Source: "assets\shaders\*.*"; DestDir: "{app}\assets\shaders"
 Source: "lang\*.ini"; DestDir: "{app}\lang"

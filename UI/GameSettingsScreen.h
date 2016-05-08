@@ -24,7 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "");
+	GameSettingsScreen(std::string gamePath, std::string gameID = "", bool editThenRestore = false);
 
 	virtual void update(InputState &input);
 	virtual void onFinish(DialogResult result);
@@ -40,13 +40,13 @@ protected:
 
 private:
 	std::string gameID_;
+	//edit the game-specific settings and restore the global settings after exiting
+	bool bEditThenRestore;
 	bool lastVertical_;
-	// As we load metadata in the background, we need to be able to update these after the fact.
-	UI::TextView *tvTitle_;
-	UI::TextView *tvGameSize_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
 	UI::Choice *postProcChoice_;
+	UI::Choice *displayEditor_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
 #ifdef _WIN32
@@ -63,7 +63,8 @@ private:
 	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
-	UI::EventReturn OnTiltCuztomize(UI::EventParams &e);
+	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
+	UI::EventReturn OnCombo_key(UI::EventParams &e);
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
@@ -77,6 +78,7 @@ private:
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
+	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
 	UI::EventReturn OnResolutionChange(UI::EventParams &e);
 	UI::EventReturn OnHwScaleChange(UI::EventParams &e);
 	UI::EventReturn OnShaderChange(UI::EventParams &e);
@@ -94,6 +96,11 @@ private:
 	UI::EventReturn OnScreenRotation(UI::EventParams &e);
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 
+	UI::EventReturn OnAdhocGuides(UI::EventParams &e);
+
+	UI::EventReturn OnSavedataManager(UI::EventParams &e);
+	UI::EventReturn OnSysInfo(UI::EventParams &e);
+
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
@@ -103,6 +110,7 @@ private:
 	bool vtxCacheEnable_;
 	bool postProcEnable_;
 	bool resolutionEnable_;
+	bool bloomHackEnable_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
@@ -116,7 +124,6 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
-	UI::EventReturn OnSysInfo(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
@@ -134,7 +141,6 @@ protected:
 private:	
 	std::string tempProAdhocServer;
 	UI::TextView *addrView_;
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn On0Click(UI::EventParams &e);
 	UI::EventReturn On1Click(UI::EventParams &e);
 	UI::EventReturn On2Click(UI::EventParams &e);

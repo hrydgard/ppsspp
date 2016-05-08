@@ -55,5 +55,8 @@ void MemoryStick_Init()
 {
 	memStickState = PSP_MEMORYSTICK_STATE_DRIVER_READY;
 	memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
-	memStickSize = 8ULL * 1024 * 1024 * 1024; // 8GB
+	// Harry Potter and the Goblet of Fire has a bug where it can't handle certain amounts
+	// of free space due to incorrect 32-bit math.
+	// We use 9GB here, which does not trigger the bug, as a cap for the max free space.
+	memStickSize = 9ULL * 1024 * 1024 * 1024; // 9GB
 }

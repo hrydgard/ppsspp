@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Core/MemMap.h"
+#include "Core/MemMap.h"
 
-#include "GPUState.h"
 #include "ge_constants.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUState.h"
 
 void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	bool through = (op & GE_VTYPE_THROUGH_MASK) == GE_VTYPE_THROUGH;
@@ -27,7 +28,7 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 	int nrm = (op & GE_VTYPE_NRM_MASK) >> GE_VTYPE_NRM_SHIFT;
 	int pos = (op & GE_VTYPE_POS_MASK) >> GE_VTYPE_POS_SHIFT;
 	int weight = (op & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
-	int weightCount = (op & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+	int weightCount = ((op & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
 	int morphCount = (op & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
 	int idx = (op & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 
@@ -46,6 +47,12 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		"u8",
 		"u16",
 		"float",
+	};
+	static const char *typeNamesI[] = {
+		NULL,
+		"u8",
+		"u16",
+		"u32",
 	};
 	static const char *typeNamesS[] = {
 		NULL,
@@ -67,12 +74,12 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w += snprintf(w, end - w, "%s positions, ", typeNamesS[pos]);
 	if (typeNames[weight] && w < end)
 		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
-	else if (weightCount > 0 && w < end)
+	else if (weightCount > 1 && w < end)
 		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
 	if (morphCount > 0 && w < end)
 		w += snprintf(w, end - w, "%d morphs, ", morphCount);
-	if (typeNames[idx] && w < end)
-		w += snprintf(w, end - w, "%s indexes, ", typeNames[idx]);
+	if (typeNamesI[idx] && w < end)
+		w += snprintf(w, end - w, "%s indexes, ", typeNamesI[idx]);
 
 	if (w < buffer + 2)
 		snprintf(buffer, len, "none");
@@ -81,12 +88,9 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 		w[-2] = '\0';
 }
 
-void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
+void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
-
-	char *buffer = origbuf + snprintf(origbuf, bufsize, "%08x: ", op);
-	bufsize -= (int)(buffer - origbuf);
 
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
@@ -113,8 +117,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
 	case GE_CMD_PRIM:
 		{
 			u32 count = data & 0xFFFF;
-			u32 type = data >> 16;
-			static const char* types[7] = {
+			u32 type = (data >> 16) & 7;
+			static const char* types[8] = {
 				"POINTS",
 				"LINES",
 				"LINE_STRIP",
@@ -122,6 +126,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
 				"TRIANGLE_STRIP",
 				"TRIANGLE_FAN",
 				"RECTANGLES",
+				"CONTINUE_PREVIOUS",
 			};
 			if (gstate.vertType & GE_VTYPE_IDX_MASK)
 				snprintf(buffer, bufsize, "DRAW PRIM %s: count= %i vaddr= %08x, iaddr= %08x", type < 7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
@@ -254,7 +259,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
 	case GE_CMD_VERTEXTYPE:
 		{
 			int len = snprintf(buffer, bufsize, "SetVertexType: ");
-			GeDescribeVertexType(op, buffer + len, 256 - len);
+			GeDescribeVertexType(op, buffer + len, bufsize - len);
 		}
 		break;
 
@@ -654,19 +659,19 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *origbuf, int bufsize) {
 		}
 		break;
 
-	case GE_CMD_VIEWPORTX1:
-	case GE_CMD_VIEWPORTY1:
-	case GE_CMD_VIEWPORTX2:
-	case GE_CMD_VIEWPORTY2:
-		snprintf(buffer, bufsize, "Viewport param %i: %f", cmd-GE_CMD_VIEWPORTX1, getFloat24(data));
+	case GE_CMD_VIEWPORTXSCALE:
+	case GE_CMD_VIEWPORTYSCALE:
+	case GE_CMD_VIEWPORTXCENTER:
+	case GE_CMD_VIEWPORTYCENTER:
+		snprintf(buffer, bufsize, "Viewport param %i: %f", cmd-GE_CMD_VIEWPORTXSCALE, getFloat24(data));
 		break;
-	case GE_CMD_VIEWPORTZ1:
+	case GE_CMD_VIEWPORTZSCALE:
 		{
 			float zScale = getFloat24(data) / 65535.f;
 			snprintf(buffer, bufsize, "Viewport Z scale: %f", zScale);
 		}
 		break;
-	case GE_CMD_VIEWPORTZ2:
+	case GE_CMD_VIEWPORTZCENTER:
 		{
 			float zOff = getFloat24(data) / 65535.f;
 			snprintf(buffer, bufsize, "Viewport Z pos: %f", zOff);

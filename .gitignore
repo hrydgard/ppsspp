@@ -21,11 +21,22 @@
 controls.ini
 Debug
 Release
+Windows/.vs
 Windows/x64
 Windows/ipch
 Windows/bin-release
+Windows/win-version.h
 ui_atlas.zim.png
+ui_atlas_high.zim.png
 android/assets
+ext/_Output
+android/lint.xml
+PPSSPPWindows64.exe.manifest
+PPSSPPWindows.exe.manifest
+PPSSPPDebug64.exe.manifest
+PPSSPPDebug.exe.manifest
+assets/flash0
+
 # For Mac
 .DS_Store
 
@@ -73,3 +84,6 @@ tags
 debian/files
 debian/ppsspp.substvars
 debian/ppsspp/
+
+# YouCompleteMe file
+.ycm_extra_conf.pyc

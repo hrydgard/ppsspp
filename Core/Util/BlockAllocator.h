@@ -21,8 +21,6 @@ class PointerWrap;
 
 #include "Common/CommonTypes.h"
 
-// Generic allocator thingy. Allocates blocks from a range.
-
 class BlockAllocator
 {
 public:
@@ -54,6 +52,8 @@ public:
 	u32 GetLargestFreeBlockSize() const;
 	u32 GetTotalFreeBytes() const;
 
+	const char *GetBlockTag(u32 addr) const;
+
 	void DoState(PointerWrap &p);
 
 private:
@@ -82,6 +82,6 @@ private:
 	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);
 	const Block *GetBlockFromAddress(u32 addr) const;
-	Block *InsertFreeBefore(Block *b, u32 start, u32 size);
-	Block *InsertFreeAfter(Block *b, u32 start, u32 size);
+	Block *InsertFreeBefore(Block *b, u32 size);
+	Block *InsertFreeAfter(Block *b, u32 size);
 };

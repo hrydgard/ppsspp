@@ -1,0 +1,1 @@
+This is https://code.google.com/p/jpeg-compressor/ , public domain code.

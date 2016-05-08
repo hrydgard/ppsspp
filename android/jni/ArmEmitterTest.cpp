@@ -78,7 +78,7 @@ void TestCode::Generate()
 	// c will later be logged.
 
 	/*
-	MOVI2R(R11, (u32)&abc[0]);
+	MOVP2R(R11, &abc[0]);
 	MOVI2R(R1, 0x3f800000);
 	STR(R11, R1, 4 * (32 + 31));
 	VLDR(S0, R11, 0);

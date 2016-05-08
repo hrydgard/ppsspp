@@ -17,7 +17,12 @@
 
 #include "headless/Compare.h"
 #include "file/file_util.h"
+
+#include "Common/ColorConv.h"
+#include "Common/FileUtil.h"
 #include "Core/Host.h"
+
+#include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/TextureDecoder.h"
 
@@ -26,6 +31,7 @@
 #include <cstdarg>
 #include <iostream>
 #include <fstream>
+#include <vector>
 
 bool teamCityMode = false;
 std::string teamCityName = "";
@@ -322,7 +328,7 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	return data;
 }
 
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string screenshotFilename, std::string &error)
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error)
 {
 	if (pixels.size() < stride * h)
 	{
@@ -333,12 +339,13 @@ double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 
 	// We assume the bitmap is the specified size, not including whatever stride.
 	u32 *reference = (u32 *) calloc(stride * h, sizeof(u32));
 
-	FILE *bmp = fopen(screenshotFilename.c_str(), "rb");
+	FILE *bmp = File::OpenCFile(screenshotFilename, "rb");
 	if (bmp)
 	{
 		// The bitmap header is 14 + 40 bytes.  We could validate it but the test would fail either way.
 		fseek(bmp, 14 + 40, SEEK_SET);
-		fread(reference, sizeof(u32), stride * h, bmp);
+		if (fread(reference, sizeof(u32), stride * h, bmp) != stride * h)
+			error = "Unable to read screenshot data: " + screenshotFilename;
 		fclose(bmp);
 	}
 	else

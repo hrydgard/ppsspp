@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "Common/MipsEmitter.h"
+using namespace MIPSGen;
+
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"
@@ -28,33 +31,22 @@
 namespace MIPSComp
 {
 
-struct MIPSJitOptions
-{
-	MIPSJitOptions();
-
-	bool enableBlocklink;
-	bool immBranches;
-	bool continueBranches;
-	bool continueJumps;
-	int continueMaxInstructions;
-};
-
-class Jit : public MIPSGen::MIPSCodeBlock
+class MipsJit : public MIPSGen::MIPSCodeBlock, public JitInterface
 {
 public:
-	Jit(MIPSState *mips);
+	MipsJit(MIPSState *mips);
 
-	void DoState(PointerWrap &p);
-	static void DoDummyState(PointerWrap &p);
+	void DoState(PointerWrap &p) override;
+	void DoDummyState(PointerWrap &p) override;
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
 	// OR NOT
-	void Comp_Generic(MIPSOpcode op);
+	void Comp_Generic(MIPSOpcode op) override;
 
-	void RunLoopUntil(u64 globalticks);
+	void RunLoopUntil(u64 globalticks) override;
 
-	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
+	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name);
@@ -63,76 +55,78 @@ public:
 	void EatInstruction(MIPSOpcode op);
 	void AddContinuedBlock(u32 dest);
 
-	void Comp_RunBlock(MIPSOpcode op);
-	void Comp_ReplacementFunc(MIPSOpcode op);
+	void Comp_RunBlock(MIPSOpcode op) override;
+	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops
-	void Comp_ITypeMem(MIPSOpcode op) {}
-	void Comp_Cache(MIPSOpcode op) {}
+	void Comp_ITypeMem(MIPSOpcode op) override {}
+	void Comp_Cache(MIPSOpcode op) override {}
 
-	void Comp_RelBranch(MIPSOpcode op) {}
-	void Comp_RelBranchRI(MIPSOpcode op) {}
-	void Comp_FPUBranch(MIPSOpcode op) {}
-	void Comp_FPULS(MIPSOpcode op) {}
-	void Comp_FPUComp(MIPSOpcode op) {}
-	void Comp_Jump(MIPSOpcode op) {}
-	void Comp_JumpReg(MIPSOpcode op) {}
-	void Comp_Syscall(MIPSOpcode op) {}
-	void Comp_Break(MIPSOpcode op) {}
+	void Comp_RelBranch(MIPSOpcode op) override {}
+	void Comp_RelBranchRI(MIPSOpcode op) override {}
+	void Comp_FPUBranch(MIPSOpcode op) override {}
+	void Comp_FPULS(MIPSOpcode op) override {}
+	void Comp_FPUComp(MIPSOpcode op) override {}
+	void Comp_Jump(MIPSOpcode op) override {}
+	void Comp_JumpReg(MIPSOpcode op) override {}
+	void Comp_Syscall(MIPSOpcode op) override {}
+	void Comp_Break(MIPSOpcode op) override {}
 
-	void Comp_IType(MIPSOpcode op) {}
-	void Comp_RType2(MIPSOpcode op) {}
-	void Comp_RType3(MIPSOpcode op) {}
-	void Comp_ShiftType(MIPSOpcode op) {}
-	void Comp_Allegrex(MIPSOpcode op) {}
-	void Comp_Allegrex2(MIPSOpcode op) {}
-	void Comp_VBranch(MIPSOpcode op) {}
-	void Comp_MulDivType(MIPSOpcode op) {}
-	void Comp_Special3(MIPSOpcode op) {}
+	void Comp_IType(MIPSOpcode op) override {}
+	void Comp_RType2(MIPSOpcode op) override {}
+	void Comp_RType3(MIPSOpcode op) override {}
+	void Comp_ShiftType(MIPSOpcode op) override {}
+	void Comp_Allegrex(MIPSOpcode op) override {}
+	void Comp_Allegrex2(MIPSOpcode op) override {}
+	void Comp_VBranch(MIPSOpcode op) override {}
+	void Comp_MulDivType(MIPSOpcode op) override {}
+	void Comp_Special3(MIPSOpcode op) override {}
 
-	void Comp_FPU3op(MIPSOpcode op) {}
-	void Comp_FPU2op(MIPSOpcode op) {}
-	void Comp_mxc1(MIPSOpcode op) {}
+	void Comp_FPU3op(MIPSOpcode op) override {}
+	void Comp_FPU2op(MIPSOpcode op) override {}
+	void Comp_mxc1(MIPSOpcode op) override {}
 
-	void Comp_DoNothing(MIPSOpcode op) {}
+	void Comp_DoNothing(MIPSOpcode op) override {}
 
-	void Comp_SV(MIPSOpcode op) {}
-	void Comp_SVQ(MIPSOpcode op) {}
-	void Comp_VPFX(MIPSOpcode op) {}
-	void Comp_VVectorInit(MIPSOpcode op) {}
-	void Comp_VMatrixInit(MIPSOpcode op) {}
-	void Comp_VDot(MIPSOpcode op) {}
-	void Comp_VecDo3(MIPSOpcode op) {}
-	void Comp_VV2Op(MIPSOpcode op) {}
-	void Comp_Mftv(MIPSOpcode op) {}
-	void Comp_Vmfvc(MIPSOpcode op) {}
-	void Comp_Vmtvc(MIPSOpcode op) {}
-	void Comp_Vmmov(MIPSOpcode op) {}
-	void Comp_VScl(MIPSOpcode op) {}
-	void Comp_Vmmul(MIPSOpcode op) {}
-	void Comp_Vmscl(MIPSOpcode op) {}
-	void Comp_Vtfm(MIPSOpcode op) {}
-	void Comp_VHdp(MIPSOpcode op) {}
-	void Comp_VCrs(MIPSOpcode op) {}
-	void Comp_VDet(MIPSOpcode op) {}
-	void Comp_Vi2x(MIPSOpcode op) {}
-	void Comp_Vx2i(MIPSOpcode op) {}
-	void Comp_Vf2i(MIPSOpcode op) {}
-	void Comp_Vi2f(MIPSOpcode op) {}
-	void Comp_Vh2f(MIPSOpcode op) {}
-	void Comp_Vcst(MIPSOpcode op) {}
-	void Comp_Vhoriz(MIPSOpcode op) {}
-	void Comp_VRot(MIPSOpcode op) {}
-	void Comp_VIdt(MIPSOpcode op) {}
-	void Comp_Vcmp(MIPSOpcode op) {}
-	void Comp_Vcmov(MIPSOpcode op) {}
-	void Comp_Viim(MIPSOpcode op) {}
-	void Comp_Vfim(MIPSOpcode op) {}
-	void Comp_VCrossQuat(MIPSOpcode op) {}
-	void Comp_Vsgn(MIPSOpcode op) {}
-	void Comp_Vocp(MIPSOpcode op) {}
-	void Comp_ColorConv(MIPSOpcode op) {}
+	void Comp_SV(MIPSOpcode op) override {}
+	void Comp_SVQ(MIPSOpcode op) override {}
+	void Comp_VPFX(MIPSOpcode op) override {}
+	void Comp_VVectorInit(MIPSOpcode op) override {}
+	void Comp_VMatrixInit(MIPSOpcode op) override {}
+	void Comp_VDot(MIPSOpcode op) override {}
+	void Comp_VecDo3(MIPSOpcode op) override {}
+	void Comp_VV2Op(MIPSOpcode op) override {}
+	void Comp_Mftv(MIPSOpcode op) override {}
+	void Comp_Vmfvc(MIPSOpcode op) override {}
+	void Comp_Vmtvc(MIPSOpcode op) override {}
+	void Comp_Vmmov(MIPSOpcode op) override {}
+	void Comp_VScl(MIPSOpcode op) override {}
+	void Comp_Vmmul(MIPSOpcode op) override {}
+	void Comp_Vmscl(MIPSOpcode op) override {}
+	void Comp_Vtfm(MIPSOpcode op) override {}
+	void Comp_VHdp(MIPSOpcode op) override {}
+	void Comp_VCrs(MIPSOpcode op) override {}
+	void Comp_VDet(MIPSOpcode op) override {}
+	void Comp_Vi2x(MIPSOpcode op) override {}
+	void Comp_Vx2i(MIPSOpcode op) override {}
+	void Comp_Vf2i(MIPSOpcode op) override {}
+	void Comp_Vi2f(MIPSOpcode op) override {}
+	void Comp_Vh2f(MIPSOpcode op) override {}
+	void Comp_Vcst(MIPSOpcode op) override {}
+	void Comp_Vhoriz(MIPSOpcode op) override {}
+	void Comp_VRot(MIPSOpcode op) override {}
+	void Comp_VIdt(MIPSOpcode op) override {}
+	void Comp_Vcmp(MIPSOpcode op) override {}
+	void Comp_Vcmov(MIPSOpcode op) override {}
+	void Comp_Viim(MIPSOpcode op) override {}
+	void Comp_Vfim(MIPSOpcode op) override {}
+	void Comp_VCrossQuat(MIPSOpcode op) override {}
+	void Comp_Vsgn(MIPSOpcode op) override {}
+	void Comp_Vocp(MIPSOpcode op) override {}
+	void Comp_ColorConv(MIPSOpcode op) override {}
 	int Replace_fabsf() { return 0; }
+
+	void Comp_Vbfy(MIPSOpcode op) {}
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
 
@@ -165,7 +159,7 @@ private:
 	void WriteSyscallExit();
 
 	JitBlockCache blocks;
-	MIPSJitOptions jo;
+	JitOptions jo;
 	JitState js;
 
 	MIPSState *mips_;
@@ -187,8 +181,8 @@ public:
 	const u8 *breakpointBailout;
 };
 
-typedef void (Jit::*MIPSCompileFunc)(MIPSOpcode opcode);
-typedef int (Jit::*MIPSReplaceFunc)();
+typedef void (MipsJit::*MIPSCompileFunc)(MIPSOpcode opcode);
+typedef int (MipsJit::*MIPSReplaceFunc)();
 
 }	// namespace MIPSComp
 

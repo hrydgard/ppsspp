@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "base/functional.h"
 #include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
 #include "Globals.h"
@@ -41,15 +42,23 @@ struct SimpleGLWindow {
 		FORMAT_8BIT = 0x12,
 		FORMAT_24BIT_8X = 0x13,
 		FORMAT_24X_8BIT = 0x14,
+
+		FORMAT_FLOAT_DIV_256 = 0x18,
+		FORMAT_24BIT_8X_DIV_256 = 0x1B,
 	};
 
 	enum Flags {
 		RESIZE_NONE = 0x00,
-		RESIZE_CENTER = 0x02,
-		RESIZE_SHRINK_FIT = 0x01,
+		RESIZE_CENTER = 0x01,
+		RESIZE_SHRINK_FIT = 0x02,
 		RESIZE_SHRINK_CENTER = 0x03,
+		RESIZE_GROW_FIT = 0x04,
+		RESIZE_GROW_CENTER = 0x05,
+		RESIZE_BEST_FIT = 0x06,
+		RESIZE_BEST_CENTER = 0x07,
+
 		ALPHA_IGNORE = 0x00,
-		ALPHA_BLEND = 0x04,
+		ALPHA_BLEND = 0x08,
 	};
 
 	SimpleGLWindow(HWND wnd);
@@ -82,6 +91,10 @@ struct SimpleGLWindow {
 		return h_;
 	}
 
+	bool HasTex() {
+		return tw_ > 0 && th_ > 0;
+	}
+
 	int TexWidth() {
 		return tw_;
 	}
@@ -91,6 +104,10 @@ struct SimpleGLWindow {
 	}
 
 	void GetContentSize(float &x, float &y, float &fw, float &fh);
+
+	void SetHoverCallback(std::function<void(int, int)> hoverCallback) {
+		hoverCallback_ = hoverCallback;
+	}
 
 	static void RegisterClass();
 protected:
@@ -102,6 +119,8 @@ protected:
 	bool DragStart(int mouseX, int mouseY);
 	bool DragContinue(int mouseX, int mouseY);
 	bool DragEnd(int mouseX, int mouseY);
+	bool Hover(int mouseX, int mouseY);
+	bool Leave();
 	bool ToggleZoom();
 	const u8 *Reformat(const u8 *data, Format fmt, u32 numPixels);
 
@@ -118,6 +137,9 @@ protected:
 	bool tflipped_;
 
 	GLSLProgram *drawProgram_;
+	GLuint vao_;
+	GLuint ibuf_;
+	GLuint vbuf_;
 	GLuint checker_;
 	GLuint tex_;
 	u32 flags_;
@@ -132,4 +154,6 @@ protected:
 	int offsetY_;
 	u32 *reformatBuf_;
 	u32 reformatBufSize_;
+
+	std::function<void(int, int)> hoverCallback_;
 };

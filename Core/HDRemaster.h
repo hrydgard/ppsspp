@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "CommonTypes.h"
+#include "Common/CommonTypes.h"
 
 // This bool is the key to having the HD remasters work.
 // We keep it set to false by default in PSPLoaders.cpp
@@ -28,17 +28,10 @@ extern bool g_DoubleTextureCoordinates;
 
 struct HDRemaster {
 	const char *gameID;
-	u32 MemorySize;
-	bool DoubleTextureCoordinates;
+	u32 memorySize;
+	bool doubleTextureCoordinates;
+	const char *umdDataValue;
 };
 
-// TODO: Use UMD_DATA.bin to differentiate the Eiyuu games from the regular PSP editions.
-// TODO: Do all of the remasters aside from Monster Hunter/Shin Sangoku use double texture coordinates?
-const struct HDRemaster g_HDRemasters[] = {
-	{ "NPJB40001", 0x04000000, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
-	{ "NPJB40002", 0x04000000, true }, // K-ON Houkago Live HD Ver
-	{ "NPJB40003", 0x04000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
-	// { "ULJM05170", 0x04000000, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
-	// { "ULJM05277", 0x04C00000, true }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition, game needs 76 MB
-	// { "ULJM05353", 0x04C00000, true }, // Eiyuu Densetsu: Sora no Kiseki 3rd Kai HD Edition, game needs 76 MB
-};
+extern const struct HDRemaster g_HDRemasters[];
+extern const size_t g_HDRemastersCount;

@@ -77,8 +77,6 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define fseeko _fseeki64
 	#define ftello _ftelli64
 	#define atoll _atoi64
-	#define stat64 _stat64
-	#define fstat64 _fstat64
 	#define fileno _fileno
 #ifndef _XBOX
 	#if _M_IX86

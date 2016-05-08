@@ -32,4 +32,4 @@ std::string GetTestName(const std::string &bootFilename);
 
 bool CompareOutput(const std::string &bootFilename, const std::string &output, bool verbose);
 std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32 stride, u32 h);
-double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string screenshotFilename, std::string &error);
+double CompareScreenshot(const std::vector<u32> &pixels, u32 stride, u32 w, u32 h, const std::string& screenshotFilename, std::string &error);

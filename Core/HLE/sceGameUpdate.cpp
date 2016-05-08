@@ -17,26 +17,27 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceGameUpdate.h"
 
-u32 sceGameUpdateInit()
+static u32 sceGameUpdateInit()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateInit()");
 	return 0;
 }
 
-u32 sceGameUpdateTerm()
+static u32 sceGameUpdateTerm()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateTerm()");
 	return 0;
 }
 
-u32 sceGameUpdateRun()
+static u32 sceGameUpdateRun()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateRun()");
 	return 0;
 }
 
-u32 sceGameUpdateAbort()
+static u32 sceGameUpdateAbort()
 {
 	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateAbort()");
 	return 0;
@@ -44,10 +45,10 @@ u32 sceGameUpdateAbort()
 
 const HLEFunction sceGameUpdate[] =
 {
-	{0xCBE69FB3, WrapU_V<sceGameUpdateInit>, "sceGameUpdateInit"},
-	{0xBB4B68DE, WrapU_V<sceGameUpdateTerm>, "sceGameUpdateTerm"},
-	{0x596AD78C, WrapU_V<sceGameUpdateRun>, "sceGameUpdateRun"},
-	{0x5F5D98A6, WrapU_V<sceGameUpdateAbort>, "sceGameUpdateAbort"},
+	{0XCBE69FB3, &WrapU_V<sceGameUpdateInit>,        "sceGameUpdateInit",  'x', ""},
+	{0XBB4B68DE, &WrapU_V<sceGameUpdateTerm>,        "sceGameUpdateTerm",  'x', ""},
+	{0X596AD78C, &WrapU_V<sceGameUpdateRun>,         "sceGameUpdateRun",   'x', ""},
+	{0X5F5D98A6, &WrapU_V<sceGameUpdateAbort>,       "sceGameUpdateAbort", 'x', ""},
 };
 
 void Register_sceGameUpdate()
