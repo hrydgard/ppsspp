@@ -29,9 +29,9 @@ template<> struct CompileTimeAssert<true> {};
 #include <errno.h>
 
 #if defined(_M_IX86) || defined(_M_X86)
-#include <signal.h>
 #define Crash() {asm ("int $3");}
 #else
+#include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}
 #endif
 
