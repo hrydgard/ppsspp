@@ -45,6 +45,12 @@ void IRRegCache::MapInIn(int rs, int rt) {
 	Flush(rt);
 }
 
+void IRRegCache::MapInInIn(int rd, int rs, int rt) {
+	Flush(rd);
+	Flush(rs);
+	Flush(rt);
+}
+
 void IRRegCache::MapDirtyIn(int rd, int rs) {
 	if (rs != rd) {
 		Discard(rd);

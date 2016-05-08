@@ -35,6 +35,7 @@ public:
 	void MapDirty(int rd);
 	void MapIn(int rd);
 	void MapInIn(int rs, int rt);
+	void MapInInIn(int rd, int rs, int rt);
 	void MapDirtyIn(int rd, int rs);
 	void MapDirtyInIn(int rd, int rs, int rt);
 

@@ -62,7 +62,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		bool symmetric = true;
 		if (out.GetConstants().size() > 128) {
 			// Avoid causing a constant explosion.
-			goto doDefault;
+			goto doDefaultAndFlush;
 		}
 		switch (inst.op) {
 		case IROp::SetConst:
@@ -134,6 +134,39 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
+		case IROp::Mult:
+		case IROp::MultU:
+			gpr.MapInIn(inst.src1, inst.src2);
+			goto doDefault;
+
+		case IROp::MovZ:
+		case IROp::MovNZ:
+			gpr.MapInInIn(inst.dest, inst.src1, inst.src2);
+			goto doDefault;
+
+		case IROp::Min:
+		case IROp::Max:
+			gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
+			goto doDefault;
+
+		case IROp::Clz:
+		case IROp::BSwap16:
+		case IROp::BSwap32:
+		case IROp::Ext16to32:
+		case IROp::Ext8to32:
+			gpr.MapDirtyIn(inst.dest, inst.src1);
+			goto doDefault;
+
+		case IROp::MfHi:
+		case IROp::MfLo:
+			gpr.MapDirty(inst.dest);
+			goto doDefault;
+
+		case IROp::MtHi:
+		case IROp::MtLo:
+			gpr.MapIn(inst.src1);
+			goto doDefault;
+
 		case IROp::Store8:
 		case IROp::Store16:
 		case IROp::Store32:
@@ -175,6 +208,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::ExitToConstIfLtZ:
 		default:
 		{
+		doDefaultAndFlush:
 			gpr.FlushAll();
 		doDefault:
 			// Remap constants to the new reality
