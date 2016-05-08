@@ -62,7 +62,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		bool symmetric = true;
 		switch (inst.op) {
 		case IROp::SetConst:
-			gpr.SetImm((MIPSGPReg)inst.dest, constants[inst.src1]);
+			gpr.SetImm(inst.dest, constants[inst.src1]);
 			break;
 
 		case IROp::Sub:
@@ -83,7 +83,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				} else {
 					out.Write(ArithToArithConst(inst.op), inst.dest, inst.src1, out.AddConstant(gpr.GetImm(inst.src2)));
 				}
-			} else if (gpr.IsImm(inst.src1) && inst.src1 != inst.src2 && inst.dest != inst.src2 && symmetric) {
+			} else if (symmetric && gpr.IsImm(inst.src1) && inst.src1 != inst.src2 && inst.dest != inst.src2) {
 				gpr.MapDirtyIn(inst.dest, inst.src2);
 				out.Write(ArithToArithConst(inst.op), inst.dest, inst.src2, out.AddConstant(gpr.GetImm(inst.src1)));
 			} else {
@@ -91,7 +91,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				goto doDefault;
 			}
 			break;
-		
+
 		case IROp::AddConst:
 		case IROp::SubConst:
 		case IROp::AndConst:
@@ -120,7 +120,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 
 		case IROp::Mov:
-			if (inst.src1 == inst.src2) {
+			if (inst.dest == inst.src1) {
 				// Nop
 			} else if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, gpr.GetImm(inst.src1));
@@ -148,10 +148,9 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::Load16:
 		case IROp::Load16Ext:
 		case IROp::Load32:
-			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest && inst.src2 != inst.dest) {
+			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapDirty(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
-				logBlocks = true;
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;

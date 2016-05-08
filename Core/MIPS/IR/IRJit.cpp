@@ -256,7 +256,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		js.compilerPC += 4;
 		js.numInstructions++;
 
-		if (ir.GetConstants().size() > 128) {
+		if (ir.GetConstants().size() > 64) {
 			// Need to break the block
 			ir.Write(IROp::ExitToConst, ir.AddConstant(js.compilerPC));
 			js.compiling = false;
@@ -272,6 +272,9 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		if (PropagateConstants(ir, simplified))
 			logBlocks = 1;
 		code = &simplified;
+		// Some blocks in tekken generate curious numbers of constants after propagation.
+		//if (ir.GetConstants().size() >= 64)
+		//	logBlocks = 1;
 	}
 
 	b->SetInstructions(code->GetInstructions(), code->GetConstants());
@@ -287,7 +290,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
+		ILOG("=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
 		for (int i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], ir.GetConstants().data());
@@ -297,7 +300,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
+		ILOG("=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
 		for (int i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], code->GetConstants().data());
