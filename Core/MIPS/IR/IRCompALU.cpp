@@ -224,7 +224,6 @@ void IRJit::Comp_ShiftType(MIPSOpcode op) {
 
 void IRJit::Comp_Special3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rt = _RT;
 
@@ -237,9 +236,13 @@ void IRJit::Comp_Special3(MIPSOpcode op) {
 		return;
 
 	switch (op & 0x3f) {
-	case 0x0: //ext
-		ir.Write(IROp::Shl, rt, rs);
-		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(mask));
+	case 0x0:
+		if (pos != 0) {
+			ir.Write(IROp::ShrImm, rt, rs, pos);
+			ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(mask));
+		} else {
+			ir.Write(IROp::AndConst, rt, rs, ir.AddConstant(mask));
+		}
 		break;
 
 	case 0x4: //ins
