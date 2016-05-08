@@ -345,7 +345,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
 		case IROp::FRound:
-			mips->r[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);
+			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);
 			break;
 		case IROp::FTrunc:
 		{
@@ -363,10 +363,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 		case IROp::FCeil:
-			mips->r[inst->dest] = (int)ceilf(mips->f[inst->src1]);
+			mips->fs[inst->dest] = (int)ceilf(mips->f[inst->src1]);
 			break;
 		case IROp::FFloor:
-			mips->r[inst->dest] = (int)floorf(mips->f[inst->src1]);
+			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1]);
 			break;
 
 		case IROp::FCvtSW:
