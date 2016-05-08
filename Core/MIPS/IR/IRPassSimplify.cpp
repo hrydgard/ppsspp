@@ -218,6 +218,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
+		case IROp::Downcount:
+			out.Write(inst);
+			break;
+
 		// FP-only instructions don't need to flush immediates.
 		case IROp::FAdd:
 		case IROp::FMul:
