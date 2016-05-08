@@ -149,6 +149,71 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 	}
 }
 
+void ReadVector(FloatBits *rd, VectorSize size, int reg) {
+	int row = 0;
+	int length = 0;
+
+	switch (size) {
+	case V_Single: rd[0].f = V(reg); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
+	}
+	int transpose = (reg>>5) & 1;
+	const int mtx = (reg >> 2) & 7;
+	const int col = reg & 3;
+
+	if (transpose) {
+		const int base = mtx * 4 + col * 32;
+		for (int i = 0; i < length; i++)
+			rd[i].u = VI(base + ((row+i)&3));
+	} else {
+		const int base = mtx * 4 + col;
+		for (int i = 0; i < length; i++)
+			rd[i].u = VI(base + ((row+i)&3)*32);
+	}
+}
+
+void WriteVector(const FloatBits *rd, VectorSize size, int reg) {
+	int row = 0;
+	int length = 0;
+
+	switch (size) {
+	case V_Single: V(reg) = rd[0].f; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
+	}
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int transpose = (reg>>5)&1;
+
+	if (currentMIPS->VfpuWriteMask() == 0) {
+		if (transpose) {
+			const int base = mtx * 4 + col * 32;
+			for (int i = 0; i < length; i++)
+				VI(base + ((row+i)&3)) = rd[i].u;
+		} else {
+			const int base = mtx * 4 + col;
+			for (int i = 0; i < length; i++)
+				VI(base + ((row+i)&3)*32) = rd[i].u;
+		}
+	} else {
+		for (int i = 0; i < length; i++) {
+			if (!currentMIPS->VfpuWriteMask(i)) {
+				int index = mtx * 4;
+				if (transpose)
+					index += ((row+i)&3) + col*32;
+				else
+					index += col + ((row+i)&3)*32;
+				VI(index) = rd[i].u;
+			}
+		}
+	}
+}
+
 void ReadVector(float *rd, VectorSize size, int reg) {
 	int row = 0;
 	int length = 0;
