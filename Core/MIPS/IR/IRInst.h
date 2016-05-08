@@ -243,6 +243,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 // Each IR block gets a constant pool.
 class IRWriter {
 public:
+	IRWriter &operator =(const IRWriter &w) {
+		insts_ = w.insts_;
+		constPool_ = w.constPool_;
+		return *this;
+	}
+	IRWriter &operator =(IRWriter &&w) {
+		insts_ = std::move(w.insts_);
+		constPool_ = std::move(w.constPool_);
+		return *this;
+	}
+
 	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0);
 	void Write(IRInst inst) {
 		insts_.push_back(inst);

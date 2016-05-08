@@ -51,6 +51,31 @@ IROp ArithToArithConst(IROp op) {
 	}
 }
 
+bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out) {
+	if (c == 1) {
+		return passes[0](in, out);
+	}
+
+	bool logBlocks = false;
+
+	IRWriter temp[2];
+	const IRWriter *nextIn = &in;
+	IRWriter *nextOut = &temp[1];
+	for (size_t i = 0; i < c - 1; ++i) {
+		if (passes[i](*nextIn, *nextOut)) {
+			logBlocks = true;
+		}
+
+		temp[0] = std::move(temp[1]);
+		nextIn = &temp[0];
+	}
+
+	if (passes[c - 1](*nextIn, out)) {
+		logBlocks = true;
+	}
+
+	return logBlocks;
+}
 
 bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	IRRegCache gpr(&out);
