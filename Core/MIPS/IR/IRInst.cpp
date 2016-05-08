@@ -307,8 +307,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 		case IROp::BSwap32:
-			mips->r[inst->dest] = swap32(mips->r[inst->src1]);
+		{
+			u32 x = mips->r[inst->src1];
+			mips->r[inst->dest] = ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8) | ((x & 0x0000FF00) << 8) | ((x & 0x000000FF) << 24);
 			break;
+		}
 
 		case IROp::FAdd:
 			mips->f[inst->dest] = mips->f[inst->src1] + mips->f[inst->src2];

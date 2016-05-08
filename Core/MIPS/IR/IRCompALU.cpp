@@ -292,7 +292,7 @@ void IRJit::Comp_Allegrex2(MIPSOpcode op) {
 		ir.Write(IROp::BSwap16, rd, rt);
 		break;
 	case 0xE0: //wsbw
-		ir.Write(IROp::BSwap16, rd, rt);
+		ir.Write(IROp::BSwap32, rd, rt);
 		break;
 	default:
 		Comp_Generic(op);
