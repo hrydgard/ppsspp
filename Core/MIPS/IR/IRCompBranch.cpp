@@ -237,7 +237,7 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	
 	u32 notTakenTarget = GetCompilerPC() + (delaySlotIsBranch ? 4 : 8);
 
-	ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(imm3));
+	ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(1 << imm3));
 	FlushAll();
 	ir.Write(ComparisonToExit(cc), ir.AddConstant(notTakenTarget), IRTEMP_0, 0);
 

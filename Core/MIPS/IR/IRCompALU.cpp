@@ -305,7 +305,6 @@ void IRJit::Comp_Allegrex2(MIPSOpcode op) {
 
 void IRJit::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
-	DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
