@@ -37,6 +37,7 @@
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 namespace MIPSComp {

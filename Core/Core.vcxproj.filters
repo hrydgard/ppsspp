@@ -667,6 +667,9 @@
     <ClCompile Include="MIPS\IR\IRPassSimplify.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\IR\IRInterpreter.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1222,6 +1225,9 @@
       <Filter>MIPS\IR</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\IR\IRPassSimplify.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRInterpreter.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
   </ItemGroup>

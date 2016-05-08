@@ -53,6 +53,7 @@ public:
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;

@@ -54,6 +54,7 @@ public:
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;

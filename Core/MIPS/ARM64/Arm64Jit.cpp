@@ -634,4 +634,14 @@ void Arm64Jit::WriteSyscallExit() {
 
 void Arm64Jit::Comp_DoNothing(MIPSOpcode op) { }
 
+MIPSOpcode Arm64Jit::GetOriginalOp(MIPSOpcode op) {
+	JitBlockCache *bc = GetBlockCache();
+	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
+	if (block_num >= 0) {
+		return bc->GetOriginalFirstOp(block_num);
+	} else {
+		return op;
+	}
 }
+
+}  // namespace

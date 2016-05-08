@@ -157,6 +157,16 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
+  $(SRC)/Core/MIPS/IR/IRJit.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompALU.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompBranch.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompFPU.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/IR/IRCompVFPU.cpp \
+  $(SRC)/Core/MIPS/IR/IRInst.cpp \
+  $(SRC)/Core/MIPS/IR/IRInterpreter.cpp \
+  $(SRC)/Core/MIPS/IR/IRPassSimplify.cpp \
+  $(SRC)/Core/MIPS/IR/IRRegCache.cpp \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
   $(SRC)/ext/libkirk/AES.c \
