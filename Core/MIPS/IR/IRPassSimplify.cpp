@@ -273,7 +273,16 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 
 		case IROp::Downcount:
-			out.Write(inst);
+		case IROp::SetPCConst:
+			goto doDefault;
+
+		case IROp::SetPC:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(IROp::SetPCConst, out.AddConstant(gpr.GetImm(inst.src1)));
+			} else {
+				gpr.MapIn(inst.src1);
+				goto doDefault;
+			}
 			break;
 
 		// FP-only instructions don't need to flush immediates.
