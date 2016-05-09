@@ -73,6 +73,17 @@ IROp ArithToArithConst(IROp op) {
 	}
 }
 
+IROp ShiftToShiftImm(IROp op) {
+	switch (op) {
+	case IROp::Shl: return IROp::ShlImm;
+	case IROp::Shr: return IROp::ShrImm;
+	case IROp::Ror: return IROp::RorImm;
+	case IROp::Sar: return IROp::SarImm;
+	default:
+		return (IROp)-1;
+	}
+}
+
 bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out) {
 	if (c == 1) {
 		return passes[0](in, out);
@@ -178,6 +189,27 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), constants[inst.src2], inst.op));
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
+				goto doDefault;
+			}
+			break;
+
+		case IROp::Shl:
+		case IROp::Shr:
+		case IROp::Ror:
+		case IROp::Sar:
+			if (gpr.IsImm(inst.src1) && gpr.IsImm(inst.src2)) {
+				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), gpr.GetImm(inst.src2), inst.op));
+			} else if (gpr.IsImm(inst.src2)) {
+				const u8 sa = gpr.GetImm(inst.src2) & 31;
+				gpr.MapDirtyIn(inst.dest, inst.src1);
+				if (sa == 0) {
+					if (inst.dest != inst.src1)
+						out.Write(IROp::Mov, inst.dest, inst.src1);
+				} else {
+					out.Write(ShiftToShiftImm(inst.op), inst.dest, inst.src1, sa);
+				}
+			} else {
+				gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
 				goto doDefault;
 			}
 			break;
