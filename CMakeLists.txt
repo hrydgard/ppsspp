@@ -1084,6 +1084,8 @@ set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompFPU.cpp
 	Core/MIPS/IR/IRCompLoadStore.cpp
 	Core/MIPS/IR/IRCompVFPU.cpp
+	Core/MIPS/IR/IRFrontend.cpp
+	Core/MIPS/IR/IRFrontend.h
 	Core/MIPS/IR/IRInst.cpp
 	Core/MIPS/IR/IRInst.h
 	Core/MIPS/IR/IRInterpreter.cpp

@@ -157,6 +157,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
+  $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
   $(SRC)/Core/MIPS/IR/IRJit.cpp \
   $(SRC)/Core/MIPS/IR/IRCompALU.cpp \
   $(SRC)/Core/MIPS/IR/IRCompBranch.cpp \
