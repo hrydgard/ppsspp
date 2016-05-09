@@ -143,10 +143,6 @@ int IRWriter::AddConstantFloat(float value) {
 	return AddConstant(val);
 }
 
-void IRWriter::Simplify() {
-	SimplifyInPlace(&insts_[0], (int)insts_.size(), constPool_.data());
-}
-
 const char *GetGPRName(int r) {
 	if (r < 32) {
 		return currentDebugMIPS->GetRegName(0, r);

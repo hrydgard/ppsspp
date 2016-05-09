@@ -21,7 +21,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
 			break;
 		case IROp::SetConstV:
-			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
+			memcpy(&mips->v[voffset[inst->dest]], &constPool[inst->src1], 4);
 			break;
 		case IROp::Add:
 			mips->r[inst->dest] = mips->r[inst->src1] + mips->r[inst->src2];
@@ -384,7 +384,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			int cycles = f->replaceFunc();
 			mips->downcount -= cycles;
-			return mips->r[MIPS_REG_RA];
+			break;
 		}
 
 		case IROp::Break:

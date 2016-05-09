@@ -245,18 +245,15 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		}
 	}
 
-	ir.Simplify();
-
 	IRWriter simplified;
-
 	IRWriter *code = &ir;
 	if (true) {
-		if (PropagateConstants(ir, simplified))
+		static const IRPassFunc passes[] = {
+			&PropagateConstants,
+		};
+		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
 			logBlocks = 1;
 		code = &simplified;
-		// Some blocks in tekken generate curious numbers of constants after propagation.
-		//if (ir.GetConstants().size() >= 64)
-		//	logBlocks = 1;
 	}
 
 	b->SetInstructions(code->GetInstructions(), code->GetConstants());
@@ -343,6 +340,8 @@ void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
+			ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+			ir.Write(IROp::ExitToReg, MIPS_REG_RA, 0, 0);
 			js.compiling = false;
 		}
 	} else {

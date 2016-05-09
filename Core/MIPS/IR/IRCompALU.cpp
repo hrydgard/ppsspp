@@ -182,13 +182,13 @@ void IRJit::Comp_RType3(MIPSOpcode op) {
 	}
 }
 
-void IRJit::CompShiftImm(MIPSOpcode op, IROp shiftOpConst, int sa) {
+void IRJit::CompShiftImm(MIPSOpcode op, IROp shiftOpImm, int sa) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
-	ir.Write(shiftOpConst, rd, rt, sa);
+	ir.Write(shiftOpImm, rd, rt, sa);
 }
 
-void IRJit::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpConst) {
+void IRJit::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
