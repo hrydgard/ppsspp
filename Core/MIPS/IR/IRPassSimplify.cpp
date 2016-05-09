@@ -126,6 +126,9 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::SetConst:
 			gpr.SetImm(inst.dest, constants[inst.src1]);
 			break;
+		case IROp::SetConstF:
+		case IROp::SetConstV:
+			goto doDefault;
 
 		case IROp::Sub:
 		case IROp::Slt:
@@ -380,6 +383,22 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				out.Write(inst);
 			}
 			break;
+
+		case IROp::ZeroFpCond:
+		case IROp::FCmpUnordered:
+		case IROp::FCmpEqual:
+		case IROp::FCmpEqualUnordered:
+		case IROp::FCmpLessOrdered:
+		case IROp::FCmpLessUnordered:
+		case IROp::FCmpLessEqualOrdered:
+		case IROp::FCmpLessEqualUnordered:
+			gpr.MapDirty(IRREG_FPCOND);
+			goto doDefault;
+
+		case IROp::RestoreRoundingMode:
+		case IROp::ApplyRoundingMode:
+		case IROp::UpdateRoundingMode:
+			goto doDefault;
 
 		case IROp::VfpuCtrlToReg:
 			gpr.MapDirtyIn(inst.dest, IRREG_VPFU_CTRL_BASE + inst.src1);
