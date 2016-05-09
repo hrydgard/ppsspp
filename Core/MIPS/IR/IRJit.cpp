@@ -85,7 +85,11 @@ void IRJit::Compile(u32 em_address) {
 
 	int block_num = blocks_.AllocateBlock(em_address);
 	IRBlock *b = blocks_.GetBlock(block_num);
-	frontend_.DoJit(em_address, b);
+
+	std::vector<IRInst> instructions;
+	std::vector<u32> constants;
+	frontend_.DoJit(em_address, instructions, constants);
+	b->SetInstructions(instructions, constants);
 	b->Finalize(block_num);  // Overwrites the first instruction
 
 	if (frontend_.CheckRounding()) {

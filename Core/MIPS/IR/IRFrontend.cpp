@@ -199,7 +199,7 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, IRBlock *b) {
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -241,7 +241,8 @@ void IRFrontend::DoJit(u32 em_address, IRBlock *b) {
 			logBlocks = 1;
 	}
 
-	b->SetInstructions(code->GetInstructions(), code->GetConstants());
+	instructions = code->GetInstructions();
+	constants = code->GetConstants();
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];

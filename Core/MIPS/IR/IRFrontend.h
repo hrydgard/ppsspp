@@ -8,8 +8,6 @@
 
 namespace MIPSComp {
 
-class IRBlock;
-
 class IRFrontend : public MIPSFrontendInterface {
 public:
 	IRFrontend(bool startDefaultPrefix);
@@ -89,7 +87,8 @@ public:
 	int Replace_fabsf();
 	void DoState(PointerWrap &p);
 	bool CheckRounding();  // returns true if we need a do-over
-	void DoJit(u32 em_address, IRBlock *b);
+
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants);
 
 private:
 	void RestoreRoundingMode(bool force = false);
