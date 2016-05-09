@@ -384,7 +384,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			int cycles = f->replaceFunc();
 			mips->downcount -= cycles;
-			return mips->r[MIPS_REG_RA];
+			break;
 		}
 
 		case IROp::Break:
