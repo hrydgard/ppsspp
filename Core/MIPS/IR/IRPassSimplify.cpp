@@ -121,6 +121,10 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::And:
 		case IROp::Or:
 		case IROp::Xor:
+			// Regularize, for the add/or check below.
+			if (symmetric && inst.src2 == inst.dest && inst.src1 != inst.src2) {
+				std::swap(inst.src1, inst.src2);
+			}
 			if (gpr.IsImm(inst.src1) && gpr.IsImm(inst.src2)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), gpr.GetImm(inst.src2), inst.op));
 			} else if (gpr.IsImm(inst.src2)) {

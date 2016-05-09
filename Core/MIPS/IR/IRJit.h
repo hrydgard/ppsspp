@@ -101,7 +101,7 @@ private:
 	std::vector<IRBlock> blocks_;
 };
 
-class IRJit : public JitInterface {
+class IRJit : public JitInterface, public MIPSFrontendInterface{
 public:
 	IRJit(MIPSState *mips);
 	virtual ~IRJit();

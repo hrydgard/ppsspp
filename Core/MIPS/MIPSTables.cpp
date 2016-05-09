@@ -82,7 +82,7 @@ struct MIPSInstruction {
 #define ENCODING(a) {a}
 #define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, MIPSInfo(flags)}
 
-#define JITFUNC(f) (&JitInterface::f)
+#define JITFUNC(f) (&MIPSFrontendInterface::f)
 
 using namespace MIPSDis;
 using namespace MIPSInt;
@@ -912,7 +912,7 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	return instr;
 }
 
-void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit) {
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
@@ -923,7 +923,6 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit) {
 		} else {
 			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
 		}
-
 		if (info & OUT_EAT_PREFIX)
 			jit->EatPrefix();
 	} else {

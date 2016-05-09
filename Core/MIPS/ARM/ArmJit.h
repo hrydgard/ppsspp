@@ -33,7 +33,7 @@
 
 namespace MIPSComp {
 
-class ArmJit : public ArmGen::ARMXCodeBlock, public JitInterface {
+class ArmJit : public ArmGen::ARMXCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
 	ArmJit(MIPSState *mips);
 	virtual ~ArmJit();

@@ -254,6 +254,8 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
 			logBlocks = 1;
 		code = &simplified;
+		if (ir.GetInstructions().size() >= 24)
+			logBlocks = 1;
 	}
 
 	b->SetInstructions(code->GetInstructions(), code->GetConstants());
