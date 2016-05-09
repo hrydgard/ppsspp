@@ -26,7 +26,6 @@
 
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
-#include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 

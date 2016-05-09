@@ -21,7 +21,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
 			break;
 		case IROp::SetConstV:
-			memcpy(&mips->v[voffset[inst->dest]], &constPool[inst->src1], 4);
+			memcpy(&mips->v[inst->dest], &constPool[inst->src1], 4);
 			break;
 		case IROp::Add:
 			mips->r[inst->dest] = mips->r[inst->src1] + mips->r[inst->src2];
@@ -88,7 +88,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 		case IROp::LoadFloatV:
-			mips->v[voffset[inst->dest]] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->v[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 
 		case IROp::Store8:
@@ -104,7 +104,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 		case IROp::StoreFloatV:
-			Memory::WriteUnchecked_Float(mips->v[voffset[inst->src3]], mips->r[inst->src1] + constPool[inst->src2]);
+			Memory::WriteUnchecked_Float(mips->v[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
 
 		case IROp::ShlImm:
@@ -314,10 +314,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::VMovFromGPR:
-			memcpy(&mips->v[voffset[inst->dest]], &mips->r[inst->src1], 4);
+			memcpy(&mips->v[inst->dest], &mips->r[inst->src1], 4);
 			break;
 		case IROp::VMovToGPR:
-			memcpy(&mips->r[inst->dest], &mips->v[voffset[inst->src1]], 4);
+			memcpy(&mips->r[inst->dest], &mips->v[inst->src1], 4);
 			break;
 
 		case IROp::ExitToConst:

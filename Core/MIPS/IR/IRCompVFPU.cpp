@@ -192,20 +192,20 @@ namespace MIPSComp {
 		case 54: //lv.q
 		{
 			// TODO: Add vector load/store instruction to the IR
-			ir.Write(IROp::LoadFloatV, vregs[0], rs, ir.AddConstant(imm));
-			ir.Write(IROp::LoadFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
-			ir.Write(IROp::LoadFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
-			ir.Write(IROp::LoadFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+			ir.Write(IROp::LoadFloatV, voffset[vregs[0]], rs, ir.AddConstant(imm));
+			ir.Write(IROp::LoadFloatV, voffset[vregs[1]], rs, ir.AddConstant(imm + 4));
+			ir.Write(IROp::LoadFloatV, voffset[vregs[2]], rs, ir.AddConstant(imm + 8));
+			ir.Write(IROp::LoadFloatV, voffset[vregs[3]], rs, ir.AddConstant(imm + 12));
 		}
 		break;
 
 		case 62: //sv.q
 		{
 			// CC might be set by slow path below, so load regs first.
-			ir.Write(IROp::StoreFloatV, vregs[0], rs, ir.AddConstant(imm));
-			ir.Write(IROp::StoreFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
-			ir.Write(IROp::StoreFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
-			ir.Write(IROp::StoreFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+			ir.Write(IROp::StoreFloatV, voffset[vregs[0]], rs, ir.AddConstant(imm));
+			ir.Write(IROp::StoreFloatV, voffset[vregs[1]], rs, ir.AddConstant(imm + 4));
+			ir.Write(IROp::StoreFloatV, voffset[vregs[2]], rs, ir.AddConstant(imm + 8));
+			ir.Write(IROp::StoreFloatV, voffset[vregs[3]], rs, ir.AddConstant(imm + 12));
 		}
 		break;
 
@@ -274,7 +274,7 @@ namespace MIPSComp {
 						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {  //R(rt) = VI(imm);
-					ir.Write(IROp::VMovToGPR, rt, imm);
+					ir.Write(IROp::VMovToGPR, rt, voffset[imm]);
 				} else {
 					DISABLE;
 				}
@@ -283,7 +283,7 @@ namespace MIPSComp {
 
 		case 7: // mtv
 			if (imm < 128) {
-				ir.Write(IROp::VMovFromGPR, imm, rt);
+				ir.Write(IROp::VMovFromGPR, voffset[imm], rt);
 			} else {
 				DISABLE;
 			}
