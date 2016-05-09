@@ -126,17 +126,26 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::Xor:
 			if (gpr.IsImm(inst.src1) && gpr.IsImm(inst.src2)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), gpr.GetImm(inst.src2), inst.op));
-			} else if (gpr.IsImm(inst.src2) && inst.src1 != inst.src2 && inst.dest != inst.src2) {
+			} else if (gpr.IsImm(inst.src2)) {
+				const u32 imm2 = gpr.GetImm(inst.src2);
 				gpr.MapDirtyIn(inst.dest, inst.src1);
-				if (gpr.GetImm(inst.src2) == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
+				if (imm2 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
+					// Add / Or with zero is just a Mov.
 					if (inst.dest != inst.src1)
 						out.Write(IROp::Mov, inst.dest, inst.src1);
 				} else {
-					out.Write(ArithToArithConst(inst.op), inst.dest, inst.src1, out.AddConstant(gpr.GetImm(inst.src2)));
+					out.Write(ArithToArithConst(inst.op), inst.dest, inst.src1, out.AddConstant(imm2));
 				}
-			} else if (symmetric && gpr.IsImm(inst.src1) && inst.src1 != inst.src2 && inst.dest != inst.src2) {
+			} else if (symmetric && gpr.IsImm(inst.src1)) {
+				const u32 imm1 = gpr.GetImm(inst.src1);
 				gpr.MapDirtyIn(inst.dest, inst.src2);
-				out.Write(ArithToArithConst(inst.op), inst.dest, inst.src2, out.AddConstant(gpr.GetImm(inst.src1)));
+				if (imm1 == 0 && (inst.op == IROp::Add || inst.op == IROp::Or)) {
+					// Add / Or with zero is just a Mov.
+					if (inst.dest != inst.src2)
+						out.Write(IROp::Mov, inst.dest, inst.src2);
+				} else {
+					out.Write(ArithToArithConst(inst.op), inst.dest, inst.src2, out.AddConstant(imm1));
+				}
 			} else {
 				gpr.MapDirtyInIn(inst.dest, inst.src1, inst.src2);
 				goto doDefault;
