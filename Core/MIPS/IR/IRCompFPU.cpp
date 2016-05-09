@@ -21,7 +21,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 
-#include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Common/CPUDetect.h"
 

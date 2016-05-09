@@ -236,8 +236,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
 			logBlocks = 1;
 		code = &simplified;
-		if (ir.GetInstructions().size() >= 24)
-			logBlocks = 1;
+		//if (ir.GetInstructions().size() >= 24)
+		//	logBlocks = 1;
 	}
 
 	instructions = code->GetInstructions();

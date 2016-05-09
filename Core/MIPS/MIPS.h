@@ -86,6 +86,7 @@ enum MIPSGPReg {
 	MIPS_REG_RA=31,
 
 	// Not real regs, just for convenience/jit mapping.
+	// NOTE: These are not the same as the offsets the IR has to use!
 	MIPS_REG_HI = 32,
 	MIPS_REG_LO = 33,
 	MIPS_REG_FPCOND = 34,
@@ -155,7 +156,7 @@ public:
 
 	void DoState(PointerWrap &p);
 
-	// MUST start with r and be followed by f!
+	// MUST start with r and be followed by f, v, and t!
 	u32 r[32];
 	union {
 		float f[32];
@@ -166,23 +167,25 @@ public:
 		float v[128];
 		u32 vi[128];
 	};
-	// Used for temporary variables by IR Interpreter.
-	// Can be indexed through r[] using indices 192+.
-	u32 t[16];
 
-	// Temps don't get flushed so we don't reserve space for them.
+	// Register-allocated JIT Temps don't get flushed so we don't reserve space for them.
+	// However, the IR interpreter needs some temps that can stick around between ops.
+	// Can be indexed through r[] using indices 192+.
+	u32 t[16];     //192
+	// float vt[16];  //208  TODO: VFPU temp
+
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
-	u32 vfpuCtrl[16];
+	u32 vfpuCtrl[16]; // 208
 
 	// ARM64 wants lo/hi to be aligned to 64 bits from the base of this struct.
-	u32 padLoHi;
+	u32 padLoHi;    // 224
 
 	union {
 		struct {
-			u32 pc;
+			u32 pc;   //225
 
-			u32 lo;  // offset 192 + 16 + 16 + 1 + 1
-			u32 hi;
+			u32 lo;   //226
+			u32 hi;   //227
 
 			u32 fcr31; //fpu control register
 			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)

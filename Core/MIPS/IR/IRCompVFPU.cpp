@@ -27,7 +27,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
@@ -50,6 +50,15 @@
 #define _IMM26 (op & 0x03FFFFFF)
 
 namespace MIPSComp {
+	static void ApplyVoffset(u8 regs[4], int count) {
+		for (int i = 0; i < count; i++) {
+			regs[i] = voffset[regs[i]];
+		}
+	}
+
+	static bool IsConsecutive4(const u8 regs[4]) {
+		return (regs[1] == regs[0] + 1 && regs[2] == regs[1] + 1 && regs[3] == regs[2] + 1);
+	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
 		CONDITIONAL_DISABLE;
@@ -177,7 +186,21 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SV(MIPSOpcode op) {
-		DISABLE;
+		s32 offset = (signed short)(op & 0xFFFC);
+		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
+		MIPSGPReg rs = _RS;
+		switch (op >> 26) {
+		case 50: //lv.s
+			ir.Write(IROp::LoadFloatV, voffset[vt], rs, ir.AddConstant(offset));
+			break;
+
+		case 58: //sv.s
+			ir.Write(IROp::StoreFloatV, voffset[vt], rs, ir.AddConstant(offset));
+			break;
+
+		default:
+			DISABLE;
+		}
 	}
 
 	void IRFrontend::Comp_SVQ(MIPSOpcode op) {
@@ -187,27 +210,32 @@ namespace MIPSComp {
 
 		u8 vregs[4];
 		GetVectorRegs(vregs, V_Quad, vt);
+		ApplyVoffset(vregs, 4);  // Translate to memory order
 
 		switch (op >> 26) {
 		case 54: //lv.q
-		{
-			// TODO: Add vector load/store instruction to the IR
-			ir.Write(IROp::LoadFloatV, voffset[vregs[0]], rs, ir.AddConstant(imm));
-			ir.Write(IROp::LoadFloatV, voffset[vregs[1]], rs, ir.AddConstant(imm + 4));
-			ir.Write(IROp::LoadFloatV, voffset[vregs[2]], rs, ir.AddConstant(imm + 8));
-			ir.Write(IROp::LoadFloatV, voffset[vregs[3]], rs, ir.AddConstant(imm + 12));
-		}
-		break;
+			if (IsConsecutive4(vregs)) {
+				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
+			} else {
+				// Let's not even bother with "vertical" loads for now.
+				ir.Write(IROp::LoadFloatV, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::LoadFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
+				ir.Write(IROp::LoadFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
+				ir.Write(IROp::LoadFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+			}
+			break;
 
 		case 62: //sv.q
-		{
-			// CC might be set by slow path below, so load regs first.
-			ir.Write(IROp::StoreFloatV, voffset[vregs[0]], rs, ir.AddConstant(imm));
-			ir.Write(IROp::StoreFloatV, voffset[vregs[1]], rs, ir.AddConstant(imm + 4));
-			ir.Write(IROp::StoreFloatV, voffset[vregs[2]], rs, ir.AddConstant(imm + 8));
-			ir.Write(IROp::StoreFloatV, voffset[vregs[3]], rs, ir.AddConstant(imm + 12));
-		}
-		break;
+			if (IsConsecutive4(vregs)) {
+				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
+			} else {
+				// Let's not even bother with "vertical" stores for now.
+				ir.Write(IROp::StoreFloatV, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::StoreFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
+				ir.Write(IROp::StoreFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
+				ir.Write(IROp::StoreFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+			}
+			break;
 
 		default:
 			DISABLE;

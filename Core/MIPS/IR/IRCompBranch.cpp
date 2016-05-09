@@ -28,7 +28,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
 
-#include "Core/MIPS/IR/IRJit.h"
+#include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 #include "Common/Arm64Emitter.h"

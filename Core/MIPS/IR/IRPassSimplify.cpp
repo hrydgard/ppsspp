@@ -291,6 +291,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 		case IROp::StoreFloat:
 		case IROp::StoreFloatV:
+		case IROp::StoreVec4:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
 			} else {
@@ -314,6 +315,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 		case IROp::LoadFloat:
 		case IROp::LoadFloatV:
+		case IROp::LoadVec4:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
 			} else {
@@ -388,7 +390,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			goto doDefault;
 
 		case IROp::VfpuCtrlToReg:
-			gpr.MapDirtyIn(inst.dest, IRREG_VPFU_CTRL_BASE + inst.src1);
+			gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
 			goto doDefault;
 
 		case IROp::Syscall:

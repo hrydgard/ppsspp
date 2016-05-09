@@ -90,12 +90,14 @@ enum class IROp : u8 {
 	Load32,
 	LoadFloat,
 	LoadFloatV,
+	LoadVec4,
 
 	Store8,
 	Store16,
 	Store32,
 	StoreFloat,
 	StoreFloatV,
+	StoreVec4,
 
 	Ext8to32,
 	Ext16to32,
@@ -212,13 +214,16 @@ enum {
 	IRTEMP_LHS,  // Reserved for use in branches
 	IRTEMP_RHS,  // Reserved for use in branches
 
+	// 16 float temps for vector S and T prefixes and things like that.
+	// IRVTEMP_0 = 208 - 64,  // -64 to be relative to v[0]
+
 	// Hacky way to get to other state
-	IRREG_VPFU_CTRL_BASE = 208,
-	IRREG_VPFU_CC = 211,
+	IRREG_VFPU_CTRL_BASE = 208,
+	IRREG_VFPU_CC = 211,
 	IRREG_LO = 226,  // offset of lo in MIPSState / 4
 	IRREG_HI = 227,
 	IRREG_FCR31 = 228,
-	IRREG_FPCOND = 229
+	IRREG_FPCOND = 229,
 };
 
 struct IRMeta {

@@ -1,3 +1,7 @@
+#ifdef _M_SSE
+#include <smmintrin.h>
+#endif
+
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -106,6 +110,29 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::StoreFloatV:
 			Memory::WriteUnchecked_Float(mips->v[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
+
+		case IROp::LoadVec4:
+		{
+			u32 base = mips->r[inst->src1] + constPool[inst->src2];
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->v[inst->dest], _mm_load_ps((const float *)Memory::GetPointerUnchecked(base)));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->v[inst->dest + i] = Memory::ReadUnchecked_Float(base + 4 * i);
+#endif
+			break;
+		}
+		case IROp::StoreVec4:
+		{
+			u32 base = mips->r[inst->src1] + constPool[inst->src2];
+#if defined(_M_SSE)
+			_mm_store_ps((float *)Memory::GetPointerUnchecked(base), _mm_load_ps(&mips->v[inst->dest]));
+#else
+			for (int i = 0; i < 4; i++)
+				Memory::WriteUnchecked_Float(mips->v[inst->dest + i], base + 4 * i);
+#endif
+			break;
+		}
 
 		case IROp::ShlImm:
 			mips->r[inst->dest] = mips->r[inst->src1] << (int)inst->src2;
