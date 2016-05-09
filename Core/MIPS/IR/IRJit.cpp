@@ -245,8 +245,6 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 		}
 	}
 
-	ir.Simplify();
-
 	IRWriter simplified;
 	IRWriter *code = &ir;
 	if (true) {

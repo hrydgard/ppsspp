@@ -270,8 +270,6 @@ public:
 		constPool_.clear();
 	}
 
-	void Simplify();
-
 	const std::vector<IRInst> &GetInstructions() const { return insts_; }
 	const std::vector<u32> &GetConstants() const { return constPool_; }
 
