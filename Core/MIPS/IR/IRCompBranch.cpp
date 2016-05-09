@@ -66,8 +66,9 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	MIPSGPReg lhs = rs;
 	MIPSGPReg rhs = rt;
@@ -109,8 +110,9 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	MIPSGPReg lhs = rs;
 	if (!delaySlotIsNice) {  // if likely, we don't need this
@@ -184,8 +186,9 @@ void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (!likely)
 		CompileDelaySlot();
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	FlushAll();
 	// Not taken
@@ -223,8 +226,9 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	logBlocks = 1;
 	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_LHS, VFPU_CTRL_CC);
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
 	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
@@ -271,8 +275,9 @@ void IRJit::Comp_Jump(MIPSOpcode op) {
 	u32 off = _IMM26 << 2;
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
@@ -320,8 +325,9 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
 
-	int dcAmount = js.downcountAmount + 1;
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	int destReg;
 	if (IsSyscall(delaySlotOp)) {
@@ -363,18 +369,18 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 }
 
 void IRJit::Comp_Syscall(MIPSOpcode op) {
-	// If we're in a delay slot, this is off by one.
-	const int offset = js.inDelaySlot ? -1 : 0;
 	RestoreRoundingMode();
-	js.downcountAmount = -offset;
 
-	int dcAmount = js.downcountAmount + 1;
+	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
+	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	js.downcountAmount = 0;
 
 	FlushAll();
 
 	ir.Write(IROp::Syscall, 0, ir.AddConstant(op.encoding));
 
+	// TODO: This never happens because of Syscall exiting.
 	ApplyRoundingMode();
 	js.compiling = false;
 }
