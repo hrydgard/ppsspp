@@ -53,7 +53,7 @@ namespace MIPSComp
 {
 	using namespace Arm64Gen;
 
-void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
+void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -98,7 +98,7 @@ void IRJit::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	js.compiling = false;
 }
 
-void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool likely) {
+void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool likely) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -135,7 +135,7 @@ void IRJit::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool 
 	js.compiling = false;
 }
 
-void IRJit::Comp_RelBranch(MIPSOpcode op) {
+void IRFrontend::Comp_RelBranch(MIPSOpcode op) {
 	// The CC flags here should be opposite of the actual branch becuase they skip the branching action.
 	switch (op >> 26) {
 	case 4: BranchRSRTComp(op, IRComparison::NotEqual, false); break;//beq
@@ -156,7 +156,7 @@ void IRJit::Comp_RelBranch(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_RelBranchRI(MIPSOpcode op) {
+void IRFrontend::Comp_RelBranchRI(MIPSOpcode op) {
 	switch ((op >> 16) & 0x1F) {
 	case 0: BranchRSZeroComp(op, IRComparison::GreaterEqual, false, false); break; //if ((s32)R(rs) <  0) DelayBranchTo(addr); else PC += 4; break;//bltz
 	case 1: BranchRSZeroComp(op, IRComparison::Less, false, false); break; //if ((s32)R(rs) >= 0) DelayBranchTo(addr); else PC += 4; break;//bgez
@@ -173,7 +173,7 @@ void IRJit::Comp_RelBranchRI(MIPSOpcode op) {
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
+void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -201,7 +201,7 @@ void IRJit::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	js.compiling = false;
 }
 
-void IRJit::Comp_FPUBranch(MIPSOpcode op) {
+void IRFrontend::Comp_FPUBranch(MIPSOpcode op) {
 	switch((op >> 16) & 0x1f) {
 	case 0:	BranchFPFlag(op, IRComparison::NotEqual, false); break;  // bc1f
 	case 1: BranchFPFlag(op, IRComparison::Equal, false); break;  // bc1t
@@ -214,7 +214,7 @@ void IRJit::Comp_FPUBranch(MIPSOpcode op) {
 }
 
 // If likely is set, discard the branch slot if NOT taken.
-void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
+void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -223,7 +223,6 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
-	logBlocks = 1;
 	ir.Write(IROp::VfpuCtrlToReg, IRTEMP_LHS, VFPU_CTRL_CC);
 
 	int dcAmount = js.downcountAmount;
@@ -257,7 +256,7 @@ void IRJit::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	js.compiling = false;
 }
 
-void IRJit::Comp_VBranch(MIPSOpcode op) {
+void IRFrontend::Comp_VBranch(MIPSOpcode op) {
 	switch ((op >> 16) & 3) {
 	case 0:	BranchVFPUFlag(op, IRComparison::NotEqual, false); break;  // bvf
 	case 1: BranchVFPUFlag(op, IRComparison::Equal,  false); break;  // bvt
@@ -266,7 +265,7 @@ void IRJit::Comp_VBranch(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_Jump(MIPSOpcode op) {
+void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -311,7 +310,7 @@ void IRJit::Comp_Jump(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-void IRJit::Comp_JumpReg(MIPSOpcode op) {
+void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
@@ -368,7 +367,7 @@ void IRJit::Comp_JumpReg(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-void IRJit::Comp_Syscall(MIPSOpcode op) {
+void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	RestoreRoundingMode();
 
 	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
@@ -385,7 +384,7 @@ void IRJit::Comp_Syscall(MIPSOpcode op) {
 	js.compiling = false;
 }
 
-void IRJit::Comp_Break(MIPSOpcode op) {
+void IRFrontend::Comp_Break(MIPSOpcode op) {
 	ir.Write(IROp::Break);
 	js.compiling = false;
 }

@@ -45,7 +45,7 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp {
 
-void IRJit::Comp_IType(MIPSOpcode op) {
+void IRFrontend::Comp_IType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
@@ -87,7 +87,7 @@ void IRJit::Comp_IType(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_RType2(MIPSOpcode op) {
+void IRFrontend::Comp_RType2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	MIPSGPReg rs = _RS;
@@ -110,7 +110,7 @@ void IRJit::Comp_RType2(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_RType3(MIPSOpcode op) {
+void IRFrontend::Comp_RType3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	MIPSGPReg rt = _RT;
@@ -182,13 +182,13 @@ void IRJit::Comp_RType3(MIPSOpcode op) {
 	}
 }
 
-void IRJit::CompShiftImm(MIPSOpcode op, IROp shiftOpImm, int sa) {
+void IRFrontend::CompShiftImm(MIPSOpcode op, IROp shiftOpImm, int sa) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	ir.Write(shiftOpImm, rd, rt, sa);
 }
 
-void IRJit::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
+void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -196,7 +196,7 @@ void IRJit::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
 	ir.Write(shiftOp, rd, rt, IRTEMP_0);
 }
 
-void IRJit::Comp_ShiftType(MIPSOpcode op) {
+void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -221,7 +221,7 @@ void IRJit::Comp_ShiftType(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_Special3(MIPSOpcode op) {
+void IRFrontend::Comp_Special3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rt = _RT;
@@ -260,7 +260,7 @@ void IRJit::Comp_Special3(MIPSOpcode op) {
 }
 
 
-void IRJit::Comp_Allegrex(MIPSOpcode op) {
+void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
@@ -284,7 +284,7 @@ void IRJit::Comp_Allegrex(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_Allegrex2(MIPSOpcode op) {
+void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
@@ -305,7 +305,7 @@ void IRJit::Comp_Allegrex2(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_MulDivType(MIPSOpcode op) {
+void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;

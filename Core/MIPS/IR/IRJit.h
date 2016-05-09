@@ -101,27 +101,10 @@ private:
 	std::vector<IRBlock> blocks_;
 };
 
-class IRJit : public JitInterface, public MIPSFrontendInterface{
+class IRFrontend : public MIPSFrontendInterface {
 public:
-	IRJit(MIPSState *mips);
-	virtual ~IRJit();
-
-	void DoState(PointerWrap &p) override;
-	void DoDummyState(PointerWrap &p) override;
-
-	const JitOptions &GetJitOptions() { return jo; }
-
-	// Compiled ops should ignore delay slots
-	// the compiler will take care of them by itself
-	// OR NOT
+	IRFrontend(bool startDefaultPrefix);
 	void Comp_Generic(MIPSOpcode op) override;
-
-	void RunLoopUntil(u64 globalticks) override;
-
-	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
-	void DoJit(u32 em_address, IRBlock *b);
-
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
@@ -195,25 +178,17 @@ public:
 	void Comp_Vbfy(MIPSOpcode op) override;
 
 	int Replace_fabsf();
+	void DoState(PointerWrap &p);
+	bool CheckRounding();  // returns true if we need a do-over
+	void DoJit(u32 em_address, IRBlock *b);
 
-	// Not using a regular block cache.
-	JitBlockCache *GetBlockCache() override { return nullptr; }
-	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
-
-	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+private:
+	void RestoreRoundingMode(bool force = false);
+	void ApplyRoundingMode(bool force = false);
+	void UpdateRoundingMode();
 
 	void EatPrefix() { js.EatPrefix(); }
 
-	const u8 *GetDispatcher() const override {
-		return dispatcher;
-	}
-
-	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
-	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
-
-private:
 	void FlushAll();
 	void FlushPrefixV();
 
@@ -221,12 +196,6 @@ private:
 	void CompileDelaySlot();
 	void EatInstruction(MIPSOpcode op);
 	MIPSOpcode GetOffsetInstruction(int offset);
-
-	void RestoreRoundingMode(bool force = false);
-	void ApplyRoundingMode(bool force = false);
-	void UpdateRoundingMode();
-
-	bool ReplaceJalTo(u32 dest);
 
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely);
@@ -255,44 +224,55 @@ private:
 	// Utils
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
 
-	JitOptions jo;
+	// State
 	JitState js;
+	IRWriter ir;
 
+	int dontLogBlocks;
+	int logBlocks;
+};
+
+class IRJit : public JitInterface {
+public:
+	IRJit(MIPSState *mips);
+	virtual ~IRJit();
+
+	void DoState(PointerWrap &p) override;
+	void DoDummyState(PointerWrap &p) override;
+
+	const JitOptions &GetJitOptions() { return jo; }
+
+	void RunLoopUntil(u64 globalticks) override;
+
+	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
+
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
+	// Not using a regular block cache.
+	JitBlockCache *GetBlockCache() override { return nullptr; }
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
+
+	void ClearCache();
+	void InvalidateCache();
+	void InvalidateCacheAt(u32 em_address, int length = 4);
+
+	const u8 *GetDispatcher() const override { return nullptr; }
+
+	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
+	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
+
+private:
+	bool ReplaceJalTo(u32 dest);
+
+	JitOptions jo;
+
+	IRFrontend frontend_;
 	IRBlockCache blocks_;
 
 	MIPSState *mips_;
 
-	int dontLogBlocks;
-	int logBlocks;
-
-	IRWriter ir;
-
 	// where to write branch-likely trampolines. not used atm
 	// u32 blTrampolines_;
 	// int blTrampolineCount_;
-
-public:
-	// Code pointers
-	const u8 *enterDispatcher;
-
-	const u8 *outerLoop;
-	const u8 *outerLoopPCInSCRATCH1;
-	const u8 *dispatcherCheckCoreState;
-	const u8 *dispatcherPCInSCRATCH1;
-	const u8 *dispatcher;
-	const u8 *dispatcherNoCheck;
-
-	const u8 *breakpointBailout;
-
-	const u8 *saveStaticRegisters;
-	const u8 *loadStaticRegisters;
-
-	const u8 *restoreRoundingMode;
-	const u8 *applyRoundingMode;
-	const u8 *updateRoundingMode;
-
-	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
-	const u8 *convertS0ToSCRATCH1[8];
 };
 
 }	// namespace MIPSComp

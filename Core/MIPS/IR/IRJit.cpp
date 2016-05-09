@@ -42,11 +42,7 @@
 
 namespace MIPSComp {
 
-IRJit::IRJit(MIPSState *mips) : mips_(mips) { 
-	logBlocks = 0;
-	dontLogBlocks = 0;
-	js.startDefaultPrefix = mips_->HasDefaultPrefix();
-	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
+IRJit::IRJit(MIPSState *mips) : mips_(mips), frontend_(mips->HasDefaultPrefix()) {
 	u32 size = 128 * 1024;
 	// blTrampolines_ = kernelMemory.Alloc(size, true, "trampoline");
 	InitIR();
@@ -55,7 +51,14 @@ IRJit::IRJit(MIPSState *mips) : mips_(mips) {
 IRJit::~IRJit() {
 }
 
-void IRJit::DoState(PointerWrap &p) {
+IRFrontend::IRFrontend(bool startDefaultPrefix) {
+	logBlocks = 0;
+	dontLogBlocks = 0;
+	js.startDefaultPrefix = startDefaultPrefix;
+	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
+}
+
+void IRFrontend::DoState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
 		return;
@@ -67,10 +70,10 @@ void IRJit::DoState(PointerWrap &p) {
 	} else {
 		js.hasSetRounding = 1;
 	}
+}
 
-	if (p.GetMode() == PointerWrap::MODE_READ) {
-		js.currentRoundingFunc = convertS0ToSCRATCH1[(mips_->fcr31) & 3];
-	}
+void IRJit::DoState(PointerWrap &p) {
+	frontend_.DoState(p);
 }
 
 // This is here so the savestate matches between jit and non-jit.
@@ -87,11 +90,11 @@ void IRJit::DoDummyState(PointerWrap &p) {
 	}
 }
 
-void IRJit::FlushAll() {
+void IRFrontend::FlushAll() {
 	FlushPrefixV();
 }
 
-void IRJit::FlushPrefixV() {
+void IRFrontend::FlushPrefixV() {
 	if ((js.prefixSFlag & JitState::PREFIX_DIRTY) != 0) {
 		ir.Write(IROp::SetCtrlVFPU, VFPU_CTRL_SPREFIX, ir.AddConstant(js.prefixS));
 		js.prefixSFlag = (JitState::PrefixState) (js.prefixSFlag & ~JitState::PREFIX_DIRTY);
@@ -121,7 +124,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	blocks_.InvalidateICache(em_address, length);
 }
 
-void IRJit::EatInstruction(MIPSOpcode op) {
+void IRFrontend::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
 		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
@@ -135,23 +138,15 @@ void IRJit::EatInstruction(MIPSOpcode op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void IRJit::CompileDelaySlot() {
+void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = true;
 	MIPSOpcode op = GetOffsetInstruction(1);
 	MIPSCompileOp(op, this);
 	js.inDelaySlot = false;
 }
 
-void IRJit::Compile(u32 em_address) {
-	PROFILE_THIS_SCOPE("jitc");
-
-	int block_num = blocks_.AllocateBlock(em_address);
-	IRBlock *b = blocks_.GetBlock(block_num);
-	DoJit(em_address, b);
-	b->Finalize(block_num);  // Overwrites the first instruction
-
+bool IRFrontend::CheckRounding() {
 	bool cleanSlate = false;
-
 	if (js.hasSetRounding && !js.lastSetRounding) {
 		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
@@ -161,16 +156,27 @@ void IRJit::Compile(u32 em_address) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
+		WARN_LOG(JIT, "An uneaten prefix at end of block");
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
 		js.startDefaultPrefix = false;
-		// TODO ARM64: This crashes.
-		//cleanSlate = true;
+		// TODO: Make sure this works.
+		// cleanSlate = true;
 	}
 
-	if (cleanSlate) {
+	return cleanSlate;
+}
+
+void IRJit::Compile(u32 em_address) {
+	PROFILE_THIS_SCOPE("jitc");
+
+	int block_num = blocks_.AllocateBlock(em_address);
+	IRBlock *b = blocks_.GetBlock(block_num);
+	frontend_.DoJit(em_address, b);
+	b->Finalize(block_num);  // Overwrites the first instruction
+
+	if (frontend_.CheckRounding()) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
 		Compile(em_address);
@@ -208,18 +214,18 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// RestoreRoundingMode(true);
 }
 
-u32 IRJit::GetCompilerPC() {
+u32 IRFrontend::GetCompilerPC() {
 	return js.compilerPC;
 }
 
-MIPSOpcode IRJit::GetOffsetInstruction(int offset) {
+MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRJit::DoJit(u32 em_address, IRBlock *b) {
+void IRFrontend::DoJit(u32 em_address, IRBlock *b) {
 	js.cancel = false;
-	js.blockStart = mips_->pc;
-	js.compilerPC = mips_->pc;
+	js.blockStart = em_address;
+	js.compilerPC = em_address;
 	js.lastContinuedPC = 0;
 	js.initialBlockSize = 0;
 	js.nextExit = 0;
@@ -262,7 +268,7 @@ void IRJit::DoJit(u32 em_address, IRBlock *b) {
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
-		ILOG("=============== mips %d %08x ===============", blocks_.GetNumBlocks(), em_address);
+		ILOG("=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
@@ -301,7 +307,7 @@ bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return false;
 }
 
-void IRJit::Comp_RunBlock(MIPSOpcode op) {
+void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
@@ -319,7 +325,7 @@ bool IRJit::ReplaceJalTo(u32 dest) {
 	return false;
 }
 
-void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
+void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -351,7 +357,7 @@ void IRJit::Comp_ReplacementFunc(MIPSOpcode op) {
 	}
 } 
 
-void IRJit::Comp_Generic(MIPSOpcode op) {
+void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	ir.Write(IROp::Interpret, 0, ir.AddConstant(op.encoding));
 	const MIPSInfo info = MIPSGetInfo(op);
@@ -363,7 +369,7 @@ void IRJit::Comp_Generic(MIPSOpcode op) {
 }
 
 // Destroys SCRATCH2
-void IRJit::RestoreRoundingMode(bool force) {
+void IRFrontend::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
 		ir.Write(IROp::RestoreRoundingMode);
@@ -371,7 +377,7 @@ void IRJit::RestoreRoundingMode(bool force) {
 }
 
 // Destroys SCRATCH1 and SCRATCH2
-void IRJit::ApplyRoundingMode(bool force) {
+void IRFrontend::ApplyRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
 		ir.Write(IROp::ApplyRoundingMode);
@@ -379,14 +385,14 @@ void IRJit::ApplyRoundingMode(bool force) {
 }
 
 // Destroys SCRATCH1 and SCRATCH2
-void IRJit::UpdateRoundingMode() {
+void IRFrontend::UpdateRoundingMode() {
 	ir.Write(IROp::UpdateRoundingMode);
 }
 
-void IRJit::Comp_DoNothing(MIPSOpcode op) { 
+void IRFrontend::Comp_DoNothing(MIPSOpcode op) { 
 }
 
-int IRJit::Replace_fabsf() {
+int IRFrontend::Replace_fabsf() {
 	Crash();
 	return 0;
 }

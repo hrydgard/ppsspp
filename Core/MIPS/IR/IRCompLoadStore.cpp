@@ -65,11 +65,11 @@
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp {
-	void IRJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
+	void IRFrontend::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		DISABLE;
 	}
 
-	void IRJit::Comp_ITypeMem(MIPSOpcode op) {
+	void IRFrontend::Comp_ITypeMem(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		int offset = (signed short)(op & 0xFFFF);
@@ -124,7 +124,7 @@ namespace MIPSComp {
 		}
 	}
 
-	void IRJit::Comp_Cache(MIPSOpcode op) {
+	void IRFrontend::Comp_Cache(MIPSOpcode op) {
 //		int imm = (s16)(op & 0xFFFF);
 //		int rs = _RS;
 //		int addr = R(rs) + imm;

@@ -54,7 +54,7 @@
 
 namespace MIPSComp {
 
-void IRJit::Comp_FPU3op(MIPSOpcode op) {
+void IRFrontend::Comp_FPU3op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int ft = _FT;
@@ -72,7 +72,7 @@ void IRJit::Comp_FPU3op(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_FPULS(MIPSOpcode op) {
+void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	s32 offset = _IMM16;
 	int ft = _FT;
@@ -93,7 +93,7 @@ void IRJit::Comp_FPULS(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_FPUComp(MIPSOpcode op) {
+void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 	DISABLE;  // IROps not yet implemented
 
 	int opc = op & 0xF;
@@ -136,7 +136,7 @@ void IRJit::Comp_FPUComp(MIPSOpcode op) {
 	ir.Write(irOp, fs, ft);
 }
 
-void IRJit::Comp_FPU2op(MIPSOpcode op) {
+void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -192,7 +192,7 @@ void IRJit::Comp_FPU2op(MIPSOpcode op) {
 	}
 }
 
-void IRJit::Comp_mxc1(MIPSOpcode op) {
+void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
