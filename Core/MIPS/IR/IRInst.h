@@ -213,6 +213,8 @@ enum {
 	IRTEMP_RHS,  // Reserved for use in branches
 
 	// Hacky way to get to other state
+	IRREG_VPFU_CTRL_BASE = 208,
+	IRREG_VPFU_CC = 211,
 	IRREG_LO = 226,  // offset of lo in MIPSState / 4
 	IRREG_HI = 227,
 	IRREG_FCR31 = 228,

@@ -261,6 +261,23 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
+		case IROp::VMovFromGPR:
+			if (gpr.IsImm(inst.src1)) {
+				out.Write(IROp::SetConstV, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
+			} else {
+				gpr.MapIn(inst.src1);
+				goto doDefault;
+			}
+			break;
+
+		case IROp::FMovToGPR:
+			gpr.MapDirty(inst.dest);
+			goto doDefault;
+
+		case IROp::VMovToGPR:
+			gpr.MapDirty(inst.dest);
+			goto doDefault;
+
 		case IROp::MfHi:
 		case IROp::MfLo:
 			gpr.MapDirty(inst.dest);
@@ -283,6 +300,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 		case IROp::StoreFloat:
+		case IROp::StoreFloatV:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
 			} else {
@@ -305,6 +323,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 		case IROp::LoadFloat:
+		case IROp::LoadFloatV:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
 			} else {
@@ -335,8 +354,36 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::FAbs:
 		case IROp::FSqrt:
 		case IROp::FMov:
+		case IROp::FRound:
+		case IROp::FTrunc:
+		case IROp::FCeil:
+		case IROp::FFloor:
+		case IROp::FCvtSW:
 			out.Write(inst);
 			break;
+
+		case IROp::SetCtrlVFPU:
+			goto doDefault;
+
+		case IROp::FCvtWS:
+			// TODO: Actually, this should just use the currently set rounding mode.
+			// Move up with FCvtSW when that's implemented.
+			gpr.MapIn(IRREG_FCR31);
+			out.Write(inst);
+			break;
+
+		case IROp::FpCondToReg:
+			if (gpr.IsImm(IRREG_FPCOND)) {
+				gpr.SetImm(inst.dest, gpr.GetImm(IRREG_FPCOND));
+			} else {
+				gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::VfpuCtrlToReg:
+			gpr.MapDirtyIn(inst.dest, IRREG_VPFU_CTRL_BASE + inst.src1);
+			goto doDefault;
 
 		case IROp::Syscall:
 		case IROp::Interpret:
