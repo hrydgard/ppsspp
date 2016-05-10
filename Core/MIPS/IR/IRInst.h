@@ -142,7 +142,11 @@ enum class IROp : u8 {
 
 	SetCtrlVFPU,
 
+	// 4-wide instructions to assist SIMD.
+	// Can of course add a pass to break them up if a target does not
+	// support SIMD.
 	InitVec4,
+	ShuffleVec4,
 
 	// Slow special functions. Used on singles.
 	FSin,
@@ -232,16 +236,21 @@ enum {
 	IRTEMP_LHS,  // Reserved for use in branches
 	IRTEMP_RHS,  // Reserved for use in branches
 
+	IRVTEMP_PFX_S = 224 - 32,  // Relative to the FP regs
+	IRVTEMP_PFX_T = 228 - 32,
+	IRVTEMP_PFX_D = 232 - 32,
+	IRVTEMP_0 = 236 - 32,
+
 	// 16 float temps for vector S and T prefixes and things like that.
 	// IRVTEMP_0 = 208 - 64,  // -64 to be relative to v[0]
 
 	// Hacky way to get to other state
 	IRREG_VFPU_CTRL_BASE = 208,
 	IRREG_VFPU_CC = 211,
-	IRREG_LO = 226,  // offset of lo in MIPSState / 4
-	IRREG_HI = 227,
-	IRREG_FCR31 = 228,
-	IRREG_FPCOND = 229,
+	IRREG_LO = 242,  // offset of lo in MIPSState / 4
+	IRREG_HI = 243,
+	IRREG_FCR31 = 244,
+	IRREG_FPCOND = 245,
 };
 
 struct IRMeta {

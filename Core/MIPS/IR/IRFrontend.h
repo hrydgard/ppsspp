@@ -115,19 +115,13 @@ private:
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);
 	void CompShiftVar(MIPSOpcode op, IROp shiftType, IROp shiftTypeConst);
 
-	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
+	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
-	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
-		GetVectorRegs(regs, sz, vectorReg);
-		ApplyPrefixST(regs, js.prefixS, sz);
-	}
-	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
-		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
-		GetVectorRegs(regs, sz, vectorReg);
-		ApplyPrefixST(regs, js.prefixT, sz);
-	}
+	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg);
+	void GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
+	void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
+	void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
 
 	// Utils
 	void Comp_ITypeMemLR(MIPSOpcode op, bool load);

@@ -70,6 +70,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::FDiv, "FDiv", "FFF" },
 	{ IROp::FMov, "FMov", "FF" },
 	{ IROp::FSqrt, "FSqrt", "FF" },
+	{ IROp::FSin, "FSin", "FF" },
+	{ IROp::FCos, "FCos", "FF" },
+	{ IROp::FSqrt, "FSqrt", "FF" },
+	{ IROp::FRSqrt, "FRSqrt", "FF" },
+	{ IROp::FRecip, "FRecip", "FF" },
+	{ IROp::FAsin, "FAsin", "FF" },
 	{ IROp::FNeg, "FNeg", "FF" },
 	{ IROp::FAbs, "FAbs", "FF" },
 	{ IROp::FRound, "FRound", "FF" },
@@ -82,17 +88,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
-	{ IROp::InitVec4, "InitVec4", "Fv"},
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 
-	{ IROp::FSin, "FSin", "FF" },
-	{ IROp::FCos, "FCos", "FF" },
-	{ IROp::FSqrt, "FSqrt", "FF" },
-	{ IROp::FRSqrt, "FRSqrt", "FF" },
-	{ IROp::FRecip, "FRecip", "FF" },
-	{ IROp::FAsin, "FAsin", "FF" },
+	{ IROp::InitVec4, "InitVec4", "Fv" },
+	{ IROp::ShuffleVec4, "ShuffleVec4", "FFs" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
@@ -192,6 +193,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		"[0 0 1 0]",
 		"[0 0 0 1]",
 	};
+	static const char *xyzw = "xyzw";
 
 	switch (type) {
 	case 'G':
@@ -215,6 +217,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		break;
 	case 'v':
 		snprintf(buf, bufSize, "%s", initVec4Names[param]);
+		break;
+	case 's':
+		snprintf(buf, bufSize, "%s%s%s%s", xyzw[param & 3], xyzw[(param >> 2) & 3], xyzw[(param >> 4) & 3], xyzw[(param >> 6) & 3]);
 		break;
 	case '_':
 	case '\0':

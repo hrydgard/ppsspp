@@ -172,23 +172,24 @@ public:
 	// However, the IR interpreter needs some temps that can stick around between ops.
 	// Can be indexed through r[] using indices 192+.
 	u32 t[16];     //192
-	// float vt[16];  //208  TODO: VFPU temp
 
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
 	u32 vfpuCtrl[16]; // 208
 
+	float vt[16];  //224  TODO: VFPU temp
+
 	// ARM64 wants lo/hi to be aligned to 64 bits from the base of this struct.
-	u32 padLoHi;    // 224
+	u32 padLoHi;    // 240
 
 	union {
 		struct {
-			u32 pc;   //225
+			u32 pc;   //241
 
-			u32 lo;   //226
-			u32 hi;   //227
+			u32 lo;   //242
+			u32 hi;   //243
 
-			u32 fcr31; //fpu control register
-			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
+			u32 fcr31; //244 fpu control register
+			u32 fpcond;  //245 cache the cond flag of fcr31  (& 1 << 23)
 		};
 		u32 other[6];
 	};

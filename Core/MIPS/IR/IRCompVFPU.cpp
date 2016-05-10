@@ -88,7 +88,7 @@ namespace MIPSComp {
 		}
 	}
 
-	void IRFrontend::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
+	void IRFrontend::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg) {
 		if (prefix == 0xE4)
 			return;
 
@@ -109,13 +109,9 @@ namespace MIPSComp {
 			if (!constants && regnum == i && !abs && !negate)
 				continue;
 
-			/*
 			// This puts the value into a temp reg, so we won't write the modified value back.
-			vregs[i] = fpr.GetTempV();
+			vregs[i] = tempReg + i;
 			if (!constants) {
-				fpr.MapDirtyInV(vregs[i], origV[regnum]);
-				fpr.SpillLockV(vregs[i]);
-
 				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
@@ -124,36 +120,58 @@ namespace MIPSComp {
 				}
 
 				if (abs) {
-					fp.FABS(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					ir.Write(IROp::FAbs, vregs[i], origV[regnum]);
 					if (negate)
-						fp.FNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
+						ir.Write(IROp::FNeg, vregs[i], vregs[i]);
 				} else {
 					if (negate)
-						fp.FNEG(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+						ir.Write(IROp::FNeg, vregs[i], origV[regnum]);
 					else
-						fp.FMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+						ir.Write(IROp::FMov, vregs[i], origV[regnum]);
 				}
 			} else {
-				fpr.MapRegV(vregs[i], MAP_DIRTY | MAP_NOINIT);
-				fpr.SpillLockV(vregs[i]);
-				fp.MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs << 2)], SCRATCH1, (bool)negate);
+				if (negate) {
+					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(-constantArray[regnum + (abs << 2)]));
+				} else {
+					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(constantArray[regnum + (abs << 2)]));
+				}
 			}
-			*/
 		}
+	}
+
+	void IRFrontend::GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg) {
+		::GetVectorRegs(regs, N, vectorReg);
+		ApplyVoffset(regs, N);
+	}
+
+	void IRFrontend::GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
+		::GetMatrixRegs(regs, N, matrixReg);
+		// TODO
+	}
+
+	void IRFrontend::GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
+		::GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixS, sz, IRVTEMP_PFX_S);
+	}
+	void IRFrontend::GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
+		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
+		::GetVectorRegs(regs, sz, vectorReg);
+		ApplyPrefixST(regs, js.prefixT, sz, IRVTEMP_PFX_T);
 	}
 
 	void IRFrontend::GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 
 		GetVectorRegs(regs, sz, vectorReg);
+		int n = GetNumVectorElements(sz);
 		if (js.prefixD == 0)
 			return;
 
-		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
-			// Hopefully this is rare, we'll just write it into a reg we drop.
+			// Hopefully this is rare, we'll just write it into a dumping ground reg.
 			if (js.VfpuWriteMask(i))
-				regs[i] = fpr.GetTempV();
+				regs[i] = IRVTEMP_PFX_D + i;
 		}
 	}
 
@@ -171,13 +189,12 @@ namespace MIPSComp {
 		for (int i = 0; i < n; i++) {
 			if (js.VfpuWriteMask(i))
 				continue;
-
-			int sat = (js.prefixD >> (i * 2)) & 3;
+			int sat = GetDSat(js.prefixD, i);
 			if (sat == 1) {
 				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
-				ir.Write(IROp::FSat0_1, vfpuBase + voffset[vregs[i]], vfpuBase + voffset[vregs[i]]);
+				ir.Write(IROp::FSat0_1, vregs[i], vregs[i]);
 			} else if (sat == 3) {
-				ir.Write(IROp::FSatMinus1_1, vfpuBase + voffset[vregs[i]], vfpuBase + voffset[vregs[i]]);
+				ir.Write(IROp::FSatMinus1_1, vregs[i], vregs[i]);
 			}
 		}
 	}
@@ -207,7 +224,6 @@ namespace MIPSComp {
 
 		u8 vregs[4];
 		GetVectorRegs(vregs, V_Quad, vt);
-		ApplyVoffset(vregs, 4);  // Translate to memory order
 
 		switch (op >> 26) {
 		case 54: //lv.q
@@ -251,9 +267,11 @@ namespace MIPSComp {
 		if (sz == 4 && IsVectorColumn(vd)) {
 			u8 dregs[4];
 			GetVectorRegs(dregs, sz, vd);
-			ir.Write(IROp::InitVec4, vfpuBase + voffset[dregs[0]], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
+			ir.Write(IROp::InitVec4, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else if (sz == 1) {
-			ir.Write(IROp::SetConstF, vfpuBase + voffset[vd], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+			u8 dreg;
+			GetVectorRegs(&dreg, V_Single, vd);
+			ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
 		} else {
 			DISABLE;
 		}
@@ -275,7 +293,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, vd);
 		int row = vd & 3;
 		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
-		ir.Write(IROp::InitVec4, vfpuBase + voffset[dregs[0]], (int)init);
+		ir.Write(IROp::InitVec4, dregs[0], (int)init);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
@@ -311,7 +329,7 @@ namespace MIPSComp {
 			default:
 				return;
 			}
-			ir.Write(IROp::InitVec4, vfpuBase + voffset[vec[0]], (int)init);
+			ir.Write(IROp::InitVec4, vec[0], (int)init);
 		}
 		return;
 	}
@@ -440,12 +458,14 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
-		if (!js.HasNoPrefix())
+		if (!js.HasUnknownPrefix())
 			DISABLE;
 
-		u8 dreg = _VT;
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
-		ir.Write(IROp::SetConstF, vfpuBase + voffset[dreg], ir.AddConstantFloat((float)imm));
+		u8 dreg;
+		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
+		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat((float)imm));
+		ApplyPrefixD(&dreg, V_Single);
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {

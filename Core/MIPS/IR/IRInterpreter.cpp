@@ -144,6 +144,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 #endif
 			break;
 
+		case IROp::ShuffleVec4:
+		{
+			// Can't use the SSE shuffle here because it takes an immediate.
+			// Backends with SSE support could use that though.
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
+			break;
+		}
+
 		case IROp::FSin:
 			mips->f[inst->dest] = vfpu_sin(mips->f[inst->src1]);
 			break;
