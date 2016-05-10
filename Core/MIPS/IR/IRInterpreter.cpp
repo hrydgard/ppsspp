@@ -35,9 +35,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::SetConstF:
 			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
 			break;
-		case IROp::SetConstV:
-			memcpy(&mips->v[inst->dest], &constPool[inst->src1], 4);
-			break;
 		case IROp::Add:
 			mips->r[inst->dest] = mips->r[inst->src1] + mips->r[inst->src2];
 			break;
@@ -102,9 +99,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::LoadFloat:
 			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
 			break;
-		case IROp::LoadFloatV:
-			mips->v[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
-			break;
 
 		case IROp::Store8:
 			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
@@ -118,18 +112,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::StoreFloat:
 			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
 			break;
-		case IROp::StoreFloatV:
-			Memory::WriteUnchecked_Float(mips->v[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
-			break;
 
 		case IROp::LoadVec4:
 		{
 			u32 base = mips->r[inst->src1] + constPool[inst->src2];
 #if defined(_M_SSE)
-			_mm_store_ps(&mips->v[inst->dest], _mm_load_ps((const float *)Memory::GetPointerUnchecked(base)));
+			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps((const float *)Memory::GetPointerUnchecked(base)));
 #else
 			for (int i = 0; i < 4; i++)
-				mips->v[inst->dest + i] = Memory::ReadUnchecked_Float(base + 4 * i);
+				mips->f[inst->dest + i] = Memory::ReadUnchecked_Float(base + 4 * i);
 #endif
 			break;
 		}
@@ -137,39 +128,36 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		{
 			u32 base = mips->r[inst->src1] + constPool[inst->src2];
 #if defined(_M_SSE)
-			_mm_store_ps((float *)Memory::GetPointerUnchecked(base), _mm_load_ps(&mips->v[inst->dest]));
+			_mm_store_ps((float *)Memory::GetPointerUnchecked(base), _mm_load_ps(&mips->f[inst->dest]));
 #else
 			for (int i = 0; i < 4; i++)
-				Memory::WriteUnchecked_Float(mips->v[inst->dest + i], base + 4 * i);
+				Memory::WriteUnchecked_Float(mips->f[inst->dest + i], base + 4 * i);
 #endif
 			break;
 		}
 
 		case IROp::InitVec4:
 #if defined(_M_SSE)
-			_mm_store_ps(&mips->v[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
+			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
 #else
-			memcpy(&mips->v[inst->dest + i], vec4InitValues[inst->src1], 4 * sizeof(float));
+			memcpy(&mips->f[inst->dest + i], vec4InitValues[inst->src1], 4 * sizeof(float));
 #endif
 			break;
 
-		case IROp::VSin:
-			mips->v[inst->dest] = vfpu_sin(mips->v[inst->src1]);
+		case IROp::FSin:
+			mips->f[inst->dest] = vfpu_sin(mips->f[inst->src1]);
 			break;
-		case IROp::VCos:
-			mips->v[inst->dest] = vfpu_cos(mips->v[inst->src1]);
+		case IROp::FCos:
+			mips->f[inst->dest] = vfpu_cos(mips->f[inst->src1]);
 			break;
-		case IROp::VSqrt:
-			mips->v[inst->dest] = sqrtf(mips->v[inst->src1]);
+		case IROp::FRSqrt:
+			mips->f[inst->dest] = 1.0f / sqrtf(mips->f[inst->src1]);
 			break;
-		case IROp::VRSqrt:
-			mips->v[inst->dest] = 1.0f / sqrtf(mips->v[inst->src1]);
+		case IROp::FRecip:
+			mips->f[inst->dest] = 1.0f / mips->f[inst->src1];
 			break;
-		case IROp::VRecip:
-			mips->v[inst->dest] = 1.0f / mips->v[inst->src1];
-			break;
-		case IROp::VAsin:
-			mips->v[inst->dest] = vfpu_asin(mips->v[inst->src1]);
+		case IROp::FAsin:
+			mips->f[inst->dest] = vfpu_asin(mips->f[inst->src1]);
 			break;
 
 		case IROp::ShlImm:
@@ -376,13 +364,6 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::FMovToGPR:
 			memcpy(&mips->r[inst->dest], &mips->f[inst->src1], 4);
-			break;
-
-		case IROp::VMovFromGPR:
-			memcpy(&mips->v[inst->dest], &mips->r[inst->src1], 4);
-			break;
-		case IROp::VMovToGPR:
-			memcpy(&mips->r[inst->dest], &mips->v[inst->src1], 4);
 			break;
 
 		case IROp::ExitToConst:

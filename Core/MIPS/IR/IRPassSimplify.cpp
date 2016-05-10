@@ -110,7 +110,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			gpr.SetImm(inst.dest, constants[inst.src1]);
 			break;
 		case IROp::SetConstF:
-		case IROp::SetConstV:
 			goto doDefault;
 
 		case IROp::Sub:
@@ -251,20 +250,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
-		case IROp::VMovFromGPR:
-			if (gpr.IsImm(inst.src1)) {
-				out.Write(IROp::SetConstV, inst.dest, out.AddConstant(gpr.GetImm(inst.src1)));
-			} else {
-				gpr.MapIn(inst.src1);
-				goto doDefault;
-			}
-			break;
-
 		case IROp::FMovToGPR:
-			gpr.MapDirty(inst.dest);
-			goto doDefault;
-
-		case IROp::VMovToGPR:
 			gpr.MapDirty(inst.dest);
 			goto doDefault;
 
@@ -290,7 +276,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 		case IROp::StoreFloat:
-		case IROp::StoreFloatV:
 		case IROp::StoreVec4:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
@@ -314,7 +299,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 		case IROp::LoadFloat:
-		case IROp::LoadFloatV:
 		case IROp::LoadVec4:
 			if (gpr.IsImm(inst.src1)) {
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
@@ -345,17 +329,23 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				std::swap(inst.src1, inst.src2);
 			out.Write(inst);
 			break;
+
 		case IROp::FSub:
 		case IROp::FDiv:
 		case IROp::FNeg:
 		case IROp::FAbs:
-		case IROp::FSqrt:
 		case IROp::FMov:
 		case IROp::FRound:
 		case IROp::FTrunc:
 		case IROp::FCeil:
 		case IROp::FFloor:
 		case IROp::FCvtSW:
+		case IROp::FSin:
+		case IROp::FCos:
+		case IROp::FSqrt:
+		case IROp::FRSqrt:
+		case IROp::FRecip:
+		case IROp::FAsin:
 			out.Write(inst);
 			break;
 
@@ -379,15 +369,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 
 		case IROp::InitVec4:
-			out.Write(inst);
-			break;
-
-		case IROp::VSin:
-		case IROp::VCos:
-		case IROp::VSqrt:
-		case IROp::VRSqrt:
-		case IROp::VRecip:
-		case IROp::VAsin:
 			out.Write(inst);
 			break;
 

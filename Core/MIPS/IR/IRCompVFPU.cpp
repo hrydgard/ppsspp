@@ -50,10 +50,12 @@
 #define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
+const int vfpuBase = 32;  // skip the FP registers
+
 namespace MIPSComp {
 	static void ApplyVoffset(u8 regs[4], int count) {
 		for (int i = 0; i < count; i++) {
-			regs[i] = voffset[regs[i]];
+			regs[i] = vfpuBase + voffset[regs[i]];
 		}
 	}
 
@@ -194,11 +196,11 @@ namespace MIPSComp {
 		MIPSGPReg rs = _RS;
 		switch (op >> 26) {
 		case 50: //lv.s
-			ir.Write(IROp::LoadFloatV, voffset[vt], rs, ir.AddConstant(offset));
+			ir.Write(IROp::LoadFloat, vfpuBase + voffset[vt], rs, ir.AddConstant(offset));
 			break;
 
 		case 58: //sv.s
-			ir.Write(IROp::StoreFloatV, voffset[vt], rs, ir.AddConstant(offset));
+			ir.Write(IROp::StoreFloat, vfpuBase + voffset[vt], rs, ir.AddConstant(offset));
 			break;
 
 		default:
@@ -221,10 +223,10 @@ namespace MIPSComp {
 				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" loads for now.
-				ir.Write(IROp::LoadFloatV, vregs[0], rs, ir.AddConstant(imm));
-				ir.Write(IROp::LoadFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
-				ir.Write(IROp::LoadFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
-				ir.Write(IROp::LoadFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+				ir.Write(IROp::LoadFloat, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::LoadFloat, vregs[1], rs, ir.AddConstant(imm + 4));
+				ir.Write(IROp::LoadFloat, vregs[2], rs, ir.AddConstant(imm + 8));
+				ir.Write(IROp::LoadFloat, vregs[3], rs, ir.AddConstant(imm + 12));
 			}
 			break;
 
@@ -233,10 +235,10 @@ namespace MIPSComp {
 				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
 			} else {
 				// Let's not even bother with "vertical" stores for now.
-				ir.Write(IROp::StoreFloatV, vregs[0], rs, ir.AddConstant(imm));
-				ir.Write(IROp::StoreFloatV, vregs[1], rs, ir.AddConstant(imm + 4));
-				ir.Write(IROp::StoreFloatV, vregs[2], rs, ir.AddConstant(imm + 8));
-				ir.Write(IROp::StoreFloatV, vregs[3], rs, ir.AddConstant(imm + 12));
+				ir.Write(IROp::StoreFloat, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::StoreFloat, vregs[1], rs, ir.AddConstant(imm + 4));
+				ir.Write(IROp::StoreFloat, vregs[2], rs, ir.AddConstant(imm + 8));
+				ir.Write(IROp::StoreFloat, vregs[3], rs, ir.AddConstant(imm + 12));
 			}
 			break;
 
@@ -257,9 +259,9 @@ namespace MIPSComp {
 		if (sz == 4 && IsVectorColumn(vd)) {
 			u8 dregs[4];
 			GetVectorRegs(dregs, sz, vd);
-			ir.Write(IROp::InitVec4, voffset[dregs[0]], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
+			ir.Write(IROp::InitVec4, vfpuBase + voffset[dregs[0]], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else if (sz == 1) {
-			ir.Write(IROp::SetConstV, voffset[vd], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+			ir.Write(IROp::SetConstF, vfpuBase + voffset[vd], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
 		} else {
 			DISABLE;
 		}
@@ -281,7 +283,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, vd);
 		int row = vd & 3;
 		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
-		ir.Write(IROp::InitVec4, voffset[dregs[0]], (int)init);
+		ir.Write(IROp::InitVec4, vfpuBase + voffset[dregs[0]], (int)init);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
@@ -317,7 +319,7 @@ namespace MIPSComp {
 			default:
 				return;
 			}
-			ir.Write(IROp::InitVec4, voffset[vec[0]], (int)init);
+			ir.Write(IROp::InitVec4, vfpuBase + voffset[vec[0]], (int)init);
 		}
 		return;
 	}
@@ -369,7 +371,7 @@ namespace MIPSComp {
 						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != 0) {
 				if (imm < 128) {  //R(rt) = VI(imm);
-					ir.Write(IROp::VMovToGPR, rt, voffset[imm]);
+					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
 				} else {
 					DISABLE;
 				}
@@ -378,7 +380,7 @@ namespace MIPSComp {
 
 		case 7: // mtv
 			if (imm < 128) {
-				ir.Write(IROp::VMovFromGPR, voffset[imm], rt);
+				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
 			} else {
 				DISABLE;
 			}
@@ -451,7 +453,7 @@ namespace MIPSComp {
 
 		u8 dreg = _VT;
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
-		ir.Write(IROp::SetConstV, voffset[dreg], ir.AddConstantFloat((float)imm));
+		ir.Write(IROp::SetConstF, vfpuBase + voffset[dreg], ir.AddConstantFloat((float)imm));
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {

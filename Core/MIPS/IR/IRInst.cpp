@@ -6,7 +6,6 @@
 static const IRMeta irMeta[] = {
 	{ IROp::SetConst, "SetConst", "GC" },
 	{ IROp::SetConstF, "SetConstF", "FC" },
-	{ IROp::SetConstV, "SetConstV", "VC" },
 	{ IROp::Mov, "Mov", "GG" },
 	{ IROp::Add, "Add", "GGG" },
 	{ IROp::Sub, "Sub", "GGG" },
@@ -59,14 +58,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load16Ext, "Load16Ext", "GGC" },
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
-	{ IROp::LoadFloatV, "LoadFloatV", "VGC" },
-	{ IROp::LoadVec4, "LoadVec4", "VGC" },
+	{ IROp::LoadVec4, "LoadVec4", "FGC" },
 	{ IROp::Store8, "Store8", "GGC" },
 	{ IROp::Store16, "Store16", "GGC" },
 	{ IROp::Store32, "Store32", "GGC" },
 	{ IROp::StoreFloat, "StoreFloat", "FGC" },
-	{ IROp::StoreFloatV, "StoreFloatV", "VGC" },
-	{ IROp::StoreVec4, "StoreVec4", "VGC" },
+	{ IROp::StoreVec4, "StoreVec4", "FGC" },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -83,19 +80,17 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
-	{ IROp::VMovFromGPR, "VMovFromGPR", "VG" },
-	{ IROp::VMovToGPR, "VMovToGPR", "GV" },
-	{ IROp::InitVec4, "InitVec4", "Vv"},
+	{ IROp::InitVec4, "InitVec4", "Fv"},
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 
-	{ IROp::VSin, "VSin", "VV" },
-	{ IROp::VCos, "VCos", "VV" },
-	{ IROp::VSqrt, "VSqrt", "VV" },
-	{ IROp::VRSqrt, "VRSqrt", "VV" },
-	{ IROp::VRecip, "VRecip", "VV" },
-	{ IROp::VAsin, "VAsin", "VV" },
+	{ IROp::FSin, "FSin", "FF" },
+	{ IROp::FCos, "FCos", "FF" },
+	{ IROp::FSqrt, "FSqrt", "FF" },
+	{ IROp::FRSqrt, "FRSqrt", "FF" },
+	{ IROp::FRecip, "FRecip", "FF" },
+	{ IROp::FAsin, "FAsin", "FF" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
@@ -201,16 +196,17 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		snprintf(buf, bufSize, "%s", GetGPRName(param));
 		break;
 	case 'F':
-		snprintf(buf, bufSize, "f%d", param);
+		if (param >= 32) {
+			snprintf(buf, bufSize, "v%d", param - 32);
+		} else {
+			snprintf(buf, bufSize, "f%d", param);
+		}
 		break;
 	case 'C':
 		snprintf(buf, bufSize, "%08x", constPool[param]);
 		break;
 	case 'I':
 		snprintf(buf, bufSize, "%02x", param);
-		break;
-	case 'V':
-		snprintf(buf, bufSize, "v%d", param);
 		break;
 	case 'T':
 		snprintf(buf, bufSize, "%s", vfpuCtrlNames[param]);

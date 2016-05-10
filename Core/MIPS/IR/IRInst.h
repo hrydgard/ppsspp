@@ -18,7 +18,6 @@
 enum class IROp : u8 {
 	SetConst,
 	SetConstF,
-	SetConstV,
 
 	Mov,
 
@@ -89,14 +88,12 @@ enum class IROp : u8 {
 	Load16Ext,
 	Load32,
 	LoadFloat,
-	LoadFloatV,
 	LoadVec4,
 
 	Store8,
 	Store16,
 	Store32,
 	StoreFloat,
-	StoreFloatV,
 	StoreVec4,
 
 	Ext8to32,
@@ -141,18 +138,15 @@ enum class IROp : u8 {
 	UpdateRoundingMode,
 
 	SetCtrlVFPU,
-	VMovFromGPR,
-	VMovToGPR,
 
 	InitVec4,
 
 	// Slow special functions. Used on singles.
-	VSin,
-	VCos,
-	VSqrt,
-	VRSqrt,
-	VRecip,
-	VAsin,
+	FSin,
+	FCos,
+	FRSqrt,
+	FRecip,
+	FAsin,
 
 	// Fake/System instructions
 	Interpret,
