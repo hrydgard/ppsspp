@@ -281,6 +281,10 @@ enum {
 	IRREG_FPCOND = 245,
 };
 
+enum IRFlags {
+	IRFLAG_SRC3 = 1,
+};
+
 struct IRMeta {
 	IROp op;
 	const char *name;

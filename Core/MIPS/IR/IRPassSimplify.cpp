@@ -433,3 +433,79 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	}
 	return logBlocks;
 }
+
+bool IRReadsFromGPR(const IRInst &inst, int reg) {
+	const IRMeta *m = GetIRMeta(inst.op);
+
+	if (m->types[1] == 'G' && inst.src1 == reg) {
+		return true;
+	}
+	if (m->types[2] == 'G' && inst.src2 == reg) {
+		return true;
+	}
+	if ((m->flags & IRFLAG_SRC3) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
+		return true;
+	}
+	if (inst.op == IROp::Interpret) {
+		return true;
+	}
+	return false;
+}
+
+int IRDestGPR(const IRInst &inst) {
+	const IRMeta *m = GetIRMeta(inst.op);
+
+	if ((m->flags & IRFLAG_SRC3) == 0 && m->types[0] == 'G') {
+		return inst.dest;
+	}
+	return -1;
+}
+
+bool PurgeTemps(const IRWriter &in, IRWriter &out) {
+	IRRegCache gpr(&out);
+
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
+	}
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		const IRInst &inst = in.GetInstructions()[i];
+
+		int dest = IRDestGPR(inst);
+		bool read = true;
+		switch (dest) {
+		case IRTEMP_0:
+		case IRTEMP_1:
+		case IRTEMP_LHS:
+		case IRTEMP_RHS:
+			// Unlike other ops, these don't need to persist between blocks.
+			// So we consider them not read unless proven read.
+			read = false;
+			for (int j = i + 1; j < n; j++) {
+				const IRInst &laterInst = in.GetInstructions()[j];
+				if (IRReadsFromGPR(laterInst, dest)) {
+					// Read from, so we can't optimize out.
+					read = true;
+					break;
+				}
+				if (IRDestGPR(laterInst) == dest) {
+					// Clobbered, we can optimize out.
+					break;
+				}
+			}
+			break;
+
+		default:
+			break;
+		}
+
+		// TODO: VFPU temps?
+
+		if (read) {
+			out.Write(inst);
+		}
+	}
+
+	return logBlocks;
+}
