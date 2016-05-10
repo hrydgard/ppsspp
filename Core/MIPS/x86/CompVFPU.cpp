@@ -101,8 +101,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 	for (int i = 0; i < n; i++)
 		origV[i] = vregs[i];
 
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		int regnum = (prefix >> (i*2)) & 3;
 		int abs    = (prefix >> (8+i)) & 1;
 		int negate = (prefix >> (16+i)) & 1;
@@ -2142,7 +2141,7 @@ void CosOnly(SinCosArg angle) {
 }
 
 void ASinScaled(SinCosArg angle) {
-	sincostemp[0] = asinf(angle) / M_PI_2;
+	sincostemp[0] = vfpu_asin(angle);
 }
 
 void SinCosNegSin(SinCosArg angle) {

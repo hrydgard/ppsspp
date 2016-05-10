@@ -144,6 +144,16 @@ enum class IROp : u8 {
 	VMovFromGPR,
 	VMovToGPR,
 
+	InitVec4,
+
+	// Slow special functions. Used on singles.
+	VSin,
+	VCos,
+	VSqrt,
+	VRSqrt,
+	VRecip,
+	VAsin,
+
 	// Fake/System instructions
 	Interpret,
 
@@ -179,6 +189,17 @@ enum IRComparison {
 	Equal,
 	NotEqual,
 	Bad,
+};
+
+// Some common vec4 constants.
+enum class Vec4Init {
+	AllZERO,
+	AllONE,
+	AllMinusONE,
+	Set_1000,
+	Set_0100,
+	Set_0010,
+	Set_0001,
 };
 
 // Hm, unused

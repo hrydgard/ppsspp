@@ -340,8 +340,13 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		// FP-only instructions don't need to flush immediates.
 		case IROp::FAdd:
 		case IROp::FMul:
-		case IROp::FDiv:
+			// Regularize, to help x86 backends (add.s r0, r1, r0 -> add.s r0, r0, r1)
+			if (inst.src2 == inst.dest && inst.src1 != inst.src2)
+				std::swap(inst.src1, inst.src2);
+			out.Write(inst);
+			break;
 		case IROp::FSub:
+		case IROp::FDiv:
 		case IROp::FNeg:
 		case IROp::FAbs:
 		case IROp::FSqrt:
@@ -371,6 +376,19 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 				gpr.MapDirtyIn(inst.dest, IRREG_FPCOND);
 				out.Write(inst);
 			}
+			break;
+
+		case IROp::InitVec4:
+			out.Write(inst);
+			break;
+
+		case IROp::VSin:
+		case IROp::VCos:
+		case IROp::VSqrt:
+		case IROp::VRSqrt:
+		case IROp::VRecip:
+		case IROp::VAsin:
+			out.Write(inst);
 			break;
 
 		case IROp::ZeroFpCond:

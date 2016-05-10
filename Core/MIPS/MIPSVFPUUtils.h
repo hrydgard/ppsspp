@@ -45,6 +45,10 @@ inline float vfpu_cos(float angle) {
 	return cosf(angle);
 }
 
+inline float vfpu_asin(float angle) {
+	return asinf(angle) / M_PI_2;
+}
+
 inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 	angle -= floorf(angle * 0.25f) * 4.f;
 	angle *= (float)M_PI_2;
@@ -127,7 +131,15 @@ int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);
 const char *GetMatrixNotation(int reg, MatrixSize size);
-
+inline bool IsMatrixTransposed(int matrixReg) {
+	return (matrixReg >> 5) & 1;
+}
+inline bool IsVectorColumn(int vectorReg) {
+	return !((vectorReg >> 5) & 1);
+}
+inline int TransposeMatrixReg(int matrixReg) {
+	return matrixReg ^ 0x20;
+}
 int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 
 float Float16ToFloat32(unsigned short l);

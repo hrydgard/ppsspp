@@ -85,9 +85,18 @@ static const IRMeta irMeta[] = {
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::VMovFromGPR, "VMovFromGPR", "VG" },
 	{ IROp::VMovToGPR, "VMovToGPR", "GV" },
+	{ IROp::InitVec4, "InitVec4", "Vv"},
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
+
+	{ IROp::VSin, "VSin", "VV" },
+	{ IROp::VCos, "VCos", "VV" },
+	{ IROp::VSqrt, "VSqrt", "VV" },
+	{ IROp::VRSqrt, "VRSqrt", "VV" },
+	{ IROp::VRecip, "VRecip", "VV" },
+	{ IROp::VAsin, "VAsin", "VV" },
+
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
 	{ IROp::ExitToConst, "Exit", "C" },
@@ -177,6 +186,15 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		"RCX6",
 		"RCX7",
 	};
+	static const char *initVec4Names[8] = {
+		"[0 0 0 0]",
+		"[1 1 1 1]",
+		"[-1 -1 -1 -1]",
+		"[1 0 0 0]",
+		"[0 1 0 0]",
+		"[0 0 1 0]",
+		"[0 0 0 1]",
+	};
 
 	switch (type) {
 	case 'G':
@@ -196,6 +214,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		break;
 	case 'T':
 		snprintf(buf, bufSize, "%s", vfpuCtrlNames[param]);
+		break;
+	case 'v':
+		snprintf(buf, bufSize, "%s", initVec4Names[param]);
 		break;
 	case '_':
 	case '\0':

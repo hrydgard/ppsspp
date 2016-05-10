@@ -114,9 +114,9 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		}
 		while (mips_->downcount >= 0) {
 			u32 inst = Memory::ReadUnchecked_U32(mips_->pc);
-			u32 opcode = inst >> 24;
-			u32 data = inst & 0xFFFFFF;
-			if (opcode == (MIPS_EMUHACK_OPCODE >> 24)) {
+			u32 opcode = inst & 0xFF000000;
+			if (opcode == MIPS_EMUHACK_OPCODE) {
+				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
 			} else {

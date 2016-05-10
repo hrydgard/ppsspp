@@ -6,6 +6,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include "math/math_util.h"
 #include "Common/CommonTypes.h"
@@ -13,6 +14,16 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
+
+alignas(16) float vec4InitValues[8][4] = {
+	{ 0.0f, 0.0f, 0.0f, 0.0f },
+	{ 1.0f, 1.0f, 1.0f, 1.0f },
+	{ -1.0f, -1.0f, -1.0f, -1.0f },
+	{ 1.0f, 0.0f, 0.0f, 0.0f },
+	{ 0.0f, 1.0f, 0.0f, 0.0f },
+	{ 0.0f, 0.0f, 1.0f, 0.0f },
+	{ 0.0f, 0.0f, 0.0f, 1.0f },
+};
 
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
 	const IRInst *end = inst + count;
@@ -133,6 +144,33 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 #endif
 			break;
 		}
+
+		case IROp::InitVec4:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->v[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
+#else
+			memcpy(&mips->v[inst->dest + i], vec4InitValues[inst->src1], 4 * sizeof(float));
+#endif
+			break;
+
+		case IROp::VSin:
+			mips->v[inst->dest] = vfpu_sin(mips->v[inst->src1]);
+			break;
+		case IROp::VCos:
+			mips->v[inst->dest] = vfpu_cos(mips->v[inst->src1]);
+			break;
+		case IROp::VSqrt:
+			mips->v[inst->dest] = sqrtf(mips->v[inst->src1]);
+			break;
+		case IROp::VRSqrt:
+			mips->v[inst->dest] = 1.0f / sqrtf(mips->v[inst->src1]);
+			break;
+		case IROp::VRecip:
+			mips->v[inst->dest] = 1.0f / mips->v[inst->src1];
+			break;
+		case IROp::VAsin:
+			mips->v[inst->dest] = vfpu_asin(mips->v[inst->src1]);
+			break;
 
 		case IROp::ShlImm:
 			mips->r[inst->dest] = mips->r[inst->src1] << (int)inst->src2;

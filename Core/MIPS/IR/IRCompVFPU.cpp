@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
+
 #include "math/math_util.h"
 
 #include "Core/MemMap.h"
@@ -57,7 +58,9 @@ namespace MIPSComp {
 	}
 
 	static bool IsConsecutive4(const u8 regs[4]) {
-		return (regs[1] == regs[0] + 1 && regs[2] == regs[1] + 1 && regs[3] == regs[2] + 1);
+		return regs[1] == regs[0] + 1 &&
+			     regs[2] == regs[1] + 1 &&
+			     regs[3] == regs[2] + 1;
 	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
@@ -244,15 +247,79 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
-		DISABLE;
+		if (!js.HasNoPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int type = (op >> 16) & 0xF;
+		int vd = _VD;
+
+		if (sz == 4 && IsVectorColumn(vd)) {
+			u8 dregs[4];
+			GetVectorRegs(dregs, sz, vd);
+			ir.Write(IROp::InitVec4, voffset[dregs[0]], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
+		} else if (sz == 1) {
+			ir.Write(IROp::SetConstV, voffset[vd], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+		} else {
+			DISABLE;
+		}
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
-		DISABLE;
+		if (!js.HasNoPrefix())
+			DISABLE;
+
+		int vd = _VD;
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Quad)
+			DISABLE;
+
+		if (!IsVectorColumn(vd))
+			DISABLE;
+
+		u8 dregs[4];
+		GetVectorRegs(dregs, sz, vd);
+		int row = vd & 3;
+		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
+		ir.Write(IROp::InitVec4, voffset[dregs[0]], (int)init);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
-		DISABLE;
+		MatrixSize sz = GetMtxSize(op);
+		if (sz != M_4x4) {
+			DISABLE;
+		}
+
+		// Not really about trying here, it will work if enabled.
+		VectorSize vsz = GetVectorSize(sz);
+		u8 vecs[4];
+		int vd = _VD;
+		if (IsMatrixTransposed(vd)) {
+			// All outputs are transpositionally symmetric, so should be fine.
+			vd = TransposeMatrixReg(vd);
+		}
+		GetMatrixColumns(vd, M_4x4, vecs);
+		for (int i = 0; i < 4; i++) {
+			u8 vec[4];
+			GetVectorRegs(vec, vsz, vecs[i]);
+			// As they are columns, they will be nicely consecutive.
+			Vec4Init init;
+			switch ((op >> 16) & 0xF) {
+			case 3:
+				init = Vec4Init((int)Vec4Init::Set_1000 + i);
+				break;
+			case 6:
+				init = Vec4Init::AllZERO;
+				break;
+			case 7:
+				init = Vec4Init::AllONE;
+				break;
+			default:
+				return;
+			}
+			ir.Write(IROp::InitVec4, voffset[vec[0]], (int)init);
+		}
+		return;
 	}
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
@@ -275,7 +342,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
+		// Eliminate silly no-op VMOVs, common in Wipeout Pure
 		if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
 			return;
 		}
@@ -379,7 +446,12 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
-		DISABLE;
+		if (!js.HasNoPrefix())
+			DISABLE;
+
+		u8 dreg = _VT;
+		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+		ir.Write(IROp::SetConstV, voffset[dreg], ir.AddConstantFloat((float)imm));
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {
