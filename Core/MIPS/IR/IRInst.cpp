@@ -78,6 +78,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FFloor, "FFloor", "FF" },
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
+	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
+	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::InitVec4, "InitVec4", "Fv"},

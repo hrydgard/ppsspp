@@ -152,17 +152,21 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
 			// Hopefully this is rare, we'll just write it into a reg we drop.
-			//if (js.VfpuWriteMask(i))
-			//	regs[i] = fpr.GetTempV();
+			if (js.VfpuWriteMask(i))
+				regs[i] = fpr.GetTempV();
 		}
 	}
 
+	inline int GetDSat(int prefix, int i) {
+		return (prefix >> (i * 2)) & 3;
+	}
+
+	// "D" prefix is really a post process. No need to allocate a temporary register.
 	void IRFrontend::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 		if (!js.prefixD)
 			return;
 
-		/*
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
 			if (js.VfpuWriteMask(i))
@@ -171,23 +175,11 @@ namespace MIPSComp {
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
 				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
-				fpr.MapRegV(vregs[i], MAP_DIRTY);
-
-				fp.MOVI2F(S0, 0.0f, SCRATCH1);
-				fp.MOVI2F(S1, 1.0f, SCRATCH1);
-				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
-				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+				ir.Write(IROp::FSat0_1, vfpuBase + voffset[vregs[i]], vfpuBase + voffset[vregs[i]]);
 			} else if (sat == 3) {
-				// clamped = x < -1 ? (x > 1 ? 1 : x) : x [-1, 1]
-				fpr.MapRegV(vregs[i], MAP_DIRTY);
-
-				fp.MOVI2F(S0, -1.0f, SCRATCH1);
-				fp.MOVI2F(S1, 1.0f, SCRATCH1);
-				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
-				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+				ir.Write(IROp::FSatMinus1_1, vfpuBase + voffset[vregs[i]], vfpuBase + voffset[vregs[i]]);
 			}
 		}
-		*/
 	}
 
 	void IRFrontend::Comp_SV(MIPSOpcode op) {

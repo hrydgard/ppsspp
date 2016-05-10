@@ -120,6 +120,9 @@ enum class IROp : u8 {
 	FMovFromGPR,
 	FMovToGPR,
 
+	FSat0_1,
+	FSatMinus1_1,
+
 	FpCondToReg,
 	VfpuCtrlToReg,
 
