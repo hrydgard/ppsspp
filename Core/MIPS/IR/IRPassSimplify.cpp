@@ -443,10 +443,10 @@ bool IRReadsFromGPR(const IRInst &inst, int reg) {
 	if (m->types[2] == 'G' && inst.src2 == reg) {
 		return true;
 	}
-	if ((m->flags & IRFLAG_SRC3) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
+	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == reg) {
 		return true;
 	}
-	if (inst.op == IROp::Interpret) {
+	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement) {
 		return true;
 	}
 	return false;
@@ -474,6 +474,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 
 		int dest = IRDestGPR(inst);
 		bool read = true;
+		bool readByExit = true;
 		switch (dest) {
 		case IRTEMP_0:
 		case IRTEMP_1:
@@ -482,21 +483,38 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 			// Unlike other ops, these don't need to persist between blocks.
 			// So we consider them not read unless proven read.
 			read = false;
+			readByExit = false;
+			// Intentional fall-through.
+
+		default:
+			if (dest > IRTEMP_RHS) {
+				// These might sometimes be implicitly read/written by other instructions.
+				break;
+			}
 			for (int j = i + 1; j < n; j++) {
 				const IRInst &laterInst = in.GetInstructions()[j];
+				const IRMeta *m = GetIRMeta(laterInst.op);
 				if (IRReadsFromGPR(laterInst, dest)) {
 					// Read from, so we can't optimize out.
 					read = true;
 					break;
 				}
+				if (readByExit && (m->flags & IRFLAG_EXIT) != 0) {
+					read = true;
+					break;
+				}
+
 				if (IRDestGPR(laterInst) == dest) {
 					// Clobbered, we can optimize out.
+					// This happens sometimes with temporaries used for constant addresses.
+					read = false;
 					break;
 				}
 			}
 			break;
 
-		default:
+		// Not a GPR output.
+		case -1:
 			break;
 		}
 
