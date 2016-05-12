@@ -32,6 +32,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 	const IRInst *end = inst + count;
 	while (inst != end) {
 		switch (inst->op) {
+		case IROp::Nop:
+			_assert_(false);
+			break;
 		case IROp::SetConst:
 			mips->r[inst->dest] = constPool[inst->src1];
 			break;
@@ -207,6 +210,49 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
 #endif
+			break;
+
+		case IROp::FCmpVfpuBit:
+		{
+			int op = inst->dest & 0xF;
+			int bit = inst->dest >> 4;
+			int result = 0;
+			switch (op) {
+			case VC_EQ: result = mips->f[inst->src1] == mips->f[inst->src2]; break;
+			case VC_NE: result = mips->f[inst->src1] != mips->f[inst->src2]; break;
+			case VC_LT: result = mips->f[inst->src1] < mips->f[inst->src2]; break;
+			case VC_LE: result = mips->f[inst->src1] <= mips->f[inst->src2]; break;
+			case VC_GT: result = mips->f[inst->src1] > mips->f[inst->src2]; break;
+			case VC_GE: result = mips->f[inst->src1] >= mips->f[inst->src2]; break;
+			case VC_EZ: result = mips->f[inst->src1] == 0.0f; break;
+			case VC_NZ: result = mips->f[inst->src1] != 0.0f; break;
+			case VC_TR: result = 1; break;
+			case VC_FL: result = 0; break;
+			default:
+				result = 0;
+			}
+			if (result != 0) {
+				mips->vfpuCtrl[VFPU_CTRL_CC] |= (1 << bit);
+			} else {
+				mips->vfpuCtrl[VFPU_CTRL_CC] &= ~(1 << bit);
+			}
+		}
+			break;
+
+		case IROp::FCmpVfpuAggregate:
+		{
+			int mask = inst->dest;
+			u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
+			int a = (cc & mask) ? 0x10 : 0x00;
+			int b = (cc & mask) == mask ? 0x20 : 0x00;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | a | b;;
+		}
+			break;
+
+		case IROp::FCmovVfpuCC:
+			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0x7f)) & 1) == (inst->src2 >> 7)) {
+				mips->f[inst->dest] = mips->f[inst->src1];
+			}
 			break;
 
 		// Not quickly implementable on all platforms, unfortunately.

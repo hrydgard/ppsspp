@@ -97,7 +97,9 @@ static const IRMeta irMeta[] = {
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TC" },
 	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
-
+	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
+	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
+	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", ""},
 	{ IROp::Vec4Init, "Vec4Init", "Fv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "FFs" },
 	{ IROp::Vec4Mov, "Vec4Mov", "FF" },

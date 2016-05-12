@@ -358,7 +358,38 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		// TODO: applyprefixST here somehow (shuffle, etc...)
+		ir.Write(IROp::FMul, IRVTEMP_0, sregs[0], tregs[0]);
+
+		int n = GetNumVectorElements(sz);
+		for (int i = 1; i < n; i++) {
+			// sum += s[i]*t[i];
+			if (i == n - 1) {
+				ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, tregs[i]);
+			} else {
+				ir.Write(IROp::FMul, IRVTEMP_0 + 1, sregs[i], tregs[i]);
+				ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, IRVTEMP_0 + 1);
+			}
+		}
+
+		ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
+		ApplyPrefixD(dregs, V_Single);
 	}
 
 	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
@@ -840,7 +871,6 @@ namespace MIPSComp {
 
 		MatrixSize sz = GetMtxSize(op);
 		if (sz != M_4x4) {
-			// logBlocks = true;
 			DISABLE;
 		}
 		int n = GetMatrixSide(sz);
@@ -1165,16 +1195,66 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {
-		// Fiendishly hard...
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		VCondition cond = (VCondition)(op & 0xF);
+
+		u8 sregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+
+		int mask = 0;
+		for (int i = 0; i < n; i++) {
+			ir.Write(IROp::FCmpVfpuBit, cond | (i << 4), sregs[i], tregs[i]);
+			mask |= (1 << i);
+		}
+		ir.Write(IROp::FCmpVfpuAggregate, mask);
 	}
 
 	void IRFrontend::Comp_Vcmov(MIPSOpcode op) {
-		// Fiendishly hard...
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		logBlocks = 1;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		int tf = (op >> 19) & 1;
+		int imm3 = (op >> 16) & 7;
+
+		for (int i = 0; i < n; ++i) {
+			// Simplification: Disable if overlap unsafe
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
+				DISABLE;
+			}
+		}
+		if (imm3 < 6) {
+			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+			for (int i = 0; i < n; i++) {
+				ir.Write(IROp::FCmovVfpuCC, dregs[i], sregs[i], (imm3) | ((!tf) << 7));
+			}
+		} else {
+			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+			for (int i = 0; i < n; i++) {
+				ir.Write(IROp::FCmovVfpuCC, dregs[i], sregs[i], (i) | ((!tf) << 7));
+			}
+		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1186,6 +1266,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 

@@ -134,6 +134,8 @@ enum class IROp : u8 {
 	FCmp,
 
 	FCmovVfpuCC,
+	FCmpVfpuBit,
+	FCmpVfpuAggregate,
 
 	// Rounding Mode
 	RestoreRoundingMode,
@@ -156,6 +158,12 @@ enum class IROp : u8 {
 	Vec4Div,
 	Vec4Scale,
 	Vec4Dot,
+
+	// vx2i
+	Vec4ExpandU16ToU32Hi,
+	Vec4ExpandU8ToU32Hi,
+	Vec4ExpandS16ToS32Hi,
+	Vec4ExpandS8ToS32Hi,
 
 	// Slow special functions. Used on singles.
 	FSin,
