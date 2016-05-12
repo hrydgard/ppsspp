@@ -587,10 +587,6 @@ namespace MIPSComp {
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		if (js.HasUnknownPrefix())
 			DISABLE;
-		if (!js.HasNoPrefix()) {
-			logBlocks = 1;
-			//DISABLE;  // Something subtle is wrong.
-		}
 
 		int vs = _VS;
 		int vd = _VD;
