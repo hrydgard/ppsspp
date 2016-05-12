@@ -34,7 +34,7 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
@@ -280,8 +280,9 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
-		if (!js.HasNoPrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		int type = (op >> 16) & 0xF;
@@ -299,8 +300,9 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
-		if (!js.HasNoPrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -447,7 +449,18 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		if (allowSIMD && sz == V_Quad && IsConsecutive4(sregs) && IsConsecutive4(dregs) && IsConsecutive4(sregs)) {
+		int tempregs[4];
+		bool usingTemps = false;
+		for (int i = 0; i < n; i++) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs, n, tregs)) {
+				tempregs[i] = IRVTEMP_0 + i;
+				usingTemps = true;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (allowSIMD && sz == V_Quad && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs) && IsConsecutive4(sregs)) {
 			IROp opFunc = IROp::Nop;
 			bool symmetric = false;
 			switch (op >> 26) {
@@ -490,7 +503,6 @@ namespace MIPSComp {
 			if (opFunc != IROp::Nop) {
 				ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
 			}
-
 			ApplyPrefixD(dregs, sz);
 			return;
 		}
@@ -500,30 +512,30 @@ namespace MIPSComp {
 			case 24: //VFPU0
 				switch ((op >> 23) & 7) {
 				case 0: // d[i] = s[i] + t[i]; break; //vadd
-					ir.Write(IROp::FAdd, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FAdd, tempregs[i], sregs[i], tregs[i]);
 					break;
 				case 1: // d[i] = s[i] - t[i]; break; //vsub
-					ir.Write(IROp::FSub, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FSub, tempregs[i], sregs[i], tregs[i]);
 					break;
 				case 7: // d[i] = s[i] / t[i]; break; //vdiv
-					ir.Write(IROp::FDiv, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FDiv, tempregs[i], sregs[i], tregs[i]);
 					break;
 				}
 				break;
 			case 25: //VFPU1
 				switch ((op >> 23) & 7) {
 				case 0: // d[i] = s[i] * t[i]; break; //vmul
-					ir.Write(IROp::FMul, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FMul, tempregs[i], sregs[i], tregs[i]);
 					break;
 				}
 				break;
 			case 27: //VFPU3
 				switch ((op >> 23) & 7) {
 				case 2:  // vmin
-					ir.Write(IROp::FMin, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FMin, tempregs[i], sregs[i], tregs[i]);
 					break;
 				case 3:  // vmax
-					ir.Write(IROp::FMax, dregs[i], sregs[i], tregs[i]);
+					ir.Write(IROp::FMax, tempregs[i], sregs[i], tregs[i]);
 					break;
 				case 6:  // vsge
 				case 7:  // vslt
@@ -531,6 +543,12 @@ namespace MIPSComp {
 					break;
 				}
 				break;
+			}
+		}
+
+		for (int i = 0; i < n; i++) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 			}
 		}
 
@@ -556,6 +574,17 @@ namespace MIPSComp {
 		GetVectorRegsPrefixS(sregs, sz, vs);
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
+		bool usingTemps = false;
+		int tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				usingTemps = true;
+				tempregs[i] = IRVTEMP_0 + i;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
 		bool canSIMD = false;
 		// Some can be SIMD'd.
 		switch ((op >> 16) & 0x1f) {
@@ -564,7 +593,7 @@ namespace MIPSComp {
 			break;
 		}
 
-		if (canSIMD && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (canSIMD && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
 			switch ((op >> 16) & 0x1f) {
 			case 0:  // vmov
 				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
@@ -578,31 +607,31 @@ namespace MIPSComp {
 			switch ((op >> 16) & 0x1f) {
 			case 0: // d[i] = s[i]; break; //vmov
 				// Probably for swizzle.
-				ir.Write(IROp::FMov, dregs[i], sregs[i]);
+				ir.Write(IROp::FMov, tempregs[i], sregs[i]);
 				break;
 			case 1: // d[i] = fabsf(s[i]); break; //vabs
-				ir.Write(IROp::FAbs, dregs[i], sregs[i]);
+				ir.Write(IROp::FAbs, tempregs[i], sregs[i]);
 				break;
 			case 2: // d[i] = -s[i]; break; //vneg
-				ir.Write(IROp::FNeg, dregs[i], sregs[i]);
+				ir.Write(IROp::FNeg, tempregs[i], sregs[i]);
 				break;
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				ir.Write(IROp::FSat0_1, dregs[i], sregs[i]);
+				ir.Write(IROp::FSat0_1, tempregs[i], sregs[i]);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				ir.Write(IROp::FSatMinus1_1, dregs[i], sregs[i]);
+				ir.Write(IROp::FSatMinus1_1, tempregs[i], sregs[i]);
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				ir.Write(IROp::FRecip, dregs[i], sregs[i]);
+				ir.Write(IROp::FRecip, tempregs[i], sregs[i]);
 				break;
 			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				ir.Write(IROp::FRSqrt, dregs[i], sregs[i]);
+				ir.Write(IROp::FRSqrt, tempregs[i], sregs[i]);
 				break;
 			case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-				ir.Write(IROp::FSin, dregs[i], sregs[i]);
+				ir.Write(IROp::FSin, tempregs[i], sregs[i]);
 				break;
 			case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-				ir.Write(IROp::FCos, dregs[i], sregs[i]);
+				ir.Write(IROp::FCos, tempregs[i], sregs[i]);
 				break;
 			case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
 				DISABLE;
@@ -611,18 +640,18 @@ namespace MIPSComp {
 				DISABLE;
 				break;
 			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-				ir.Write(IROp::FSqrt, dregs[i], sregs[i]);
+				ir.Write(IROp::FSqrt, tempregs[i], sregs[i]);
 				break;
 			case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
-				ir.Write(IROp::FAsin, dregs[i], sregs[i]);
+				ir.Write(IROp::FAsin, tempregs[i], sregs[i]);
 				break;
 			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				ir.Write(IROp::FRecip, dregs[i], sregs[i]);
-				ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				ir.Write(IROp::FRecip, tempregs[i], sregs[i]);
+				ir.Write(IROp::FNeg, tempregs[i], tempregs[i]);
 				break;
 			case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-				ir.Write(IROp::FSin, dregs[i], sregs[i]);
-				ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				ir.Write(IROp::FSin, tempregs[i], sregs[i]);
+				ir.Write(IROp::FNeg, tempregs[i], tempregs[i]);
 				break;
 			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			default:
@@ -630,6 +659,12 @@ namespace MIPSComp {
 				break;
 			}
 		}
+		for (int i = 0; i < n; i++) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
 		ApplyPrefixD(dregs, sz);
 	}
 
@@ -782,20 +817,32 @@ namespace MIPSComp {
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
 
-		MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
-		MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
+		MatrixOverlapType soverlap = GetMatrixOverlap(vs, vd, sz);
+		MatrixOverlapType toverlap = GetMatrixOverlap(vt, vd, sz);
+
+		// A very common arrangment. Rearrange to something we can handle.
+		if (IsMatrixTransposed(vd) && !IsMatrixTransposed(vs) && IsMatrixTransposed(vt)) {
+			// Matrix identity says (At * Bt) = (B * A)t
+			// D = S * T
+			// Dt = (S * T)t = (Tt * St)
+			vd = TransposeMatrixReg(vd);
+			std::swap(vs, vt);
+		}
 
 		u8 sregs[16], tregs[16], dregs[16];
-		GetMatrixRegs(sregs, sz, _VS);
-		GetMatrixRegs(tregs, sz, _VT);
-		GetMatrixRegs(dregs, sz, _VD);
+		GetMatrixRegs(sregs, sz, vs);
+		GetMatrixRegs(tregs, sz, vt);
+		GetMatrixRegs(dregs, sz, vd);
 
 		if (soverlap || toverlap) {
 			DISABLE;
 		}
-
 		if (sz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
-			logBlocks = 1;
+			// TODO: The interpreter would like proper matrix ops better. Can generate those, and
+			// expand them like this as needed on "real" architectures.
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
 			if (!IsConsecutive4(sregs)) {
@@ -817,10 +864,12 @@ namespace MIPSComp {
 				}
 				return;
 			}
-		} else {
-			// logBlocks = 1;
+		} else if (sz == M_4x4) {
+			// Tekken 6 has a case here: MEE
+			logBlocks = 1;
 		}
 
+		// Fallback. Expands a LOT
 		int temp0 = IRVTEMP_0;
 		int temp1 = IRVTEMP_0 + 1;
 		for (int a = 0; a < n; a++) {
@@ -867,18 +916,23 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, _VD);
 
 		// SIMD-optimized implementations
-		if (msz == M_4x4 && !homogenous && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+		if (msz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
 			if (!IsConsecutive4(sregs)) {
 				ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 				for (int i = 1; i < 4; i++) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
-					ir.Write(IROp::Vec4Add, s0, s0, s1);
+					if (!homogenous || (i != n - 1)) {
+						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
+						ir.Write(IROp::Vec4Add, s0, s0, s1);
+					} else {
+						logBlocks = 1;
+						ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
+					}
 				}
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 				return;
-			} else {
+			} else if (!homogenous) {
 				for (int i = 0; i < 4; i++) {
 					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[0]);
 				}
@@ -886,7 +940,7 @@ namespace MIPSComp {
 				return;
 			}
 		} else if (msz == M_4x4) {
-			logBlocks = 1;
+			// logBlocks = 1;
 		}
 
 		// TODO: test overlap, optimize.
