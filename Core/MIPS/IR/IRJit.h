@@ -57,10 +57,14 @@ public:
 	void SetInstructions(const std::vector<IRInst> &inst, const std::vector<u32> &constants) {
 		instr_ = new IRInst[inst.size()];
 		numInstructions_ = (u16)inst.size();
-		memcpy(instr_, &inst[0], sizeof(IRInst) * inst.size());
+		if (!inst.empty()) {
+			memcpy(instr_, &inst[0], sizeof(IRInst) * inst.size());
+		}
 		const_ = new u32[constants.size()];
 		numConstants_ = (u16)constants.size();
-		memcpy(const_, &constants[0], sizeof(u32) * constants.size());
+		if (!constants.empty()) {
+			memcpy(const_, &constants[0], sizeof(u32) * constants.size());
+		}
 	}
 
 	const IRInst *GetInstructions() const { return instr_; }

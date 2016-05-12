@@ -4,6 +4,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 
 static const IRMeta irMeta[] = {
+	{ IROp::Nop, "Nop", "" },
 	{ IROp::SetConst, "SetConst", "GC" },
 	{ IROp::SetConstF, "SetConstF", "FC" },
 	{ IROp::Mov, "Mov", "GG" },
@@ -68,6 +69,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
 	{ IROp::FDiv, "FDiv", "FFF" },
+	{ IROp::FMin, "FMin", "FFF" },
+	{ IROp::FMax, "FMax", "FFF" },
 	{ IROp::FMov, "FMov", "FF" },
 	{ IROp::FSqrt, "FSqrt", "FF" },
 	{ IROp::FSin, "FSin", "FF" },
@@ -92,8 +95,15 @@ static const IRMeta irMeta[] = {
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
 
-	{ IROp::InitVec4, "InitVec4", "Fv" },
-	{ IROp::ShuffleVec4, "ShuffleVec4", "FFs" },
+	{ IROp::Vec4Init, "Vec4Init", "Fv" },
+	{ IROp::Vec4Shuffle, "Vec4Shuffle", "FFs" },
+	{ IROp::Vec4Mov, "Vec4Mov", "FF" },
+	{ IROp::Vec4Add, "Vec4Add", "FFF" },
+	{ IROp::Vec4Sub, "Vec4Sub", "FFF" },
+	{ IROp::Vec4Div, "Vec4Div", "FFF" },
+	{ IROp::Vec4Mul, "Vec4Mul", "FFF" },
+	{ IROp::Vec4Scale, "Vec4Scale", "FFF" },
+	{ IROp::Vec4Dot, "Vec4Dot", "FFF" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
@@ -219,7 +229,7 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		snprintf(buf, bufSize, "%s", initVec4Names[param]);
 		break;
 	case 's':
-		snprintf(buf, bufSize, "%s%s%s%s", xyzw[param & 3], xyzw[(param >> 2) & 3], xyzw[(param >> 4) & 3], xyzw[(param >> 6) & 3]);
+		snprintf(buf, bufSize, "%c%c%c%c", xyzw[param & 3], xyzw[(param >> 2) & 3], xyzw[(param >> 4) & 3], xyzw[(param >> 6) & 3]);
 		break;
 	case '_':
 	case '\0':

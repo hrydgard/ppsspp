@@ -2,6 +2,9 @@
 #include <smmintrin.h>
 #endif
 
+#include <algorithm>
+#include <cmath>
+
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -136,7 +139,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 
-		case IROp::InitVec4:
+		case IROp::Vec4Init:
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
 #else
@@ -144,12 +147,75 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 #endif
 			break;
 
-		case IROp::ShuffleVec4:
+		case IROp::Vec4Shuffle:
 		{
 			// Can't use the SSE shuffle here because it takes an immediate.
 			// Backends with SSE support could use that though.
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
+			break;
+		}
+
+		case IROp::Vec4Mov:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(&mips->f[inst->src1]));
+#else
+			memcpy(&mips->f[inst->dest], &mips->f[inst->src1], 4 * sizeof(float));
+#endif
+			break;
+
+		case IROp::Vec4Add:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] + mips->f[inst->src2 + i];
+#endif
+			break;
+
+		case IROp::Vec4Sub:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] - mips->f[inst->src2 + i];
+#endif
+			break;
+
+		case IROp::Vec4Mul:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
+#endif
+			break;
+
+		case IROp::Vec4Div:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_div_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] / mips->f[inst->src2 + i];
+#endif
+			break;
+
+		case IROp::Vec4Scale:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
+#endif
+			break;
+
+		// Not quickly implementable on all platforms, unfortunately.
+		case IROp::Vec4Dot:
+		{
+			float dot = mips->f[inst->src1] * mips->f[inst->src2];
+			for (int i = 1; i < 4; i++)
+				dot += mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
+			mips->f[inst->dest] = dot;
 			break;
 		}
 
@@ -298,6 +364,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::FDiv:
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
+			break;
+		case IROp::FMin:
+			mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
+			break;
+		case IROp::FMax:
+			mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
 			break;
 
 		case IROp::FMov:

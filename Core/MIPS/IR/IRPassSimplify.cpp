@@ -368,7 +368,13 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
-		case IROp::InitVec4:
+		case IROp::Vec4Init:
+		case IROp::Vec4Add:
+		case IROp::Vec4Sub:
+		case IROp::Vec4Mul:
+		case IROp::Vec4Div:
+		case IROp::Vec4Scale:
+		case IROp::Vec4Shuffle:
 			out.Write(inst);
 			break;
 

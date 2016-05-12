@@ -16,6 +16,8 @@
 // MIPS->target JITs.
 
 enum class IROp : u8 {
+	Nop,
+
 	SetConst,
 	SetConstF,
 
@@ -103,6 +105,8 @@ enum class IROp : u8 {
 	FSub,
 	FMul,
 	FDiv,
+	FMin,
+	FMax,
 
 	FMov,
 	FSqrt,
@@ -134,6 +138,10 @@ enum class IROp : u8 {
 	FCmpLessUnordered,
 	FCmpLessEqualOrdered,
 	FCmpLessEqualUnordered,
+	FCmpEqualZero,
+	FCmpNotEqualZero,
+
+	FCmovVfpuCC,
 
 	// Rounding Mode
 	RestoreRoundingMode,
@@ -145,8 +153,15 @@ enum class IROp : u8 {
 	// 4-wide instructions to assist SIMD.
 	// Can of course add a pass to break them up if a target does not
 	// support SIMD.
-	InitVec4,
-	ShuffleVec4,
+	Vec4Init,
+	Vec4Shuffle,
+	Vec4Mov,
+	Vec4Add,
+	Vec4Sub,
+	Vec4Mul,
+	Vec4Div,
+	Vec4Scale,
+	Vec4Dot,
 
 	// Slow special functions. Used on singles.
 	FSin,

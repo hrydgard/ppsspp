@@ -1801,8 +1801,7 @@ void Jit::Comp_Vf2i(MIPSOpcode op) {
 	const double *mult = &mulTableVf2i[imm];
 
 	int setMXCSR = -1;
-	switch ((op >> 21) & 0x1f)
-	{
+	switch ((op >> 21) & 0x1f) {
 	case 17:
 		break; //z - truncate. Easy to support.
 	case 16:

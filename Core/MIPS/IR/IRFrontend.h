@@ -95,7 +95,9 @@ private:
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
 
-	void EatPrefix() { js.EatPrefix(); }
+	void EatPrefix() override {
+		js.EatPrefix();
+	}
 
 	void FlushAll();
 	void FlushPrefixV();

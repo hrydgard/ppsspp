@@ -65,6 +65,26 @@ namespace MIPSComp {
 			     regs[3] == regs[2] + 1;
 	}
 
+	// Vector regs can overlap in all sorts of swizzled ways.
+	// This does allow a single overlap in sregs[i].
+	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+		for (int i = 0; i < sn; ++i) {
+			if (sregs[i] == dreg && i != di)
+				return false;
+		}
+		for (int i = 0; i < tn; ++i) {
+			if (tregs[i] == dreg)
+				return false;
+		}
+
+		// Hurray, no overlap, we can write directly.
+		return true;
+	}
+
+	static bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
+	}
+
 	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
@@ -146,17 +166,19 @@ namespace MIPSComp {
 
 	void IRFrontend::GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 		::GetMatrixRegs(regs, N, matrixReg);
-		// TODO
+		for (int i = 0; i < GetMatrixSide(N); i++) {
+			ApplyVoffset(regs + 4 * i, GetVectorSize(N));
+		}
 	}
 
 	void IRFrontend::GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
-		::GetVectorRegs(regs, sz, vectorReg);
+		GetVectorRegs(regs, sz, vectorReg);
 		ApplyPrefixST(regs, js.prefixS, sz, IRVTEMP_PFX_S);
 	}
 	void IRFrontend::GetVectorRegsPrefixT(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixTFlag & JitState::PREFIX_KNOWN);
-		::GetVectorRegs(regs, sz, vectorReg);
+		GetVectorRegs(regs, sz, vectorReg);
 		ApplyPrefixST(regs, js.prefixT, sz, IRVTEMP_PFX_T);
 	}
 
@@ -179,7 +201,8 @@ namespace MIPSComp {
 		return (prefix >> (i * 2)) & 3;
 	}
 
-	// "D" prefix is really a post process. No need to allocate a temporary register.
+	// "D" prefix is really a post process. No need to allocate a temporary register (except
+	// dummies to simulate writemask, which is done in GetVectorRegsPrefixD
 	void IRFrontend::ApplyPrefixD(const u8 *vregs, VectorSize sz) {
 		_assert_(js.prefixDFlag & JitState::PREFIX_KNOWN);
 		if (!js.prefixD)
@@ -263,17 +286,15 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int type = (op >> 16) & 0xF;
 		int vd = _VD;
-
+		int n = GetNumVectorElements(sz);
+		u8 dregs[4];
+		GetVectorRegs(dregs, sz, vd);
 		if (sz == 4 && IsVectorColumn(vd)) {
-			u8 dregs[4];
-			GetVectorRegs(dregs, sz, vd);
-			ir.Write(IROp::InitVec4, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
-		} else if (sz == 1) {
-			u8 dreg;
-			GetVectorRegs(&dreg, V_Single, vd);
-			ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
-			DISABLE;
+			for (int i = 0; i < n; i++) {
+				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+			}
 		}
 	}
 
@@ -293,7 +314,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, vd);
 		int row = vd & 3;
 		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
-		ir.Write(IROp::InitVec4, dregs[0], (int)init);
+		ir.Write(IROp::Vec4Init, dregs[0], (int)init);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
@@ -329,7 +350,7 @@ namespace MIPSComp {
 			default:
 				return;
 			}
-			ir.Write(IROp::InitVec4, vec[0], (int)init);
+			ir.Write(IROp::Vec4Init, vec[0], (int)init);
 		}
 		return;
 	}
@@ -345,24 +366,312 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VDot(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		int vs = _VS;
+		int vt = _VT;
+		VectorSize sz = GetVecSize(op);
+
+		// TODO: Force read one of them into regs? probably not.
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
+
+		int temp0 = IRVTEMP_0;
+		int temp1 = IRVTEMP_0 + 1;
+		ir.Write(IROp::FMul, temp0, sregs[0], tregs[0]);
+		int n = GetNumVectorElements(sz);
+		for (int i = 1; i < n; i++) {
+			ir.Write(IROp::FMul, temp1, sregs[i], tregs[i]);
+			ir.Write(IROp::FAdd, i == (n - 1) ? dregs[0] : temp0, temp0, temp1);
+		}
+		ApplyPrefixD(dregs, V_Single);
 	}
 
 	void IRFrontend::Comp_VecDo3(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		// Check that we can support the ops, and prepare temporary values for ops that need it.
+		bool allowSIMD = true;
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				break;
+			default:
+				DISABLE;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				break;
+			default:
+				DISABLE;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 7) {
+			case 2:  // vmin
+			case 3:  // vmax
+				allowSIMD = false;
+				break;
+			case 6:  // vsge
+			case 7:  // vslt
+				allowSIMD = false;
+				break;
+			default:
+				DISABLE;
+			}
+			break;
+		default:
+			DISABLE;
+			break;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		if (allowSIMD && sz == V_Quad && IsConsecutive4(sregs) && IsConsecutive4(dregs) && IsConsecutive4(sregs)) {
+			IROp opFunc = IROp::Nop;
+			bool symmetric = false;
+			switch (op >> 26) {
+			case 24: //VFPU0
+				switch ((op >> 23) & 7) {
+				case 0: // d[i] = s[i] + t[i]; break; //vadd
+					opFunc = IROp::Vec4Add;
+					symmetric = true;
+					break;
+				case 1: // d[i] = s[i] - t[i]; break; //vsub
+					opFunc = IROp::Vec4Sub;
+					break;
+				case 7: // d[i] = s[i] / t[i]; break; //vdiv
+					opFunc = IROp::Vec4Div;
+					break;
+				}
+				break;
+			case 25: //VFPU1
+				switch ((op >> 23) & 7)
+				{
+				case 0: // d[i] = s[i] * t[i]; break; //vmul
+					opFunc = IROp::Vec4Mul;
+					symmetric = true;
+					break;
+				}
+				break;
+			case 27: //VFPU3
+				switch ((op >> 23) & 7)
+				{
+				case 2:  // vmin
+				case 3:  // vmax
+				case 6:  // vsge
+				case 7:  // vslt
+					DISABLE;
+					break;
+				}
+				break;
+			}
+
+			if (opFunc != IROp::Nop) {
+				ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
+			}
+
+			ApplyPrefixD(dregs, sz);
+			return;
+		}
+
+		for (int i = 0; i < n; ++i) {
+			switch (op >> 26) {
+			case 24: //VFPU0
+				switch ((op >> 23) & 7) {
+				case 0: // d[i] = s[i] + t[i]; break; //vadd
+					ir.Write(IROp::FAdd, dregs[i], sregs[i], tregs[i]);
+					break;
+				case 1: // d[i] = s[i] - t[i]; break; //vsub
+					ir.Write(IROp::FSub, dregs[i], sregs[i], tregs[i]);
+					break;
+				case 7: // d[i] = s[i] / t[i]; break; //vdiv
+					ir.Write(IROp::FDiv, dregs[i], sregs[i], tregs[i]);
+					break;
+				}
+				break;
+			case 25: //VFPU1
+				switch ((op >> 23) & 7) {
+				case 0: // d[i] = s[i] * t[i]; break; //vmul
+					ir.Write(IROp::FMul, dregs[i], sregs[i], tregs[i]);
+					break;
+				}
+				break;
+			case 27: //VFPU3
+				switch ((op >> 23) & 7) {
+				case 2:  // vmin
+					ir.Write(IROp::FMin, dregs[i], sregs[i], tregs[i]);
+					break;
+				case 3:  // vmax
+					ir.Write(IROp::FMax, dregs[i], sregs[i], tregs[i]);
+					break;
+				case 6:  // vsge
+				case 7:  // vslt
+					DISABLE;
+					break;
+				}
+				break;
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
-		// Eliminate silly no-op VMOVs, common in Wipeout Pure
-		if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		int vs = _VS;
+		int vd = _VD;
+
+		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
+		if (((op >> 16) & 0x1f) == 0 && vs == vd && js.HasNoPrefix()) {
 			return;
 		}
-		DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixD(dregs, sz, vd);
+
+		bool canSIMD = false;
+		// Some can be SIMD'd.
+		switch ((op >> 16) & 0x1f) {
+		case 0:  // vmov
+			canSIMD = true;
+			break;
+		}
+
+		if (canSIMD && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+			switch ((op >> 16) & 0x1f) {
+			case 0:  // vmov
+				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
+				break;
+			}
+			ApplyPrefixD(dregs, sz);
+			return;
+		}
+
+		for (int i = 0; i < n; ++i) {
+			switch ((op >> 16) & 0x1f) {
+			case 0: // d[i] = s[i]; break; //vmov
+				// Probably for swizzle.
+				ir.Write(IROp::FMov, dregs[i], sregs[i]);
+				break;
+			case 1: // d[i] = fabsf(s[i]); break; //vabs
+				ir.Write(IROp::FAbs, dregs[i], sregs[i]);
+				break;
+			case 2: // d[i] = -s[i]; break; //vneg
+				ir.Write(IROp::FNeg, dregs[i], sregs[i]);
+				break;
+			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
+				ir.Write(IROp::FSat0_1, dregs[i], sregs[i]);
+				break;
+			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
+				ir.Write(IROp::FSatMinus1_1, dregs[i], sregs[i]);
+				break;
+			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
+				ir.Write(IROp::FRecip, dregs[i], sregs[i]);
+				break;
+			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
+				ir.Write(IROp::FRSqrt, dregs[i], sregs[i]);
+				break;
+			case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
+				ir.Write(IROp::FSin, dregs[i], sregs[i]);
+				break;
+			case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
+				ir.Write(IROp::FCos, dregs[i], sregs[i]);
+				break;
+			case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
+				DISABLE;
+				break;
+			case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
+				DISABLE;
+				break;
+			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
+				ir.Write(IROp::FSqrt, dregs[i], sregs[i]);
+				break;
+			case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
+				ir.Write(IROp::FAsin, dregs[i], sregs[i]);
+				break;
+			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
+				ir.Write(IROp::FRecip, dregs[i], sregs[i]);
+				ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				break;
+			case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
+				ir.Write(IROp::FSin, dregs[i], sregs[i]);
+				ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				break;
+			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
+			default:
+				DISABLE;
+				break;
+			}
+		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_Vi2f(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		const float mult = 1.0f / (float)(1UL << imm);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		int tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+		if (mult != 1.0f)
+			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(mult));
+		// TODO: Use the SCVTF with builtin scaling where possible.
+		for (int i = 0; i < n; i++) {
+			ir.Write(IROp::FCvtSW, tempregs[i], sregs[i]);
+			if (mult != 1.0f)
+				ir.Write(IROp::FMul, tempregs[i], tempregs[i], IRVTEMP_0);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
@@ -414,11 +723,115 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4], treg;
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		// TODO: Prefixes seem strange...
+		GetVectorRegsPrefixT(&treg, V_Single, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+			// In this case, there's zero danger of overlap.
+			ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+			ApplyPrefixD(dregs, sz);
+			return;
+		}
+
+		// For prefixes to work, we just have to ensure that none of the output registers spill
+		// and that there's no overlap.
+		int tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			// for vscl, it's fine if dregs[i] = sregs[i]
+			if (dregs[i] != sregs[i] && !IsOverlapSafe(dregs[i], i, n, sregs)) {
+				// Need to use temp regs
+				tempregs[i] = IRVTEMP_0 + i;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		for (int i = 0; i < n; i++) {
+			ir.Write(IROp::FMul, tempregs[i], sregs[i], treg);
+		}
+
+		for (int i = 0; i < n; i++) {
+			// All must be mapped for prefixes to work.
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
+	// This may or may not be a win when using the IR interpreter...
+	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
+
+		MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
+		MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
+
+		u8 sregs[16], tregs[16], dregs[16];
+		GetMatrixRegs(sregs, sz, _VS);
+		GetMatrixRegs(tregs, sz, _VT);
+		GetMatrixRegs(dregs, sz, _VD);
+
+		if (soverlap || toverlap) {
+			DISABLE;
+		}
+
+		if (sz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+			logBlocks = 1;
+			int s0 = IRVTEMP_0;
+			int s1 = IRVTEMP_PFX_T;
+			if (!IsConsecutive4(sregs)) {
+				for (int j = 0; j < 4; j++) {
+					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
+					for (int i = 1; i < 4; i++) {
+						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[j * 4 + i]);
+						ir.Write(IROp::Vec4Add, s0, s0, s1);
+					}
+					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
+				}
+				return;
+			} else {
+				for (int j = 0; j < 4; j++) {
+					for (int i = 0; i < 4; i++) {
+						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[j * 4]);
+					}
+					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
+				}
+				return;
+			}
+		} else {
+			// logBlocks = 1;
+		}
+
+		int temp0 = IRVTEMP_0;
+		int temp1 = IRVTEMP_0 + 1;
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				ir.Write(IROp::FMul, temp0, sregs[b * 4], tregs[a * 4]);
+				for (int c = 1; c < n; c++) {
+					ir.Write(IROp::FMul, temp1, sregs[b * 4 + c], tregs[a * 4 + c]);
+					ir.Write(IROp::FAdd, (c == n - 1) ? dregs[a * 4 + b] : temp0, temp0, temp1);
+				}
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
@@ -426,7 +839,78 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		MatrixSize msz = GetMtxSize(op);
+		int n = GetNumVectorElements(sz);
+		int ins = (op >> 23) & 7;
+
+		bool homogenous = false;
+		if (n == ins) {
+			n++;
+			sz = (VectorSize)((int)(sz)+1);
+			msz = (MatrixSize)((int)(msz)+1);
+			homogenous = true;
+		}
+		// Otherwise, n should already be ins + 1.
+		else if (n != ins + 1) {
+			DISABLE;
+		}
+
+		u8 sregs[16], dregs[4], tregs[4];
+		GetMatrixRegs(sregs, msz, _VS);
+		GetVectorRegs(tregs, sz, _VT);
+		GetVectorRegs(dregs, sz, _VD);
+
+		// SIMD-optimized implementations
+		if (msz == M_4x4 && !homogenous && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+			int s0 = IRVTEMP_0;
+			int s1 = IRVTEMP_PFX_T;
+			if (!IsConsecutive4(sregs)) {
+				ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
+				for (int i = 1; i < 4; i++) {
+					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
+					ir.Write(IROp::Vec4Add, s0, s0, s1);
+				}
+				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+				return;
+			} else {
+				for (int i = 0; i < 4; i++) {
+					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[0]);
+				}
+				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+				return;
+			}
+		} else if (msz == M_4x4) {
+			logBlocks = 1;
+		}
+
+		// TODO: test overlap, optimize.
+		int tempregs[4];
+		int s0 = IRVTEMP_0;
+		int temp1 = IRVTEMP_0 + 1;
+		for (int i = 0; i < n; i++) {
+			ir.Write(IROp::FMul, s0, sregs[i * 4], tregs[0]);
+			for (int k = 1; k < n; k++) {
+				if (!homogenous || k != n - 1) {
+					ir.Write(IROp::FMul, temp1, sregs[i * 4 + k], tregs[k]);
+					ir.Write(IROp::FAdd, s0, s0, temp1);
+				} else {
+					ir.Write(IROp::FAdd, s0, s0, sregs[i * 4 + k]);
+				}
+			}
+			int temp = IRVTEMP_PFX_T + i;
+			ir.Write(IROp::FMov, temp, s0);
+			tempregs[i] = temp;
+		}
+		for (int i = 0; i < n; i++) {
+			u8 temp = tempregs[i];
+			ir.Write(IROp::FMov, dregs[i], temp);
+		}
 	}
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
@@ -446,19 +930,53 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(tregs, sz, _VT);
+		GetVectorRegs(dregs, sz, _VD);
+
+		if (sz == V_Triple) {
+			int temp0 = IRVTEMP_0;
+			int temp1 = IRVTEMP_0 + 1;
+			// Compute X
+			ir.Write(IROp::FMul, temp0, sregs[1], tregs[2]);
+			ir.Write(IROp::FMul, temp1, sregs[2], tregs[1]);
+			ir.Write(IROp::FSub, dregs[0], temp0, temp1);
+
+			// Compute Y
+			ir.Write(IROp::FMul, temp0, sregs[2], tregs[0]);
+			ir.Write(IROp::FMul, temp1, sregs[0], tregs[2]);
+			ir.Write(IROp::FSub, dregs[1], temp0, temp1);
+
+			// Compute Z
+			ir.Write(IROp::FMul, temp0, sregs[0], tregs[1]);
+			ir.Write(IROp::FMul, temp1, sregs[1], tregs[0]);
+			ir.Write(IROp::FSub, dregs[2], temp0, temp1);
+		} else if (sz == V_Quad) {
+			DISABLE;
+		}
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {
+		// Fiendishly hard...
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vcmov(MIPSOpcode op) {
+		// Fiendishly hard...
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
-		if (!js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
@@ -469,11 +987,37 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {
-		DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		FP16 half;
+		half.u = op & 0xFFFF;
+		FP32 fval = half_to_float_fast5(half);
+
+		u8 dreg;
+		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
+		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(fval.f));
+		ApplyPrefixD(&dreg, V_Single);
 	}
 
 	void IRFrontend::Comp_Vcst(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		int conNum = (op >> 16) & 0x1f;
+		int vd = _VD;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 dregs[4];
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		for (int i = 0; i < n; i++) {
+			ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
+		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
