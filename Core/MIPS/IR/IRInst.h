@@ -131,15 +131,7 @@ enum class IROp : u8 {
 	VfpuCtrlToReg,
 
 	ZeroFpCond,
-	FCmpUnordered,
-	FCmpEqual,
-	FCmpEqualUnordered,
-	FCmpLessOrdered,
-	FCmpLessUnordered,
-	FCmpLessEqualOrdered,
-	FCmpLessEqualUnordered,
-	FCmpEqualZero,
-	FCmpNotEqualZero,
+	FCmp,
 
 	FCmovVfpuCC,
 
@@ -149,6 +141,8 @@ enum class IROp : u8 {
 	UpdateRoundingMode,
 
 	SetCtrlVFPU,
+	SetCtrlVFPUReg,
+	SetCtrlVFPUFReg,
 
 	// 4-wide instructions to assist SIMD.
 	// Can of course add a pass to break them up if a target does not
@@ -244,6 +238,17 @@ inline IROp ComparisonToExit(IRComparison comp) {
 		return IROp::Break;
 	}
 }
+
+enum IRFpCompareMode {
+	False = 0,
+	NotEqualUnordered,
+	EqualOrdered, // eq,  seq (equal, ordered)
+	EqualUnordered, // ueq, ngl (equal, unordered)
+	LessOrdered, // olt, lt (less than, ordered)
+	LessUnordered, // ult, nge (less than, unordered)
+	LessEqualOrdered, // ole, le (less equal, ordered)
+	LessEqualUnordered, // ule, ngt (less equal, unordered)
+};
 
 enum {
 	IRTEMP_0 = 192,

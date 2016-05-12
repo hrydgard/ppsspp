@@ -87,6 +87,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FFloor, "FFloor", "FF" },
 	{ IROp::FCvtWS, "FCvtWS", "FF" },
 	{ IROp::FCvtSW, "FCvtSW", "FF" },
+	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
@@ -94,6 +95,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
+	{ IROp::SetCtrlVFPUReg, "SetCtrlVFPUReg", "TC" },
+	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
 
 	{ IROp::Vec4Init, "Vec4Init", "Fv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "FFs" },
@@ -221,6 +224,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 		break;
 	case 'I':
 		snprintf(buf, bufSize, "%02x", param);
+		break;
+	case 'm':
+		snprintf(buf, bufSize, "%d", param);
 		break;
 	case 'T':
 		snprintf(buf, bufSize, "%s", vfpuCtrlNames[param]);

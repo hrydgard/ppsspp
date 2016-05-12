@@ -421,6 +421,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::FFloor:
 			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1]);
 			break;
+		case IROp::FCmp:
+			switch (inst->dest) {
+			case IRFpCompareMode::False:
+				mips->fpcond = 0;
+				break;
+			case IRFpCompareMode::EqualOrdered:
+			case IRFpCompareMode::EqualUnordered:
+				mips->fpcond = mips->f[inst->src1] == mips->f[inst->src2];
+				break;
+			case IRFpCompareMode::LessEqualOrdered:
+			case IRFpCompareMode::LessEqualUnordered:
+				mips->fpcond = mips->f[inst->src1] <= mips->f[inst->src2];
+				break;
+			case IRFpCompareMode::LessOrdered:
+			case IRFpCompareMode::LessUnordered:
+				mips->fpcond = mips->f[inst->src1] < mips->f[inst->src2];
+				break;
+			}
+			break;
 
 		case IROp::FCvtSW:
 			mips->f[inst->dest] = (float)mips->fs[inst->src1];
@@ -527,6 +546,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::SetCtrlVFPU:
 			mips->vfpuCtrl[inst->dest] = constPool[inst->src1];
+			break;
+
+		case IROp::SetCtrlVFPUReg:
+			mips->vfpuCtrl[inst->dest] = mips->r[inst->src1];
+			break;
+
+		case IROp::SetCtrlVFPUFReg:
+			memcpy(&mips->vfpuCtrl[inst->dest], &mips->f[inst->src1], 4);
 			break;
 
 		default:

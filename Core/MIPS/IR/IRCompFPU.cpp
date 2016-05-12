@@ -94,7 +94,7 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
-	DISABLE;  // IROps not yet implemented
+	CONDITIONAL_DISABLE;
 
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -105,35 +105,34 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 
 	int fs = _FS;
 	int ft = _FT;
-
-	IROp irOp;
+	IRFpCompareMode mode;
 	switch (opc) {
 	case 1:      // un,  ngle (unordered)
-		irOp = IROp::FCmpUnordered;
+		mode = IRFpCompareMode::NotEqualUnordered;
 		break;
 	case 2:      // eq,  seq (equal, ordered)
-		irOp = IROp::FCmpEqual;
+		mode = IRFpCompareMode::EqualOrdered;
 		break;
 	case 3:      // ueq, ngl (equal, unordered)
-		irOp = IROp::FCmpEqualUnordered;
+		mode = IRFpCompareMode::EqualUnordered;
 		return;
 	case 4:      // olt, lt (less than, ordered)
-		irOp = IROp::FCmpLessOrdered;
+		mode = IRFpCompareMode::LessOrdered;
 		break;
 	case 5:      // ult, nge (less than, unordered)
-		irOp = IROp::FCmpLessUnordered;
+		mode = IRFpCompareMode::LessUnordered;
 		break;
 	case 6:      // ole, le (less equal, ordered)
-		irOp = IROp::FCmpLessEqualOrdered;
+		mode = IRFpCompareMode::LessEqualOrdered;
 		break;
 	case 7:      // ule, ngt (less equal, unordered)
-		irOp = IROp::FCmpLessEqualUnordered;
+		mode = IRFpCompareMode::LessEqualUnordered;
 		break;
 	default:
-		Comp_Generic(op);
+		DISABLE;
 		return;
 	}
-	ir.Write(irOp, fs, ft);
+	ir.Write(IROp::FCmp, (int)mode, fs, ft);
 }
 
 void IRFrontend::Comp_FPU2op(MIPSOpcode op) {

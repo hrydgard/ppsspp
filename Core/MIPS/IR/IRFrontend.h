@@ -90,14 +90,14 @@ public:
 
 	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants);
 
+	void EatPrefix() override {
+		js.EatPrefix();
+	}
+
 private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
-
-	void EatPrefix() override {
-		js.EatPrefix();
-	}
 
 	void FlushAll();
 	void FlushPrefixV();

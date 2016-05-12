@@ -379,13 +379,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 
 		case IROp::ZeroFpCond:
-		case IROp::FCmpUnordered:
-		case IROp::FCmpEqual:
-		case IROp::FCmpEqualUnordered:
-		case IROp::FCmpLessOrdered:
-		case IROp::FCmpLessUnordered:
-		case IROp::FCmpLessEqualOrdered:
-		case IROp::FCmpLessEqualUnordered:
+		case IROp::FCmp:
 			gpr.MapDirty(IRREG_FPCOND);
 			goto doDefault;
 

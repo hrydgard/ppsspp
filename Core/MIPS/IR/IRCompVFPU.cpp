@@ -81,8 +81,8 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
-		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
+	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
@@ -364,7 +364,35 @@ namespace MIPSComp {
 	static const float MEMORY_ALIGNED16(vavg_table[4]) = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void IRFrontend::Comp_Vhoriz(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+		// We have to start at +0.000 in case any values are -0.000.
+		ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(0.0f));
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, sregs[i]);
+		}
+
+		switch ((op >> 16) & 31) {
+		case 6:  // vfad
+			ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
+			break;
+		case 7:  // vavg
+			ir.Write(IROp::SetConstF, IRVTEMP_0 + 1, ir.AddConstantFloat(vavg_table[n - 1]));
+			ir.Write(IROp::FMul, dregs[0], IRVTEMP_0, IRVTEMP_0 + 1);
+			break;
+		}
+
+		ApplyPrefixD(dregs, V_Single);
 	}
 
 	void IRFrontend::Comp_VDot(MIPSOpcode op) {
@@ -397,7 +425,6 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VecDo3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -449,10 +476,10 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		int tempregs[4];
+		u8 tempregs[4];
 		bool usingTemps = false;
 		for (int i = 0; i < n; i++) {
-			if (!IsOverlapSafe(dregs[i], i, n, sregs, n, tregs)) {
+			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
 				tempregs[i] = IRVTEMP_0 + i;
 				usingTemps = true;
 			} else {
@@ -460,7 +487,7 @@ namespace MIPSComp {
 			}
 		}
 
-		if (allowSIMD && sz == V_Quad && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs) && IsConsecutive4(sregs)) {
+		if (allowSIMD && sz == V_Quad && !usingTemps && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
 			IROp opFunc = IROp::Nop;
 			bool symmetric = false;
 			switch (op >> 26) {
@@ -502,6 +529,8 @@ namespace MIPSComp {
 
 			if (opFunc != IROp::Nop) {
 				ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
+			} else {
+				DISABLE;
 			}
 			ApplyPrefixD(dregs, sz);
 			return;
@@ -558,6 +587,10 @@ namespace MIPSComp {
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		if (js.HasUnknownPrefix())
 			DISABLE;
+		if (!js.HasNoPrefix()) {
+			logBlocks = 1;
+			//DISABLE;  // Something subtle is wrong.
+		}
 
 		int vs = _VS;
 		int vd = _VD;
@@ -577,7 +610,7 @@ namespace MIPSComp {
 		bool usingTemps = false;
 		int tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
 				usingTemps = true;
 				tempregs[i] = IRVTEMP_0 + i;
 			} else {
@@ -686,7 +719,7 @@ namespace MIPSComp {
 
 		int tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
 			} else {
 				tempregs[i] = dregs[i];
@@ -697,8 +730,11 @@ namespace MIPSComp {
 		// TODO: Use the SCVTF with builtin scaling where possible.
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::FCvtSW, tempregs[i], sregs[i]);
-			if (mult != 1.0f)
+		}
+		if (mult != 1.0f) {
+			for (int i = 0; i < n; i++) {
 				ir.Write(IROp::FMul, tempregs[i], tempregs[i], IRVTEMP_0);
+			}
 		}
 
 		for (int i = 0; i < n; ++i) {
@@ -718,6 +754,8 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f) {
@@ -727,7 +765,18 @@ namespace MIPSComp {
 				if (imm < 128) {  //R(rt) = VI(imm);
 					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
 				} else {
-					DISABLE;
+					switch (imm - 128) {
+					case VFPU_CTRL_DPREFIX:
+					case VFPU_CTRL_SPREFIX:
+					case VFPU_CTRL_TPREFIX:
+						FlushPrefixV();
+						break;
+					}
+					if (imm - 128 < 16) {
+						ir.Write(IROp::VfpuCtrlToReg, rt, imm - 128);
+					} else {
+						DISABLE;
+					}
 				}
 			}
 			break;
@@ -735,6 +784,8 @@ namespace MIPSComp {
 		case 7: // mtv
 			if (imm < 128) {
 				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
+			} else if ((imm - 128) < 16) {
+				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
 			} else {
 				DISABLE;
 			}
@@ -743,18 +794,105 @@ namespace MIPSComp {
 		default:
 			DISABLE;
 		}
+		// This op is marked not to auto-eat prefix so we must do it manually.
+		EatPrefix();
 	}
 
+	// Good above
+
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			//if (imm - 128 == VFPU_CTRL_CC) {
+			//	gpr.MapReg(MIPS_REG_VFPUCC, 0);
+			//	fp.FMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+			// } else {
+			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
+			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
+		}
 	}
 
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int vs = _VS;
+		int imm = op & 0xFF;
+		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+			ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		int vs = _VS;
+		int vd = _VD;
+		// This probably ignores prefixes for all sane intents and purposes.
+		if (vs == vd) {
+			// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
+			return;
+		}
+
+		MatrixSize sz = GetMtxSize(op);
+		if (sz != M_4x4) {
+			// logBlocks = true;
+			DISABLE;
+		}
+		int n = GetMatrixSide(sz);
+
+		u8 sregs[16], dregs[16];
+		GetMatrixRegs(sregs, sz, vs);
+		GetMatrixRegs(dregs, sz, vd);
+
+		// Rough overlap check.
+		switch (GetMatrixOverlap(vs, vd, sz)) {
+		case OVERLAP_EQUAL:
+			// In-place transpose
+			DISABLE;
+		case OVERLAP_PARTIAL:
+			DISABLE;
+		case OVERLAP_NONE:
+		default:
+			break;
+		}
+		if (IsMatrixTransposed(vd) == IsMatrixTransposed(vs) && sz == M_4x4) {
+			// Untranspose both matrices
+			if (IsMatrixTransposed(vd)) {
+				vd = TransposeMatrixReg(vd);
+				vs = TransposeMatrixReg(vs);
+			}
+			// Get the columns
+			u8 scols[4], dcols[4];
+			GetMatrixColumns(vs, sz, scols);
+			GetMatrixColumns(vd, sz, dcols);
+			for (int i = 0; i < 4; i++) {
+				u8 svec[4], dvec[4];
+				GetVectorRegs(svec, GetVectorSize(sz), scols[i]);
+				GetVectorRegs(dvec, GetVectorSize(sz), dcols[i]);
+				ir.Write(IROp::Vec4Mov, dvec[0], svec[0]);
+			}
+			return;
+		}
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				ir.Write(IROp::FMov, dregs[a * 4 + b], sregs[a * 4 + b]);
+			}
+		}
+	}
+
+	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
 		DISABLE;
+
+		// TODO: Tricky, can transpose
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
@@ -772,24 +910,25 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(&treg, V_Single, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
-			// In this case, there's zero danger of overlap.
-			ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
-			ApplyPrefixD(dregs, sz);
-			return;
-		}
-
+		bool overlap = false;
 		// For prefixes to work, we just have to ensure that none of the output registers spill
 		// and that there's no overlap.
 		int tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			// for vscl, it's fine if dregs[i] = sregs[i]
-			if (dregs[i] != sregs[i] && !IsOverlapSafe(dregs[i], i, n, sregs)) {
+			// Conservative, can be improved
+			if (treg == dregs[i] || !IsOverlapSafe(dregs[i], n, sregs)) {
 				// Need to use temp regs
 				tempregs[i] = IRVTEMP_0 + i;
+				overlap = true;
 			} else {
 				tempregs[i] = dregs[i];
 			}
+		}
+
+		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs) && !overlap) {
+			ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+			ApplyPrefixD(dregs, sz);
+			return;
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -866,7 +1005,7 @@ namespace MIPSComp {
 			}
 		} else if (sz == M_4x4) {
 			// Tekken 6 has a case here: MEE
-			logBlocks = 1;
+			// logBlocks = 1;
 		}
 
 		// Fallback. Expands a LOT
@@ -881,10 +1020,6 @@ namespace MIPSComp {
 				}
 			}
 		}
-	}
-
-	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
-		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
@@ -926,7 +1061,6 @@ namespace MIPSComp {
 						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
 						ir.Write(IROp::Vec4Add, s0, s0, s1);
 					} else {
-						logBlocks = 1;
 						ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 					}
 				}
@@ -1085,7 +1219,40 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
+		// interpreter. But whatever.
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		int tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRVTEMP_PFX_T;   // using IRTEMP0 for other things
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(1.0f));
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::FSub, tempregs[i], IRVTEMP_0, sregs[i]);
+		}
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {

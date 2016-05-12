@@ -34,7 +34,8 @@ namespace MIPSComp {
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
 	logBlocks = 0;
 	dontLogBlocks = 0;
-	js.startDefaultPrefix = startDefaultPrefix;
+	js.startDefaultPrefix = true;
+	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
 }
 
