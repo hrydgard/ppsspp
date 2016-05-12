@@ -1127,26 +1127,41 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
+		int tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
+				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
 		if (sz == V_Triple) {
 			int temp0 = IRVTEMP_0;
 			int temp1 = IRVTEMP_0 + 1;
 			// Compute X
 			ir.Write(IROp::FMul, temp0, sregs[1], tregs[2]);
 			ir.Write(IROp::FMul, temp1, sregs[2], tregs[1]);
-			ir.Write(IROp::FSub, dregs[0], temp0, temp1);
+			ir.Write(IROp::FSub, tempregs[0], temp0, temp1);
 
 			// Compute Y
 			ir.Write(IROp::FMul, temp0, sregs[2], tregs[0]);
 			ir.Write(IROp::FMul, temp1, sregs[0], tregs[2]);
-			ir.Write(IROp::FSub, dregs[1], temp0, temp1);
+			ir.Write(IROp::FSub, tempregs[1], temp0, temp1);
 
 			// Compute Z
 			ir.Write(IROp::FMul, temp0, sregs[0], tregs[1]);
 			ir.Write(IROp::FMul, temp1, sregs[1], tregs[0]);
-			ir.Write(IROp::FSub, dregs[2], temp0, temp1);
+			ir.Write(IROp::FSub, tempregs[2], temp0, temp1);
 		} else if (sz == V_Quad) {
 			DISABLE;
 		}
+
+		for (int i = 0; i < n; i++) {
+			if (tempregs[i] != dregs[i])
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+		}
+		// No D prefix supported
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {
@@ -1232,7 +1247,7 @@ namespace MIPSComp {
 		int tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T;   // using IRTEMP0 for other things
+				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
 			} else {
 				tempregs[i] = dregs[i];
 			}

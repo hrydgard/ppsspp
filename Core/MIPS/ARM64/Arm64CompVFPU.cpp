@@ -1297,6 +1297,8 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
 		if (!cpu_info.bNEON) {
 			DISABLE;
 		}
