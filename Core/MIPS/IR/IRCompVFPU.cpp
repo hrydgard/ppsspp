@@ -1082,25 +1082,25 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// SIMD-optimized implementations
-		if (msz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
+		if (msz == M_4x4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsConsecutive4(sregs)) {
+			if (!IsConsecutive4(tregs)) {
 				ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 				for (int i = 1; i < 4; i++) {
 					if (!homogenous || (i != n - 1)) {
-						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
+						ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
 						ir.Write(IROp::Vec4Add, s0, s0, s1);
 					} else {
-						ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
+						ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
 					}
 				}
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 				return;
 			} else if (!homogenous) {
 				for (int i = 0; i < 4; i++) {
-					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[0]);
+					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[0]);
 				}
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 				return;
