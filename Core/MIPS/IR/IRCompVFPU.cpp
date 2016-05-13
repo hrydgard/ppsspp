@@ -541,13 +541,11 @@ namespace MIPSComp {
 
 		if (allowSIMD && sz == V_Quad && !usingTemps && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
 			IROp opFunc = IROp::Nop;
-			bool symmetric = false;
 			switch (op >> 26) {
 			case 24: //VFPU0
 				switch ((op >> 23) & 7) {
 				case 0: // d[i] = s[i] + t[i]; break; //vadd
 					opFunc = IROp::Vec4Add;
-					symmetric = true;
 					break;
 				case 1: // d[i] = s[i] - t[i]; break; //vsub
 					opFunc = IROp::Vec4Sub;
@@ -562,7 +560,6 @@ namespace MIPSComp {
 				{
 				case 0: // d[i] = s[i] * t[i]; break; //vmul
 					opFunc = IROp::Vec4Mul;
-					symmetric = true;
 					break;
 				}
 				break;
@@ -1053,7 +1050,7 @@ namespace MIPSComp {
 			}
 		} else if (sz == M_4x4) {
 			// Tekken 6 has a case here: MEE
-			// logBlocks = 1;
+			logBlocks = 1;
 		}
 
 		// Fallback. Expands a LOT
@@ -1244,7 +1241,7 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		logBlocks = 1;
+		// logBlocks = 1;
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);

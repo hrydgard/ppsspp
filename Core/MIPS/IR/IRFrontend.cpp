@@ -257,7 +257,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
-		for (int i = 0; i < ir.GetInstructions().size(); i++) {
+		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], ir.GetConstants().data());
 			ILOG("%s", buf);
@@ -267,7 +267,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		ILOG("=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
-		for (int i = 0; i < code->GetInstructions().size(); i++) {
+		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], code->GetConstants().data());
 			ILOG("%s", buf);

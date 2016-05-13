@@ -73,7 +73,6 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 
 		int offset = (signed short)(op & 0xFFFF);
-		bool load = false;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
@@ -113,7 +112,6 @@ namespace MIPSComp {
 
 		case 34: //lwl
 		case 38: //lwr
-			load = true;
 		case 42: //swl
 		case 46: //swr
 			DISABLE;

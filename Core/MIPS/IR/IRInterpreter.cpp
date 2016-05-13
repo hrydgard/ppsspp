@@ -146,7 +146,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
 #else
-			memcpy(&mips->f[inst->dest + i], vec4InitValues[inst->src1], 4 * sizeof(float));
+			memcpy(&mips->f[inst->dest], vec4InitValues[inst->src1], 4 * sizeof(float));
 #endif
 			break;
 
@@ -247,16 +247,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::FCmpVfpuAggregate:
 		{
-			int mask = inst->dest;
+			u32 mask = inst->dest;
 			u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
 			int a = (cc & mask) ? 0x10 : 0x00;
 			int b = (cc & mask) == mask ? 0x20 : 0x00;
-			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | a | b;;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | a | b;
 		}
 			break;
 
 		case IROp::FCmovVfpuCC:
-			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0x7f)) & 1) == (inst->src2 >> 7)) {
+			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == (inst->src2 >> 7)) {
 				mips->f[inst->dest] = mips->f[inst->src1];
 			}
 			break;

@@ -192,7 +192,6 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	int offset = _IMM16 << 2;
 	u32 targetAddr = GetCompilerPC() + offset + 4;
 
-	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	ir.Write(IROp::FpCondToReg, IRTEMP_LHS);
 	if (!likely)
 		CompileDelaySlot();
