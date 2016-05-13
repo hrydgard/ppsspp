@@ -483,7 +483,9 @@ namespace MIPSComp {
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
+
 		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 
 		// TODO: Force read one of them into regs? probably not.
 		u8 sregs[4], tregs[4], dregs[1];
@@ -491,10 +493,15 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
+		if (sz == V_Quad && IsConsecutive4(sregs) && IsConsecutive4(tregs) && IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
+			ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
+			ApplyPrefixD(dregs, V_Single);
+			return;
+		}
+
 		int temp0 = IRVTEMP_0;
 		int temp1 = IRVTEMP_0 + 1;
 		ir.Write(IROp::FMul, temp0, sregs[0], tregs[0]);
-		int n = GetNumVectorElements(sz);
 		for (int i = 1; i < n; i++) {
 			ir.Write(IROp::FMul, temp1, sregs[i], tregs[i]);
 			ir.Write(IROp::FAdd, i == (n - 1) ? dregs[0] : temp0, temp0, temp1);
@@ -681,7 +688,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool usingTemps = false;
-		int tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
 				usingTemps = true;
@@ -790,7 +797,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		int tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;  // Need IRVTEMP_0 for the scaling factor
@@ -976,31 +983,35 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
 		u8 sregs[4], dregs[4], treg;
-		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixS(sregs, sz, vs);
 		// TODO: Prefixes seem strange...
-		GetVectorRegsPrefixT(&treg, V_Single, _VT);
-		GetVectorRegsPrefixD(dregs, sz, _VD);
+		GetVectorRegsPrefixT(&treg, V_Single, vt);
+		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		bool overlap = false;
 		// For prefixes to work, we just have to ensure that none of the output registers spill
 		// and that there's no overlap.
-		int tempregs[4];
+		u8 tempregs[4];
+		memcpy(tempregs, dregs, sizeof(tempregs));
 		for (int i = 0; i < n; ++i) {
 			// Conservative, can be improved
 			if (treg == dregs[i] || !IsOverlapSafe(dregs[i], n, sregs)) {
 				// Need to use temp regs
 				tempregs[i] = IRVTEMP_0 + i;
 				overlap = true;
-			} else {
-				tempregs[i] = dregs[i];
 			}
 		}
 
-		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs) && !overlap) {
-			ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
-			ApplyPrefixD(dregs, sz);
-			return;
+		if (n == 4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+			if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
+				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+				ApplyPrefixD(dregs, sz);
+				return;
+			}
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1016,6 +1027,21 @@ namespace MIPSComp {
 
 		ApplyPrefixD(dregs, sz);
 	}
+
+	/*
+	// Capital = straight, lower case = transposed
+	// 8 possibilities:
+	ABC   2
+	ABc   missing
+	AbC   1
+	Abc   1
+
+	aBC = ACB    2 + swap
+	aBc = AcB    1 + swap
+	abC = ACb    missing
+	abc = Acb    1 + swap
+
+	*/
 
 	// This may or may not be a win when using the IR interpreter...
 	// Many more instructions to interpret.
@@ -1035,7 +1061,7 @@ namespace MIPSComp {
 		MatrixOverlapType toverlap = GetMatrixOverlap(vt, vd, sz);
 
 		// A very common arrangment. Rearrange to something we can handle.
-		if (IsMatrixTransposed(vd) && !IsMatrixTransposed(vs) && IsMatrixTransposed(vt)) {
+		if (IsMatrixTransposed(vd)) {
 			// Matrix identity says (At * Bt) = (B * A)t
 			// D = S * T
 			// Dt = (S * T)t = (Tt * St)
@@ -1051,12 +1077,16 @@ namespace MIPSComp {
 		if (soverlap || toverlap) {
 			DISABLE;
 		}
-		if (sz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+
+		// dregs are always consecutive, thanks to our transpose trick.
+		// However, not sure this is always worth it.
+		if (sz == M_4x4 && IsConsecutive4(dregs)) {
 			// TODO: The interpreter would like proper matrix ops better. Can generate those, and
 			// expand them like this as needed on "real" architectures.
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
 			if (!IsConsecutive4(sregs)) {
+				// METHOD 1: Handles AbC and Abc
 				for (int j = 0; j < 4; j++) {
 					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
 					for (int i = 1; i < 4; i++) {
@@ -1066,7 +1096,10 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
 				return;
-			} else {
+			} else if (IsConsecutive4(tregs)) {
+				// METHOD 2: Handles ABC only. Not efficient on CPUs that don't do fast dots.
+				// Dots only work if tregs are consecutive.
+				// TODO: Skip this and resort to method one and transpose the output?
 				for (int j = 0; j < 4; j++) {
 					for (int i = 0; i < 4; i++) {
 						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[j * 4]);
@@ -1074,10 +1107,11 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
 				return;
+			} else {
+				// ABc - s consecutive, t not.
+				// Tekken uses this.
+				// logBlocks = 1;
 			}
-		} else if (sz == M_4x4) {
-			// Tekken 6 has a case here: MEE
-			// logBlocks = 1;
 		}
 
 		// Fallback. Expands a LOT
@@ -1126,44 +1160,50 @@ namespace MIPSComp {
 		if (msz == M_4x4 && IsConsecutive4(sregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsConsecutive4(tregs)) {
-				ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
-				for (int i = 1; i < 4; i++) {
-					if (!homogenous || (i != n - 1)) {
-						ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
-						ir.Write(IROp::Vec4Add, s0, s0, s1);
-					} else {
-						ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
-					}
-				}
-
-				if (IsConsecutive4(dregs)) {
-					ir.Write(IROp::Vec4Mov, dregs[0], s0);
+			// For this algorithm, we don't care if tregs are consecutive or not,
+			// they are accessed one at a time. This handles homogenous transforms correctly, as well.
+			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
+			for (int i = 1; i < 4; i++) {
+				if (!homogenous || (i != n - 1)) {
+					ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
+					ir.Write(IROp::Vec4Add, s0, s0, s1);
 				} else {
-					for (int i = 0; i < 4; i++) {
-						ir.Write(IROp::FMov, dregs[i], s0 + i);
-					}
+					ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
 				}
-				return;
-			} else if (!homogenous) {
-				for (int i = 0; i < 4; i++) {
-					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[0]);
-				}
-				if (IsConsecutive4(dregs)) {
-					ir.Write(IROp::Vec4Mov, dregs[0], s0);
-				} else {
-					for (int i = 0; i < 4; i++) {
-						ir.Write(IROp::FMov, dregs[i], s0 + i);
-					}
-				}
-				return;
 			}
-		} else if (msz == M_4x4) {
-			// logBlocks = 1;
+			if (IsConsecutive4(dregs)) {
+				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+			} else {
+				for (int i = 0; i < 4; i++) {
+					ir.Write(IROp::FMov, dregs[i], s0 + i);
+				}
+			}
+			return;
+		} else if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+			int s0 = IRVTEMP_0;
+			int s1 = IRVTEMP_PFX_S;
+			// Doesn't make complete sense to me why this works....
+			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
+			for (int i = 1; i < 4; i++) {
+				if (!homogenous || (i != n - 1)) {
+					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
+					ir.Write(IROp::Vec4Add, s0, s0, s1);
+				} else {
+					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
+				}
+			}
+			if (IsConsecutive4(dregs)) {
+				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+			} else {
+				for (int i = 0; i < 4; i++) {
+					ir.Write(IROp::FMov, dregs[i], s0 + i);
+				}
+			}
+			return;
 		}
 
 		// TODO: test overlap, optimize.
-		int tempregs[4];
+		u8 tempregs[4];
 		int s0 = IRVTEMP_0;
 		int temp1 = IRVTEMP_0 + 1;
 		for (int i = 0; i < n; i++) {
@@ -1216,7 +1256,7 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		int tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
@@ -1383,7 +1423,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		int tempregs[4];
+		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
 				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things

@@ -4,6 +4,27 @@
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 
+void WriteInstWithConstants(const IRWriter &in, IRWriter &out, const u32 *constants, IRInst inst) {
+	// Remap constants to the new reality
+	const IRMeta *m = GetIRMeta(inst.op);
+	switch (m->types[0]) {
+	case 'C':
+		inst.dest = out.AddConstant(constants[inst.dest]);
+		break;
+	}
+	switch (m->types[1]) {
+	case 'C':
+		inst.src1 = out.AddConstant(constants[inst.src1]);
+		break;
+	}
+	switch (m->types[2]) {
+	case 'C':
+		inst.src2 = out.AddConstant(constants[inst.src2]);
+		break;
+	}
+	out.Write(inst);
+}
+
 u32 Evaluate(u32 a, u32 b, IROp op) {
 	switch (op) {
 	case IROp::Add: case IROp::AddConst: return a + b;
@@ -96,12 +117,7 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 }
 
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
-	//FMovToGPR a0, f12
-	//FMovFromGPR f14, a0
-	// to
-	//FMovToGPR a0, f12
-	//FMov f14, f12
-
+	const u32 *constants = in.GetConstants().data();
 	bool logBlocks = false;
 	IRInst prev;
 	prev.op = IROp::Nop;
@@ -109,6 +125,11 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 		IRInst inst = in.GetInstructions()[i];
 		switch (inst.op) {
 		case IROp::FMovFromGPR:
+			//FMovToGPR a0, f12
+			//FMovFromGPR f14, a0
+			// to
+			//FMovToGPR a0, f12
+			//FMov f14, f12
 			if (prev.op == IROp::FMovToGPR && prev.dest == inst.src1) {
 				inst.op = IROp::FMov;
 				inst.src1 = prev.src1;
@@ -118,15 +139,31 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 
-		default:
+		// This will need to scan forward or keep track of more information to be useful.
+		// Just doing one isn't.
+		/*
+		case IROp::LoadVec4:
+			// AddConst a0, sp, 0x30
+			// LoadVec4 v16, a0, 0x0
+			// to
+			// AddConst a0, sp, 0x30
+			// LoadVec4 v16, sp, 0x30 
+			if (prev.op == IROp::AddConst && prev.dest == inst.src1 && prev.dest != prev.src1 && prev.src1 == MIPS_REG_SP) {
+				inst.src2 = out.AddConstant(constants[prev.src2] + constants[inst.src2]);
+				inst.src1 = prev.src1;
+				logBlocks = 1;
+			} else {
+				goto doDefault;
+			}
 			out.Write(inst);
+			break;
+		*/
+		default:
+		doDefault:
+			WriteInstWithConstants(in, out, constants, inst);
 			break;
 		}
 		prev = inst;
-	}
-	// Can reuse the old constants array - not touching constants in this pass.
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
 	}
 	return logBlocks;
 }
@@ -495,24 +532,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		doDefaultAndFlush:
 			gpr.FlushAll();
 		doDefault:
-			// Remap constants to the new reality
-			const IRMeta *m = GetIRMeta(inst.op);
-			switch (m->types[0]) {
-			case 'C':
-				inst.dest = out.AddConstant(constants[inst.dest]);
-				break;
-			}
-			switch (m->types[1]) {
-			case 'C':
-				inst.src1 = out.AddConstant(constants[inst.src1]);
-				break;
-			}
-			switch (m->types[2]) {
-			case 'C':
-				inst.src2 = out.AddConstant(constants[inst.src2]);
-				break;
-			}
-			out.Write(inst);
+			WriteInstWithConstants(in, out, constants, inst);
 			break;
 		}
 		}
