@@ -10,6 +10,8 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/System.h"
+#include "Core/CoreTiming.h"
 
 #include "math/math_util.h"
 #include "Common/CommonTypes.h"
@@ -583,6 +585,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		{
 			MIPSOpcode op(constPool[inst->src1]);
 			CallSyscall(op);
+			if (coreState != CORE_RUNNING)
+				CoreTiming::ForceCheck();
 			return mips->pc;
 		}
 
