@@ -47,11 +47,12 @@
 
 #define LOOPOPTIMIZATION 0
 
+#define MIPS_IS_BREAK(op) (((op) & 0xFC00003F) == 13)
+
 using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	using namespace Arm64Gen;
 
 void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	if (js.inDelaySlot) {
@@ -65,6 +66,16 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	MIPSOpcode delaySlotOp = GetOffsetInstruction(1);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
+
+	// Often, div/divu are followed by a likely "break" if the divisor was zero.
+	// Stalling is not really useful for us, so we optimize this out.
+	if (likely && offset == 4 && MIPS_IS_BREAK(delaySlotOp)) {
+		// Okay, let's not actually branch at all.  We're done here.
+		EatInstruction(delaySlotOp);
+		// Let's not double-count the downcount, though.
+		js.downcountAmount--;
+		return;
+	}
 
 	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
@@ -136,7 +147,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 }
 
 void IRFrontend::Comp_RelBranch(MIPSOpcode op) {
-	// The CC flags here should be opposite of the actual branch becuase they skip the branching action.
+	// The CC flags here should be opposite of the actual branch because they skip the branching action.
 	switch (op >> 26) {
 	case 4: BranchRSRTComp(op, IRComparison::NotEqual, false); break;//beq
 	case 5: BranchRSRTComp(op, IRComparison::Equal, false); break;//bne
