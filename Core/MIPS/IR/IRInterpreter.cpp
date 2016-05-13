@@ -208,7 +208,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2];
 #endif
 			break;
 
