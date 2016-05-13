@@ -292,14 +292,16 @@ namespace MIPSComp {
 		int vd = _VD;
 		int n = GetNumVectorElements(sz);
 		u8 dregs[4];
-		GetVectorRegs(dregs, sz, vd);
-		if (sz == 4 && IsVectorColumn(vd)) {
+		GetVectorRegsPrefixD(dregs, sz, vd);
+
+		if (sz == V_Quad && IsConsecutive4(dregs)) {
 			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
 			for (int i = 0; i < n; i++) {
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
 			}
 		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
@@ -313,14 +315,16 @@ namespace MIPSComp {
 		if (sz != V_Quad)
 			DISABLE;
 
-		if (!IsVectorColumn(vd))
-			DISABLE;
-
 		u8 dregs[4];
-		GetVectorRegs(dregs, sz, vd);
+		GetVectorRegsPrefixD(dregs, sz, vd);
+		if (!IsConsecutive4(dregs)) {
+			DISABLE;
+		}
 		int row = vd & 3;
+		// Might not be consecutive if masked.
 		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
 		ir.Write(IROp::Vec4Init, dregs[0], (int)init);
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
@@ -794,7 +798,7 @@ namespace MIPSComp {
 		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
 						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
-			if (rt != 0) {
+			if (rt != MIPS_REG_ZERO) {
 				if (imm < 128) {  //R(rt) = VI(imm);
 					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
 				} else {
