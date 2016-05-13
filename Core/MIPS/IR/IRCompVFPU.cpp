@@ -223,6 +223,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SV(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
@@ -241,6 +242,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SVQ(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		int imm = (signed short)(op & 0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 		MIPSGPReg rs = _RS;
@@ -280,6 +282,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -300,6 +303,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -320,6 +324,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		MatrixSize sz = GetMtxSize(op);
 		if (sz != M_4x4) {
 			DISABLE;
@@ -616,6 +621,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
