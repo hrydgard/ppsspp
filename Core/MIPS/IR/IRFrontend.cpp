@@ -232,8 +232,10 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	IRWriter *code = &ir;
 	if (true) {
 		static const IRPassFunc passes[] = {
+			&OptimizeFPMoves,
 			&PropagateConstants,
 			&PurgeTemps,
+			// &ThreeOpToTwoOp,
 		};
 		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
 			logBlocks = 1;
@@ -285,6 +287,5 @@ void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
-
 
 }  // namespace

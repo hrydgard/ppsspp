@@ -95,6 +95,114 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 	return logBlocks;
 }
 
+bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
+	//FMovToGPR a0, f12
+	//FMovFromGPR f14, a0
+	// to
+	//FMovToGPR a0, f12
+	//FMov f14, f12
+
+	const u32 *constants = in.GetConstants().data();
+	bool logBlocks = false;
+	IRInst prev;
+	prev.op = IROp::Nop;
+	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
+		IRInst inst = in.GetInstructions()[i];
+		switch (inst.op) {
+		case IROp::FMovFromGPR:
+			if (prev.op == IROp::FMovToGPR && prev.dest == inst.src1) {
+				inst.op = IROp::FMov;
+				inst.src1 = prev.src1;
+				out.Write(inst);
+				logBlocks = true;
+			} else {
+				out.Write(inst);
+			}
+			break;
+		default:
+			// Remap constants to the new reality
+			const IRMeta *m = GetIRMeta(inst.op);
+			switch (m->types[0]) {
+			case 'C':
+				inst.dest = out.AddConstant(constants[inst.dest]);
+				break;
+			}
+			switch (m->types[1]) {
+			case 'C':
+				inst.src1 = out.AddConstant(constants[inst.src1]);
+				break;
+			}
+			switch (m->types[2]) {
+			case 'C':
+				inst.src2 = out.AddConstant(constants[inst.src2]);
+				break;
+			}
+			out.Write(inst);
+			break;
+		}
+		prev = inst;
+	}
+	return logBlocks;
+}
+
+// Might be useful later on x86.
+bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
+	const u32 *constants = in.GetConstants().data();
+	bool logBlocks = false;
+	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
+		IRInst inst = in.GetInstructions()[i];
+		const IRMeta *meta = GetIRMeta(inst.op);
+		switch (inst.op) {
+		case IROp::Sub:
+		case IROp::Slt:
+		case IROp::SltU:
+		case IROp::Add:
+		case IROp::And:
+		case IROp::Or:
+		case IROp::Xor:
+			if (inst.src1 != inst.dest && inst.src2 != inst.dest) {
+				out.Write(IROp::Mov, inst.dest, inst.src1);
+				out.Write(inst.op, inst.dest, inst.dest, inst.src2);
+			} else {
+				out.Write(inst);
+			}
+			break;
+		case IROp::FMul:
+		case IROp::FAdd:
+			if (inst.src1 != inst.dest && inst.src2 != inst.dest) {
+				out.Write(IROp::FMov, inst.dest, inst.src1);
+				out.Write(inst.op, inst.dest, inst.dest, inst.src2);
+			} else {
+				out.Write(inst);
+			}
+			break;
+		default:
+		{
+			// Remap constants to the new reality
+			const IRMeta *m = GetIRMeta(inst.op);
+			switch (m->types[0]) {
+			case 'C':
+				inst.dest = out.AddConstant(constants[inst.dest]);
+				break;
+			}
+			switch (m->types[1]) {
+			case 'C':
+				inst.src1 = out.AddConstant(constants[inst.src1]);
+				break;
+			}
+			switch (m->types[2]) {
+			case 'C':
+				inst.src2 = out.AddConstant(constants[inst.src2]);
+				break;
+			}
+			out.Write(inst);
+			break;
+		}
+		}
+	}
+	return logBlocks;
+}
+
 bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	IRRegCache gpr(&out);
 

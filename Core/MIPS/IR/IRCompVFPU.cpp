@@ -1221,12 +1221,11 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		VCondition cond = (VCondition)(op & 0xF);
-
 		u8 sregs[4], tregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 
+		VCondition cond = (VCondition)(op & 0xF);
 		int mask = 0;
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::FCmpVfpuBit, cond | (i << 4), sregs[i], tregs[i]);
