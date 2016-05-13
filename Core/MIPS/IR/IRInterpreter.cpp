@@ -226,6 +226,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			case VC_GE: result = mips->f[inst->src1] >= mips->f[inst->src2]; break;
 			case VC_EZ: result = mips->f[inst->src1] == 0.0f; break;
 			case VC_NZ: result = mips->f[inst->src1] != 0.0f; break;
+			case VC_EN: result = my_isnan(mips->f[inst->src1]); break;
+			case VC_NN: result = !my_isnan(mips->f[inst->src1]); break;
+			case VC_EI: result = my_isinf(mips->f[inst->src1]); break;
+			case VC_NI: result = !my_isinf(mips->f[inst->src1]); break;
+			case VC_ES: result = my_isnanorinf(mips->f[inst->src1]); break;
+			case VC_NS: result = !my_isnanorinf(mips->f[inst->src1]); break;
 			case VC_TR: result = 1; break;
 			case VC_FL: result = 0; break;
 			default:
