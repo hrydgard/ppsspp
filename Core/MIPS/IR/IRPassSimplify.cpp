@@ -529,7 +529,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 			break;
 		}
 
-		// TODO: VFPU temps?
+		// TODO: VFPU temps?  Especially for masked dregs.
 
 		insts.push_back(inst);
 	}

@@ -312,18 +312,30 @@ namespace MIPSComp {
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Quad)
-			DISABLE;
-
 		u8 dregs[4];
 		GetVectorRegsPrefixD(dregs, sz, vd);
-		if (!IsConsecutive4(dregs)) {
-			DISABLE;
+
+		if (sz == 4 && IsConsecutive4(dregs)) {
+			int row = vd & 3;
+			Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
+			ir.Write(IROp::Vec4Init, dregs[0], (int)init);
+		} else {
+			switch (sz) {
+			case V_Pair:
+				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 1) == 0 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 1) == 1 ? 1.0f : 0.0f));
+				break;
+			case V_Quad:
+				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 3) == 0 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 3) == 1 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[2], ir.AddConstantFloat((vd & 3) == 2 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[3], ir.AddConstantFloat((vd & 3) == 3 ? 1.0f : 0.0f));
+				break;
+			default:
+				DISABLE;
+			}
 		}
-		int row = vd & 3;
-		// Might not be consecutive if masked.
-		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
-		ir.Write(IROp::Vec4Init, dregs[0], (int)init);
+
 		ApplyPrefixD(dregs, sz);
 	}
 
