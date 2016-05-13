@@ -523,7 +523,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			return constPool[inst->dest];
 
 		case IROp::ExitToReg:
-			return mips->r[inst->dest];
+			return mips->r[inst->src1];
 
 		case IROp::ExitToConstIfEq:
 			if (mips->r[inst->src1] == mips->r[inst->src2])

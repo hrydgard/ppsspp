@@ -119,7 +119,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::ExitToConstIfGeZ, "ExitIfGeZ", "CG", IRFLAG_EXIT },
 	{ IROp::ExitToConstIfLeZ, "ExitIfLeZ", "CG", IRFLAG_EXIT },
 	{ IROp::ExitToConstIfLtZ, "ExitIfLtZ", "CG", IRFLAG_EXIT },
-	{ IROp::ExitToReg, "ExitToReg", "G", IRFLAG_EXIT | IRFLAG_SRC3 },
+	{ IROp::ExitToReg, "ExitToReg", "_G", IRFLAG_EXIT },
 	{ IROp::Syscall, "Syscall", "_C", IRFLAG_EXIT },
 	{ IROp::Break, "Break", "", IRFLAG_EXIT},
 	{ IROp::SetPC, "SetPC", "_G" },
