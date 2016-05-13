@@ -462,19 +462,45 @@ int IRDestGPR(const IRInst &inst) {
 }
 
 bool PurgeTemps(const IRWriter &in, IRWriter &out) {
-	IRRegCache gpr(&out);
+	std::vector<IRInst> insts;
+	insts.reserve(in.GetInstructions().size());
 
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
-	}
+	struct Check {
+		Check(int r, int i, bool rbx) : reg(r), index(i), readByExit(rbx) {
+		}
+
+		int reg;
+		int index;
+		bool readByExit;
+	};
+	std::vector<Check> checks;
 
 	bool logBlocks = false;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		const IRInst &inst = in.GetInstructions()[i];
+		const IRMeta *m = GetIRMeta(inst.op);
+
+		for (Check &check : checks) {
+			if (check.reg == 0) {
+				continue;
+			}
+
+			if (IRReadsFromGPR(inst, check.reg)) {
+				// Read from, so we can't optimize out.
+				check.reg = 0;
+			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
+				check.reg = 0;
+			} else if (IRDestGPR(inst) == check.reg) {
+				// Clobbered, we can optimize out.
+				// This happens sometimes with temporaries used for constant addresses.
+				insts[check.index].op = IROp::Mov;
+				insts[check.index].dest = 0;
+				insts[check.index].src1 = 0;
+				check.reg = 0;
+			}
+		}
 
 		int dest = IRDestGPR(inst);
-		bool read = true;
-		bool readByExit = true;
 		switch (dest) {
 		case IRTEMP_0:
 		case IRTEMP_1:
@@ -482,45 +508,98 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 		case IRTEMP_RHS:
 			// Unlike other ops, these don't need to persist between blocks.
 			// So we consider them not read unless proven read.
-			read = false;
-			readByExit = false;
-			// Intentional fall-through.
+			checks.push_back(Check(dest, i, false));
+			break;
 
 		default:
 			if (dest > IRTEMP_RHS) {
 				// These might sometimes be implicitly read/written by other instructions.
 				break;
 			}
-			for (int j = i + 1; j < n; j++) {
-				const IRInst &laterInst = in.GetInstructions()[j];
-				const IRMeta *m = GetIRMeta(laterInst.op);
-				if (IRReadsFromGPR(laterInst, dest)) {
-					// Read from, so we can't optimize out.
-					read = true;
-					break;
-				}
-				if (readByExit && (m->flags & IRFLAG_EXIT) != 0) {
-					read = true;
-					break;
-				}
-
-				if (IRDestGPR(laterInst) == dest) {
-					// Clobbered, we can optimize out.
-					// This happens sometimes with temporaries used for constant addresses.
-					read = false;
-					break;
-				}
-			}
+			checks.push_back(Check(dest, i, true));
 			break;
 
 		// Not a GPR output.
+		case 0:
 		case -1:
 			break;
 		}
 
 		// TODO: VFPU temps?
 
-		if (read) {
+		insts.push_back(inst);
+	}
+
+	for (Check &check : checks) {
+		if (!check.readByExit && check.reg > 0) {
+			insts[check.index].op = IROp::Mov;
+			insts[check.index].dest = 0;
+			insts[check.index].src1 = 0;
+		}
+	}
+
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
+	}
+	for (const IRInst &inst : insts) {
+		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
+			out.Write(inst);
+		}
+	}
+
+	return logBlocks;
+}
+
+bool ReduceLoads(const IRWriter &in, IRWriter &out) {
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
+	}
+
+	// This tells us to skip an AND op that has been optimized out.
+	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
+	int nextSkip = -1;
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+
+		if (inst.op == IROp::Load32 || inst.op == IROp::Load16 || inst.op == IROp::Load16Ext) {
+			int dest = IRDestGPR(inst);
+			for (int j = i + 1; j < n; j++) {
+				const IRInst &laterInst = in.GetInstructions()[j];
+				const IRMeta *m = GetIRMeta(laterInst.op);
+
+				if ((m->flags & IRFLAG_EXIT) != 0) {
+					// Exit, so we can't do the optimization.
+					break;
+				}
+				if (IRReadsFromGPR(laterInst, dest)) {
+					if (IRDestGPR(laterInst) == dest && laterInst.op == IROp::AndConst) {
+						const u32 mask = in.GetConstants()[laterInst.src2];
+						// Here we are, maybe we can reduce the load size based on the mask.
+						if ((mask & 0xffffff00) == 0) {
+							inst.op = IROp::Load8;
+							if (mask == 0xff) {
+								nextSkip = j;
+							}
+						} else if ((mask & 0xffff0000) == 0 && inst.op == IROp::Load32) {
+							inst.op = IROp::Load16;
+							if (mask == 0xffff) {
+								nextSkip = j;
+							}
+						}
+					}
+					// If it was read, we can't do the optimization.
+					break;
+				}
+				if (IRDestGPR(laterInst) == dest) {
+					// Someone else wrote, so we can't do the optimization.
+					break;
+				}
+			}
+		}
+
+		if (i != nextSkip) {
 			out.Write(inst);
 		}
 	}
