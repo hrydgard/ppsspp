@@ -85,7 +85,7 @@ namespace MIPSComp {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
-	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
+	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;

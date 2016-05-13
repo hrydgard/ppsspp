@@ -369,10 +369,12 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			break;
 
 		case IROp::Vec4Init:
+		case IROp::Vec4Mov:
 		case IROp::Vec4Add:
 		case IROp::Vec4Sub:
 		case IROp::Vec4Mul:
 		case IROp::Vec4Div:
+		case IROp::Vec4Dot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
 			out.Write(inst);
@@ -392,6 +394,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 			gpr.MapDirtyIn(inst.dest, IRREG_VFPU_CTRL_BASE + inst.src1);
 			goto doDefault;
 
+		case IROp::CallReplacement:
+		case IROp::Break:
 		case IROp::Syscall:
 		case IROp::Interpret:
 		case IROp::ExitToConst:
