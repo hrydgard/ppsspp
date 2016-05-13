@@ -159,6 +159,8 @@ enum class IROp : u8 {
 	Vec4Div,
 	Vec4Scale,
 	Vec4Dot,
+	Vec4Neg,
+	Vec4Abs,
 
 	// vx2i
 	Vec4ExpandU16ToU32Hi,

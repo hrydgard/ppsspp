@@ -114,11 +114,11 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 				inst.op = IROp::FMov;
 				inst.src1 = prev.src1;
 				out.Write(inst);
-				logBlocks = true;
 			} else {
 				out.Write(inst);
 			}
 			break;
+
 		default:
 			// Remap constants to the new reality
 			const IRMeta *m = GetIRMeta(inst.op);
@@ -487,6 +487,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::Vec4Dot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
+		case IROp::Vec4Neg:
+		case IROp::Vec4Abs:
 			out.Write(inst);
 			break;
 

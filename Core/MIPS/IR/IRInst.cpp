@@ -109,6 +109,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Mul, "Vec4Mul", "FFF" },
 	{ IROp::Vec4Scale, "Vec4Scale", "FFF" },
 	{ IROp::Vec4Dot, "Vec4Dot", "FFF" },
+	{ IROp::Vec4Neg, "Vec4Neg", "FF" },
+	{ IROp::Vec4Abs, "Vec4Abs", "FF" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },

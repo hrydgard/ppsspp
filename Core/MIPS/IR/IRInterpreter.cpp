@@ -212,6 +212,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 #endif
 			break;
 
+		case IROp::Vec4Neg:
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = -mips->f[inst->src1 + i];
+			break;
+
+		case IROp::Vec4Abs:
+			for (int i = 0; i < 4; i++)
+				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
+			break;
+
 		case IROp::FCmpVfpuBit:
 		{
 			int op = inst->dest & 0xF;

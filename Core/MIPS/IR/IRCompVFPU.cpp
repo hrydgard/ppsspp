@@ -108,6 +108,13 @@ namespace MIPSComp {
 		}
 	}
 
+	static void InitRegs(u8 *vregs, int reg) {
+		vregs[0] = reg;
+		vregs[1] = reg + 1;
+		vregs[2] = reg + 2;
+		vregs[3] = reg + 3;
+	}
+
 	void IRFrontend::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg) {
 		if (prefix == 0xE4)
 			return;
@@ -119,6 +126,27 @@ namespace MIPSComp {
 		for (int i = 0; i < n; i++)
 			origV[i] = vregs[i];
 
+		// Some common vector prefixes
+		if (sz == V_Quad && IsConsecutive4(vregs)) {
+			if (prefix == 0xF00E4 && IsConsecutive4(vregs)) {
+				InitRegs(vregs, tempReg);
+				ir.Write(IROp::Vec4Neg, vregs[0], origV[0]);
+				return;
+			}
+			if (prefix == 0x00FE4 && IsConsecutive4(vregs)) {
+				InitRegs(vregs, tempReg);
+				ir.Write(IROp::Vec4Abs, vregs[0], origV[0]);
+				return;
+			}
+			// Pure shuffle
+			if (prefix == (prefix & 0xFF)) {
+				InitRegs(vregs, tempReg);
+				ir.Write(IROp::Vec4Shuffle, vregs[0], origV[0], prefix);
+				return;
+			}
+		}
+
+		// Alright, fall back to the generic approach.
 		for (int i = 0; i < n; i++) {
 			int regnum = (prefix >> (i * 2)) & 3;
 			int abs = (prefix >> (8 + i)) & 1;
@@ -395,7 +423,6 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		// TODO: applyprefixST here somehow (shuffle, etc...)
 		ir.Write(IROp::FMul, IRVTEMP_0, sregs[0], tregs[0]);
 
 		int n = GetNumVectorElements(sz);
@@ -1050,7 +1077,7 @@ namespace MIPSComp {
 			}
 		} else if (sz == M_4x4) {
 			// Tekken 6 has a case here: MEE
-			logBlocks = 1;
+			// logBlocks = 1;
 		}
 
 		// Fallback. Expands a LOT
@@ -1141,8 +1168,8 @@ namespace MIPSComp {
 			tempregs[i] = temp;
 		}
 		for (int i = 0; i < n; i++) {
-			u8 temp = tempregs[i];
-			ir.Write(IROp::FMov, dregs[i], temp);
+			if (tempregs[i] != dregs[i])
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
 	}
 
