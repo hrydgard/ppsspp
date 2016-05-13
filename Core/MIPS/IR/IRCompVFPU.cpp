@@ -128,12 +128,12 @@ namespace MIPSComp {
 
 		// Some common vector prefixes
 		if (sz == V_Quad && IsConsecutive4(vregs)) {
-			if (prefix == 0xF00E4 && IsConsecutive4(vregs)) {
+			if (prefix == 0xF00E4) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Neg, vregs[0], origV[0]);
 				return;
 			}
-			if (prefix == 0x00FE4 && IsConsecutive4(vregs)) {
+			if (prefix == 0x00FE4) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Abs, vregs[0], origV[0]);
 				return;
@@ -1123,7 +1123,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, _VD);
 
 		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
-		if (msz == M_4x4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
+		if (msz == M_4x4 && IsConsecutive4(sregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
 			if (!IsConsecutive4(tregs)) {
@@ -1136,13 +1136,26 @@ namespace MIPSComp {
 						ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
 					}
 				}
-				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+
+				if (IsConsecutive4(dregs)) {
+					ir.Write(IROp::Vec4Mov, dregs[0], s0);
+				} else {
+					for (int i = 0; i < 4; i++) {
+						ir.Write(IROp::FMov, dregs[i], s0 + i);
+					}
+				}
 				return;
 			} else if (!homogenous) {
 				for (int i = 0; i < 4; i++) {
 					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[0]);
 				}
-				ir.Write(IROp::Vec4Mov, dregs[0], s0);
+				if (IsConsecutive4(dregs)) {
+					ir.Write(IROp::Vec4Mov, dregs[0], s0);
+				} else {
+					for (int i = 0; i < 4; i++) {
+						ir.Write(IROp::FMov, dregs[i], s0 + i);
+					}
+				}
 				return;
 			}
 		} else if (msz == M_4x4) {

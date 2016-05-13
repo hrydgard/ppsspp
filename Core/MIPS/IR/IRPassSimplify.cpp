@@ -120,27 +120,14 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 			break;
 
 		default:
-			// Remap constants to the new reality
-			const IRMeta *m = GetIRMeta(inst.op);
-			switch (m->types[0]) {
-			case 'C':
-				inst.dest = out.AddConstant(constants[inst.dest]);
-				break;
-			}
-			switch (m->types[1]) {
-			case 'C':
-				inst.src1 = out.AddConstant(constants[inst.src1]);
-				break;
-			}
-			switch (m->types[2]) {
-			case 'C':
-				inst.src2 = out.AddConstant(constants[inst.src2]);
-				break;
-			}
 			out.Write(inst);
 			break;
 		}
 		prev = inst;
+	}
+	// Can reuse the old constants array - not touching constants in this pass.
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
 	}
 	return logBlocks;
 }
@@ -177,28 +164,13 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
 			}
 			break;
 		default:
-		{
-			// Remap constants to the new reality
-			const IRMeta *m = GetIRMeta(inst.op);
-			switch (m->types[0]) {
-			case 'C':
-				inst.dest = out.AddConstant(constants[inst.dest]);
-				break;
-			}
-			switch (m->types[1]) {
-			case 'C':
-				inst.src1 = out.AddConstant(constants[inst.src1]);
-				break;
-			}
-			switch (m->types[2]) {
-			case 'C':
-				inst.src2 = out.AddConstant(constants[inst.src2]);
-				break;
-			}
 			out.Write(inst);
 			break;
 		}
-		}
+	}
+	// Can reuse the old constants array - not touching constants in this pass.
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
 	}
 	return logBlocks;
 }
