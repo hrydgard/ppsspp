@@ -208,7 +208,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
-				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
+				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2];
 #endif
 			break;
 
@@ -226,6 +226,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			case VC_GE: result = mips->f[inst->src1] >= mips->f[inst->src2]; break;
 			case VC_EZ: result = mips->f[inst->src1] == 0.0f; break;
 			case VC_NZ: result = mips->f[inst->src1] != 0.0f; break;
+			case VC_EN: result = my_isnan(mips->f[inst->src1]); break;
+			case VC_NN: result = !my_isnan(mips->f[inst->src1]); break;
+			case VC_EI: result = my_isinf(mips->f[inst->src1]); break;
+			case VC_NI: result = !my_isinf(mips->f[inst->src1]); break;
+			case VC_ES: result = my_isnanorinf(mips->f[inst->src1]); break;
+			case VC_NS: result = !my_isnanorinf(mips->f[inst->src1]); break;
 			case VC_TR: result = 1; break;
 			case VC_FL: result = 0; break;
 			default:
@@ -523,7 +529,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			return constPool[inst->dest];
 
 		case IROp::ExitToReg:
-			return mips->r[inst->dest];
+			return mips->r[inst->src1];
 
 		case IROp::ExitToConstIfEq:
 			if (mips->r[inst->src1] == mips->r[inst->src2])

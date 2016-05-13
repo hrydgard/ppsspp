@@ -85,7 +85,7 @@ namespace MIPSComp {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
 	}
 
-	void IRFrontend::Comp_VPFX(MIPSOpcode op)	{
+	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
@@ -223,6 +223,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SV(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
@@ -241,6 +242,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SVQ(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		int imm = (signed short)(op & 0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 		MIPSGPReg rs = _RS;
@@ -280,6 +282,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -289,37 +292,55 @@ namespace MIPSComp {
 		int vd = _VD;
 		int n = GetNumVectorElements(sz);
 		u8 dregs[4];
-		GetVectorRegs(dregs, sz, vd);
-		if (sz == 4 && IsVectorColumn(vd)) {
+		GetVectorRegsPrefixD(dregs, sz, vd);
+
+		if (sz == V_Quad && IsConsecutive4(dregs)) {
 			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
 			for (int i = 0; i < n; i++) {
 				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
 			}
 		}
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Quad)
-			DISABLE;
-
-		if (!IsVectorColumn(vd))
-			DISABLE;
-
 		u8 dregs[4];
-		GetVectorRegs(dregs, sz, vd);
-		int row = vd & 3;
-		Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
-		ir.Write(IROp::Vec4Init, dregs[0], (int)init);
+		GetVectorRegsPrefixD(dregs, sz, vd);
+
+		if (sz == 4 && IsConsecutive4(dregs)) {
+			int row = vd & 3;
+			Vec4Init init = Vec4Init((int)Vec4Init::Set_1000 + row);
+			ir.Write(IROp::Vec4Init, dregs[0], (int)init);
+		} else {
+			switch (sz) {
+			case V_Pair:
+				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 1) == 0 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 1) == 1 ? 1.0f : 0.0f));
+				break;
+			case V_Quad:
+				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 3) == 0 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 3) == 1 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[2], ir.AddConstantFloat((vd & 3) == 2 ? 1.0f : 0.0f));
+				ir.Write(IROp::SetConstF, dregs[3], ir.AddConstantFloat((vd & 3) == 3 ? 1.0f : 0.0f));
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		MatrixSize sz = GetMtxSize(op);
 		if (sz != M_4x4) {
 			DISABLE;
@@ -616,6 +637,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -788,7 +810,7 @@ namespace MIPSComp {
 		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
 						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
-			if (rt != 0) {
+			if (rt != MIPS_REG_ZERO) {
 				if (imm < 128) {  //R(rt) = VI(imm);
 					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
 				} else {
@@ -1076,25 +1098,25 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// SIMD-optimized implementations
-		if (msz == M_4x4 && IsConsecutive4(tregs) && IsConsecutive4(dregs)) {
+		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
+		if (msz == M_4x4 && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsConsecutive4(sregs)) {
+			if (!IsConsecutive4(tregs)) {
 				ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 				for (int i = 1; i < 4; i++) {
 					if (!homogenous || (i != n - 1)) {
-						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
+						ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
 						ir.Write(IROp::Vec4Add, s0, s0, s1);
 					} else {
-						ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
+						ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
 					}
 				}
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 				return;
 			} else if (!homogenous) {
 				for (int i = 0; i < 4; i++) {
-					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[0]);
+					ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[0]);
 				}
 				ir.Write(IROp::Vec4Mov, dregs[0], s0);
 				return;

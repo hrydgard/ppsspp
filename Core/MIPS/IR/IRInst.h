@@ -281,6 +281,15 @@ enum {
 	IRREG_FPCOND = 245,
 };
 
+enum IRFlags {
+	// Uses src3, not dest.
+	IRFLAG_SRC3 = 0x0001,
+	// Uses src3 AND dest (i.e. mutates dest.)
+	IRFLAG_SRC3DST = 0x0002,
+	// Exit instruction (maybe conditional.)
+	IRFLAG_EXIT = 0x0004,
+};
+
 struct IRMeta {
 	IROp op;
 	const char *name;

@@ -143,7 +143,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		} else {
 			ApplyRoundingMode();
 			ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
-			ir.Write(IROp::ExitToReg, MIPS_REG_RA, 0, 0);
+			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}
 	} else {
@@ -233,6 +233,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	if (true) {
 		static const IRPassFunc passes[] = {
 			&PropagateConstants,
+			&PurgeTemps,
 		};
 		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
 			logBlocks = 1;

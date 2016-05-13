@@ -363,7 +363,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		break;
 	}
 
-	ir.Write(IROp::ExitToReg, destReg, 0, 0);
+	ir.Write(IROp::ExitToReg, 0, destReg, 0);
 	js.compiling = false;
 }
 
