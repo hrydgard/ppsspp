@@ -856,10 +856,21 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector expand half to float
+		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector float to integer
+		// d[N] = int(S[N] * mult)
+		// Note: saturates on overflow.
+
 		DISABLE;
 	}
 
@@ -1009,9 +1020,43 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
 
-		// TODO: Tricky, can transpose
+		// Matrix scale, matrix by scalar
+		// d[N,M] = s[N,M] * t[0]
+
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
+
+		MatrixSize sz = GetMtxSize(op);
+		if (sz != M_4x4) {
+			DISABLE;
+		}
+		if (GetMtx(vt) == GetMtx(vd)) {
+			DISABLE;
+		}
+		int n = GetMatrixSide(sz);
+
+		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
+		if (IsMatrixTransposed(vs)) {
+			vs = TransposeMatrixReg(vs);
+		}
+		if (IsMatrixTransposed(vd)) {
+			vd = TransposeMatrixReg(vd);
+		}
+
+		u8 sregs[16], dregs[16], tregs[1];
+		GetMatrixRegs(sregs, sz, vs);
+		GetMatrixRegs(dregs, sz, vd);
+		GetVectorRegs(tregs, V_Single, vt);
+
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+		}
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
