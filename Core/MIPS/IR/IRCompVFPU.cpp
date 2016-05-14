@@ -1529,7 +1529,44 @@ namespace MIPSComp {
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void IRFrontend::Comp_VRot(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int vd = _VD;
+		int vs = _VS;
+		int imm = (op >> 16) & 0x1f;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		bool negSin = (imm & 0x10) ? true : false;
+
+		logBlocks = 1;
+
+		char d[4] = { '0', '0', '0', '0' };
+		if (((imm >> 2) & 3) == (imm & 3)) {
+			for (int i = 0; i < 4; i++)
+				d[i] = 's';
+		}
+		d[(imm >> 2) & 3] = 's';
+		d[imm & 3] = 'c';
+
+		u8 dregs[4];
+		GetVectorRegs(dregs, sz, vd);
+		u8 sreg[1];
+		GetVectorRegs(sreg, V_Single, vs);
+		for (int i = 0; i < n; i++) {
+			switch (d[i]) {
+			case '0':
+				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
+				break;
+			case 's':
+				ir.Write(IROp::FSin, dregs[i], sreg[0]);
+				if (negSin) {
+					ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				}
+				break;
+			case 'c':
+				ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				break;
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
