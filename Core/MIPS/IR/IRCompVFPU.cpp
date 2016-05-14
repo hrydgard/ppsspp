@@ -315,6 +315,9 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector init
+		// d[N] = CONST[N]
+
 		VectorSize sz = GetVecSize(op);
 		int type = (op >> 16) & 0xF;
 		int vd = _VD;
@@ -337,6 +340,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector identity row
+		// d[N] = IDENTITY[N,m]
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -373,6 +379,9 @@ namespace MIPSComp {
 		if (sz != M_4x4) {
 			DISABLE;
 		}
+
+		// Matrix init
+		// d[N,M] = CONST[N,M]
 
 		// Not really about trying here, it will work if enabled.
 		VectorSize vsz = GetVectorSize(sz);
@@ -412,6 +421,10 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector homogenous dot product
+		// d[0] = s[0 .. n-2] dot t[0 .. n-2] + t[n-1]
+		// Note: s[n-1] is ignored / treated as 1.
+
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
@@ -448,6 +461,11 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector horizontal add
+		// d[0] = s[0] + ... s[n-1]
+		// Vector horizontal average
+		// d[0] = (s[0] + ... s[n-1]) / n
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -479,6 +497,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector dot product
+		// d[0] = s[0 .. n-1] dot t[0 .. n-1]
 
 		int vd = _VD;
 		int vs = _VS;
@@ -513,6 +534,9 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector arithmetic
+		// d[N] = OP(s[N], t[N]) (see below)
 
 		// Check that we can support the ops, and prepare temporary values for ops that need it.
 		bool allowSIMD = true;
@@ -672,6 +696,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector unary operation
+		// d[N] = OP(s[N]) (see below)
+
 		int vs = _VS;
 		int vd = _VD;
 
@@ -787,6 +814,9 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector integer to float
+		// d[N] = float(S[N]) * mult
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -878,10 +908,11 @@ namespace MIPSComp {
 		EatPrefix();
 	}
 
-	// Good above
-
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Vector Move from vector control reg
+		// S[0] = VFPU_CTRL[i]
 
 		int vs = _VS;
 		int imm = op & 0xFF;
@@ -892,11 +923,17 @@ namespace MIPSComp {
 			// } else {
 			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
 			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
+		} else {
+			DISABLE;
 		}
 	}
 
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Vector Move to vector control reg
+		// VFPU_CTRL[i] = S[0]
+
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
@@ -913,6 +950,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Matrix move
+		// D[N,M] = S[N,M]
 
 		int vs = _VS;
 		int vd = _VD;
@@ -979,6 +1019,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector scale, vector by scalar
+		// d[N] = s[N] * t[0]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1134,6 +1177,10 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vertex transform, vector by matrix
+		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
+		// Homogenous means t[n-1] is treated as 1.
+
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1156,12 +1203,13 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
-		if (msz == M_4x4 && IsConsecutive4(sregs)) {
+		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
+		if (msz == M_4x4 && !IsConsecutive4(sregs)) {
 			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_T;
+			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
 			// they are accessed one at a time. This handles homogenous transforms correctly, as well.
+			// We take advantage of sregs[0] + 1 being sregs[4] here.
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
@@ -1179,10 +1227,12 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+		} else if (msz == M_4x4 && IsConsecutive4(sregs)) {
+			// Consecutive, which is harder.
+			DISABLE;
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
-			// Doesn't make complete sense to me why this works....
+			// Doesn't make complete sense to me why this works.... (because it doesn't.)
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
