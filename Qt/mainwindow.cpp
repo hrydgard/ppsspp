@@ -515,8 +515,6 @@ void MainWindow::createMenus()
 	MenuTree* optionsMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Options"));
 	// - Core
 	MenuTree* coreMenu = new MenuTree(this, optionsMenu,      QT_TR_NOOP("&Core"));
-	coreMenu->add(new MenuAction(this, SLOT(dynarecAct()),        QT_TR_NOOP("&CPU Dynarec")))
-		->addEventChecked(&g_Config.bJit);
 	coreMenu->add(new MenuAction(this, SLOT(vertexDynarecAct()),  QT_TR_NOOP("&Vertex Decoder Dynarec")))
 		->addEventChecked(&g_Config.bVertexDecoderJit);
 	coreMenu->add(new MenuAction(this, SLOT(fastmemAct()),        QT_TR_NOOP("Fast &Memory (unstable)")))

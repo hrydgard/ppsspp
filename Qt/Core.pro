@@ -38,6 +38,7 @@ SOURCES += $$P/Core/*.cpp \ # Core
 	$$P/Core/HLE/*.cpp \
 	$$P/Core/HW/*.cpp \
 	$$P/Core/MIPS/*.cpp \
+	$$P/Core/MIPS/IR/*.cpp \
 	$$P/Core/MIPS/JitCommon/*.cpp \
 	$$P/Core/Util/AudioFormat.cpp \
 	$$P/Core/Util/BlockAllocator.cpp \
@@ -56,6 +57,7 @@ HEADERS += $$P/Core/*.h \
 	$$P/Core/HLE/*.h \
 	$$P/Core/HW/*.h \
 	$$P/Core/MIPS/*.h \
+	$$P/Core/MIPS/IR/*.h \
 	$$P/Core/MIPS/JitCommon/*.h \
 	$$P/Core/Util/AudioFormat.h \
 	$$P/Core/Util/BlockAllocator.h \
