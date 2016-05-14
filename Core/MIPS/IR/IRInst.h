@@ -204,6 +204,7 @@ enum class IROp : u8 {
 
 	ExitToConstIfFpTrue,
 	ExitToConstIfFpFalse,
+	ExitToPC,  // Used after a syscall to give us a way to do things before returning.
 
 	Syscall,
 	SetPC,  // hack to make syscall returns work

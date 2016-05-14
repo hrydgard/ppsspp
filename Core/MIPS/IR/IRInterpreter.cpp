@@ -587,8 +587,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			CallSyscall(op);
 			if (coreState != CORE_RUNNING)
 				CoreTiming::ForceCheck();
-			return mips->pc;
+			break;
 		}
+
+		case IROp::ExitToPC:
+			return mips->pc;
 
 		case IROp::Interpret:  // SLOW fallback. Can be made faster.
 		{

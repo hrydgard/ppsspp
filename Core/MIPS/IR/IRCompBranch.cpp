@@ -386,9 +386,9 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	FlushAll();
 
 	ir.Write(IROp::Syscall, 0, ir.AddConstant(op.encoding));
-
-	// TODO: This never happens because of Syscall exiting.
 	ApplyRoundingMode();
+	ir.Write(IROp::ExitToPC);
+
 	js.compiling = false;
 }
 

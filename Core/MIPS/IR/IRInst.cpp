@@ -114,6 +114,7 @@ static const IRMeta irMeta[] = {
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
+	{ IROp::ExitToPC, "ExitToPC", "", IRFLAG_EXIT },
 	{ IROp::ExitToConst, "Exit", "C", IRFLAG_EXIT },
 	{ IROp::ExitToConstIfEq, "ExitIfEq", "CGG", IRFLAG_EXIT },
 	{ IROp::ExitToConstIfNeq, "ExitIfNeq", "CGG", IRFLAG_EXIT },
