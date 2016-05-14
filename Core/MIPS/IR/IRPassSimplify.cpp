@@ -121,6 +121,9 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 	bool logBlocks = false;
 	IRInst prev;
 	prev.op = IROp::Nop;
+	prev.dest = 0;
+	prev.src1 = 0;
+	prev.src2 = 0;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		switch (inst.op) {
@@ -159,7 +162,6 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 			break;
 		*/
 		default:
-		doDefault:
 			WriteInstWithConstants(in, out, constants, inst);
 			break;
 		}
