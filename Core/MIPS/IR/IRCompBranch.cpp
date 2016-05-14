@@ -376,8 +376,6 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
-	RestoreRoundingMode();
-
 	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
 	int dcAmount = js.downcountAmount;
 	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
@@ -385,6 +383,7 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 
 	FlushAll();
 
+	RestoreRoundingMode();
 	ir.Write(IROp::Syscall, 0, ir.AddConstant(op.encoding));
 	ApplyRoundingMode();
 	ir.Write(IROp::ExitToPC);

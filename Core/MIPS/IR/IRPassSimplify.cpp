@@ -117,7 +117,7 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 }
 
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
-	const u32 *constants = in.GetConstants().data();
+	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
 	bool logBlocks = false;
 	IRInst prev;
 	prev.op = IROp::Nop;
@@ -215,7 +215,7 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
 bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	IRRegCache gpr(&out);
 
-	const u32 *constants = &in.GetConstants()[0];
+	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];

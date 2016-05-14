@@ -92,6 +92,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
+	{ IROp::ZeroFpCond, "ZeroFpCond", "" },
 	{ IROp::FpCondToReg, "FpCondToReg", "G" },
 	{ IROp::VfpuCtrlToReg, "VfpuCtrlToReg", "GI" },
 	{ IROp::SetCtrlVFPU, "SetCtrlVFPU", "TC" },
