@@ -104,8 +104,8 @@ void IRJit::Compile(u32 em_address) {
 void RoundingApply(int fcr31) {
 	int mode = FE_TONEAREST;
 	switch (fcr31 & 3) {
-	case 0: mode = FE_TOWARDZERO;  // RINT_0
-	case 1: mode = FE_TONEAREST; break;  // CAST_1
+	case 0: mode = FE_TONEAREST; break; // RINT_0
+	case 1: mode = FE_TOWARDZERO; break;  // CAST_1
 	case 2: mode = FE_UPWARD; break;  // CEIL_2
 	case 3: mode = FE_DOWNWARD; break;  // FLOOR_3
 	}
@@ -115,11 +115,8 @@ void RoundingApply(int fcr31) {
 void IRJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 
-	// ApplyRoundingMode(true);
-	// IR Dispatcher
-	
 	while (true) {
-		fesetround(FE_TOWARDZERO);
+		fesetround(FE_TONEAREST);
 		CoreTiming::Advance();
 		RoundingApply(mips_->fcr31);
 		if (coreState != 0) {
@@ -133,14 +130,14 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				IRBlock *block = blocks_.GetBlock(data);
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions(), &frontend_);
 			} else {
-				fesetround(FE_TOWARDZERO);
+				fesetround(FE_TONEAREST);
 				Compile(mips_->pc);
 				RoundingApply(mips_->fcr31);
 			}
 		}
 	}
 
-	fesetround(FE_TOWARDZERO);
+	fesetround(FE_TONEAREST);
 }
 
 bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
