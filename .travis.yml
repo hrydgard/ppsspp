@@ -13,6 +13,12 @@ addons:
       - libgl1-mesa-dev
       - libglu1-mesa-dev
       - cmake
+      - aria2
+      - ant
+      - lib32stdc++6
+      - lib32z1
+      - lib32z1-dev
+      - lib32bz2-1.0
 
 cache:
   - apt
@@ -34,8 +40,21 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Linux
            CMAKE=TRUE
     - os: linux
-      compiler: "gcc android"
+      compiler: "gcc android-arm64-v8a"
       env: PPSSPP_BUILD_TYPE=Android
+           APP_ABI=arm64-v8a
+    - os: linux
+      compiler: "gcc android-armeabi-v7a"
+      env: PPSSPP_BUILD_TYPE=Android
+           APP_ABI=armeabi-v7a
+    - os: linux
+      compiler: "gcc android-x86"
+      env: PPSSPP_BUILD_TYPE=Android
+           APP_ABI=x86
+    - os: linux
+      compiler: "gcc android-x86_64"
+      env: PPSSPP_BUILD_TYPE=Android
+           APP_ABI=x86_64
     - os: linux
       compiler: "gcc blackberry"
       env: PPSSPP_BUILD_TYPE=Blackberry
