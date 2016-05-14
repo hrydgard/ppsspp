@@ -1203,12 +1203,13 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
-		if (msz == M_4x4 && IsConsecutive4(sregs)) {
+		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
+		if (msz == M_4x4 && !IsConsecutive4(sregs)) {
 			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_T;
+			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
 			// they are accessed one at a time. This handles homogenous transforms correctly, as well.
+			// We take advantage of sregs[0] + 1 being sregs[4] here.
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
@@ -1226,10 +1227,12 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+		} else if (msz == M_4x4 && IsConsecutive4(sregs)) {
+			// Consecutive, which is harder.
+			DISABLE;
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
-			// Doesn't make complete sense to me why this works....
+			// Doesn't make complete sense to me why this works.... (because it doesn't.)
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
