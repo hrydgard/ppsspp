@@ -20,6 +20,7 @@
 #include "Common/MipsEmitter.h"
 using namespace MIPSGen;
 
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "../MIPSVFPUUtils.h"
@@ -31,7 +32,7 @@ using namespace MIPSGen;
 namespace MIPSComp
 {
 
-class MipsJit : public MIPSGen::MIPSCodeBlock, public JitInterface
+class MipsJit : public MIPSGen::MIPSCodeBlock, public JitInterface, public MIPSFrontendInterface
 {
 public:
 	MipsJit(MIPSState *mips);

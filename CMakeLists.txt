@@ -1077,6 +1077,27 @@ include_directories(ext/xxhash)
 
 set(CoreExtra)
 set(CoreExtraLibs)
+
+set(CoreExtra ${CoreExtra}
+	Core/MIPS/IR/IRCompALU.cpp
+	Core/MIPS/IR/IRCompBranch.cpp
+	Core/MIPS/IR/IRCompFPU.cpp
+	Core/MIPS/IR/IRCompLoadStore.cpp
+	Core/MIPS/IR/IRCompVFPU.cpp
+	Core/MIPS/IR/IRFrontend.cpp
+	Core/MIPS/IR/IRFrontend.h
+	Core/MIPS/IR/IRInst.cpp
+	Core/MIPS/IR/IRInst.h
+	Core/MIPS/IR/IRInterpreter.cpp
+	Core/MIPS/IR/IRInterpreter.h
+	Core/MIPS/IR/IRJit.cpp
+	Core/MIPS/IR/IRJit.h
+	Core/MIPS/IR/IRPassSimplify.cpp
+	Core/MIPS/IR/IRPassSimplify.h
+	Core/MIPS/IR/IRRegCache.cpp
+	Core/MIPS/IR/IRRegCache.h
+	)
+
 if(ARM)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM/ArmAsm.cpp

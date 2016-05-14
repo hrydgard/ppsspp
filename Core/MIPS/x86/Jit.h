@@ -46,7 +46,7 @@ struct RegCacheState {
 	FPURegCacheState fpr;
 };
 
-class Jit : public Gen::XCodeBlock, public JitInterface {
+class Jit : public Gen::XCodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
 	Jit(MIPSState *mips);
 	virtual ~Jit();
@@ -161,6 +161,7 @@ public:
 	void UpdateRoundingMode();
 
 	JitBlockCache *GetBlockCache() { return &blocks; }
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void ClearCache();
 	void InvalidateCache() override;

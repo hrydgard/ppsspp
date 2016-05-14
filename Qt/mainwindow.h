@@ -87,7 +87,6 @@ private slots:
 
 	// Options
 	// Core
-	void dynarecAct() { g_Config.bJit = !g_Config.bJit; }
 	void vertexDynarecAct() { g_Config.bVertexDecoderJit = !g_Config.bVertexDecoderJit; }
 	void fastmemAct() { g_Config.bFastMemory = !g_Config.bFastMemory; }
 	void ignoreIllegalAct() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }

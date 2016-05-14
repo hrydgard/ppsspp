@@ -570,9 +570,9 @@ void ForceCheck()
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	// This will cause us to check for new events immediately.
-	currentMIPS->downcount = 0;
+	currentMIPS->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
-	slicelength = 0;
+	slicelength = 1;
 }
 
 void Advance()

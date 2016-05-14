@@ -70,6 +70,7 @@ static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
 static const HLEFunction *latestSyscall = nullptr;
+static int idleOp;
 
 void hleDelayResultFinish(u64 userdata, int cycleslate)
 {
@@ -93,6 +94,7 @@ void HLEInit()
 {
 	RegisterAllModules();
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
+	idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
 
 void HLEDoState(PointerWrap &p)
@@ -540,9 +542,8 @@ void CallSyscall(MIPSOpcode op)
 		return;
 	}
 
-	if (info->func)
-	{
-		if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+	if (info->func) {
+		if (op == idleOp)
 			info->func();
 		else if (info->flags != 0)
 			CallSyscallWithFlags(info);

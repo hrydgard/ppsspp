@@ -426,26 +426,22 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
-		if (block_num >= 0) {
-			inst = bc->GetOriginalFirstOp(block_num);
-			if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
-				u32 op;
-				if (GetReplacedOpAt(address, &op)) {
-					if (MIPS_IS_EMUHACK(op)) {
-						ERROR_LOG(HLE,"WTF 1");
-						return Opcode(op);
-					} else {
-						return Opcode(op);
-					}
+
+		inst = MIPSComp::jit->GetOriginalOp(inst);
+		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
+			u32 op;
+			if (GetReplacedOpAt(address, &op)) {
+				if (MIPS_IS_EMUHACK(op)) {
+					ERROR_LOG(HLE,"WTF 1");
+					return Opcode(op);
 				} else {
-					ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
+					return Opcode(op);
 				}
+			} else {
+				ERROR_LOG(HLE, "Replacement, but no replacement op? %08x", inst.encoding);
 			}
-			return inst;
-		} else {
-			return inst;
 		}
+		return inst;
 	} else if (resolveReplacements && MIPS_IS_REPLACEMENT(inst.encoding)) {
 		u32 op;
 		if (GetReplacedOpAt(address, &op)) {
@@ -479,13 +475,7 @@ Opcode Read_Opcode_JIT(u32 address)
 {
 	Opcode inst = Opcode(Read_U32(address));
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		int block_num = bc->GetBlockNumberFromEmuHackOp(inst, true);
-		if (block_num >= 0) {
-			return bc->GetOriginalFirstOp(block_num);
-		} else {
-			return inst;
-		}
+		return MIPSComp::jit->GetOriginalOp(inst);
 	} else {
 		return inst;
 	}

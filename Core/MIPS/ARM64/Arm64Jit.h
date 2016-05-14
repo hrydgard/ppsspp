@@ -33,7 +33,7 @@
 
 namespace MIPSComp {
 
-class Arm64Jit : public Arm64Gen::ARM64CodeBlock, public JitInterface {
+class Arm64Jit : public Arm64Gen::ARM64CodeBlock, public JitInterface, public MIPSFrontendInterface {
 public:
 	Arm64Jit(MIPSState *mips);
 	virtual ~Arm64Jit();
@@ -54,6 +54,7 @@ public:
 	const u8 *DoJit(u32 em_address, JitBlock *b);
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
+	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;

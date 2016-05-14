@@ -42,26 +42,11 @@ class MIPSState;
 namespace MIPSComp {
 	void JitAt();
 
-	class JitInterface {
+	class MIPSFrontendInterface {
 	public:
-		virtual ~JitInterface() {}
+		virtual ~MIPSFrontendInterface() {}
 
-		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
-		virtual const u8 *GetDispatcher() const = 0;
-		virtual JitBlockCache *GetBlockCache() = 0;
-		virtual void InvalidateCache() = 0;
-		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
-		virtual void DoState(PointerWrap &p) = 0;
-		virtual void DoDummyState(PointerWrap &p) = 0;
-		virtual void RunLoopUntil(u64 globalticks) = 0;
-		virtual void Compile(u32 em_address) = 0;
-		virtual void ClearCache() = 0;
 		virtual void EatPrefix() = 0;
-
-		// Block linking. This may need to work differently for whole-function JITs and stuff
-		// like that.
-		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
-		virtual void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) = 0;
 
 		virtual void Comp_Generic(MIPSOpcode op) = 0;
 		virtual void Comp_RunBlock(MIPSOpcode op) = 0;
@@ -131,8 +116,30 @@ namespace MIPSComp {
 		virtual int Replace_fabsf() = 0;
 	};
 
-	typedef void (JitInterface::*MIPSCompileFunc)(MIPSOpcode opcode);
-	typedef int (JitInterface::*MIPSReplaceFunc)();
+	class JitInterface {
+	public:
+		virtual ~JitInterface() {}
+
+		virtual bool DescribeCodePtr(const u8 *ptr, std::string &name) = 0;
+		virtual const u8 *GetDispatcher() const = 0;
+		virtual JitBlockCache *GetBlockCache() = 0;
+		virtual void InvalidateCache() = 0;
+		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
+		virtual void DoState(PointerWrap &p) = 0;
+		virtual void DoDummyState(PointerWrap &p) = 0;
+		virtual void RunLoopUntil(u64 globalticks) = 0;
+		virtual void Compile(u32 em_address) = 0;
+		virtual void ClearCache() = 0;
+		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
+
+		// Block linking. This may need to work differently for whole-function JITs and stuff
+		// like that.
+		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
+		virtual void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) = 0;
+	};
+
+	typedef void (MIPSFrontendInterface::*MIPSCompileFunc)(MIPSOpcode opcode);
+	typedef int (MIPSFrontendInterface::*MIPSReplaceFunc)();
 
 	extern JitInterface *jit;
 

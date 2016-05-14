@@ -22,9 +22,11 @@
 
 #include "Common/StringUtils.h"
 #include "Core/Util/DisArm64.h"
+#include "Core/Config.h"
 
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Core/MIPS/IR/IRJit.h"
 
 #if defined(ARM)
 #include "../ARM/ArmJit.h"

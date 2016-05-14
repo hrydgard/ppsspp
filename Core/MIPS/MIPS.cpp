@@ -27,6 +27,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/IR/IRJit.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
@@ -206,8 +207,10 @@ void MIPSState::Init() {
 	// Initialize the VFPU random number generator with .. something?
 	rng.Init(0x1337);
 
-	if (PSP_CoreParameter().cpuCore == CPU_JIT) {
+	if (PSP_CoreParameter().cpuCore == CPU_CORE_JIT) {
 		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+	} else if (PSP_CoreParameter().cpuCore == CPU_CORE_IRJIT) {
+		MIPSComp::jit = new MIPSComp::IRJit(this);
 	} else {
 		MIPSComp::jit = nullptr;
 	}
@@ -224,14 +227,23 @@ void MIPSState::UpdateCore(CPUCore desired) {
 
 	PSP_CoreParameter().cpuCore = desired;
 	switch (PSP_CoreParameter().cpuCore) {
-	case CPU_JIT:
+	case CPU_CORE_JIT:
 		INFO_LOG(CPU, "Switching to JIT");
-		if (!MIPSComp::jit) {
-			MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+		if (MIPSComp::jit) {
+			delete MIPSComp::jit;
 		}
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 		break;
 
-	case CPU_INTERPRETER:
+	case CPU_CORE_IRJIT:
+		INFO_LOG(CPU, "Switching to IRJIT");
+		if (MIPSComp::jit) {
+			delete MIPSComp::jit;
+		}
+		MIPSComp::jit = new MIPSComp::IRJit(this);
+		break;
+
+	case CPU_CORE_INTERPRETER:
 		INFO_LOG(CPU, "Switching to interpreter");
 		delete MIPSComp::jit;
 		MIPSComp::jit = 0;
@@ -292,11 +304,12 @@ void MIPSState::SingleStep() {
 // returns 1 if reached ticks limit
 int MIPSState::RunLoopUntil(u64 globalTicks) {
 	switch (PSP_CoreParameter().cpuCore) {
-	case CPU_JIT:
+	case CPU_CORE_JIT:
+	case CPU_CORE_IRJIT:
 		MIPSComp::jit->RunLoopUntil(globalTicks);
 		break;
 
-	case CPU_INTERPRETER:
+	case CPU_CORE_INTERPRETER:
 		return MIPSInterpret_RunUntil(globalTicks);
 	}
 	return 1;

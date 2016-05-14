@@ -234,9 +234,14 @@ namespace SaveState
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE)
 		{
 			auto blockCache = MIPSComp::jit->GetBlockCache();
-			auto savedBlocks = blockCache->SaveAndClearEmuHackOps();
+			std::vector<u32> savedBlocks;
+			if (blockCache) {
+				 savedBlocks = blockCache->SaveAndClearEmuHackOps();
+			}
 			Memory::DoState(p);
-			blockCache->RestoreSavedEmuHackOps(savedBlocks);
+			if (blockCache) {
+				blockCache->RestoreSavedEmuHackOps(savedBlocks);
+			}
 		}
 		else
 			Memory::DoState(p);

@@ -112,10 +112,10 @@ typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
 typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
 namespace MIPSComp {
-	class JitInterface;
+	class MIPSFrontendInterface;
 }
 
-void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit);
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit);
 void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
 void MIPSInterpret(MIPSOpcode op); //only for those rare ones

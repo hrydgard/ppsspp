@@ -20,30 +20,27 @@
 #include "base/compat.h"
 #include "CommonTypes.h"
 
-#if defined(IOS) || defined(MIPS)
-#include <signal.h>
-#endif
-
 template <bool> struct CompileTimeAssert;
 template<> struct CompileTimeAssert<true> {};
 
-#ifndef _WIN32
+#if !defined(_WIN32)
 
 #include <unistd.h>
 #include <errno.h>
 
 #if defined(_M_IX86) || defined(_M_X86)
-	#define Crash() {asm ("int $3");}
+#define Crash() {asm ("int $3");}
 #else
-  #define Crash() {kill(getpid(), SIGINT);}
+#include <signal.h>
+#define Crash() {kill(getpid(), SIGINT);}
 #endif
 
 #define ARRAYSIZE(A) (sizeof(A)/sizeof((A)[0]))
 
 inline u32 __rotl(u32 x, int shift) {
-    shift &= 31;
-    if (!shift) return x;
-    return (x << shift) | (x >> (32 - shift));
+	shift &= 31;
+	if (!shift) return x;
+	return (x << shift) | (x >> (32 - shift));
 }
 
 inline u64 __rotl64(u64 x, unsigned int shift){

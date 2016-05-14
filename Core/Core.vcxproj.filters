@@ -67,6 +67,9 @@
     <Filter Include="FileLoaders">
       <UniqueIdentifier>{67687dba-8313-4442-b4eb-4be8c4867b65}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\IR">
+      <UniqueIdentifier>{119ac973-e457-4025-9e1e-4fb34022ae23}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -634,6 +637,42 @@
     <ClCompile Include="TextureReplacer.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\IR\IRAsm.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRCompALU.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRCompBranch.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRCompFPU.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRCompLoadStore.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRCompVFPU.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRJit.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRRegCache.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRInst.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRPassSimplify.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRInterpreter.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\IR\IRFrontend.cpp">
+      <Filter>MIPS\IR</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1178,6 +1217,24 @@
     </ClInclude>
     <ClInclude Include="TextureReplacer.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRJit.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRRegCache.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRInst.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRPassSimplify.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRInterpreter.h">
+      <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\IR\IRFrontend.h">
+      <Filter>MIPS\IR</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -28,6 +28,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "base/logging.h"
 
 #include "JitCommon/JitCommon.h"
 
@@ -81,7 +82,7 @@ struct MIPSInstruction {
 #define ENCODING(a) {a}
 #define INSTR(name, comp, dis, inter, flags) {Instruc, name, comp, dis, inter, MIPSInfo(flags)}
 
-#define JITFUNC(f) (&JitInterface::f)
+#define JITFUNC(f) (&MIPSFrontendInterface::f)
 
 using namespace MIPSDis;
 using namespace MIPSInt;
@@ -911,7 +912,7 @@ const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op) {
 	return instr;
 }
 
-void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit) {
+void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 	if (op == 0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
@@ -922,7 +923,6 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::JitInterface *jit) {
 		} else {
 			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
 		}
-
 		if (info & OUT_EAT_PREFIX)
 			jit->EatPrefix();
 	} else {
@@ -977,6 +977,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	while (coreState == CORE_RUNNING)
 	{
 		CoreTiming::Advance();
+		u32 lastPC = 0;
 
 		// NEVER stop in a delay slot!
 		while (curMips->downcount >= 0 && coreState == CORE_RUNNING)
@@ -1015,6 +1016,17 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 
 				bool wasInDelaySlot = curMips->inDelaySlot;
 
+				/*
+				if (curMips->pc != lastPC + 4) {
+					if (blockCount > 0) {
+						MIPSState *mips_ = curMips;
+						fprintf(f, "BLOCK : %08x v0: %08x v1: %08x a0: %08x s0: %08x s4: %08x\n", mips_->pc, mips_->r[MIPS_REG_V0], mips_->r[MIPS_REG_V1], mips_->r[MIPS_REG_A0], mips_->r[MIPS_REG_S0], mips_->r[MIPS_REG_S4]);
+						fflush(f);
+						blockCount--;
+					}
+				}
+				lastPC = curMips->pc;
+				*/
 				MIPSInterpret(op);
 
 				if (curMips->inDelaySlot)

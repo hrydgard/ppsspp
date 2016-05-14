@@ -1109,7 +1109,7 @@ static int Hook_omertachinmokunookitethelegacy_download_frame() {
 	return 0;
 }
 
-#define JITFUNC(f) (&MIPSComp::JitInterface::f)
+#define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
 static const ReplacementTableEntry entries[] = {
