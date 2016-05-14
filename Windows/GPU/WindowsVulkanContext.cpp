@@ -125,16 +125,12 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	// validator or glslang bug (validator #298)
-	if (msgCode == 15 && startsWith(pMsg, "Shader requires"))
-		return false;
-
 	// layout barrier. TODO: This one I should fix.
 	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
 		return false;
 
-	// memory free'd while still holding a ref. validator bug? or worrying...
-	if (msgCode == 6 && startsWith(pMsg, "Attempting to free memory"))
+	// Another validator bug (vkBindImageMemory false positive)
+	if (msgCode == 15 && startsWith(pMsg, "In vkBindImageMemory, attempting"))
 		return false;
 
 	// another validator bug (validator #299)

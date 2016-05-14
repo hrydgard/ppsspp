@@ -223,7 +223,7 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
-
+	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
 	WRITE(p, "void main() {\n");
 
 	if (!useHWTransform) {

@@ -194,7 +194,9 @@ public:
 	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
 	~Thin3DVKShader() {
-		vkDestroyShaderModule(device_, module_, nullptr);
+		if (module_) {
+			vkDestroyShaderModule(device_, module_, nullptr);
+		}
 	}
 	VkShaderModule Get() const { return module_; }
 
@@ -548,7 +550,6 @@ public:
 	}
 
 	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
-		ILOG("texture created: %p", this);
 		format_ = format;
 		mipLevels_ = mipLevels;
 		width_ = width;
@@ -567,7 +568,6 @@ public:
 
 private:
 	void Destroy() {
-		ILOG("texture destroyed: %p", this);
 		if (vkTex_) {
 			vkTex_->Destroy();
 			delete vkTex_;
@@ -1012,6 +1012,7 @@ Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
+		ELOG("Failed to compile shader: %s", vulkan_source);
 		shader->Release();
 		return nullptr;
 	}
@@ -1022,6 +1023,7 @@ Thin3DShader *Thin3DVKContext::CreateFragmentShader(const char *glsl_source, con
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
+		ELOG("Failed to compile shader: %s", vulkan_source);
 		shader->Release();
 		return nullptr;
 	}
