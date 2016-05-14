@@ -423,7 +423,7 @@ namespace MIPSComp {
 
 		// Vector homogenous dot product
 		// d[0] = s[0 .. n-2] dot t[0 .. n-2] + t[n-1]
-		// Note: s[n-1] is ignored.
+		// Note: s[n-1] is ignored / treated as 1.
 
 		int vd = _VD;
 		int vs = _VS;
@@ -931,7 +931,7 @@ namespace MIPSComp {
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		// Vector Move from vector control reg
+		// Vector Move to vector control reg
 		// VFPU_CTRL[i] = S[0]
 
 		int vs = _VS;
