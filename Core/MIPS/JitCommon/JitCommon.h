@@ -132,6 +132,11 @@ namespace MIPSComp {
 		virtual void ClearCache() = 0;
 		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
 
+		// No jit operations may be run between these calls.
+		// Meant to be used to make memory safe for savestates, memcpy, etc.
+		virtual std::vector<u32> SaveAndClearEmuHackOps() = 0;
+		virtual void RestoreSavedEmuHackOps(std::vector<u32> saved) = 0;
+
 		// Block linking. This may need to work differently for whole-function JITs and stuff
 		// like that.
 		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
