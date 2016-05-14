@@ -117,8 +117,8 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n  Time: %s\n\nIgnore and continue?", \
-					   __LINE__, __FILE__, __TIME__); \
+		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
+					   __LINE__, __FILE__); \
 		if (!PanicYesNo("*** Assertion (see log)***\n")) {Crash();} \
 	}
 #ifdef __SYMBIAN32__
