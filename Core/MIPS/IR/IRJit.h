@@ -19,6 +19,7 @@
 
 #include <cstring>
 
+#include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -47,6 +48,31 @@ public:
 		origFirstOpcode_ = b.origFirstOpcode_;
 		b.instr_ = nullptr;
 		b.const_ = nullptr;
+	}
+
+	IRBlock(const IRBlock &b) {
+		*this = b;
+	}
+
+	IRBlock &operator=(const IRBlock &b) {
+		// No std::move on Symbian...  But let's try not to use elsewhere.
+#ifndef __SYMBIAN32__
+		_assert_(false);
+#endif
+		numInstructions_ = b.numInstructions_;
+		numConstants_ = b.numConstants_;
+		instr_ = new IRInst[numInstructions_];
+		if (numInstructions_) {
+			memcpy(instr_, b.instr_, sizeof(IRInst) * numInstructions_);
+		}
+		const_ = new u32[numConstants_];
+		if (numConstants_) {
+			memcpy(const_, b.const_, sizeof(u32) * numConstants_);
+		}
+		origAddr_ = b.origAddr_;
+		origFirstOpcode_ = b.origFirstOpcode_;
+
+		return *this;
 	}
 
 	~IRBlock() {

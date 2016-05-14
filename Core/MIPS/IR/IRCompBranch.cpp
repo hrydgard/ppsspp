@@ -31,8 +31,6 @@
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
-#include "Common/Arm64Emitter.h"
-
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
 #define _RD MIPS_GET_RD(op)

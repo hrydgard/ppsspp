@@ -1,5 +1,6 @@
 #/bin/bash
 
+export NDK_CCACHE=ccache
 NDK_VER=android-ndk-r10d
 
 download_extract() {
@@ -85,7 +86,7 @@ travis_script() {
 	# Compile PPSSPP
 	if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
 		if [ "$CXX" = "g++" ]; then
-			export CXX="g++-4.8" CC="gcc-4.8"
+			export CXX="ccache g++-4.8" CC="ccache gcc-4.8"
 		fi
 
 		if [ "$QT" = "TRUE" ]; then
@@ -123,6 +124,8 @@ travis_script() {
 }
 
 travis_after_success() {
+	ccache -s
+
 	if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
 		./test.py
 	fi
