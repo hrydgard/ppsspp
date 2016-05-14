@@ -97,8 +97,12 @@ public:
 	const u32 *GetConstants() const { return const_; }
 	int GetNumInstructions() const { return numInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
+	bool HasOriginalFirstOp();
+	bool RestoreOriginalFirstOp(int number);
+	bool IsValid() const { return origAddr_ != 0; }
 
 	void Finalize(int number);
+	void Destroy(int number);
 
 private:
 	IRInst *instr_;
@@ -126,6 +130,10 @@ public:
 			return nullptr;
 		}
 	}
+
+	std::vector<u32> SaveAndClearEmuHackOps();
+	void RestoreSavedEmuHackOps(std::vector<u32> saved);
+
 private:
 	int size_;
 	std::vector<IRBlock> blocks_;
@@ -149,6 +157,9 @@ public:
 	// Not using a regular block cache.
 	JitBlockCache *GetBlockCache() override { return nullptr; }
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
+
+	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks_.SaveAndClearEmuHackOps(); }
+	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks_.RestoreSavedEmuHackOps(saved); }
 
 	void ClearCache();
 	void InvalidateCache();

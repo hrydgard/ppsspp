@@ -425,8 +425,6 @@ __forceinline static Opcode Read_Instruction(u32 address, bool resolveReplacemen
 	}
 
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-
 		inst = MIPSComp::jit->GetOriginalOp(inst);
 		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
 			u32 op;
