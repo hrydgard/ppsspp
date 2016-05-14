@@ -1,24 +1,23 @@
-#ifdef _M_SSE
-#include <smmintrin.h>
-#endif
-
 #include <algorithm>
 #include <cmath>
+
+#include "math/math_util.h"
+#include "Common/Common.h"
+
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
 
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/System.h"
-#include "Core/CoreTiming.h"
-
-#include "math/math_util.h"
-#include "Common/CommonTypes.h"
-#include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
+#include "Core/System.h"
+#include "Core/CoreTiming.h"
 
 alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
