@@ -102,7 +102,6 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 	//FMovToGPR a0, f12
 	//FMov f14, f12
 
-	const u32 *constants = in.GetConstants().data();
 	bool logBlocks = false;
 	IRInst prev;
 	prev.op = IROp::Nop;
@@ -134,7 +133,6 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 
 // Might be useful later on x86.
 bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
-	const u32 *constants = in.GetConstants().data();
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
@@ -178,7 +176,7 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
 bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 	IRRegCache gpr(&out);
 
-	const u32 *constants = in.GetConstants().data();
+	const u32 *constants = &in.GetConstants()[0];
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
