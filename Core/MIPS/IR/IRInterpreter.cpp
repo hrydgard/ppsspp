@@ -1,6 +1,12 @@
+
+
+
+
 #ifdef _M_SSE
 #include <smmintrin.h>
 #endif
+
+#include <cfenv>
 
 #include <algorithm>
 #include <cmath>
@@ -19,6 +25,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
+#include "Core/MIPS/IR/IRFrontend.h"
 
 alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
@@ -30,7 +37,7 @@ alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 1.0f },
 };
 
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count, MIPSComp::IRFrontend *frontend) {
 	const IRInst *end = inst + count;
 	while (inst != end) {
 		switch (inst->op) {
@@ -229,21 +236,22 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			int op = inst->dest & 0xF;
 			int bit = inst->dest >> 4;
 			int result = 0;
+			float src1 = mips->f[inst->src1];
 			switch (op) {
-			case VC_EQ: result = mips->f[inst->src1] == mips->f[inst->src2]; break;
-			case VC_NE: result = mips->f[inst->src1] != mips->f[inst->src2]; break;
-			case VC_LT: result = mips->f[inst->src1] < mips->f[inst->src2]; break;
-			case VC_LE: result = mips->f[inst->src1] <= mips->f[inst->src2]; break;
-			case VC_GT: result = mips->f[inst->src1] > mips->f[inst->src2]; break;
-			case VC_GE: result = mips->f[inst->src1] >= mips->f[inst->src2]; break;
-			case VC_EZ: result = mips->f[inst->src1] == 0.0f; break;
-			case VC_NZ: result = mips->f[inst->src1] != 0.0f; break;
-			case VC_EN: result = my_isnan(mips->f[inst->src1]); break;
-			case VC_NN: result = !my_isnan(mips->f[inst->src1]); break;
-			case VC_EI: result = my_isinf(mips->f[inst->src1]); break;
-			case VC_NI: result = !my_isinf(mips->f[inst->src1]); break;
-			case VC_ES: result = my_isnanorinf(mips->f[inst->src1]); break;
-			case VC_NS: result = !my_isnanorinf(mips->f[inst->src1]); break;
+			case VC_EQ: result = src1 == mips->f[inst->src2]; break;
+			case VC_NE: result = src1 != mips->f[inst->src2]; break;
+			case VC_LT: result = src1 < mips->f[inst->src2]; break;
+			case VC_LE: result = src1 <= mips->f[inst->src2]; break;
+			case VC_GT: result = src1 > mips->f[inst->src2]; break;
+			case VC_GE: result = src1 >= mips->f[inst->src2]; break;
+			case VC_EZ: result = src1 == 0.0f; break;
+			case VC_NZ: result = src1 != 0.0f; break;
+			case VC_EN: result = my_isnan(src1); break;
+			case VC_NN: result = !my_isnan(src1); break;
+			case VC_EI: result = my_isinf(src1); break;
+			case VC_NI: result = !my_isinf(src1); break;
+			case VC_ES: result = my_isnanorinf(src1); break;
+			case VC_NS: result = !my_isnanorinf(src1); break;
 			case VC_TR: result = 1; break;
 			case VC_FL: result = 0; break;
 			default:
@@ -462,12 +470,21 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
 		case IROp::FRound:
-			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnanorinf(src)) {
+				mips->fs[inst->dest] = 2147483647LL;
+			} else {
+				mips->fs[inst->dest] = (int)floorf(src + 0.5f);
+			}
 			break;
+		}
 		case IROp::FTrunc:
 		{
 			float src = mips->f[inst->src1];
-			if (src >= 0.0f) {
+			if (my_isnanorinf(src)) {
+				mips->fs[inst->dest] = src >= 0.0f ? 2147483647LL : -2147483648LL;
+			} else if (src >= 0.0f) {
 				mips->fs[inst->dest] = (int)floorf(src);
 				// Overflow, but it was positive.
 				if (mips->fs[inst->dest] == -2147483648LL) {
@@ -480,11 +497,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 		case IROp::FCeil:
-			mips->fs[inst->dest] = (int)ceilf(mips->f[inst->src1]);
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnanorinf(src)) {
+				mips->fs[inst->dest] = 2147483647LL;
+			} else {
+				mips->fs[inst->dest] = (int)ceilf(src);
+			}
 			break;
+		}
 		case IROp::FFloor:
-			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1]);
+		{
+			float src = mips->f[inst->src1];
+			if (my_isnanorinf(src)) {
+				mips->fs[inst->dest] = 2147483647LL;
+			} else {
+				mips->fs[inst->dest] = (int)floorf(src);
+			}
 			break;
+		}
 		case IROp::FCmp:
 			switch (inst->dest) {
 			case IRFpCompareMode::False:
@@ -510,14 +541,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::FCvtWS:
 		{
+			// Obeys the current rounding mode directly.
 			float src = mips->f[inst->src1];
-			if (my_isnanorinf(src))
-			{
+			if (my_isnanorinf(src)) {
 				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
-			switch (mips->fcr31 & 3)
-			{
+			switch (mips->fcr31 & 3) {
 			case 0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;  // RINT_0
 			case 1: mips->fs[inst->dest] = (int)src; break;  // CAST_1
 			case 2: mips->fs[inst->dest] = (int)ceilf(src); break;  // CEIL_2
@@ -623,6 +653,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::SetCtrlVFPUFReg:
 			memcpy(&mips->vfpuCtrl[inst->dest], &mips->f[inst->src1], 4);
+			break;
+
+		case IROp::RestoreRoundingMode:
+			fesetround(FE_TONEAREST);
+			break;
+		case IROp::ApplyRoundingMode:
+		{
+			int mode = FE_TONEAREST;
+			switch (mips->fcr31 & 3) {
+			case 0: mode = FE_TONEAREST; break;  // RINT_0
+			case 1: mode = FE_TOWARDZERO; break;  // CAST_1
+			case 2: mode = FE_UPWARD; break;  // CEIL_2
+			case 3: mode = FE_DOWNWARD; break;  // FLOOR_3
+			}
+			fesetround(mode);
+			break;
+		}
+		case IROp::UpdateRoundingMode:
+			frontend->RoundingWasSet();
 			break;
 
 		default:

@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cfenv>
+
 #include "base/logging.h"
 #include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
@@ -99,6 +101,17 @@ void IRJit::Compile(u32 em_address) {
 	}
 }
 
+void RoundingApply(int fcr31) {
+	int mode = FE_TONEAREST;
+	switch (fcr31 & 3) {
+	case 0: mode = FE_TOWARDZERO;  // RINT_0
+	case 1: mode = FE_TONEAREST; break;  // CAST_1
+	case 2: mode = FE_UPWARD; break;  // CEIL_2
+	case 3: mode = FE_DOWNWARD; break;  // FLOOR_3
+	}
+	fesetround(mode);
+}
+
 void IRJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 
@@ -106,9 +119,9 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// IR Dispatcher
 	
 	while (true) {
-		// RestoreRoundingMode(true);
+		fesetround(FE_TOWARDZERO);
 		CoreTiming::Advance();
-		// ApplyRoundingMode(true);
+		RoundingApply(mips_->fcr31);
 		if (coreState != 0) {
 			break;
 		}
@@ -118,16 +131,16 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
-				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
+				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions(), &frontend_);
 			} else {
-				// RestoreRoundingMode(true);
+				fesetround(FE_TOWARDZERO);
 				Compile(mips_->pc);
-				// ApplyRoundingMode(true);
+				RoundingApply(mips_->fcr31);
 			}
 		}
 	}
 
-	// RestoreRoundingMode(true);
+	fesetround(FE_TOWARDZERO);
 }
 
 bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {

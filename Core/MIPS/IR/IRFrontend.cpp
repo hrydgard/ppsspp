@@ -98,7 +98,7 @@ void IRFrontend::CompileDelaySlot() {
 bool IRFrontend::CheckRounding() {
 	bool cleanSlate = false;
 	if (js.hasSetRounding && !js.lastSetRounding) {
-		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
+		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding IR with checks");
 		// Won't loop, since hasSetRounding is only ever set to 1.
 		js.lastSetRounding = js.hasSetRounding;
 		cleanSlate = true;
@@ -162,7 +162,6 @@ void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	}
 }
 
-// Destroys SCRATCH2
 void IRFrontend::RestoreRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
@@ -170,7 +169,6 @@ void IRFrontend::RestoreRoundingMode(bool force) {
 	}
 }
 
-// Destroys SCRATCH1 and SCRATCH2
 void IRFrontend::ApplyRoundingMode(bool force) {
 	// If the game has never set an interesting rounding mode, we can safely skip this.
 	if (force || js.hasSetRounding) {
@@ -178,9 +176,13 @@ void IRFrontend::ApplyRoundingMode(bool force) {
 	}
 }
 
-// Destroys SCRATCH1 and SCRATCH2
 void IRFrontend::UpdateRoundingMode() {
 	ir.Write(IROp::UpdateRoundingMode);
+}
+
+// Callback from block interpreter
+void IRFrontend::RoundingWasSet() {
+	js.hasSetRounding = true;
 }
 
 void IRFrontend::Comp_DoNothing(MIPSOpcode op) {
