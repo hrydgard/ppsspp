@@ -1258,10 +1258,10 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
+					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
 					ir.Write(IROp::Vec4Add, s0, s0, s1);
 				} else {
-					ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
+					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
 			if (IsConsecutive4(dregs)) {
