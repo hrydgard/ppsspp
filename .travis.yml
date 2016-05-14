@@ -4,20 +4,19 @@ sudo: required
 
 language: cpp
 
-os: linux
-
 dist: trusty
 
-compiler:
-  - gcc
+addons:
+  apt:
+    packages:
+      - build-essential
+      - libgl1-mesa-dev
+      - libglu1-mesa-dev
+      - cmake
 
-env:
-  - PPSSPP_BUILD_TYPE=Linux
-    CMAKE=TRUE
-  - PPSSPP_BUILD_TYPE=Android
-  - PPSSPP_BUILD_TYPE=Blackberry
-    CMAKE=TRUE
-  - PPSSPP_BUILD_TYPE=Symbian
+cache:
+  - apt
+  - ccache
 
 notifications:
   irc:
@@ -30,15 +29,31 @@ notifications:
 
 matrix:
   include:
-    - compiler: clang
+    - os: linux
+      compiler: "gcc linux"
       env: PPSSPP_BUILD_TYPE=Linux
            CMAKE=TRUE
-    - compiler: gcc
+    - os: linux
+      compiler: "gcc android"
+      env: PPSSPP_BUILD_TYPE=Android
+    - os: linux
+      compiler: "gcc blackberry"
+      env: PPSSPP_BUILD_TYPE=Blackberry
+           CMAKE=TRUE
+    - os: linux
+      compiler: "gcc symbian"
+      env: PPSSPP_BUILD_TYPE=Symbian
+    - os: linux
+      compiler: "clang linux"
+      env: PPSSPP_BUILD_TYPE=Linux
+           CMAKE=TRUE
+    - os: linux
+      compiler: "gcc qt"
       env: PPSSPP_BUILD_TYPE=Linux
            QT=TRUE
 # Can't get iOS to work.
 #    - os: osx
-#      compiler: clang
+#      compiler: "clang ios"
 #      env: PPSSPP_BUILD_TYPE=iOS
 #           CMAKE=TRUE
 
