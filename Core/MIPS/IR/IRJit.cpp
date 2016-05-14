@@ -149,6 +149,9 @@ bool IRJit::ReplaceJalTo(u32 dest) {
 }
 
 void IRBlockCache::Clear() {
+	for (size_t i = 0; i < blocks_.size(); ++i) {
+		blocks_[i].Destroy(i);
+	}
 	blocks_.clear();
 }
 
@@ -160,6 +163,17 @@ void IRBlock::Finalize(int number) {
 	origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
 	MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
 	Memory::Write_Opcode_JIT(origAddr_, opcode);
+}
+
+void IRBlock::Destroy(int number) {
+	if (origAddr_) {
+		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
+		if (Memory::ReadUnchecked_U32(origAddr_) == opcode.encoding)
+			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
+
+		// Let's mark this invalid so we don't try to clear it again.
+		origAddr_ = 0;
+	}
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {

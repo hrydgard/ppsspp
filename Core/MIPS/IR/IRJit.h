@@ -99,6 +99,7 @@ public:
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 
 	void Finalize(int number);
+	void Destroy(int number);
 
 private:
 	IRInst *instr_;
