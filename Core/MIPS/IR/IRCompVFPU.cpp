@@ -380,7 +380,7 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// Matrix init
+		// Matrix init (no prefixes)
 		// d[N,M] = CONST[N,M]
 
 		// Not really about trying here, it will work if enabled.
@@ -856,10 +856,21 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector expand half to float
+		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector float to integer
+		// d[N] = int(S[N] * mult)
+		// Note: saturates on overflow.
+
 		DISABLE;
 	}
 
@@ -911,7 +922,7 @@ namespace MIPSComp {
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		// Vector Move from vector control reg
+		// Vector Move from vector control reg (no prefixes)
 		// S[0] = VFPU_CTRL[i]
 
 		int vs = _VS;
@@ -931,7 +942,7 @@ namespace MIPSComp {
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		// Vector Move to vector control reg
+		// Vector Move to vector control reg (no prefixes)
 		// VFPU_CTRL[i] = S[0]
 
 		int vs = _VS;
@@ -951,7 +962,7 @@ namespace MIPSComp {
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		// Matrix move
+		// Matrix move (no prefixes)
 		// D[N,M] = S[N,M]
 
 		int vs = _VS;
@@ -1009,9 +1020,41 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
 
-		// TODO: Tricky, can transpose
+		// Matrix scale, matrix by scalar (no prefixes)
+		// d[N,M] = s[N,M] * t[0]
+
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
+
+		MatrixSize sz = GetMtxSize(op);
+		if (sz != M_4x4) {
+			DISABLE;
+		}
+		if (GetMtx(vt) == GetMtx(vd)) {
+			DISABLE;
+		}
+		int n = GetMatrixSide(sz);
+
+		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
+		if (IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
+			vs = TransposeMatrixReg(vs);
+			vd = TransposeMatrixReg(vd);
+		}
+		if (IsMatrixTransposed(vs) || IsMatrixTransposed(vd)) {
+			DISABLE;
+		}
+
+		u8 sregs[16], dregs[16], tregs[1];
+		GetMatrixRegs(sregs, sz, vs);
+		GetMatrixRegs(dregs, sz, vd);
+		GetVectorRegs(tregs, V_Single, vt);
+
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+		}
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
@@ -1090,9 +1133,9 @@ namespace MIPSComp {
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
-			DISABLE;
-		}
+
+		// Matrix multiply (no prefixes)
+		// D[0 .. N,0 .. M] = S[0 .. N, 0 .. M] * T[0 .. N,0 .. M]
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1173,11 +1216,8 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
-			DISABLE;
-		}
 
-		// Vertex transform, vector by matrix
+		// Vertex transform, vector by matrix (no prefixes)
 		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
 		// Homogenous means t[n-1] is treated as 1.
 
@@ -1213,10 +1253,10 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
+					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
 					ir.Write(IROp::Vec4Add, s0, s0, s1);
 				} else {
-					ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
+					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
 			if (IsConsecutive4(dregs)) {
@@ -1277,10 +1317,29 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector cross (half a cross product, n = 3)
+		// d[0] = s[y]*t[z], d[1] = s[z]*t[x], d[2] = s[x]*t[y]
+		// To do a full cross product: vcrs tmp1, s, t; vcrs tmp2 t, s; vsub d, tmp1, tmp2;
+		// (or just use vcrsp.)
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector determinant
+		// d[0] = s[0]*t[1] - s[1]*t[0]
+		// Note: this operates on two vectors, not a 2x2 matrix.
+
 		DISABLE;
 	}
 
@@ -1294,9 +1353,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
+		// TODO: Does this instruction even look at prefixes at all?
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector cross product (n = 3)
+		// d[0 .. 2] = s[0 .. 2] X t[0 .. 2]
+		// Vector quaternion product (n = 4)
+		// d[0 .. 2] = t[0 .. 2] X s[0 .. 2] + s[3] * t[0 .. 2] + t[3] * s[0 .. 2]
+		// d[3] = s[3]*t[3] - s[0 .. 2] dot t[0 .. 3]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1348,6 +1413,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector compare
+		// VFPU_CC[N] = COMPARE(s[N], t[N])
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -1370,7 +1438,9 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// logBlocks = 1;
+		// Vector conditional move
+		// imm3 >= 6: d[N] = VFPU_CC[N] == tf ? s[N] : d[N]
+		// imm3 < 6:  d[N] = VFPU_CC[imm3] == tf ? s[N] : d[N]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1406,6 +1476,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector integer immediate
+		// d[0] = float(imm)
+
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
@@ -1417,6 +1490,9 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector half-float immediate
+		// d[0] = float(imm)
 
 		FP16 half;
 		half.u = op & 0xFFFF;
@@ -1430,9 +1506,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vcst(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector constant
+		// d[N] = CONST
 
 		int conNum = (op >> 16) & 0x1f;
 		int vd = _VD;
@@ -1455,6 +1533,14 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector extract sign
+		// d[N] = signum(s[N])
+
 		DISABLE;
 	}
 
@@ -1496,6 +1582,12 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// TODO: Verify if this ignores prefixes?
+
+		// Vector color conversion
+		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
+
 		DISABLE;
 	}
 
