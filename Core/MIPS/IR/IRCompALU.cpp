@@ -294,6 +294,7 @@ void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
+
 	// Don't change $zr.
 	if (rd == 0)
 		return;

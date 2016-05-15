@@ -1002,6 +1002,9 @@ namespace MIPSComp
 				// For CMP.
 				gpr.KillImmediate(rs, true, false);
 				gpr.KillImmediate(rt, true, false);
+
+				MOV(32, R(EAX), gpr.R(rs));
+
 				CMP(32, gpr.R(rt), Imm32(0));
 				FixupBranch divZero = J_CC(CC_E);
 
@@ -1010,14 +1013,13 @@ namespace MIPSComp
 				FixupBranch notOverflow = J_CC(CC_NE);
 				CMP(32, gpr.R(rt), Imm32((u32) -1));
 				FixupBranch notOverflow2 = J_CC(CC_NE);
-				// TODO: Should HI be set to anything?
 				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0x80000000));
+				MOV(32, gpr.R(MIPS_REG_HI), Imm32(-1));
 				FixupBranch skip2 = J();
 
 				SetJumpTarget(notOverflow);
 				SetJumpTarget(notOverflow2);
 
-				MOV(32, R(EAX), gpr.R(rs));
 				CDQ();
 				IDIV(32, gpr.R(rt));
 				MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
@@ -1025,9 +1027,9 @@ namespace MIPSComp
 				FixupBranch skip = J();
 
 				SetJumpTarget(divZero);
-				// TODO: Is this the right way to handle a divide by zero?
-				MOV(32, gpr.R(MIPS_REG_HI), Imm32(0));
-				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0));
+				// TODO: This isn't exactly right.
+				MOV(32, gpr.R(MIPS_REG_HI), R(EAX));
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(-1));
 
 				SetJumpTarget(skip);
 				SetJumpTarget(skip2);
@@ -1041,20 +1043,21 @@ namespace MIPSComp
 				gpr.KillImmediate(MIPS_REG_HI, false, true);
 				gpr.KillImmediate(MIPS_REG_LO, false, true);
 				gpr.KillImmediate(rt, true, false);
-				CMP(32, gpr.R(rt), Imm32(0));
-				FixupBranch divZero = J_CC(CC_E);
 
 				MOV(32, R(EAX), gpr.R(rs));
 				MOV(32, R(EDX), Imm32(0));
+
+				CMP(32, gpr.R(rt), Imm32(0));
+				FixupBranch divZero = J_CC(CC_E);
+
 				DIV(32, gpr.R(rt));
 				MOV(32, gpr.R(MIPS_REG_HI), R(EDX));
 				MOV(32, gpr.R(MIPS_REG_LO), R(EAX));
 				FixupBranch skip = J();
 
 				SetJumpTarget(divZero);
-				// TODO: Is this the right way to handle a divide by zero?
-				MOV(32, gpr.R(MIPS_REG_HI), Imm32(0));
-				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0));
+				MOV(32, gpr.R(MIPS_REG_HI), R(EAX));
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(-1));
 
 				SetJumpTarget(skip);
 				gpr.UnlockAllX();
