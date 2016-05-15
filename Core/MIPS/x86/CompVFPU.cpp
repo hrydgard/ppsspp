@@ -3468,6 +3468,10 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 }
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
 	int vd = _VD;
 	int vs = _VS;
 
@@ -3485,6 +3489,7 @@ void Jit::Comp_ColorConv(MIPSOpcode op) {
 
 	u8 sregs[4];
 	u8 dregs[1];
+	// WARNING: Prefixes.
 	GetVectorRegs(sregs, sz, vs);
 	GetVectorRegs(dregs, V_Pair, vd);
 

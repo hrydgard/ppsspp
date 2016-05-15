@@ -928,6 +928,7 @@ namespace MIPSInt
 		u32 s[4];
 		VectorSize sz = V_Quad;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 		u16 colors[4];
 		for (int i = 0; i < 4; i++)
 		{
@@ -965,6 +966,7 @@ namespace MIPSInt
 			colors[i] = col;
 		}
 		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
+		ApplyPrefixD(reinterpret_cast<float *>(ov), V_Pair);
 		WriteVector((const float *)ov, V_Pair, vd);
 		PC += 4;
 		EatPrefixes();

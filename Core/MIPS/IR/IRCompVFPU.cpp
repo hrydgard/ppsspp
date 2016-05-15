@@ -1830,7 +1830,8 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		// TODO: Verify if this ignores prefixes?
+		if (js.HasUnknownPrefix())
+			DISABLE;
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
