@@ -756,6 +756,22 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 	fbstate.fmt = (GEBufferFormat)pixelformat;
 	fbstate.stride = linesize;
 
+	if (sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
+	}
+	if (topaddr != 0 && !Memory::IsRAMAddress(topaddr) && !Memory::IsVRAMAddress(topaddr)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
+	}
+	if ((topaddr & 0xF) != 0) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
+	}
+	if ((linesize & 0x3F) != 0 || (linesize == 0 && topaddr != 0)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
+	}
+	if (pixelformat < 0 || pixelformat > GE_FORMAT_8888) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
+	}
+
 	hleEatCycles(290);
 
 	s64 delayCycles = 0;
