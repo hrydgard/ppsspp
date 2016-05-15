@@ -438,6 +438,36 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 
+		case IROp::Div:
+		{
+			s32 numerator = (s32)mips->r[inst->src1];
+			s32 denominator = (s32)mips->r[inst->src2];
+			if (numerator == (s32)0x80000000 && denominator == -1) {
+				mips->lo = 0x80000000;
+				mips->hi = -1;
+			} else if (denominator != 0) {
+				mips->lo = (u32)(numerator / denominator);
+				mips->hi = (u32)(numerator % denominator);
+			} else {
+				mips->lo = numerator < 0 ? 1 : -1;
+				mips->hi = numerator;
+			}
+			break;
+		}
+		case IROp::DivU:
+		{
+			u32 numerator = mips->r[inst->src1];
+			u32 denominator = mips->r[inst->src2];
+			if (denominator != 0) {
+				mips->lo = numerator / denominator;
+				mips->hi = numerator % denominator;
+			} else {
+				mips->lo = numerator <= 0xFFFF ? 0xFFFF : -1;
+				mips->hi = numerator;
+			}
+			break;
+		}
+
 		case IROp::BSwap16:
 		{
 			u32 x = mips->r[inst->src1];

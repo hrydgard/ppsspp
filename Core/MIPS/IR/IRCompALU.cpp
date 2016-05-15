@@ -348,12 +348,10 @@ void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 26: //div
-		DISABLE;
 		ir.Write(IROp::Div, 0, rs, rt);
 		break;
 
 	case 27: //divu
-		DISABLE;
 		ir.Write(IROp::DivU, 0, rs, rt);
 		break;
 
