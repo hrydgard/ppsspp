@@ -636,8 +636,8 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
 			u32 denominator = gpr.GetImm(rt);
 			if (denominator == 0) {
-				// TODO: Is this correct?
-				gpr.SetImm(MIPS_REG_LO, 0);
+				// TODO: This isn't exactly right.
+				gpr.SetImm(MIPS_REG_LO, -1);
 			} else {
 				gpr.MapDirtyIn(MIPS_REG_LO, rs);
 				// Remainder is just an AND, neat.

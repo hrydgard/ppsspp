@@ -87,6 +87,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Ext16to32:
 			mips->r[inst->dest] = (s32)(s16)mips->r[inst->src1];
 			break;
+		case IROp::ReverseBits:
+			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
+			break;
 
 		case IROp::Load8:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + constPool[inst->src2]);
@@ -400,6 +403,68 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		{
 			u64 result = (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
 			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::Madd:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MaddU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::Msub:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MsubU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+
+		case IROp::Div:
+		{
+			s32 numerator = (s32)mips->r[inst->src1];
+			s32 denominator = (s32)mips->r[inst->src2];
+			if (numerator == (s32)0x80000000 && denominator == -1) {
+				mips->lo = 0x80000000;
+				mips->hi = -1;
+			} else if (denominator != 0) {
+				mips->lo = (u32)(numerator / denominator);
+				mips->hi = (u32)(numerator % denominator);
+			} else {
+				mips->lo = numerator < 0 ? 1 : -1;
+				mips->hi = numerator;
+			}
+			break;
+		}
+		case IROp::DivU:
+		{
+			u32 numerator = mips->r[inst->src1];
+			u32 denominator = mips->r[inst->src2];
+			if (denominator != 0) {
+				mips->lo = numerator / denominator;
+				mips->hi = numerator % denominator;
+			} else {
+				mips->lo = numerator <= 0xFFFF ? 0xFFFF : -1;
+				mips->hi = numerator;
+			}
 			break;
 		}
 
