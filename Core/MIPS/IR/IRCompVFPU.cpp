@@ -1354,7 +1354,89 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+		// These instructions pack pairs or quads of integers into 32 bits.
+		// The unsigned (u) versions skip the sign bit when packing, but first clamping to 0.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Single;
+			if (sz != V_Quad) {
+				DISABLE;
+			}
+		} else {
+			switch (sz) {
+			case V_Pair:
+				outsize = V_Single;
+				break;
+			case V_Quad:
+				outsize = V_Pair;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[2], srcregs[4], tempregs[2];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+		memcpy(srcregs, sregs, sizeof(sregs));
+		memcpy(tempregs, dregs, sizeof(dregs));
+
+		int n = GetNumVectorElements(sz);
+		int nOut = GetNumVectorElements(outsize);
+
+		// If src registers aren't contiguous, make them.
+		if (sz == V_Quad && !IsConsecutive4(sregs)) {
+			// T prefix is unused.
+			for (int i = 0; i < 4; i++) {
+				srcregs[i] = IRVTEMP_PFX_T + i;
+				ir.Write(IROp::FMov, srcregs[i], sregs[i]);
+			}
+		}
+
+		if (bits == 8) {
+			if (unsignedOp) {  //vi2uc
+				// Output is only one register.
+				ir.Write(IROp::Vec4ClampToZero, IRVTEMP_0, srcregs[0]);
+				ir.Write(IROp::Vec4Pack31To8, tempregs[0], IRVTEMP_0);
+			} else {  //vi2c
+				ir.Write(IROp::Vec4Pack32To8, tempregs[0], srcregs[0]);
+			}
+		} else {
+			// bits == 16
+			if (unsignedOp) {  //vi2us
+				// Output is only one register.
+				ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0, srcregs[0]);
+				ir.Write(IROp::Vec2Pack31To16, tempregs[0], IRVTEMP_0);
+				if (outsize == V_Pair) {
+					ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0 + 2, srcregs[2]);
+					ir.Write(IROp::Vec2Pack31To16, tempregs[1], IRVTEMP_0 + 2);
+				}
+			} else {  //vi2s
+				DISABLE;  // Can't figure out what's wrong with this! Doesn't pass cpu/vfpu/convert
+				ir.Write(IROp::Vec2Pack32To16, tempregs[0], srcregs[0]);
+				if (outsize == V_Pair) {
+					ir.Write(IROp::Vec2Pack32To16, tempregs[1], srcregs[2]);
+				}
+			}
+		}
+
+		for (int i = 0; i < nOut; i++) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, outsize);
 	}
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {

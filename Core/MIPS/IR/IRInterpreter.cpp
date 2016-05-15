@@ -243,6 +243,59 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->fi[inst->dest + 3] = (mips->fi[inst->src1]) & 0xFF000000;
 			break;
 
+		case IROp::Vec2Pack32To16:
+		{
+			u32 val = mips->fi[inst->src1] >> 16;
+			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF) | val;
+			break;
+		}
+
+		case IROp::Vec2Pack31To16:
+		{
+			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
+			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec4Pack32To8:
+		{
+			u32 val = mips->fi[inst->src1] >> 24;
+			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
+			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
+			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec4Pack31To8:
+		{
+			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
+			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
+			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
+			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec2ClampToZero:
+		{
+			for (int i = 0; i < 2; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+			}
+			break;
+		}
+
+		case IROp::Vec4ClampToZero:
+		{
+			for (int i = 0; i < 4; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+			}
+			break;
+		}
+
 		case IROp::Vec4DuplicateUpperBitsAndShift1:
 			for (int i = 0; i < 4; i++) {
 				u32 val = mips->fi[inst->src1 + i];

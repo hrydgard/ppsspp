@@ -179,6 +179,12 @@ enum class IROp : u8 {
 	Vec2Unpack16To32,
 	Vec4Unpack8To32,
 	Vec4DuplicateUpperBitsAndShift1,  // Bizarro vuc2i behaviour, in an instruction. Split?
+	Vec4ClampToZero,
+	Vec2ClampToZero,
+	Vec4Pack31To8,
+	Vec4Pack32To8,
+	Vec2Pack31To16,
+	Vec2Pack32To16,
 
 	// Slow special functions. Used on singles.
 	FSin,

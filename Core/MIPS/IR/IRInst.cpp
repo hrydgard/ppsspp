@@ -102,7 +102,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::SetCtrlVFPUFReg, "SetCtrlVFPUFReg", "TF" },
 	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
-	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", ""},
+	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "" },
 	{ IROp::Vec4Init, "Vec4Init", "Fv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "FFs" },
 	{ IROp::Vec4Mov, "Vec4Mov", "FF" },
@@ -115,11 +115,18 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Neg, "Vec4Neg", "FF" },
 	{ IROp::Vec4Abs, "Vec4Abs", "FF" },
 
-	// Pack/Unpack
+		// Pack/Unpack
 	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "FF" },  // Note that the result is shifted down by 1, hence 31
 	{ IROp::Vec2Unpack16To32, "Vec2Unpack16To32", "FF" },
 	{ IROp::Vec4Unpack8To32, "Vec4Unpack8To32", "FF" },
 	{ IROp::Vec4DuplicateUpperBitsAndShift1, "Vec4DuplicateUpperBitsAndShift1", "FF" },
+
+	{ IROp::Vec4ClampToZero, "Vec4ClampToZero", "FF" },
+	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "FF" },
+	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FF" },
+	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FF" },
+	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "FF" },
+	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "FF" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
