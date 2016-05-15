@@ -3,6 +3,18 @@
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
+// Legend
+// ======================
+//  _ = ignore
+//  G = GPR register
+//  C = 32-bit constant from array
+//  I = immediate value from instruction
+//  F = FPR register, single
+//  V = FPR register, Vec4. Reg number always divisible by 4.
+//  2 = FPR register, Vec2 (uncommon)
+//  v = Vec4Init constant, chosen by immediate
+//  s = Shuffle immediate (4 2-bit fields, choosing a xyzw shuffle)
+
 static const IRMeta irMeta[] = {
 	{ IROp::Nop, "Nop", "" },
 	{ IROp::SetConst, "SetConst", "GC" },
@@ -60,12 +72,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load16Ext, "Load16Ext", "GGC" },
 	{ IROp::Load32, "Load32", "GGC" },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
-	{ IROp::LoadVec4, "LoadVec4", "FGC" },
+	{ IROp::LoadVec4, "LoadVec4", "VGC" },
 	{ IROp::Store8, "Store8", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store16, "Store16", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32, "Store32", "GGC", IRFLAG_SRC3 },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
-	{ IROp::StoreVec4, "StoreVec4", "FGC", IRFLAG_SRC3 },
+	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -103,30 +115,30 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI" },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "" },
-	{ IROp::Vec4Init, "Vec4Init", "Fv" },
-	{ IROp::Vec4Shuffle, "Vec4Shuffle", "FFs" },
-	{ IROp::Vec4Mov, "Vec4Mov", "FF" },
-	{ IROp::Vec4Add, "Vec4Add", "FFF" },
-	{ IROp::Vec4Sub, "Vec4Sub", "FFF" },
-	{ IROp::Vec4Div, "Vec4Div", "FFF" },
-	{ IROp::Vec4Mul, "Vec4Mul", "FFF" },
-	{ IROp::Vec4Scale, "Vec4Scale", "FFF" },
-	{ IROp::Vec4Dot, "Vec4Dot", "FFF" },
-	{ IROp::Vec4Neg, "Vec4Neg", "FF" },
-	{ IROp::Vec4Abs, "Vec4Abs", "FF" },
+	{ IROp::Vec4Init, "Vec4Init", "Vv" },
+	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
+	{ IROp::Vec4Mov, "Vec4Mov", "VV" },
+	{ IROp::Vec4Add, "Vec4Add", "VVV" },
+	{ IROp::Vec4Sub, "Vec4Sub", "VVV" },
+	{ IROp::Vec4Div, "Vec4Div", "VVV" },
+	{ IROp::Vec4Mul, "Vec4Mul", "VVV" },
+	{ IROp::Vec4Scale, "Vec4Scale", "VVF" },
+	{ IROp::Vec4Dot, "Vec4Dot", "FVV" },
+	{ IROp::Vec4Neg, "Vec4Neg", "VV" },
+	{ IROp::Vec4Abs, "Vec4Abs", "VV" },
 
 		// Pack/Unpack
-	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "FF" },  // Note that the result is shifted down by 1, hence 31
-	{ IROp::Vec2Unpack16To32, "Vec2Unpack16To32", "FF" },
-	{ IROp::Vec4Unpack8To32, "Vec4Unpack8To32", "FF" },
-	{ IROp::Vec4DuplicateUpperBitsAndShift1, "Vec4DuplicateUpperBitsAndShift1", "FF" },
+	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "2F" },  // Note that the result is shifted down by 1, hence 31
+	{ IROp::Vec2Unpack16To32, "Vec2Unpack16To32", "2F" },
+	{ IROp::Vec4Unpack8To32, "Vec4Unpack8To32", "VF" },
+	{ IROp::Vec4DuplicateUpperBitsAndShift1, "Vec4DuplicateUpperBitsAndShift1", "VV" },
 
-	{ IROp::Vec4ClampToZero, "Vec4ClampToZero", "FF" },
-	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "FF" },
-	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FF" },
-	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FF" },
-	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "FF" },
-	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "FF" },
+	{ IROp::Vec4ClampToZero, "Vec4ClampToZero", "VV" },
+	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "22" },
+	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FV" },
+	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FV" },
+	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "2V" },
+	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "2V" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },
@@ -238,6 +250,20 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, const u32 *co
 			snprintf(buf, bufSize, "v%d", param - 32);
 		} else {
 			snprintf(buf, bufSize, "f%d", param);
+		}
+		break;
+	case 'V':
+		if (param >= 32) {
+			snprintf(buf, bufSize, "v%d..v%d", param - 32, param - 32 + 3);
+		} else {
+			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
+		}
+		break;
+	case '2':
+		if (param >= 32) {
+			snprintf(buf, bufSize, "v%d,v%d", param - 32, param - 32 + 1);
+		} else {
+			snprintf(buf, bufSize, "f%d,f%d", param, param + 1);
 		}
 		break;
 	case 'C':

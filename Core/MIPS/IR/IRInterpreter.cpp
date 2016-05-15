@@ -246,7 +246,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Vec2Pack32To16:
 		{
 			u32 val = mips->fi[inst->src1] >> 16;
-			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF) | val;
+			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF0000) | val;
 			break;
 		}
 

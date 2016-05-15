@@ -1363,7 +1363,7 @@ namespace MIPSComp {
 		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
 
 		// These instructions pack pairs or quads of integers into 32 bits.
-		// The unsigned (u) versions skip the sign bit when packing, but first clamping to 0.
+		// The unsigned (u) versions skip the sign bit when packing, first doing a signed clamp to 0 (so the sign bit won't ever be 1).
 
 		VectorSize sz = GetVecSize(op);
 		VectorSize outsize;
@@ -1422,7 +1422,6 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec2Pack31To16, tempregs[1], IRVTEMP_0 + 2);
 				}
 			} else {  //vi2s
-				DISABLE;  // Can't figure out what's wrong with this! Doesn't pass cpu/vfpu/convert
 				ir.Write(IROp::Vec2Pack32To16, tempregs[0], srcregs[0]);
 				if (outsize == V_Pair) {
 					ir.Write(IROp::Vec2Pack32To16, tempregs[1], srcregs[2]);
@@ -1459,6 +1458,7 @@ namespace MIPSComp {
 		VectorSize outsize;
 		if (bits == 8) {
 			outsize = V_Quad;
+			sz = V_Single;  // For some reason, sz is set to Quad in this case though the outsize is Single.
 		} else {
 			switch (sz) {
 			case V_Single:

@@ -202,6 +202,19 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
 				out.Write(inst);
 			}
 			break;
+
+		case IROp::Vec4Add:
+		case IROp::Vec4Sub:
+		case IROp::Vec4Mul:
+		case IROp::Vec4Div:
+			if (inst.src1 != inst.dest && inst.src2 != inst.dest) {
+				out.Write(IROp::Vec4Mov, inst.dest, inst.src1);
+				out.Write(inst.op, inst.dest, inst.dest, inst.src2);
+			} else {
+				out.Write(inst);
+			}
+			break;
+
 		default:
 			out.Write(inst);
 			break;
