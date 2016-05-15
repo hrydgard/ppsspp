@@ -1039,11 +1039,12 @@ namespace MIPSComp {
 		int n = GetMatrixSide(sz);
 
 		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
-		if (IsMatrixTransposed(vs)) {
+		if (IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
 			vs = TransposeMatrixReg(vs);
-		}
-		if (IsMatrixTransposed(vd)) {
 			vd = TransposeMatrixReg(vd);
+		}
+		if (IsMatrixTransposed(vs) || IsMatrixTransposed(vd)) {
+			DISABLE;
 		}
 
 		u8 sregs[16], dregs[16], tregs[1];
