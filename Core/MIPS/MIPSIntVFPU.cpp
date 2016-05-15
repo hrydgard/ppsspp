@@ -164,16 +164,9 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 	{
 		int sat = (data >> (i * 2)) & 3;
 		if (sat == 1)
-		{
-			if (v[i] > 1.0f) v[i] = 1.0f;
-			// This includes -0.0f -> +0.0f.
-			if (v[i] <= 0.0f) v[i] = 0.0f;
-		}
+			v[i] = vfpu_clamp(v[i], 0.0f, 1.0f);
 		else if (sat == 3)
-		{
-			if (v[i] > 1.0f)  v[i] = 1.0f;
-			if (v[i] < -1.0f) v[i] = -1.0f;
-		}
+			v[i] = vfpu_clamp(v[i], -1.0f, 1.0f);
 	}
 }
 
