@@ -761,7 +761,8 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 	hleEatCycles(290);
 
 	s64 delayCycles = 0;
-	if (topaddr != framebuf.topaddr && g_Config.iForceMaxEmulatedFPS > 0) {
+	// Don't count transitions between display off and display on.
+	if (topaddr != 0 && topaddr != framebuf.topaddr && framebuf.topaddr != 0 && g_Config.iForceMaxEmulatedFPS > 0) {
 		// Sometimes we get a small number, there's probably no need to delay the thread for this.
 		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
 		const int FLIP_DELAY_CYCLES_MIN = 10;
