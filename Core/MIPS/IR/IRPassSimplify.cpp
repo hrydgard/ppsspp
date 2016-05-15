@@ -520,6 +520,14 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::Vec4Shuffle:
 		case IROp::Vec4Neg:
 		case IROp::Vec4Abs:
+		case IROp::Vec4Pack31To8:
+		case IROp::Vec4Pack32To8:
+		case IROp::Vec2Pack32To16:
+		case IROp::Vec4Unpack8To32:
+		case IROp::Vec2Unpack16To32:
+		case IROp::Vec4DuplicateUpperBitsAndShift1:
+		case IROp::Vec2ClampToZero:
+		case IROp::Vec4ClampToZero:
 			out.Write(inst);
 			break;
 
