@@ -60,6 +60,11 @@ inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 #endif
 }
 
+inline float vfpu_clamp(float v, float min, float max) {
+	// Note: NAN is preserved, and -0.0 becomes +0.0 if min=+0.0.
+	return v >= max ? max : (v <= min ? min : v);
+}
+
 #define VFPU_FLOAT16_EXP_MAX    0x1f
 #define VFPU_SH_FLOAT16_SIGN    15
 #define VFPU_MASK_FLOAT16_SIGN  0x1

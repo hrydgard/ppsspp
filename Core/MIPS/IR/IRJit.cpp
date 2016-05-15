@@ -149,7 +149,7 @@ bool IRJit::ReplaceJalTo(u32 dest) {
 }
 
 void IRBlockCache::Clear() {
-	for (size_t i = 0; i < blocks_.size(); ++i) {
+	for (int i = 0; i < size_; ++i) {
 		blocks_[i].Destroy(i);
 	}
 	blocks_.clear();

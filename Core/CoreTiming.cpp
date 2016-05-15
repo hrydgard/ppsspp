@@ -572,7 +572,7 @@ void ForceCheck()
 	// This will cause us to check for new events immediately.
 	currentMIPS->downcount = -1;
 	// But let's not eat a bunch more time in Advance() because of this.
-	slicelength = 1;
+	slicelength = -1;
 }
 
 void Advance()

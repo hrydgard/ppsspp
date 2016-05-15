@@ -593,10 +593,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->f[inst->dest] = -mips->f[inst->src1];
 			break;
 		case IROp::FSat0_1:
-			mips->f[inst->dest] = clamp_value(mips->f[inst->src1], 0.0f, 1.0f);
+			// We have to do this carefully to handle NAN and -0.0f.
+			mips->f[inst->dest] = vfpu_clamp(mips->f[inst->src1], 0.0f, 1.0f);
 			break;
 		case IROp::FSatMinus1_1:
-			mips->f[inst->dest] = clamp_value(mips->f[inst->src1], -1.0f, 1.0f);
+			mips->f[inst->dest] = vfpu_clamp(mips->f[inst->src1], -1.0f, 1.0f);
 			break;
 
 		// Bitwise trickery

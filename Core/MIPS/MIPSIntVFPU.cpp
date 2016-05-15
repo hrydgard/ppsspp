@@ -164,16 +164,9 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 	{
 		int sat = (data >> (i * 2)) & 3;
 		if (sat == 1)
-		{
-			if (v[i] > 1.0f) v[i] = 1.0f;
-			// This includes -0.0f -> +0.0f.
-			if (v[i] <= 0.0f) v[i] = 0.0f;
-		}
+			v[i] = vfpu_clamp(v[i], 0.0f, 1.0f);
 		else if (sat == 3)
-		{
-			if (v[i] > 1.0f)  v[i] = 1.0f;
-			if (v[i] < -1.0f) v[i] = -1.0f;
-		}
+			v[i] = vfpu_clamp(v[i], -1.0f, 1.0f);
 	}
 }
 
@@ -768,7 +761,6 @@ namespace MIPSInt
 			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
 			{
 				u32 value = s[0];
-				u32 value2 = value / 2;
 				for (int i = 0; i < 4; i++) {
 					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
 					value >>= 8;
@@ -936,6 +928,7 @@ namespace MIPSInt
 		u32 s[4];
 		VectorSize sz = V_Quad;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 		u16 colors[4];
 		for (int i = 0; i < 4; i++)
 		{
@@ -973,6 +966,7 @@ namespace MIPSInt
 			colors[i] = col;
 		}
 		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
+		ApplyPrefixD(reinterpret_cast<float *>(ov), V_Pair);
 		WriteVector((const float *)ov, V_Pair, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1303,6 +1297,7 @@ namespace MIPSInt
 
 	// Generates one line of a rotation matrix around one of the three axes
 	void Int_Vrot(MIPSOpcode op) {
+		// Note: prefixes behave strangely for this.
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;

@@ -3410,6 +3410,14 @@ void Jit::CompVrotShuffle(u8 *dregs, int imm, int n, bool negSin) {
 // Very heavily used by FF:CC
 void Jit::Comp_VRot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix()) {
+		DISABLE;
+	}
+	if (!js.HasNoPrefix()) {
+		// Prefixes work strangely for this, see IRCompVFPU.
+		WARN_LOG_REPORT(JIT, "vrot instruction using prefixes at %08x", GetCompilerPC());
+		DISABLE;
+	}
 
 	int vd = _VD;
 	int vs = _VS;
@@ -3468,6 +3476,10 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 }
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
 	int vd = _VD;
 	int vs = _VS;
 
@@ -3485,6 +3497,7 @@ void Jit::Comp_ColorConv(MIPSOpcode op) {
 
 	u8 sregs[4];
 	u8 dregs[1];
+	// WARNING: Prefixes.
 	GetVectorRegs(sregs, sz, vs);
 	GetVectorRegs(dregs, V_Pair, vd);
 
