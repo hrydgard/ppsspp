@@ -768,7 +768,6 @@ namespace MIPSInt
 			// conversion between 8-bit and 16-bit values.  But then why not do it in vc2i?
 			{
 				u32 value = s[0];
-				u32 value2 = value / 2;
 				for (int i = 0; i < 4; i++) {
 					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
 					value >>= 8;
