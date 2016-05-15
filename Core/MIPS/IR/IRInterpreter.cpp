@@ -405,6 +405,38 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			memcpy(&mips->lo, &result, 8);
 			break;
 		}
+		case IROp::Madd:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MaddU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::Msub:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MsubU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
 
 		case IROp::BSwap16:
 		{

@@ -350,6 +350,12 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 
 		case IROp::Mult:
 		case IROp::MultU:
+		case IROp::Madd:
+		case IROp::MaddU:
+		case IROp::Msub:
+		case IROp::MsubU:
+		case IROp::Div:
+		case IROp::DivU:
 			gpr.MapInIn(inst.src1, inst.src2);
 			goto doDefault;
 

@@ -358,22 +358,18 @@ void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 28: //madd
-		DISABLE;
 		ir.Write(IROp::Madd, 0, rs, rt);
 		break;
 
 	case 29: //maddu
-		DISABLE;
 		ir.Write(IROp::MaddU, 0, rs, rt);
 		break;
 
 	case 46: // msub
-		DISABLE;
 		ir.Write(IROp::Msub, 0, rs, rt);
 		break;
 
 	case 47: // msubu
-		DISABLE;
 		ir.Write(IROp::MsubU, 0, rs, rt);
 		break;
 
