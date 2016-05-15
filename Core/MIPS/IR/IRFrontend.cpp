@@ -107,6 +107,7 @@ bool IRFrontend::CheckRounding() {
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
 		WARN_LOG(JIT, "An uneaten prefix at end of block");
+		logBlocks = 1;
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.
