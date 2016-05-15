@@ -1716,6 +1716,17 @@ namespace MIPSComp {
 	// calling the math library.
 	void IRFrontend::Comp_VRot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		if (!js.HasNoPrefix()) {
+			// Prefixes work strangely for this:
+			//  * They never apply to cos (whether d or s prefixes.)
+			//  * They mostly apply to sin/0, e.g. 0:1, M, or |x|.
+			DISABLE;
+		}
+
+		// Vector rotation matrix (weird prefixes)
+		// d[N] = SINCOSVAL(s[0], imm[N])
+		// The imm selects: cos index, sin index, 0 or sin for others, sin sign flip.
+
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
@@ -1843,6 +1854,10 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector butterfly operation
+		// vbfy2: d[0] = s[0] + s[2], d[1] = s[1] + s[3], d[2] = s[0] - s[2], d[3] = s[1] - s[3]
+		// vbfy1: d[N*2] = s[N*2] + s[N*2+1], d[N*2+1] = s[N*2] - s[N*2+1]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);

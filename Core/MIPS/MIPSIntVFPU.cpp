@@ -1297,6 +1297,7 @@ namespace MIPSInt
 
 	// Generates one line of a rotation matrix around one of the three axes
 	void Int_Vrot(MIPSOpcode op) {
+		// Note: prefixes behave strangely for this.
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
