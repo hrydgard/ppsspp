@@ -772,6 +772,12 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
 	}
 
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
+		if (fbstate.fmt != latchedFramebuf.fmt || fbstate.stride != latchedFramebuf.stride) {
+			return hleReportError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
+		}
+	}
+
 	hleEatCycles(290);
 
 	s64 delayCycles = 0;
@@ -808,6 +814,10 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
+
+		// If we update the format or stride, this affects the current framebuf immediately.
+		framebuf.fmt = latchedFramebuf.fmt;
+		framebuf.stride = latchedFramebuf.stride;
 	}
 
 	if (delayCycles > 0) {
