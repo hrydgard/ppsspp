@@ -53,6 +53,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::MfHi, "MfHi", "G" },
 	{ IROp::Ext8to32, "Ext8to32", "GG" },
 	{ IROp::Ext16to32, "Ext16to32", "GG" },
+	{ IROp::ReverseBits, "ReverseBits", "GG" },
 	{ IROp::Load8, "Load8", "GGC" },
 	{ IROp::Load8Ext, "Load8", "GGC" },
 	{ IROp::Load16, "Load16", "GGC" },

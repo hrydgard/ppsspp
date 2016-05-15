@@ -87,6 +87,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Ext16to32:
 			mips->r[inst->dest] = (s32)(s16)mips->r[inst->src1];
 			break;
+		case IROp::ReverseBits:
+			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
+			break;
 
 		case IROp::Load8:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + constPool[inst->src2]);

@@ -54,7 +54,7 @@ void IRFrontend::Comp_IType(MIPSOpcode op) {
 	MIPSGPReg rs = _RS;
 
 	// noop, won't write to ZERO.
-	if (rt == 0)
+	if (rt == MIPS_REG_ZERO)
 		return;
 
 	switch (op >> 26) {
@@ -92,7 +92,7 @@ void IRFrontend::Comp_RType2(MIPSOpcode op) {
 	MIPSGPReg rd = _RD;
 
 	// Don't change $zr.
-	if (rd == 0)
+	if (rd == MIPS_REG_ZERO)
 		return;
 
 	switch (op & 63) {
@@ -104,7 +104,8 @@ void IRFrontend::Comp_RType2(MIPSOpcode op) {
 		ir.Write(IROp::Clz, rd, IRTEMP_0);
 		break;
 	default:
-		DISABLE;
+		Comp_Generic(op);
+		break;
 	}
 }
 
@@ -198,23 +199,22 @@ void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
-	int fd = _FD;
 	int sa = _SA;
 
 	// noop, won't write to ZERO.
-	if (rd == 0)
+	if (rd == MIPS_REG_ZERO)
 		return;
 
-	// WARNING : ROTR
+	// WARNING: srl/rotr and srlv/rotrv share encodings (differentiated using unused bits.)
 	switch (op & 0x3f) {
 	case 0: CompShiftImm(op, IROp::ShlImm, sa); break; //sll
 	case 2: CompShiftImm(op, (rs == 1 ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
 	case 3: CompShiftImm(op, IROp::SarImm, sa); break; //sra
 	case 4: CompShiftVar(op, IROp::Shl, IROp::ShlImm); break; //sllv
-	case 6: CompShiftVar(op, (fd == 1 ? IROp::Ror : IROp::Shr), (fd == 1 ? IROp::RorImm : IROp::ShrImm)); break; //srlv
+	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr), (sa == 1 ? IROp::RorImm : IROp::ShrImm)); break; //srlv
 	case 7: CompShiftVar(op, IROp::Sar, IROp::SarImm); break; //srav
 	default:
-		DISABLE;
+		Comp_Generic(op);
 		break;
 	}
 }
@@ -229,7 +229,7 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 	u32 mask = 0xFFFFFFFFUL >> (32 - size);
 
 	// Don't change $zr.
-	if (rt == 0)
+	if (rt == MIPS_REG_ZERO)
 		return;
 
 	switch (op & 0x3f) {
@@ -254,6 +254,10 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 		ir.Write(IROp::Or, rt, rt, IRTEMP_0);
 	}
 	break;
+
+	default:
+		Comp_Generic(op);
+		break;
 	}
 }
 
@@ -262,8 +266,9 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
+
 	// Don't change $zr.
-	if (rd == 0)
+	if (rd == MIPS_REG_ZERO)
 		return;
 
 	switch ((op >> 6) & 31) {
@@ -275,7 +280,10 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 		ir.Write(IROp::Ext16to32, rd, rt);
 		break;
 
-	case 20: //bitrev
+	case 20: // bitrev
+		ir.Write(IROp::ReverseBits, rd, rt);
+		break;
+
 	default:
 		Comp_Generic(op);
 		return;

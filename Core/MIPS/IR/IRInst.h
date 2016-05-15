@@ -111,6 +111,7 @@ enum class IROp : u8 {
 
 	Ext8to32,
 	Ext16to32,
+	ReverseBits,
 
 	FAdd,
 	FSub,
