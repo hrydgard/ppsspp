@@ -226,6 +226,33 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
 			break;
 
+		case IROp::Vec2Unpack16To31:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16) >> 1;
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000) >> 1;
+			break;
+
+		case IROp::Vec2Unpack16To32:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16);
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000);
+			break;
+
+		case IROp::Vec4Unpack8To32:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] << 16) & 0xFF000000;
+			mips->fi[inst->dest + 2] = (mips->fi[inst->src1] << 8) & 0xFF000000;
+			mips->fi[inst->dest + 3] = (mips->fi[inst->src1]) & 0xFF000000;
+			break;
+
+		case IROp::Vec4DuplicateUpperBitsAndShift1:
+			for (int i = 0; i < 4; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				val = val | (val >> 8);
+				val = val | (val >> 16);
+				val >>= 1;
+				mips->fi[inst->dest + i] = val;
+			}
+			break;
+
 		case IROp::FCmpVfpuBit:
 		{
 			int op = inst->dest & 0xF;
@@ -518,6 +545,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::FSatMinus1_1:
 			mips->f[inst->dest] = clamp_value(mips->f[inst->src1], -1.0f, 1.0f);
 			break;
+
+		// Bitwise trickery
+		case IROp::FSign:
+		{
+			u32 val;
+			memcpy(&val, &mips->f[inst->src1], sizeof(u32));
+			if (val == 0 || val == 0x80000000)
+				mips->f[inst->dest] = 0.0f;
+			else if ((val >> 31) == 0)
+				mips->f[inst->dest] = 1.0f;
+			else
+				mips->f[inst->dest] = -1.0f;
+		}
 
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;

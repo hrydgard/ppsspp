@@ -81,6 +81,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FRecip, "FRecip", "FF" },
 	{ IROp::FAsin, "FAsin", "FF" },
 	{ IROp::FNeg, "FNeg", "FF" },
+	{ IROp::FSign, "FSign", "FF" },
 	{ IROp::FAbs, "FAbs", "FF" },
 	{ IROp::FRound, "FRound", "FF" },
 	{ IROp::FTrunc, "FTrunc", "FF" },
@@ -113,6 +114,12 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Dot, "Vec4Dot", "FFF" },
 	{ IROp::Vec4Neg, "Vec4Neg", "FF" },
 	{ IROp::Vec4Abs, "Vec4Abs", "FF" },
+
+	// Pack/Unpack
+	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "FF" },  // Note that the result is shifted down by 1, hence 31
+	{ IROp::Vec2Unpack16To32, "Vec2Unpack16To32", "FF" },
+	{ IROp::Vec4Unpack8To32, "Vec4Unpack8To32", "FF" },
+	{ IROp::Vec4DuplicateUpperBitsAndShift1, "Vec4DuplicateUpperBitsAndShift1", "FF" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
 	{ IROp::Downcount, "Downcount", "_II" },

@@ -59,6 +59,10 @@ namespace MIPSComp {
 		}
 	}
 
+	static bool IsConsecutive2(const u8 regs[2]) {
+		return regs[1] == regs[0] + 1;
+	}
+
 	static bool IsConsecutive4(const u8 regs[4]) {
 		return regs[1] == regs[0] + 1 &&
 			     regs[2] == regs[1] + 1 &&
@@ -301,6 +305,12 @@ namespace MIPSComp {
 				ir.Write(IROp::StoreFloat, vregs[2], rs, ir.AddConstant(imm + 8));
 				ir.Write(IROp::StoreFloat, vregs[3], rs, ir.AddConstant(imm + 12));
 			}
+			break;
+
+		case 53: // lvl/lvr.q - highly unusual
+		case 61: // svl/svr.q - highly unusual
+			logBlocks = 1;
+			Comp_Generic(op);
 			break;
 
 		default:
@@ -1348,7 +1358,101 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
+
+		// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+		// at the top.  vus2i shifts it an extra bit right afterward.
+		// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+		// at the top too.  vuc2i is a bit special (see below.)
+		// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+		// then use it for both.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Quad;
+		} else {
+			switch (sz) {
+			case V_Single:
+				outsize = V_Pair;
+				break;
+			case V_Pair:
+				outsize = V_Quad;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[2], dregs[4], tempregs[4], srcregs[2];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+		memcpy(tempregs, dregs, sizeof(dregs));
+		memcpy(srcregs, sregs, sizeof(sregs));
+
+		// Remap source regs to be consecutive. This is not required
+		// but helpful when implementations can join two Vec2Expand.
+		if (sz == V_Pair && !IsConsecutive2(srcregs)) {
+			for (int i = 0; i < 2; i++) {
+				srcregs[i] = IRVTEMP_0 + i;
+				ir.Write(IROp::FMov, srcregs[i], sregs[i]);
+			}
+		}
+
+		int nIn = GetNumVectorElements(sz);
+
+		int nOut = 2;
+		if (outsize == V_Quad)
+			nOut = 4;
+		// Remap dest regs. PFX_T is unused.
+		if (outsize == V_Pair) {
+			bool consecutive = IsConsecutive2(dregs);
+			for (int i = 0; i < 2; i++) {
+				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+					tempregs[i] = IRVTEMP_PFX_T + i;
+				}
+			}
+		} else if (outsize == V_Quad) {
+			bool consecutive = IsConsecutive4(dregs);
+			for (int i = 0; i < 4; i++) {
+				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+					tempregs[i] = IRVTEMP_PFX_T + i;
+				}
+			}
+		}
+
+		if (bits == 16) {
+			if (unsignedOp) {
+				ir.Write(IROp::Vec2Unpack16To31, tempregs[0], srcregs[0]);
+				if (outsize == V_Quad)
+					ir.Write(IROp::Vec2Unpack16To31, tempregs[2], srcregs[1]);
+			} else {
+				ir.Write(IROp::Vec2Unpack16To32, tempregs[0], srcregs[0]);
+				if (outsize == V_Quad)
+					ir.Write(IROp::Vec2Unpack16To32, tempregs[2], srcregs[1]);
+			}
+		} else if (bits == 8) {
+			if (unsignedOp) {
+				// See the interpreter, this one is odd. Hardware bug?
+				ir.Write(IROp::Vec4Unpack8To32, tempregs[0], srcregs[0]);
+				ir.Write(IROp::Vec4DuplicateUpperBitsAndShift1, tempregs[0], tempregs[0]);
+			} else {
+				ir.Write(IROp::Vec4Unpack8To32, tempregs[0], srcregs[0]);
+			}
+		}
+
+		for (int i = 0; i < nOut; i++) {
+			if (tempregs[i] != dregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+		ApplyPrefixD(dregs, outsize);
 	}
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
@@ -1537,8 +1641,6 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 		bool negSin = (imm & 0x10) ? true : false;
 
-		logBlocks = 1;
-
 		char d[4] = { '0', '0', '0', '0' };
 		if (((imm >> 2) & 3) == (imm & 3)) {
 			for (int i = 0; i < 4; i++)
@@ -1578,7 +1680,33 @@ namespace MIPSComp {
 		// Vector extract sign
 		// d[N] = signum(s[N])
 
-		DISABLE;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		u8 tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRTEMP_0 + i;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::FSign, tempregs[i], sregs[i]);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
@@ -1629,6 +1757,54 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		if (n != 2 && n != 4) {
+			// Bad instructions
+			DISABLE;
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		u8 tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRVTEMP_0;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		int subop = (op >> 16) & 0x1F;
+		if (subop == 3) {
+			// vbfy2
+			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[2]);
+			ir.Write(IROp::FAdd, tempregs[1], sregs[1], sregs[3]);
+			ir.Write(IROp::FSub, tempregs[2], sregs[0], sregs[2]);
+			ir.Write(IROp::FSub, tempregs[3], sregs[1], sregs[3]);
+		} else if (subop == 2) {
+			// vbfy1
+			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[1]);
+			ir.Write(IROp::FSub, tempregs[1], sregs[0], sregs[1]);
+			if (n == 4) {
+				ir.Write(IROp::FAdd, tempregs[2], sregs[2], sregs[3]);
+				ir.Write(IROp::FSub, tempregs[3], sregs[2], sregs[3]);
+			}
+		} else {
+			DISABLE;
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (tempregs[i] != dregs[i])
+				dregs[i] = tempregs[i];
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 }
