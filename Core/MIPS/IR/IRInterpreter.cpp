@@ -1,31 +1,25 @@
-
-
-
-
-#ifdef _M_SSE
-#include <smmintrin.h>
-#endif
-
-#include <cfenv>
-
 #include <algorithm>
 #include <cmath>
+#include <cfenv>
 
+#include "math/math_util.h"
+#include "Common/Common.h"
+
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
+
+#include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/System.h"
-#include "Core/CoreTiming.h"
-
-#include "math/math_util.h"
-#include "Common/CommonTypes.h"
-#include "Core/MemMap.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRFrontend.h"
+#include "Core/System.h"
 
 alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
@@ -94,6 +88,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		case IROp::Ext16to32:
 			mips->r[inst->dest] = (s32)(s16)mips->r[inst->src1];
+			break;
+		case IROp::ReverseBits:
+			mips->r[inst->dest] = ReverseBits32(mips->r[inst->src1]);
 			break;
 
 		case IROp::Load8:
@@ -229,6 +226,86 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::Vec4Abs:
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
+			break;
+
+		case IROp::Vec2Unpack16To31:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16) >> 1;
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000) >> 1;
+			break;
+
+		case IROp::Vec2Unpack16To32:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16);
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000);
+			break;
+
+		case IROp::Vec4Unpack8To32:
+			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
+			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] << 16) & 0xFF000000;
+			mips->fi[inst->dest + 2] = (mips->fi[inst->src1] << 8) & 0xFF000000;
+			mips->fi[inst->dest + 3] = (mips->fi[inst->src1]) & 0xFF000000;
+			break;
+
+		case IROp::Vec2Pack32To16:
+		{
+			u32 val = mips->fi[inst->src1] >> 16;
+			mips->fi[inst->dest] = (mips->fi[inst->src1 + 1] & 0xFFFF) | val;
+			break;
+		}
+
+		case IROp::Vec2Pack31To16:
+		{
+			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
+			val |= (mips->fi[inst->src1 + 1] << 1) & 0xFFFF0000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec4Pack32To8:
+		{
+			u32 val = mips->fi[inst->src1] >> 24;
+			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
+			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
+			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec4Pack31To8:
+		{
+			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
+			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
+			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
+			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
+			mips->fi[inst->dest] = val;
+			break;
+		}
+
+		case IROp::Vec2ClampToZero:
+		{
+			for (int i = 0; i < 2; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+			}
+			break;
+		}
+
+		case IROp::Vec4ClampToZero:
+		{
+			for (int i = 0; i < 4; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
+			}
+			break;
+		}
+
+		case IROp::Vec4DuplicateUpperBitsAndShift1:
+			for (int i = 0; i < 4; i++) {
+				u32 val = mips->fi[inst->src1 + i];
+				val = val | (val >> 8);
+				val = val | (val >> 16);
+				val >>= 1;
+				mips->fi[inst->dest + i] = val;
+			}
 			break;
 
 		case IROp::FCmpVfpuBit:
@@ -411,6 +488,68 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			memcpy(&mips->lo, &result, 8);
 			break;
 		}
+		case IROp::Madd:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MaddU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result += (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::Msub:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+		case IROp::MsubU:
+		{
+			s64 result;
+			memcpy(&result, &mips->lo, 8);
+			result -= (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
+			memcpy(&mips->lo, &result, 8);
+			break;
+		}
+
+		case IROp::Div:
+		{
+			s32 numerator = (s32)mips->r[inst->src1];
+			s32 denominator = (s32)mips->r[inst->src2];
+			if (numerator == (s32)0x80000000 && denominator == -1) {
+				mips->lo = 0x80000000;
+				mips->hi = -1;
+			} else if (denominator != 0) {
+				mips->lo = (u32)(numerator / denominator);
+				mips->hi = (u32)(numerator % denominator);
+			} else {
+				mips->lo = numerator < 0 ? 1 : -1;
+				mips->hi = numerator;
+			}
+			break;
+		}
+		case IROp::DivU:
+		{
+			u32 numerator = mips->r[inst->src1];
+			u32 denominator = mips->r[inst->src2];
+			if (denominator != 0) {
+				mips->lo = numerator / denominator;
+				mips->hi = numerator % denominator;
+			} else {
+				mips->lo = numerator <= 0xFFFF ? 0xFFFF : -1;
+				mips->hi = numerator;
+			}
+			break;
+		}
 
 		case IROp::BSwap16:
 		{
@@ -462,6 +601,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::FSatMinus1_1:
 			mips->f[inst->dest] = clamp_value(mips->f[inst->src1], -1.0f, 1.0f);
 			break;
+
+		// Bitwise trickery
+		case IROp::FSign:
+		{
+			u32 val;
+			memcpy(&val, &mips->f[inst->src1], sizeof(u32));
+			if (val == 0 || val == 0x80000000)
+				mips->f[inst->dest] = 0.0f;
+			else if ((val >> 31) == 0)
+				mips->f[inst->dest] = 1.0f;
+			else
+				mips->f[inst->dest] = -1.0f;
+		}
 
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;

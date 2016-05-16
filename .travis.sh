@@ -1,5 +1,6 @@
 #/bin/bash
 
+export USE_CCACHE=1
 export NDK_CCACHE=ccache
 NDK_VER=android-ndk-r10d
 
@@ -80,15 +81,26 @@ travis_install() {
 		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin
 		cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/
 	fi
+
+	# Ensure we're using ccache
+	if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
+		export CXX="ccache clang" CC="ccache clang"
+	fi
+	if [[ "$PPSSPP_BUILD_TYPE" == "Linux" && "$CXX" == "g++" ]]; then
+		# Also use gcc 4.8, instead of whatever default version.
+		export CXX="ccache g++-4.8" CC="ccache gcc-4.8"
+	fi
+	if [[ "$CXX" != *ccache* ]]; then
+		export CXX="ccache $CXX"
+	fi
+	if [[ "$CC" != *ccache* ]]; then
+		export CC="ccache $CC"
+	fi
 }
 
 travis_script() {
 	# Compile PPSSPP
 	if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
-		if [ "$CXX" = "g++" ]; then
-			export CXX="ccache g++-4.8" CC="ccache gcc-4.8"
-		fi
-
 		if [ "$QT" = "TRUE" ]; then
 			./b.sh --qt
 		else
@@ -102,7 +114,7 @@ travis_script() {
 		fi
 
 		pushd android
-		./ab.sh -j1
+		./ab.sh -j2 APP_ABI=$APP_ABI
 		popd
 	fi
 	if [ "$PPSSPP_BUILD_TYPE" = "Blackberry" ]; then

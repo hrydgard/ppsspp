@@ -59,6 +59,10 @@ namespace MIPSComp {
 		}
 	}
 
+	static bool IsConsecutive2(const u8 regs[2]) {
+		return regs[1] == regs[0] + 1;
+	}
+
 	static bool IsConsecutive4(const u8 regs[4]) {
 		return regs[1] == regs[0] + 1 &&
 			     regs[2] == regs[1] + 1 &&
@@ -303,6 +307,12 @@ namespace MIPSComp {
 			}
 			break;
 
+		case 53: // lvl/lvr.q - highly unusual
+		case 61: // svl/svr.q - highly unusual
+			logBlocks = 1;
+			Comp_Generic(op);
+			break;
+
 		default:
 			DISABLE;
 			break;
@@ -314,6 +324,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector init
+		// d[N] = CONST[N]
 
 		VectorSize sz = GetVecSize(op);
 		int type = (op >> 16) & 0xF;
@@ -337,6 +350,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector identity row
+		// d[N] = IDENTITY[N,m]
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -373,6 +389,9 @@ namespace MIPSComp {
 		if (sz != M_4x4) {
 			DISABLE;
 		}
+
+		// Matrix init (no prefixes)
+		// d[N,M] = CONST[N,M]
 
 		// Not really about trying here, it will work if enabled.
 		VectorSize vsz = GetVectorSize(sz);
@@ -412,6 +431,10 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector homogenous dot product
+		// d[0] = s[0 .. n-2] dot t[0 .. n-2] + t[n-1]
+		// Note: s[n-1] is ignored / treated as 1.
+
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
@@ -448,6 +471,11 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector horizontal add
+		// d[0] = s[0] + ... s[n-1]
+		// Vector horizontal average
+		// d[0] = (s[0] + ... s[n-1]) / n
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -479,6 +507,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector dot product
+		// d[0] = s[0 .. n-1] dot t[0 .. n-1]
 
 		int vd = _VD;
 		int vs = _VS;
@@ -513,6 +544,9 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector arithmetic
+		// d[N] = OP(s[N], t[N]) (see below)
 
 		// Check that we can support the ops, and prepare temporary values for ops that need it.
 		bool allowSIMD = true;
@@ -672,6 +706,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector unary operation
+		// d[N] = OP(s[N]) (see below)
+
 		int vs = _VS;
 		int vd = _VD;
 
@@ -787,6 +824,9 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector integer to float
+		// d[N] = float(S[N]) * mult
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -826,10 +866,21 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector expand half to float
+		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		// Vector float to integer
+		// d[N] = int(S[N] * mult)
+		// Note: saturates on overflow.
+
 		DISABLE;
 	}
 
@@ -878,10 +929,11 @@ namespace MIPSComp {
 		EatPrefix();
 	}
 
-	// Good above
-
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Vector Move from vector control reg (no prefixes)
+		// S[0] = VFPU_CTRL[i]
 
 		int vs = _VS;
 		int imm = op & 0xFF;
@@ -892,11 +944,17 @@ namespace MIPSComp {
 			// } else {
 			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
 			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
+		} else {
+			DISABLE;
 		}
 	}
 
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Vector Move to vector control reg (no prefixes)
+		// VFPU_CTRL[i] = S[0]
+
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
@@ -913,6 +971,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+
+		// Matrix move (no prefixes)
+		// D[N,M] = S[N,M]
 
 		int vs = _VS;
 		int vd = _VD;
@@ -969,9 +1030,41 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
 
-		// TODO: Tricky, can transpose
+		// Matrix scale, matrix by scalar (no prefixes)
+		// d[N,M] = s[N,M] * t[0]
+
+		int vs = _VS;
+		int vd = _VD;
+		int vt = _VT;
+
+		MatrixSize sz = GetMtxSize(op);
+		if (sz != M_4x4) {
+			DISABLE;
+		}
+		if (GetMtx(vt) == GetMtx(vd)) {
+			DISABLE;
+		}
+		int n = GetMatrixSide(sz);
+
+		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
+		if (IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
+			vs = TransposeMatrixReg(vs);
+			vd = TransposeMatrixReg(vd);
+		}
+		if (IsMatrixTransposed(vs) || IsMatrixTransposed(vd)) {
+			DISABLE;
+		}
+
+		u8 sregs[16], dregs[16], tregs[1];
+		GetMatrixRegs(sregs, sz, vs);
+		GetMatrixRegs(dregs, sz, vd);
+		GetVectorRegs(tregs, V_Single, vt);
+
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+		}
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
@@ -979,6 +1072,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
+
+		// Vector scale, vector by scalar
+		// d[N] = s[N] * t[0]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1047,9 +1143,9 @@ namespace MIPSComp {
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
-			DISABLE;
-		}
+
+		// Matrix multiply (no prefixes)
+		// D[0 .. N,0 .. M] = S[0 .. N, 0 .. M] * T[0 .. N,0 .. M]
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1130,9 +1226,10 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
-			DISABLE;
-		}
+
+		// Vertex transform, vector by matrix (no prefixes)
+		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
+		// Homogenous means t[n-1] is treated as 1.
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1156,19 +1253,20 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// SIMD-optimized implementations - if sregs[0..3] is consecutive, the rest are too.
-		if (msz == M_4x4 && IsConsecutive4(sregs)) {
+		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
+		if (msz == M_4x4 && !IsConsecutive4(sregs)) {
 			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_T;
+			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
 			// they are accessed one at a time. This handles homogenous transforms correctly, as well.
+			// We take advantage of sregs[0] + 1 being sregs[4] here.
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i * 4], tregs[i]);
+					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
 					ir.Write(IROp::Vec4Add, s0, s0, s1);
 				} else {
-					ir.Write(IROp::Vec4Add, s0, s0, sregs[i * 4]);
+					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
 				}
 			}
 			if (IsConsecutive4(dregs)) {
@@ -1179,10 +1277,12 @@ namespace MIPSComp {
 				}
 			}
 			return;
-		} else if (msz == M_4x4 && !IsConsecutive4(sregs)) {
+		} else if (msz == M_4x4 && IsConsecutive4(sregs)) {
+			// Consecutive, which is harder.
+			DISABLE;
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
-			// Doesn't make complete sense to me why this works....
+			// Doesn't make complete sense to me why this works.... (because it doesn't.)
 			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
 			for (int i = 1; i < 4; i++) {
 				if (!homogenous || (i != n - 1)) {
@@ -1227,26 +1327,227 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector cross (half a cross product, n = 3)
+		// d[0] = s[y]*t[z], d[1] = s[z]*t[x], d[2] = s[x]*t[y]
+		// To do a full cross product: vcrs tmp1, s, t; vcrs tmp2 t, s; vsub d, tmp1, tmp2;
+		// (or just use vcrsp.)
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector determinant
+		// d[0] = s[0]*t[1] - s[1]*t[0]
+		// Note: this operates on two vectors, not a 2x2 matrix.
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
-		DISABLE;
-	}
-
-	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
-		DISABLE;
-	}
-
-	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vi2uc (0), vi2us (2)
+
+		// These instructions pack pairs or quads of integers into 32 bits.
+		// The unsigned (u) versions skip the sign bit when packing, but first clamping to 0.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Single;
+			if (sz != V_Quad) {
+				DISABLE;
+			}
+		} else {
+			switch (sz) {
+			case V_Pair:
+				outsize = V_Single;
+				break;
+			case V_Quad:
+				outsize = V_Pair;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[4], dregs[2], srcregs[4], tempregs[2];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+		memcpy(srcregs, sregs, sizeof(sregs));
+		memcpy(tempregs, dregs, sizeof(dregs));
+
+		int n = GetNumVectorElements(sz);
+		int nOut = GetNumVectorElements(outsize);
+
+		// If src registers aren't contiguous, make them.
+		if (sz == V_Quad && !IsConsecutive4(sregs)) {
+			// T prefix is unused.
+			for (int i = 0; i < 4; i++) {
+				srcregs[i] = IRVTEMP_PFX_T + i;
+				ir.Write(IROp::FMov, srcregs[i], sregs[i]);
+			}
+		}
+
+		if (bits == 8) {
+			if (unsignedOp) {  //vi2uc
+				// Output is only one register.
+				ir.Write(IROp::Vec4ClampToZero, IRVTEMP_0, srcregs[0]);
+				ir.Write(IROp::Vec4Pack31To8, tempregs[0], IRVTEMP_0);
+			} else {  //vi2c
+				ir.Write(IROp::Vec4Pack32To8, tempregs[0], srcregs[0]);
+			}
+		} else {
+			// bits == 16
+			if (unsignedOp) {  //vi2us
+				// Output is only one register.
+				ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0, srcregs[0]);
+				ir.Write(IROp::Vec2Pack31To16, tempregs[0], IRVTEMP_0);
+				if (outsize == V_Pair) {
+					ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0 + 2, srcregs[2]);
+					ir.Write(IROp::Vec2Pack31To16, tempregs[1], IRVTEMP_0 + 2);
+				}
+			} else {  //vi2s
+				DISABLE;  // Can't figure out what's wrong with this! Doesn't pass cpu/vfpu/convert
+				ir.Write(IROp::Vec2Pack32To16, tempregs[0], srcregs[0]);
+				if (outsize == V_Pair) {
+					ir.Write(IROp::Vec2Pack32To16, tempregs[1], srcregs[2]);
+				}
+			}
+		}
+
+		for (int i = 0; i < nOut; i++) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, outsize);
+	}
+
+	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
+		bool unsignedOp = ((op >> 16) & 1) == 0; // vuc2i (0), vus2i (2)
+
+		// vs2i or vus2i unpack pairs of 16-bit integers into 32-bit integers, with the values
+		// at the top.  vus2i shifts it an extra bit right afterward.
+		// vc2i and vuc2i unpack quads of 8-bit integers into 32-bit integers, with the values
+		// at the top too.  vuc2i is a bit special (see below.)
+		// Let's do this similarly as h2f - we do a solution that works for both singles and pairs
+		// then use it for both.
+
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize;
+		if (bits == 8) {
+			outsize = V_Quad;
+		} else {
+			switch (sz) {
+			case V_Single:
+				outsize = V_Pair;
+				break;
+			case V_Pair:
+				outsize = V_Quad;
+				break;
+			default:
+				DISABLE;
+			}
+		}
+
+		u8 sregs[2], dregs[4], tempregs[4], srcregs[2];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+		memcpy(tempregs, dregs, sizeof(dregs));
+		memcpy(srcregs, sregs, sizeof(sregs));
+
+		// Remap source regs to be consecutive. This is not required
+		// but helpful when implementations can join two Vec2Expand.
+		if (sz == V_Pair && !IsConsecutive2(srcregs)) {
+			for (int i = 0; i < 2; i++) {
+				srcregs[i] = IRVTEMP_0 + i;
+				ir.Write(IROp::FMov, srcregs[i], sregs[i]);
+			}
+		}
+
+		int nIn = GetNumVectorElements(sz);
+
+		int nOut = 2;
+		if (outsize == V_Quad)
+			nOut = 4;
+		// Remap dest regs. PFX_T is unused.
+		if (outsize == V_Pair) {
+			bool consecutive = IsConsecutive2(dregs);
+			for (int i = 0; i < 2; i++) {
+				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+					tempregs[i] = IRVTEMP_PFX_T + i;
+				}
+			}
+		} else if (outsize == V_Quad) {
+			bool consecutive = IsConsecutive4(dregs);
+			for (int i = 0; i < 4; i++) {
+				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+					tempregs[i] = IRVTEMP_PFX_T + i;
+				}
+			}
+		}
+
+		if (bits == 16) {
+			if (unsignedOp) {
+				ir.Write(IROp::Vec2Unpack16To31, tempregs[0], srcregs[0]);
+				if (outsize == V_Quad)
+					ir.Write(IROp::Vec2Unpack16To31, tempregs[2], srcregs[1]);
+			} else {
+				ir.Write(IROp::Vec2Unpack16To32, tempregs[0], srcregs[0]);
+				if (outsize == V_Quad)
+					ir.Write(IROp::Vec2Unpack16To32, tempregs[2], srcregs[1]);
+			}
+		} else if (bits == 8) {
+			if (unsignedOp) {
+				// See the interpreter, this one is odd. Hardware bug?
+				ir.Write(IROp::Vec4Unpack8To32, tempregs[0], srcregs[0]);
+				ir.Write(IROp::Vec4DuplicateUpperBitsAndShift1, tempregs[0], tempregs[0]);
+			} else {
+				ir.Write(IROp::Vec4Unpack8To32, tempregs[0], srcregs[0]);
+			}
+		}
+
+		for (int i = 0; i < nOut; i++) {
+			if (tempregs[i] != dregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+		ApplyPrefixD(dregs, outsize);
+	}
+
+	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// TODO: Does this instruction even look at prefixes at all?
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		// Vector cross product (n = 3)
+		// d[0 .. 2] = s[0 .. 2] X t[0 .. 2]
+		// Vector quaternion product (n = 4)
+		// d[0 .. 2] = t[0 .. 2] X s[0 .. 2] + s[3] * t[0 .. 2] + t[3] * s[0 .. 2]
+		// d[3] = s[3]*t[3] - s[0 .. 2] dot t[0 .. 3]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1298,6 +1599,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector compare
+		// VFPU_CC[N] = COMPARE(s[N], t[N])
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -1320,7 +1624,9 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// logBlocks = 1;
+		// Vector conditional move
+		// imm3 >= 6: d[N] = VFPU_CC[N] == tf ? s[N] : d[N]
+		// imm3 < 6:  d[N] = VFPU_CC[imm3] == tf ? s[N] : d[N]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1356,6 +1662,9 @@ namespace MIPSComp {
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Vector integer immediate
+		// d[0] = float(imm)
+
 		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
@@ -1367,6 +1676,9 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector half-float immediate
+		// d[0] = float(imm)
 
 		FP16 half;
 		half.u = op & 0xFFFF;
@@ -1380,9 +1692,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vcst(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
-
 		if (js.HasUnknownPrefix())
 			DISABLE;
+
+		// Vector constant
+		// d[N] = CONST
 
 		int conNum = (op >> 16) & 0x1f;
 		int vd = _VD;
@@ -1401,11 +1715,80 @@ namespace MIPSComp {
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void IRFrontend::Comp_VRot(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		int vd = _VD;
+		int vs = _VS;
+		int imm = (op >> 16) & 0x1f;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		bool negSin = (imm & 0x10) ? true : false;
+
+		char d[4] = { '0', '0', '0', '0' };
+		if (((imm >> 2) & 3) == (imm & 3)) {
+			for (int i = 0; i < 4; i++)
+				d[i] = 's';
+		}
+		d[(imm >> 2) & 3] = 's';
+		d[imm & 3] = 'c';
+
+		u8 dregs[4];
+		GetVectorRegs(dregs, sz, vd);
+		u8 sreg[1];
+		GetVectorRegs(sreg, V_Single, vs);
+		for (int i = 0; i < n; i++) {
+			switch (d[i]) {
+			case '0':
+				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
+				break;
+			case 's':
+				ir.Write(IROp::FSin, dregs[i], sreg[0]);
+				if (negSin) {
+					ir.Write(IROp::FNeg, dregs[i], dregs[i]);
+				}
+				break;
+			case 'c':
+				ir.Write(IROp::FCos, dregs[i], sreg[0]);
+				break;
+			}
+		}
 	}
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
+
+		// Vector extract sign
+		// d[N] = signum(s[N])
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		u8 tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRTEMP_0 + i;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::FSign, tempregs[i], sregs[i]);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
@@ -1446,10 +1829,64 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+		// TODO: Verify if this ignores prefixes?
+
+		// Vector color conversion
+		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
+
 		DISABLE;
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		if (n != 2 && n != 4) {
+			// Bad instructions
+			DISABLE;
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		u8 tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], n, sregs)) {
+				tempregs[i] = IRVTEMP_0;
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		int subop = (op >> 16) & 0x1F;
+		if (subop == 3) {
+			// vbfy2
+			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[2]);
+			ir.Write(IROp::FAdd, tempregs[1], sregs[1], sregs[3]);
+			ir.Write(IROp::FSub, tempregs[2], sregs[0], sregs[2]);
+			ir.Write(IROp::FSub, tempregs[3], sregs[1], sregs[3]);
+		} else if (subop == 2) {
+			// vbfy1
+			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[1]);
+			ir.Write(IROp::FSub, tempregs[1], sregs[0], sregs[1]);
+			if (n == 4) {
+				ir.Write(IROp::FAdd, tempregs[2], sregs[2], sregs[3]);
+				ir.Write(IROp::FSub, tempregs[3], sregs[2], sregs[3]);
+			}
+		} else {
+			DISABLE;
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (tempregs[i] != dregs[i])
+				dregs[i] = tempregs[i];
+		}
+
+		ApplyPrefixD(dregs, sz);
 	}
 }

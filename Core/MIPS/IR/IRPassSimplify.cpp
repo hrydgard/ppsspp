@@ -1,6 +1,7 @@
 #include <utility>
 
 #include "Common/Log.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 
@@ -51,6 +52,7 @@ u32 Evaluate(u32 a, IROp op) {
 	case IROp::BSwap32: return swap32(a);
 	case IROp::Ext8to32: return (u32)(s32)(s8)(u8)a;
 	case IROp::Ext16to32: return (u32)(s32)(s16)(u16)a;
+	case IROp::ReverseBits: return ReverseBits32(a);
 	case IROp::Clz: {
 		int x = 31;
 		int count = 0;
@@ -277,6 +279,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::BSwap32:
 		case IROp::Ext8to32:
 		case IROp::Ext16to32:
+		case IROp::ReverseBits:
 		case IROp::Clz:
 			if (gpr.IsImm(inst.src1)) {
 				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.op));
@@ -347,6 +350,12 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 
 		case IROp::Mult:
 		case IROp::MultU:
+		case IROp::Madd:
+		case IROp::MaddU:
+		case IROp::Msub:
+		case IROp::MsubU:
+		case IROp::Div:
+		case IROp::DivU:
 			gpr.MapInIn(inst.src1, inst.src2);
 			goto doDefault;
 

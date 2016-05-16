@@ -170,6 +170,9 @@ public:
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 
+	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
+	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
+
 	void ClearCache() override;
 	void InvalidateCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;

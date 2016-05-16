@@ -111,6 +111,7 @@ enum class IROp : u8 {
 
 	Ext8to32,
 	Ext16to32,
+	ReverseBits,
 
 	FAdd,
 	FSub,
@@ -123,6 +124,7 @@ enum class IROp : u8 {
 	FSqrt,
 	FNeg,
 	FAbs,
+	FSign,
 
 	FRound,
 	FTrunc,
@@ -173,10 +175,16 @@ enum class IROp : u8 {
 	Vec4Abs,
 
 	// vx2i
-	Vec4ExpandU16ToU32Hi,
-	Vec4ExpandU8ToU32Hi,
-	Vec4ExpandS16ToS32Hi,
-	Vec4ExpandS8ToS32Hi,
+	Vec2Unpack16To31,  // Note that the result is shifted down by 1, hence 31
+	Vec2Unpack16To32,
+	Vec4Unpack8To32,
+	Vec4DuplicateUpperBitsAndShift1,  // Bizarro vuc2i behaviour, in an instruction. Split?
+	Vec4ClampToZero,
+	Vec2ClampToZero,
+	Vec4Pack31To8,
+	Vec4Pack32To8,
+	Vec2Pack31To16,
+	Vec2Pack32To16,
 
 	// Slow special functions. Used on singles.
 	FSin,

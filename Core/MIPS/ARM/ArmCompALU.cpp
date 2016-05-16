@@ -760,9 +760,9 @@ namespace MIPSComp
 			if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
 				u32 denominator = gpr.GetImm(rt);
 				if (denominator == 0) {
-					// TODO: Is this correct?
-					gpr.SetImm(MIPS_REG_LO, 0);
-					gpr.SetImm(MIPS_REG_HI, 0);
+					gpr.MapDirtyIn(MIPS_REG_HI, rs);
+					gpr.SetImm(MIPS_REG_LO, -1);
+					MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 				} else {
 					gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
 					// Remainder is just an AND, neat.

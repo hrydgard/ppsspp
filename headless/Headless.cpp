@@ -107,6 +107,7 @@ int printUsage(const char *progname, const char *reason)
 
 	fprintf(stderr, "  -v, --verbose         show the full passed/failed result\n");
 	fprintf(stderr, "  -i                    use the interpreter\n");
+	fprintf(stderr, "  --ir                  use ir interpreter\n");
 	fprintf(stderr, "  -j                    use jit (default)\n");
 	fprintf(stderr, "  -c, --compare         compare with output in file.expected\n");
 	fprintf(stderr, "\nSee headless.txt for details.\n");
@@ -239,7 +240,7 @@ int main(int argc, const char* argv[])
 			cpuCore = CPU_CORE_INTERPRETER;
 		else if (!strcmp(argv[i], "-j"))
 			cpuCore = CPU_CORE_JIT;
-		else if (!strcmp(argv[i], "-ir"))
+		else if (!strcmp(argv[i], "--ir"))
 			cpuCore = CPU_CORE_IRJIT;
 		else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--compare"))
 			autoCompare = true;

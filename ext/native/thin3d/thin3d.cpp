@@ -84,7 +84,7 @@ static const char * const hlslVsCol =
 "}\n";
 
 static const char * const vulkan_vsCol =
-"#version 140\n"
+"#version 400\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
@@ -93,6 +93,7 @@ static const char * const vulkan_vsCol =
 "layout (location = 0) in vec4 pos;\n"
 "layout (location = 1) in vec4 inColor;\n"
 "layout (location = 0) out vec4 outColor;\n"
+"out gl_PerVertex { vec4 gl_Position; };\n"
 "void main() {\n"
 "   outColor = inColor;\n"
 "   gl_Position = myBufferVals.WorldViewProj * pos;\n"
@@ -125,7 +126,7 @@ static const char * const hlslVsTexCol =
 "}\n";
 
 static const char * const vulkan_vsTexCol =
-"#version 140\n"
+"#version 400\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n"
 "layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
@@ -136,6 +137,7 @@ static const char * const vulkan_vsTexCol =
 "layout (location = 2) in vec2 inTexCoord;\n"
 "layout (location = 0) out vec4 outColor;\n"
 "layout (location = 1) out vec2 outTexCoord;\n"
+"out gl_PerVertex { vec4 gl_Position; };\n"
 "void main() {\n"
 "   outColor = inColor;\n"
 "   outTexCoord = inTexCoord;\n"

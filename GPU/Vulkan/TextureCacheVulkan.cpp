@@ -858,12 +858,14 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 	sampler = GetOrCreateSampler(samplerKey);
 	*/
 
-	SamplerCacheKey key;
-	UpdateSamplingParams(*entry, key);
-	key.mipEnable = false;
-	sampler = samplerCache_.GetOrCreateSampler(key);
+	if (entry->vkTex) {
+		SamplerCacheKey key;
+		UpdateSamplingParams(*entry, key);
+		key.mipEnable = false;
+		sampler = samplerCache_.GetOrCreateSampler(key);
 
-	lastBoundTexture = nullptr;
+		lastBoundTexture = nullptr;
+	}
 }
 
 bool TextureCacheVulkan::SetOffsetTexture(u32 offset) {
