@@ -131,6 +131,9 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
+// These are guesses based on tests.
+const double vsyncStartMs = 0.5925;
+const double vsyncEndMs = 0.7265;
 const double frameMs = 1001.0 / 60.0;
 
 enum {
@@ -968,9 +971,8 @@ static int sceDisplayAdjustAccumulatedHcount(int value) {
 
 static int sceDisplayGetAccumulatedHcount() {
 	u32 accumHCount = __DisplayGetAccumulatedHcount();
-	DEBUG_LOG(SCEDISPLAY, "%d=sceDisplayGetAccumulatedHcount()", accumHCount);
 	hleEatCycles(235);
-	return accumHCount;
+	return hleLogSuccessI(SCEDISPLAY, accumHCount);
 }
 
 static float sceDisplayGetFramePerSec() {
@@ -980,27 +982,26 @@ static float sceDisplayGetFramePerSec() {
 }
 
 static u32 sceDisplayIsForeground() {
-	DEBUG_LOG(SCEDISPLAY,"IMPL sceDisplayIsForeground()");
-	if (!hasSetMode || framebuf.topaddr == 0)
-		return 0;
-	else
-		return 1;   // return value according to JPCSP comment
+	int result = hasSetMode && framebuf.topaddr != 0 ? 1 : 0;
+	return hleLogSuccessI(SCEDISPLAY, result);
 }
 
 static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
-	DEBUG_LOG(SCEDISPLAY,"sceDisplayGetMode(%08x, %08x, %08x)", modeAddr, widthAddr, heightAddr);
 	if (Memory::IsValidAddress(modeAddr))
 		Memory::Write_U32(mode, modeAddr);
 	if (Memory::IsValidAddress(widthAddr))
 		Memory::Write_U32(width, widthAddr);
 	if (Memory::IsValidAddress(heightAddr))
 		Memory::Write_U32(height, heightAddr);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 static u32 sceDisplayIsVsync() {
-	ERROR_LOG(SCEDISPLAY,"UNIMPL sceDisplayIsVsync()");
-	return 0;
+	u64 now = CoreTiming::GetTicks();
+	u64 start = frameStartTicks + msToCycles(vsyncStartMs);
+	u64 end = frameStartTicks + msToCycles(vsyncEndMs);
+
+	return hleLogSuccessI(SCEDISPLAY, now >= start && now <= end ? 1 : 0);
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
@@ -1050,12 +1051,12 @@ const HLEFunction sceDisplay[] = {
 	{0X210EAB3A, &WrapI_V<sceDisplayGetAccumulatedHcount>,    "sceDisplayGetAccumulatedHcount",    'i', ""    },
 	{0XA83EF139, &WrapI_I<sceDisplayAdjustAccumulatedHcount>, "sceDisplayAdjustAccumulatedHcount", 'i', "i"   },
 	{0X9C6EAAD7, &WrapU_V<sceDisplayGetVcount>,               "sceDisplayGetVcount",               'x', ""    },
-	{0XDEA197D4, &WrapU_UUU<sceDisplayGetMode>,               "sceDisplayGetMode",                 'x', "xxx" },
+	{0XDEA197D4, &WrapU_UUU<sceDisplayGetMode>,               "sceDisplayGetMode",                 'x', "ppp" },
 	{0X7ED59BC4, &WrapU_U<sceDisplaySetHoldMode>,             "sceDisplaySetHoldMode",             'x', "x"   },
 	{0XA544C486, &WrapU_U<sceDisplaySetResumeMode>,           "sceDisplaySetResumeMode",           'x', "x"   },
-	{0XBF79F646, &WrapU_U<sceDisplayGetResumeMode>,           "sceDisplayGetResumeMode",           'x', "x"   },
+	{0XBF79F646, &WrapU_U<sceDisplayGetResumeMode>,           "sceDisplayGetResumeMode",           'x', "p"   },
 	{0XB4F378FA, &WrapU_V<sceDisplayIsForeground>,            "sceDisplayIsForeground",            'x', ""    },
-	{0X31C4BAA8, &WrapU_U<sceDisplayGetBrightness>,           "sceDisplayGetBrightness",           'x', "x"   },
+	{0X31C4BAA8, &WrapU_U<sceDisplayGetBrightness>,           "sceDisplayGetBrightness",           'x', "p"   },
 	{0X9E3C6DC6, &WrapU_U<sceDisplaySetBrightness>,           "sceDisplaySetBrightness",           'x', "x"   },
 	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
 	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
