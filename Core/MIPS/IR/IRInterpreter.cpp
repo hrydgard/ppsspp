@@ -31,7 +31,7 @@ alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 1.0f },
 };
 
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count, MIPSComp::IRFrontend *frontend) {
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
 	const IRInst *end = inst + count;
 	while (inst != end) {
 		switch (inst->op) {
@@ -823,7 +823,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 		}
 		case IROp::UpdateRoundingMode:
-			frontend->RoundingWasSet();
+			// Could be used to optimize rounding.
 			break;
 
 		default:

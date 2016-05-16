@@ -24,5 +24,4 @@ inline static u32 ReverseBits32(u32 v) {
 	return v;
 }
 
-// TODO: Find a way to get rid of the frontend parameter (need a callback for rounding)
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count, MIPSComp::IRFrontend *frontend);
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count);

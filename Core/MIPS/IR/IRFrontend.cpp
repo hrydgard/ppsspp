@@ -177,11 +177,10 @@ void IRFrontend::ApplyRoundingMode(bool force) {
 }
 
 void IRFrontend::UpdateRoundingMode() {
+	// TODO: Ideally, we should set `js.hasSetRounding` only when non-standard,
+	// since many games set it to the default rounding mode, which causes us to do more work.
+	// For now, let's keep things simple.
 	ir.Write(IROp::UpdateRoundingMode);
-}
-
-// Callback from block interpreter
-void IRFrontend::RoundingWasSet() {
 	js.hasSetRounding = true;
 }
 
