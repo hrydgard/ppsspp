@@ -55,8 +55,8 @@
 
 struct FrameBufferState {
 	u32 topaddr;
-	GEBufferFormat pspFramebufFormat;
-	int pspFramebufLinesize;
+	GEBufferFormat fmt;
+	int stride;
 };
 
 struct WaitVBlankInfo {
@@ -185,9 +185,9 @@ void __DisplayInit() {
 	numVBlanksSinceFlip = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
-	framebuf.pspFramebufFormat = GE_FORMAT_8888;
-	framebuf.pspFramebufLinesize = 480; // ??
-	memset(&latchedFramebuf, 0, sizeof(latchedFramebuf));
+	framebuf.fmt = GE_FORMAT_8888;
+	framebuf.stride = 512;
+	memcpy(&latchedFramebuf, &framebuf, sizeof(latchedFramebuf));
 	lastFlipCycles = 0;
 	lastFlipsTooFrequent = 0;
 	wasPaused = false;
@@ -302,7 +302,7 @@ void __DisplayDoState(PointerWrap &p) {
 		if (hasSetMode) {
 			gpu->InitClear();
 		}
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 	}
 }
 
@@ -617,7 +617,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		DEBUG_LOG(SCEDISPLAY, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
 		framebuf = latchedFramebuf;
 		framebufIsLatched = false;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 	}
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
@@ -723,22 +723,20 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 }
 
 static u32 sceDisplayIsVblank() {
-	DEBUG_LOG(SCEDISPLAY,"%i=sceDisplayIsVblank()",isVblank);
-	return isVblank;
+	return hleLogSuccessI(SCEDISPLAY, isVblank);
 }
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
-	if (displayWidth <= 0 || displayHeight <= 0 || (displayWidth & 0x7) != 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
+		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
-
+	if (displayWidth != 480 || displayHeight != 272) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
+	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
-		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID MODE(%i, %i, %i)", displayMode, displayWidth, displayHeight);
-		return SCE_KERNEL_ERROR_INVALID_MODE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
 	}
 
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
@@ -746,22 +744,43 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	mode = displayMode;
 	width = displayWidth;
 	height = displayHeight;
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate = {0};
-	if (topaddr != 0) {
-		fbstate.topaddr = topaddr;
-		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
-		fbstate.pspFramebufLinesize = linesize;
+	fbstate.topaddr = topaddr;
+	fbstate.fmt = (GEBufferFormat)pixelformat;
+	fbstate.stride = linesize;
+
+	if (sync != PSP_DISPLAY_SETBUF_IMMEDIATE && sync != PSP_DISPLAY_SETBUF_NEXTFRAME) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid sync mode");
+	}
+	if (topaddr != 0 && !Memory::IsRAMAddress(topaddr) && !Memory::IsVRAMAddress(topaddr)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid address");
+	}
+	if ((topaddr & 0xF) != 0) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_POINTER, "misaligned address");
+	}
+	if ((linesize & 0x3F) != 0 || (linesize == 0 && topaddr != 0)) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid stride");
+	}
+	if (pixelformat < 0 || pixelformat > GE_FORMAT_8888) {
+		return hleLogError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_FORMAT, "invalid format");
+	}
+
+	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
+		if (fbstate.fmt != latchedFramebuf.fmt || fbstate.stride != latchedFramebuf.stride) {
+			return hleReportError(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
+		}
 	}
 
 	hleEatCycles(290);
 
 	s64 delayCycles = 0;
-	if (topaddr != framebuf.topaddr && g_Config.iForceMaxEmulatedFPS > 0) {
+	// Don't count transitions between display off and display on.
+	if (topaddr != 0 && topaddr != framebuf.topaddr && framebuf.topaddr != 0 && g_Config.iForceMaxEmulatedFPS > 0) {
 		// Sometimes we get a small number, there's probably no need to delay the thread for this.
 		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
 		const int FLIP_DELAY_CYCLES_MIN = 10;
@@ -788,11 +807,15 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		framebuf = fbstate;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 	} else {
 		// Delay the write until vblank
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
+
+		// If we update the format or stride, this affects the current framebuf immediately.
+		framebuf.fmt = latchedFramebuf.fmt;
+		framebuf.stride = latchedFramebuf.stride;
 	}
 
 	if (delayCycles > 0) {
@@ -810,26 +833,26 @@ static u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int
 }
 
 bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
-	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
+	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 	if (topaddr != nullptr)
 		*topaddr = Memory::GetPointer(fbState.topaddr);
 	if (linesize != nullptr)
-		*linesize = fbState.pspFramebufLinesize;
+		*linesize = fbState.stride;
 	if (pixelFormat != nullptr)
-		*pixelFormat = fbState.pspFramebufFormat;
+		*pixelFormat = fbState.fmt;
 
 	return true;
 }
 
 static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
-	const FrameBufferState &fbState = latchedMode == 1 && framebufIsLatched ? latchedFramebuf : framebuf;
+	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
 	if (Memory::IsValidAddress(linesizePtr))
-		Memory::Write_U32(fbState.pspFramebufLinesize, linesizePtr);
+		Memory::Write_U32(fbState.stride, linesizePtr);
 	if (Memory::IsValidAddress(pixelFormatPtr))
-		Memory::Write_U32(fbState.pspFramebufFormat, pixelFormatPtr);
+		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
 
 	return hleLogSuccessI(SCEDISPLAY, 0);
 }
