@@ -110,6 +110,13 @@ void RoundingApply(int fcr31) {
 	case 3: mode = FE_DOWNWARD; break;  // FLOOR_3
 	}
 	fesetround(mode);
+#ifdef _M_SSE
+	if (fcr31 & 0x01000000) {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+	} else {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+	}
+#endif
 }
 
 void IRJit::RunLoopUntil(u64 globalticks) {

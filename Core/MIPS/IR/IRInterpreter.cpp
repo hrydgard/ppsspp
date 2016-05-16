@@ -820,6 +820,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::RestoreRoundingMode:
 			fesetround(FE_TONEAREST);
+#ifdef _M_SSE
+			_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+#endif
 			break;
 		case IROp::ApplyRoundingMode:
 		{
@@ -831,6 +834,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			case 3: mode = FE_DOWNWARD; break;  // FLOOR_3
 			}
 			fesetround(mode);
+#ifdef _M_SSE
+			if (mips->fcr31 & 0x01000000) {
+				_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+			} else {
+				_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+			}
+#endif
 			break;
 		}
 		case IROp::UpdateRoundingMode:
