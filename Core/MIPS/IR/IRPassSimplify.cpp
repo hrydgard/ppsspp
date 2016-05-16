@@ -694,6 +694,12 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				out.Write(inst);
 			}
 			break;
+		case IROp::FpCtrlFromReg:
+			gpr.MapIn(inst.src1);
+			goto doDefault;
+		case IROp::FpCtrlToReg:
+			gpr.MapDirty(inst.dest);
+			goto doDefault;
 
 		case IROp::Vec4Init:
 		case IROp::Vec4Mov:
