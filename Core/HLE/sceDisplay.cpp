@@ -723,22 +723,20 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 }
 
 static u32 sceDisplayIsVblank() {
-	DEBUG_LOG(SCEDISPLAY,"%i=sceDisplayIsVblank()",isVblank);
-	return isVblank;
+	return hleLogSuccessI(SCEDISPLAY, isVblank);
 }
 
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
-	if (displayWidth <= 0 || displayHeight <= 0 || (displayWidth & 0x7) != 0) {
-		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID SIZE (%i, %i, %i)", displayMode, displayWidth, displayHeight);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
+		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
-
+	if (displayWidth != 480 || displayHeight != 272) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
+	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
-		WARN_LOG(SCEDISPLAY, "sceDisplaySetMode INVALID MODE(%i, %i, %i)", displayMode, displayWidth, displayHeight);
-		return SCE_KERNEL_ERROR_INVALID_MODE;
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
 	}
 
-	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
 	if (!hasSetMode) {
 		gpu->InitClear();
 		hasSetMode = true;
@@ -746,7 +744,7 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	mode = displayMode;
 	width = displayWidth;
 	height = displayHeight;
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
