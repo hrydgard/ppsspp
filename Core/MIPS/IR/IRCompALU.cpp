@@ -372,7 +372,8 @@ void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	default:
-		DISABLE;
+		Comp_Generic(op);
+		break;
 	}
 }
 

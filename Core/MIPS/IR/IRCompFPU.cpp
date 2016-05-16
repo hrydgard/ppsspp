@@ -67,7 +67,7 @@ void IRFrontend::Comp_FPU3op(MIPSOpcode op) {
 	case 2: ir.Write(IROp::FMul, fd, fs, ft); break; //F(fd) = F(fs) * F(ft); //mul
 	case 3: ir.Write(IROp::FDiv, fd, fs, ft); break; //F(fd) = F(fs) / F(ft); //div
 	default:
-		DISABLE;
+		Comp_Generic(op);
 		return;
 	}
 }
@@ -129,7 +129,7 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 		mode = IRFpCompareMode::LessEqualUnordered;
 		break;
 	default:
-		DISABLE;
+		Comp_Generic(op);
 		return;
 	}
 	ir.Write(IROp::FCmp, (int)mode, fs, ft);
@@ -156,27 +156,17 @@ void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-	{
 		ir.Write(IROp::FRound, fd, fs);
 		break;
-	}
-
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
-	{
 		ir.Write(IROp::FTrunc, fd, fs);
 		break;
-	}
-
-	case 14://FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
-	{
+	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
 		ir.Write(IROp::FCeil, fd, fs);
 		break;
-	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
-	{
 		ir.Write(IROp::FFloor, fd, fs);
 		break;
-	}
 
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		ir.Write(IROp::FCvtSW, fd, fs);
@@ -187,7 +177,8 @@ void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 		break;
 
 	default:
-		DISABLE;
+		Comp_Generic(op);
+		break;
 	}
 }
 
@@ -231,8 +222,9 @@ void IRFrontend::Comp_mxc1(MIPSOpcode op) {
 			Comp_Generic(op);
 		}
 		return;
+
 	default:
-		DISABLE;
+		Comp_Generic(op);
 		break;
 	}
 }
