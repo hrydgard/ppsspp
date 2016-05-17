@@ -180,7 +180,7 @@ void __DisplayInit() {
 	mode = 0;
 	resumeMode = 0;
 	holdMode = 0;
-	brightnessLevel = 100;
+	brightnessLevel = 84;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
@@ -1008,35 +1008,40 @@ static u32 sceDisplayIsVsync() {
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplayGetResumeMode(%08x)", resumeModeAddr);
 	if (Memory::IsValidAddress(resumeModeAddr))
 		Memory::Write_U32(resumeMode, resumeModeAddr);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 static u32 sceDisplaySetResumeMode(u32 rMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetResumeMode(%08x)", rMode);
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	resumeMode = rMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
-static u32 sceDisplayGetBrightness(u32 levelAddr) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplayGetBrightness(%08x)", levelAddr);
-	if (Memory::IsValidAddress(levelAddr))
+static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
+	// Standard levels on a PSP: 44, 60, 72, 84 (AC only)
+
+	if (Memory::IsValidAddress(levelAddr)) {
 		Memory::Write_U32(brightnessLevel, levelAddr);
-	return 0;
+	}
+	// Always seems to write zero?
+	if (Memory::IsValidAddress(otherAddr)) {
+		Memory::Write_U32(0, otherAddr);
+	}
+	return hleLogWarning(SCEDISPLAY, 0);
 }
 
-static u32 sceDisplaySetBrightness(u32 bLevel) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetBrightness(%08x)", bLevel);
-	brightnessLevel = bLevel;
-	return 0;
+static u32 sceDisplaySetBrightness(int level, int other) {
+	// Note: Only usable in kernel mode.
+	brightnessLevel = level;
+	return hleLogWarning(SCEDISPLAY, 0);
 }
 
 static u32 sceDisplaySetHoldMode(u32 hMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetHoldMode(%08x)", hMode);
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	holdMode = hMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
 const HLEFunction sceDisplay[] = {
@@ -1059,8 +1064,8 @@ const HLEFunction sceDisplay[] = {
 	{0XA544C486, &WrapU_U<sceDisplaySetResumeMode>,           "sceDisplaySetResumeMode",           'x', "x"   },
 	{0XBF79F646, &WrapU_U<sceDisplayGetResumeMode>,           "sceDisplayGetResumeMode",           'x', "p"   },
 	{0XB4F378FA, &WrapU_V<sceDisplayIsForeground>,            "sceDisplayIsForeground",            'x', ""    },
-	{0X31C4BAA8, &WrapU_U<sceDisplayGetBrightness>,           "sceDisplayGetBrightness",           'x', "p"   },
-	{0X9E3C6DC6, &WrapU_U<sceDisplaySetBrightness>,           "sceDisplaySetBrightness",           'x', "x"   },
+	{0X31C4BAA8, &WrapU_UU<sceDisplayGetBrightness>,          "sceDisplayGetBrightness",           'x', "pp"  },
+	{0X9E3C6DC6, &WrapU_II<sceDisplaySetBrightness>,          "sceDisplaySetBrightness",           'x', "ii"  },
 	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
 	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
 };
