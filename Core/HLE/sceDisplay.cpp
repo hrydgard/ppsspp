@@ -729,15 +729,31 @@ static u32 sceDisplayIsVblank() {
 	return hleLogSuccessI(SCEDISPLAY, isVblank);
 }
 
+static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
+
+	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
+	// At least, on real firmware a wait >= 16500 into the frame will wait two.
+	if (cyclesToNextVblank <= usToCycles(115)) {
+		++vblanks;
+	}
+
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
+
+	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
+}
+
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
 		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
-	if (displayWidth != 480 || displayHeight != 272) {
-		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
-	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
 		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
+	}
+	if (displayWidth != 480 || displayHeight != 272) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 
 	if (!hasSetMode) {
@@ -747,7 +763,10 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	mode = displayMode;
 	width = displayWidth;
 	height = displayHeight;
-	return hleLogSuccessI(SCEDISPLAY, 0);
+
+	hleLogSuccessI(SCEDISPLAY, 0);
+	// On success, this implicitly waits for a vblank start.
+	return DisplayWaitForVblanks("display mode", 1);
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
@@ -858,22 +877,6 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
 
 	return hleLogSuccessI(SCEDISPLAY, 0);
-}
-
-static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
-	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
-	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
-
-	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
-	// At least, on real firmware a wait >= 16500 into the frame will wait two.
-	if (cyclesToNextVblank <= usToCycles(115)) {
-		++vblanks;
-	}
-
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
-
-	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
 }
 
 static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
