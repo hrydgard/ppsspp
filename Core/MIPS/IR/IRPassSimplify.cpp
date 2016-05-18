@@ -1,5 +1,6 @@
-#include <utility>
 #include <algorithm>
+#include <cstring>
+#include <utility>
 
 #include "Common/Log.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
