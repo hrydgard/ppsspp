@@ -933,8 +933,17 @@ namespace MIPSComp {
 		case 7: // mtv
 			if (imm < 128) {
 				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
-			} else if ((imm - 128) < 16) {
+			} else if ((imm - 128) < VFPU_CTRL_MAX) {
 				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+
+				// TODO: Optimization if rt is Imm?
+				if (imm - 128 == VFPU_CTRL_SPREFIX) {
+					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
+				} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+					js.prefixTFlag = JitState::PREFIX_UNKNOWN;
+				} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+					js.prefixDFlag = JitState::PREFIX_UNKNOWN;
+				}
 			} else {
 				DISABLE;
 			}
