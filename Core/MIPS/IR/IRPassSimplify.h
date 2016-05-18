@@ -11,3 +11,5 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out);
 bool ReduceLoads(const IRWriter &in, IRWriter &out);
 bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out);
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out);
+bool ReorderLoadStore(const IRWriter &in, IRWriter &out);
+bool MergeLoadStore(const IRWriter &in, IRWriter &out);
