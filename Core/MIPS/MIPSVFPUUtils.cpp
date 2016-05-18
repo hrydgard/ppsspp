@@ -395,10 +395,6 @@ MatrixOverlapType GetMatrixOverlap(int mtx1, int mtx2, MatrixSize msize) {
 	if (mtx1 == mtx2)
 		return OVERLAP_EQUAL;
 
-	if (msize == M_4x4) {
-		return (mtx1 == mtx2) ? OVERLAP_EQUAL : OVERLAP_NONE;
-	}
-
 	u8 m1[16];
 	u8 m2[16];
 	GetMatrixRegs(m1, msize, mtx1);
