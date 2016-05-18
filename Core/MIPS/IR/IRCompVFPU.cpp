@@ -85,8 +85,26 @@ namespace MIPSComp {
 		return true;
 	}
 
-	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL) {
+	static bool IsOverlapSafeAllowS(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+		for (int i = 0; i < dn; ++i) {
+			if (!IsOverlapSafeAllowS(dregs[i], i, sn, sregs, tn, tregs)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	static bool IsOverlapSafe(int dreg, int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
 		return IsOverlapSafeAllowS(dreg, -1, sn, sregs, tn, tregs);
+	}
+
+	static bool IsOverlapSafe(int dn, u8 dregs[], int sn, u8 sregs[], int tn = 0, u8 tregs[] = nullptr) {
+		for (int i = 0; i < dn; ++i) {
+			if (!IsOverlapSafe(dregs[i], sn, sregs, tn, tregs)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
@@ -1495,15 +1513,16 @@ namespace MIPSComp {
 		// Remap dest regs. PFX_T is unused.
 		if (outsize == V_Pair) {
 			bool consecutive = IsConsecutive2(dregs);
-			for (int i = 0; i < 2; i++) {
-				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+			// We must have them consecutive, so all temps, or none.
+			if (!consecutive || !IsOverlapSafe(nOut, dregs, nIn, srcregs)) {
+				for (int i = 0; i < nOut; i++) {
 					tempregs[i] = IRVTEMP_PFX_T + i;
 				}
 			}
 		} else if (outsize == V_Quad) {
 			bool consecutive = IsConsecutive4(dregs);
-			for (int i = 0; i < 4; i++) {
-				if (!consecutive || !IsOverlapSafe(dregs[i], nIn, srcregs)) {
+			if (!consecutive || !IsOverlapSafe(nOut, dregs, nIn, srcregs)) {
+				for (int i = 0; i < nOut; i++) {
 					tempregs[i] = IRVTEMP_PFX_T + i;
 				}
 			}
