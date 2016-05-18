@@ -236,6 +236,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 			&OptimizeFPMoves,
 			&PropagateConstants,
 			&PurgeTemps,
+			// &ReorderLoadStore,
+			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
 		};
 		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))

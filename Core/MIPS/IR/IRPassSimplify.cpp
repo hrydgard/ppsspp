@@ -1,4 +1,5 @@
 #include <utility>
+#include <algorithm>
 
 #include "Common/Log.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -742,5 +743,366 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out) {
 		}
 	}
 
+	return logBlocks;
+}
+
+static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops, const u32 *consts) {
+	if (ops.size() < 2) {
+		return ops;
+	}
+
+	bool modifiedRegs[256] = {};
+
+	for (size_t i = 0, n = ops.size(); i < n - 1; ++i) {
+		bool modifiesReg = false;
+		bool usesFloatReg = false;
+		switch (ops[i].op) {
+		case IROp::Load8:
+		case IROp::Load8Ext:
+		case IROp::Load16:
+		case IROp::Load16Ext:
+		case IROp::Load32:
+			modifiesReg = true;
+			if (ops[i].src1 == ops[i].dest) {
+				// Can't ever reorder these, since it changes.
+				continue;
+			}
+			break;
+
+		case IROp::Store8:
+		case IROp::Store16:
+		case IROp::Store32:
+			break;
+
+		case IROp::LoadFloat:
+		case IROp::LoadVec4:
+			usesFloatReg = true;
+			modifiesReg = true;
+			break;
+
+		case IROp::StoreFloat:
+		case IROp::StoreVec4:
+			usesFloatReg = true;
+			break;
+
+		default:
+			continue;
+		}
+
+		memset(modifiedRegs, 0, sizeof(modifiedRegs));
+		size_t start = i;
+		size_t j;
+		for (j = i; j < n; ++j) {
+			if (ops[start].op != ops[j].op || ops[start].src1 != ops[j].src1) {
+				// Incompatible ops, so let's not reorder.
+				break;
+			}
+			if (modifiedRegs[ops[j].dest] || (!usesFloatReg && modifiedRegs[ops[j].src1])) {
+				// Can't reorder, this reg was modified.
+				break;
+			}
+			if (modifiesReg) {
+				// Modifies itself, can't reorder this.
+				if (!usesFloatReg && ops[j].dest == ops[j].src1) {
+					break;
+				}
+				modifiedRegs[ops[j].dest] = true;
+			}
+
+			// Keep going, these operations are compatible.
+		}
+
+		// Everything up to (but not including) j will be sorted, so skip them.
+		i = j - 1;
+		size_t end = j;
+		if (start + 1 < end) {
+			std::stable_sort(ops.begin() + start, ops.begin() + end, [&](const IRInst &a, const IRInst &b) {
+				return consts[a.src2] < consts[b.src2];
+			});
+		}
+	}
+
+	return ops;
+}
+
+bool ReorderLoadStore(const IRWriter &in, IRWriter &out) {
+	bool logBlocks = false;
+
+	enum class RegState : u8 {
+		UNUSED = 0,
+		READ = 1,
+		CHANGED = 2,
+	};
+
+	bool queuing = false;
+	std::vector<IRInst> loadStoreQueue;
+	std::vector<IRInst> otherQueue;
+	RegState otherRegs[256] = {};
+
+	auto flushQueue = [&]() {
+		if (!queuing) {
+			return;
+		}
+
+		std::vector<IRInst> loadStoreUnsorted = loadStoreQueue;
+		std::vector<IRInst> loadStoreSorted = ReorderLoadStoreOps(loadStoreQueue, &in.GetConstants()[0]);
+		if (memcmp(&loadStoreSorted[0], &loadStoreUnsorted[0], sizeof(IRInst) * loadStoreSorted.size()) != 0) {
+			logBlocks = true;
+		}
+
+		queuing = false;
+		for (IRInst queued : loadStoreSorted) {
+			out.Write(queued);
+		}
+		for (IRInst queued : otherQueue) {
+			out.Write(queued);
+		}
+		loadStoreQueue.clear();
+		otherQueue.clear();
+		memset(otherRegs, 0, sizeof(otherRegs));
+	};
+
+	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
+		IRInst inst = in.GetInstructions()[i];
+		switch (inst.op) {
+		case IROp::Load8:
+		case IROp::Load8Ext:
+		case IROp::Load16:
+		case IROp::Load16Ext:
+		case IROp::Load32:
+			// To move a load up, its dest can't be changed by things we move down.
+			if (otherRegs[inst.dest] != RegState::UNUSED || otherRegs[inst.src1] == RegState::CHANGED) {
+				flushQueue();
+			}
+
+			queuing = true;
+			loadStoreQueue.push_back(inst);
+			break;
+
+		case IROp::Store8:
+		case IROp::Store16:
+		case IROp::Store32:
+			// A store can move above even if it's read, as long as it's not changed by the other ops.
+			if (otherRegs[inst.src3] == RegState::CHANGED || otherRegs[inst.src1] == RegState::CHANGED) {
+				flushQueue();
+			}
+
+			queuing = true;
+			loadStoreQueue.push_back(inst);
+			break;
+
+		case IROp::LoadVec4:
+		case IROp::LoadFloat:
+		case IROp::StoreVec4:
+		case IROp::StoreFloat:
+			// Floats can always move as long as their address is safe.
+			if (otherRegs[inst.src1] == RegState::CHANGED) {
+				flushQueue();
+			}
+
+			queuing = true;
+			loadStoreQueue.push_back(inst);
+			break;
+
+		case IROp::Sub:
+		case IROp::Slt:
+		case IROp::SltU:
+		case IROp::Add:
+		case IROp::And:
+		case IROp::Or:
+		case IROp::Xor:
+		case IROp::Shl:
+		case IROp::Shr:
+		case IROp::Ror:
+		case IROp::Sar:
+		case IROp::MovZ:
+		case IROp::MovNZ:
+		case IROp::Max:
+		case IROp::Min:
+			// We'll try to move this downward.
+			otherRegs[inst.dest] = RegState::CHANGED;
+			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
+				otherRegs[inst.src1] = RegState::READ;
+			if (inst.src2 && otherRegs[inst.src2] != RegState::CHANGED)
+				otherRegs[inst.src2] = RegState::READ;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::Neg:
+		case IROp::Not:
+		case IROp::BSwap16:
+		case IROp::BSwap32:
+		case IROp::Ext8to32:
+		case IROp::Ext16to32:
+		case IROp::ReverseBits:
+		case IROp::Clz:
+		case IROp::AddConst:
+		case IROp::SubConst:
+		case IROp::AndConst:
+		case IROp::OrConst:
+		case IROp::XorConst:
+		case IROp::SltConst:
+		case IROp::SltUConst:
+		case IROp::ShlImm:
+		case IROp::ShrImm:
+		case IROp::RorImm:
+		case IROp::SarImm:
+		case IROp::Mov:
+			// We'll try to move this downward.
+			otherRegs[inst.dest] = RegState::CHANGED;
+			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
+				otherRegs[inst.src1] = RegState::READ;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::SetConst:
+			// We'll try to move this downward.
+			otherRegs[inst.dest] = RegState::CHANGED;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::Mult:
+		case IROp::MultU:
+		case IROp::Madd:
+		case IROp::MaddU:
+		case IROp::Msub:
+		case IROp::MsubU:
+		case IROp::Div:
+		case IROp::DivU:
+			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
+				otherRegs[inst.src1] = RegState::READ;
+			if (inst.src2 && otherRegs[inst.src2] != RegState::CHANGED)
+				otherRegs[inst.src2] = RegState::READ;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::MfHi:
+		case IROp::MfLo:
+		case IROp::FpCondToReg:
+			otherRegs[inst.dest] = RegState::CHANGED;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::MtHi:
+		case IROp::MtLo:
+			if (inst.src1 && otherRegs[inst.src1] != RegState::CHANGED)
+				otherRegs[inst.src1] = RegState::READ;
+			otherQueue.push_back(inst);
+			queuing = true;
+			break;
+
+		case IROp::Nop:
+		case IROp::Downcount:
+		case IROp::ZeroFpCond:
+			if (queuing) {
+				// These are freebies.  Sometimes helps with delay slots.
+				otherQueue.push_back(inst);
+			} else {
+				out.Write(inst);
+			}
+			break;
+
+		default:
+			flushQueue();
+			out.Write(inst);
+			break;
+		}
+	}
+
+	// Can reuse the old constants array - not touching constants in this pass.
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
+	}
+	return logBlocks;
+}
+
+bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
+	bool logBlocks = false;
+
+	auto opsCompatible = [&](const IRInst &a, const IRInst &b, int dist) {
+		if (a.op != b.op || a.src1 != b.src1) {
+			// Not similar enough at all.
+			return false;
+		}
+		u32 off1 = in.GetConstants()[a.src2];
+		u32 off2 = in.GetConstants()[b.src2];
+		if (off1 + dist != off2) {
+			// Not immediately sequential.
+			return false;
+		}
+
+		return true;
+	};
+
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
+		IRInst inst = in.GetInstructions()[i];
+		int c = 0;
+		switch (inst.op) {
+		case IROp::Store8:
+			for (c = 1; c < 4 && i + c < n; ++c) {
+				const IRInst &nextInst = in.GetInstructions()[i + c];
+				// TODO: Might be nice to check if this is an obvious constant.
+				if (inst.src3 != nextInst.src3 || inst.src3 != 0) {
+					break;
+				}
+				if (!opsCompatible(inst, nextInst, c)) {
+					break;
+				}
+			}
+			// Warning: this may generate unaligned stores.
+			if (c == 2 || c == 3) {
+				inst.op = IROp::Store16;
+				out.Write(inst);
+				// Skip the next one.
+				++i;
+				continue;
+			}
+			if (c == 4) {
+				inst.op = IROp::Store32;
+				out.Write(inst);
+				// Skip all 4.
+				i += 3;
+				continue;
+			}
+			out.Write(inst);
+			break;
+
+		case IROp::Store16:
+			for (c = 1; c < 2 && i + c < n; ++c) {
+				const IRInst &nextInst = in.GetInstructions()[i + c];
+				// TODO: Might be nice to check if this is an obvious constant.
+				if (inst.src3 != nextInst.src3 || inst.src3 != 0) {
+					break;
+				}
+				if (!opsCompatible(inst, nextInst, c * 2)) {
+					break;
+				}
+			}
+			// Warning: this may generate unaligned stores.
+			if (c == 2) {
+				inst.op = IROp::Store32;
+				out.Write(inst);
+				// Skip the next one.
+				++i;
+				continue;
+			}
+			out.Write(inst);
+			break;
+
+		default:
+			out.Write(inst);
+			break;
+		}
+	}
+
+	// Can reuse the old constants array - not touching constants in this pass.
+	for (u32 value : in.GetConstants()) {
+		out.AddConstant(value);
+	}
 	return logBlocks;
 }
