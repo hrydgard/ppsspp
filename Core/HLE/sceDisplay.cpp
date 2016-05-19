@@ -180,7 +180,7 @@ void __DisplayInit() {
 	mode = 0;
 	resumeMode = 0;
 	holdMode = 0;
-	brightnessLevel = 100;
+	brightnessLevel = 84;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
@@ -729,15 +729,31 @@ static u32 sceDisplayIsVblank() {
 	return hleLogSuccessI(SCEDISPLAY, isVblank);
 }
 
+static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
+	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
+
+	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
+	// At least, on real firmware a wait >= 16500 into the frame will wait two.
+	if (cyclesToNextVblank <= usToCycles(115)) {
+		++vblanks;
+	}
+
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
+
+	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
+}
+
 static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	if (displayMode != PSP_DISPLAY_MODE_LCD || displayWidth != 480 || displayHeight != 272) {
 		WARN_LOG_REPORT(SCEDISPLAY, "Video out requested, not supported: mode=%d size=%d,%d", displayMode, displayWidth, displayHeight);
 	}
-	if (displayWidth != 480 || displayHeight != 272) {
-		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
-	}
 	if (displayMode != PSP_DISPLAY_MODE_LCD) {
 		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_MODE, "invalid mode");
+	}
+	if (displayWidth != 480 || displayHeight != 272) {
+		return hleLogWarning(SCEDISPLAY, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
 
 	if (!hasSetMode) {
@@ -747,7 +763,10 @@ static u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeigh
 	mode = displayMode;
 	width = displayWidth;
 	height = displayHeight;
-	return hleLogSuccessI(SCEDISPLAY, 0);
+
+	hleLogSuccessI(SCEDISPLAY, 0);
+	// On success, this implicitly waits for a vblank start.
+	return DisplayWaitForVblanks("display mode", 1);
 }
 
 // Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
@@ -858,22 +877,6 @@ static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelForma
 		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
 
 	return hleLogSuccessI(SCEDISPLAY, 0);
-}
-
-static int DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks = false) {
-	const s64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
-	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
-
-	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
-	// At least, on real firmware a wait >= 16500 into the frame will wait two.
-	if (cyclesToNextVblank <= usToCycles(115)) {
-		++vblanks;
-	}
-
-	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, callbacks, reason);
-
-	return hleLogSuccessVerboseI(SCEDISPLAY, 0, "waiting for %d vblanks", vblanks);
 }
 
 static int DisplayWaitForVblanksCB(const char *reason, int vblanks) {
@@ -1005,35 +1008,40 @@ static u32 sceDisplayIsVsync() {
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplayGetResumeMode(%08x)", resumeModeAddr);
 	if (Memory::IsValidAddress(resumeModeAddr))
 		Memory::Write_U32(resumeMode, resumeModeAddr);
-	return 0;
+	return hleLogSuccessI(SCEDISPLAY, 0);
 }
 
 static u32 sceDisplaySetResumeMode(u32 rMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetResumeMode(%08x)", rMode);
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	resumeMode = rMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
-static u32 sceDisplayGetBrightness(u32 levelAddr) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplayGetBrightness(%08x)", levelAddr);
-	if (Memory::IsValidAddress(levelAddr))
+static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
+	// Standard levels on a PSP: 44, 60, 72, 84 (AC only)
+
+	if (Memory::IsValidAddress(levelAddr)) {
 		Memory::Write_U32(brightnessLevel, levelAddr);
-	return 0;
+	}
+	// Always seems to write zero?
+	if (Memory::IsValidAddress(otherAddr)) {
+		Memory::Write_U32(0, otherAddr);
+	}
+	return hleLogWarning(SCEDISPLAY, 0);
 }
 
-static u32 sceDisplaySetBrightness(u32 bLevel) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetBrightness(%08x)", bLevel);
-	brightnessLevel = bLevel;
-	return 0;
+static u32 sceDisplaySetBrightness(int level, int other) {
+	// Note: Only usable in kernel mode.
+	brightnessLevel = level;
+	return hleLogWarning(SCEDISPLAY, 0);
 }
 
 static u32 sceDisplaySetHoldMode(u32 hMode) {
-	ERROR_LOG(SCEDISPLAY,"sceDisplaySetHoldMode(%08x)", hMode);
+	// Not sure what this does, seems to do nothing in tests and accept all values.
 	holdMode = hMode;
-	return 0;
+	return hleReportError(SCEDISPLAY, 0, "unsupported");
 }
 
 const HLEFunction sceDisplay[] = {
@@ -1056,8 +1064,8 @@ const HLEFunction sceDisplay[] = {
 	{0XA544C486, &WrapU_U<sceDisplaySetResumeMode>,           "sceDisplaySetResumeMode",           'x', "x"   },
 	{0XBF79F646, &WrapU_U<sceDisplayGetResumeMode>,           "sceDisplayGetResumeMode",           'x', "p"   },
 	{0XB4F378FA, &WrapU_V<sceDisplayIsForeground>,            "sceDisplayIsForeground",            'x', ""    },
-	{0X31C4BAA8, &WrapU_U<sceDisplayGetBrightness>,           "sceDisplayGetBrightness",           'x', "p"   },
-	{0X9E3C6DC6, &WrapU_U<sceDisplaySetBrightness>,           "sceDisplaySetBrightness",           'x', "x"   },
+	{0X31C4BAA8, &WrapU_UU<sceDisplayGetBrightness>,          "sceDisplayGetBrightness",           'x', "pp"  },
+	{0X9E3C6DC6, &WrapU_II<sceDisplaySetBrightness>,          "sceDisplaySetBrightness",           'x', "ii"  },
 	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
 	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
 };
