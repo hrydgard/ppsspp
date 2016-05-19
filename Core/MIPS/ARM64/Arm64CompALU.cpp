@@ -623,44 +623,62 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 26: //div
+	{
 		// TODO: Does this handle INT_MAX, 0, etc. correctly?
 		gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
-		UBFX(SCRATCH1_64, EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32, 32);
 		SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 		MSUB(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+
+		CMPI2R(gpr.R(rt), 0);
+		FixupBranch skipZero = B(CC_NEQ);
+		// HI set properly already, we just need to set LO.
+		MOVI2R(gpr.R(MIPS_REG_LO), -1);
+		CMPI2R(gpr.R(rs), 0);
+		FixupBranch moreThan16Bit = B(CC_GE);
+		MOVI2R(gpr.R(MIPS_REG_LO), 1);
+		SetJumpTarget(moreThan16Bit);
+		SetJumpTarget(skipZero);
+
 		BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 		break;
+	}
 
 	case 27: //divu
 		// Do we have a known power-of-two denominator?  Yes, this happens.
-		if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
+		if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0 && gpr.GetImm(rt) != 0) {
 			u32 denominator = gpr.GetImm(rt);
-			if (denominator == 0) {
-				// TODO: This isn't exactly right.
-				gpr.SetImm(MIPS_REG_LO, -1);
-			} else {
-				gpr.MapDirtyIn(MIPS_REG_LO, rs);
-				// Remainder is just an AND, neat.
-				ANDI2R(SCRATCH1, gpr.R(rs), denominator - 1, SCRATCH1);
-				int shift = 0;
-				while (denominator != 0) {
-					++shift;
-					denominator >>= 1;
-				}
-				// The shift value is one too much for the divide by the same value.
-				if (shift > 1) {
-					LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
-				} else {
-					MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
-				}
-				BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
+			gpr.MapDirtyIn(MIPS_REG_LO, rs);
+			// Remainder is just an AND, neat.
+			ANDI2R(SCRATCH1, gpr.R(rs), denominator - 1, SCRATCH1);
+			int shift = 0;
+			while (denominator != 0) {
+				++shift;
+				denominator >>= 1;
 			}
+			// The shift value is one too much for the divide by the same value.
+			if (shift > 1) {
+				LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
+			} else {
+				MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
+			}
+			BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 		} else {
 			// TODO: Does this handle INT_MAX, 0, etc. correctly?
 			gpr.MapDirtyInIn(MIPS_REG_LO, rs, rt);
-			UBFX(SCRATCH1_64, EncodeRegTo64(gpr.R(MIPS_REG_LO)), 32, 32);
 			UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
 			MSUB(SCRATCH1, gpr.R(rt), gpr.R(MIPS_REG_LO), gpr.R(rs));
+
+			CMPI2R(gpr.R(rt), 0);
+			FixupBranch skipZero = B(CC_NEQ);
+			// HI set properly, we just need to set LO.
+			MOVI2R(SCRATCH2, 0xFFFF);
+			MOVI2R(gpr.R(MIPS_REG_LO), -1);
+			CMP(gpr.R(rs), SCRATCH2);
+			FixupBranch moreThan16Bit = B(CC_HI);
+			MOV(gpr.R(MIPS_REG_LO), SCRATCH2);
+			SetJumpTarget(moreThan16Bit);
+			SetJumpTarget(skipZero);
+
 			BFI(EncodeRegTo64(gpr.R(MIPS_REG_LO)), SCRATCH1_64, 32, 32);
 		}
 		break;
