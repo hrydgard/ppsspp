@@ -747,7 +747,20 @@ namespace MIPSComp
 			if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+
+				CMPI2R(gpr.R(rt), 0, SCRATCHREG1);
+				FixupBranch skipZero = B_CC(CC_NEQ);
+				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+				MOVI2R(gpr.R(MIPS_REG_LO), -1);
+				CMPI2R(gpr.R(rs), 0, SCRATCHREG1);
+				SetCC(CC_LT);
+				MOVI2R(gpr.R(MIPS_REG_LO), 1);
+				SetCC(CC_AL);
+				FixupBranch skipDiv = B();
+
+				SetJumpTarget(skipZero);
 				SDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+				SetJumpTarget(skipDiv);
 				MUL(SCRATCHREG1, gpr.R(rt), gpr.R(MIPS_REG_LO));
 				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(SCRATCHREG1));
 			} else {
@@ -757,45 +770,51 @@ namespace MIPSComp
 
 		case 27: //divu
 			// Do we have a known power-of-two denominator?  Yes, this happens.
-			if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0) {
+			if (gpr.IsImm(rt) && (gpr.GetImm(rt) & (gpr.GetImm(rt) - 1)) == 0 && gpr.GetImm(rt) != 0) {
 				u32 denominator = gpr.GetImm(rt);
-				if (denominator == 0) {
-					gpr.MapDirtyIn(MIPS_REG_HI, rs);
-					gpr.SetImm(MIPS_REG_LO, -1);
-					MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+				gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
+				// Remainder is just an AND, neat.
+				ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, SCRATCHREG1);
+				int shift = 0;
+				while (denominator != 0) {
+					++shift;
+					denominator >>= 1;
+				}
+				// The shift value is one too much for the divide by the same value.
+				if (shift > 1) {
+					LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
 				} else {
-					gpr.MapDirtyDirtyIn(MIPS_REG_LO, MIPS_REG_HI, rs);
-					// Remainder is just an AND, neat.
-					ANDI2R(gpr.R(MIPS_REG_HI), gpr.R(rs), denominator - 1, SCRATCHREG1);
-					int shift = 0;
-					while (denominator != 0) {
-						++shift;
-						denominator >>= 1;
-					}
-					// The shift value is one too much for the divide by the same value.
-					if (shift > 1) {
-						LSR(gpr.R(MIPS_REG_LO), gpr.R(rs), shift - 1);
-					} else {
-						MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
-					}
+					MOV(gpr.R(MIPS_REG_LO), gpr.R(rs));
 				}
 			} else if (cpu_info.bIDIVa) {
 				// TODO: Does this handle INT_MAX, 0, etc. correctly?
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
+
+				CMPI2R(gpr.R(rt), 0, SCRATCHREG1);
+				FixupBranch skipZero = B_CC(CC_NEQ);
+				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
+				MOVI2R(SCRATCHREG1, 0xFFFF);
+				CMP(gpr.R(rs), SCRATCHREG1);
+				MOVI2R(gpr.R(MIPS_REG_LO), -1);
+				SetCC(CC_LS);
+				MOV(gpr.R(MIPS_REG_LO), SCRATCHREG1);
+				SetCC(CC_AL);
+				FixupBranch skipDiv = B();
+
+				SetJumpTarget(skipZero);
 				UDIV(gpr.R(MIPS_REG_LO), gpr.R(rs), gpr.R(rt));
+				SetJumpTarget(skipDiv);
 				MUL(SCRATCHREG1, gpr.R(rt), gpr.R(MIPS_REG_LO));
 				SUB(gpr.R(MIPS_REG_HI), gpr.R(rs), Operand2(SCRATCHREG1));
 			} else {
 				// If rt is 0, we either caught it above, or it's not an imm.
-				bool skipZero = gpr.IsImm(rt);
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 				MOV(SCRATCHREG1, gpr.R(rt));
+				// We start at rs for the remainder and subtract out.
+				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 
-				FixupBranch skipper;
-				if (!skipZero) {
-					CMP(gpr.R(rt), 0);
-					skipper = B_CC(CC_EQ);
-				}
+				CMP(gpr.R(rt), 0);
+				FixupBranch skipper = B_CC(CC_EQ);
 
 				// Double SCRATCHREG1 until it would be (but isn't) bigger than the numerator.
 				CMP(SCRATCHREG1, Operand2(gpr.R(rs), ST_LSR, 1));
@@ -806,7 +825,6 @@ namespace MIPSComp
 					CMP(SCRATCHREG1, Operand2(gpr.R(rs), ST_LSR, 1));
 				B_CC(CC_LS, doubleLoop);
 
-				MOV(gpr.R(MIPS_REG_HI), gpr.R(rs));
 				MOV(gpr.R(MIPS_REG_LO), 0);
 
 				// Subtract and halve SCRATCHREG1 (doubling and adding the result) until it's below the denominator.
@@ -822,14 +840,15 @@ namespace MIPSComp
 				B_CC(CC_HS, subLoop);
 
 				// We didn't change rt.  If it was 0, then clear HI and LO.
-				if (!skipZero) {
-					FixupBranch zeroSkip = B();
-					SetJumpTarget(skipper);
-					// TODO: Is this correct?
-					MOV(gpr.R(MIPS_REG_LO), 0);
-					MOV(gpr.R(MIPS_REG_HI), 0);
-					SetJumpTarget(zeroSkip);
-				}
+				FixupBranch zeroSkip = B();
+				SetJumpTarget(skipper);
+				MOVI2R(SCRATCHREG1, 0xFFFF);
+				CMP(gpr.R(rs), SCRATCHREG1);
+				MOVI2R(gpr.R(MIPS_REG_LO), -1);
+				SetCC(CC_LS);
+				MOV(gpr.R(MIPS_REG_LO), SCRATCHREG1);
+				SetCC(CC_AL);
+				SetJumpTarget(zeroSkip);
 			}
 			break;
 
