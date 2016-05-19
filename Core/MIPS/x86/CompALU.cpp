@@ -1027,10 +1027,13 @@ namespace MIPSComp
 				FixupBranch skip = J();
 
 				SetJumpTarget(divZero);
-				// TODO: This isn't exactly right.
 				MOV(32, gpr.R(MIPS_REG_HI), R(EAX));
 				MOV(32, gpr.R(MIPS_REG_LO), Imm32(-1));
+				CMP(32, R(EAX), Imm32(0));
+				FixupBranch positiveDivZero = J_CC(CC_GE);
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(1));
 
+				SetJumpTarget(positiveDivZero);
 				SetJumpTarget(skip);
 				SetJumpTarget(skip2);
 				gpr.UnlockAllX();
@@ -1058,7 +1061,11 @@ namespace MIPSComp
 				SetJumpTarget(divZero);
 				MOV(32, gpr.R(MIPS_REG_HI), R(EAX));
 				MOV(32, gpr.R(MIPS_REG_LO), Imm32(-1));
+				CMP(32, R(EAX), Imm32(0xFFFF));
+				FixupBranch moreThan16Bit = J_CC(CC_A);
+				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0xFFFF));
 
+				SetJumpTarget(moreThan16Bit);
 				SetJumpTarget(skip);
 				gpr.UnlockAllX();
 			}
