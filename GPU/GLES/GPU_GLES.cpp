@@ -469,7 +469,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *ctx)
 }
 
 GPU_GLES::~GPU_GLES() {
-	framebufferManager_.DestroyAllFBOs();
+	framebufferManager_.DestroyAllFBOs(true);
 	shaderManager_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
@@ -660,7 +660,7 @@ void GPU_GLES::Reinitialize() {
 void GPU_GLES::ReinitializeInternal() {
 	textureCache_.Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManager_.DestroyAllFBOs();
+	framebufferManager_.DestroyAllFBOs(true);
 	framebufferManager_.Resized();
 }
 
@@ -2401,7 +2401,7 @@ void GPU_GLES::DoState(PointerWrap &p) {
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_.DestroyAllFBOs();
+		framebufferManager_.DestroyAllFBOs(true);
 		shaderManager_->ClearCache(true);
 	}
 }

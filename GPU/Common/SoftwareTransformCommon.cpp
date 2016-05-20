@@ -92,7 +92,7 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 
 // Clears on the PSP are best done by drawing a series of vertical strips
 // in clear mode. This tries to detect that.
-static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
+static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, float x2, float y2) {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
@@ -100,21 +100,18 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	u32 matchcolor = transformed[1].color0_32;
 	float matchz = transformed[1].z;
 
-	int bufW = gstate_c.curRTWidth;
-	int bufH = gstate_c.curRTHeight;
-
 	for (int i = 1; i < numVerts; i++) {
 		if ((i & 1) == 0) {
 			// Top left of a rectangle
-			if (transformed[i].y != 0)
+			if (transformed[i].y != 0.0f)
 				return false;
 			if (i > 0 && transformed[i].x != transformed[i - 1].x)
 				return false;
 		} else {
-			if ((i & 1) && (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz))
+			if (transformed[i].color0_32 != matchcolor || transformed[i].z != matchz)
 				return false;
 			// Bottom right
-			if (transformed[i].y != bufH)
+			if (transformed[i].y < y2)
 				return false;
 			if (transformed[i].x <= transformed[i - 1].x)
 				return false;
@@ -122,7 +119,7 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts) {
 	}
 
 	// The last vertical strip often extends outside the drawing area.
-	if (transformed[numVerts - 1].x < bufW)
+	if (transformed[numVerts - 1].x < x2)
 		return false;
 
 	return true;
@@ -411,7 +408,13 @@ void SoftwareTransform(
 	// rectangle out of many. Quite a small optimization though.
 	// Experiment: Disable on PowerVR (see issue #6290)
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
-	if (maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(transformed, maxIndex) && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	bool reallyAClear = false;
+	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
+		int scissorX2 = gstate.getScissorX2() + 1;
+		int scissorY2 = gstate.getScissorY2() + 1;
+		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
+	}
+	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_POWERVR) {  // && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();

@@ -60,7 +60,7 @@ public:
 	
 	void DrawActiveTexture(LPDIRECT3DTEXTURE9 texture, float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation);
 
-	void DestroyAllFBOs();
+	void DestroyAllFBOs(bool forceDelete);
 
 	void EndFrame();
 	void Resized();

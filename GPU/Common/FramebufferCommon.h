@@ -99,6 +99,8 @@ struct VirtualFramebuffer {
 	u16 drawnWidth;
 	u16 drawnHeight;
 	GEBufferFormat drawnFormat;
+	u16 safeWidth;
+	u16 safeHeight;
 
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
@@ -224,6 +226,7 @@ public:
 		}
 	}
 	void SetRenderSize(VirtualFramebuffer *vfb);
+	void SetSafeSize(u16 w, u16 h);
 
 protected:
 	void UpdateSize();

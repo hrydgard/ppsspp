@@ -355,6 +355,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				needsRecreate = needsRecreate || vfb->newHeight > vfb->bufferHeight || vfb->newHeight * 2 < vfb->bufferHeight;
 				if (needsRecreate) {
 					ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+					// Let's discard this information, might be wrong now.
+					vfb->safeWidth = 0;
+					vfb->safeHeight = 0;
 				} else {
 					// Even though we won't resize it, let's at least change the size params.
 					vfb->width = drawing_width;
@@ -378,7 +381,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	// None found? Create one.
 	if (!vfb) {
 		vfb = new VirtualFramebuffer();
-		vfb->fbo = 0;
+		memset(vfb, 0, sizeof(VirtualFramebuffer));
+		vfb->fbo = nullptr;
 		vfb->fb_address = params.fb_address;
 		vfb->fb_stride = params.fb_stride;
 		vfb->z_address = params.z_address;
@@ -393,8 +397,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->bufferWidth = drawing_width;
 		vfb->bufferHeight = drawing_height;
 		vfb->format = params.fmt;
-		vfb->drawnWidth = 0;
-		vfb->drawnHeight = 0;
 		vfb->drawnFormat = params.fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb, skipDrawReason);
@@ -412,10 +414,6 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		INFO_LOG(SCEGE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
 		vfb->last_frame_render = gpuStats.numFlips;
-		vfb->last_frame_used = 0;
-		vfb->last_frame_attached = 0;
-		vfb->last_frame_displayed = 0;
-		vfb->last_frame_clut = 0;
 		frameLastFramebufUsed_ = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		currentRenderVfb_ = vfb;
@@ -771,6 +769,7 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	// Create a new fbo if none was found for the size
 	if (!nvfb) {
 		nvfb = new VirtualFramebuffer();
+		memset(nvfb, 0, sizeof(VirtualFramebuffer));
 		nvfb->fbo = nullptr;
 		nvfb->fb_address = vfb->fb_address;
 		nvfb->fb_stride = vfb->fb_stride;
@@ -964,13 +963,24 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		break;
 	}
 
+	if (hackForce04154000Download_ && vfb->fb_address == 0x00154000) {
+		force1x = true;
+	}
+
 	if (force1x && g_Config.iInternalResolution != 1) {
 		vfb->renderWidth = vfb->bufferWidth;
 		vfb->renderHeight = vfb->bufferHeight;
-	}
-	else {
+	} else {
 		vfb->renderWidth = (u16)(vfb->bufferWidth * renderWidthFactor);
 		vfb->renderHeight = (u16)(vfb->bufferHeight * renderHeightFactor);
+	}
+}
+
+void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (vfb) {
+		vfb->safeWidth = std::max(vfb->safeWidth, w);
+		vfb->safeHeight = std::max(vfb->safeHeight, h);
 	}
 }
 

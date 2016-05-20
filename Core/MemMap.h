@@ -130,6 +130,8 @@ void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
+// False when shutdown has already been called.
+bool IsActive();
 
 class MemoryInitedLock
 {
