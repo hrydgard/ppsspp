@@ -383,24 +383,25 @@ void DoState(PointerWrap &p)
 	p.DoMarker("ScratchPad");
 }
 
-void Shutdown()
-{
+void Shutdown() {
 	lock_guard guard(g_shutdownLock);
 	u32 flags = 0;
-
 	MemoryMap_Shutdown(flags);
-	base = NULL;
+	base = nullptr;
 	DEBUG_LOG(MEMMAP, "Memory system shut down.");
 }
 
-void Clear()
-{
+void Clear() {
 	if (m_pRAM)
 		memset(GetPointerUnchecked(PSP_GetKernelMemoryBase()), 0, g_MemorySize);
 	if (m_pScratchPad)
 		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
 	if (m_pVRAM)
 		memset(m_pVRAM, 0, VRAM_SIZE);
+}
+
+bool IsActive() {
+	return base != nullptr;
 }
 
 // Wanting to avoid include pollution, MemMap.h is included a lot.
