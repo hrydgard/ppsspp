@@ -885,6 +885,10 @@ rotateVBO:
 
 			dxstate.colorMask.set((mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_TARGET) != 0, (mask & D3DCLEAR_STENCIL) != 0);
 			pD3Ddevice->Clear(0, NULL, mask, clearColor, clearDepth, clearColor >> 24);
+
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 		}
 	}
 

@@ -981,6 +981,10 @@ rotateVBO:
 			glClearStencil(clearColor >> 24);
 			glClear(target);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
+
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 		}
 	}
 
