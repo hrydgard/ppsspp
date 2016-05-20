@@ -1140,7 +1140,7 @@ namespace DX9 {
 
 	void FramebufferManagerDX9::EndFrame() {
 		if (resized_) {
-			DestroyAllFBOs();
+			DestroyAllFBOs(false);
 			// Actually, auto mode should be more granular...
 			// Round up to a zoom factor for the render size.
 			int zoom = g_Config.iInternalResolution;
@@ -1173,7 +1173,7 @@ namespace DX9 {
 	}
 
 	void FramebufferManagerDX9::DeviceLost() {
-		DestroyAllFBOs();
+		DestroyAllFBOs(false);
 		resized_ = false;
 	}
 
@@ -1218,6 +1218,9 @@ namespace DX9 {
 			if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 				if (age > FBO_OLD_AGE) {
 					INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+					if (!g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
+						ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+					}
 					DestroyFramebuf(vfb);
 					vfbs_.erase(vfbs_.begin() + i--);
 				}
@@ -1256,7 +1259,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::DestroyAllFBOs() {
+	void FramebufferManagerDX9::DestroyAllFBOs(bool forceDelete) {
 		fbo_unbind();
 		currentRenderVfb_ = 0;
 		displayFramebuf_ = 0;
@@ -1266,6 +1269,12 @@ namespace DX9 {
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+			if (!forceDelete && !g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
+				// But also let's check if Memory is shut down already.
+				if (Memory::IsActive()) {
+					ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+				}
+			}
 			DestroyFramebuf(vfb);
 		}
 		vfbs_.clear();

@@ -1456,7 +1456,7 @@ void FramebufferManagerVulkan::BeginFrameVulkan() {
 void FramebufferManagerVulkan::EndFrame() {
 	if (resized_) {
 		// TODO: Only do this if the new size actually changed the renderwidth/height.
-		DestroyAllFBOs();
+		DestroyAllFBOs(false);
 
 		// Check if postprocessing shader is doing upscaling as it requires native resolution
 		const ShaderInfo *shaderInfo = 0;
@@ -1512,7 +1512,7 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
-	DestroyAllFBOs();
+	DestroyAllFBOs(false);
 	resized_ = false;
 }
 
@@ -1553,6 +1553,9 @@ void FramebufferManagerVulkan::DecimateFBOs() {
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
 				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
+				if (!g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
+					ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+				}
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1560,7 +1563,7 @@ void FramebufferManagerVulkan::DecimateFBOs() {
 	}
 }
 
-void FramebufferManagerVulkan::DestroyAllFBOs() {
+void FramebufferManagerVulkan::DestroyAllFBOs(bool forceDelete) {
 	currentRenderVfb_ = 0;
 	displayFramebuf_ = 0;
 	prevDisplayFramebuf_ = 0;
@@ -1569,6 +1572,12 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		if (!forceDelete && !g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
+			// But also let's check if Memory is shut down already.
+			if (Memory::IsActive()) {
+				ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+			}
+		}
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();

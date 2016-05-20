@@ -511,7 +511,7 @@ void GPU_DX9::CheckGPUFeatures() {
 }
 
 GPU_DX9::~GPU_DX9() {
-	framebufferManager_.DestroyAllFBOs();
+	framebufferManager_.DestroyAllFBOs(true);
 	shaderManager_->ClearCache(true);
 	delete shaderManager_;
 }
@@ -2137,7 +2137,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_.DestroyAllFBOs();
+		framebufferManager_.DestroyAllFBOs(true);
 		shaderManager_->ClearCache(true);
 	}
 }
