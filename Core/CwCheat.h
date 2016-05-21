@@ -32,7 +32,7 @@ private:
 	void InvalidateICache(u32 addr, int size);
 	void SkipCodes(int count);
 	void SkipAllCodes();
-	bool cheatsOn, exit2, cheatEnabled;
+	bool exit2, cheatEnabled;
 	int GetAddress(int value);
 	std::vector<std::string> codeNameList;
 

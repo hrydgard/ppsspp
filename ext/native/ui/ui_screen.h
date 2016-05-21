@@ -203,7 +203,6 @@ private:
 	std::string *value_;
 	std::string textEditValue_;
 	std::string placeholder_;
-	int step_;
 	int maxLen_;
 };
 

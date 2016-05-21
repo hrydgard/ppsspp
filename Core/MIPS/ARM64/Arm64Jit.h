@@ -167,18 +167,18 @@ public:
 	void CompNEON_ColorConv(MIPSOpcode op);
 	void CompNEON_Vbfy(MIPSOpcode op);
 
-	int Replace_fabsf();
+	int Replace_fabsf() override;
 
-	JitBlockCache *GetBlockCache() { return &blocks; }
+	JitBlockCache *GetBlockCache() override { return &blocks; }
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
-	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	void ClearCache() override;
+	void InvalidateCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
-	void EatPrefix() { js.EatPrefix(); }
+	void EatPrefix() override { js.EatPrefix(); }
 
 	const u8 *GetDispatcher() const override {
 		return dispatcher;

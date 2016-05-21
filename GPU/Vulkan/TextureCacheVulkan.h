@@ -121,7 +121,7 @@ public:
 	void ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler);
 
 protected:
-	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes);
+	void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) override;
 
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.

@@ -84,7 +84,7 @@ public:
 	void Comp_ColorConv(MIPSOpcode op) override;
 	void Comp_Vbfy(MIPSOpcode op) override;
 
-	int Replace_fabsf();
+	int Replace_fabsf() override;
 	void DoState(PointerWrap &p);
 	bool CheckRounding();  // returns true if we need a do-over
 

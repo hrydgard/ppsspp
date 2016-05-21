@@ -102,7 +102,7 @@ public:
 	}
 
 protected:
-	virtual UI::Size PopupWidth() const { return 500; }
+	UI::Size PopupWidth() const override { return 500; }
 
 private:
 	UI::EventReturn OnDeleteButtonClick(UI::EventParams &e);

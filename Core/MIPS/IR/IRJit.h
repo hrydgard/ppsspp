@@ -161,9 +161,9 @@ public:
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks_.SaveAndClearEmuHackOps(); }
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks_.RestoreSavedEmuHackOps(saved); }
 
-	void ClearCache();
-	void InvalidateCache();
-	void InvalidateCacheAt(u32 em_address, int length = 4);
+	void ClearCache() override;
+	void InvalidateCache() override;
+	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 
 	const u8 *GetDispatcher() const override { return nullptr; }
 

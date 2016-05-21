@@ -154,21 +154,21 @@ public:
 		ApplyPrefixST(regs, js.prefixT, sz);
 	}
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
-	void EatPrefix() { js.EatPrefix(); }
+	void EatPrefix() override { js.EatPrefix(); }
 
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
 	void UpdateRoundingMode();
 
-	JitBlockCache *GetBlockCache() { return &blocks; }
+	JitBlockCache *GetBlockCache() override { return &blocks; }
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
 	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
 
-	void ClearCache();
+	void ClearCache() override;
 	void InvalidateCache() override;
-	void InvalidateCacheAt(u32 em_address, int length = 4) {
+	void InvalidateCacheAt(u32 em_address, int length = 4) override {
 		if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
 			blocks.InvalidateICache(em_address, length);
 		}

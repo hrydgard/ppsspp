@@ -478,6 +478,7 @@ ifeq ($(UNITTEST),1)
 	$(SRC)/ext/armips/Core/Assembler.cpp \
 	$(SRC)/ext/armips/Core/Common.cpp \
 	$(SRC)/ext/armips/Core/Expression.cpp \
+	$(SRC)/ext/armips/Core/ExpressionFunctions.cpp \
 	$(SRC)/ext/armips/Core/FileManager.cpp \
 	$(SRC)/ext/armips/Core/Misc.cpp \
 	$(SRC)/ext/armips/Core/SymbolData.cpp \
