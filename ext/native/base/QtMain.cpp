@@ -239,7 +239,8 @@ QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
 
 void MainUI::resizeGL(int w, int h)
 {
-    UpdateScreenScale(w, h, false);
+    bool smallWindow = g_Config.IsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+    UpdateScreenScale(w, h, smallWindow);
     xscale = w / this->width();
     yscale = h / this->height();
 
