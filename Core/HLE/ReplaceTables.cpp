@@ -590,7 +590,9 @@ static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
 	}
 	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset, true);
 	if (lower != MIPS_MAKE_LW(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
-		return false;
+		if (lower != MIPS_MAKE_ORI(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
+			return false;
+		}
 	}
 	addr = ((upper & 0xffff) << 16) + (s16)(lower & 0xffff);
 	return true;
@@ -1049,7 +1051,7 @@ static int Hook_atvoffroadfurypro_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
 		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1059,7 +1061,7 @@ static int Hook_atvoffroadfuryblazintrails_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
 		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1068,7 +1070,7 @@ static int Hook_littlebustersce_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1087,7 +1089,7 @@ static int Hook_atvoffroadfuryprodemo_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, fb_size);
 		CBreakPoints::ExecMemCheck(fb_address, true, fb_size, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1096,7 +1098,7 @@ static int Hook_unendingbloodycall_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00088000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
-}
+	}
 	return 0;
 }
 
@@ -1105,7 +1107,36 @@ static int Hook_omertachinmokunookitethelegacy_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryDownload(fb_address, 0x00044000);
 		CBreakPoints::ExecMemCheck(fb_address, true, 0x00044000, currentMIPS->pc);
+	}
+	return 0;
 }
+
+static int Hook_katamari_render_check() {
+	const u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x3C);
+	const u32 fbInfoPtr = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x40);
+	if (Memory::IsVRAMAddress(fb_address) && fbInfoPtr != 0) {
+		const u32 sizeInfoPtr = Memory::Read_U32(fbInfoPtr + 0x0C);
+		// These are the values it uses to control the loop.
+		// Width in memory appears to be stride / 8.
+		const u32 width = Memory::Read_U16(sizeInfoPtr + 0x08) * 8;
+		// Height in memory is also divided by 8 (but this one isn't hardcoded.)
+		const u32 heightBlocks = Memory::Read_U16(sizeInfoPtr + 0x0A);
+		// For some reason this is the number of heightBlocks less 1.
+		const u32 heightBlockCount = Memory::Read_U8(fbInfoPtr + 0x08) + 1;
+
+		const u32 totalBytes = width * heightBlocks * heightBlockCount;
+		gpu->PerformMemoryDownload(fb_address, totalBytes);
+		CBreakPoints::ExecMemCheck(fb_address, true, totalBytes, currentMIPS->pc);
+	}
+	return 0;
+}
+
+static int Hook_katamari_screenshot_to_565() {
+	u32 fb_address;
+	if (GetMIPSStaticAddress(fb_address, 0x0040, 0x0044)) {
+		gpu->PerformMemoryDownload(0x04000000 | fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(0x04000000 | fb_address, true, 0x00088000, currentMIPS->pc);
+	}
 	return 0;
 }
 
@@ -1203,6 +1234,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "atvoffroadfuryprodemo_download_frame", &Hook_atvoffroadfuryprodemo_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
 	{ "unendingbloodycall_download_frame", &Hook_unendingbloodycall_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
 	{ "omertachinmokunookitethelegacy_download_frame", &Hook_omertachinmokunookitethelegacy_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
+	{ "katamari_render_check", &Hook_katamari_render_check, 0, REPFLAG_HOOKENTER, 0, },
+	{ "katamari_screenshot_to_565", &Hook_katamari_screenshot_to_565, 0, REPFLAG_HOOKENTER, 0 },
 	{}
 };
 
