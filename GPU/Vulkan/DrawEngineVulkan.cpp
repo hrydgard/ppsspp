@@ -268,16 +268,6 @@ void DrawEngineVulkan::EndFrame() {
 	curFrame_++;
 }
 
-VertexDecoder *DrawEngineVulkan::GetVertexDecoder(u32 vtype) {
-	auto iter = decoderMap_.find(vtype);
-	if (iter != decoderMap_.end())
-		return iter->second;
-	VertexDecoder *dec = new VertexDecoder();
-	dec->SetVertexType(vtype, decOptions_, decJitCache_);
-	decoderMap_[vtype] = dec;
-	return dec;
-}
-
 void DrawEngineVulkan::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
 }

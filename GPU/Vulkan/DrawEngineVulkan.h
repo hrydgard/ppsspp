@@ -168,8 +168,6 @@ private:
 
 	VkDescriptorSet GetDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone);
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
-
 	VulkanContext *vulkan_;
 
 	// We use a single descriptor set layout for all PSP draws.
