@@ -179,6 +179,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia (US), Dissidia 012 (US)
 	{ 0x388043e96b0e11fd, 144, "dl_write_material_2", },
 	{ 0x38f19bc3be215acc, 388, "log10f", },
+	{ 0x3913b81ddcbe1efe, 880, "katamari_render_check", }, // Me and My Katamari (US)
 	{ 0x393047f06eceaba1, 96, "strcspn", },
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
@@ -427,6 +428,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xd76d1a8804c7ec2c, 100, "dl_write_material", },
 	{ 0xd7d350c0b33a4662, 28, "vadd_q", },
 	{ 0xd80051931427dca0, 116, "__subdf3", },
+	{ 0xd96ba6e4ff86f1bf, 276, "katamari_screenshot_to_565", }, // Me and My Katamari (US)
 	{ 0xda51dab503b06979, 32, "vmidt_q", },
 	{ 0xdc0cc8b400ecfbf2, 36, "strcmp", },
 	{ 0xdcab869acf2bacab, 292, "strncasecmp", },
