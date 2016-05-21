@@ -29,6 +29,12 @@
     <Filter Include="Windows\GE Debugger">
       <UniqueIdentifier>{15f0e146-e39c-4bad-ba10-3c714a7dbf74}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Other Platforms\Qt">
+      <UniqueIdentifier>{45191b1f-33c8-405c-a410-35fe2344d1d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other Platforms\Qt\Debugger">
+      <UniqueIdentifier>{1d0cc0ee-fdbd-419e-b322-b35075d9d9db}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -153,6 +159,36 @@
       <Filter>Windows\System</Filter>
     </ClCompile>
     <ClCompile Include="GPU\WindowsVulkanContext.cpp" />
+    <ClCompile Include="..\Qt\mainwindow.cpp">
+      <Filter>Other Platforms\Qt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\debugger_disasm.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\debugger_displaylist.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\debugger_memory.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\debugger_memorytex.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\debugger_vfpu.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\ctrldisasmview.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\ctrlmemview.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\ctrlregisterlist.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Qt\Debugger\ctrlvfpuview.cpp">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -280,6 +316,36 @@
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="GPU\WindowsVulkanContext.h" />
+    <ClInclude Include="..\Qt\mainwindow.h">
+      <Filter>Other Platforms\Qt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\ctrlvfpuview.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\debugger_disasm.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\debugger_displaylist.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\debugger_memory.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\debugger_memorytex.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\debugger_vfpu.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\ctrldisasmview.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\ctrlmemview.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\Debugger\ctrlregisterlist.h">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
@@ -335,6 +401,45 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\assets\compat.ini" />
+    <None Include="..\Qt\Native.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\PPSSPP.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\PPSSPPQt.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\Settings.pri">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\Common.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\Core.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\GPU.pro">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\assets.qrc">
+      <Filter>Other Platforms\Qt</Filter>
+    </None>
+    <None Include="..\Qt\Debugger\debugger_disasm.ui">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </None>
+    <None Include="..\Qt\Debugger\debugger_displaylist.ui">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </None>
+    <None Include="..\Qt\Debugger\debugger_memory.ui">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </None>
+    <None Include="..\Qt\Debugger\debugger_memorytex.ui">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </None>
+    <None Include="..\Qt\Debugger\debugger_vfpu.ui">
+      <Filter>Other Platforms\Qt\Debugger</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
