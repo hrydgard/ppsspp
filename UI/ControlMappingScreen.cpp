@@ -365,7 +365,8 @@ public:
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
 	void Update(const InputState &input_state) override;
-	void Axis(const AxisInput &input) override{
+	void Axis(const AxisInput &input) override {
+		// TODO: Check input.deviceId?
 		if (input.axisId == xAxis_) {
 			curX_ = input.value;
 		} else if (input.axisId == yAxis_) {
