@@ -882,7 +882,7 @@ void FramebufferManager::BindFramebufferColor(int stage, u32 fbRawAddress, Virtu
 	}
 
 	if (stage != GL_TEXTURE0) {
-		glActiveTexture(stage);
+		glActiveTexture(GL_TEXTURE0);
 	}
 }
 
