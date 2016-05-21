@@ -659,27 +659,8 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		const u64 cachekey = entry->CacheKey();
 		const auto &fbInfo = fbTexInfo_[cachekey];
-
-		DepalShaderVulkan *depal = nullptr;
-		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-			// depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
-		}
-		if (depal) {
-			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-
-			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
-			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
-			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
-			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
-			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
-		}
 
 		// Keep the framebuffer alive.
 		framebuffer->last_frame_used = gpuStats.numFlips;
@@ -702,6 +683,10 @@ void TextureCacheVulkan::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		}
 		gstate_c.needShaderTexClamp = false;
 	}
+
+	nextNeedsRehash_ = false;
+	nextNeedsChange_ = false;
+	nextNeedsRebuild_ = false;
 }
 
 void TextureCacheVulkan::ApplyTexture(VulkanPushBuffer *uploadBuffer, VkImageView &imageView, VkSampler &sampler) {
@@ -847,6 +832,18 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(VkCommandBuffer cmd, TexCacheEn
 		//depalFBO->EndPass(cmd);
 		//depalFBO->TransitionToTexture(cmd);
 		//imageView = depalFBO->GetColorImageView();
+
+		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+
+		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
+		gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
+		gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
+	} else {
+		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
+
+		gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
+		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 	}
 
 	/*
