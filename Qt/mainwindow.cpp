@@ -421,6 +421,10 @@ void MainWindow::SetWindowScale(int zoom) {
 		fullscrAct();
 
 	int width, height;
+	if (zoom == -1 && (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0)) {
+		// Default to zoom level 2.
+		zoom = 2;
+	}
 	if (zoom == -1) {
 		// Take the last setting.
 		width = g_Config.iWindowWidth;
