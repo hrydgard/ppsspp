@@ -626,6 +626,15 @@ BEGIN
         MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
     END
+    POPUP "stateoptions"
+    BEGIN
+        MENUITEM "Copy Value (Hex)",           ID_DISASM_COPYINSTRUCTIONHEX
+        MENUITEM "Copy Value (Formatted)",     ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM "Copy Entire Tab (Formatted)",ID_DEBDG_COPYALL
+        MENUITEM SEPARATOR
+        MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Change...",                  ID_REGLIST_CHANGE
+    END
 END
 
 #endif    // English (United States) resources

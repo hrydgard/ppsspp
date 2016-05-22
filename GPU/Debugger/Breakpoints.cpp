@@ -233,6 +233,14 @@ bool IsRenderTargetBreakpoint(u32 addr) {
 	return breakRenderTargets.find(addr) != breakRenderTargets.end();
 }
 
+bool IsOpBreakpoint(u32 op, bool &temp) {
+	return IsCmdBreakpoint(op >> 24, temp);
+}
+
+bool IsOpBreakpoint(u32 op) {
+	return IsCmdBreakpoint(op >> 24);
+}
+
 bool IsCmdBreakpoint(u8 cmd, bool &temp) {
 	temp = breakCmdsTemp[cmd];
 	return breakCmds[cmd];

@@ -325,6 +325,7 @@
 #define ID_OPTIONS_DISPLAY_LAYOUT        40160
 #define ID_OPTIONS_VULKAN                40161
 #define IDC_GEDBG_BREAKTARGET            40162
+#define ID_DEBDG_COPYALL                 40163
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -337,7 +338,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40163
+#define _APS_NEXT_COMMAND_VALUE         40164
 #define _APS_NEXT_CONTROL_VALUE         1199
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

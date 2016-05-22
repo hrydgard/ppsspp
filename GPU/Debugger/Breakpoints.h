@@ -50,11 +50,7 @@ namespace GPUBreakpoints {
 	void ClearAllBreakpoints();
 	void ClearTempBreakpoints();
 
-	static inline bool IsOpBreakpoint(u32 op, bool &temp) {
-		return IsCmdBreakpoint(op >> 24, temp);
-	}
+	bool IsOpBreakpoint(u32 op, bool &temp);
 
-	static inline bool IsOpBreakpoint(u32 op) {
-		return IsCmdBreakpoint(op >> 24);
-	}
+	bool IsOpBreakpoint(u32 op);
 };

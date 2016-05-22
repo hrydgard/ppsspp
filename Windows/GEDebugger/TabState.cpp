@@ -17,12 +17,18 @@
 
 #include "base/basictypes.h"
 #include "Windows/resource.h"
+#include "Windows/main.h"
 #include "Windows/InputBox.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/TabState.h"
 #include "GPU/GPUState.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Breakpoints.h"
+
+using namespace GPUBreakpoints;
+
+const int POPUP_SUBMENU_ID_GEDBG_STATE = 9;
 
 // TODO: Show an icon or something for breakpoints, toggle.
 static const GenericListViewColumn stateValuesCols[] = {
@@ -844,12 +850,65 @@ void CtrlStateValues::OnDoubleClick(int row, int column) {
 	}
 }
 
-void CtrlStateValues::OnRightClick(int row, int column, const POINT& point) {
-	if (gpuDebug == NULL) {
+void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
+	if (gpuDebug == nullptr) {
 		return;
 	}
 
-	// TODO: Copy, break, watch... enable?
+	const auto info = rows_[row];
+	const auto state = gpuDebug->GetGState();
+
+	POINT screenPt(point);
+	ClientToScreen(GetHandle(), &screenPt);
+
+	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_STATE);
+	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
+	{
+	case ID_DISASM_TOGGLEBREAKPOINT:
+		if (IsCmdBreakpoint(info.cmd)) {
+			RemoveCmdBreakpoint(info.cmd);
+			RemoveCmdBreakpoint(info.otherCmd);
+			RemoveCmdBreakpoint(info.otherCmd2);
+		} else {
+			AddCmdBreakpoint(info.cmd);
+			if (info.otherCmd) {
+				AddCmdBreakpoint(info.otherCmd);
+			}
+			if (info.otherCmd2) {
+				AddCmdBreakpoint(info.otherCmd2);
+			}
+		}
+		break;
+
+	case ID_DISASM_COPYINSTRUCTIONHEX: {
+		char temp[16];
+		snprintf(temp, sizeof(temp), "%08x", gstate.cmdmem[info.cmd] & 0x00FFFFFF);
+		W32Util::CopyTextToClipboard(GetHandle(), temp);
+		break;
+	}
+
+	case ID_DISASM_COPYINSTRUCTIONDISASM: {
+		const bool enabled = info.enableCmd == 0 || (state.cmdmem[info.enableCmd] & 1) == 1;
+		const u32 value = state.cmdmem[info.cmd] & 0xFFFFFF;
+		const u32 otherValue = state.cmdmem[info.otherCmd] & 0xFFFFFF;
+		const u32 otherValue2 = state.cmdmem[info.otherCmd2] & 0xFFFFFF;
+
+		wchar_t dest[512];
+		FormatStateRow(dest, info, value, enabled, otherValue, otherValue2);
+		W32Util::CopyTextToClipboard(GetHandle(), dest);
+		break;
+	}
+
+	case ID_DEBDG_COPYALL:
+		CopyRows(0, GetRowCount());
+		break;
+
+	case ID_REGLIST_CHANGE:
+		OnDoubleClick(row, column);
+		break;
+	}
+
+	// TODO: Watch?
 }
 
 void CtrlStateValues::SetCmdValue(u32 op) {
