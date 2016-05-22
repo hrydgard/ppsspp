@@ -90,13 +90,13 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 }
 
 void RamCachingFileLoader::InitCache() {
-	cache_ = (u8 *)malloc(filesize_);
+	lock_guard guard(blocksMutex_);
+	u32 blockCount = (u32)((filesize_ + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
+	// Overallocate for the last block.
+	cache_ = (u8 *)malloc((size_t)blockCount << BLOCK_SHIFT);
 	if (cache_ == nullptr) {
 		return;
 	}
-
-	lock_guard guard(blocksMutex_);
-	u32 blockCount = (u32)((filesize_ + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
 	aheadRemaining_ = blockCount;
 	blocks_.resize(blockCount);
 }
