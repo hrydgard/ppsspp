@@ -658,6 +658,25 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			}
 			break;
 
+		case IDC_GEDBG_BREAKTARGET:
+			{
+				attached = true;
+				if (!gpuDebug) {
+					break;
+				}
+				const auto state = gpuDebug->GetGState();
+				u32 fbAddr = state.getFrameBufRawAddress();
+				// TODO: Better interface that allows add/remove or something.
+				if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, L"Framebuffer Address", fbAddr, fbAddr)) {
+					if (IsRenderTargetBreakpoint(fbAddr)) {
+						RemoveRenderTargetBreakpoint(fbAddr);
+					} else {
+						AddRenderTargetBreakpoint(fbAddr);
+					}
+				}
+			}
+			break;
+
 		case IDC_GEDBG_TEXLEVELDOWN:
 			UpdateTextureLevel(textureLevel_ - 1);
 			if (attached && gpuDebug != nullptr) {
