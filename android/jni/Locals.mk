@@ -17,6 +17,9 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_STATIC_LIBRARIES := native libzip glslang
 LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog
+ifneq ($(NDK_DEBUG),1)
+  LOCAL_LDFLAGS += -Wl,--gc-sections -Wl,--exclude-libs,ALL
+endif
 
 # ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
