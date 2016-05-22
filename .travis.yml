@@ -24,9 +24,12 @@ cache:
   - apt
   - ccache
 
+# By encrypting the channel name, we disable notifications from forks by default.
+# It's not actually a big secret.
 notifications:
   irc:
-    channels: "chat.freenode.net#ppsspp"
+    channels:
+      - secure: "anmDihJ1uPnDSNDsEe3WQ5o4BsPApJbw6NupsAebt6kBxJm7WYKrSyUVmu/9GXgFvy756HBDVA6eikPtcak1+jLFfyOZqGw3ei69ZNnA+R7aoAzfiXilFqf53Yy2tzydEnF2nBYhJjQZgMBZUVWUD6pdKSXtVg/VZRhVqiDlb+A="
     on_success: change
     on_failure: always
     skip_join: true

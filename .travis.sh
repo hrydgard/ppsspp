@@ -36,6 +36,16 @@ travis_before_install() {
 	fi
 }
 
+setup_ccache_script() {
+	if [ ! -e "$1" ]; then
+		mkdir "$1"
+	fi
+
+	echo "#!/bin/bash" > "$1/$3"
+	echo "ccache $2/$3 \$*" >> "$1/$3"
+	chmod +x "$1/$3"
+}
+
 travis_install() {
 	# Ubuntu Linux + GCC 4.8
 	if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
@@ -78,7 +88,15 @@ travis_install() {
 		sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq
 		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/gcc4.8.3_x86-64.tar.bz2 compiler.tar.bz2
 		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk-new.tar.bz2 ndk.tar.bz2
-		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin
+
+		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-gcc-4.8.3
+		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-gcc
+		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-g++
+		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-c++
+
+		ln -s $(pwd)/gcc4.8.3_x86-64/bin/arm-none-symbianelf-{strip,strings,size,readelf,ranlib,objdump,objcopy,nm,ld,gprof,gcov,gcc-ranlib,gcc-nm,gcc-ar,elfedit,cpp,c++filt,as,ar,addr2line} $(pwd)/gcce-ccache
+
+		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN="$(pwd)/gcce-ccache"
 		cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/
 	fi
 
@@ -123,8 +141,8 @@ travis_script() {
 		./b.sh --release --no-package
 	fi
 	if [ "$PPSSPP_BUILD_TYPE" = "Symbian" ]; then
-		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN=$(pwd)/gcc4.8.3_x86-64/bin
-		PATH=$SBS_GCCE483BIN:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH
+		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN="$(pwd)/gcce-ccache"
+		PATH=$SBS_GCCE483BIN:$(pwd)/gcc4.8.3_x86-64/bin:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH
 		QMAKE_ARGS="CONFIG+=no_assets" ./b.sh --debug --no-package
 	fi
 	if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
