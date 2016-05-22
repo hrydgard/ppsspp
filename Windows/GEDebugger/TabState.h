@@ -26,6 +26,12 @@ class CtrlStateValues: public GenericListControl {
 public:
 	CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd);
 
+	// Used by watch.
+	void UpdateRows(const TabStateRow *rows, int rowCount) {
+		rows_ = rows;
+		rowCount_ = rowCount;
+	}
+
 protected:
 	bool WindowMessage(UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& returnValue) override {
 		return false;
@@ -54,10 +60,10 @@ public:
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 
+	CtrlStateValues *values;
+
 private:
 	void UpdateSize(WORD width, WORD height);
-
-	CtrlStateValues *values;
 };
 
 class TabStateFlags : public TabStateValues {
@@ -78,4 +84,11 @@ public:
 class TabStateTexture : public TabStateValues {
 public:
 	TabStateTexture(HINSTANCE _hInstance, HWND _hParent);
+};
+
+class TabStateWatch : public TabStateValues {
+public:
+	TabStateWatch(HINSTANCE _hInstance, HWND _hParent);
+
+	void Update() override;
 };

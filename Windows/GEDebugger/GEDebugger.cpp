@@ -113,6 +113,9 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	lists = new TabDisplayLists(_hInstance, m_hDlg);
 	tabs->AddTabDialog(lists, L"Lists");
 
+	watch = new TabStateWatch(_hInstance, m_hDlg);
+	tabs->AddTabDialog(watch, L"Watch");
+
 	tabs->ShowTab(0, true);
 
 	// set window position
@@ -135,6 +138,7 @@ CGEDebugger::~CGEDebugger() {
 	delete vertices;
 	delete matrices;
 	delete lists;
+	delete watch;
 	delete tabs;
 	delete fbTabs;
 }
@@ -225,6 +229,7 @@ void CGEDebugger::UpdatePreviews() {
 	vertices->Update();
 	matrices->Update();
 	lists->Update();
+	watch->Update();
 }
 
 u32 CGEDebugger::TexturePreviewFlags(const GPUgstate &state) {
@@ -765,6 +770,12 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		{
 			GPU_SetCmdValue((u32)wParam);
 		}
+		break;
+
+	case WM_GEDBG_UPDATE_WATCH:
+		// Just a notification to update.
+		if (watch)
+			watch->Update();
 		break;
 	}
 

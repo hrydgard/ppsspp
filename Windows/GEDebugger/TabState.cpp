@@ -268,6 +268,19 @@ static const TabStateRow stateSettingsRows[] = {
 //   GE_CMD_TRANSFERSTART,
 //   GE_CMD_UNKNOWN_*
 
+static std::vector<TabStateRow> watchList;
+
+static void ToggleWatchList(const TabStateRow &info) {
+	for (size_t i = 0; i < watchList.size(); ++i) {
+		if (watchList[i].cmd == info.cmd) {
+			watchList.erase(watchList.begin() + i);
+			return;
+		}
+	}
+
+	watchList.push_back(info);
+}
+
 CtrlStateValues::CtrlStateValues(const TabStateRow *rows, int rowCount, HWND hwnd)
 	: GenericListControl(hwnd, stateValuesListDef),
 	  rows_(rows), rowCount_(rowCount) {
@@ -863,6 +876,14 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 
 	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_STATE);
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
+
+	// Ehh, kinda ugly.
+	if (rows_ == &watchList[0]) {
+		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Remove Watch");
+	} else {
+		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Add Watch");
+	}
+
 	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT:
@@ -900,21 +921,24 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 		break;
 	}
 
-	case ID_DEBDG_COPYALL:
+	case ID_GEDBG_COPYALL:
 		CopyRows(0, GetRowCount());
 		break;
 
 	case ID_REGLIST_CHANGE:
 		OnDoubleClick(row, column);
 		break;
-	}
 
-	// TODO: Watch?
+	case ID_GEDBG_WATCH:
+		ToggleWatchList(info);
+		SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_UPDATE_WATCH, 0, 0);
+		break;
+	}
 }
 
 void CtrlStateValues::SetCmdValue(u32 op) {
 	SendMessage(GetParent(GetParent(GetHandle())), WM_GEDBG_SETCMDWPARAM, op, NULL);
-		Update();
+	Update();
 }
 
 TabStateValues::TabStateValues(const TabStateRow *rows, int rowCount, LPCSTR dialogID, HINSTANCE _hInstance, HWND _hParent)
@@ -980,4 +1004,13 @@ TabStateSettings::TabStateSettings(HINSTANCE _hInstance, HWND _hParent)
 
 TabStateTexture::TabStateTexture(HINSTANCE _hInstance, HWND _hParent)
 	: TabStateValues(stateTextureRows, ARRAY_SIZE(stateTextureRows), (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
+}
+
+TabStateWatch::TabStateWatch(HINSTANCE _hInstance, HWND _hParent)
+	: TabStateValues(&watchList[0], 0, (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
+}
+
+void TabStateWatch::Update() {
+	values->UpdateRows(&watchList[0], (int)watchList.size());
+	TabStateValues::Update();
 }
