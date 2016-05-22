@@ -862,6 +862,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	ClientToScreen(GetHandle(), &screenPt);
 
 	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_GEDBG_STATE);
+	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
 	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 	{
 	case ID_DISASM_TOGGLEBREAKPOINT:
