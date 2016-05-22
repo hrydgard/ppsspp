@@ -133,6 +133,15 @@ size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	size_t offset = (size_t)(pos - (cacheStartPos << BLOCK_SHIFT));
 	u8 *p = (u8 *)data;
 
+	// Clamp bytes to what's actually available.
+	if (pos + bytes > filesize_) {
+		// Should've been caught above, but just in case.
+		if (pos >= filesize_) {
+			return 0;
+		}
+		bytes = filesize_ - pos;
+	}
+
 	lock_guard guard(blocksMutex_);
 	for (s64 i = cacheStartPos; i <= cacheEndPos; ++i) {
 		if (blocks_[i] == 0) {
@@ -172,15 +181,17 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes) {
 
 	backendMutex_.lock();
 	s64 cacheFilePos = cacheStartPos << BLOCK_SHIFT;
-	backend_->ReadAt(cacheFilePos, blocksToRead << BLOCK_SHIFT, &cache_[cacheFilePos]);
+	size_t bytesRead = backend_->ReadAt(cacheFilePos, blocksToRead << BLOCK_SHIFT, &cache_[cacheFilePos]);
 	backendMutex_.unlock();
 
+	// In case there was an error, let's not mark blocks that failed to read as read.
+	u32 blocksActuallyRead = (u32)((bytesRead + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
 	{
 		lock_guard guard(blocksMutex_);
 
 		// In case they were simultaneously read.
 		u32 blocksRead = 0;
-		for (size_t i = 0; i < blocksToRead; ++i) {
+		for (size_t i = 0; i < blocksActuallyRead; ++i) {
 			if (blocks_[cacheStartPos + i] == 0) {
 				blocks_[cacheStartPos + i] = 1;
 				++blocksRead;
