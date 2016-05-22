@@ -2716,8 +2716,10 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 
 	MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
 	MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
+	// If these overlap, we won't be able to map T as singles.
+	MatrixOverlapType stoverlap = GetMatrixOverlap(_VS, _VT, sz);
 
-	if (jo.enableVFPUSIMD && !soverlap && !toverlap) {
+	if (jo.enableVFPUSIMD && !soverlap && !toverlap && !stoverlap) {
 		u8 scols[4], dcols[4], tregs[16];
 
 		int vs = _VS;

@@ -127,13 +127,11 @@ public:
 
 	const Gen::OpArg &R(int freg) const {return regs[freg].location;}
 	const Gen::OpArg &V(int vreg) const {
-		if (vregs[vreg].lane != 0)
-			PanicAlert("SIMD reg %d used as V reg (use VS instead)", vreg);
+		_dbg_assert_msg_(JIT, vregs[vreg].lane == 0, "SIMD reg %d used as V reg (use VS instead)", vreg);
 		return vregs[vreg].location;
 	}
 	const Gen::OpArg &VS(const u8 *vs) const {
-		if (vregs[vs[0]].lane == 0)
-			PanicAlert("V reg %d used as VS reg (use V instead)", vs[0]);
+		_dbg_assert_msg_(JIT, vregs[vs[0]].lane != 0, "V reg %d used as VS reg (use V instead)", vs[0]);
 		return vregs[vs[0]].location;
 	}
 
@@ -145,8 +143,7 @@ public:
 	}
 
 	Gen::X64Reg VX(int vreg) const {
-		if (vregs[vreg].lane != 0)
-			PanicAlert("SIMD reg %d used as V reg (use VSX instead)", vreg);
+		_dbg_assert_msg_(JIT, vregs[vreg].lane == 0, "SIMD reg %d used as V reg (use VSX instead)", vreg);
 		if (vregs[vreg].away && vregs[vreg].location.IsSimpleReg())
 			return vregs[vreg].location.GetSimpleReg();
 		PanicAlert("Not so simple - v%i", vreg);
@@ -154,8 +151,7 @@ public:
 	}
 
 	Gen::X64Reg VSX(const u8 *vs) const {
-		if (vregs[vs[0]].lane == 0)
-			PanicAlert("V reg %d used as VS reg (use VX instead)", vs[0]);
+		_dbg_assert_msg_(JIT, vregs[vs[0]].lane != 0, "V reg %d used as VS reg (use VX instead)", vs[0]);
 		if (vregs[vs[0]].away && vregs[vs[0]].location.IsSimpleReg())
 			return vregs[vs[0]].location.GetSimpleReg();
 		PanicAlert("Not so simple - v%i", vs[0]);
