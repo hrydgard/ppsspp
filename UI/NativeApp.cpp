@@ -377,7 +377,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
 
-	bool gfxLog = false;
+	bool gfxLog = true;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -389,7 +389,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				logLevel = LogTypes::LDEBUG;
 				break;
 			case 'g':
-				gfxLog = true;
+				gfxLog = false;
 				break;
 			case 'j':
 				g_Config.iCpuCore = CPU_CORE_JIT;

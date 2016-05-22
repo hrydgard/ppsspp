@@ -39,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	createMenus();
 	updateMenus();
 
-	SetZoom(g_Config.iInternalResolution);
+	SetWindowScale(-1);
 	
 	if(fullscreen)
 	  fullscrAct();
@@ -83,7 +83,9 @@ void MainWindow::updateMenus()
 	}
 
 	foreach(QAction * action, screenGroup->actions()) {
-		if (g_Config.iInternalResolution == action->data().toInt()) {
+		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
+		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
+		if (g_Config.iWindowWidth == width && g_Config.iWindowHeight == height) {
 			action->setChecked(true);
 			break;
 		}
@@ -362,7 +364,7 @@ void MainWindow::fullscrAct()
 		updateMenus();
 
 		showNormal();
-		SetZoom(g_Config.iInternalResolution);
+		SetWindowScale(-1);
 		InitPadLayout(dp_xres, dp_yres);
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
@@ -414,18 +416,35 @@ void MainWindow::aboutAct()
 }
 
 /* Private functions */
-void MainWindow::SetZoom(int zoom) {
+void MainWindow::SetWindowScale(int zoom) {
 	if (isFullScreen())
 		fullscrAct();
-	if (zoom < 1) zoom = 1;
-	if (zoom > 4) zoom = 4;
-	g_Config.iInternalResolution = zoom;
 
-	emugl->setFixedSize(480 * zoom, 272 * zoom);
+	int width, height;
+	if (zoom == -1 && (g_Config.iWindowWidth <= 0 || g_Config.iWindowHeight <= 0)) {
+		// Default to zoom level 2.
+		zoom = 2;
+	}
+	if (zoom == -1) {
+		// Take the last setting.
+		width = g_Config.iWindowWidth;
+		height = g_Config.iWindowHeight;
+	} else {
+		// Update to the specified factor.  Let's clamp first.
+		if (zoom < 1)
+			zoom = 1;
+		if (zoom > 4)
+			zoom = 4;
+
+		width = (g_Config.IsPortrait() ? 272 : 480) * zoom;
+		height = (g_Config.IsPortrait() ? 480 : 272) * zoom;
+	}
+
+	g_Config.iWindowWidth = width;
+	g_Config.iWindowHeight = height;
+
+	emugl->setFixedSize(g_Config.iWindowWidth, g_Config.iWindowHeight);
 	setFixedSize(sizeHint());
-
-	if (gpu)
-		gpu->Resized();
 }
 
 void MainWindow::SetGameTitle(QString text)
