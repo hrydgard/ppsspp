@@ -1247,8 +1247,22 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
+	// Before we go reading the texture from memory, let's check for render-to-texture.
+	// We must do this early so we have the right w/h.
+	entry->framebuffer = 0;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
+	}
+
+	// If we ended up with a framebuffer, attach it - no texture decoding needed.
+	if (entry->framebuffer) {
+		SetTextureFramebuffer(entry, entry->framebuffer);
+	}
+
 	nextTexture_ = entry;
-	nextNeedsRehash_ = true;
+	nextNeedsRehash_ = entry->framebuffer == nullptr;
+	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_= true;
 }
 
@@ -1364,16 +1378,8 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		entry->textureName = AllocTextureName();
 	}
 
-	// Before we go reading the texture from memory, let's check for render-to-texture.
-	entry->framebuffer = 0;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
-	}
-
-	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
-		SetTextureFramebuffer(entry, entry->framebuffer);
+		// Nothing else to do here.
 		return;
 	}
 
