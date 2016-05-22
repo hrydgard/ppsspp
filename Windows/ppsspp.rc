@@ -187,6 +187,7 @@ BEGIN
     PUSHBUTTON      "Level -",IDC_GEDBG_TEXLEVELDOWN,24,192,40,14
     PUSHBUTTON      "Level +",IDC_GEDBG_TEXLEVELUP,84,192,40,14
     CONTROL         "",IDC_GEDBG_FBTABS,"SysTabControl32",TCS_BUTTONS | TCS_FOCUSNEVER,384,192,110,12
+    PUSHBUTTON      "Break on Target...",IDC_GEDBG_BREAKTARGET,394,211,100,14
 END
 
 
@@ -624,6 +625,17 @@ BEGIN
         MENUITEM "Go to Displaylist PC",       ID_GEDBG_GOTOPC
         MENUITEM "Go to Address...",           ID_GEDBG_GOTOADDR
         MENUITEM "Go to in Memory View",       ID_DISASM_GOTOINMEMORYVIEW
+    END
+    POPUP "stateoptions"
+    BEGIN
+        MENUITEM "Change...",                  ID_REGLIST_CHANGE
+        MENUITEM SEPARATOR
+        MENUITEM "Copy Value (Hex)",           ID_DISASM_COPYINSTRUCTIONHEX
+        MENUITEM "Copy Value (Formatted)",     ID_DISASM_COPYINSTRUCTIONDISASM
+        MENUITEM "Copy Entire Tab (Formatted)",ID_GEDBG_COPYALL
+        MENUITEM SEPARATOR
+        MENUITEM "Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
+        MENUITEM "Add Watch",                  ID_GEDBG_WATCH
     END
 END
 

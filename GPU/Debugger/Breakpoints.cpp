@@ -27,14 +27,17 @@ static recursive_mutex breaksLock;
 static std::vector<bool> breakCmds;
 static std::set<u32> breakPCs;
 static std::set<u32> breakTextures;
+static std::set<u32> breakRenderTargets;
 // Small optimization to avoid a lock/lookup for the common case.
 static size_t breakPCsCount = 0;
 static size_t breakTexturesCount = 0;
+static size_t breakRenderTargetsCount = 0;
 
 // If these are set, the above are also, but they should be temporary.
 static std::vector<bool> breakCmdsTemp;
 static std::set<u32> breakPCsTemp;
 static std::set<u32> breakTexturesTemp;
+static std::set<u32> breakRenderTargetsTemp;
 static bool textureChangeTemp = false;
 
 static u32 lastTexture = 0xFFFFFFFF;
@@ -96,6 +99,17 @@ u32 GetAdjustedTextureAddress(u32 op) {
 	return addr;
 }
 
+u32 GetAdjustedRenderTargetAddress(u32 op) {
+	const u8 cmd = op >> 24;
+	switch (cmd) {
+	case GE_CMD_FRAMEBUFPTR:
+	case GE_CMD_ZBUFPTR:
+		return op & 0x003FFFF0;
+	}
+
+	return (u32)-1;
+}
+
 bool IsTextureChangeBreakpoint(u32 op, u32 addr) {
 	if (!textureChangeTemp) {
 		return false;
@@ -131,6 +145,14 @@ bool IsTextureCmdBreakpoint(u32 op) {
 	}
 }
 
+bool IsRenderTargetCmdBreakpoint(u32 op) {
+	const u32 addr = GetAdjustedRenderTargetAddress(op);
+	if (addr != (u32)-1) {
+		return IsRenderTargetBreakpoint(addr);
+	}
+	return false;
+}
+
 bool IsBreakpoint(u32 pc, u32 op) {
 	if (IsAddressBreakpoint(pc) || IsOpBreakpoint(op)) {
 		return true;
@@ -139,6 +161,9 @@ bool IsBreakpoint(u32 pc, u32 op) {
 	if ((breakTexturesCount != 0 || textureChangeTemp) && IsTextureCmdBreakpoint(op)) {
 		// Break on the next non-texture.
 		AddNonTextureTempBreakpoints();
+	}
+	if (breakRenderTargetsCount != 0 && IsRenderTargetCmdBreakpoint(op)) {
+		return true;
 	}
 
 	return false;
@@ -182,6 +207,38 @@ bool IsTextureBreakpoint(u32 addr) {
 
 	lock_guard guard(breaksLock);
 	return breakTextures.find(addr) != breakTextures.end();
+}
+
+bool IsRenderTargetBreakpoint(u32 addr, bool &temp) {
+	if (breakRenderTargetsCount == 0) {
+		temp = false;
+		return false;
+	}
+
+	addr &= 0x003FFFF0;
+
+	lock_guard guard(breaksLock);
+	temp = breakRenderTargetsTemp.find(addr) != breakRenderTargetsTemp.end();
+	return breakRenderTargets.find(addr) != breakRenderTargets.end();
+}
+
+bool IsRenderTargetBreakpoint(u32 addr) {
+	if (breakRenderTargetsCount == 0) {
+		return false;
+	}
+
+	addr &= 0x003FFFF0;
+
+	lock_guard guard(breaksLock);
+	return breakRenderTargets.find(addr) != breakRenderTargets.end();
+}
+
+bool IsOpBreakpoint(u32 op, bool &temp) {
+	return IsCmdBreakpoint(op >> 24, temp);
+}
+
+bool IsOpBreakpoint(u32 op) {
+	return IsCmdBreakpoint(op >> 24);
 }
 
 bool IsCmdBreakpoint(u8 cmd, bool &temp) {
@@ -241,6 +298,24 @@ void AddTextureBreakpoint(u32 addr, bool temp) {
 	breakTexturesCount = breakTextures.size();
 }
 
+void AddRenderTargetBreakpoint(u32 addr, bool temp) {
+	lock_guard guard(breaksLock);
+
+	addr &= 0x003FFFF0;
+
+	if (temp) {
+		if (breakRenderTargets.find(addr) == breakRenderTargets.end()) {
+			breakRenderTargetsTemp.insert(addr);
+			breakRenderTargets.insert(addr);
+		}
+	} else {
+		breakRenderTargetsTemp.erase(addr);
+		breakRenderTargets.insert(addr);
+	}
+
+	breakRenderTargetsCount = breakRenderTargets.size();
+}
+
 void AddTextureChangeTempBreakpoint() {
 	textureChangeTemp = true;
 }
@@ -268,6 +343,17 @@ void RemoveTextureBreakpoint(u32 addr) {
 	breakTexturesCount = breakTextures.size();
 }
 
+void RemoveRenderTargetBreakpoint(u32 addr) {
+	lock_guard guard(breaksLock);
+
+	addr &= 0x003FFFF0;
+
+	breakRenderTargetsTemp.erase(addr);
+	breakRenderTargets.erase(addr);
+
+	breakRenderTargetsCount = breakRenderTargets.size();
+}
+
 void RemoveTextureChangeTempBreakpoint() {
 	textureChangeTemp = false;
 }
@@ -283,14 +369,17 @@ void ClearAllBreakpoints() {
 	breakCmds.resize(256, false);
 	breakPCs.clear();
 	breakTextures.clear();
+	breakRenderTargets.clear();
 
 	breakCmdsTemp.clear();
 	breakCmdsTemp.resize(256, false);
 	breakPCsTemp.clear();
 	breakTexturesTemp.clear();
+	breakRenderTargetsTemp.clear();
 
 	breakPCsCount = breakPCs.size();
 	breakTexturesCount = breakTextures.size();
+	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
 }
@@ -316,7 +405,13 @@ void ClearTempBreakpoints() {
 		breakTextures.erase(*it);
 	}
 	breakTexturesTemp.clear();
-	breakPCsCount = breakTextures.size();
+	breakTexturesCount = breakTextures.size();
+
+	for (auto it = breakRenderTargetsTemp.begin(), end = breakRenderTargetsTemp.end(); it != end; ++it) {
+		breakRenderTargets.erase(*it);
+	}
+	breakRenderTargetsTemp.clear();
+	breakRenderTargetsCount = breakRenderTargets.size();
 
 	textureChangeTemp = false;
 }

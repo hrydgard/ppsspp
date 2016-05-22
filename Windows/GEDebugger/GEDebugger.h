@@ -32,6 +32,7 @@ enum {
 	WM_GEDBG_TOGGLEPCBREAKPOINT,
 	WM_GEDBG_RUNTOWPARAM,
 	WM_GEDBG_SETCMDWPARAM,
+	WM_GEDBG_UPDATE_WATCH,
 };
 
 enum BreakNextType {
@@ -52,6 +53,7 @@ class TabStateTexture;
 class TabStateSettings;
 class TabVertices;
 class TabMatrices;
+class TabStateWatch;
 struct GPUgstate;
 
 class CGEDebugger : public Dialog {
@@ -94,6 +96,7 @@ private:
 	TabMatrices *matrices;
 	SimpleGLWindow *primaryWindow;
 	SimpleGLWindow *secondWindow;
+	TabStateWatch *watch;
 	TabControl *tabs;
 	TabControl *fbTabs;
 	int textureLevel_;

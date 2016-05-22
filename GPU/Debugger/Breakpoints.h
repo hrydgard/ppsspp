@@ -30,27 +30,27 @@ namespace GPUBreakpoints {
 	bool IsCmdBreakpoint(u8 cmd);
 	bool IsTextureBreakpoint(u32 addr, bool &temp);
 	bool IsTextureBreakpoint(u32 addr);
+	bool IsRenderTargetBreakpoint(u32 addr, bool &temp);
+	bool IsRenderTargetBreakpoint(u32 addr);
 
 	void AddAddressBreakpoint(u32 addr, bool temp = false);
 	void AddCmdBreakpoint(u8 cmd, bool temp = false);
 	void AddTextureBreakpoint(u32 addr, bool temp = false);
 	void AddTextureChangeTempBreakpoint();
+	void AddRenderTargetBreakpoint(u32 addr, bool temp = false);
 
 	void RemoveAddressBreakpoint(u32 addr);
 	void RemoveCmdBreakpoint(u8 cmd);
 	void RemoveTextureBreakpoint(u32 addr);
 	void RemoveTextureChangeTempBreakpoint();
+	void RemoveRenderTargetBreakpoint(u32 addr);
 
 	void UpdateLastTexture(u32 addr);
 
 	void ClearAllBreakpoints();
 	void ClearTempBreakpoints();
 
-	static inline bool IsOpBreakpoint(u32 op, bool &temp) {
-		return IsCmdBreakpoint(op >> 24, temp);
-	}
+	bool IsOpBreakpoint(u32 op, bool &temp);
 
-	static inline bool IsOpBreakpoint(u32 op) {
-		return IsCmdBreakpoint(op >> 24);
-	}
+	bool IsOpBreakpoint(u32 op);
 };
