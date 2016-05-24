@@ -16,6 +16,7 @@
 #include "Arm64Emitter.h"
 #include "MathUtil.h"
 #include "CommonTypes.h"
+#include "CPUDetect.h"
 
 namespace Arm64Gen
 {
@@ -312,6 +313,13 @@ void ARM64XEmitter::FlushIcache()
 
 void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 {
+	if (cpu_info.sBugs.bExynos8890Invalidation)
+	{
+		// Over invalidate to force this CPU to listen.
+		start = m_startcode + 4096 < start ? start - 4096 : m_startcode;
+		end += 4096;
+	}
+
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
