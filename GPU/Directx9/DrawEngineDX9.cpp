@@ -244,16 +244,6 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 	}
 }
 
-VertexDecoder *DrawEngineDX9::GetVertexDecoder(u32 vtype) {
-	auto iter = decoderMap_.find(vtype);
-	if (iter != decoderMap_.end())
-		return iter->second;
-	VertexDecoder *dec = new VertexDecoder();
-	dec->SetVertexType(vtype, decOptions_, decJitCache_);
-	decoderMap_[vtype] = dec;
-	return dec;
-}
-
 void DrawEngineDX9::SetupVertexDecoder(u32 vertType) {
 	SetupVertexDecoderInternal(vertType);
 }

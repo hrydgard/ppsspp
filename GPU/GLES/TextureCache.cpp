@@ -719,27 +719,8 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
-		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		const u64 cachekey = entry->CacheKey();
 		const auto &fbInfo = fbTexInfo_[cachekey];
-
-		DepalShader *depal = nullptr;
-		if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-			depal = depalShaderCache_->GetDepalettizeShader(clutFormat, framebuffer->drawnFormat);
-		}
-		if (depal) {
-			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
-			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
-
-			TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
-			gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
-			gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
-		} else {
-			entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
-
-			gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
-			gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
-		}
 
 		// Keep the framebuffer alive.
 		framebuffer->last_frame_used = gpuStats.numFlips;
@@ -763,6 +744,10 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffe
 		glBindTexture(GL_TEXTURE_2D, 0);
 		gstate_c.needShaderTexClamp = false;
 	}
+
+	nextNeedsRehash_ = false;
+	nextNeedsChange_ = false;
+	nextNeedsRebuild_ = false;
 }
 
 void TextureCache::ApplyTexture() {
@@ -985,8 +970,20 @@ void TextureCache::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuf
 		shaderApply.Shade();
 
 		fbo_bind_color_as_texture(depalFBO, 0);
+
+		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+		const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+
+		TexCacheEntry::Status alphaStatus = CheckAlpha(clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
+		gstate_c.textureFullAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL;
+		gstate_c.textureSimpleAlpha = alphaStatus == TexCacheEntry::STATUS_ALPHA_SIMPLE;
 	} else {
+		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
+
 		framebufferManager_->BindFramebufferColor(GL_TEXTURE0, gstate.getFrameBufRawAddress(), framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+
+		gstate_c.textureFullAlpha = gstate.getTextureFormat() == GE_TFMT_5650;
+		gstate_c.textureSimpleAlpha = gstate_c.textureFullAlpha;
 	}
 
 	framebufferManager_->RebindFramebuffer();
@@ -1250,8 +1247,22 @@ void TextureCache::SetTexture(bool force) {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
+	// Before we go reading the texture from memory, let's check for render-to-texture.
+	// We must do this early so we have the right w/h.
+	entry->framebuffer = 0;
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
+	}
+
+	// If we ended up with a framebuffer, attach it - no texture decoding needed.
+	if (entry->framebuffer) {
+		SetTextureFramebuffer(entry, entry->framebuffer);
+	}
+
 	nextTexture_ = entry;
-	nextNeedsRehash_ = true;
+	nextNeedsRehash_ = entry->framebuffer == nullptr;
+	// We still need to rebuild, to allocate a texture.  But we'll bail early.
 	nextNeedsRebuild_= true;
 }
 
@@ -1367,16 +1378,8 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		entry->textureName = AllocTextureName();
 	}
 
-	// Before we go reading the texture from memory, let's check for render-to-texture.
-	entry->framebuffer = 0;
-	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
-		auto framebuffer = fbCache_[i];
-		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
-	}
-
-	// If we ended up with a framebuffer, attach it - no texture decoding needed.
 	if (entry->framebuffer) {
-		SetTextureFramebuffer(entry, entry->framebuffer);
+		// Nothing else to do here.
 		return;
 	}
 

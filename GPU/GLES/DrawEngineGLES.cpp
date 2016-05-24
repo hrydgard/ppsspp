@@ -847,13 +847,6 @@ rotateVBO:
 			prim = indexGen.Prim();
 		}
 
-		if (gstate_c.Supports(GPU_SUPPORTS_VAO) && vbo == 0) {
-			vbo = BindBuffer(decoded, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex());
-			if (useElements) {
-				ebo = BindElementBuffer(decIndex, sizeof(short) * indexGen.VertexCount());
-			}
-		}
-
 		VERBOSE_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -863,6 +856,14 @@ rotateVBO:
 		}
 
 		ApplyDrawStateLate();
+
+		if (gstate_c.Supports(GPU_SUPPORTS_VAO) && vbo == 0) {
+			vbo = BindBuffer(decoded, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex());
+			if (useElements) {
+				ebo = BindElementBuffer(decIndex, sizeof(short) * indexGen.VertexCount());
+			}
+		}
+
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
 		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), vbo ? 0 : decoded);
 

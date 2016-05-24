@@ -201,8 +201,6 @@ private:
 	ReliableHashType ComputeHash();  // Reads deferred vertex data.
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
-	VertexDecoder *GetVertexDecoder(u32 vtype);
-
 	// Defer all vertex decoding to a Flush, so that we can hash and cache the
 	// generated buffers without having to redecode them every time.
 	struct DeferredDrawCall {
