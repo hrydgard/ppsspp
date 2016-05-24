@@ -89,6 +89,15 @@ struct CPUInfo {
 	bool bXBurst1;
 	bool bXBurst2;
 
+	// Bugs
+	struct {
+		// Samsung Galaxy S7 devices (Exynos 8890) have a bug that causes invalidation to work incorrectly.
+		// This may be caused by interaction between the separate CPU cores.
+		// Padding jit blocks and over-invalidating seems to "solve" it.
+		// Only affects ARM64.
+		bool bExynos8890Invalidation;
+	} sBugs;
+
 	// Call Detect()
 	explicit CPUInfo();
 

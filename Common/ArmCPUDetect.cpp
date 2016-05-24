@@ -296,6 +296,8 @@ void CPUInfo::Detect()
 	// Whether the above detection failed or not, on ARM64 we do have ASIMD/NEON.
 	bNEON = true;
 	bASIMD = true;
+
+	sBugs.bExynos8890Invalidation = strcmp(cpu_string, "universal8890") == 0;
 #endif
 }
 
