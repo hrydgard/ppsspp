@@ -23,6 +23,9 @@
 #ifdef BLACKBERRY
 #include <bps/deviceinfo.h>
 #endif
+#ifdef ANDROID
+#include <sys/system_properties.h>
+#endif
 
 // Only Linux platforms have /proc/cpuinfo
 #if defined(__linux__)
@@ -30,50 +33,69 @@ const char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
-std::string GetCPUString()
-{
-	std::string line, marker = "Hardware\t: ";
-	std::string cpu_string = "Unknown";
+std::string GetCPUString() {
+	std::string cpu_string;
 	std::fstream file;
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
-		return cpu_string;
-	
-	while (std::getline(file, line))
-	{
-		if (line.find(marker) != std::string::npos)
-		{
-			cpu_string = line.substr(marker.length());
-			if (cpu_string.back() == '\n')
-				cpu_string.pop_back(); // Drop the new-line character
+
+	if (File::OpenCPPFile(file, procfile, std::ios::in)) {
+		std::string line, marker = "Hardware\t: ";
+		while (std::getline(file, line)) {
+			if (line.find(marker) != std::string::npos) {
+				cpu_string = line.substr(marker.length());
+			}
 		}
 	}
+
+#ifdef ANDROID
+	if (cpu_string.empty()) {
+		char temp[PROP_VALUE_MAX];
+		if (__system_property_get("ro.product.board", temp) != 0) {
+			cpu_string = temp;
+		} else if (__system_property_get("ro.product.name", temp) != 0) {
+			cpu_string = temp;
+		}
+	}
+#endif
+
+	if (cpu_string.empty())
+		cpu_string = "Unknown";
+	else if (cpu_string.back() == '\n')
+		cpu_string.pop_back(); // Drop the new-line character
 
 	return cpu_string;
 }
 
-std::string GetCPUBrandString()
-{
-	std::string line, marker = "Processor\t: ";
-	std::string brand_string = "Unknown";
+std::string GetCPUBrandString() {
+	std::string brand_string;
 	std::fstream file;
-	if (!File::OpenCPPFile(file, procfile, std::ios::in))
-		return brand_string;
 
-	while (std::getline(file, line))
-	{
-		if (line.find(marker) != std::string::npos)
-		{
-			brand_string = line.substr(marker.length());
-			if (brand_string.back() == '\n')
-				brand_string.pop_back(); // Drop the new-line character
-
-			if (brand_string.length() == 0 || isdigit(brand_string[0])) {
-				brand_string = "Unknown";
-				continue;
+	if (File::OpenCPPFile(file, procfile, std::ios::in)) {
+		std::string line, marker = "Processor\t: ";
+		while (std::getline(file, line)) {
+			if (line.find(marker) != std::string::npos) {
+				brand_string = line.substr(marker.length());
+				if (brand_string.length() != 0 && !isdigit(brand_string[0])) {
+					break;
+				}
 			}
-			break;
 		}
 	}
+
+#ifdef ANDROID
+	if (brand_string.empty()) {
+		char temp[PROP_VALUE_MAX];
+		if (__system_property_get("ro.product.model", temp) != 0) {
+			brand_string = temp;
+		} else if (__system_property_get("ro.product.name", temp) != 0) {
+			brand_string = temp;
+		}
+	}
+#endif
+
+	if (brand_string.empty())
+		brand_string = "Unknown";
+	else if (brand_string.back() == '\n')
+		brand_string.pop_back(); // Drop the new-line character
 
 	return brand_string;
 }
