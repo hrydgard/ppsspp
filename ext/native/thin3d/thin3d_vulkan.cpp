@@ -827,9 +827,7 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	dynamicInfo.dynamicStateCount = ARRAY_SIZE(dynamics);
 	dynamicInfo.pDynamicStates = dynamics;
 
-	VkPipelineRasterizationStateCreateInfo raster;
-	raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	raster.pNext = nullptr;
+	VkPipelineRasterizationStateCreateInfo raster = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	switch (curCullMode_) {
 	case NO_CULL: raster.cullMode = VK_CULL_MODE_NONE; break;
 	case CW: raster.cullMode = VK_CULL_MODE_BACK_BIT; break;

@@ -129,14 +129,6 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
 		return false;
 
-	// Another validator bug (vkBindImageMemory false positive)
-	if (msgCode == 15 && startsWith(pMsg, "In vkBindImageMemory, attempting"))
-		return false;
-
-	// another validator bug (validator #299)
-	if (msgCode == 63 && startsWith(pMsg, "VkDescriptorSet"))
-		return false;
-
 #ifdef _WIN32
 	OutputDebugStringA(message.str().c_str());
 	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {

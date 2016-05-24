@@ -1271,13 +1271,13 @@ void TransitionImageLayout(VkCommandBuffer cmd, VkImage image, VkImageAspectFlag
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
 		/* Make sure anything that was copying from this image has completed */
-		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_MEMORY_READ_BIT;
+		image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	}
 
 	if (new_image_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
 		/* Make sure any Copy or CPU writes to image are flushed */
 		if (old_image_layout != VK_IMAGE_LAYOUT_UNDEFINED) {
-			image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+			image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		}
 		image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 	}
