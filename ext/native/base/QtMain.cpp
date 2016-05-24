@@ -492,9 +492,6 @@ int main(int argc, char *argv[])
 	
 	int ret = mainInternal(a);
 
-#ifndef MOBILE_DEVICE
-	exit(0);
-#endif
 	NativeShutdownGraphics();
 #ifdef SDL
 	SDL_PauseAudio(1);
