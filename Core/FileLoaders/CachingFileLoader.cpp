@@ -72,7 +72,12 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	// While in case the cache size is too small for the entire read.
 	while (readSize < bytes) {
 		SaveIntoCache(absolutePos + readSize, bytes - readSize);
-		readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+		size_t bytesFromCache = ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+		readSize += bytesFromCache;
+		if (bytesFromCache == 0) {
+			// We can't read any more.
+			break;
+		}
 	}
 
 	StartReadAhead(absolutePos + readSize);
