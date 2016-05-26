@@ -1001,6 +1001,8 @@ add_library(native STATIC
 	ext/native/net/http_client.h
 	ext/native/net/resolve.cpp
 	ext/native/net/resolve.h
+	ext/native/net/sinks.cpp
+	ext/native/net/sinks.h
 	ext/native/net/url.cpp
 	ext/native/net/url.h
 	ext/native/profiler/profiler.cpp

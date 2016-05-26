@@ -2,6 +2,7 @@
 
 #ifdef _WIN32
 
+#define NOMINMAX
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
@@ -15,8 +16,11 @@
 #include <arpa/inet.h>        /*  inet (3) funtions         */
 #include <unistd.h>           /*  misc. UNIX functions      */
 
+#define closesocket close
+
 #endif
 
+#include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -25,50 +29,48 @@
 #include "base/buffer.h"
 #include "file/fd_util.h"
 #include "net/http_server.h"
+#include "net/sinks.h"
 #include "thread/executor.h"
 
 namespace http {
 
 Request::Request(int fd)
     : fd_(fd) {
-  in_buffer_ = new Buffer;
-  out_buffer_ = new Buffer;
-  header_.ParseHeaders(fd_);
+	in_ = new net::InputSink(fd);
+	out_ = new net::OutputSink(fd);
+	header_.ParseHeaders(in_);
 
-  if (header_.ok) {
-    // Read the rest, too.
-    if (header_.content_length >= 0) {
-      in_buffer_->Read(fd_, header_.content_length);
-    }
-    ILOG("The request carried with it %i bytes", (int)in_buffer_->size());
-  } else {
-    Close();
-  }
+	if (header_.ok) {
+		ILOG("The request carried with it %i bytes", (int)header_.content_length);
+	} else {
+	    Close();
+	}
 }
 
 Request::~Request() {
   Close();
 
-  CHECK(in_buffer_->empty());
-  delete in_buffer_;
-  CHECK(out_buffer_->empty());
-  delete out_buffer_;
+  CHECK(in_->Empty());
+  delete in_;
+  CHECK(out_->Empty());
+  delete out_;
 }
 
 void Request::WriteHttpResponseHeader(int status, int size) const {
-  Buffer *buffer = out_buffer_;
+  net::OutputSink *buffer = Out();
   buffer->Printf("HTTP/1.0 %d OK\r\n", status);
-  buffer->Append("Server: SuperDuperServer v0.1\r\n");
-  buffer->Append("Content-Type: text/html\r\n");
+  buffer->Push("Server: SuperDuperServer v0.1\r\n");
+  buffer->Push("Content-Type: text/html\r\n");
+  buffer->Push("Connection: close\r\n");
   if (size >= 0) {
     buffer->Printf("Content-Length: %i\r\n", size);
   }
-  buffer->Append("\r\n");
+  buffer->Push("\r\n");
 }
 
 void Request::WritePartial() const {
   CHECK(fd_);
-  out_buffer_->Flush(fd_);
+  out_->Flush();
 }
 
 void Request::Write() {
@@ -79,7 +81,7 @@ void Request::Write() {
 
 void Request::Close() {
   if (fd_) {
-    close(fd_);
+    closesocket(fd_);
     fd_ = 0;
   }
 }
@@ -139,7 +141,12 @@ void Server::HandleConnection(int conn_fd) {
     return;
   }
   HandleRequestDefault(request);
-  request.WritePartial();
+
+  // TODO: Way to mark the content body as read, read it here if never read.
+  // This allows the handler to stream if need be.
+
+  // TODO: Could handle keep alive here.
+  request.Write();
 }
 
 void Server::HandleRequest(const Request &request) {
@@ -157,12 +164,13 @@ void Server::HandleRequestDefault(const Request &request) {
   ILOG("No handler for '%s', falling back to 404.", request.resource());
   const char *payload = "<html><body>404 not found</body></html>\r\n";
   request.WriteHttpResponseHeader(404, (int)strlen(payload));
-  request.out_buffer()->Append(payload);
+  request.Out()->Push(payload);
 }
 
 void Server::HandleListing(const Request &request) {
+  request.WriteHttpResponseHeader(200, -1);
   for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-    request.out_buffer()->Printf("%s", iter->first.c_str());
+    request.Out()->Printf("%s\n", iter->first.c_str());
   }
 }
 

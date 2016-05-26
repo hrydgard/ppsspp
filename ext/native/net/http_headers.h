@@ -3,6 +3,10 @@
 
 #include "base/buffer.h"
 
+namespace net {
+class InputSink;
+};
+
 namespace http {
 
 class RequestHeader {
@@ -12,6 +16,7 @@ class RequestHeader {
   // Public variables since it doesn't make sense
   // to bother with accessors for all these.
   int status;
+  // Intentional misspelling.
   char *referer;
   char *user_agent;
   char *resource;
@@ -29,7 +34,7 @@ class RequestHeader {
   };
   Method method;
   bool ok;
-  void ParseHeaders(int fd);
+  void ParseHeaders(net::InputSink *sink);
   bool GetParamValue(const char *param_name, std::string *value) const;
  private:
   int ParseHttpHeader(const char *buffer);

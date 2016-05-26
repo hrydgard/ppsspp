@@ -308,6 +308,9 @@
     <ClInclude Include="math\dataconv.h">
       <Filter>math</Filter>
     </ClInclude>
+    <ClInclude Include="net\sinks.h">
+      <Filter>net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -744,6 +747,9 @@
     </ClCompile>
     <ClCompile Include="thin3d\thin3d_vulkan.cpp">
       <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="net\sinks.cpp">
+      <Filter>net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -8,6 +8,11 @@
 #include "net/http_headers.h"
 #include "thread/executor.h"
 
+namespace net {
+class InputSink;
+class OutputSink;
+};
+
 namespace http {
 
 class Request {
@@ -23,8 +28,8 @@ class Request {
     return header_.GetParamValue(param_name, value);
   }
 
-  Buffer *in_buffer() const { return in_buffer_; }
-  Buffer *out_buffer() const { return out_buffer_; }
+  net::InputSink *In() const { return in_; }
+  net::OutputSink *Out() const { return out_; }
 
   // TODO: Remove, in favor of PartialWrite and friends.
   int fd() const { return fd_; }
@@ -38,11 +43,11 @@ class Request {
   // If size is negative, no Content-Length: line is written.
   void WriteHttpResponseHeader(int status, int size = -1) const;
 
- private:
-  Buffer *in_buffer_;
-  Buffer *out_buffer_;
-  RequestHeader header_;
-  int fd_;
+private:
+	net::InputSink *in_;
+	net::OutputSink *out_;
+	RequestHeader header_;
+	int fd_;
 };
 
 // Register handlers on this class to serve stuff.

@@ -62,6 +62,7 @@ LOCAL_SRC_FILES :=\
     net/http_server.cpp \
     net/http_headers.cpp \
     net/resolve.cpp \
+    net/sinks.cpp \
     net/url.cpp \
     profiler/profiler.cpp \
     thread/executor.cpp \

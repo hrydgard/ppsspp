@@ -6,6 +6,7 @@
 #include "base/logging.h"
 #include "base/stringutil.h"
 #include "file/fd_util.h"
+#include "net/sinks.h"
 
 namespace http {
 
@@ -121,30 +122,26 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
   return 0;
 }
 
-void RequestHeader::ParseHeaders(int fd) {
-  int line_count = 0;
-  // Loop through request headers.
-  while (true) {
-    if (!fd_util::WaitUntilReady(fd, 5.0)) {  // Wait max 5 secs.
-      // Timed out or error.
-      ok = false;
-      return;
-    }
-    char buffer[1024];
-    fd_util::ReadLine(fd, buffer, 1023);
-    StringTrimEndNonAlphaNum(buffer);
-    if (buffer[0] == '\0')
-      break;
-    ParseHttpHeader(buffer);
-    line_count++;
-    if (type == SIMPLE) {
-      // Done!
-      ILOG("Simple: Done parsing http request.");
-      break;
-    }
-  }
-  ILOG("finished parsing request.");
-  ok = line_count > 1;
+void RequestHeader::ParseHeaders(net::InputSink *sink) {
+	int line_count = 0;
+	std::string line;
+	while (sink->ReadLine(line)) {
+		if (line.length() == 0) {
+			// Blank line, this means end of headers.
+			break;
+		}
+
+		ParseHttpHeader(line.c_str());
+		line_count++;
+		if (type == SIMPLE) {
+			// Done!
+			ILOG("Simple: Done parsing http request.");
+			break;
+		}
+	}
+
+	ILOG("finished parsing request.");
+	ok = line_count > 1;
 }
 
 }  // namespace http
