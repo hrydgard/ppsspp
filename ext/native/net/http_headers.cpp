@@ -1,5 +1,6 @@
 #include "net/http_headers.h"
 
+#include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -40,6 +41,15 @@ bool RequestHeader::GetParamValue(const char *param_name, std::string *value) co
   return false;
 }
 
+bool RequestHeader::GetOther(const char *name, std::string *value) const {
+	auto it = other.find(name);
+	if (it != other.end()) {
+		*value = it->second;
+		return true;
+	}
+	return false;
+}
+
 // Intended to be a mad fast parser. It's not THAT fast currently, there's still
 // things to optimize, but meh.
 int RequestHeader::ParseHttpHeader(const char *buffer) {
@@ -57,7 +67,7 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
       buffer += 5;
     } else {
       method = UNSUPPORTED;
-      status = 501;
+      status = 405;
       return -1;
     }
     SkipSpace(&buffer);
@@ -117,6 +127,10 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
   } else if (!strncasecmp(key, "Content-Length", key_len)) {
     content_length = atoi(buffer);
     ILOG("Content-Length: %i", (int)content_length);
+  } else {
+	  std::string key_str(key, key_len);
+	  std::transform(key_str.begin(), key_str.end(), key_str.begin(), tolower);
+	  other[key_str] = buffer;
   }
 
   return 0;

@@ -27,6 +27,10 @@ class Request {
   bool GetParamValue(const char *param_name, std::string *value) const {
     return header_.GetParamValue(param_name, value);
   }
+  // Use lowercase.
+  bool GetHeader(const char *name, std::string *value) const {
+	  return header_.GetOther(name, value);
+  }
 
   net::InputSink *In() const { return in_; }
   net::OutputSink *Out() const { return out_; }
@@ -41,7 +45,7 @@ class Request {
   bool IsOK() const { return fd_ > 0; }
 
   // If size is negative, no Content-Length: line is written.
-  void WriteHttpResponseHeader(int status, int size = -1) const;
+  void WriteHttpResponseHeader(int status, int size = -1, const char *mimeType = nullptr) const;
 
 private:
 	net::InputSink *in_;

@@ -34,6 +34,9 @@
 
 namespace http {
 
+// Note: charset here helps prevent XSS.
+const char *const DEFAULT_MIME_TYPE = "text/html; charset=utf-8";
+
 Request::Request(int fd)
     : fd_(fd) {
 	in_ = new net::InputSink(fd);
@@ -56,14 +59,14 @@ Request::~Request() {
   delete out_;
 }
 
-void Request::WriteHttpResponseHeader(int status, int size) const {
+void Request::WriteHttpResponseHeader(int status, int size, const char *mimeType) const {
   net::OutputSink *buffer = Out();
-  buffer->Printf("HTTP/1.0 %d OK\r\n", status);
+  buffer->Printf("HTTP/1.0 %03d OK\r\n", status);
   buffer->Push("Server: SuperDuperServer v0.1\r\n");
-  buffer->Push("Content-Type: text/html\r\n");
+  buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
   buffer->Push("Connection: close\r\n");
   if (size >= 0) {
-    buffer->Printf("Content-Length: %i\r\n", size);
+    buffer->Printf("Content-Length: %u\r\n", size);
   }
   buffer->Push("\r\n");
 }
