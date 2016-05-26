@@ -18,7 +18,7 @@ ssize_t Write(int fd, const std::string &str);
 
 // Returns true if the fd became ready, false if it didn't or
 // if there was another error.
-bool WaitUntilReady(int fd, double timeout);
+bool WaitUntilReady(int fd, double timeout, bool for_write = false);
 
 void SetNonBlocking(int fd, bool non_blocking);
 
