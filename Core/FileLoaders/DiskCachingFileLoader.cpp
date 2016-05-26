@@ -76,6 +76,12 @@ void DiskCachingFileLoader::Seek(s64 absolutePos) {
 size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	size_t readSize;
 
+	if (absolutePos >= filesize_) {
+		bytes = 0;
+	} else if (absolutePos + (s64)bytes >= filesize_) {
+		bytes = filesize_ - absolutePos;
+	}
+
 	if (cache_ && cache_->IsValid()) {
 		readSize = cache_->ReadFromCache(absolutePos, bytes, data);
 		// While in case the cache size is too small for the entire read.
