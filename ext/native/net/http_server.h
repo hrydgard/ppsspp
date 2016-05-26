@@ -45,7 +45,7 @@ class Request {
   bool IsOK() const { return fd_ > 0; }
 
   // If size is negative, no Content-Length: line is written.
-  void WriteHttpResponseHeader(int status, int size = -1, const char *mimeType = nullptr) const;
+  void WriteHttpResponseHeader(int status, int size = -1, const char *mimeType = nullptr, const char *otherHeaders = nullptr) const;
 
 private:
 	net::InputSink *in_;

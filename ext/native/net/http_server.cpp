@@ -51,24 +51,46 @@ Request::Request(int fd)
 }
 
 Request::~Request() {
-  Close();
+	Close();
 
-  CHECK(in_->Empty());
-  delete in_;
-  CHECK(out_->Empty());
-  delete out_;
+	CHECK(in_->Empty());
+	delete in_;
+	CHECK(out_->Empty());
+	delete out_;
 }
 
-void Request::WriteHttpResponseHeader(int status, int size, const char *mimeType) const {
-  net::OutputSink *buffer = Out();
-  buffer->Printf("HTTP/1.0 %03d OK\r\n", status);
-  buffer->Push("Server: SuperDuperServer v0.1\r\n");
-  buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
-  buffer->Push("Connection: close\r\n");
-  if (size >= 0) {
-    buffer->Printf("Content-Length: %u\r\n", size);
-  }
-  buffer->Push("\r\n");
+void Request::WriteHttpResponseHeader(int status, int size, const char *mimeType, const char *otherHeaders) const {
+	const char *statusStr;
+	switch (status) {
+	case 200: statusStr = "OK"; break;
+	case 301: statusStr = "Moved Permanently"; break;
+	case 302: statusStr = "Found"; break;
+	case 304: statusStr = "Not Modified"; break;
+	case 400: statusStr = "Bad Request"; break;
+	case 403: statusStr = "Forbidden"; break;
+	case 404: statusStr = "Not Found"; break;
+	case 405: statusStr = "Method Not Allowed"; break;
+	case 406: statusStr = "Not Acceptable"; break;
+	case 410: statusStr = "Gone"; break;
+	case 416: statusStr = "Range Not Satisfiable"; break;
+	case 418: statusStr = "I'm a teapot"; break;
+	case 500: statusStr = "Internal Server Error"; break;
+	case 503: statusStr = "Service Unavailable"; break;
+	default: statusStr = "OK"; break;
+	}
+
+	net::OutputSink *buffer = Out();
+	buffer->Printf("HTTP/1.0 %03d %s\r\n", status, statusStr);
+	buffer->Push("Server: SuperDuperServer v0.1\r\n");
+	buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
+	buffer->Push("Connection: close\r\n");
+	if (size >= 0) {
+		buffer->Printf("Content-Length: %u\r\n", size);
+	}
+	if (otherHeaders) {
+		buffer->Push(otherHeaders, (int)strlen(otherHeaders));
+	}
+	buffer->Push("\r\n");
 }
 
 void Request::WritePartial() const {
