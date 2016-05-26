@@ -99,29 +99,25 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 
   // The header is formatted as key: value.
   int key_len = colon - buffer;
-  char *key = new char[key_len + 1];
-  strncpy(key, buffer, key_len);
-  key[key_len] = 0;
-  StringUpper(key, key_len);
+  const char *key = buffer;
 
   // Go to after the colon to get the value.
   buffer = colon + 1;
   SkipSpace(&buffer);
   int value_len = (int)strlen(buffer);
   
-  if (!strcmp(key, "USER-AGENT")) {
+  if (!strncasecmp(key, "User-Agent", key_len)) {
     user_agent = new char[value_len + 1];
     memcpy(user_agent, buffer, value_len + 1);
     ILOG("user-agent: %s", user_agent);
-  } else if (!strcmp(key, "REFERER")) {
+  } else if (!strncasecmp(key, "Referer", key_len)) {
     referer = new char[value_len + 1];
     memcpy(referer, buffer, value_len + 1);
-  } else if (!strcmp(key, "CONTENT-LENGTH")) {
+  } else if (!strncasecmp(key, "Content-Length", key_len)) {
     content_length = atoi(buffer);
     ILOG("Content-Length: %i", (int)content_length);
   }
 
-  delete [] key;
   return 0;
 }
 
