@@ -68,6 +68,7 @@ class Server {
   bool Run(int port);
 
   void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
+  void SetFallbackHandler(UrlHandlerFunc handler);
 
   // If you want to customize things at a lower level than just a simple path handler,
   // then inherit and override this. Implementations should forward to HandleRequestDefault
@@ -84,10 +85,12 @@ class Server {
   
   // Neat built-in handlers that are tied to the server.
   void HandleListing(const Request &request);
+  void Handle404(const Request &request);
 
   int port_;
 
   UrlHandlerMap handlers_;
+  UrlHandlerFunc fallback_;
 
   threading::Executor *executor_;
 };

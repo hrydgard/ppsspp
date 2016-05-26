@@ -92,10 +92,15 @@ void Request::Close() {
 Server::Server(threading::Executor *executor) 
   : port_(0), executor_(executor) {
   RegisterHandler("/", std::bind(&Server::HandleListing, this, placeholder::_1));
+  SetFallbackHandler(std::bind(&Server::Handle404, this, placeholder::_1));
 }
 
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {
   handlers_[std::string(url_path)] = handler;
+}
+
+void Server::SetFallbackHandler(UrlHandlerFunc handler) {
+	fallback_ = handler;
 }
 
 bool Server::Run(int port) {
@@ -153,28 +158,32 @@ void Server::HandleConnection(int conn_fd) {
 }
 
 void Server::HandleRequest(const Request &request) {
-  HandleRequestDefault(request);
+	HandleRequestDefault(request);
 }
 
 void Server::HandleRequestDefault(const Request &request) {
-  // First, look through all handlers. If we got one, use it.
-  for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-    if (iter->first == request.resource()) {
-      (iter->second)(request);
-      return;
-    }
-  }
-  ILOG("No handler for '%s', falling back to 404.", request.resource());
-  const char *payload = "<html><body>404 not found</body></html>\r\n";
-  request.WriteHttpResponseHeader(404, (int)strlen(payload));
-  request.Out()->Push(payload);
+	// First, look through all handlers. If we got one, use it.
+	auto handler = handlers_.find(request.resource());
+	if (handler != handlers_.end()) {
+		(handler->second)(request);
+	} else {
+		// Let's hit the 404 handler instead.
+		fallback_(request);
+	}
+}
+
+void Server::Handle404(const Request &request) {
+	ILOG("No handler for '%s', falling back to 404.", request.resource());
+	const char *payload = "<html><body>404 not found</body></html>\r\n";
+	request.WriteHttpResponseHeader(404, (int)strlen(payload));
+	request.Out()->Push(payload);
 }
 
 void Server::HandleListing(const Request &request) {
-  request.WriteHttpResponseHeader(200, -1);
-  for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-    request.Out()->Printf("%s\n", iter->first.c_str());
-  }
+	request.WriteHttpResponseHeader(200, -1);
+	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
+		request.Out()->Printf("%s\n", iter->first.c_str());
+	}
 }
 
 }  // namespace http
