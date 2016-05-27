@@ -59,10 +59,11 @@ Request::~Request() {
 	delete out_;
 }
 
-void Request::WriteHttpResponseHeader(int status, int size, const char *mimeType, const char *otherHeaders) const {
+void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mimeType, const char *otherHeaders) const {
 	const char *statusStr;
 	switch (status) {
 	case 200: statusStr = "OK"; break;
+	case 206: statusStr = "Partial Content"; break;
 	case 301: statusStr = "Moved Permanently"; break;
 	case 302: statusStr = "Found"; break;
 	case 304: statusStr = "Not Modified"; break;
@@ -85,7 +86,7 @@ void Request::WriteHttpResponseHeader(int status, int size, const char *mimeType
 	buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
 	buffer->Push("Connection: close\r\n");
 	if (size >= 0) {
-		buffer->Printf("Content-Length: %u\r\n", size);
+		buffer->Printf("Content-Length: %llu\r\n", size);
 	}
 	if (otherHeaders) {
 		buffer->Push(otherHeaders, (int)strlen(otherHeaders));
