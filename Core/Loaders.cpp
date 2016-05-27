@@ -186,7 +186,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 		return FILETYPE_ARCHIVE_RAR;
 	} else if (!strcasecmp(extension.c_str(),".r01")) {
 		return FILETYPE_ARCHIVE_RAR;
-	} else if (!strcasecmp(extension.substr(1).c_str(), ".7z")) {
+	} else if (!extension.empty() && !strcasecmp(extension.substr(1).c_str(), ".7z")) {
 		return FILETYPE_ARCHIVE_7Z;
 	}
 	return FILETYPE_UNKNOWN;
