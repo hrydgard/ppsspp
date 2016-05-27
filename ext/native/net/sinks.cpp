@@ -236,6 +236,15 @@ bool OutputSink::PushCRLF(const std::string &s) {
 size_t OutputSink::PushAtMost(const char *buf, size_t bytes) {
 	Drain();
 
+	if (valid_ == 0 && bytes > PRESSURE) {
+		// Special case for pushing larger buffers: let's try to send directly.
+		int sentBytes = send(fd_, buf, (int)bytes, 0);
+		// If it was 0 or EWOULDBLOCK, that's fine, we'll enqueue as we can.
+		if (sentBytes > 0) {
+			return sentBytes;
+		}
+	}
+
 	// Look for contiguous free space after write_ that's valid.
 	size_t avail = std::min(BUFFER_SIZE - std::max(write_, valid_), bytes);
 
