@@ -64,6 +64,8 @@ public:
 	bool CanCreateShortcut() override;
 	bool CreateDesktopShortcut(std::string argumentPath, std::string title) override;
 
+	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
+
 	void GoFullscreen(bool) override;
 
 	std::shared_ptr<KeyboardDevice> keyboard;

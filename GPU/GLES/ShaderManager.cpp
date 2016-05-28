@@ -26,12 +26,14 @@
 
 #include "base/logging.h"
 #include "base/timeutil.h"
+#include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
 
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -39,9 +41,7 @@
 #include "GPU/GLES/GLStateCache.h"
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "UI/OnScreenDisplay.h"
 #include "Framebuffer.h"
-#include "i18n/i18n.h"
 
 Shader::Shader(const char *code, uint32_t glShaderType, bool useHWTransform)
 	  : failed_(false), useHWTransform_(useHWTransform) {
@@ -845,7 +845,7 @@ Shader *ShaderManager::ApplyVertexShader(int prim, u32 vertType, ShaderID *VSID)
 		if (vs->Failed()) {
 			I18NCategory *gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
-			osm.Show(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF, -1, true);
+			host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			delete vs;
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure

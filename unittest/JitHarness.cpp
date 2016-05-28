@@ -33,8 +33,6 @@
 
 struct InputState;
 // Temporary hacks around annoying linking errors.  Copied from Headless.
-void D3D9_SwapBuffers() { }
-void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }

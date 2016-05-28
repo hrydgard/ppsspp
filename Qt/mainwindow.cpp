@@ -178,7 +178,7 @@ void MainWindow::closeAct()
 	SetGameTitle("");
 }
 
-void SaveStateActionFinished(bool result, void *userdata)
+void SaveStateActionFinished(bool result, const std::string &message, void *userdata)
 {
 	// TODO: Improve messaging?
 	if (!result)

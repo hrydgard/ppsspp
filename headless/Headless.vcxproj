@@ -224,7 +224,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\native\ext\glew\glew.c" />
-    <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
     <ClCompile Include="..\Windows\GPU\D3D9Context.cpp" />
     <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp" />
     <ClCompile Include="..\Windows\GPU\WindowsVulkanContext.cpp" />
@@ -266,7 +265,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\UI\OnScreenDisplay.h" />
     <ClInclude Include="Compare.h" />
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />

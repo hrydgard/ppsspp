@@ -400,7 +400,10 @@ namespace MainWindow {
 		g_Config.iInternalScreenRotation = rotation;
 	}
 
-	static void SaveStateActionFinished(bool result, void *userdata) {
+	static void SaveStateActionFinished(bool result, const std::string &message, void *userdata) {
+		if (!message.empty()) {
+			osm.Show(message, 2.0);
+		}
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
@@ -580,6 +583,7 @@ namespace MainWindow {
 		case ID_FILE_SAVESTATE_NEXT_SLOT:
 		{
 			SaveState::NextSlot();
+			NativeMessageReceived("savestate_displayslot", "");
 			break;
 		}
 
@@ -588,6 +592,7 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].empty())
 			{
 				SaveState::NextSlot();
+				NativeMessageReceived("savestate_displayslot", "");
 			}
 			break;
 		}

@@ -1676,7 +1676,6 @@ set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 if(HEADLESS)
 	add_executable(PPSSPPHeadless
 		headless/Headless.cpp
-		UI/OnScreenDisplay.cpp
 		headless/StubHost.h
 		headless/Compare.cpp
 		headless/Compare.h)
@@ -1695,7 +1694,6 @@ if(UNITTEST)
 		unittest/JitHarness.cpp
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
-		UI/OnScreenDisplay.cpp
 	)
 	target_link_libraries(unitTest
 		${COCOA_LIBRARY} ${LinkCommon} Common)

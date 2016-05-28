@@ -42,7 +42,6 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "UI/OnScreenDisplay.h"
 
 #ifdef _M_SSE
 #include <xmmintrin.h>
@@ -1360,9 +1359,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry,VulkanPushBuffe
 
 			I18NCategory *err = GetI18NCategory("Error");
 			if (scaleFactor > 1) {
-				osm.Show(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+				host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 			} else {
-				osm.Show(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+				host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
 			}
 
 			scaleFactor = 1;

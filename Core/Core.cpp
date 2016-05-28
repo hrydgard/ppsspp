@@ -57,8 +57,6 @@ static double lastActivity = 0.0;
 static double lastKeepAwake = 0.0;
 static GraphicsContext *graphicsContext;
 
-extern InputState input_state;
-
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
   graphicsContext = ctx;
 }
@@ -152,16 +150,16 @@ bool UpdateScreenScale(int width, int height, bool smallWindow) {
 	return false;
 }
 
-void UpdateRunLoop() {
+void UpdateRunLoop(InputState *input_state) {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
 		return;
 	}
-	NativeUpdate(input_state);
+	NativeUpdate(*input_state);
 
 	{
-		lock_guard guard(input_state.lock);
-		EndInputState(&input_state);
+		lock_guard guard(input_state->lock);
+		EndInputState(input_state);
 	}
 
 	if (GetUIState() != UISTATE_EXIT) {
@@ -169,13 +167,13 @@ void UpdateRunLoop() {
 	}
 }
 
-void Core_RunLoop(GraphicsContext *ctx) {
+void Core_RunLoop(GraphicsContext *ctx, InputState *input_state) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
 		time_update();
 #if defined(USING_WIN_UI)
 		double startTime = time_now_d();
-		UpdateRunLoop();
+		UpdateRunLoop(input_state);
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
@@ -187,13 +185,13 @@ void Core_RunLoop(GraphicsContext *ctx) {
 			ctx->SwapBuffers();
 		}
 #else
-		UpdateRunLoop();
+		UpdateRunLoop(input_state);
 #endif
 	}
 
 	while (!coreState && GetUIState() == UISTATE_INGAME) {
 		time_update();
-		UpdateRunLoop();
+		UpdateRunLoop(input_state);
 #if defined(USING_WIN_UI)
 		if (!windowHidden && !Core_IsStepping()) {
 			ctx->SwapBuffers();
@@ -234,7 +232,7 @@ static inline void CoreStateProcessed() {
 }
 
 // Some platforms, like Android, do not call this function but handle things on their own.
-void Core_Run(GraphicsContext *ctx)
+void Core_Run(GraphicsContext *ctx, InputState *input_state)
 {
 #if defined(_DEBUG)
 	host->UpdateDisassembly();
@@ -249,7 +247,7 @@ reswitch:
 			if (GetUIState() == UISTATE_EXIT) {
 				return;
 			}
-			Core_RunLoop(ctx);
+			Core_RunLoop(ctx, input_state);
 #if defined(USING_QT_UI) && !defined(MOBILE_DEVICE)
 			return;
 #else
@@ -261,7 +259,7 @@ reswitch:
 		{
 		case CORE_RUNNING:
 			// enter a fast runloop
-			Core_RunLoop(ctx);
+			Core_RunLoop(ctx, input_state);
 			break;
 
 		// We should never get here on Android.

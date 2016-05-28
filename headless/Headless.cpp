@@ -66,14 +66,9 @@ public:
 
 struct InputState;
 // Temporary hacks around annoying linking errors.
-void D3D9_SwapBuffers() { }
-void GL_SwapBuffers() { }
-void GL_SwapInterval(int) { }
-void Vulkan_SwapBuffers() {}
 void NativeUpdate(InputState &input_state) { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
-void NativeMessageReceived(const char *message, const char *value) {}
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
@@ -81,8 +76,6 @@ void System_SendMessage(const char *command, const char *parameter) {}
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
-InputState input_state;
 
 int printUsage(const char *progname, const char *reason)
 {

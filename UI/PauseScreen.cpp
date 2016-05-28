@@ -40,6 +40,7 @@
 #include "UI/ReportScreen.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/GameInfoCache.h"
 
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -224,9 +225,15 @@ void SaveSlotView::Draw(UIContext &dc) {
 	UI::LinearLayout::Draw(dc);
 }
 
+static void AfterSaveStateAction(bool status, const std::string &message, void *) {
+	if (!message.empty()) {
+		osm.Show(message, 2.0);
+	}
+}
+
 UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
-	SaveState::LoadSlot(gamePath_, slot_, SaveState::Callback(), 0);
+	SaveState::LoadSlot(gamePath_, slot_, &AfterSaveStateAction);
 	UI::EventParams e2;
 	e2.v = this;
 	OnStateLoaded.Trigger(e2);
@@ -235,7 +242,7 @@ UI::EventReturn SaveSlotView::OnLoadState(UI::EventParams &e) {
 
 UI::EventReturn SaveSlotView::OnSaveState(UI::EventParams &e) {
 	g_Config.iCurrentStateSlot = slot_;
-	SaveState::SaveSlot(gamePath_, slot_, SaveState::Callback(), 0);
+	SaveState::SaveSlot(gamePath_, slot_, &AfterSaveStateAction);
 	UI::EventParams e2;
 	e2.v = this;
 	OnStateSaved.Trigger(e2);
@@ -389,7 +396,7 @@ UI::EventReturn GamePauseScreen::OnReportFeedback(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
-	SaveState::Rewind(SaveState::Callback(), 0);
+	SaveState::Rewind(&AfterSaveStateAction);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;

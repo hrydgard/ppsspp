@@ -192,7 +192,7 @@ unsigned int WINAPI TheThread(void *)
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
 
-		Core_Run(graphicsContext);
+		Core_Run(graphicsContext, &input_state);
 	}
 
 shutdown:

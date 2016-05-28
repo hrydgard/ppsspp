@@ -73,6 +73,7 @@
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
+	saveStateSlot_ = SaveState::GetCurrentSlot();
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -217,7 +218,14 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
-static void AfterStateLoad(bool success, void *ignored) {
+static void AfterSaveStateAction(bool success, const std::string &message, void *) {
+	if (!message.empty()) {
+		osm.Show(message, 2.0);
+	}
+}
+
+static void AfterStateBoot(bool success, const std::string &message, void *ignored) {
+	AfterSaveStateAction(success, message, ignored);
 	Core_EnableStepping(false);
 	host->UpdateDisassembly();
 }
@@ -251,7 +259,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	} else if (!strcmp(message, "boot")) {
 		const char *ext = strrchr(value, '.');
 		if (ext != nullptr && !strcmp(ext, ".ppst")) {
-			SaveState::Load(value, &AfterStateLoad);
+			SaveState::Load(value, &AfterStateBoot);
 		} else {
 			PSP_Shutdown();
 			bootPending_ = true;
@@ -289,22 +297,6 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
-		}
-	} else if (!strcmp(message, "slotchanged")) {
-		if (saveStatePreview_) {
-			int curSlot = SaveState::GetCurrentSlot();
-			std::string fn;
-			if (SaveState::HasSaveInSlot(gamePath_, curSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePath_, curSlot, SaveState::SCREENSHOT_EXTENSION);
-			}
-
-			saveStatePreview_->SetFilename(fn);
-			if (!fn.empty()) {
-				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
-				saveStatePreviewShownTime_ = time_now_d();
-			} else {
-				saveStatePreview_->SetVisibility(UI::V_GONE);
-			}
 		}
 	}
 }
@@ -400,19 +392,20 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	case VIRTKEY_REWIND:
 		if (SaveState::CanRewind()) {
-			SaveState::Rewind();
+			SaveState::Rewind(&AfterSaveStateAction);
 		} else {
 			osm.Show(sc->T("norewind", "No rewind save states available"), 2.0);
 		}
 		break;
 	case VIRTKEY_SAVE_STATE:
-		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
+		SaveState::SaveSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_LOAD_STATE:
-		SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, SaveState::Callback());
+		SaveState::LoadSlot(gamePath_, g_Config.iCurrentStateSlot, &AfterSaveStateAction);
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		SaveState::NextSlot();
+		NativeMessageReceived("savestate_displayslot", "");
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
 		System_SendMessage("toggle_fullscreen", "");
@@ -806,8 +799,34 @@ void EmuScreen::update(InputState &input) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 
-	if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
-		saveStatePreview_->SetVisibility(UI::V_GONE);
+	if (saveStatePreview_) {
+		int currentSlot = SaveState::GetCurrentSlot();
+		if (saveStateSlot_ != currentSlot) {
+			saveStateSlot_ = currentSlot;
+
+			std::string fn;
+			if (SaveState::HasSaveInSlot(gamePath_, currentSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_, currentSlot, SaveState::SCREENSHOT_EXTENSION);
+			}
+
+			saveStatePreview_->SetFilename(fn);
+			if (!fn.empty()) {
+				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
+				saveStatePreviewShownTime_ = time_now_d();
+			} else {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
+		}
+
+		if (saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
+			double endTime = saveStatePreviewShownTime_ + 2.0;
+			float alpha = clamp_value((endTime - time_now_d()) * 4.0, 0.0, 1.0);
+			saveStatePreview_->SetColor(colorAlpha(0x00FFFFFF, alpha));
+
+			if (time_now_d() - saveStatePreviewShownTime_ > 2) {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
+		}
 	}
 }
 
@@ -1012,7 +1031,7 @@ void EmuScreen::autoLoad() {
 	//check if save state has save, if so, load
 	int lastSlot = SaveState::GetNewestSlot(gamePath_);
 	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(gamePath_, lastSlot, SaveState::Callback(), 0);
+		SaveState::LoadSlot(gamePath_, lastSlot, &AfterSaveStateAction);
 		g_Config.iCurrentStateSlot = lastSlot;
 	}
 }

@@ -60,6 +60,7 @@
     <ClInclude Include="GameScreen.h" />
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
+    <ClInclude Include="HostTypes.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />

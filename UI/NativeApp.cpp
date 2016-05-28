@@ -489,8 +489,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 #endif
 
-	if (!boot_filename.empty() && stateToLoad != NULL)
-		SaveState::Load(stateToLoad);
+	if (!boot_filename.empty() && stateToLoad != NULL) {
+		SaveState::Load(stateToLoad, [](bool status, const std::string &message, void *) {
+			if (!message.empty()) {
+				osm.Show(message, 2.0);
+			}
+		});
+	}
 
 	screenManager = new ScreenManager();
 	if (skipLogo) {
@@ -765,6 +770,12 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = inputboxValue[1];
 		inputboxValue.clear();
+	}
+	if (msg == "savestate_displayslot") {
+		I18NCategory *sy = GetI18NCategory("System");
+		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
+		// Show for the same duration as the preview.
+		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
 }
 

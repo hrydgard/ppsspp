@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "Common/ChunkFile.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Dialog/SavedataParam.h"
@@ -30,7 +31,6 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/PPGeDraw.h"
-#include "UI/OnScreenDisplay.h"
 
 #include "image/png_load.h"
 
@@ -372,7 +372,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
 		if (!pspFileSystem.MkDir(dirPath)) {
 			I18NCategory *err = GetI18NCategory("Error");
-			osm.Show(err->T("Unable to write savedata, disk may be full"));
+			host->NotifyUserMessage(err->T("Unable to write savedata, disk may be full"));
 		}
 	}
 
@@ -397,7 +397,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
 		{
 			I18NCategory *err = GetI18NCategory("Error");
-			osm.Show(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
+			host->NotifyUserMessage(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
 			delete[] cryptedData;
 			cryptedData = 0;
@@ -642,8 +642,8 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 			// Don't notify the user if we're not going to upgrade the save.
 			if (!g_Config.bEncryptSave) {
 				I18NCategory *di = GetI18NCategory("Dialog");
-				osm.Show(di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
-				osm.Show(di->T("Old savedata detected"), 6.0f);
+				host->NotifyUserMessage(di->T("When you save, it will load on a PSP, but not an older PPSSPP"), 6.0f);
+				host->NotifyUserMessage(di->T("Old savedata detected"), 6.0f);
 			}
 		} else {
 			if (decryptMode == 5 && prevCryptMode == 3) {

@@ -360,7 +360,7 @@ void MainUI::paintGL()
     updateAccelerometer();
     UpdateInputState(&input_state);
     time_update();
-    UpdateRunLoop();
+    UpdateRunLoop(&input_state);
 }
 
 void MainUI::updateAccelerometer()

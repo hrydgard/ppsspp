@@ -132,6 +132,7 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="DisplayLayoutEditor.h" />
+    <ClInclude Include="HostTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

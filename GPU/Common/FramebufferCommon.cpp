@@ -22,13 +22,13 @@
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "UI/OnScreenDisplay.h"  // Gross dependency!
 
 void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
 	float outW;
@@ -1012,5 +1012,5 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	messageStream << gr->T("Window Size") << ": ";
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
 
-	osm.Show(messageStream.str(), 2.0f, 0xFFFFFF, -1, true, "resize");
+	host->NotifyUserMessage(messageStream.str(), 2.0f, 0xFFFFFF, "resize");
 }

@@ -50,8 +50,6 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-#include "UI/OnScreenDisplay.h"
-
 const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
 static const char tex_fs[] = R"(#version 400
