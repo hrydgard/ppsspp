@@ -398,6 +398,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 	case VIRTKEY_NEXT_SLOT:
 		SaveState::NextSlot();
+		NativeMessageReceived("savestate_displayslot", "");
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
 		System_SendMessage("toggle_fullscreen", "");

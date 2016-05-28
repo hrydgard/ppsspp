@@ -379,10 +379,7 @@ namespace SaveState
 
 	void NextSlot()
 	{
-		I18NCategory *sy = GetI18NCategory("System");
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
-		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
-		osm.Show(msg);
 	}
 
 	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)

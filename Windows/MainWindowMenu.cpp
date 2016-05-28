@@ -580,6 +580,7 @@ namespace MainWindow {
 		case ID_FILE_SAVESTATE_NEXT_SLOT:
 		{
 			SaveState::NextSlot();
+			NativeMessageReceived("savestate_displayslot", "");
 			break;
 		}
 
@@ -588,6 +589,7 @@ namespace MainWindow {
 			if (KeyMap::g_controllerMap[VIRTKEY_NEXT_SLOT].empty())
 			{
 				SaveState::NextSlot();
+				NativeMessageReceived("savestate_displayslot", "");
 			}
 			break;
 		}
