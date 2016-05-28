@@ -159,21 +159,16 @@ public:
 			return;
 
 		p.Do(nc);
-		p.Do(savedPC);
-		p.Do(savedRA);
-		p.Do(savedV0);
-		p.Do(savedV1);
-		// No longer used.
-		u32 legacySavedIdRegister = 0;
-		p.Do(legacySavedIdRegister);
+		// Saved values were moved to mips call, ignoring here.
+		u32 legacySaved = 0;
+		p.Do(legacySaved);
+		p.Do(legacySaved);
+		p.Do(legacySaved);
+		p.Do(legacySaved);
+		p.Do(legacySaved);
 	}
 
 	NativeCallback nc;
-
-	u32 savedPC;
-	u32 savedRA;
-	u32 savedV0;
-	u32 savedV1;
 };
 
 #if COMMON_LITTLE_ENDIAN
@@ -617,7 +612,7 @@ struct WaitTypeFuncs
 	WaitEndCallbackFunc endFunc;
 };
 
-void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
+bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
 void __KernelResetThread(Thread *t, int lowestPriority);
@@ -703,7 +698,8 @@ void MipsCall::DoState(PointerWrap &p)
 	// No longer used.
 	u32 legacySavedIdRegister = 0;
 	p.Do(legacySavedIdRegister);
-	p.Do(savedRa);
+	u32 legacySavedRa = 0;
+	p.Do(legacySavedRa);
 	p.Do(savedPc);
 	p.Do(savedV0);
 	p.Do(savedV1);
@@ -1651,6 +1647,8 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 	}
 
 	// TODO: Thread should not be deleted yet...
+	// Before triggering, set v0.  It'll be restored if one is called.
+	RETURN(error);
 	__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE);
 
 	return kernelObjects.Destroy<Thread>(threadID);
@@ -1961,6 +1959,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
 	hleReSchedule("thread created");
 
+	// Before triggering, set v0, since we restore on return.
+	RETURN(id);
 	__KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, id, THREADEVENT_CREATE);
 	return hleLogSuccessInfoI(SCEKERNEL, id);
 }
@@ -3025,7 +3025,6 @@ static bool __CanExecuteCallbackNow(Thread *thread) {
 
 void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
-	hleSkipDeadbeef();
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
 
 	if (thread) {
@@ -3075,8 +3074,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 		if (__CanExecuteCallbackNow(thread)) {
 			thread = __GetCurrentThread();
 			__KernelChangeThreadState(thread, THREADSTATUS_RUNNING);
-			__KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter);
-			called = true;
+			called = __KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter);
 		}
 	}
 
@@ -3095,13 +3093,14 @@ void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int
 	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, args, numargs, reschedAfter, 0);
 }
 
-void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
+bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 {
+	hleSkipDeadbeef();
+
 	Thread *cur = __GetCurrentThread();
-	if (cur == NULL)
-	{
+	if (cur == nullptr) {
 		ERROR_LOG(SCEKERNEL, "__KernelExecuteMipsCallOnCurrentThread(): Bad current thread");
-		return;
+		return false;
 	}
 
 	if (g_inCbCount > 0) {
@@ -3110,9 +3109,24 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	DEBUG_LOG(SCEKERNEL, "Executing mipscall %i", callId);
 	MipsCall *call = mipsCalls.get(callId);
 
+	// Grab some MIPS stack space.
+	u32 &sp = currentMIPS->r[MIPS_REG_SP];
+	if (!Memory::IsValidAddress(sp - 32 * 4)) {
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelExecuteMipsCallOnCurrentThread(): Not enough free stack");
+		return false;
+	}
+
+	// Let's just save regs generously.  Better to be safe.
+	sp -= 32 * 4;
+	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
+		Memory::Write_U32(currentMIPS->r[i], sp + i * 4);
+	}
+	Memory::Write_U32(currentMIPS->r[MIPS_REG_T8], sp + MIPS_REG_T8 * 4);
+	Memory::Write_U32(currentMIPS->r[MIPS_REG_T9], sp + MIPS_REG_T9 * 4);
+	Memory::Write_U32(currentMIPS->r[MIPS_REG_RA], sp + MIPS_REG_RA * 4);
+
 	// Save the few regs that need saving
 	call->savedPc = currentMIPS->pc;
-	call->savedRa = currentMIPS->r[MIPS_REG_RA];
 	call->savedV0 = currentMIPS->r[MIPS_REG_V0];
 	call->savedV1 = currentMIPS->r[MIPS_REG_V1];
 	call->savedId = cur->currentMipscallId;
@@ -3129,6 +3143,8 @@ void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	if (call->cbId != 0)
 		g_inCbCount++;
 	currentCallbackThreadID = currentThread;
+
+	return true;
 }
 
 void __KernelReturnFromMipsCall()
@@ -3156,8 +3172,17 @@ void __KernelReturnFromMipsCall()
 		delete call->doAfter;
 	}
 
+	u32 &sp = currentMIPS->r[MIPS_REG_SP];
+	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
+		currentMIPS->r[i] = Memory::Read_U32(sp + i * 4);
+	}
+	currentMIPS->r[MIPS_REG_T8] = Memory::Read_U32(sp + MIPS_REG_T8 * 4);
+	currentMIPS->r[MIPS_REG_T9] = Memory::Read_U32(sp + MIPS_REG_T9 * 4);
+	currentMIPS->r[MIPS_REG_RA] = Memory::Read_U32(sp + MIPS_REG_RA * 4);
+	sp += 32 * 4;
+
 	currentMIPS->pc = call->savedPc;
-	currentMIPS->r[MIPS_REG_RA] = call->savedRa;
+	// This is how we set the return value.
 	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
 	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
 	cur->currentMipscallId = call->savedId;
@@ -3206,8 +3231,9 @@ bool __KernelExecutePendingMipsCalls(Thread *thread, bool reschedAfter)
 		// Pop off the first pending mips call
 		u32 callId = thread->pendingMipsCalls.front();
 		thread->pendingMipsCalls.pop_front();
-		__KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter);
-		return true;
+		if (__KernelExecuteMipsCallOnCurrentThread(callId, reschedAfter)) {
+			return true;
+		}
 	}
 	return false;
 }

@@ -254,7 +254,6 @@ struct MipsCall {
 	u32 args[6];
 	int numArgs;
 	Action *doAfter;
-	u32 savedRa;
 	u32 savedPc;
 	u32 savedV0;
 	u32 savedV1;
