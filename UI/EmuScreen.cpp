@@ -811,8 +811,14 @@ void EmuScreen::update(InputState &input) {
 			}
 		}
 
-		if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
-			saveStatePreview_->SetVisibility(UI::V_GONE);
+		if (saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
+			double endTime = saveStatePreviewShownTime_ + 2.0;
+			float alpha = clamp_value((endTime - time_now_d()) * 4.0, 0.0, 1.0);
+			saveStatePreview_->SetColor(colorAlpha(0x00FFFFFF, alpha));
+
+			if (time_now_d() - saveStatePreviewShownTime_ > 2) {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
 		}
 	}
 }

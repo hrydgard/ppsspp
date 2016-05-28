@@ -769,7 +769,8 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "savestate_displayslot") {
 		I18NCategory *sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
-		osm.Show(msg);
+		// Show for the same duration as the preview.
+		osm.Show(msg, 2.0f);
 	}
 }
 
