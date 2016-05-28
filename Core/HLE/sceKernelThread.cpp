@@ -3563,7 +3563,10 @@ SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u3
 		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
 	if (threadID == 0) {
-		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid thread id");
+		// "atexit"?
+		if (mask != THREADEVENT_EXIT) {
+			return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid thread id");
+		}
 	}
 	u32 error;
 	if (kernelObjects.Get<Thread>(threadID, error) == NULL && threadID != SCE_TE_THREADID_ALL_USER) {
