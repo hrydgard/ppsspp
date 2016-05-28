@@ -1212,11 +1212,14 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			state.testMask = mask;
 		}
 	};
-	auto rewriteRef = [&]() {
+	auto rewriteRef = [&](bool always) {
+		state.testFunc = always ? GE_COMP_ALWAYS : GE_COMP_NEVER;
 		if (usesRef) {
 			// Rewrite the ref (for REPLACE) to 0x00 or 0xFF (the "best" values) if safe.
 			// This will only be called if the test doesn't need the ref.
 			state.testRef = usedRef;
+			// Nuke the mask as well, since this is always/never, just for consistency.
+			state.testMask = 0xFF;
 		}
 	};
 
@@ -1226,7 +1229,7 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	case GE_COMP_NEVER:
 	case GE_COMP_ALWAYS:
 		// Fine as is.
-		rewriteRef();
+		rewriteRef(state.testFunc == GE_COMP_ALWAYS);
 		break;
 	case GE_COMP_EQUAL: // maskedRef == maskedBuffer
 		if (maskedRef == 0) {
@@ -1237,8 +1240,7 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			rewriteFunc(GE_COMP_NOTEQUAL, 0);
 		} else {
 			// This should never pass, regardless of buffer value.  Only 0 and 255 are directly equal.
-			state.testFunc = GE_COMP_NEVER;
-			rewriteRef();
+			rewriteRef(false);
 		}
 		break;
 	case GE_COMP_NOTEQUAL: // maskedRef != maskedBuffer
@@ -1250,15 +1252,13 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			rewriteFunc(GE_COMP_EQUAL, 0);
 		} else {
 			// Every other value evaluates as not equal, always.
-			state.testFunc = GE_COMP_ALWAYS;
-			rewriteRef();
+			rewriteRef(true);
 		}
 		break;
 	case GE_COMP_LESS: // maskedRef < maskedBuffer
 		if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
 			// No possible value is less than 255.
-			state.testFunc = GE_COMP_NEVER;
-			rewriteRef();
+			rewriteRef(false);
 		} else {
 			// "0 < (0 or 255)" and "254 < (0 or 255)" can only work for non zero.
 			rewriteFunc(GE_COMP_NOTEQUAL, 0);
@@ -1267,8 +1267,7 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	case GE_COMP_LEQUAL: // maskedRef <= maskedBuffer
 		if (maskedRef == 0) {
 			// 0 is <= every possible value.
-			state.testFunc = GE_COMP_ALWAYS;
-			rewriteRef();
+			rewriteRef(true);
 		} else {
 			// "1 <= (0 or 255)" and "255 <= (0 or 255)" simply mean, anything but zero.
 			rewriteFunc(GE_COMP_NOTEQUAL, 0);
@@ -1280,15 +1279,13 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			rewriteFunc(GE_COMP_EQUAL, 0);
 		} else {
 			// 0 is never greater than any possible value.
-			state.testFunc = GE_COMP_NEVER;
-			rewriteRef();
+			rewriteRef(false);
 		}
 		break;
 	case GE_COMP_GEQUAL: // maskedRef >= maskedBuffer
 		if (maskedRef == (0xFF & state.testMask) && state.testMask != 0) {
 			// 255 is >= every possible value.
-			state.testFunc = GE_COMP_ALWAYS;
-			rewriteRef();
+			rewriteRef(true);
 		} else {
 			// "0 >= (0 or 255)" and "254 >= "(0 or 255)" are the same, equal to zero.
 			rewriteFunc(GE_COMP_EQUAL, 0);
