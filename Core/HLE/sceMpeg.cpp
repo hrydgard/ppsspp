@@ -99,6 +99,7 @@ static bool pmp_oldStateLoaded = false; // for dostate
 
 extern "C" {
 #include "libavformat/avformat.h"
+#include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 }
 static AVPixelFormat pmp_want_pix_fmt;
@@ -801,7 +802,11 @@ static bool InitPmp(MpegContext * ctx){
 	}
 
 	// get RGBA picture buffer
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+	mediaengine->m_bufSize = av_image_get_buffer_size(pmp_want_pix_fmt, pmp_CodecCtx->width, pmp_CodecCtx->height, 1);
+#else
 	mediaengine->m_bufSize = avpicture_get_size(pmp_want_pix_fmt, pmp_CodecCtx->width, pmp_CodecCtx->height);
+#endif
 	mediaengine->m_buffer = (u8*)av_malloc(mediaengine->m_bufSize);
 
 	return true;
@@ -947,7 +952,12 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		av_frame_unref(pFrameRGB);
 
 		// hook pFrameRGB output to buffer
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+		av_image_fill_arrays(pFrameRGB->data, pFrameRGB->linesize, mediaengine->m_buffer, pmp_want_pix_fmt, pCodecCtx->width, pCodecCtx->height, 1);
+#else
 		avpicture_fill((AVPicture *)pFrameRGB, mediaengine->m_buffer, pmp_want_pix_fmt, pCodecCtx->width, pCodecCtx->height);
+#endif
+
 
 		// decode video frame
 		int len = avcodec_decode_video2(pCodecCtx, pFrame, &got_picture, &packet);
@@ -992,7 +1002,11 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 			// SaveFrame(pNewFrameRGB, pCodecCtx->width, pCodecCtx->height);
 		}
 		// free some pointers
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+		av_packet_unref(&packet);
+#else
 		av_free_packet(&packet);
+#endif
 		pmpframes->~H264Frames();
 		// must reset pmp_VideoSource address to zero after decoding. 
 		pmp_videoSource = 0;
