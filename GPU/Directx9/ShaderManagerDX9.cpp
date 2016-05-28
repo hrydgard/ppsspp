@@ -22,12 +22,14 @@
 #include <map>
 #include "helper/global.h"
 #include "base/logging.h"
+#include "i18n/i18n.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -35,7 +37,6 @@
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
-#include "UI/OnScreenDisplay.h"
 
 namespace DX9 {
 
@@ -613,8 +614,9 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		vs = new VSShader(VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
+			I18NCategory *gr = GetI18NCategory("Graphics");
 			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
-			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
+			host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);
 			delete vs;
 
 			ComputeVertexShaderID(&VSID, vertType, false);

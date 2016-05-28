@@ -26,8 +26,8 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
+#include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "UI/OnScreenDisplay.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -223,7 +223,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
 			// This is returned when the disk is full.
 			I18NCategory *err = GetI18NCategory("Error");
-			osm.Show(err->T("Disk full while writing data"));
+			host->NotifyUserMessage(err->T("Disk full while writing data"));
 			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 		}
 	}
@@ -278,7 +278,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	} else if (errno == ENOSPC) {
 		// This is returned when the disk is full.
 		I18NCategory *err = GetI18NCategory("Error");
-		osm.Show(err->T("Disk full while writing data"));
+		host->NotifyUserMessage(err->T("Disk full while writing data"));
 		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
 	}
 #endif
@@ -333,13 +333,13 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	}
 
 	if (diskFull) {
-		// Sign extend on 64-bit.
 		ERROR_LOG(FILESYS, "Disk full");
 		I18NCategory *err = GetI18NCategory("Error");
-		osm.Show(err->T("Disk full while writing data"));
+		host->NotifyUserMessage(err->T("Disk full while writing data"));
 		// We only return an error when the disk is actually full.
 		// When writing this would cause the disk to be full, so it wasn't written, we return 0.
 		if (MemoryStick_FreeSpace() == 0) {
+			// Sign extend on 64-bit.
 			return (size_t)(s64)(s32)SCE_KERNEL_ERROR_ERRNO_DEVICE_NO_FREE_SPACE;
 		}
 	}

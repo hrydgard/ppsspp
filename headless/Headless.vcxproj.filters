@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClCompile Include="Headless.cpp" />
     <ClCompile Include="Compare.cpp" />
-    <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
     <ClCompile Include="..\ext\native\ext\glew\glew.c" />
     <ClCompile Include="..\Windows\GPU\D3D9Context.cpp">
       <Filter>Windows</Filter>
@@ -28,7 +27,6 @@
   <ItemGroup>
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="Compare.h" />
-    <ClInclude Include="..\UI\OnScreenDisplay.h" />
     <ClInclude Include="WindowsHeadlessHost.h">
       <Filter>Windows</Filter>
     </ClInclude>

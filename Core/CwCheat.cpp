@@ -1,5 +1,4 @@
 #include "i18n/i18n.h"
-#include "UI/OnScreenDisplay.h"
 #include "Common/StringUtils.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
@@ -7,6 +6,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
@@ -50,7 +50,7 @@ static void __CheatStart() {
 		}
 		if (!File::Exists(activeCheatFile)) {
 			I18NCategory *err = GetI18NCategory("Error");
-			osm.Show(err->T("Unable to create cheat file, disk may be full"));
+			host->NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
 		}
 
 	}

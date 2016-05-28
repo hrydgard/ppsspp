@@ -46,8 +46,6 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManager.h"
 
-#include "UI/OnScreenDisplay.h"
-
 // #define DEBUG_READ_PIXELS 1
 
 static const char tex_fs[] =
@@ -180,9 +178,9 @@ void FramebufferManager::CompileDraw2DProgram() {
 					}
 				}
 				if (!firstLine.empty()) {
-					osm.Show("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+					host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
 				} else {
-					osm.Show("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+					host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 				}
 				usePostShader_ = false;
 			} else {

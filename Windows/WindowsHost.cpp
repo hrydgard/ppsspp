@@ -34,10 +34,12 @@
 #include "input/keycodes.h"
 #include "util/text/utf8.h"
 
+#include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Windows/EmuThread.h"
 #include "Windows/DSoundStream.h"
 #include "Windows/WindowsHost.h"
@@ -54,10 +56,8 @@
 #include "Windows/XinputDevice.h"
 #include "Windows/KeyboardDevice.h"
 
-#include "Core/Debugger/SymbolMap.h"
-
-#include "Common/StringUtils.h"
 #include "Windows/main.h"
+#include "UI/OnScreenDisplay.h"
 
 static const int numCPUs = 1;
 
@@ -347,4 +347,8 @@ void WindowsHost::GoFullscreen(bool viewFullscreen) {
 
 void WindowsHost::ToggleDebugConsoleVisibility() {
 	MainWindow::ToggleDebugConsoleVisibility();
+}
+
+void WindowsHost::NotifyUserMessage(const std::string &message, float duration, u32 color, const char *id) {
+	osm.Show(message, duration, color, -1, true, id);
 }
