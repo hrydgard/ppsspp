@@ -73,6 +73,7 @@
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
+	saveStateSlot_ = SaveState::GetCurrentSlot();
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -289,22 +290,6 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
-		}
-	} else if (!strcmp(message, "slotchanged")) {
-		if (saveStatePreview_) {
-			int curSlot = SaveState::GetCurrentSlot();
-			std::string fn;
-			if (SaveState::HasSaveInSlot(gamePath_, curSlot)) {
-				fn = SaveState::GenerateSaveSlotFilename(gamePath_, curSlot, SaveState::SCREENSHOT_EXTENSION);
-			}
-
-			saveStatePreview_->SetFilename(fn);
-			if (!fn.empty()) {
-				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
-				saveStatePreviewShownTime_ = time_now_d();
-			} else {
-				saveStatePreview_->SetVisibility(UI::V_GONE);
-			}
 		}
 	}
 }
@@ -806,8 +791,28 @@ void EmuScreen::update(InputState &input) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 
-	if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
-		saveStatePreview_->SetVisibility(UI::V_GONE);
+	if (saveStatePreview_) {
+		int currentSlot = SaveState::GetCurrentSlot();
+		if (saveStateSlot_ != currentSlot) {
+			saveStateSlot_ = currentSlot;
+
+			std::string fn;
+			if (SaveState::HasSaveInSlot(gamePath_, currentSlot)) {
+				fn = SaveState::GenerateSaveSlotFilename(gamePath_, currentSlot, SaveState::SCREENSHOT_EXTENSION);
+			}
+
+			saveStatePreview_->SetFilename(fn);
+			if (!fn.empty()) {
+				saveStatePreview_->SetVisibility(UI::V_VISIBLE);
+				saveStatePreviewShownTime_ = time_now_d();
+			} else {
+				saveStatePreview_->SetVisibility(UI::V_GONE);
+			}
+		}
+
+		if (time_now_d() - saveStatePreviewShownTime_ > 2 && saveStatePreview_->GetVisibility() == UI::V_VISIBLE) {
+			saveStatePreview_->SetVisibility(UI::V_GONE);
+		}
 	}
 }
 

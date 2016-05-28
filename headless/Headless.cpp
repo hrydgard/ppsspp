@@ -69,7 +69,6 @@ struct InputState;
 void NativeUpdate(InputState &input_state) { }
 void NativeRender(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
-void NativeMessageReceived(const char *message, const char *value) {}
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }

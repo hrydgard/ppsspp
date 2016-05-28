@@ -50,7 +50,6 @@
 
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
-void NativeMessageReceived(const char *message, const char *value) {}
 
 #ifndef M_PI_2
 #define M_PI_2     1.57079632679489661923

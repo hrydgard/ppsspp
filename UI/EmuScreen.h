@@ -89,4 +89,5 @@ private:
 
 	double saveStatePreviewShownTime_;
 	AsyncImageFileView *saveStatePreview_;
+	int saveStateSlot_;
 };

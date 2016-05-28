@@ -20,7 +20,6 @@
 
 #include "base/mutex.h"
 #include "base/timeutil.h"
-#include "base/NativeApp.h"
 #include "i18n/i18n.h"
 
 #include "Common/FileUtil.h"
@@ -384,7 +383,6 @@ namespace SaveState
 		g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % NUM_SLOTS;
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), g_Config.iCurrentStateSlot + 1);
 		osm.Show(msg);
-		NativeMessageReceived("slotchanged", "");
 	}
 
 	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
