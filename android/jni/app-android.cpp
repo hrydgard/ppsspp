@@ -35,6 +35,7 @@
 
 #include "thin3d/thin3d.h"
 #include "Core/Config.cpp"
+#include "Common/CPUDetect.h"
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
 #include "Common/Vulkan/VulkanLoader.h"
@@ -476,7 +477,7 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
   (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jboolean jjavaGL) {
+		jint jAndroidVersion, jstring jboard, jboolean jjavaGL) {
 	jniEnvUI = env;
 	javaGL = jjavaGL;
 	setCurrentThreadName("androidInit");
@@ -510,6 +511,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
+	std::string buildBoard = GetJavaString(env, jboard);
 
 	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
 	ILOG("NativeApp.init(): Launch shortcut parameter: %s", shortcut_param.c_str());
@@ -520,6 +522,12 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	bool landscape;
 
 	net::Init();
+
+	// Unfortunately, on the Samsung Galaxy S7, this isn't in /proc/cpuinfo.
+	// We also can't read it from __system_property_get.
+	if (buildBoard == "universal8890") {
+		cpu_info.sBugs.bExynos8890Invalidation = true;
+	}
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
 

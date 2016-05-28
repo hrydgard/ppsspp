@@ -23,9 +23,6 @@
 #ifdef BLACKBERRY
 #include <bps/deviceinfo.h>
 #endif
-#ifdef ANDROID
-#include <sys/system_properties.h>
-#endif
 
 // Only Linux platforms have /proc/cpuinfo
 #if defined(__linux__)
@@ -45,17 +42,6 @@ std::string GetCPUString() {
 			}
 		}
 	}
-
-#ifdef ANDROID
-	if (cpu_string.empty()) {
-		char temp[PROP_VALUE_MAX];
-		if (__system_property_get("ro.product.board", temp) != 0) {
-			cpu_string = temp;
-		} else if (__system_property_get("ro.product.name", temp) != 0) {
-			cpu_string = temp;
-		}
-	}
-#endif
 
 	if (cpu_string.empty())
 		cpu_string = "Unknown";
@@ -80,17 +66,6 @@ std::string GetCPUBrandString() {
 			}
 		}
 	}
-
-#ifdef ANDROID
-	if (brand_string.empty()) {
-		char temp[PROP_VALUE_MAX];
-		if (__system_property_get("ro.product.model", temp) != 0) {
-			brand_string = temp;
-		} else if (__system_property_get("ro.product.name", temp) != 0) {
-			brand_string = temp;
-		}
-	}
-#endif
 
 	if (brand_string.empty())
 		brand_string = "Unknown";
@@ -296,8 +271,6 @@ void CPUInfo::Detect()
 	// Whether the above detection failed or not, on ARM64 we do have ASIMD/NEON.
 	bNEON = true;
 	bASIMD = true;
-
-	sBugs.bExynos8890Invalidation = strcmp(cpu_string, "universal8890") == 0;
 #endif
 }
 
