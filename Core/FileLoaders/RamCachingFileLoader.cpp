@@ -79,7 +79,12 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 		// While in case the cache size is too small for the entire read.
 		while (readSize < bytes) {
 			SaveIntoCache(absolutePos + readSize, bytes - readSize);
-			readSize += ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			size_t bytesFromCache = ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			readSize += bytesFromCache;
+			if (bytesFromCache == 0) {
+			// We can't read any more.
+				break;
+			}
 		}
 	}
 
@@ -134,7 +139,7 @@ size_t RamCachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	u8 *p = (u8 *)data;
 
 	// Clamp bytes to what's actually available.
-	if (pos + bytes > filesize_) {
+	if (pos + (s64)bytes > filesize_) {
 		// Should've been caught above, but just in case.
 		if (pos >= filesize_) {
 			return 0;

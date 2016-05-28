@@ -2,6 +2,7 @@
 
 #ifdef _WIN32
 
+#define NOMINMAX
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <io.h>
@@ -15,8 +16,11 @@
 #include <arpa/inet.h>        /*  inet (3) funtions         */
 #include <unistd.h>           /*  misc. UNIX functions      */
 
+#define closesocket close
+
 #endif
 
+#include <algorithm>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -25,50 +29,74 @@
 #include "base/buffer.h"
 #include "file/fd_util.h"
 #include "net/http_server.h"
+#include "net/sinks.h"
 #include "thread/executor.h"
 
 namespace http {
 
+// Note: charset here helps prevent XSS.
+const char *const DEFAULT_MIME_TYPE = "text/html; charset=utf-8";
+
 Request::Request(int fd)
     : fd_(fd) {
-  in_buffer_ = new Buffer;
-  out_buffer_ = new Buffer;
-  header_.ParseHeaders(fd_);
+	in_ = new net::InputSink(fd);
+	out_ = new net::OutputSink(fd);
+	header_.ParseHeaders(in_);
 
-  if (header_.ok) {
-    // Read the rest, too.
-    if (header_.content_length >= 0) {
-      in_buffer_->Read(fd_, header_.content_length);
-    }
-    ILOG("The request carried with it %i bytes", (int)in_buffer_->size());
-  } else {
-    Close();
-  }
+	if (header_.ok) {
+		ILOG("The request carried with it %i bytes", (int)header_.content_length);
+	} else {
+	    Close();
+	}
 }
 
 Request::~Request() {
-  Close();
+	Close();
 
-  CHECK(in_buffer_->empty());
-  delete in_buffer_;
-  CHECK(out_buffer_->empty());
-  delete out_buffer_;
+	CHECK(in_->Empty());
+	delete in_;
+	CHECK(out_->Empty());
+	delete out_;
 }
 
-void Request::WriteHttpResponseHeader(int status, int size) const {
-  Buffer *buffer = out_buffer_;
-  buffer->Printf("HTTP/1.0 %d OK\r\n", status);
-  buffer->Append("Server: SuperDuperServer v0.1\r\n");
-  buffer->Append("Content-Type: text/html\r\n");
-  if (size >= 0) {
-    buffer->Printf("Content-Length: %i\r\n", size);
-  }
-  buffer->Append("\r\n");
+void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mimeType, const char *otherHeaders) const {
+	const char *statusStr;
+	switch (status) {
+	case 200: statusStr = "OK"; break;
+	case 206: statusStr = "Partial Content"; break;
+	case 301: statusStr = "Moved Permanently"; break;
+	case 302: statusStr = "Found"; break;
+	case 304: statusStr = "Not Modified"; break;
+	case 400: statusStr = "Bad Request"; break;
+	case 403: statusStr = "Forbidden"; break;
+	case 404: statusStr = "Not Found"; break;
+	case 405: statusStr = "Method Not Allowed"; break;
+	case 406: statusStr = "Not Acceptable"; break;
+	case 410: statusStr = "Gone"; break;
+	case 416: statusStr = "Range Not Satisfiable"; break;
+	case 418: statusStr = "I'm a teapot"; break;
+	case 500: statusStr = "Internal Server Error"; break;
+	case 503: statusStr = "Service Unavailable"; break;
+	default: statusStr = "OK"; break;
+	}
+
+	net::OutputSink *buffer = Out();
+	buffer->Printf("HTTP/1.0 %03d %s\r\n", status, statusStr);
+	buffer->Push("Server: SuperDuperServer v0.1\r\n");
+	buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
+	buffer->Push("Connection: close\r\n");
+	if (size >= 0) {
+		buffer->Printf("Content-Length: %llu\r\n", size);
+	}
+	if (otherHeaders) {
+		buffer->Push(otherHeaders, (int)strlen(otherHeaders));
+	}
+	buffer->Push("\r\n");
 }
 
 void Request::WritePartial() const {
   CHECK(fd_);
-  out_buffer_->Flush(fd_);
+  out_->Flush();
 }
 
 void Request::Write() {
@@ -79,7 +107,7 @@ void Request::Write() {
 
 void Request::Close() {
   if (fd_) {
-    close(fd_);
+    closesocket(fd_);
     fd_ = 0;
   }
 }
@@ -87,10 +115,15 @@ void Request::Close() {
 Server::Server(threading::Executor *executor) 
   : port_(0), executor_(executor) {
   RegisterHandler("/", std::bind(&Server::HandleListing, this, placeholder::_1));
+  SetFallbackHandler(std::bind(&Server::Handle404, this, placeholder::_1));
 }
 
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {
   handlers_[std::string(url_path)] = handler;
+}
+
+void Server::SetFallbackHandler(UrlHandlerFunc handler) {
+	fallback_ = handler;
 }
 
 bool Server::Run(int port) {
@@ -139,31 +172,41 @@ void Server::HandleConnection(int conn_fd) {
     return;
   }
   HandleRequestDefault(request);
-  request.WritePartial();
+
+  // TODO: Way to mark the content body as read, read it here if never read.
+  // This allows the handler to stream if need be.
+
+  // TODO: Could handle keep alive here.
+  request.Write();
 }
 
 void Server::HandleRequest(const Request &request) {
-  HandleRequestDefault(request);
+	HandleRequestDefault(request);
 }
 
 void Server::HandleRequestDefault(const Request &request) {
-  // First, look through all handlers. If we got one, use it.
-  for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-    if (iter->first == request.resource()) {
-      (iter->second)(request);
-      return;
-    }
-  }
-  ILOG("No handler for '%s', falling back to 404.", request.resource());
-  const char *payload = "<html><body>404 not found</body></html>\r\n";
-  request.WriteHttpResponseHeader(404, (int)strlen(payload));
-  request.out_buffer()->Append(payload);
+	// First, look through all handlers. If we got one, use it.
+	auto handler = handlers_.find(request.resource());
+	if (handler != handlers_.end()) {
+		(handler->second)(request);
+	} else {
+		// Let's hit the 404 handler instead.
+		fallback_(request);
+	}
+}
+
+void Server::Handle404(const Request &request) {
+	ILOG("No handler for '%s', falling back to 404.", request.resource());
+	const char *payload = "<html><body>404 not found</body></html>\r\n";
+	request.WriteHttpResponseHeader(404, (int)strlen(payload));
+	request.Out()->Push(payload);
 }
 
 void Server::HandleListing(const Request &request) {
-  for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-    request.out_buffer()->Printf("%s", iter->first.c_str());
-  }
+	request.WriteHttpResponseHeader(200, -1);
+	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
+		request.Out()->Printf("%s\n", iter->first.c_str());
+	}
 }
 
 }  // namespace http

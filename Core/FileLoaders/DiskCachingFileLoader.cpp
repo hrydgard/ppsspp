@@ -76,13 +76,24 @@ void DiskCachingFileLoader::Seek(s64 absolutePos) {
 size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 	size_t readSize;
 
+	if (absolutePos >= filesize_) {
+		bytes = 0;
+	} else if (absolutePos + (s64)bytes >= filesize_) {
+		bytes = filesize_ - absolutePos;
+	}
+
 	if (cache_ && cache_->IsValid()) {
 		readSize = cache_->ReadFromCache(absolutePos, bytes, data);
 		// While in case the cache size is too small for the entire read.
 		while (readSize < bytes) {
 			readSize += cache_->SaveIntoCache(backend_, absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
 			// If there are already-cached blocks afterward, we have to read them.
-			readSize += cache_->ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			size_t bytesFromCache = cache_->ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			readSize += bytesFromCache;
+			if (bytesFromCache == 0) {
+				// We can't read any more.
+				break;
+			}
 		}
 	} else {
 		readSize = backend_->ReadAt(absolutePos, bytes, data);

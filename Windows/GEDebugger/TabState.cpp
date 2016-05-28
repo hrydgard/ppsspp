@@ -1007,10 +1007,14 @@ TabStateTexture::TabStateTexture(HINSTANCE _hInstance, HWND _hParent)
 }
 
 TabStateWatch::TabStateWatch(HINSTANCE _hInstance, HWND _hParent)
-	: TabStateValues(&watchList[0], 0, (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
+	: TabStateValues(nullptr, 0, (LPCSTR)IDD_GEDBG_TAB_VALUES, _hInstance, _hParent) {
 }
 
 void TabStateWatch::Update() {
-	values->UpdateRows(&watchList[0], (int)watchList.size());
+	if (watchList.empty()) {
+		values->UpdateRows(nullptr, 0);
+	} else {
+		values->UpdateRows(&watchList[0], (int)watchList.size());
+	}
 	TabStateValues::Update();
 }
