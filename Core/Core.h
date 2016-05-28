@@ -24,7 +24,7 @@ class GraphicsContext;
 struct InputState;
 
 // called from emu thread
-void UpdateRunLoop(GraphicsContext *input_state);
+void UpdateRunLoop(InputState *input_state);
 void Core_Run(GraphicsContext *ctx, InputState *input_state);
 void Core_Stop();
 void Core_ErrorPause();
