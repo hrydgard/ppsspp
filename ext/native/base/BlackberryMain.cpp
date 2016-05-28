@@ -348,7 +348,7 @@ void BlackberryMain::runMain() {
 			switchDisplay(screen_ui);
 		}
 		time_update();
-		UpdateRunLoop();
+		UpdateRunLoop(&input_state);
 		// This handles VSync
 		if (emulating)
 			eglSwapBuffers(egl_disp[screen_emu], egl_surf[screen_emu]);

@@ -48,8 +48,6 @@
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
 
-InputState input_state;
-
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) { return -1; }
 void NativeMessageReceived(const char *message, const char *value) {}
