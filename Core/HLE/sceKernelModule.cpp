@@ -709,13 +709,16 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	}
 
 	// It hasn't been exported yet, but hopefully it will later.
-	if (GetModuleIndex(func.moduleName) != -1) {
+	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
+	if (isKnownModule) {
 		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module: %s 0x%08x", func.moduleName, func.nid);
 	} else {
 		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
 	}
-	WriteFuncMissingStub(func.stubAddr, func.nid);
-	currentMIPS->InvalidateICache(func.stubAddr, 8);
+	if (isKnownModule || !reimporting) {
+		WriteFuncMissingStub(func.stubAddr, func.nid);
+		currentMIPS->InvalidateICache(func.stubAddr, 8);
+	}
 }
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
