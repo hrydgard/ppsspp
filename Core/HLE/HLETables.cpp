@@ -259,7 +259,7 @@ const HLEModule moduleList[] =
 	{"IoFileMgrForKernel", SZ(IoFileMgrForKernel), IoFileMgrForKernel},
 };
 
-static const int numModules = sizeof(moduleList)/sizeof(HLEModule);
+static const int numModules = ARRAY_SIZE(moduleList);
 
 void RegisterAllModules() {
 	Register_Kernel_Library();

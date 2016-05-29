@@ -145,9 +145,12 @@ void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
-void ImportFuncSymbol(const FuncSymbolImport &func);
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting);
 void ExportFuncSymbol(const FuncSymbolExport &func);
 void UnexportFuncSymbol(const FuncSymbolExport &func);
+
+class Module;
+static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bool reimporting = false);
 
 struct NativeModule {
 	u32_le next;
@@ -250,7 +253,7 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 3);
+		auto s = p.Section("Module", 1, 4);
 		if (!s)
 			return;
 
@@ -272,6 +275,10 @@ public:
 			p.Do(textStart);
 			p.Do(textEnd);
 		}
+		if (s >= 4) {
+			p.Do(libstub);
+			p.Do(libstubend);
+		}
 
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
@@ -283,21 +290,30 @@ public:
 		p.Do(exportedVars, vsx);
 		VarSymbolImport vsi = {{0}};
 		p.Do(importedVars, vsi);
-		RebuildImpExpModuleNames();
 
 		if (p.mode == p.MODE_READ) {
+			// On load state, we re-examine in case our syscall ids changed.
+			if (libstub != 0) {
+				importedFuncs.clear();
+				if (!KernelImportModuleFuncs(this, nullptr, true)) {
+					ERROR_LOG(LOADER, "Something went wrong loading imports on load state");
+				}
+			}
+
 			char moduleName[29] = {0};
 			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
 			if (memoryBlockAddr != 0) {
 				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 			}
 		}
+
+		RebuildImpExpModuleNames();
 	}
 
 	// We don't do this in the destructor to avoid annoying messages on game shutdown.
 	void Cleanup();
 
-	void ImportFunc(const FuncSymbolImport &func) {
+	void ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 		if (!Memory::IsValidAddress(func.stubAddr)) {
 			WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
 			return;
@@ -313,7 +329,7 @@ public:
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		ImportFuncSymbol(func);
+		ImportFuncSymbol(func, reimporting);
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
@@ -660,10 +676,13 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
-void ImportFuncSymbol(const FuncSymbolImport &func) {
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	// Prioritize HLE implementations.
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
+			WARN_LOG(LOADER, "Reimporting updated syscall %s", GetFuncName(func.moduleName, func.nid));
+		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 		return;
@@ -679,6 +698,9 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 		// Look for exports currently loaded modules already have.  Maybe it's available?
 		for (auto it = module->exportedFuncs.begin(), end = module->exportedFuncs.end(); it != end; ++it) {
 			if (it->Matches(func)) {
+				if (reimporting && Memory::Read_Instruction(func.stubAddr) != MIPS_MAKE_J(it->symAddr)) {
+					WARN_LOG_REPORT(LOADER, "Reimporting: func import %s/%08x changed", func.moduleName, func.nid);
+				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
 				currentMIPS->InvalidateICache(func.stubAddr, 8);
 				return;
@@ -848,7 +870,7 @@ static bool IsHLEVersionedModule(const char *name) {
 	return false;
 }
 
-static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr) {
+static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bool reimporting) {
 	struct PspLibStubEntry {
 		u32_le name;
 		u16_le version;
@@ -931,7 +953,7 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr) {
 				func.nid = nidDataPtr[i];
 				// This is the address to write the j and delay slot to.
 				func.stubAddr = entry->firstSymAddr + i * 8;
-				module->ImportFunc(func);
+				module->ImportFunc(func, reimporting);
 			}
 
 			if (firstImportStubAddr && (!*firstImportStubAddr || *firstImportStubAddr > (u32)entry->firstSymAddr))
@@ -941,7 +963,9 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr) {
 			needReport = true;
 		}
 
-		if (entry->varData != 0) {
+		// We skip vars when reimporting, since we might double-offset.
+		// We only reimport funcs, which can't be double-offset.
+		if (entry->varData != 0 && !reimporting) {
 			if (!Memory::IsValidAddress(entry->varData)) {
 				ERROR_LOG_REPORT(LOADER, "Crazy varData address %08x, skipping rest of module", entry->varData);
 				needReport = true;
@@ -968,7 +992,7 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr) {
 					module->ImportVar(var);
 				}
 			}
-		} else if (entry->numVars > 0) {
+		} else if (entry->numVars > 0 && !reimporting) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d var imports but no valid address", entry->numVars);
 			needReport = true;
 		}
