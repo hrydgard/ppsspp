@@ -145,9 +145,12 @@ void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
-void ImportFuncSymbol(const FuncSymbolImport &func);
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting);
 void ExportFuncSymbol(const FuncSymbolExport &func);
 void UnexportFuncSymbol(const FuncSymbolExport &func);
+
+class Module;
+static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bool reimporting = false);
 
 struct NativeModule {
 	u32_le next;
@@ -221,7 +224,7 @@ enum NativeModuleStatus {
 
 class Module : public KernelObject {
 public:
-	Module() : textStart(0), textEnd(0), memoryBlockAddr(0), isFake(false) {}
+	Module() : textStart(0), textEnd(0), libstub(0), libstubend(0), memoryBlockAddr(0), isFake(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			// If it's either below user memory, or using a high kernel bit, it's in kernel.
@@ -250,7 +253,7 @@ public:
 
 	void DoState(PointerWrap &p) override
 	{
-		auto s = p.Section("Module", 1, 3);
+		auto s = p.Section("Module", 1, 4);
 		if (!s)
 			return;
 
@@ -272,6 +275,10 @@ public:
 			p.Do(textStart);
 			p.Do(textEnd);
 		}
+		if (s >= 4) {
+			p.Do(libstub);
+			p.Do(libstubend);
+		}
 
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
@@ -283,21 +290,30 @@ public:
 		p.Do(exportedVars, vsx);
 		VarSymbolImport vsi = {{0}};
 		p.Do(importedVars, vsi);
-		RebuildImpExpModuleNames();
 
 		if (p.mode == p.MODE_READ) {
+			// On load state, we re-examine in case our syscall ids changed.
+			if (libstub != 0) {
+				importedFuncs.clear();
+				if (!KernelImportModuleFuncs(this, nullptr, true)) {
+					ERROR_LOG(LOADER, "Something went wrong loading imports on load state");
+				}
+			}
+
 			char moduleName[29] = {0};
 			strncpy(moduleName, nm.name, ARRAY_SIZE(nm.name));
 			if (memoryBlockAddr != 0) {
 				g_symbolMap->AddModule(moduleName, memoryBlockAddr, memoryBlockSize);
 			}
 		}
+
+		RebuildImpExpModuleNames();
 	}
 
 	// We don't do this in the destructor to avoid annoying messages on game shutdown.
 	void Cleanup();
 
-	void ImportFunc(const FuncSymbolImport &func) {
+	void ImportFunc(const FuncSymbolImport &func, bool reimporting) {
 		if (!Memory::IsValidAddress(func.stubAddr)) {
 			WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
 			return;
@@ -313,7 +329,7 @@ public:
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		ImportFuncSymbol(func);
+		ImportFuncSymbol(func, reimporting);
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
@@ -373,6 +389,10 @@ public:
 	// when unloaded.
 	u32 textStart;
 	u32 textEnd;
+
+	// Keep track of the libstub pointers so we can recheck on load state.
+	u32 libstub;
+	u32 libstubend;
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
@@ -656,10 +676,13 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
-void ImportFuncSymbol(const FuncSymbolImport &func) {
+void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	// Prioritize HLE implementations.
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+		if (reimporting && Memory::Read_Instruction(func.stubAddr + 4) != GetSyscallOp(func.moduleName, func.nid)) {
+			WARN_LOG(LOADER, "Reimporting updated syscall %s", GetFuncName(func.moduleName, func.nid));
+		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
 		return;
@@ -675,6 +698,9 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 		// Look for exports currently loaded modules already have.  Maybe it's available?
 		for (auto it = module->exportedFuncs.begin(), end = module->exportedFuncs.end(); it != end; ++it) {
 			if (it->Matches(func)) {
+				if (reimporting && Memory::Read_Instruction(func.stubAddr) != MIPS_MAKE_J(it->symAddr)) {
+					WARN_LOG_REPORT(LOADER, "Reimporting: func import %s/%08x changed", func.moduleName, func.nid);
+				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
 				currentMIPS->InvalidateICache(func.stubAddr, 8);
 				return;
@@ -683,13 +709,16 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 	}
 
 	// It hasn't been exported yet, but hopefully it will later.
-	if (GetModuleIndex(func.moduleName) != -1) {
+	bool isKnownModule = GetModuleIndex(func.moduleName) != -1;
+	if (isKnownModule) {
 		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module: %s 0x%08x", func.moduleName, func.nid);
 	} else {
 		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
 	}
-	WriteFuncMissingStub(func.stubAddr, func.nid);
-	currentMIPS->InvalidateICache(func.stubAddr, 8);
+	if (isKnownModule || !reimporting) {
+		WriteFuncMissingStub(func.stubAddr, func.nid);
+		currentMIPS->InvalidateICache(func.stubAddr, 8);
+	}
 }
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
@@ -842,6 +871,162 @@ static bool IsHLEVersionedModule(const char *name) {
 		}
 	}
 	return false;
+}
+
+static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bool reimporting) {
+	struct PspLibStubEntry {
+		u32_le name;
+		u16_le version;
+		u16_le flags;
+		u8 size;
+		u8 numVars;
+		u16_le numFuncs;
+		// each symbol has an associated nid; nidData is a pointer
+		// (in .rodata.sceNid section) to an array of longs, one
+		// for each function, which identifies the function whose
+		// address is to be inserted.
+		//
+		// The hash is the first 4 bytes of a SHA-1 hash of the function
+		// name.	(Represented as a little-endian long, so the order
+		// of the bytes is reversed.)
+		u32_le nidData;
+		// the address of the function stubs where the function address jumps
+		// should be filled in
+		u32_le firstSymAddr;
+		// Optional, this is where var relocations are.
+		// They use the format: u32 addr, u32 nid, ...
+		// WARNING: May have garbage if size < 6.
+		u32_le varData;
+		// Not sure what this is yet, assume garbage for now.
+		// TODO: Tales of the World: Radiant Mythology 2 has something here?
+		u32_le extra;
+	};
+
+	// Can't run - we didn't keep track of the libstub entry.
+	if (module->libstub == 0) {
+		return false;
+	}
+	if (!Memory::IsValidRange(module->libstub, module->libstubend - module->libstub)) {
+		ERROR_LOG_REPORT(LOADER, "Garbage libstub address or end");
+		return false;
+	}
+
+	u32_le *entryPos = (u32_le *)Memory::GetPointerUnchecked(module->libstub);
+	u32_le *entryEnd = (u32_le *)Memory::GetPointerUnchecked(module->libstubend);
+
+	bool needReport = false;
+	while (entryPos < entryEnd) {
+		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
+		entryPos += entry->size;
+
+		const char *modulename;
+		if (Memory::IsValidAddress(entry->name)) {
+			modulename = Memory::GetCharPointer(entry->name);
+		} else {
+			modulename = "(invalidname)";
+			needReport = true;
+		}
+
+		DEBUG_LOG(LOADER, "Importing Module %s, stubs at %08x", modulename, entry->firstSymAddr);
+		if (entry->size != 5 && entry->size != 6) {
+			if (entry->size != 7) {
+				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
+				needReport = true;
+			} else if (entry->extra != 0) {
+				WARN_LOG_REPORT(LOADER, "Unexpected module entry with non-zero 7th value %08x", entry->extra);
+				needReport = true;
+			}
+		}
+
+		// If nidData is 0, only variables are being imported.
+		if (entry->nidData != 0) {
+			if (!Memory::IsValidAddress(entry->nidData)) {
+				ERROR_LOG_REPORT(LOADER, "Crazy nidData address %08x, skipping entire module", entry->nidData);
+				needReport = true;
+				continue;
+			}
+
+			FuncSymbolImport func;
+			strncpy(func.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
+			func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
+			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
+			for (int i = 0; i < entry->numFuncs; ++i) {
+				// This is the id of the import.
+				func.nid = nidDataPtr[i];
+				// This is the address to write the j and delay slot to.
+				func.stubAddr = entry->firstSymAddr + i * 8;
+				module->ImportFunc(func, reimporting);
+			}
+
+			if (firstImportStubAddr && (!*firstImportStubAddr || *firstImportStubAddr > (u32)entry->firstSymAddr))
+				*firstImportStubAddr = entry->firstSymAddr;
+		} else if (entry->numFuncs > 0) {
+			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
+			needReport = true;
+		}
+
+		// We skip vars when reimporting, since we might double-offset.
+		// We only reimport funcs, which can't be double-offset.
+		if (entry->varData != 0 && !reimporting) {
+			if (!Memory::IsValidAddress(entry->varData)) {
+				ERROR_LOG_REPORT(LOADER, "Crazy varData address %08x, skipping rest of module", entry->varData);
+				needReport = true;
+				continue;
+			}
+
+			VarSymbolImport var;
+			strncpy(var.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
+			var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
+			for (int i = 0; i < entry->numVars; ++i) {
+				u32 varRefsPtr = Memory::Read_U32(entry->varData + i * 8);
+				u32 nid = Memory::Read_U32(entry->varData + i * 8 + 4);
+				if (!Memory::IsValidAddress(varRefsPtr)) {
+					WARN_LOG_REPORT(LOADER, "Bad relocation list address for nid %08x in %s", nid, modulename);
+					continue;
+				}
+
+				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
+				for (; *varRef != 0; ++varRef) {
+					var.nid = nid;
+					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
+					var.type = *varRef >> 26;
+					module->ImportVar(var);
+				}
+			}
+		} else if (entry->numVars > 0 && !reimporting) {
+			WARN_LOG_REPORT(LOADER, "Module entry with %d var imports but no valid address", entry->numVars);
+			needReport = true;
+		}
+
+		DEBUG_LOG(LOADER, "-------------------------------------------------------------");
+	}
+
+	if (needReport) {
+		std::string debugInfo;
+		entryPos = (u32_le *)Memory::GetPointer(module->libstub);
+		while (entryPos < entryEnd) {
+			PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
+			entryPos += entry->size;
+
+			char temp[512];
+			const char *modulename;
+			if (Memory::IsValidAddress(entry->name)) {
+				modulename = Memory::GetCharPointer(entry->name);
+			} else {
+				modulename = "(invalidname)";
+			}
+
+			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numVars=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x, extra=%08x\n",
+				modulename, entry->version, entry->flags, entry->size, entry->numVars, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
+			debugInfo += temp;
+		}
+
+		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
+	}
+
+	return true;
 }
 
 static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
@@ -1038,153 +1223,14 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 
 	module->nm.bss_size = reader.GetTotalSectionSizeByPrefix(".bss");
 	module->nm.data_size = reader.GetTotalDataSize() - module->nm.bss_size;
+	module->libstub = modinfo->libstub;
+	module->libstubend = modinfo->libstubend;
 
 	INFO_LOG(LOADER, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
-
-	struct PspLibStubEntry {
-		u32_le name;
-		u16_le version;
-		u16_le flags;
-		u8 size;
-		u8 numVars;
-		u16_le numFuncs;
-		// each symbol has an associated nid; nidData is a pointer
-		// (in .rodata.sceNid section) to an array of longs, one
-		// for each function, which identifies the function whose
-		// address is to be inserted.
-		//
-		// The hash is the first 4 bytes of a SHA-1 hash of the function
-		// name.	(Represented as a little-endian long, so the order
-		// of the bytes is reversed.)
-		u32_le nidData;
-		// the address of the function stubs where the function address jumps
-		// should be filled in
-		u32_le firstSymAddr;
-		// Optional, this is where var relocations are.
-		// They use the format: u32 addr, u32 nid, ...
-		// WARNING: May have garbage if size < 6.
-		u32_le varData;
-		// Not sure what this is yet, assume garbage for now.
-		// TODO: Tales of the World: Radiant Mythology 2 has something here?
-		u32_le extra;
-	};
-
 	DEBUG_LOG(LOADER,"===================================================");
 
-	u32_le *entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
-	u32_le *entryEnd = (u32_le *)Memory::GetPointer(modinfo->libstubend);
-
-	u32_le firstImportStubAddr = 0;
-
-	bool needReport = false;
-	while (entryPos < entryEnd) {
-		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
-		entryPos += entry->size;
-
-		const char *modulename;
-		if (Memory::IsValidAddress(entry->name)) {
-			modulename = Memory::GetCharPointer(entry->name);
-		} else {
-			modulename = "(invalidname)";
-			needReport = true;
-		}
-
-		DEBUG_LOG(LOADER, "Importing Module %s, stubs at %08x", modulename, entry->firstSymAddr);
-		if (entry->size != 5 && entry->size != 6) {
-			if (entry->size != 7) {
-				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
-				needReport = true;
-			} else if (entry->extra != 0) {
-				WARN_LOG_REPORT(LOADER, "Unexpected module entry with non-zero 7th value %08x", entry->extra);
-				needReport = true;
-			}
-		}
-
-		// If nidData is 0, only variables are being imported.
-		if (entry->nidData != 0) {
-			if (!Memory::IsValidAddress(entry->nidData)) {
-				ERROR_LOG_REPORT(LOADER, "Crazy nidData address %08x, skipping entire module", entry->nidData);
-				needReport = true;
-				continue;
-			}
-
-			FuncSymbolImport func;
-			strncpy(func.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
-			func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-
-			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
-			for (int i = 0; i < entry->numFuncs; ++i) {
-				// This is the id of the import.
-				func.nid = nidDataPtr[i];
-				// This is the address to write the j and delay slot to.
-				func.stubAddr = entry->firstSymAddr + i * 8;
-				module->ImportFunc(func);
-			}
-
-			if (!firstImportStubAddr || firstImportStubAddr > entry->firstSymAddr)
-				firstImportStubAddr = entry->firstSymAddr;
-		} else if (entry->numFuncs > 0) {
-			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
-			needReport = true;
-		}
-
-		if (entry->varData != 0) {
-			if (!Memory::IsValidAddress(entry->varData)) {
-				ERROR_LOG_REPORT(LOADER, "Crazy varData address %08x, skipping rest of module", entry->varData);
-				needReport = true;
-				continue;
-			}
-
-			VarSymbolImport var;
-			strncpy(var.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
-			var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-
-			for (int i = 0; i < entry->numVars; ++i) {
-				u32 varRefsPtr = Memory::Read_U32(entry->varData + i * 8);
-				u32 nid = Memory::Read_U32(entry->varData + i * 8 + 4);
-				if (!Memory::IsValidAddress(varRefsPtr)) {
-					WARN_LOG_REPORT(LOADER, "Bad relocation list address for nid %08x in %s", nid, modulename);
-					continue;
-				}
-
-				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
-				for (; *varRef != 0; ++varRef) {
-					var.nid = nid;
-					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
-					var.type = *varRef >> 26;
-					module->ImportVar(var);
-				}
-			}
-		} else if (entry->numVars > 0) {
-			WARN_LOG_REPORT(LOADER, "Module entry with %d var imports but no valid address", entry->numVars);
-			needReport = true;
-		}
-
-		DEBUG_LOG(LOADER, "-------------------------------------------------------------");
-	}
-
-	if (needReport) {
-		std::string debugInfo;
-		entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
-		while (entryPos < entryEnd) {
-			PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
-			entryPos += entry->size;
-
-			char temp[512];
-			const char *modulename;
-			if (Memory::IsValidAddress(entry->name)) {
-				modulename = Memory::GetCharPointer(entry->name);
-			} else {
-				modulename = "(invalidname)";
-			}
-
-			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numVars=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x, extra=%08x\n",
-				modulename, entry->version, entry->flags, entry->size, entry->numVars, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
-			debugInfo += temp;
-		}
-
-		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
-	}
+	u32 firstImportStubAddr = 0;
+	KernelImportModuleFuncs(module, &firstImportStubAddr);
 
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
