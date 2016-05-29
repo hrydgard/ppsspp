@@ -33,14 +33,31 @@ inline int Xpose(int v) {
 #define M_PI_2     1.57079632679489661923
 #endif
 
+// Some games depend on exact values, but sinf() and cosf() aren't always precise.
+// Stepping down to [0, 2pi) helps, but we also check common exact-result values.
+
 inline float vfpu_sin(float angle) {
 	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 0.0f || angle == 2.0f) {
+		return 0.0f;
+	} else if (angle == 1.0f) {
+		return 1.0f;
+	} else if (angle == 3.0f) {
+		return -1.0f;
+	}
 	angle *= (float)M_PI_2;
 	return sinf(angle);
 }
 
 inline float vfpu_cos(float angle) {
 	angle -= floorf(angle * 0.25f) * 4.f;
+	if (angle == 1.0f || angle == 3.0f) {
+		return 0.0f;
+	} else if (angle == 0.0f) {
+		return 1.0f;
+	} else if (angle == 2.0f) {
+		return -1.0f;
+	}
 	angle *= (float)M_PI_2;
 	return cosf(angle);
 }
@@ -51,13 +68,27 @@ inline float vfpu_asin(float angle) {
 
 inline void vfpu_sincos(float angle, float &sine, float &cosine) {
 	angle -= floorf(angle * 0.25f) * 4.f;
-	angle *= (float)M_PI_2;
+	if (angle == 0.0f) {
+		sine = 0.0f;
+		cosine = 1.0f;
+	} else if (angle == 1.0f) {
+		sine = 1.0f;
+		cosine = 0.0f;
+	} else if (angle == 2.0f) {
+		sine = 0.0f;
+		cosine = -1.0f;
+	} else if (angle == 3.0f) {
+		sine = -1.0f;
+		cosine = 0.0f;
+	} else {
+		angle *= (float)M_PI_2;
 #if defined(__linux__)
-	sincosf(angle, &sine, &cosine);
+		sincosf(angle, &sine, &cosine);
 #else
-	sine = sinf(angle);
-	cosine = cosf(angle);
+		sine = sinf(angle);
+		cosine = cosf(angle);
 #endif
+	}
 }
 
 inline float vfpu_clamp(float v, float min, float max) {
