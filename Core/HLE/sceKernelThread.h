@@ -44,6 +44,7 @@ void sceKernelExitThread(int exitStatus);
 void _sceKernelExitThread(int exitStatus);
 SceUID sceKernelGetThreadId();
 int sceKernelGetThreadCurrentPriority();
+// Warning: will alter v0 in current MIPS state.
 int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs = false);
 int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs = false);
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr);

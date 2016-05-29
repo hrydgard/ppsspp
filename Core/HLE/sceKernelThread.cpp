@@ -2010,6 +2010,11 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	dispatchEnabled = true;
 
 	__KernelChangeReadyState(startThread, threadToStartID, true);
+
+	// Need to write out v0 before triggering event.
+	// TODO: Technically the wrong place.  This should trigger when the thread actually starts (e.g. if suspended.)
+	RETURN(0);
+	__KernelThreadTriggerEvent((startThread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadToStartID, THREADEVENT_START);
 	return 0;
 }
 
@@ -2077,6 +2082,9 @@ void __KernelReturnFromThread()
 
 	hleReSchedule("thread returned");
 
+	// TODO: This should trigger ON the thread when it exits.
+	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
+
 	// The stack will be deallocated when the thread is deleted.
 }
 
@@ -2090,6 +2098,9 @@ void sceKernelExitThread(int exitStatus)
 
 	hleReSchedule("thread exited");
 
+	// TODO: This should trigger ON the thread when it exits.
+	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
+
 	// The stack will be deallocated when the thread is deleted.
 }
 
@@ -2102,6 +2113,9 @@ void _sceKernelExitThread(int exitStatus)
 	__KernelStopThread(currentThread, exitStatus, "thread _exited");
 
 	hleReSchedule("thread _exited");
+
+	// TODO: This should trigger ON the thread when it exits.
+	__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 
 	// The stack will be deallocated when the thread is deleted.
 }
@@ -2117,6 +2131,9 @@ void sceKernelExitDeleteThread(int exitStatus)
 		g_inCbCount = 0;
 
 		hleReSchedule("thread exited with delete");
+
+		// TODO: This should trigger ON the thread when it exits.
+		__KernelThreadTriggerEvent((thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, thread->GetUID(), THREADEVENT_EXIT);
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelExitDeleteThread(%d) ERROR - could not find myself!", exitStatus);
@@ -2230,8 +2247,16 @@ int sceKernelTerminateDeleteThread(int threadID)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
 	{
+		bool wasStopped = t->isStopped();
+
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateDeleteThread(%i)", threadID);
 		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete");
+
+		if (!wasStopped) {
+			// Set v0 before calling the handler, or it'll get lost.
+			RETURN(error);
+			__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, t->GetUID(), THREADEVENT_EXIT);
+		}
 
 		return error;
 	}
@@ -2262,6 +2287,10 @@ int sceKernelTerminateThread(SceUID threadID) {
 
 		// On terminate, we reset the thread priority.  On exit, we don't always (see __KernelResetThread.)
 		t->nt.currentPriority = t->nt.initialPriority;
+
+		// Need to set v0 since it'll be restored.
+		RETURN(0);
+		__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, t->GetUID(), THREADEVENT_EXIT);
 
 		return hleLogSuccessInfoI(SCEKERNEL, 0);
 	} else {
@@ -2864,8 +2893,11 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread) {
-		__KernelChangeReadyState(thread, threadID, (status & THREADSTATUS_READY) != 0);
-		thread->nt.status = status;
+		// Resume waiting after a callback, but not from terminate/delete.
+		if ((thread->nt.status & (THREADSTATUS_DEAD | THREADSTATUS_DORMANT)) == 0) {
+			__KernelChangeReadyState(thread, threadID, (status & THREADSTATUS_READY) != 0);
+			thread->nt.status = status;
+		}
 		thread->nt.waitType = waitType;
 		thread->nt.waitID = waitID;
 		thread->waitInfo = waitInfo;
@@ -3025,6 +3057,10 @@ static bool __CanExecuteCallbackNow(Thread *thread) {
 
 void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
+	if (thread->isStopped()) {
+		WARN_LOG_REPORT(SCEKERNEL, "Running mipscall on dormant thread");
+	}
+
 	_dbg_assert_msg_(SCEKERNEL, numargs <= 6, "MipsCalls can only take 6 args.");
 
 	if (thread) {
@@ -3554,6 +3590,12 @@ KernelObject *__KernelThreadEventHandlerObject() {
 }
 
 void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID threadID, ThreadEventType type) {
+	Thread *thread = __GetCurrentThread();
+	if (thread->isStopped()) {
+		SceUID nextThreadID = threadReadyQueue.peek_first(thread->nt.currentPriority);
+		thread = kernelObjects.GetFast<Thread>(nextThreadID);
+	}
+
 	for (auto it = handlers.begin(), end = handlers.end(); it != end; ++it) {
 		u32 error;
 		const auto teh = kernelObjects.Get<ThreadEventHandler>(*it, error);
@@ -3562,7 +3604,7 @@ void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID t
 		}
 
 		const u32 args[] = {(u32)type, (u32)threadID, teh->nteh.commonArg};
-		__KernelCallAddress(__GetCurrentThread(), teh->nteh.handlerPtr, nullptr, args, ARRAY_SIZE(args), true, 0);
+		__KernelCallAddress(thread, teh->nteh.handlerPtr, nullptr, args, ARRAY_SIZE(args), true, 0);
 	}
 }
 
