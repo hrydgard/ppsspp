@@ -99,7 +99,7 @@ struct ThreadQueueList {
 		return 0;
 	}
 
-	inline SceUID peek_first(u32 priority) {
+	inline SceUID peek_first() {
 		Queue *cur = first;
 		while (cur != invalid()) {
 			if (cur->size() > 0)

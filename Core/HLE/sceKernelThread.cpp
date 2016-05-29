@@ -3057,7 +3057,7 @@ static bool __CanExecuteCallbackNow(Thread *thread) {
 
 void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
 {
-	if (thread->isStopped()) {
+	if (!thread || thread->isStopped()) {
 		WARN_LOG_REPORT(SCEKERNEL, "Running mipscall on dormant thread");
 	}
 
@@ -3591,8 +3591,8 @@ KernelObject *__KernelThreadEventHandlerObject() {
 
 void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID threadID, ThreadEventType type) {
 	Thread *thread = __GetCurrentThread();
-	if (thread->isStopped()) {
-		SceUID nextThreadID = threadReadyQueue.peek_first(thread->nt.currentPriority);
+	if (!thread || thread->isStopped()) {
+		SceUID nextThreadID = threadReadyQueue.peek_first();
 		thread = kernelObjects.GetFast<Thread>(nextThreadID);
 	}
 
