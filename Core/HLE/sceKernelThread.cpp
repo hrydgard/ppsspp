@@ -2716,7 +2716,7 @@ int sceKernelDeleteCallback(SceUID cbId)
 	{
 		Thread *thread = kernelObjects.Get<Thread>(cb->nc.threadId, error);
 		if (thread)
-			thread->callbacks.erase(std::find(thread->callbacks.begin(), thread->callbacks.end(), cbId), thread->callbacks.end());
+			thread->callbacks.erase(std::remove(thread->callbacks.begin(), thread->callbacks.end(), cbId), thread->callbacks.end());
 		if (cb->nc.notifyCount != 0)
 			readyCallbacksCount--;
 
