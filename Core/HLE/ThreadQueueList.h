@@ -99,6 +99,17 @@ struct ThreadQueueList {
 		return 0;
 	}
 
+	inline SceUID peek_first() {
+		Queue *cur = first;
+		while (cur != invalid()) {
+			if (cur->size() > 0)
+				return cur->data[cur->first];
+			cur = cur->next;
+		}
+
+		return 0;
+	}
+
 	inline void push_front(u32 priority, const SceUID threadID) {
 		Queue *cur = &queues[priority];
 		cur->data[--cur->first] = threadID;

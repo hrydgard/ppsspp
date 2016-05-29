@@ -44,6 +44,7 @@ void sceKernelExitThread(int exitStatus);
 void _sceKernelExitThread(int exitStatus);
 SceUID sceKernelGetThreadId();
 int sceKernelGetThreadCurrentPriority();
+// Warning: will alter v0 in current MIPS state.
 int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs = false);
 int __KernelStartThreadValidate(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs = false);
 int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr);
@@ -254,7 +255,6 @@ struct MipsCall {
 	u32 args[6];
 	int numArgs;
 	Action *doAfter;
-	u32 savedRa;
 	u32 savedPc;
 	u32 savedV0;
 	u32 savedV1;
@@ -320,3 +320,8 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);
 
 int LoadExecForUser_362A956B();
 int sceKernelRegisterExitCallback(SceUID cbId);
+
+KernelObject *__KernelThreadEventHandlerObject();
+SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u32 mask, u32 handlerPtr, u32 commonArg);
+int sceKernelReleaseThreadEventHandler(SceUID uid);
+int sceKernelReferThreadEventHandlerStatus(SceUID uid, u32 infoPtr);

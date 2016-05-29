@@ -596,6 +596,8 @@ KernelObject *KernelObjectPool::CreateByIDType(int type) {
 		return __KernelFileNodeObject();
 	case PPSSPP_KERNEL_TMID_DirList:
 		return __KernelDirListingObject();
+	case SCE_KERNEL_TMID_ThreadEventHandler:
+		return __KernelThreadEventHandlerObject();
 
 	default:
 		ERROR_LOG(COMMON, "Unable to load state: could not find object type %d.", type);
@@ -786,10 +788,6 @@ const HLEFunction ThreadManForUser[] =
 	{0X278C0DF5, &WrapI_IU<sceKernelWaitThreadEnd>,                  "sceKernelWaitThreadEnd",                    'i', "ix"      },
 	{0XD59EAD2F, &WrapI_I<sceKernelWakeupThread>,                    "sceKernelWakeupThread",                     'i', "i"       }, //AI Go, audio?
 
-	{0X0C106E53, nullptr,                                            "sceKernelRegisterThreadEventHandler",       '?', ""        },
-	{0X72F3C145, nullptr,                                            "sceKernelReleaseThreadEventHandler",        '?', ""        },
-	{0X369EEB6B, nullptr,                                            "sceKernelReferThreadEventHandlerStatus",    '?', ""        },
-
 	{0x349d6d6c, &sceKernelCheckCallback,                            "sceKernelCheckCallback",                    'i', ""        },
 	{0XE81CAF8F, &WrapI_CUU<sceKernelCreateCallback>,                "sceKernelCreateCallback",                   'i', "sxx"     },
 	{0XEDBA5844, &WrapI_I<sceKernelDeleteCallback>,                  "sceKernelDeleteCallback",                   'i', "i"       },
@@ -864,6 +862,9 @@ const HLEFunction ThreadManForUser[] =
 	{0x0E927AED, &_sceKernelReturnFromTimerHandler,                  "_sceKernelReturnFromTimerHandler",          'v', ""        },
 	{0X532A522E, &WrapV_I<_sceKernelExitThread>,                     "_sceKernelExitThread",                      'v', "i"       },
 
+	{0x0C106E53, &WrapI_CIUUU<sceKernelRegisterThreadEventHandler>,  "sceKernelRegisterThreadEventHandler",       'i', "sixxx",  },
+	{0x72F3C145, &WrapI_I<sceKernelReleaseThreadEventHandler>,       "sceKernelReleaseThreadEventHandler",        'i', "i"       },
+	{0x369EEB6B, &WrapI_IU<sceKernelReferThreadEventHandlerStatus>,  "sceKernelReferThreadEventHandlerStatus",    'i', "ip"      },
 
 	// Shouldn't hook this up. No games should import this function manually and call it.
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},
