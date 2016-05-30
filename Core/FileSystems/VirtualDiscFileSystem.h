@@ -54,7 +54,8 @@ public:
 
 private:
 	void LoadFileListIndex();
-	int getFileListIndex(const std::string &fileName);
+	// Warning: modifies input string.
+	int getFileListIndex(std::string &fileName);
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
 	std::string GetLocalPath(std::string localpath);
 

@@ -249,7 +249,7 @@ std::string VirtualDiscFileSystem::GetLocalPath(std::string localpath) {
 	return basePath + localpath;
 }
 
-int VirtualDiscFileSystem::getFileListIndex(const std::string &fileName)
+int VirtualDiscFileSystem::getFileListIndex(std::string &fileName)
 {
 	std::string normalized;
 	if (fileName.length() >= 1 && fileName[0] == '/') {
