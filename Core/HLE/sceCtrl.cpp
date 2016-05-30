@@ -27,6 +27,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
+#include "GPU/GPU.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
@@ -94,7 +95,6 @@ static int ctrlTimer = -1;
 // Not savestated, this is emu state.
 // Not related to sceCtrl*RapidFire(), although it may do the same thing.
 static bool emuRapidFire = false;
-static u32 emuRapidFireFrames = 0;
 
 // These buttons are not affected by rapid fire (neither is analog.)
 const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
@@ -106,7 +106,7 @@ static void __CtrlUpdateLatch()
 	// Copy in the current data to the current buffer.
 	ctrlBufs[ctrlBuf] = ctrlCurrent;
 	u32 buttons = ctrlCurrent.buttons;
-	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
+	if (emuRapidFire && (gpuStats.numFlips % 2) == 0)
 	{
 		ctrlBufs[ctrlBuf].buttons &= CTRL_EMU_RAPIDFIRE_MASK;
 		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
@@ -278,8 +278,6 @@ retry:
 
 static void __CtrlVblank()
 {
-	emuRapidFireFrames++;
-
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
 		__CtrlDoSample();
