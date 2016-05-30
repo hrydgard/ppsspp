@@ -99,7 +99,7 @@ enum ThreadEventType {
 	THREADEVENT_SUPPORTED = THREADEVENT_CREATE | THREADEVENT_START | THREADEVENT_EXIT | THREADEVENT_DELETE,
 };
 
-void __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type);
+bool __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type);
 
 enum {
 	PSP_THREAD_ATTR_KERNEL       = 0x00001000,
@@ -639,6 +639,7 @@ std::vector<ThreadCallback> threadEndListeners;
 
 typedef std::vector<SceUID> ThreadEventHandlerList;
 static std::map<SceUID, ThreadEventHandlerList> threadEventHandlers;
+static std::vector<SceUID> pendingDeleteThreads;
 
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
@@ -952,7 +953,7 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelThread", 1, 2);
+	auto s = p.Section("sceKernelThread", 1, 3);
 	if (!s)
 		return;
 
@@ -990,6 +991,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	if (s >= 2)
 		p.Do(threadEventHandlers);
+	if (s >= 3)
+		p.Do(pendingDeleteThreads);
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p)
@@ -1159,6 +1162,7 @@ void __KernelThreadingShutdown()
 	intReturnHackAddr = 0;
 	pausedDelays.clear();
 	threadEventHandlers.clear();
+	pendingDeleteThreads.clear();
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1646,12 +1650,17 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 		t->Cleanup();
 	}
 
-	// TODO: Thread should not be deleted yet...
 	// Before triggering, set v0.  It'll be restored if one is called.
 	RETURN(error);
-	__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE);
+	t->nt.status = THREADSTATUS_DEAD;
 
-	return kernelObjects.Destroy<Thread>(threadID);
+	if (__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE)) {
+		// Don't delete it yet.  We'll delete later.
+		pendingDeleteThreads.push_back(threadID);
+		return 0;
+	} else {
+		return kernelObjects.Destroy<Thread>(threadID);
+	}
 }
 
 static void __ReportThreadQueueEmpty() {
@@ -3235,12 +3244,17 @@ void __KernelReturnFromMipsCall()
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
-	if (!__KernelExecutePendingMipsCalls(cur, call->reschedAfter))
-	{
+	if (!__KernelExecutePendingMipsCalls(cur, call->reschedAfter)) {
 		// Sometimes, we want to stay on the thread.
 		int threadReady = cur->nt.status & (THREADSTATUS_READY | THREADSTATUS_RUNNING);
 		if (call->reschedAfter || threadReady == 0)
 			__KernelReSchedule("return from callback");
+
+		// Now seems like a good time to clear out any pending deletes.
+		for (SceUID delThread : pendingDeleteThreads) {
+			kernelObjects.Destroy<Thread>(delThread);
+		}
+		pendingDeleteThreads.clear();
 	}
 
 	delete call;
@@ -3583,13 +3597,14 @@ KernelObject *__KernelThreadEventHandlerObject() {
 	return new ThreadEventHandler;
 }
 
-void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID threadID, ThreadEventType type) {
+bool __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID threadID, ThreadEventType type) {
 	Thread *thread = __GetCurrentThread();
 	if (!thread || thread->isStopped()) {
 		SceUID nextThreadID = threadReadyQueue.peek_first();
 		thread = kernelObjects.GetFast<Thread>(nextThreadID);
 	}
 
+	bool hadHandlers = false;
 	for (auto it = handlers.begin(), end = handlers.end(); it != end; ++it) {
 		u32 error;
 		const auto teh = kernelObjects.Get<ThreadEventHandler>(*it, error);
@@ -3599,25 +3614,33 @@ void __KernelThreadTriggerEvent(const ThreadEventHandlerList &handlers, SceUID t
 
 		const u32 args[] = {(u32)type, (u32)threadID, teh->nteh.commonArg};
 		__KernelCallAddress(thread, teh->nteh.handlerPtr, nullptr, args, ARRAY_SIZE(args), true, 0);
+		hadHandlers = true;
 	}
+
+	return hadHandlers;
 }
 
-void __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type) {
+bool __KernelThreadTriggerEvent(bool isKernel, SceUID threadID, ThreadEventType type) {
+	bool hadExactHandlers = false;
 	auto exactHandlers = threadEventHandlers.find(threadID);
 	if (exactHandlers != threadEventHandlers.end()) {
-		__KernelThreadTriggerEvent(exactHandlers->second, threadID, type);
+		hadExactHandlers = __KernelThreadTriggerEvent(exactHandlers->second, threadID, type);
 	}
+
+	bool hadKindHandlers = false;
 	if (isKernel) {
 		auto kernelHandlers = threadEventHandlers.find(SCE_TE_THREADID_ALL_USER);
 		if (kernelHandlers != threadEventHandlers.end()) {
-			__KernelThreadTriggerEvent(kernelHandlers->second, threadID, type);
+			hadKindHandlers = __KernelThreadTriggerEvent(kernelHandlers->second, threadID, type);
 		}
 	} else {
 		auto userHandlers = threadEventHandlers.find(SCE_TE_THREADID_ALL_USER);
 		if (userHandlers != threadEventHandlers.end()) {
-			__KernelThreadTriggerEvent(userHandlers->second, threadID, type);
+			hadKindHandlers = __KernelThreadTriggerEvent(userHandlers->second, threadID, type);
 		}
 	}
+
+	return hadKindHandlers || hadExactHandlers;
 }
 
 SceUID sceKernelRegisterThreadEventHandler(const char *name, SceUID threadID, u32 mask, u32 handlerPtr, u32 commonArg) {
