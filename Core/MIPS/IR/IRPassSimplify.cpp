@@ -1040,6 +1040,7 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 		return true;
 	};
 
+	IRInst prev = { IROp::Nop };
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInst inst = in.GetInstructions()[i];
 		int c = 0;
@@ -1059,6 +1060,7 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 			if (c == 2 || c == 3) {
 				inst.op = IROp::Store16;
 				out.Write(inst);
+				prev = inst;
 				// Skip the next one.
 				++i;
 				continue;
@@ -1066,11 +1068,13 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 			if (c == 4) {
 				inst.op = IROp::Store32;
 				out.Write(inst);
+				prev = inst;
 				// Skip all 4.
 				i += 3;
 				continue;
 			}
 			out.Write(inst);
+			prev = inst;
 			break;
 
 		case IROp::Store16:
@@ -1088,15 +1092,65 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 			if (c == 2) {
 				inst.op = IROp::Store32;
 				out.Write(inst);
+				prev = inst;
 				// Skip the next one.
 				++i;
 				continue;
 			}
 			out.Write(inst);
+			prev = inst;
+			break;
+
+		case IROp::Load32:
+			if (prev.src1 == inst.src1 && prev.src2 == inst.src2) {
+				// A store and then an immediate load.  This is sadly common in minis.
+				if (prev.op == IROp::Store32 && prev.src3 == inst.dest) {
+					// Even the same reg, a volatile variable?  Skip it.
+					continue;
+				}
+
+				// Store16 and Store8 in rare cases happen... could be made AndConst, but not worth the trouble.
+				if (prev.op == IROp::Store32) {
+					inst.op = IROp::Mov;
+					inst.src1 = prev.src3;
+					inst.src2 = 0;
+				} else if (prev.op == IROp::StoreFloat) {
+					inst.op = IROp::FMovToGPR;
+					inst.src1 = prev.src3;
+					inst.src2 = 0;
+				}
+				// The actual op is written below.
+			}
+			out.Write(inst);
+			prev = inst;
+			break;
+
+		case IROp::LoadFloat:
+			if (prev.src1 == inst.src1 && prev.src2 == inst.src2) {
+				// A store and then an immediate load, of a float.
+				if (prev.op == IROp::StoreFloat && prev.src3 == inst.dest) {
+					// Volatile float, I suppose?
+					continue;
+				}
+
+				if (prev.op == IROp::StoreFloat) {
+					inst.op = IROp::FMov;
+					inst.src1 = prev.src3;
+					inst.src2 = 0;
+				} else if (prev.op == IROp::Store32) {
+					inst.op = IROp::FMovFromGPR;
+					inst.src1 = prev.src3;
+					inst.src2 = 0;
+				}
+				// The actual op is written below.
+			}
+			out.Write(inst);
+			prev = inst;
 			break;
 
 		default:
 			out.Write(inst);
+			prev = inst;
 			break;
 		}
 	}
