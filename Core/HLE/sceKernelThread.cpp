@@ -2410,30 +2410,24 @@ static s64 __KernelDelayThreadUs(u64 usec) {
 
 int sceKernelDelayThreadCB(u32 usec) {
 	hleEatCycles(2000);
-	if (usec > 0) {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec)", usec);
-		SceUID curThread = __KernelGetCurThread();
-		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
-	} else {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThreadCB(%i usec): no delay", usec);
-		hleReSchedule("thread delayed");
-	}
-	return 0;
+	// Note: Sometimes (0) won't delay, potentially based on how much the thread is doing.
+	// But a loop with just 0 often does delay, and games depend on this.  So we err on that side.
+	SceUID curThread = __KernelGetCurThread();
+	s64 delayUs = __KernelDelayThreadUs(usec);
+	__KernelScheduleWakeup(curThread, delayUs);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
 }
 
 int sceKernelDelayThread(u32 usec) {
 	hleEatCycles(2000);
-	if (usec > 0) {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec)", usec);
-		SceUID curThread = __KernelGetCurThread();
-		__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
-		__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
-	} else {
-		DEBUG_LOG(SCEKERNEL, "sceKernelDelayThread(%i usec): no delay", usec);
-		hleReSchedule("thread delayed");
-	}
-	return 0;
+	// Note: Sometimes (0) won't delay, potentially based on how much the thread is doing.
+	// But a loop with just 0 often does delay, and games depend on this.  So we err on that side.
+	SceUID curThread = __KernelGetCurThread();
+	s64 delayUs = __KernelDelayThreadUs(usec);
+	__KernelScheduleWakeup(curThread, delayUs);
+	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
 }
 
 int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
