@@ -298,6 +298,11 @@ public:
 				if (!KernelImportModuleFuncs(this, nullptr, true)) {
 					ERROR_LOG(LOADER, "Something went wrong loading imports on load state");
 				}
+			} else {
+				// Older save state.  Let's still reload, but this may not pick up new flags, etc.
+				for (auto func : importedFuncs) {
+					ImportFunc(func, true);
+				}
 			}
 
 			char moduleName[29] = {0};
