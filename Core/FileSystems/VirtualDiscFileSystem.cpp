@@ -102,10 +102,16 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			continue;
 		}
 
+		filename_pos++;
+		// Strip any slash prefix.
+		while (filename_pos < line.length() && line[filename_pos] == '/') {
+			filename_pos++;
+		}
+
 		// Check if there's a handler specified.
 		size_t handler_pos = line.find(':', filename_pos);
 		if (handler_pos != line.npos) {
-			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos - 1);
+			entry.fileName = line.substr(filename_pos, handler_pos - filename_pos);
 			std::string handler = line.substr(handler_pos + 1);
 			size_t trunc = handler.find_last_not_of("\r\n");
 			if (trunc != handler.npos && trunc != handler.size())
@@ -114,7 +120,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 				handlers[handler] = new Handler(handler.c_str(), this);
 			entry.handler = handlers[handler];
 		} else {
-			entry.fileName = line.substr(filename_pos + 1);
+			entry.fileName = line.substr(filename_pos);
 		}
 		size_t trunc = entry.fileName.find_last_not_of("\r\n");
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
@@ -243,11 +249,18 @@ std::string VirtualDiscFileSystem::GetLocalPath(std::string localpath) {
 	return basePath + localpath;
 }
 
-int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
+int VirtualDiscFileSystem::getFileListIndex(const std::string &fileName)
 {
+	std::string normalized;
+	if (fileName.length() >= 1 && fileName[0] == '/') {
+		normalized = fileName.substr(1);
+	} else {
+		normalized = fileName;
+	}
+
 	for (size_t i = 0; i < fileList.size(); i++)
 	{
-		if (fileList[i].fileName == fileName)
+		if (fileList[i].fileName == normalized)
 			return (int)i;
 	}
 
@@ -271,7 +284,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 		return -1;
 
 	FileListEntry entry = {""};
-	entry.fileName = fileName;
+	entry.fileName = normalized;
 	entry.totalSize = File::GetFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;
