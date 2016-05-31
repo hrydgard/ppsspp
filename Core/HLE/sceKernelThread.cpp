@@ -2015,8 +2015,11 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 		hleReSchedule("thread started");
 	}
 
-	// Starting a thread automatically resumes the dispatch thread.
-	dispatchEnabled = true;
+	// Starting a thread automatically resumes the dispatch thread if the new thread has worse priority.
+	// Seems strange but also seems reproducible.
+	if (cur && cur->nt.currentPriority <= startThread->nt.currentPriority) {
+		dispatchEnabled = true;
+	}
 
 	__KernelChangeReadyState(startThread, threadToStartID, true);
 
