@@ -60,7 +60,9 @@ const char *GetStringErrorMsg(int errCode) {
 	static __thread char err_str[buff_size] = {};
 
 	// Thread safe (XSI-compliant)
-	strerror_r(errCode, err_str, buff_size);
+	if (strerror_r(errCode, err_str, buff_size) == 0) {
+		return "Unknown error";
+	}
 #endif
 
 	return err_str;
