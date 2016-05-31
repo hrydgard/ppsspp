@@ -795,20 +795,19 @@ static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetCurrentStreamType(%08x, %08x, %08x): invalid psmf", psmfStruct, typeAddr, channelAddr);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	INFO_LOG(ME, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
-	if (Memory::IsValidAddress(typeAddr)) {
-		u32 type = 0, channel = 0;
-		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
-			type = psmf->streamMap[psmf->currentStreamNum]->type;
-		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
-			channel = psmf->streamMap[psmf->currentStreamNum]->channel;
-		Memory::Write_U32(type, typeAddr);
-		Memory::Write_U32(channel, channelAddr);
+	if (psmf->currentStreamNum == ERROR_PSMF_NOT_INITIALIZED) {
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "no stream set");
 	}
-	return 0;
+	if (!Memory::IsValidAddress(typeAddr) || !Memory::IsValidAddress(channelAddr)) {
+		return hleLogError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
+	}
+	if (psmf->currentStreamType != -1) {
+		Memory::Write_U32(psmf->currentStreamType, typeAddr);
+		Memory::Write_U32(psmf->currentStreamChannel, channelAddr);
+	}
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
