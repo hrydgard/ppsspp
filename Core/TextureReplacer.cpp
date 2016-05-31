@@ -319,6 +319,19 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		}
 	}
 
+#ifdef _WIN32
+	size_t slash = hashfile.find_last_of("/\\");
+#else
+	size_t slash = hashfile.find_last_of("/");
+#endif
+	if (slash != hashfile.npos) {
+		// Create any directory structure as needed.
+		const std::string saveDirectory = basePath_ + NEW_TEXTURE_DIR + hashfile.substr(0, slash);
+		if (!File::Exists(saveDirectory)) {
+			File::CreateFullPath(saveDirectory);
+		}
+	}
+
 	// Only save the hashed portion of the PNG.
 	int lookupW = w / replacedInfo.scaleFactor;
 	int lookupH = h / replacedInfo.scaleFactor;
