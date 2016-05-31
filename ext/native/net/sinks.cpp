@@ -1,5 +1,3 @@
-#pragma optimize("", off)
-
 #ifdef _WIN32
 
 #define NOMINMAX
