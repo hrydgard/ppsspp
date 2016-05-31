@@ -31,7 +31,7 @@
 #include "GPU/GLES/Framebuffer.h"
 
 static const int leftColumnWidth = 200;
-static const float orgRatio = 1.764706;
+static const float orgRatio = 1.764706f;
 
 // Ugly hackery, need to rework some stuff to get around this
 static float local_dp_xres;
