@@ -161,7 +161,7 @@ public:
 	void DoState(PointerWrap &p);
 	
 	bool isValidCurrentStreamNumber() const {
-		return currentStreamNum >= 0 && currentStreamNum < (int)streamMap.size();  // urgh, checking size isn't really right here.
+		return currentStreamNum >= 0 && streamMap.find(currentStreamNum) != streamMap.end();
 	}
 
 	void setStreamNum(int num);
@@ -673,8 +673,8 @@ static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType)
 	WARN_LOG(ME, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
 	int streamNum = 0;
 	int type = (streamType == PSMF_AUDIO_STREAM ? PSMF_ATRAC_STREAM : streamType);
-	for (int i = (int)psmf->streamMap.size() - 1; i >= 0; i--) {
-		if (psmf->streamMap[i]->type == type)
+	for (auto it : psmf->streamMap) {
+		if (it.second->type == type)
 			streamNum++;
 	}
 	return streamNum;
