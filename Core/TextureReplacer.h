@@ -78,12 +78,44 @@ struct ReplacementCacheKey {
 	}
 };
 
+struct ReplacementAliasKey {
+	u64 cachekey;
+	union {
+		u64 hashAndLevel;
+		struct {
+			u32 level;
+			u32 hash;
+		};
+	};
+
+	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), hash(h), level(l) {
+	}
+
+	bool operator ==(const ReplacementAliasKey &k) const {
+		return k.cachekey == cachekey && k.hashAndLevel == hashAndLevel;
+	}
+
+	bool operator <(const ReplacementAliasKey &k) const {
+		if (k.cachekey == cachekey) {
+			return k.hashAndLevel < hashAndLevel;
+		}
+		return k.cachekey < cachekey;
+	}
+};
+
 #ifndef __SYMBIAN32__
 namespace std {
 	template <>
 	struct hash<ReplacementCacheKey> {
 		size_t operator()(const ReplacementCacheKey &k) const {
 			return std::hash<u64>()(k.cachekey ^ ((u64)k.hash << 32));
+		}
+	};
+
+	template <>
+	struct hash<ReplacementAliasKey> {
+		size_t operator()(const ReplacementAliasKey &k) const {
+			return std::hash<u64>()(k.cachekey ^ k.hashAndLevel);
 		}
 	};
 }
@@ -169,12 +201,13 @@ protected:
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_;
-	std::unordered_map<std::string, std::string> aliases_;
 	typedef std::pair<int, int> WidthHeightPair;
 #ifdef __SYMBIAN32__
 	std::map<u64, WidthHeightPair> hashranges_;
+	std::map<ReplacementAliasKey, std::string> aliases_;
 #else
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
+	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
 #endif
 
 	ReplacedTexture none_;
