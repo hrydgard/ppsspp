@@ -53,8 +53,8 @@ public:
 
 	const JitOptions &GetJitOptions() { return jo; }
 
-	void DoState(PointerWrap &p);
-	void DoDummyState(PointerWrap &p);
+	void DoState(PointerWrap &p) override;
+	void DoDummyState(PointerWrap &p) override;
 
 	// Compiled ops should ignore delay slots
 	// the compiler will take care of them by itself
