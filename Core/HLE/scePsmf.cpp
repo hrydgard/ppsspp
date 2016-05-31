@@ -161,11 +161,12 @@ public:
 	void DoState(PointerWrap &p);
 	
 	bool isValidCurrentStreamNumber() const {
-		return currentStreamNum >= 0 && currentStreamNum < (int)streamMap.size();  // urgh, checking size isn't really right here.
+		return currentStreamNum >= 0 && streamMap.find(currentStreamNum) != streamMap.end();
 	}
 
-	void setStreamNum(int num);
+	bool setStreamNum(int num);
 	bool setStreamWithType(int type, int channel);
+	bool setStreamWithTypeNumber(int type, int n);
 
 	int FindEPWithTimestamp(int pts) const;
 
@@ -186,6 +187,8 @@ public:
 
 	int numStreams;
 	int currentStreamNum;
+	int currentStreamType;
+	int currentStreamChannel;
 	int currentAudioStreamNum;
 	int currentVideoStreamNum;
 
@@ -312,6 +315,13 @@ public:
 		INFO_LOG(ME, "PSMF private audio found: id=%02x, privid=%02x, channels=%i, freq=%i", streamId, privateStreamId, psmf->audioChannels, psmf->audioFrequency);
 	}
 
+	bool matchesType(int ty) {
+		if (ty == PSMF_AUDIO_STREAM) {
+			return type == PSMF_ATRAC_STREAM || type == PSMF_PCM_STREAM;
+		}
+		return type == ty;
+	}
+
 	void DoState(PointerWrap &p) {
 		auto s = p.Section("PsmfStream", 1);
 		if (!s)
@@ -343,6 +353,8 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 	headerSize = 0x800;
 
 	currentStreamNum = -1;
+	currentStreamType = -1;
+	currentStreamChannel = -1;
 	currentAudioStreamNum = -1;
 	currentVideoStreamNum = -1;
 
@@ -351,10 +363,16 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 		const u8 *const currentStreamAddr = ptr + 0x82 + i * 16;
 		int streamId = currentStreamAddr[0];
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_AVC_STREAM, ++currentVideoStreamNum);
+			stream = new PsmfStream(PSMF_AVC_STREAM, streamId & 0x0F);
 			stream->readMPEGVideoStreamParams(currentStreamAddr, ptr, this);
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_ATRAC_STREAM, ++currentAudioStreamNum);
+			int type = PSMF_ATRAC_STREAM;
+			int privateStreamId = currentStreamAddr[1];
+			if ((privateStreamId & 0xF0) != 0) {
+				WARN_LOG_REPORT(ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
+				type = PSMF_PCM_STREAM;
+			}
+			stream = new PsmfStream(type, privateStreamId & 0x0F);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
 		}
 		if (stream) {
@@ -362,6 +380,9 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 			streamMap[currentStreamNum] = stream;
 		}
 	}
+
+	// Default to the first stream.
+	currentStreamNum = 0;
 }
 
 Psmf::~Psmf() {
@@ -401,7 +422,7 @@ PsmfPlayer::PsmfPlayer(const PsmfPlayerCreateData *data) {
 }
 
 void Psmf::DoState(PointerWrap &p) {
-	auto s = p.Section("Psmf", 1, 2);
+	auto s = p.Section("Psmf", 1, 3);
 	if (!s)
 		return;
 
@@ -433,6 +454,18 @@ void Psmf::DoState(PointerWrap &p) {
 	}
 
 	p.Do(streamMap);
+	if (s >= 3) {
+		p.Do(currentStreamType);
+		p.Do(currentStreamChannel);
+	} else {
+		currentStreamType = -1;
+		currentStreamChannel = -1;
+		auto streamInfo = streamMap.find(currentStreamNum);
+		if (streamInfo != streamMap.end()) {
+			currentStreamType = streamInfo->second->type;
+			currentStreamChannel = streamInfo->second->channel;
+		}
+	}
 }
 
 void PsmfPlayer::DoState(PointerWrap &p) {
@@ -507,39 +540,55 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	}
 }
 
-void Psmf::setStreamNum(int num) {
+bool Psmf::setStreamNum(int num) {
 	currentStreamNum = num;
+	currentStreamType = -1;
+	currentStreamChannel = -1;
 	if (!isValidCurrentStreamNumber())
-		return;
+		return false;
 	PsmfStreamMap::iterator iter = streamMap.find(currentStreamNum);
 	if (iter == streamMap.end())
-		return;
+		return false;
 
+	// TODO: This information is *probably* only for the scePsmf lookups?
+	// Not sure if we need to communicate with the media engine.
 	int type = iter->second->type;
-	int channel = iter->second->channel;
 	switch (type) {
 	case PSMF_AVC_STREAM:
-		if (currentVideoStreamNum != num) {
-			// TODO: Tell video mediaengine or something about channel.
-			currentVideoStreamNum = num;
-		}
+		currentVideoStreamNum = num;
 		break;
 
 	case PSMF_ATRAC_STREAM:
 	case PSMF_PCM_STREAM:
-		if (currentAudioStreamNum != num) {
-			// TODO: Tell audio mediaengine or something about channel.
-			currentAudioStreamNum = num;
-		}
+		currentAudioStreamNum = num;
 		break;
 	}
+
+	currentStreamType = type;
+	currentStreamChannel = iter->second->channel;
+	return true;
 }
 
 bool Psmf::setStreamWithType(int type, int channel) {
-	for (PsmfStreamMap::iterator iter = streamMap.begin(); iter != streamMap.end(); ++iter) {
-		if (iter->second->type == type && iter->second->channel == channel) {
-			setStreamNum(iter->first);
-			return true;
+	for (auto iter : streamMap) {
+		// Note: this does NOT support PSMF_AUDIO_STREAM.
+		if (iter.second->type == type && iter.second->channel == channel) {
+			return setStreamNum(iter.first);
+		}
+	}
+	return false;
+}
+
+bool Psmf::setStreamWithTypeNumber(int type, int n) {
+	for (auto iter : streamMap) {
+		if (iter.second->matchesType(type)) {
+			if (n != 0) {
+				// Keep counting...
+				n--;
+				continue;
+			}
+			// Okay, this is the one.
+			return setStreamNum(iter.first);
 		}
 	}
 	return false;
@@ -652,72 +701,67 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 	return 0;
 }
 
-static u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
-{
+static u32 scePsmfGetNumberOfStreams(u32 psmfStruct) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetNumberOfStreams(%08x): invalid psmf", psmfStruct);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	DEBUG_LOG(ME, "scePsmfGetNumberOfStreams(%08x)", psmfStruct);
-	return psmf->numStreams;
+	return hleLogSuccessI(ME, psmf->numStreams);
 }
 
-static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType)
-{
+static u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetNumberOfSpecificStreams(%08x, %08x): invalid psmf", psmfStruct, streamType);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	WARN_LOG(ME, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
+
 	int streamNum = 0;
-	int type = (streamType == PSMF_AUDIO_STREAM ? PSMF_ATRAC_STREAM : streamType);
-	for (int i = (int)psmf->streamMap.size() - 1; i >= 0; i--) {
-		if (psmf->streamMap[i]->type == type)
+	for (auto it : psmf->streamMap) {
+		bool match = false;
+		if (it.second->matchesType(streamType)) {
 			streamNum++;
+		}
 	}
-	return streamNum;
+
+	return hleLogSuccessI(ME, streamNum);
 }
 
-static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
-{
+static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i): invalid psmf", psmfStruct, streamType, channel);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	INFO_LOG(ME, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
 	if (!psmf->setStreamWithType(streamType, channel)) {
-		psmf->setStreamNum(-1);
+		// An invalid type seems to make the stream number invalid, but retain the old type/channel.
+		psmf->currentStreamNum = ERROR_PSMF_INVALID_ID;
+		// Also, returns 0 even when no stream found.
+		return hleLogWarning(ME, 0, "no stream found");
 	}
-	return 0;
+	return hleLogSuccessI(ME, 0);
 }
 
-static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum)
-{
+static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x): invalid psmf", psmfStruct, streamType, typeNum);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	INFO_LOG_REPORT(ME, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
-	// right now typeNum and channel are the same...
-	if (!psmf->setStreamWithType(streamType, typeNum)) {
-		psmf->setStreamNum(-1);
+	if (!psmf->setStreamWithTypeNumber(streamType, typeNum)) {
+		// Don't update stream, just bail out.
+		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "no stream found");
 	}
-	return 0;
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfSpecifyStream(%08x, %i): invalid psmf", psmfStruct, streamNum);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	INFO_LOG(ME, "scePsmfSpecifyStream(%08x, %i)", psmfStruct, streamNum);
-	psmf->setStreamNum(streamNum);
-	return 0;
+	if (!psmf->setStreamNum(streamNum)) {
+		psmf->setStreamNum(ERROR_PSMF_NOT_INITIALIZED);
+		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "bad stream id");
+	}
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
@@ -751,20 +795,19 @@ static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetCurrentStreamType(%08x, %08x, %08x): invalid psmf", psmfStruct, typeAddr, channelAddr);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	INFO_LOG(ME, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
-	if (Memory::IsValidAddress(typeAddr)) {
-		u32 type = 0, channel = 0;
-		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
-			type = psmf->streamMap[psmf->currentStreamNum]->type;
-		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
-			channel = psmf->streamMap[psmf->currentStreamNum]->channel;
-		Memory::Write_U32(type, typeAddr);
-		Memory::Write_U32(channel, channelAddr);
+	if (psmf->currentStreamNum == ERROR_PSMF_NOT_INITIALIZED) {
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "no stream set");
 	}
-	return 0;
+	if (!Memory::IsValidAddress(typeAddr) || !Memory::IsValidAddress(channelAddr)) {
+		return hleLogError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
+	}
+	if (psmf->currentStreamType != -1) {
+		Memory::Write_U32(psmf->currentStreamType, typeAddr);
+		Memory::Write_U32(psmf->currentStreamChannel, channelAddr);
+	}
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
@@ -882,16 +925,15 @@ static u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 	return 0;
 }
 
-static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
-{
+static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetCurrentStreamNumber(%08x): invalid psmf", psmfStruct);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-
-	DEBUG_LOG(ME, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
-	return psmf->currentStreamNum;
+	if (psmf->currentStreamNum < 0) {
+		return hleLogError(ME, psmf->currentStreamNum, "invalid stream");
+	}
+	return hleLogSuccessI(ME, psmf->currentStreamNum);
 }
 
 static u32 scePsmfCheckEPMap(u32 psmfStruct)
@@ -1987,19 +2029,19 @@ static int __PsmfPlayerFinish(u32 psmfPlayer) {
 
 const HLEFunction scePsmf[] = {
 	{0XC22C8327, &WrapU_UU<scePsmfSetPsmf>,                            "scePsmfSetPsmf",                           'x', "xx" },
-	{0XC7DB3A5B, &WrapU_UUU<scePsmfGetCurrentStreamType>,              "scePsmfGetCurrentStreamType",              'x', "xxx"},
-	{0X28240568, &WrapU_U<scePsmfGetCurrentStreamNumber>,              "scePsmfGetCurrentStreamNumber",            'x', "x"  },
-	{0X1E6D9013, &WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,       "scePsmfSpecifyStreamWithStreamType",       'x', "xxx"},
-	{0X0C120E1D, &WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>, "scePsmfSpecifyStreamWithStreamTypeNumber", 'x', "xxx"},
-	{0X4BC9BDE0, &WrapU_UI<scePsmfSpecifyStream>,                      "scePsmfSpecifyStream",                     'x', "xi" },
+	{0XC7DB3A5B, &WrapU_UUU<scePsmfGetCurrentStreamType>,              "scePsmfGetCurrentStreamType",              'i', "xpp"},
+	{0X28240568, &WrapU_U<scePsmfGetCurrentStreamNumber>,              "scePsmfGetCurrentStreamNumber",            'i', "x"  },
+	{0X1E6D9013, &WrapU_UUU<scePsmfSpecifyStreamWithStreamType>,       "scePsmfSpecifyStreamWithStreamType",       'i', "xii"},
+	{0X0C120E1D, &WrapU_UUU<scePsmfSpecifyStreamWithStreamTypeNumber>, "scePsmfSpecifyStreamWithStreamTypeNumber", 'i', "xii"},
+	{0X4BC9BDE0, &WrapU_UI<scePsmfSpecifyStream>,                      "scePsmfSpecifyStream",                     'i', "xi" },
 	{0X76D3AEBA, &WrapU_UU<scePsmfGetPresentationStartTime>,           "scePsmfGetPresentationStartTime",          'x', "xx" },
 	{0XBD8AE0D8, &WrapU_UU<scePsmfGetPresentationEndTime>,             "scePsmfGetPresentationEndTime",            'x', "xx" },
-	{0XEAED89CD, &WrapU_U<scePsmfGetNumberOfStreams>,                  "scePsmfGetNumberOfStreams",                'x', "x"  },
+	{0XEAED89CD, &WrapU_U<scePsmfGetNumberOfStreams>,                  "scePsmfGetNumberOfStreams",                'i', "x"  },
 	{0X7491C438, &WrapU_U<scePsmfGetNumberOfEPentries>,                "scePsmfGetNumberOfEPentries",              'x', "x"  },
 	{0X0BA514E5, &WrapU_UU<scePsmfGetVideoInfo>,                       "scePsmfGetVideoInfo",                      'x', "xx" },
 	{0XA83F7113, &WrapU_UU<scePsmfGetAudioInfo>,                       "scePsmfGetAudioInfo",                      'x', "xx" },
 	{0X971A3A90, &WrapU_U<scePsmfCheckEPMap>,                          "scePsmfCheckEPmap",                        'x', "x"  },
-	{0X68D42328, &WrapU_UI<scePsmfGetNumberOfSpecificStreams>,         "scePsmfGetNumberOfSpecificStreams",        'x', "xi" },
+	{0X68D42328, &WrapU_UI<scePsmfGetNumberOfSpecificStreams>,         "scePsmfGetNumberOfSpecificStreams",        'i', "xi" },
 	{0X5B70FCC1, &WrapU_UU<scePsmfQueryStreamOffset>,                  "scePsmfQueryStreamOffset",                 'x', "xx" },
 	{0X9553CC91, &WrapU_UU<scePsmfQueryStreamSize>,                    "scePsmfQueryStreamSize",                   'x', "xx" },
 	{0XB78EB9E9, &WrapU_UU<scePsmfGetHeaderSize>,                      "scePsmfGetHeaderSize",                     'x', "xx" },
