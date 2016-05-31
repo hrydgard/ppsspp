@@ -2015,8 +2015,11 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 		hleReSchedule("thread started");
 	}
 
-	// Starting a thread automatically resumes the dispatch thread.
-	dispatchEnabled = true;
+	// Starting a thread automatically resumes the dispatch thread if the new thread has worse priority.
+	// Seems strange but also seems reproducible.
+	if (cur && cur->nt.currentPriority <= startThread->nt.currentPriority) {
+		dispatchEnabled = true;
+	}
 
 	__KernelChangeReadyState(startThread, threadToStartID, true);
 
@@ -2413,6 +2416,17 @@ static s64 __KernelDelayThreadUs(u64 usec) {
 	if (usec < 200) {
 		return 210;
 	}
+
+	if (usec > 0x8000000000000000ULL) {
+		// Wrap around (behavior seen on firmware) and potentially wake up soon.
+		usec -= 0x8000000000000000ULL;
+	}
+	if (usec > 0x0010000000000000ULL) {
+		// This will probably overflow when we convert to cycles.
+		// Note: converting millenia to hundreds of years.  Should be safe, basically perma-delay.
+		usec >>= 12;
+	}
+
 	// It never wakes up right away.  It usually takes at least 15 extra us, but let's be nicer.
 	return usec + 10;
 }
@@ -2439,40 +2453,38 @@ int sceKernelDelayThread(u32 usec) {
 	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
 }
 
-int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
-{
+int sceKernelDelaySysClockThreadCB(u32 sysclockAddr) {
 	auto sysclock = PSPPointer<SceKernelSysClock>::Create(sysclockAddr);
 	if (!sysclock.IsValid()) {
-		ERROR_LOG(SCEKERNEL, "sceKernelDelaySysClockThreadCB(%08x) - bad pointer", sysclockAddr);
-		return -1;
+		// Note: crashes on real firmware.
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointer");
 	}
 
-	// TODO: Which unit?
+	// This is just a u64 of usecs.  All bits are respected, but overflow can happen for very large values.
 	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
-	DEBUG_LOG(SCEKERNEL, "sceKernelDelaySysClockThreadCB(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+	s64 delayUs = __KernelDelayThreadUs(usec);
+	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
-	return 0;
+	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
 }
 
-int sceKernelDelaySysClockThread(u32 sysclockAddr)
-{
+int sceKernelDelaySysClockThread(u32 sysclockAddr) {
 	auto sysclock = PSPPointer<SceKernelSysClock>::Create(sysclockAddr);
 	if (!sysclock.IsValid()) {
-		ERROR_LOG(SCEKERNEL, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
-		return -1;
+		// Note: crashes on real firmware.
+		return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointer");
 	}
 
-	// TODO: Which unit?
+	// This is just a u64 of usecs.  All bits are respected, but overflow can happen for very large values.
 	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
-	DEBUG_LOG(SCEKERNEL, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
+	s64 delayUs = __KernelDelayThreadUs(usec);
+	__KernelScheduleWakeup(curThread, delayUs);
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
-	return 0;
+	return hleLogSuccessI(SCEKERNEL, 0, "delaying %lld usecs", delayUs);
 }
 
 u32 __KernelGetThreadPrio(SceUID id)
