@@ -166,6 +166,7 @@ public:
 
 	void setStreamNum(int num);
 	bool setStreamWithType(int type, int channel);
+	bool setStreamWithTypeNumber(int type, int n);
 
 	int FindEPWithTimestamp(int pts) const;
 
@@ -543,9 +544,25 @@ void Psmf::setStreamNum(int num) {
 }
 
 bool Psmf::setStreamWithType(int type, int channel) {
-	for (PsmfStreamMap::iterator iter = streamMap.begin(); iter != streamMap.end(); ++iter) {
-		if (iter->second->type == type && iter->second->channel == channel) {
-			setStreamNum(iter->first);
+	for (auto iter : streamMap) {
+		if (iter.second->matchesType(type) && iter.second->channel == channel) {
+			setStreamNum(iter.first);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Psmf::setStreamWithTypeNumber(int type, int n) {
+	for (auto iter : streamMap) {
+		if (iter.second->matchesType(type)) {
+			if (n != 0) {
+				// Keep counting...
+				n--;
+				continue;
+			}
+			// Okay, this is the one.
+			setStreamNum(iter.first);
 			return true;
 		}
 	}
@@ -706,8 +723,7 @@ static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamTy
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	INFO_LOG_REPORT(ME, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
-	// right now typeNum and channel are the same...
-	if (!psmf->setStreamWithType(streamType, typeNum)) {
+	if (!psmf->setStreamWithTypeNumber(streamType, typeNum)) {
 		psmf->setStreamNum(-1);
 	}
 	return 0;
