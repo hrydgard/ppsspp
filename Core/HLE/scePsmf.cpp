@@ -925,16 +925,15 @@ static u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 	return 0;
 }
 
-static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
-{
+static u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(ME, "scePsmfGetCurrentStreamNumber(%08x): invalid psmf", psmfStruct);
-		return ERROR_PSMF_NOT_FOUND;
+		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-
-	DEBUG_LOG(ME, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
-	return psmf->currentStreamNum;
+	if (psmf->currentStreamNum < 0) {
+		return hleLogError(ME, psmf->currentStreamNum, "invalid stream");
+	}
+	return hleLogSuccessI(ME, psmf->currentStreamNum);
 }
 
 static u32 scePsmfCheckEPMap(u32 psmfStruct)
