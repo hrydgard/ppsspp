@@ -359,10 +359,16 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 		const u8 *const currentStreamAddr = ptr + 0x82 + i * 16;
 		int streamId = currentStreamAddr[0];
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_AVC_STREAM, ++currentVideoStreamNum);
+			stream = new PsmfStream(PSMF_AVC_STREAM, streamId & 0x0F);
 			stream->readMPEGVideoStreamParams(currentStreamAddr, ptr, this);
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_ATRAC_STREAM, ++currentAudioStreamNum);
+			int type = PSMF_ATRAC_STREAM;
+			int privateStreamId = currentStreamAddr[1];
+			if ((privateStreamId & 0xF0) != 0) {
+				WARN_LOG_REPORT(ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
+				type = PSMF_PCM_STREAM;
+			}
+			stream = new PsmfStream(type, privateStreamId & 0x0F);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
 		}
 		if (stream) {
