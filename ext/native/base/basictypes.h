@@ -6,7 +6,6 @@
 #ifdef _WIN32
 #pragma warning(disable:4244)
 #pragma warning(disable:4996)
-#pragma warning(disable:4305)  // truncation from double to float
 #endif
 
 #define DISALLOW_COPY_AND_ASSIGN(t) \

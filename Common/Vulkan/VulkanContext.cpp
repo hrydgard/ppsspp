@@ -27,8 +27,6 @@
 #define new DBG_NEW
 #endif
 
-using namespace std;
-
 static const char *validationLayers[] = {
 	"VK_LAYER_LUNARG_standard_validation",
 	/*

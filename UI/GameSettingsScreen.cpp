@@ -58,7 +58,6 @@
 #include "util/text/utf8.h"
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
-using namespace std;
 
 #endif
 
@@ -729,7 +728,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
 	}
 	else {
-		ofstream myfile;
+		std::ofstream myfile;
 		myfile.open(PPSSPPpath + "installed.txt");
 		if (myfile.is_open()){
 			myfile.close();

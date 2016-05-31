@@ -367,6 +367,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		case ReplacedTextureFormat::F_8888_BGRA:
 			ConvertBGRA8888ToRGBA8888(saveBuf.data(), (const u32 *)data, (pitch * h) / sizeof(u32));
 			break;
+		case ReplacedTextureFormat::F_8888:
+			// Impossible.  Just so we can get warnings on other missed formats.
+			break;
 		}
 
 		data = saveBuf.data();

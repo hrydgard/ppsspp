@@ -62,12 +62,12 @@ int ChunkFile::readInt() {
 			return *(int *)(data + pos - 4);
 		else {
 			int i;
-			fread(&i, 1, 4, file);
-			return i;
+			if (fread(&i, 1, 4, file) == 4) {
+				return i;
+			}
 		}
-	}	else {
-		return 0;
 	}
+	return 0;
 }
 
 void ChunkFile::writeInt(int i) {
@@ -166,18 +166,23 @@ void ChunkFile::ascend() {
 
 //read a block
 void ChunkFile::readData(void *what, int count) {
-	if (fastMode)
+	if (fastMode) {
 		memcpy(what, data + pos, count);
-	else
-		fread(what, 1, count, file);
+	} else {
+		if (fread(what, 1, count, file) != count) {
+			ELOG("Failed to read complete %d bytes", count);
+		}
+	}
 
 	pos+=count;
-	char temp[4]; //discarded
 	count &= 3;
 	if (count) {
 		count=4-count;
-		if (!fastMode)
-			fread(temp, 1, count, file);   // could just as well seek
+		if (!fastMode) {
+			if (fseek(file, count, SEEK_CUR) != 0) {
+				ELOG("Missing padding");
+			}
+		}
 		pos+=count;
 	}
 }

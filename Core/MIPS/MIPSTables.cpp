@@ -1054,13 +1054,6 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 	return 1;
 }
 
-static inline void DelayBranchTo(MIPSState *curMips, u32 where)
-{
-	curMips->pc += 4;
-	curMips->nextPC = where;
-	curMips->inDelaySlot = true;
-}
-
 const char *MIPSGetName(MIPSOpcode op)
 {
 	static const char *noname = "unk";
