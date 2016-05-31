@@ -608,7 +608,7 @@ void FPURegCache::MapReg(const int i, bool doLoad, bool makeDirty) {
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg %d", (int)xr);
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "WTF - FPURegCache::MapReg - invalid reg %d", (int)xr);
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -655,7 +655,7 @@ void FPURegCache::StoreFromRegister(int i) {
 
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "WTF - FPURegCache::StoreFromRegister - invalid reg: x %i (mr: %i). PC=%08x", (int)xr, i, js_->compilerPC);
 		if (regs[i].lane != 0) {
 			const int *mri = xregs[xr].mipsRegs;
 			int seq = 1;
@@ -738,7 +738,7 @@ void FPURegCache::DiscardR(int i) {
 	_assert_msg_(JIT, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
 		if (regs[i].lane != 0) {
 			// But we can't just discard all of them in SIMD, just the one lane.
@@ -783,7 +783,7 @@ void FPURegCache::DiscardVS(int vreg) {
 	if (vregs[vreg].away) {
 		_assert_msg_(JIT, vregs[vreg].lane != 0, "VS expects a SIMD reg.");
 		X64Reg xr = vregs[vreg].location.GetSimpleReg();
-		_assert_msg_(JIT, xr >= 0 && xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
 		for (int i = 0; i < 4; ++i) {
 			int mr = xregs[xr].mipsRegs[i];
