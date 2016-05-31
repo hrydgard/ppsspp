@@ -376,6 +376,9 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 			streamMap[currentStreamNum] = stream;
 		}
 	}
+
+	// Default to the first stream.
+	currentStreamNum = 0;
 }
 
 Psmf::~Psmf() {
