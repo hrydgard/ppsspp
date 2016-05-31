@@ -99,8 +99,12 @@ bool TextureReplacer::LoadIni() {
 			auto hashes = ini.GetOrCreateSection("hashes");
 			// Format: hashname = filename.png
 			for (std::string hashName : hashNames) {
-				std::transform(hashName.begin(), hashName.end(), hashName.begin(), tolower);
-				hashes->Get(hashName.c_str(), &aliases_[hashName], "");
+				ReplacementAliasKey key(0, 0, 0);
+				if (sscanf(hashName.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &key.level) >= 1) {
+					hashes->Get(hashName.c_str(), &aliases_[key], "");
+				} else {
+					ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", hashName.c_str());
+				}
 			}
 		}
 
@@ -385,22 +389,42 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 }
 
 std::string TextureReplacer::LookupHashFile(u64 cachekey, u32 hash, int level) {
-	const std::string hashname = HashName(cachekey, hash, level);
-	auto alias = aliases_.find(hashname);
+	ReplacementAliasKey key(cachekey, hash, level);
+	auto alias = aliases_.find(key);
+	if (alias == aliases_.end()) {
+		// Also check for a few more aliases with zeroed portions:
+		// No data hash.
+		key.hash = 0;
+		alias = aliases_.find(key);
+
+		if (alias == aliases_.end()) {
+			// No address.
+			key.cachekey = cachekey & 0xFFFFFFFFULL;
+			key.hash = hash;
+			alias = aliases_.find(key);
+		}
+
+		if (alias == aliases_.end()) {
+			// Address, but not clut hash (in case of garbage clut data.)
+			key.cachekey = cachekey & ~0xFFFFFFFFULL;
+			key.hash = hash;
+			alias = aliases_.find(key);
+		}
+
+		if (alias == aliases_.end()) {
+			// Anything with this data hash (a little dangerous.)
+			key.cachekey = 0;
+			key.hash = hash;
+			alias = aliases_.find(key);
+		}
+	}
+
 	if (alias != aliases_.end()) {
 		// Note: this will be blank if explicitly ignored.
 		return alias->second;
 	}
 
-	// Also check for a cachekey-only alias.  This is mainly for ignoring videos.
-	const std::string keyonly = hashname.substr(0, 16);
-	auto keyonlyAlias = aliases_.find(keyonly);
-	if (keyonlyAlias != aliases_.end()) {
-		// Note: this will be blank if explicitly ignored.
-		return keyonlyAlias->second;
-	}
-
-	return hashname + ".png";
+	return HashName(cachekey, hash, level) + ".png";
 }
 
 std::string TextureReplacer::HashName(u64 cachekey, u32 hash, int level) {
