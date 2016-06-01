@@ -1084,10 +1084,8 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 		return ERROR_PSMFPLAYER_INVALID_PARAM;
 	}
 	if (!psmfPlayerMap.empty()) {
-		ERROR_LOG_REPORT(ME, "scePsmfPlayerCreate(%08x, %08x): already have an active player", psmfPlayer, dataPtr);
-		// TODO: Tests show this is what we should do.  Leaving it off for now to see if safe.
-		//*player = 0;
-		//return ERROR_MPEG_ALREADY_INIT;
+		*player = 0;
+		return hleReportError(ME, ERROR_MPEG_ALREADY_INIT, "already have an active player");
 	}
 
 	INFO_LOG(ME, "scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, dataPtr);
