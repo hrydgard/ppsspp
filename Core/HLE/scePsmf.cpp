@@ -675,30 +675,44 @@ void __PsmfShutdown()
 	psmfPlayerMap.clear();
 }
 
-static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
-{
-	if (!Memory::IsValidAddress(psmfData)) {
-		// TODO: Check error code.
-		ERROR_LOG_REPORT(ME, "scePsmfSetPsmf(%08x, %08x): bad address", psmfStruct, psmfData);
-		return SCE_KERNEL_ERROR_ILLEGAL_ADDRESS;
+static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
+	if (!Memory::IsValidAddress(psmfData) || !Memory::IsValidAddress(psmfData)) {
+		// Crashes on a PSP.
+		return hleReportError(ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
-	INFO_LOG(ME, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
-
 	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
+	if (psmf->magic != PSMF_MAGIC) {
+		delete psmf;
+		return hleLogError(ME, ERROR_PSMF_INVALID_PSMF, "invalid psmf data");
+	}
+	// Note: devkit 00000000 supports only '0012'(0F), '0013'(1F), and '0014'(2F).  03000310+ supports '0015'(3F.)
+	if (psmf->version == 0) {
+		delete psmf;
+		return hleLogError(ME, ERROR_PSMF_BAD_VERSION, "invalid psmf version");
+	}
+	if (psmf->streamOffset == 0) {
+		delete psmf;
+		return hleLogError(ME, ERROR_PSMF_INVALID_VALUE, "invalid psmf version");
+	}
 
+	// Note: this structure changes between versions.
+	// TODO: These values are not right, but games probably don't read them.
 	PsmfData data = {0};
 	data.version = psmf->version;
 	data.headerSize = 0x800;
 	data.streamSize = psmf->streamSize;
 	data.streamNum = psmf->numStreams;
 	data.headerOffset = psmf->headerOffset;
+	Memory::WriteStruct(psmfStruct, &data);
+
+	// Because the Psmf struct is sometimes copied, we use a value inside as an id.
 	auto iter = psmfMap.find(data.headerOffset);
 	if (iter != psmfMap.end())
 		delete iter->second;
 	psmfMap[data.headerOffset] = psmf;
-	Memory::WriteStruct(psmfStruct, &data);
-	return 0;
+
+	return hleLogSuccessI(ME, 0);
 }
 
 static u32 scePsmfGetNumberOfStreams(u32 psmfStruct) {
