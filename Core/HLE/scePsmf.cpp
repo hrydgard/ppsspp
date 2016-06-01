@@ -164,9 +164,9 @@ public:
 		return currentStreamNum >= 0 && streamMap.find(currentStreamNum) != streamMap.end();
 	}
 
-	bool setStreamNum(int num);
-	bool setStreamWithType(int type, int channel);
-	bool setStreamWithTypeNumber(int type, int n);
+	bool setStreamNum(u32 psmfStruct, int num, bool updateCached = true);
+	bool setStreamWithType(u32 psmfStruct, int type, int channel);
+	bool setStreamWithTypeNumber(u32 psmfStruct, int type, int n);
 
 	int FindEPWithTimestamp(int pts) const;
 
@@ -553,10 +553,16 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	}
 }
 
-bool Psmf::setStreamNum(int num) {
+bool Psmf::setStreamNum(u32 psmfStruct, int num, bool updateCached) {
+	auto data = PSPPointer<PsmfData>::Create(psmfStruct);
 	currentStreamNum = num;
-	currentStreamType = -1;
-	currentStreamChannel = -1;
+	data->streamNum = num;
+
+	// One of the functions can set this to invalid without invalidating these values.
+	if (updateCached) {
+		currentStreamType = -1;
+		currentStreamChannel = -1;
+	}
 	if (!isValidCurrentStreamNumber())
 		return false;
 	PsmfStreamMap::iterator iter = streamMap.find(currentStreamNum);
@@ -569,17 +575,17 @@ bool Psmf::setStreamNum(int num) {
 	return true;
 }
 
-bool Psmf::setStreamWithType(int type, int channel) {
+bool Psmf::setStreamWithType(u32 psmfStruct, int type, int channel) {
 	for (auto iter : streamMap) {
 		// Note: this does NOT support PSMF_AUDIO_STREAM.
 		if (iter.second->type_ == type && iter.second->channel_ == channel) {
-			return setStreamNum(iter.first);
+			return setStreamNum(psmfStruct, iter.first);
 		}
 	}
 	return false;
 }
 
-bool Psmf::setStreamWithTypeNumber(int type, int n) {
+bool Psmf::setStreamWithTypeNumber(u32 psmfStruct, int type, int n) {
 	for (auto iter : streamMap) {
 		if (iter.second->matchesType(type)) {
 			if (n != 0) {
@@ -588,7 +594,7 @@ bool Psmf::setStreamWithTypeNumber(int type, int n) {
 				continue;
 			}
 			// Okay, this is the one.
-			return setStreamNum(iter.first);
+			return setStreamNum(psmfStruct, iter.first);
 		}
 	}
 	return false;
@@ -618,16 +624,20 @@ int Psmf::FindEPWithTimestamp(int pts) const {
 static std::map<u32, Psmf *> psmfMap;
 static std::map<u32, PsmfPlayer *> psmfPlayerMap;
 
-static Psmf *getPsmf(u32 psmf)
-{
+static Psmf *getPsmf(u32 psmf) {
 	auto psmfstruct = PSPPointer<PsmfData>::Create(psmf);
 	if (!psmfstruct.IsValid())
-		return 0;
+		return nullptr;
+
 	auto iter = psmfMap.find(psmfstruct->headerOffset);
-	if (iter != psmfMap.end())
+	if (iter != psmfMap.end()) {
+		// TODO: Migrate to only using PSP RAM.
+		// Each instance can have its own selected stream.  This is important.
+		iter->second->currentStreamNum = psmfstruct->streamNum;
 		return iter->second;
-	else
-		return 0;
+	} else {
+		return nullptr;
+	}
 }
 
 static PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
@@ -745,9 +755,9 @@ static u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u3
 	if (!psmf) {
 		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	if (!psmf->setStreamWithType(streamType, channel)) {
+	if (!psmf->setStreamWithType(psmfStruct, streamType, channel)) {
 		// An invalid type seems to make the stream number invalid, but retain the old type/channel.
-		psmf->currentStreamNum = ERROR_PSMF_INVALID_ID;
+		psmf->setStreamNum(psmfStruct, ERROR_PSMF_INVALID_ID, false);
 		// Also, returns 0 even when no stream found.
 		return hleLogWarning(ME, 0, "no stream found");
 	}
@@ -759,7 +769,7 @@ static u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamTy
 	if (!psmf) {
 		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	if (!psmf->setStreamWithTypeNumber(streamType, typeNum)) {
+	if (!psmf->setStreamWithTypeNumber(psmfStruct, streamType, typeNum)) {
 		// Don't update stream, just bail out.
 		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "no stream found");
 	}
@@ -771,8 +781,8 @@ static u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 	if (!psmf) {
 		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	if (!psmf->setStreamNum(streamNum)) {
-		psmf->setStreamNum(ERROR_PSMF_NOT_INITIALIZED);
+	if (!psmf->setStreamNum(psmfStruct, streamNum)) {
+		psmf->setStreamNum(psmfStruct, ERROR_PSMF_NOT_INITIALIZED);
 		return hleLogWarning(ME, ERROR_PSMF_INVALID_ID, "bad stream id");
 	}
 	return hleLogSuccessI(ME, 0);
