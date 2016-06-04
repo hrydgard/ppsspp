@@ -1414,7 +1414,7 @@ void PostPutAction::run(MipsCall &call) {
 
 
 // Program signals that it has written data to the ringbuffer and gets a callback ?
-static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
+static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int available)
 {
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
@@ -1444,7 +1444,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 availabl
 		// TODO: Should call this multiple times until we get numPackets.
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
-		u32 packetsThisRound = std::min(numPackets, (u32)ringbuffer->packets);
+		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets);
 		u32 args[3] = {(u32)ringbuffer->data, packetsThisRound, (u32)ringbuffer->callback_args};
 		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
 	} else {
@@ -2184,7 +2184,7 @@ const HLEFunction sceMpeg[] =
 	{0XA11C7026, &WrapI_UU<sceMpegAvcDecodeMode>,              "sceMpegAvcDecodeMode",               'i', "xx"     },
 	{0X37295ED8, &WrapU_UUUUUU<sceMpegRingbufferConstruct>,    "sceMpegRingbufferConstruct",         'x', "xxxxxx" },
 	{0X13407F13, &WrapU_U<sceMpegRingbufferDestruct>,          "sceMpegRingbufferDestruct",          'x', "x"      },
-	{0XB240A59E, &WrapU_UUU<sceMpegRingbufferPut>,             "sceMpegRingbufferPut",               'x', "xxx"    },
+	{0XB240A59E, &WrapU_UII<sceMpegRingbufferPut>,             "sceMpegRingbufferPut",               'x', "xxx"    },
 	{0XB5F6DC87, &WrapI_U<sceMpegRingbufferAvailableSize>,     "sceMpegRingbufferAvailableSize",     'i', "x"      },
 	{0XD7A29F46, &WrapU_I<sceMpegRingbufferQueryMemSize>,      "sceMpegRingbufferQueryMemSize",      'x', "i"      },
 	{0X769BEBB6, &WrapI_U<sceMpegRingbufferQueryPackNum>,      "sceMpegRingbufferQueryPackNum",      'i', "x"      },
