@@ -158,7 +158,7 @@ void MpegDemux::demux(int audioChannel)
 {
 	if (audioChannel >= 0)
 		m_audioChannel = audioChannel;
-	while (m_index < m_len)
+	while (m_index < m_readSize)
 	{
 		if (m_index + 2048 > m_readSize)
 			break;
@@ -202,7 +202,7 @@ void MpegDemux::demux(int audioChannel)
 	}
 	if (m_index < m_readSize) {
 		int size = m_readSize - m_index;
-		memcpy(m_buf, m_buf + m_index, size);
+		memmove(m_buf, m_buf + m_index, size);
 		m_index = 0;
 		m_readSize = size;
 	} else {

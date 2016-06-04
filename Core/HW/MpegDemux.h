@@ -53,7 +53,7 @@ private:
 		return (((s64) (c & 0x0E)) << 29) | ((read16() >> 1) << 15) | (read16() >> 1);
 	}
 	bool isEOF() const {
-		return m_index >= m_len;
+		return m_index >= m_readSize;
 	}
 	void skip(int n) {
 		if (n > 0) {
