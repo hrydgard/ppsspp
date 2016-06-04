@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "FileUtil.h"
 #include "MemoryUtil.h"
 #include "MemArena.h"
 
@@ -91,6 +92,9 @@ int ashmem_unpin_region(int fd, size_t offset, size_t len) {
 #endif  // Android
 
 #ifndef _WIN32
+static const std::string tmpfs_location = "/dev/shm";
+static const std::string tmpfs_ram_temp_file = "/dev/shm/gc_mem.tmp";
+
 // do not make this "static"
 #ifdef MAEMO
 std::string ram_temp_file = "/home/user/gc_mem.tmp";
@@ -131,24 +135,37 @@ void MemArena::GrabLowMemSpace(size_t size)
 	// Use ashmem so we don't have to allocate a file on disk!
 	fd = ashmem_create_region("PPSSPP_RAM", size);
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
-	if (fd < 0)
-	{
+	if (fd < 0) {
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
 		return;
 	}
 #else
 	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
-	fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
-	if (fd < 0)
-	{
+
+	// Some platforms (like Raspberry Pi) end up flushing to disk.
+	// To avoid this, we try to use /dev/shm (tmpfs) if it exists.
+	fd = -1;
+	if (File::Exists(tmpfs_location)) {
+		fd = open(tmpfs_ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
+		if (fd >= 0) {
+			// Great, this definitely shouldn't flush to disk.
+			ram_temp_file = tmpfs_ram_temp_file;
+		}
+	}
+
+	if (fd < 0) {
+		fd = open(ram_temp_file.c_str(), O_RDWR | O_CREAT, mode);
+	}
+	if (fd < 0) {
 		ERROR_LOG(MEMMAP, "Failed to grab memory space as a file: %s of size: %08x  errno: %d", ram_temp_file.c_str(), (int)size, (int)(errno));
 		return;
 	}
 	// delete immediately, we keep the fd so it still lives
-	unlink(ram_temp_file.c_str());
-	if (ftruncate(fd, size) != 0)
-	{
-		ERROR_LOG(MEMMAP, "Failed to ftruncate %d to size %08x", (int)fd, (int)size);
+	if (unlink(ram_temp_file.c_str()) != 0) {
+		WARN_LOG(MEMMAP, "Failed to unlink %s", ram_temp_file.c_str());
+	}
+	if (ftruncate(fd, size) != 0) {
+		ERROR_LOG(MEMMAP, "Failed to ftruncate %d (%s) to size %08x", (int)fd, ram_temp_file.c_str(), (int)size);
 	}
 	return;
 #endif
