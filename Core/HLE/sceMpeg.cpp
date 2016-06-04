@@ -68,8 +68,9 @@ static const int MPEG_DATA_STREAM = 3;      // Arbitrary user defined type. Can 
 static const int MPEG_AUDIO_STREAM = 15;
 static const int MPEG_AU_MODE_DECODE = 0;
 static const int MPEG_AU_MODE_SKIP = 1;
-static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
-static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
+static const u32 MPEG_MEMSIZE_0104 = 0x0b3DB;
+static const u32 MPEG_MEMSIZE_0105 = 0x10000;     // 64k.
+static const int MPEG_AVC_DECODE_SUCCESS = 1;     // Internal value.
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
@@ -467,6 +468,13 @@ static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 da
 	return 0;
 }
 
+static u32 MpegRequiredMem() {
+	if (mpegLibVersion < 0x0105) {
+		return MPEG_MEMSIZE_0104;
+	}
+	return MPEG_MEMSIZE_0105;
+}
+
 static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
 	if (!Memory::IsValidAddress(mpegAddr)) {
@@ -474,7 +482,7 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 		return -1;
 	}
 
-	if (size < MPEG_MEMSIZE) {
+	if (size < MpegRequiredMem()) {
 		WARN_LOG(ME, "ERROR_MPEG_NO_MEMORY=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 		return ERROR_MPEG_NO_MEMORY;
 	}
@@ -1537,10 +1545,8 @@ static u32 sceMpegFinish()
 	return hleDelayResult(0, "mpeg finish", 250);
 }
 
-static u32 sceMpegQueryMemSize()
-{
-	DEBUG_LOG(ME, "%i = sceMpegQueryMemSize()",MPEG_MEMSIZE);
-	return MPEG_MEMSIZE;
+static u32 sceMpegQueryMemSize() {
+	return hleLogSuccessX(ME, MpegRequiredMem());
 }
 
 static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
