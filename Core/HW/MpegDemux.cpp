@@ -154,6 +154,37 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 	return channel;
 }
 
+bool MpegDemux::skipPackHeader() {
+	// MPEG version / SCR
+	if ((read8() & 0xC4) != 0x44) {
+		return false;
+	}
+	skip(1);
+	if ((read8() & 0x04) != 0x04) {
+		return false;
+	}
+	skip(1);
+	if ((read8() & 0x04) != 0x04) {
+		return false;
+	}
+	// SCR_ext
+	if ((read8() & 0x01) != 0x01) {
+		return false;
+	}
+
+	int muxrate = read24();
+	if ((muxrate & 3) != 3) {
+		return false;
+	}
+	int stuffing = read8() & 7;
+	while (stuffing > 0) {
+		if (read8() != 0xFF) {
+			return false;
+		}
+	}
+	return true;
+}
+
 void MpegDemux::demux(int audioChannel)
 {
 	if (audioChannel >= 0)
@@ -169,10 +200,10 @@ void MpegDemux::demux(int audioChannel)
 		}
 		switch (startCode) {
 		case PACK_START_CODE:
-			skip(10);
+			skipPackHeader();
 			break;
 		case SYSTEM_HEADER_START_CODE:
-			skip(14);
+			skip(read16());
 			break;
 		case PADDING_STREAM:
 		case PRIVATE_STREAM_2:

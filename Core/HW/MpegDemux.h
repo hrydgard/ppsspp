@@ -46,6 +46,9 @@ private:
 	int read16() {
 		return (read8() << 8) | read8();
 	}
+	int read24() {
+		return (read8() << 16) | (read8() << 8) | read8();
+	}
 	s64 readPts() {
 		return readPts(read8());
 	}
@@ -62,6 +65,7 @@ private:
 	}
 	int readPesHeader(PesHeader &pesHeader, int length, int startCode);
 	int demuxStream(bool bdemux, int startCode, int channel);
+	bool skipPackHeader();
 
 	int m_index;
 	int m_len;
