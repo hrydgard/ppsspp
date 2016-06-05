@@ -68,8 +68,9 @@ static const int MPEG_DATA_STREAM = 3;      // Arbitrary user defined type. Can 
 static const int MPEG_AUDIO_STREAM = 15;
 static const int MPEG_AU_MODE_DECODE = 0;
 static const int MPEG_AU_MODE_SKIP = 1;
-static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
-static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
+static const u32 MPEG_MEMSIZE_0104 = 0x0b3DB;
+static const u32 MPEG_MEMSIZE_0105 = 0x10000;     // 64k.
+static const int MPEG_AVC_DECODE_SUCCESS = 1;     // Internal value.
 
 static const int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
@@ -269,7 +270,7 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
 	buf->packets = packets;
 	buf->packetsRead = 0;
-	buf->packetsWritten = 0;
+	buf->packetsWritePos = 0;
 	buf->packetsAvail = 0;
 	buf->packetSize = 2048;
 	buf->data = data;
@@ -467,6 +468,13 @@ static u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 da
 	return 0;
 }
 
+static u32 MpegRequiredMem() {
+	if (mpegLibVersion < 0x0105) {
+		return MPEG_MEMSIZE_0104;
+	}
+	return MPEG_MEMSIZE_0105;
+}
+
 static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
 	if (!Memory::IsValidAddress(mpegAddr)) {
@@ -474,7 +482,7 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 		return -1;
 	}
 
-	if (size < MPEG_MEMSIZE) {
+	if (size < MpegRequiredMem()) {
 		WARN_LOG(ME, "ERROR_MPEG_NO_MEMORY=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)", mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
 		return ERROR_MPEG_NO_MEMORY;
 	}
@@ -1070,6 +1078,8 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
+	s32 beforeAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
@@ -1095,7 +1105,14 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	s32 afterAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	// Don't actually reset avail, we only change it by what was decoded.
+	// Garbage frames can cause this to be incorrect, but some games expect that.
+	if (mpegLibVersion <= 0x0103) {
+		ringbuffer->packetsAvail += afterAvail - beforeAvail;
+	} else {
+		ringbuffer->packetsAvail = afterAvail;
+	}
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -1239,6 +1256,8 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
+	s32 beforeAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
@@ -1250,10 +1269,17 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 		// Don't draw here, we'll draw in the Csc func.
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
-	}else {
+	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	s32 afterAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	// Don't actually reset avail, we only change it by what was decoded.
+	// Garbage frames can cause this to be incorrect, but some games expect that.
+	if (mpegLibVersion <= 0x0103) {
+		ringbuffer->packetsAvail += afterAvail - beforeAvail;
+	} else {
+		ringbuffer->packetsAvail = afterAvail;
+	}
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -1379,8 +1405,40 @@ void PostPutAction::run(MipsCall &call) {
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringAddr_);
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
+	int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+	const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
 
 	int packetsAdded = currentMIPS->r[MIPS_REG_V0];
+
+	// It seems validation is done only by older mpeg libs.
+	if (mpegLibVersion < 0x0105 && packetsAdded > 0) {
+		// TODO: Faster / less wasteful validation.
+		MpegDemux *demuxer = new MpegDemux(packetsAdded * 2048, 0);
+		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
+		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
+		bool invalid = false;
+		for (int i = 0; i < packetsAdded; ++i) {
+			demuxer->addStreamData(buf, 2048);
+			buf += 2048;
+
+			if (!demuxer->demux(0xFFFF)) {
+				invalid = true;
+			}
+		}
+		if (invalid) {
+			// Bail out early - don't accept any of the packets, even the good ones.
+			ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut(): invalid mpeg data");
+			call.setReturnValue(ERROR_MPEG_INVALID_VALUE);
+
+			if (mpegLibVersion <= 0x0103) {
+				// Act like they were actually added, but don't increment read pos.
+				ringbuffer->packetsWritePos += packetsAdded;
+				ringbuffer->packetsAvail += packetsAdded;
+			}
+			return;
+		}
+	}
+
 	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);
@@ -1391,12 +1449,12 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packets - ringbuffer->packetsAvail);
 			packetsAdded = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer->data), packetsAdded * 2048) / 2048;
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, packetsAdded * 2048) / 2048;
 		if (actuallyAdded != packetsAdded) {
 			WARN_LOG_REPORT(ME, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}
 		ringbuffer->packetsRead += packetsAdded;
-		ringbuffer->packetsWritten += packetsAdded;
+		ringbuffer->packetsWritePos += packetsAdded;
 		ringbuffer->packetsAvail += packetsAdded;
 	}
 	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer->packetsRead, ringbuffer->packets);
@@ -1406,7 +1464,7 @@ void PostPutAction::run(MipsCall &call) {
 
 
 // Program signals that it has written data to the ringbuffer and gets a callback ?
-static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
+static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int available)
 {
 	numPackets = std::min(numPackets, available);
 	if (numPackets <= 0) {
@@ -1436,8 +1494,9 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 availabl
 		// TODO: Should call this multiple times until we get numPackets.
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
-		u32 packetsThisRound = std::min(numPackets, (u32)ringbuffer->packets);
-		u32 args[3] = {(u32)ringbuffer->data, packetsThisRound, (u32)ringbuffer->callback_args};
+		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
+		u32 args[3] = {(u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args};
 		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
@@ -1537,10 +1596,8 @@ static u32 sceMpegFinish()
 	return hleDelayResult(0, "mpeg finish", 250);
 }
 
-static u32 sceMpegQueryMemSize()
-{
-	DEBUG_LOG(ME, "%i = sceMpegQueryMemSize()",MPEG_MEMSIZE);
-	return MPEG_MEMSIZE;
+static u32 sceMpegQueryMemSize() {
+	return hleLogSuccessX(ME, MpegRequiredMem());
 }
 
 static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
@@ -1759,7 +1816,7 @@ static u32 sceMpegFlushAllStream(u32 mpeg)
 	if (ringbuffer.IsValid()) {
 		ringbuffer->packetsAvail = 0;
 		ringbuffer->packetsRead = 0;
-		ringbuffer->packetsWritten = 0;
+		ringbuffer->packetsWritePos = 0;
 	}
 
 	return 0;
@@ -2178,7 +2235,7 @@ const HLEFunction sceMpeg[] =
 	{0XA11C7026, &WrapI_UU<sceMpegAvcDecodeMode>,              "sceMpegAvcDecodeMode",               'i', "xx"     },
 	{0X37295ED8, &WrapU_UUUUUU<sceMpegRingbufferConstruct>,    "sceMpegRingbufferConstruct",         'x', "xxxxxx" },
 	{0X13407F13, &WrapU_U<sceMpegRingbufferDestruct>,          "sceMpegRingbufferDestruct",          'x', "x"      },
-	{0XB240A59E, &WrapU_UUU<sceMpegRingbufferPut>,             "sceMpegRingbufferPut",               'x', "xxx"    },
+	{0XB240A59E, &WrapU_UII<sceMpegRingbufferPut>,             "sceMpegRingbufferPut",               'x', "xxx"    },
 	{0XB5F6DC87, &WrapI_U<sceMpegRingbufferAvailableSize>,     "sceMpegRingbufferAvailableSize",     'i', "x"      },
 	{0XD7A29F46, &WrapU_I<sceMpegRingbufferQueryMemSize>,      "sceMpegRingbufferQueryMemSize",      'x', "i"      },
 	{0X769BEBB6, &WrapI_U<sceMpegRingbufferQueryPackNum>,      "sceMpegRingbufferQueryPackNum",      'i', "x"      },
