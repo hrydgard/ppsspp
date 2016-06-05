@@ -15,7 +15,7 @@ public:
 	~MpegDemux();
 
 	bool addStreamData(const u8 *buf, int addSize);
-	void demux(int audioChannel);
+	bool demux(int audioChannel);
 
 	// return its framesize
 	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s64 *pts = NULL);
@@ -64,7 +64,7 @@ private:
 		}
 	}
 	int readPesHeader(PesHeader &pesHeader, int length, int startCode);
-	int demuxStream(bool bdemux, int startCode, int channel);
+	int demuxStream(bool bdemux, int startCode, int length, int channel);
 	bool skipPackHeader();
 
 	int m_index;
