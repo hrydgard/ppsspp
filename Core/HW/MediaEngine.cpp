@@ -147,6 +147,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 
 	m_ringbuffersize = 0;
 	m_mpegheaderReadPos = 0;
+	m_mpegheaderSize = sizeof(m_mpegheader);
 	m_audioType = PSP_CODEC_AT3PLUS; // in movie, we use only AT3+ audio
 }
 
@@ -166,8 +167,8 @@ void MediaEngine::closeMedia() {
 	m_isVideoEnd = false;
 }
 
-void MediaEngine::DoState(PointerWrap &p){
-	auto s = p.Section("MediaEngine", 1, 3);
+void MediaEngine::DoState(PointerWrap &p) {
+	auto s = p.Section("MediaEngine", 1, 4);
 	if (!s)
 		return;
 
@@ -175,6 +176,11 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(m_audioStream);
 
 	p.DoArray(m_mpegheader, sizeof(m_mpegheader));
+	if (s >= 4) {
+		p.Do(m_mpegheaderSize);
+	} else {
+		m_mpegheaderSize = sizeof(m_mpegheader);
+	}
 
 	p.Do(m_ringbuffersize);
 
@@ -218,12 +224,11 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	MediaEngine *mpeg = (MediaEngine *)opaque;
 
 	int size = buf_size;
-	const int mpegheaderSize = sizeof(mpeg->m_mpegheader);
-	if (mpeg->m_mpegheaderReadPos < mpegheaderSize) {
-		size = std::min(buf_size, mpegheaderSize - mpeg->m_mpegheaderReadPos);
+	if (mpeg->m_mpegheaderReadPos < mpeg->m_mpegheaderSize) {
+		size = std::min(buf_size, mpeg->m_mpegheaderSize - mpeg->m_mpegheaderReadPos);
 		memcpy(buf, mpeg->m_mpegheader + mpeg->m_mpegheaderReadPos, size);
 		mpeg->m_mpegheaderReadPos += size;
-	} else if (mpeg->m_mpegheaderReadPos == mpegheaderSize) {
+	} else if (mpeg->m_mpegheaderReadPos == mpeg->m_mpegheaderSize) {
 		return 0;
 	} else {
 		size = mpeg->m_pdata->pop_front(buf, buf_size);
@@ -343,7 +348,7 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 		}
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
-			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
+			m_mpegheaderSize = m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int mpegoffset = (int)(*(s32_be*)(m_mpegheader + 8));
 			m_pdata->pop_front(0, mpegoffset);
 			openContext();

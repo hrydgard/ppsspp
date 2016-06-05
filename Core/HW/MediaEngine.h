@@ -135,6 +135,7 @@ public:  // TODO: Very little of this below should be public.
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];  // TODO: Allocate separately
 	int m_mpegheaderReadPos;
+	int m_mpegheaderSize;
 
 	// used for audio type 
 	int m_audioType;
