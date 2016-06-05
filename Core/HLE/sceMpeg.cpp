@@ -1078,6 +1078,8 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
+	s32 beforeAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
@@ -1103,7 +1105,14 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	s32 afterAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	// Don't actually reset avail, we only change it by what was decoded.
+	// Garbage frames can cause this to be incorrect, but some games expect that.
+	if (mpegLibVersion <= 0x0103) {
+		ringbuffer->packetsAvail += afterAvail - beforeAvail;
+	} else {
+		ringbuffer->packetsAvail = afterAvail;
+	}
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -1247,6 +1256,8 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 		return hleDelayResult(ERROR_MPEG_AVC_DECODE_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
+	s32 beforeAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
@@ -1258,10 +1269,17 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 		// Don't draw here, we'll draw in the Csc func.
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
-	}else {
+	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer->packetsAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	s32 afterAvail = ringbuffer->packets - ctx->mediaengine->getRemainSize() / 2048;
+	// Don't actually reset avail, we only change it by what was decoded.
+	// Garbage frames can cause this to be incorrect, but some games expect that.
+	if (mpegLibVersion <= 0x0103) {
+		ringbuffer->packetsAvail += afterAvail - beforeAvail;
+	} else {
+		ringbuffer->packetsAvail = afterAvail;
+	}
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
