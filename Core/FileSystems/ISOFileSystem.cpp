@@ -201,7 +201,7 @@ ISOFileSystem::~ISOFileSystem() {
 }
 
 void ISOFileSystem::ReadDirectory(TreeEntry *root) {
-	for (u32 secnum = root->startsector, endsector = root->startsector + root->dirsize /2048; secnum < endsector; ++secnum) {
+	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
 			ERROR_LOG(FILESYS, "Error reading block for directory %s - skipping", root->name.c_str());
@@ -233,10 +233,10 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			if (dir.identifierLength == 1 && (dir.firstIdChar == '\x00' || dir.firstIdChar == '.')) {
 				entry->name = ".";
 				relative = true;
-			}	else if (dir.identifierLength == 1 && dir.firstIdChar == '\x01')			{
+			} else if (dir.identifierLength == 1 && dir.firstIdChar == '\x01') {
 				entry->name = "..";
 				relative = true;
-			}	else {
+			} else {
 				entry->name = std::string((const char *)&dir.firstIdChar, dir.identifierLength);
 				relative = false;
 			}
@@ -250,7 +250,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 			entry->dirsize = dir.dataLength();
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
 			// Let's not excessively spam the log - I commented this line out.
-			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", e->isDirectory?"D":"F", e->name.c_str(), dir.firstDataSectorLE, e->startingPosition, e->startingPosition);
+			//DEBUG_LOG(FILESYS, "%s: %s %08x %08x %i", entry->isDirectory?"D":"F", entry->name.c_str(), dir.firstDataSectorLE, entry->startingPosition, entry->startingPosition);
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
