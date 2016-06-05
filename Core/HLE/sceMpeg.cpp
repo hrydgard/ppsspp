@@ -270,7 +270,7 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 static void InitRingbuffer(SceMpegRingBuffer *buf, int packets, int data, int size, int callback_addr, int callback_args) {
 	buf->packets = packets;
 	buf->packetsRead = 0;
-	buf->packetsWritten = 0;
+	buf->packetsWritePos = 0;
 	buf->packetsAvail = 0;
 	buf->packetSize = 2048;
 	buf->data = data;
@@ -1387,8 +1387,11 @@ void PostPutAction::run(MipsCall &call) {
 	auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ringAddr_);
 
 	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
+	int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+	const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
 
 	int packetsAdded = currentMIPS->r[MIPS_REG_V0];
+
 	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);
@@ -1399,12 +1402,12 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(ME, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer->packets - ringbuffer->packetsAvail);
 			packetsAdded = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer->data), packetsAdded * 2048) / 2048;
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, packetsAdded * 2048) / 2048;
 		if (actuallyAdded != packetsAdded) {
 			WARN_LOG_REPORT(ME, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}
 		ringbuffer->packetsRead += packetsAdded;
-		ringbuffer->packetsWritten += packetsAdded;
+		ringbuffer->packetsWritePos += packetsAdded;
 		ringbuffer->packetsAvail += packetsAdded;
 	}
 	DEBUG_LOG(ME, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer->packetsRead, ringbuffer->packets);
@@ -1444,8 +1447,9 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		// TODO: Should call this multiple times until we get numPackets.
 		// Normally this would be if it did not read enough, but also if available > packets.
 		// Should ultimately return the TOTAL number of returned packets.
-		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets);
-		u32 args[3] = {(u32)ringbuffer->data, packetsThisRound, (u32)ringbuffer->callback_args};
+		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
+		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
+		u32 args[3] = {(u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args};
 		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
@@ -1765,7 +1769,7 @@ static u32 sceMpegFlushAllStream(u32 mpeg)
 	if (ringbuffer.IsValid()) {
 		ringbuffer->packetsAvail = 0;
 		ringbuffer->packetsRead = 0;
-		ringbuffer->packetsWritten = 0;
+		ringbuffer->packetsWritePos = 0;
 	}
 
 	return 0;

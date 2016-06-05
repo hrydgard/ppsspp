@@ -56,8 +56,9 @@ struct SceMpegAu {
 struct SceMpegRingBuffer {
 	// PSP info
 	s32_le packets;
+	// Misused: this is used as total read, but should be read offset (within ring.)
 	s32_le packetsRead;
-	s32_le packetsWritten;
+	s32_le packetsWritePos;
 	s32_le packetsAvail; // pspsdk: unk2, noxa: iUnk0
 	s32_le packetSize; // 2048
 	u32_le data; // address, ring buffer
