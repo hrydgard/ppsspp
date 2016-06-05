@@ -1392,6 +1392,35 @@ void PostPutAction::run(MipsCall &call) {
 
 	int packetsAdded = currentMIPS->r[MIPS_REG_V0];
 
+	// It seems validation is done only by older mpeg libs.
+	if (mpegLibVersion < 0x0105 && packetsAdded > 0) {
+		// TODO: Faster / less wasteful validation.
+		MpegDemux *demuxer = new MpegDemux(packetsAdded * 2048, 0);
+		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
+		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
+		bool invalid = false;
+		for (int i = 0; i < packetsAdded; ++i) {
+			demuxer->addStreamData(buf, 2048);
+			buf += 2048;
+
+			if (!demuxer->demux(0xFFFF)) {
+				invalid = true;
+			}
+		}
+		if (invalid) {
+			// Bail out early - don't accept any of the packets, even the good ones.
+			ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut(): invalid mpeg data");
+			call.setReturnValue(ERROR_MPEG_INVALID_VALUE);
+
+			if (mpegLibVersion <= 0x0103) {
+				// Act like they were actually added, but don't increment read pos.
+				ringbuffer->packetsWritePos += packetsAdded;
+				ringbuffer->packetsAvail += packetsAdded;
+			}
+			return;
+		}
+	}
+
 	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
 		AnalyzeMpeg(ctx->mpegheader, ctx);
