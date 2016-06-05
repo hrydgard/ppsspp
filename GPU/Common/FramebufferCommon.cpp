@@ -544,6 +544,20 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 	}
 }
 
+void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
+	if (vfb && vfb->safeWidth > 0 && vfb->safeHeight > 0 && !vfb->firstFrameSaved) {
+		// Some games will draw to some memory once, and use it as a render-to-texture later.
+		// To support this, we save the first frame to memory when we have a save w/h.
+		// Saving each frame would be slow.
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
+			vfb->firstFrameSaved = true;
+			vfb->safeWidth = 0;
+			vfb->safeHeight = 0;
+		}
+	}
+}
+
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset, u32 skipDrawReason) {
 	if (updateVRAM_ || size == 0) {
 		return false;

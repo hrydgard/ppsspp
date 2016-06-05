@@ -628,6 +628,8 @@ void FramebufferManagerVulkan::NotifyRenderFramebufferCreated(VirtualFramebuffer
 void FramebufferManagerVulkan::NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth) {
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
+	} else {
+		DownloadFramebufferOnSwitch(prevVfb);
 	}
 	textureCache_->ForgetLastTexture();
 
@@ -819,8 +821,10 @@ void FramebufferManagerVulkan::CopyDisplayToOutput() {
 	// then in theory, we can even avoid starting up a render pass at all for the backbuffer (!). not sure if that
 	// is worth the needed refactoring trouble though.
 
-	// fbo_unbind();
 
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
+
+	// fbo_unbind();
 	currentRenderVfb_ = 0;
 
 	if (useBufferedRendering_) {
@@ -1551,9 +1555,6 @@ void FramebufferManagerVulkan::DecimateFBOs() {
 		if (vfb != displayFramebuf_ && vfb != prevDisplayFramebuf_ && vfb != prevPrevDisplayFramebuf_) {
 			if (age > FBO_OLD_AGE) {
 				INFO_LOG(SCEGE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age);
-				if (!g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
-					ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
-				}
 				DestroyFramebuf(vfb);
 				vfbs_.erase(vfbs_.begin() + i--);
 			}
@@ -1570,12 +1571,6 @@ void FramebufferManagerVulkan::DestroyAllFBOs(bool forceDelete) {
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		INFO_LOG(SCEGE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		if (!forceDelete && !g_Config.bDisableSlowFramebufEffects && vfb->safeWidth > 0 && vfb->safeHeight > 0) {
-			// But also let's check if Memory is shut down already.
-			if (Memory::IsActive()) {
-				ReadFramebufferToMemory(vfb, true, 0, 0, vfb->safeWidth, vfb->safeHeight);
-			}
-		}
 		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();
