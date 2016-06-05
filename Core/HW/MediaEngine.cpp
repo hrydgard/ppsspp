@@ -254,8 +254,13 @@ bool MediaEngine::openContext() {
 	m_pFormatCtx->pb = m_pIOContext;
 
 	// Open video file
-	if (avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
+    AVDictionary *open_opt = nullptr;
+    av_dict_set_int(&open_opt, "probesize", m_mpegheaderSize, 0);
+	if (avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, &open_opt) != 0) {
+		av_dict_free(&open_opt);
 		return false;
+	}
+	av_dict_free(&open_opt);
 
 	if (avformat_find_stream_info(m_pFormatCtx, NULL) < 0) {
 		closeContext();
