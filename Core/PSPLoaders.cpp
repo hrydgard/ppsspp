@@ -231,6 +231,24 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string)
 		// try unencrypted BOOT.BIN
 		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
 	}
+
+	// Fail early with a clearer message for some types of ISOs.
+	if (!pspFileSystem.GetFileInfo(bootpath).exists) {
+		// Can't tell for sure if it's PS1 or PS2, but doesn't much matter.
+		if (pspFileSystem.GetFileInfo("disc0:/SYSTEM.CNF;1").exists || pspFileSystem.GetFileInfo("disc0:/PSX.EXE;1").exists) {
+			*error_string = "PPSSPP plays PSP games, not Playstation 1 or 2 games.";
+		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_VIDEO/PLAYLIST.UMD").exists) {
+			*error_string = "PPSSPP doesn't support UMD Video.";
+		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_AUDIO/PLAYLIST.UMD").exists) {
+			*error_string = "PPSSPP doesn't support UMD Music.";
+		} else if (pspFileSystem.GetDirListing("disc0:/").empty()) {
+			*error_string = "Not a valid disc image.";
+		} else {
+			*error_string = "A PSP game couldn't be found on the disc.";
+		}
+		return false;
+	}
+
 	//in case we didn't go through EmuScreen::boot
 	g_Config.loadGameConfig(id);
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
