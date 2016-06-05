@@ -220,6 +220,17 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	bool success = hFile != INVALID_HANDLE_VALUE;
 	if (!success) {
 		DWORD w32err = GetLastError();
+
+		if (w32err == ERROR_SHARING_VIOLATION) {
+			// Sometimes, the file is locked for write, let's try again.
+			sharemode |= FILE_SHARE_WRITE;
+			hFile = CreateFile(ConvertUTF8ToWString(fullName).c_str(), desired, sharemode, 0, openmode, 0, 0);
+			success = hFile != INVALID_HANDLE_VALUE;
+			if (!success) {
+				w32err = GetLastError();
+			}
+		}
+
 		if (w32err == ERROR_DISK_FULL || w32err == ERROR_NOT_ENOUGH_QUOTA) {
 			// This is returned when the disk is full.
 			I18NCategory *err = GetI18NCategory("Error");
