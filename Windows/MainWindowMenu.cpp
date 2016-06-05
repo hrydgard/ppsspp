@@ -842,9 +842,11 @@ namespace MainWindow {
 				FILE *fp = File::OpenCFile(fn, "wb");
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				u8 buffer[4096];
-				while (pspFileSystem.ReadFile(handle, buffer, sizeof(buffer)) > 0) {
-					fwrite(buffer, sizeof(buffer), 1, fp);
-				}
+				size_t bytes;
+				do {
+					bytes = pspFileSystem.ReadFile(handle, buffer, sizeof(buffer));
+					fwrite(buffer, 1, bytes, fp);
+				} while (bytes == sizeof(buffer));
 				pspFileSystem.CloseFile(handle);
 				fclose(fp);
 			}
