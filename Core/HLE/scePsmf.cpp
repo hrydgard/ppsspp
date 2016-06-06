@@ -33,8 +33,6 @@
 #include <algorithm>
 
 // "Go Sudoku" is a good way to test this code...
-const int PSMF_VIDEO_STREAM_ID = 0xE0;
-const int PSMF_AUDIO_STREAM_ID = 0xBD;
 const int PSMF_AVC_STREAM = 0;
 const int PSMF_ATRAC_STREAM = 1;
 const int PSMF_PCM_STREAM = 2;
