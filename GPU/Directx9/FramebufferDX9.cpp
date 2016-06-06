@@ -302,7 +302,7 @@ namespace DX9 {
 		}
 	}
 
-	void FramebufferManagerDX9::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force) {
+	void FramebufferManagerDX9::ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force, bool skipCopy) {
 		VirtualFramebuffer old = *vfb;
 
 		if (force) {
@@ -362,7 +362,7 @@ namespace DX9 {
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo_dx9);
 				ClearBuffer();
-				if (!g_Config.bDisableSlowFramebufEffects) {
+				if (!skipCopy && !g_Config.bDisableSlowFramebufEffects) {
 					BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min(vfb->bufferWidth, vfb->width), std::min(vfb->height, vfb->bufferHeight), 0);
 				}
 			}

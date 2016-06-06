@@ -79,8 +79,8 @@ public:
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
-	void DestroyFramebuf(VirtualFramebuffer *vfb);
-	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
+	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
+	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
