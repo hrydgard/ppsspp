@@ -1209,6 +1209,7 @@ bool TextureCacheVulkan::HandleTextureChange(TexCacheEntry *const entry, const c
 		}
 		delete entry->vkTex;
 		entry->vkTex = nullptr;
+		entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 	}
 	// Clear the reliable bit if set.
 	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -1290,6 +1291,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry,VulkanPushBuffe
 	if (replaced.GetSize(0, w, h)) {
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
+		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		if (g_Config.bMipMap) {
 			maxLevel = replaced.MaxLevel();
 			badMipSizes = false;
@@ -1311,6 +1313,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry,VulkanPushBuffe
 			scaleFactor = 1;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
