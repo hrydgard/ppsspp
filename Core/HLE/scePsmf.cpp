@@ -712,7 +712,8 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 	data.version = psmf->version;
 	data.headerSize = 0x800;
 	data.streamSize = psmf->streamSize;
-	data.streamNum = psmf->numStreams;
+	// This should be and needs to be the current stream.
+	data.streamNum = psmf->currentStreamNum;
 	data.headerOffset = psmf->headerOffset;
 	Memory::WriteStruct(psmfStruct, &data);
 
