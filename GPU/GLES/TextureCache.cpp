@@ -1336,7 +1336,7 @@ bool TextureCache::HandleTextureChange(TexCacheEntry *const entry, const char *r
 	gpuStats.numTextureInvalidations++;
 	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
-		if (initialMatch && standardScaleFactor_ == 1) {
+		if (initialMatch && standardScaleFactor_ == 1 && (entry->status & TexCacheEntry::STATUS_IS_SCALED) == 0) {
 			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 			// Instead, let's use glTexSubImage to replace the images.
 			replaceImages = true;
@@ -1345,6 +1345,7 @@ bool TextureCache::HandleTextureChange(TexCacheEntry *const entry, const char *r
 				lastBoundTexture = INVALID_TEX;
 			}
 			glDeleteTextures(1, &entry->textureName);
+			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 		}
 	}
 	// Clear the reliable bit if set.
@@ -1388,9 +1389,6 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 		return;
 	}
 
-	glBindTexture(GL_TEXTURE_2D, entry->textureName);
-	lastBoundTexture = entry->textureName;
-
 	// Adjust maxLevel to actually present levels..
 	bool badMipSizes = false;
 	int maxLevel = entry->maxLevel;
@@ -1433,8 +1431,16 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
+		if (replaceImages) {
+			// Since we're replacing the texture, we can't replace the image inside.
+			glDeleteTextures(1, &entry->textureName);
+			entry->textureName = AllocTextureName();
+			replaceImages = false;
+		}
+
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
+		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 		if (g_Config.bMipMap) {
 			maxLevel = replaced.MaxLevel();
 			badMipSizes = false;
@@ -1456,9 +1462,13 @@ void TextureCache::BuildTexture(TexCacheEntry *const entry, bool replaceImages) 
 			scaleFactor = 1;
 		} else {
 			entry->status &= ~TexCacheEntry::STATUS_TO_SCALE;
+			entry->status |= TexCacheEntry::STATUS_IS_SCALED;
 			texelsScaledThisFrame_ += w * h;
 		}
 	}
+
+	glBindTexture(GL_TEXTURE_2D, entry->textureName);
+	lastBoundTexture = entry->textureName;
 
 	// Disabled this due to issue #6075: https://github.com/hrydgard/ppsspp/issues/6075
 	// This breaks Dangan Ronpa 2 with mipmapping enabled. Why? No idea, it shouldn't.
