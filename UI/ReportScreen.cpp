@@ -30,14 +30,21 @@ class RatingChoice : public LinearLayout {
 public:
 	RatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams = 0);
 
+	RatingChoice *SetEnabledPtr(bool *enabled);
+
 	Event OnChoice;
 
 protected:
+	void Update(const InputState &input_state) override;
+
 	virtual void SetupChoices();
 	virtual int TotalChoices() {
 		return 3;
 	}
 	void AddChoice(int i, const std::string &title);
+	StickyChoice *GetChoice(int i) {
+		return static_cast<StickyChoice *>(group_->GetViewByIndex(i));
+	}
 
 	LinearLayout *group_;
 
@@ -60,6 +67,28 @@ RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *lay
 	SetupChoices();
 }
 
+void RatingChoice::Update(const InputState &input_state) {
+	LinearLayout::Update(input_state);
+
+	for (int i = 0; i < TotalChoices(); i++) {
+		StickyChoice *chosen = GetChoice(i);
+		bool down = chosen->IsDown();
+		if (down && *value_ != i) {
+			chosen->Release();
+		} else if (!down && *value_ == i) {
+			chosen->Press();
+		}
+	}
+}
+
+RatingChoice *RatingChoice::SetEnabledPtr(bool *ptr) {
+	for (int i = 0; i < TotalChoices(); i++) {
+		GetChoice(i)->SetEnabledPtr(ptr);
+	}
+
+	return this;
+}
+
 void RatingChoice::SetupChoices() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	AddChoice(0, rp->T("Bad"));
@@ -70,17 +99,15 @@ void RatingChoice::SetupChoices() {
 void RatingChoice::AddChoice(int i, const std::string &title) {
 	auto c = group_->Add(new StickyChoice(title, ""));
 	c->OnClick.Handle(this, &RatingChoice::OnChoiceClick);
-	if (*value_ == i)
-		c->Press();
 }
 
 EventReturn RatingChoice::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	int total = TotalChoices();
 	for (int i = 0; i < total; i++) {
-		auto v = group_->GetViewByIndex(i);
+		StickyChoice *v = GetChoice(i);
 		if (v != e.v) {
-			static_cast<StickyChoice *>(v)->Release();
+			v->Release();
 		} else {
 			*value_ = i;
 		}
@@ -121,10 +148,21 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1) {
+	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1), ratingEnabled_(true) {
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
+	if (overall_ == 4) {
+		graphics_ = 0;
+		speed_ = 0;
+		gameplay_ = 0;
+		ratingEnabled_ = false;
+	} else if (!ratingEnabled_) {
+		graphics_ = -1;
+		speed_ = -1;
+		gameplay_ = -1;
+		ratingEnabled_ = true;
+	}
 	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 	return EVENT_DONE;
 }
@@ -142,9 +180,9 @@ void ReportScreen::CreateViews() {
 
 	// TODO: screenshot
 	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
-	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
-	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
-	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("Open Browser")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);

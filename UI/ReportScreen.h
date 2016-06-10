@@ -38,4 +38,5 @@ protected:
 	int graphics_;
 	int speed_;
 	int gameplay_;
+	bool ratingEnabled_;
 };
