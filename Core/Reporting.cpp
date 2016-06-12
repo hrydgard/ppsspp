@@ -76,7 +76,7 @@ namespace Reporting
 		int int2;
 		int int3;
 	};
-	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE] = {};
+	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -352,6 +352,9 @@ namespace Reporting
 
 			postdata.Finish();
 			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
+			break;
+
+		case RequestType::NONE:
 			break;
 		}
 
