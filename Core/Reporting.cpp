@@ -47,7 +47,7 @@ namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
 	const u32 SPAM_LIMIT = 100;
-	const int PAYLOAD_BUFFER_SIZE = 100;
+	const int PAYLOAD_BUFFER_SIZE = 200;
 
 	// Internal limiter on number of requests per instance.
 	static u32 spamProtectionCount = 0;
@@ -60,8 +60,9 @@ namespace Reporting
 	// Support is cached here to avoid checking it on every single request.
 	static bool currentSupported = false;
 
-	enum RequestType
+	enum class RequestType
 	{
+		NONE,
 		MESSAGE,
 		COMPAT,
 	};
@@ -75,7 +76,7 @@ namespace Reporting
 		int int2;
 		int int3;
 	};
-	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
+	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE] = {};
 	static int payloadBufferPos = 0;
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -313,7 +314,7 @@ namespace Reporting
 
 		switch (payload.type)
 		{
-		case MESSAGE:
+		case RequestType::MESSAGE:
 			postdata.Add("message", payload.string1);
 			postdata.Add("value", payload.string2);
 			payload.string1.clear();
@@ -323,7 +324,7 @@ namespace Reporting
 			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType());
 			break;
 
-		case COMPAT:
+		case RequestType::COMPAT:
 			postdata.Add("compat", payload.string1);
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
@@ -334,6 +335,8 @@ namespace Reporting
 			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
 			break;
 		}
+
+		payload.type = RequestType::NONE;
 
 		return 0;
 	}
@@ -393,9 +396,26 @@ namespace Reporting
 		g_Config.sReportHost = "default";
 	}
 
+	int NextFreePos()
+	{
+		int start = payloadBufferPos % PAYLOAD_BUFFER_SIZE;
+		do
+		{
+			int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
+			if (payloadBuffer[pos].type == RequestType::NONE)
+				return pos;
+		}
+		while (payloadBufferPos != start);
+
+		return -1;
+	}
+
 	void ReportMessage(const char *message, ...)
 	{
 		if (!IsEnabled() || CheckSpamLimited())
+			return;
+		int pos = NextFreePos();
+		if (pos == -1)
 			return;
 
 		const int MESSAGE_BUFFER_SIZE = 65536;
@@ -407,9 +427,8 @@ namespace Reporting
 		temp[MESSAGE_BUFFER_SIZE - 1] = '\0';
 		va_end(args);
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = MESSAGE;
+		payload.type = RequestType::MESSAGE;
 		payload.string1 = message;
 		payload.string2 = temp;
 
@@ -421,10 +440,12 @@ namespace Reporting
 	{
 		if (!IsEnabled() || CheckSpamLimited())
 			return;
+		int pos = NextFreePos();
+		if (pos == -1)
+			return;
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = MESSAGE;
+		payload.type = RequestType::MESSAGE;
 		payload.string1 = message;
 		payload.string2 = formatted;
 
@@ -436,10 +457,12 @@ namespace Reporting
 	{
 		if (!IsEnabled())
 			return;
+		int pos = NextFreePos();
+		if (pos == -1)
+			return;
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = COMPAT;
+		payload.type = RequestType::COMPAT;
 		payload.string1 = compat;
 		payload.int1 = graphics;
 		payload.int2 = speed;
