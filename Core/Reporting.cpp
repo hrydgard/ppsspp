@@ -317,6 +317,8 @@ namespace Reporting
 		case RequestType::MESSAGE:
 			postdata.Add("message", payload.string1);
 			postdata.Add("value", payload.string2);
+			// We tend to get corrupted data, this acts as a very primitive verification check.
+			postdata.Add("verify", payload.string1 + payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
 
@@ -326,6 +328,8 @@ namespace Reporting
 
 		case RequestType::COMPAT:
 			postdata.Add("compat", payload.string1);
+			// We tend to get corrupted data, this acts as a very primitive verification check.
+			postdata.Add("verify", payload.string1);
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
