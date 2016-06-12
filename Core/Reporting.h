@@ -57,7 +57,8 @@ namespace Reporting
 	bool IsSupported();
 
 	// Set the current enabled state of the reporting system and desired reporting server host.
-	void Enable(bool flag, std::string host);
+	// Returns if anything was changed.
+	bool Enable(bool flag, std::string host);
 
 	// Use the default reporting setting (per compiled settings) of host and enabled state.
 	void EnableDefault();

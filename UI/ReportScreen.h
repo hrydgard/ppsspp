@@ -28,21 +28,24 @@ public:
 
 protected:
 	void update(InputState &input) override;
+	void CreateViews() override;
+	void UpdateSubmit();
 
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
-
-	virtual void CreateViews();
+	UI::EventReturn HandleReportingChange(UI::EventParams &e);
 
 	UI::Choice *submit_;
 	UI::View *screenshot_;
+	UI::TextView *reportingNotice_;
 	std::string screenshotFilename_;
 
 	int overall_;
 	int graphics_;
 	int speed_;
 	int gameplay_;
+	bool enableReporting_;
 	bool ratingEnabled_;
 	bool includeScreenshot_;
 };

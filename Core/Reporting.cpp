@@ -400,14 +400,16 @@ namespace Reporting
 		return true;
 	}
 
-	void Enable(bool flag, std::string host)
+	bool Enable(bool flag, std::string host)
 	{
 		if (IsSupported() && IsEnabled() != flag)
 		{
 			// "" means explicitly disabled.  Don't ever turn on by default.
 			// "default" means it's okay to turn it on by default.
 			g_Config.sReportHost = flag ? host : "";
+			return true;
 		}
+		return false;
 	}
 
 	void EnableDefault()
