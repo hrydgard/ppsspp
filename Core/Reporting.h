@@ -69,7 +69,7 @@ namespace Reporting
 	void ReportMessageFormatted(const char *message, const char *formatted);
 
 	// Report the compatibility of the current game / configuration.
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay);
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, std::string screenshotFilename);
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);

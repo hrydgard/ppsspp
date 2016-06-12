@@ -302,11 +302,24 @@ namespace Reporting
 		postdata.Add("savestate_used", SaveState::HasLoadedState());
 	}
 
+	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
+	{
+		std::string data;
+		if (!filename.empty() && readFileToString(false, filename.c_str(), data))
+			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
+
+		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
+		std::vector<u8> iconData;
+		if (pspFileSystem.ReadEntireFile(iconFilename, iconData) >= 0) {
+			postdata.Add("icon", iconData, "icon.png", "image/png");
+		}
+	}
+
 	int Process(int pos)
 	{
 		Payload &payload = payloadBuffer[pos];
 
-		UrlEncoder postdata;
+		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
 		AddGameInfo(postdata);
 		AddConfigInfo(postdata);
@@ -333,7 +346,9 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
+			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
+			payload.string2.clear();
 
 			postdata.Finish();
 			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
@@ -457,7 +472,7 @@ namespace Reporting
 		th.detach();
 	}
 
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay)
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, std::string screenshotFilename)
 	{
 		if (!IsEnabled())
 			return;
@@ -468,6 +483,7 @@ namespace Reporting
 		Payload &payload = payloadBuffer[pos];
 		payload.type = RequestType::COMPAT;
 		payload.string1 = compat;
+		payload.string2 = screenshotFilename;
 		payload.int1 = graphics;
 		payload.int2 = speed;
 		payload.int3 = gameplay;

@@ -237,7 +237,8 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	default: compat = "unknown"; break;
 	}
 
-	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1);
+	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
+	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	screenManager()->finishDialog(this, DR_OK);
 	return EVENT_DONE;
 }
