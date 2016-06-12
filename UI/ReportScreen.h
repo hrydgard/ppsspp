@@ -27,6 +27,8 @@ public:
 	ReportScreen(const std::string &gamePath);
 
 protected:
+	void update(InputState &input) override;
+
 	UI::EventReturn HandleChoice(UI::EventParams &e);
 	UI::EventReturn HandleSubmit(UI::EventParams &e);
 	UI::EventReturn HandleBrowser(UI::EventParams &e);
@@ -34,9 +36,13 @@ protected:
 	virtual void CreateViews();
 
 	UI::Choice *submit_;
+	UI::View *screenshot_;
+	std::string screenshotFilename_;
+
 	int overall_;
 	int graphics_;
 	int speed_;
 	int gameplay_;
 	bool ratingEnabled_;
+	bool includeScreenshot_;
 };

@@ -16,12 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include "base/display.h"
 #include "i18n/i18n.h"
-#include "gfx_es2/draw_buffer.h"
+#include "thin3d/thin3d.h"
 #include "ui/ui_context.h"
+#include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
 #include "Core/Reporting.h"
+#include "Core/Screenshot.h"
+#include "Core/System.h"
 #include "Common/Log.h"
 
 using namespace UI;
@@ -148,7 +152,19 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1), ratingEnabled_(true) {
+	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
+	ratingEnabled_(true), includeScreenshot_(true) {
+}
+
+void ReportScreen::update(InputState &input) {
+	if (screenshot_) {
+		if (includeScreenshot_) {
+			screenshot_->SetVisibility(V_VISIBLE);
+		} else {
+			screenshot_->SetVisibility(V_GONE);
+		}
+	}
+	UIScreenWithGameBackground::update(input);
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
@@ -178,7 +194,16 @@ void ReportScreen::CreateViews() {
 
 	leftColumnItems->Add(new InfoItem(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), ""));
 
-	// TODO: screenshot
+	screenshotFilename_ = GetSysDirectory(DIRECTORY_SCREENSHOT) + ".reporting.jpg";
+	int shotWidth = 0, shotHeight = 0;
+	if (TakeGameScreenshot(screenshotFilename_.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER, &shotWidth, &shotHeight, 4)) {
+		float scale = 340.0f * (1.0f / g_dpi_scale) * (1.0f / shotHeight);
+		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")));
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, nullptr, new LinearLayoutParams(shotWidth * scale, shotHeight * scale, Margins(12, 0))));
+	} else {
+		includeScreenshot_ = false;
+	}
+
 	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
