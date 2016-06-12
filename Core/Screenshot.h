@@ -30,4 +30,4 @@ enum ScreenshotType {
 	SCREENSHOT_RENDER,
 };
 
-bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type);
+bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width = nullptr, int *height = nullptr, int maxRes = -1);

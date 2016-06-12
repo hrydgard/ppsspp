@@ -215,7 +215,7 @@ static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32
 	return buffer;
 }
 
-bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type) {
+bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotType type, int *width, int *height, int maxRes) {
 	GPUDebugBuffer buf;
 	bool success = false;
 	u32 w = (u32)-1;
@@ -223,12 +223,12 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 
 	if (type == SCREENSHOT_RENDER) {
 		if (gpuDebug) {
-			success = gpuDebug->GetCurrentFramebuffer(buf);
+			success = gpuDebug->GetCurrentFramebuffer(buf, maxRes);
 		}
 
 		// Only crop to the top left when using a render screenshot.
-		w = PSP_CoreParameter().renderWidth;
-		h = PSP_CoreParameter().renderHeight;
+		w = maxRes > 0 ? 480 * maxRes : PSP_CoreParameter().renderWidth;
+		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
 			success = GPU_GLES::GetDisplayFramebuffer(buf);
@@ -260,6 +260,11 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		if (buffer == nullptr) {
 			success = false;
 		}
+
+		if (width)
+			*width = w;
+		if (height)
+			*height = h;
 
 		if (success && fmt == SCREENSHOT_PNG) {
 			png_image png;

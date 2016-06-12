@@ -82,7 +82,7 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false);
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer);
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
 	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
@@ -91,6 +91,7 @@ public:
 
 	FBO_DX9 *GetTempFBO(u16 w, u16 h, FBOColorDepth depth = FBO_8888);
 	LPDIRECT3DSURFACE9 GetOffscreenSurface(LPDIRECT3DSURFACE9 similarSurface, VirtualFramebuffer *vfb);
+	LPDIRECT3DSURFACE9 GetOffscreenSurface(D3DFORMAT fmt, u32 w, u32 h);
 
 protected:
 	void DisableState() override;
