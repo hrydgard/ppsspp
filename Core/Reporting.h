@@ -57,7 +57,8 @@ namespace Reporting
 	bool IsSupported();
 
 	// Set the current enabled state of the reporting system and desired reporting server host.
-	void Enable(bool flag, std::string host);
+	// Returns if anything was changed.
+	bool Enable(bool flag, std::string host);
 
 	// Use the default reporting setting (per compiled settings) of host and enabled state.
 	void EnableDefault();
@@ -69,7 +70,7 @@ namespace Reporting
 	void ReportMessageFormatted(const char *message, const char *formatted);
 
 	// Report the compatibility of the current game / configuration.
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay);
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, std::string screenshotFilename);
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);

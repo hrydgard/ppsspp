@@ -47,7 +47,7 @@ namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
 	const u32 SPAM_LIMIT = 100;
-	const int PAYLOAD_BUFFER_SIZE = 100;
+	const int PAYLOAD_BUFFER_SIZE = 200;
 
 	// Internal limiter on number of requests per instance.
 	static u32 spamProtectionCount = 0;
@@ -60,8 +60,9 @@ namespace Reporting
 	// Support is cached here to avoid checking it on every single request.
 	static bool currentSupported = false;
 
-	enum RequestType
+	enum class RequestType
 	{
+		NONE,
 		MESSAGE,
 		COMPAT,
 	};
@@ -75,7 +76,7 @@ namespace Reporting
 		int int2;
 		int int3;
 	};
-	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
+	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE] = {};
 	static int payloadBufferPos = 0;
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
@@ -301,11 +302,24 @@ namespace Reporting
 		postdata.Add("savestate_used", SaveState::HasLoadedState());
 	}
 
+	void AddScreenshotData(MultipartFormDataEncoder &postdata, std::string filename)
+	{
+		std::string data;
+		if (!filename.empty() && readFileToString(false, filename.c_str(), data))
+			postdata.Add("screenshot", data, "screenshot.jpg", "image/jpeg");
+
+		const std::string iconFilename = "disc0:/PSP_GAME/ICON0.PNG";
+		std::vector<u8> iconData;
+		if (pspFileSystem.ReadEntireFile(iconFilename, iconData) >= 0) {
+			postdata.Add("icon", iconData, "icon.png", "image/png");
+		}
+	}
+
 	int Process(int pos)
 	{
 		Payload &payload = payloadBuffer[pos];
 
-		UrlEncoder postdata;
+		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
 		AddGameInfo(postdata);
 		AddConfigInfo(postdata);
@@ -313,9 +327,11 @@ namespace Reporting
 
 		switch (payload.type)
 		{
-		case MESSAGE:
+		case RequestType::MESSAGE:
 			postdata.Add("message", payload.string1);
 			postdata.Add("value", payload.string2);
+			// We tend to get corrupted data, this acts as a very primitive verification check.
+			postdata.Add("verify", payload.string1 + payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
 
@@ -323,17 +339,23 @@ namespace Reporting
 			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType());
 			break;
 
-		case COMPAT:
+		case RequestType::COMPAT:
 			postdata.Add("compat", payload.string1);
+			// We tend to get corrupted data, this acts as a very primitive verification check.
+			postdata.Add("verify", payload.string1);
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
+			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
+			payload.string2.clear();
 
 			postdata.Finish();
 			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
 			break;
 		}
+
+		payload.type = RequestType::NONE;
 
 		return 0;
 	}
@@ -378,14 +400,16 @@ namespace Reporting
 		return true;
 	}
 
-	void Enable(bool flag, std::string host)
+	bool Enable(bool flag, std::string host)
 	{
 		if (IsSupported() && IsEnabled() != flag)
 		{
 			// "" means explicitly disabled.  Don't ever turn on by default.
 			// "default" means it's okay to turn it on by default.
 			g_Config.sReportHost = flag ? host : "";
+			return true;
 		}
+		return false;
 	}
 
 	void EnableDefault()
@@ -393,9 +417,26 @@ namespace Reporting
 		g_Config.sReportHost = "default";
 	}
 
+	int NextFreePos()
+	{
+		int start = payloadBufferPos % PAYLOAD_BUFFER_SIZE;
+		do
+		{
+			int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
+			if (payloadBuffer[pos].type == RequestType::NONE)
+				return pos;
+		}
+		while (payloadBufferPos != start);
+
+		return -1;
+	}
+
 	void ReportMessage(const char *message, ...)
 	{
 		if (!IsEnabled() || CheckSpamLimited())
+			return;
+		int pos = NextFreePos();
+		if (pos == -1)
 			return;
 
 		const int MESSAGE_BUFFER_SIZE = 65536;
@@ -407,9 +448,8 @@ namespace Reporting
 		temp[MESSAGE_BUFFER_SIZE - 1] = '\0';
 		va_end(args);
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = MESSAGE;
+		payload.type = RequestType::MESSAGE;
 		payload.string1 = message;
 		payload.string2 = temp;
 
@@ -421,10 +461,12 @@ namespace Reporting
 	{
 		if (!IsEnabled() || CheckSpamLimited())
 			return;
+		int pos = NextFreePos();
+		if (pos == -1)
+			return;
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = MESSAGE;
+		payload.type = RequestType::MESSAGE;
 		payload.string1 = message;
 		payload.string2 = formatted;
 
@@ -432,15 +474,18 @@ namespace Reporting
 		th.detach();
 	}
 
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay)
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, std::string screenshotFilename)
 	{
 		if (!IsEnabled())
 			return;
+		int pos = NextFreePos();
+		if (pos == -1)
+			return;
 
-		int pos = payloadBufferPos++ % PAYLOAD_BUFFER_SIZE;
 		Payload &payload = payloadBuffer[pos];
-		payload.type = COMPAT;
+		payload.type = RequestType::COMPAT;
 		payload.string1 = compat;
+		payload.string2 = screenshotFilename;
 		payload.int1 = graphics;
 		payload.int2 = speed;
 		payload.int3 = gameplay;

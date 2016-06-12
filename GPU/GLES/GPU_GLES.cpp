@@ -2413,11 +2413,11 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_GLES::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
+bool GPU_GLES::GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes) {
 	u32 fb_address = gstate.getFrameBufRawAddress();
 	int fb_stride = gstate.FrameBufStride();
 	GEBufferFormat format = gstate.FrameBufFormat();
-	return framebufferManager_.GetFramebuffer(fb_address, fb_stride, format, buffer);
+	return framebufferManager_.GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
 }
 
 bool GPU_GLES::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {

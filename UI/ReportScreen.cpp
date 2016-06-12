@@ -16,12 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include "base/display.h"
 #include "i18n/i18n.h"
-#include "gfx_es2/draw_buffer.h"
+#include "thin3d/thin3d.h"
 #include "ui/ui_context.h"
+#include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
 #include "Core/Reporting.h"
+#include "Core/Screenshot.h"
+#include "Core/System.h"
 #include "Common/Log.h"
 
 using namespace UI;
@@ -148,7 +152,21 @@ void CompatRatingChoice::SetupChoices() {
 }
 
 ReportScreen::ReportScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1), ratingEnabled_(true) {
+	: UIScreenWithGameBackground(gamePath), overall_(-1), graphics_(-1), speed_(-1), gameplay_(-1),
+	includeScreenshot_(true) {
+	enableReporting_ = Reporting::IsEnabled();
+	ratingEnabled_ = enableReporting_;
+}
+
+void ReportScreen::update(InputState &input) {
+	if (screenshot_) {
+		if (includeScreenshot_) {
+			screenshot_->SetVisibility(V_VISIBLE);
+		} else {
+			screenshot_->SetVisibility(V_GONE);
+		}
+	}
+	UIScreenWithGameBackground::update(input);
 }
 
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
@@ -163,23 +181,58 @@ EventReturn ReportScreen::HandleChoice(EventParams &e) {
 		gameplay_ = -1;
 		ratingEnabled_ = true;
 	}
-	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	UpdateSubmit();
+	return EVENT_DONE;
+}
+
+EventReturn ReportScreen::HandleReportingChange(EventParams &e) {
+	if (overall_ == 4) {
+		ratingEnabled_ = false;
+	} else {
+		ratingEnabled_ = enableReporting_;
+	}
+	if (reportingNotice_) {
+		reportingNotice_->SetTextColor(enableReporting_ ? 0xFFFFFFFF : 0xFF3030FF);
+	}
+	UpdateSubmit();
 	return EVENT_DONE;
 }
 
 void ReportScreen::CreateViews() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	I18NCategory *di = GetI18NCategory("Dialog");
-	Margins actionMenuMargins(0, 100, 15, 0);
-	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
+	I18NCategory *sy = GetI18NCategory("System");
+
+	Margins actionMenuMargins(0, 20, 15, 0);
+	Margins contentMargins(0, 20, 5, 5);
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new InfoItem(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), ""));
+	leftColumnItems->Add(new TextView(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	if (!Reporting::IsEnabled()) {
+		reportingNotice_ = leftColumnItems->Add(new TextView(rp->T("FeedbackDisabled", "Compatibility server reports must be enabled."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		reportingNotice_->SetShadow(true);
+		reportingNotice_->SetTextColor(0xFF3030FF);
+		CheckBox *reporting = leftColumnItems->Add(new CheckBox(&enableReporting_, sy->T("Enable Compatibility Server Reports")));
+		reporting->SetEnabled(Reporting::IsSupported());
+		reporting->OnClick.Handle(this, &ReportScreen::HandleReportingChange);
+	} else {
+		reportingNotice_ = nullptr;
+	}
 
-	// TODO: screenshot
-	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	screenshotFilename_ = GetSysDirectory(DIRECTORY_SCREENSHOT) + ".reporting.jpg";
+	int shotWidth = 0, shotHeight = 0;
+	if (TakeGameScreenshot(screenshotFilename_.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER, &shotWidth, &shotHeight, 4)) {
+		float scale = 340.0f * (1.0f / g_dpi_scale) * (1.0f / shotHeight);
+		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, nullptr, new LinearLayoutParams(shotWidth * scale, shotHeight * scale, Margins(12, 0))));
+	} else {
+		includeScreenshot_ = false;
+	}
+
+	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
@@ -188,7 +241,7 @@ void ReportScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(rp->T("Open Browser")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
 	submit_ = new Choice(rp->T("Submit Feedback"));
 	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
-	submit_->SetEnabled(overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
+	UpdateSubmit();
 
 	rightColumnItems->Add(new Spacer(25.0));
 	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -199,6 +252,10 @@ void ReportScreen::CreateViews() {
 
 	leftColumn->Add(leftColumnItems);
 	rightColumn->Add(rightColumnItems);
+}
+
+void ReportScreen::UpdateSubmit() {
+	submit_->SetEnabled(enableReporting_ && overall_ >= 0 && graphics_ >= 0 && speed_ >= 0 && gameplay_ >= 0);
 }
 
 EventReturn ReportScreen::HandleSubmit(EventParams &e) {
@@ -212,7 +269,13 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	default: compat = "unknown"; break;
 	}
 
-	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1);
+	if (Reporting::Enable(enableReporting_, "report.ppsspp.org")) {
+		Reporting::UpdateConfig();
+		g_Config.Save();
+	}
+
+	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
+	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	screenManager()->finishDialog(this, DR_OK);
 	return EVENT_DONE;
 }

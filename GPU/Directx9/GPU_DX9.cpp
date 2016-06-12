@@ -2142,8 +2142,8 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	}
 }
 
-bool GPU_DX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
-	return framebufferManager_.GetCurrentFramebuffer(buffer);
+bool GPU_DX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes) {
+	return framebufferManager_.GetCurrentFramebuffer(buffer, maxRes);
 }
 
 bool GPU_DX9::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {

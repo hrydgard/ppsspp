@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <cstdarg>
+#include <vector>
 
 #include "base/basictypes.h"
 
@@ -145,10 +146,16 @@ struct MultipartFormDataEncoder : UrlEncoder
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Content-Length: %d\r\n", (int)value.size());
 		data += temp;
+		data += "Content-Transfer-Encoding: binary\r\n";
 		data += "\r\n";
 
 		data += value;
 		data += "\r\n";
+	}
+
+	void Add(const std::string &key, const std::vector<uint8_t> &value, const std::string &filename, const std::string &mimeType)
+	{
+		Add(key, std::string((const char *)&value[0], value.size()), filename, mimeType);
 	}
 
 	virtual void Finish()

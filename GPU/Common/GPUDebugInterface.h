@@ -206,7 +206,7 @@ public:
 
 	// Needs to be called from the GPU thread, so on the same thread as a notification is fine.
 	// Calling from a separate thread (e.g. UI) may fail.
-	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer) {
+	virtual bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes = -1) {
 		// False means unsupported.
 		return false;
 	}

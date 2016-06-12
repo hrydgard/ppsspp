@@ -821,7 +821,7 @@ bool SoftGPU::FramebufferDirty() {
 	return true;
 }
 
-bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer)
+bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes)
 {
 	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
 	const int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;

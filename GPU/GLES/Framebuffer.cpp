@@ -1970,7 +1970,7 @@ void FramebufferManager::Resized() {
 	resized_ = true;
 }
 
-bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer) {
+bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (!vfb) {
 		vfb = GetVFBAt(fb_address);
@@ -1982,14 +1982,35 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 		return true;
 	}
 
-	buffer.Allocate(vfb->renderWidth, vfb->renderHeight, GE_FORMAT_8888, !useBufferedRendering_, true);
-	if (vfb->fbo)
-		fbo_bind_for_read(vfb->fbo);
+	int w = vfb->renderWidth, h = vfb->renderHeight;
+	if (vfb->fbo) {
+		if (maxRes > 0 && vfb->renderWidth > vfb->width * maxRes) {
+			w = vfb->width * maxRes;
+			h = vfb->height * maxRes;
+
+			FBO *tempFBO = GetTempFBO(w, h);
+			VirtualFramebuffer tempVfb = *vfb;
+			tempVfb.fbo = tempFBO;
+			tempVfb.bufferWidth = vfb->width;
+			tempVfb.bufferHeight = vfb->height;
+			tempVfb.renderWidth = w;
+			tempVfb.renderHeight = h;
+			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0);
+
+			fbo_bind_for_read(tempFBO);
+		} else {
+			fbo_bind_for_read(vfb->fbo);
+		}
+	}
+
+	buffer.Allocate(w, h, GE_FORMAT_8888, !useBufferedRendering_, true);
 	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	SafeGLReadPixels(0, 0, vfb->renderWidth, vfb->renderHeight, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+
+	fbo_unbind();
 	return true;
 }
 

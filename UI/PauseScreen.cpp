@@ -80,6 +80,8 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 		texture_ = dc.GetThin3DContext()->CreateTextureFromFile(filename_.c_str(), DETECT);
 		if (!texture_)
 			textureFailed_ = true;
+		else if (textureAutoGen_)
+			texture_->AutoGenMipmaps();
 	}
 
 	if (HasFocus()) {
@@ -331,7 +333,7 @@ void GamePauseScreen::CreateViews() {
 
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
-	if (Reporting::IsEnabled() && gameId.size() && gameId != "_") {
+	if (Reporting::IsSupported() && gameId.size() && gameId != "_") {
 		I18NCategory *rp = GetI18NCategory("Reporting");
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
