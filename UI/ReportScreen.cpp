@@ -26,6 +26,7 @@
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
+#include "Common/FileUtil.h"
 #include "Common/Log.h"
 
 using namespace UI;
@@ -222,7 +223,11 @@ void ReportScreen::CreateViews() {
 		reportingNotice_ = nullptr;
 	}
 
-	screenshotFilename_ = GetSysDirectory(DIRECTORY_SCREENSHOT) + ".reporting.jpg";
+	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+	if (!File::Exists(path)) {
+		File::CreateDir(path);
+	}
+	screenshotFilename_ = path + ".reporting.jpg";
 	int shotWidth = 0, shotHeight = 0;
 	if (TakeGameScreenshot(screenshotFilename_.c_str(), SCREENSHOT_JPG, SCREENSHOT_RENDER, &shotWidth, &shotHeight, 4)) {
 		float scale = 340.0f * (1.0f / g_dpi_scale) * (1.0f / shotHeight);
@@ -230,6 +235,7 @@ void ReportScreen::CreateViews() {
 		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, nullptr, new LinearLayoutParams(shotWidth * scale, shotHeight * scale, Margins(12, 0))));
 	} else {
 		includeScreenshot_ = false;
+		screenshot_ = nullptr;
 	}
 
 	leftColumnItems->Add(new CompatRatingChoice("Overall", &overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
