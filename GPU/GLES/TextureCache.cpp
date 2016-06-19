@@ -70,7 +70,7 @@
 
 #define INVALID_TEX -1
 
-TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL), texelsScaledThisFrame_(0) {
+TextureCache::TextureCache() : secondCacheSizeEstimate_(0), clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
 	timesInvalidatedAllThisFrame_ = 0;
 	lastBoundTexture = INVALID_TEX;
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
@@ -345,108 +345,6 @@ bool TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualF
 	return false;
 }
 
-void *TextureCache::ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, GLuint dstFmt, int bufw) {
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-	int length = bufw * h;
-	void *buf = NULL;
-	switch (gstate.getClutPaletteFormat()) {
-	case GE_CMODE_16BIT_BGR5650:
-	case GE_CMODE_16BIT_ABGR5551:
-	case GE_CMODE_16BIT_ABGR4444:
-		{
-		tmpTexBuf16.resize(std::max(bufw, w) * h);
-		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		const u16 *clut = GetCurrentClut<u16>();
-		if (!gstate.isTextureSwizzled()) {
-			switch (bytesPerIndex) {
-			case 1:
-				DeIndexTexture(tmpTexBuf16.data(), (const u8 *)texptr, length, clut);
-				break;
-
-			case 2:
-				DeIndexTexture(tmpTexBuf16.data(), (const u16_le *)texptr, length, clut);
-				break;
-
-			case 4:
-				DeIndexTexture(tmpTexBuf16.data(), (const u32_le *)texptr, length, clut);
-				break;
-			}
-		} else {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
-			switch (bytesPerIndex) {
-			case 1:
-				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
-				break;
-
-			case 2:
-				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clut);
-				break;
-
-			case 4:
-				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clut);
-				break;
-			}
-		}
-		buf = tmpTexBuf16.data();
-		}
-		break;
-
-	case GE_CMODE_32BIT_ABGR8888:
-		{
-		tmpTexBuf32.resize(std::max(bufw, w) * h);
-		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		const u32 *clut = GetCurrentClut<u32>();
-		if (!gstate.isTextureSwizzled()) {
-			switch (bytesPerIndex) {
-			case 1:
-				DeIndexTexture(tmpTexBuf32.data(), (const u8 *)texptr, length, clut);
-				break;
-
-			case 2:
-				DeIndexTexture(tmpTexBuf32.data(), (const u16_le *)texptr, length, clut);
-				break;
-
-			case 4:
-				DeIndexTexture(tmpTexBuf32.data(), (const u32_le *)texptr, length, clut);
-				break;
-			}
-			buf = tmpTexBuf32.data();
-		} else {
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
-			// Since we had to unswizzle to tmpTexBuf32, let's output to tmpTexBuf16.
-			tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
-			u32 *dest32 = (u32 *) tmpTexBuf16.data();
-			switch (bytesPerIndex) {
-			case 1:
-				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clut);
-				buf = dest32;
-				break;
-
-			case 2:
-				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clut);
-				buf = dest32;
-				break;
-
-			case 4:
-				// TODO: If a game actually uses this mode, check if using dest32 or tmpTexBuf32 is faster.
-				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clut);
-				buf = tmpTexBuf32.data();
-				break;
-			}
-		}
-		}
-		break;
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
-		break;
-	}
-
-	return buf;
-}
-
 GLenum getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
@@ -659,11 +557,6 @@ void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, b
 	}
 
 	clutLastFormat_ = gstate.clutformat;
-}
-
-template <typename T>
-inline const T *TextureCache::GetCurrentClut() {
-	return (const T *)clutBuf_;
 }
 
 inline u32 TextureCache::GetCurrentClutHash() {
@@ -1660,17 +1553,53 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 
 	case GE_TFMT_CLUT8:
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texptr, 1, dstFmt, bufw);
+		{
+			int w = gstate.getTextureWidth(level);
+			int h = gstate.getTextureHeight(level);
+			int length = bufw * h;
+			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+
+			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
+			finalBuf = nullptr;
+			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 1, bufw)) {
+				finalBuf = tmpTexBuf16.data();
+			}
+		}
 		break;
 
 	case GE_TFMT_CLUT16:
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texptr, 2, dstFmt, bufw);
+		{
+			int w = gstate.getTextureWidth(level);
+			int h = gstate.getTextureHeight(level);
+			int length = bufw * h;
+			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+
+			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
+			finalBuf = nullptr;
+			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 2, bufw)) {
+				finalBuf = tmpTexBuf16.data();
+			}
+		}
 		break;
 
 	case GE_TFMT_CLUT32:
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		finalBuf = ReadIndexedTex(level, texptr, 4, dstFmt, bufw);
+		{
+			int w = gstate.getTextureWidth(level);
+			int h = gstate.getTextureHeight(level);
+			int length = bufw * h;
+			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+
+			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
+			finalBuf = nullptr;
+			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 4, bufw)) {
+				finalBuf = tmpTexBuf16.data();
+			}
+		}
 		break;
 
 	case GE_TFMT_4444:

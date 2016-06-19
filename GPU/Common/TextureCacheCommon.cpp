@@ -46,6 +46,7 @@ TextureCacheCommon::TextureCacheCommon()
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32.resize(512 * 512);  // 1MB
@@ -464,4 +465,75 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 
 	// This in other words multiplies by w and h.
 	return pixelSize << (dimW + dimH);
+}
+
+bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw) {
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+
+	if (gstate.isTextureSwizzled()) {
+		tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+		UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
+		texptr = (u8 *)tmpTexBuf32.data();
+	}
+
+	switch (gstate.getClutPaletteFormat()) {
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+	{
+		const u16 *clut = GetCurrentClut<u16>();
+		switch (bytesPerIndex) {
+		case 1:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 2:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 4:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+		}
+	}
+	break;
+
+	case GE_CMODE_32BIT_ABGR8888:
+	{
+		const u32 *clut = GetCurrentClut<u32>();
+		switch (bytesPerIndex) {
+		case 1:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 2:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 4:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+		}
+	}
+	break;
+
+	default:
+		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
+		return false;
+	}
+
+	return true;
 }
