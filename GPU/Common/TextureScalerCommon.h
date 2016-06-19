@@ -27,8 +27,9 @@ public:
 	TextureScaler();
 	~TextureScaler();
 
-	void ScaleAlways(u32 *&data, u32 &dstFmt, int &width, int &height, int factor);
+	void ScaleAlways(u32 *out, u32 *src, u32 &dstFmt, int &width, int &height, int factor);
 	bool Scale(u32 *&data, u32 &dstfmt, int &width, int &height, int factor);
+	bool ScaleInto(u32 *out, u32 *src, u32 &dstfmt, int &width, int &height, int factor);
 
 	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
