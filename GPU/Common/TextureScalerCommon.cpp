@@ -21,6 +21,7 @@
 #endif
 
 #include <algorithm>
+#include <cassert>
 #include <cstdlib>
 #include <cmath>
 
@@ -502,6 +503,37 @@ bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, int fmt) {
 		if (data[i] != ref) return false;
 	}
 	return true;
+}
+
+void TextureScaler::ScaleAlways(u32 *&data, u32 &dstFmt, int &width, int &height, int factor) {
+	if (!Scale(data, dstFmt, width, height, factor)) {
+		// This means it was a flat texture.  Vulkan wants the size up front, so we need to make it happen.
+		assert(IsEmptyOrFlat(data, width * height, dstFmt));
+
+		u32 pixel;
+		// Since it's flat, one pixel is enough.  It might end up pointing to data, though.
+		u32 *pixelPointer = &pixel;
+		ConvertTo8888(dstFmt, data, pixelPointer, 1, 1);
+		if (pixelPointer != &pixel) {
+			pixel = *pixelPointer;
+		}
+
+		bufOutput.resize(width * height * factor * factor);
+		dstFmt = Get8888Format();
+		data = bufOutput.data();
+		width *= factor;
+		height *= factor;
+
+		// ABCD.  If A = D, and AB = CD, then they must all be equal (B = C, etc.)
+		if ((pixel & 0x000000FF) == (pixel >> 24) && (pixel & 0x0000FFFF) == (pixel >> 16)) {
+			memset(data, pixel & 0xFF, width * height * sizeof(u32));
+		} else {
+			// Let's hope this is vectorized.
+			for (int i = 0; i < width * height; ++i) {
+				data[i] = pixel;
+			}
+		}
+	}
 }
 
 bool TextureScaler::Scale(u32* &data, u32 &dstFmt, int &width, int &height, int factor) {
