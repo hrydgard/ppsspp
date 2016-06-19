@@ -55,6 +55,7 @@ private:
 	UI::EventReturn OnShowInFolder(UI::EventParams &e);
 	UI::EventReturn OnCreateConfig(UI::EventParams &e);
 	UI::EventReturn OnDeleteConfig(UI::EventParams &e);
+	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::Thin3DTextureView *texvGameIcon_;

@@ -405,7 +405,7 @@ UI::EventReturn GamePauseScreen::OnRewind(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
-	screenManager()->push(new CwCheatScreen());
+	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

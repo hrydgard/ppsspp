@@ -40,10 +40,23 @@ static bool enableAll = false;
 static std::vector<std::string> cheatList;
 static CWCheatEngine *cheatEngine2;
 static std::deque<bool> bEnableCheat;
+static std::string gamePath_;
+
+
+CwCheatScreen::CwCheatScreen(std::string gamePath)
+	: UIDialogScreenWithBackground() {
+	gamePath_ = gamePath;
+}
 
 void CwCheatScreen::CreateCodeList() {
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	if (info && info->paramSFOLoaded) {
+		gameTitle = info->paramSFO.GetValueString("DISC_ID");
+	}
 	cheatEngine2 = new CWCheatEngine();
-	cheatList = cheatEngine2->GetCodesList();
+	cheatEngine2->CreateCheatFile();
+	cheatList = cheatEngine2->GetCodesList(activeCheatFile);
+
 	bEnableCheat.clear();
 	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {

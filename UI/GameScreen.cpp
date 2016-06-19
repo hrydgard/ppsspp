@@ -25,6 +25,7 @@
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "UI/CwCheatScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
@@ -49,6 +50,7 @@ void GameScreen::CreateViews() {
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
+	I18NCategory *pa = GetI18NCategory("Pause");
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -113,6 +115,9 @@ void GameScreen::CreateViews() {
 #ifdef _WIN32
 	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
+	if (g_Config.bEnableCheats) {
+		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GameScreen::OnCwCheat);
+	}
 }
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
@@ -202,6 +207,11 @@ UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
 	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
 	_wsystem(ConvertUTF8ToWString(str).c_str());
 #endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameScreen::OnCwCheat(UI::EventParams &e) {
+	screenManager()->push(new CwCheatScreen(gamePath_));
 	return UI::EVENT_DONE;
 }
 

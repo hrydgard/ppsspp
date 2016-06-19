@@ -21,8 +21,9 @@ bool CheatsInEffect();
 class CWCheatEngine {
 public:
 	CWCheatEngine();
-	std::vector<std::string> GetCodesList();
+	std::vector<std::string> GetCodesList(std::string file = "");
 	void CreateCodeList();
+	void CreateCheatFile();
 	void Exit();
 	void Run();
 	std::vector<int> GetNextCode();

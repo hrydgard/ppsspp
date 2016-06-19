@@ -26,6 +26,7 @@ extern std::string gameTitle;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
+	CwCheatScreen(std::string gamePath);
 	CwCheatScreen() {}
 	void CreateCodeList();
 	void processFileOn(std::string activatedCheat);
