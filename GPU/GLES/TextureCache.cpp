@@ -359,8 +359,6 @@ GLenum getClutDestFormat(GEPaletteFormat format) {
 	return 0;
 }
 
-static const u8 texByteAlignMap[] = {2, 2, 2, 4};
-
 static const GLuint MinFiltGL[8] = {
 	GL_NEAREST,
 	GL_LINEAR,
@@ -1470,269 +1468,33 @@ GLenum TextureCache::GetDestFormat(GETextureFormat format, GEPaletteFormat clutF
 	}
 }
 
-void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum dstFmt, int scaleFactor, int *bufwout) {
-	void *finalBuf = NULL;
-
+void *TextureCache::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
+	void *finalBuf = nullptr;
 	u32 texaddr = gstate.getTextureAddress(level);
-	bool swizzled = gstate.isTextureSwizzled();
-	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
-		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
-		WARN_LOG_REPORT_ONCE(texmirror, G3D, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
-		if ((texaddr & 0x00200000) == 0x00200000) {
-			// Technically 2 and 6 are slightly different, but this is better than nothing probably.
-			swizzled = !swizzled;
-		}
-		// Note that (texaddr & 0x00600000) == 0x00600000 is very likely to be depth texturing.
-	}
-
 	int bufw = GetTextureBufw(level, texaddr, format);
 	if (bufwout)
 		*bufwout = bufw;
+
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	const u8 *texptr = Memory::GetPointer(texaddr);
 
-	switch (format) {
-	case GE_TFMT_CLUT4:
-		{
-		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
-		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+	int decPitch = 0;
+	int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
+	if (!(scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
+		decPitch = w * pixelSize;
+	} else {
+		decPitch = bufw * pixelSize;
+	}
 
-		switch (clutformat) {
-		case GE_CMODE_16BIT_BGR5650:
-		case GE_CMODE_16BIT_ABGR5551:
-		case GE_CMODE_16BIT_ABGR4444:
-			{
-			tmpTexBuf16.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
-			texByteAlign = 2;
-			if (!swizzled) {
-				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), texptr, bufw * h, clutAlphaLinearColor_);
-				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), texptr, bufw * h, clut);
-				}
-			} else {
-				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
-				if (clutAlphaLinear_ && mipmapShareClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
-				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), (const u8 *)tmpTexBuf32.data(), bufw * h, clut);
-				}
-			}
-			finalBuf = tmpTexBuf16.data();
-			}
-			break;
-
-		case GE_CMODE_32BIT_ABGR8888:
-			{
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
-			if (!swizzled) {
-				DeIndexTexture4(tmpTexBuf32.data(), texptr, bufw * h, clut);
-				finalBuf = tmpTexBuf32.data();
-			} else {
-				UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
-				// Let's reuse tmpTexBuf16, just need double the space.
-				tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
-				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
-				finalBuf = tmpTexBuf16.data();
-			}
-			}
-			break;
-
-		default:
-			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
-			return NULL;
-		}
-		}
-		break;
-
-	case GE_TFMT_CLUT8:
-		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		{
-			int w = gstate.getTextureWidth(level);
-			int h = gstate.getTextureHeight(level);
-			int length = bufw * h;
-			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-
-			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
-			finalBuf = nullptr;
-			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 1, bufw)) {
-				finalBuf = tmpTexBuf16.data();
-			}
-		}
-		break;
-
-	case GE_TFMT_CLUT16:
-		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		{
-			int w = gstate.getTextureWidth(level);
-			int h = gstate.getTextureHeight(level);
-			int length = bufw * h;
-			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-
-			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
-			finalBuf = nullptr;
-			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 2, bufw)) {
-				finalBuf = tmpTexBuf16.data();
-			}
-		}
-		break;
-
-	case GE_TFMT_CLUT32:
-		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
-		{
-			int w = gstate.getTextureWidth(level);
-			int h = gstate.getTextureHeight(level);
-			int length = bufw * h;
-			int bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-
-			tmpTexBuf16.resize(std::max(bufw, w) * h * bpp / 2);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h * bpp / 2);
-			finalBuf = nullptr;
-			if (ReadIndexedTex((u8 *)tmpTexBuf16.data(), bufw * bpp, level, texptr, 4, bufw)) {
-				finalBuf = tmpTexBuf16.data();
-			}
-		}
-		break;
-
-	case GE_TFMT_4444:
-	case GE_TFMT_5551:
-	case GE_TFMT_5650:
-		texByteAlign = 2;
-
-		if (!swizzled) {
-			int len = std::max(bufw, w) * h;
-			tmpTexBuf16.resize(len);
-			tmpTexBufRearrange.resize(len);
-			finalBuf = tmpTexBuf16.data();
-			ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
-		} else {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
-		}
-		break;
-
-	case GE_TFMT_8888:
-		if (!swizzled) {
-			// Special case: if we don't need to deal with packing, we don't need to copy.
-			if ((scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) || w == bufw) {
-				if (UseBGRA8888()) {
-					tmpTexBuf32.resize(std::max(bufw, w) * h);
-					finalBuf = tmpTexBuf32.data();
-					ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
-				} else {
-					finalBuf = (void *)texptr;
-				}
-			} else {
-				tmpTexBuf32.resize(std::max(bufw, w) * h);
-				tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-				finalBuf = tmpTexBuf32.data();
-				ConvertColors(finalBuf, texptr, dstFmt, bufw * h);
-			}
-		} else {
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
-		}
-		break;
-
-	case GE_TFMT_DXT1:
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT1Block *src = (DXT1Block*)texptr;
-
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					DecodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
-			w = (w + 3) & ~3;
-		}
-		break;
-
-	case GE_TFMT_DXT3:
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT3Block *src = (DXT3Block*)texptr;
-
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					DecodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
-		}
-		break;
-
-	case GE_TFMT_DXT5:
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT5Block *src = (DXT5Block*)texptr;
-
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					DecodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
-		}
-		break;
-
-	default:
-		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
-		return NULL;
+	tmpTexBufRearrange.resize(std::max(w, bufw) * h);
+	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange.data(), decPitch, format, clutformat, texaddr, level, bufw, true, UseBGRA8888())) {
+		finalBuf = tmpTexBufRearrange.data();
+	} else {
+		finalBuf = nullptr;
 	}
 
 	if (!finalBuf) {
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
-	}
-
-	if (!(scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
-		int pixelSize;
-		switch (dstFmt) {
-		case GL_UNSIGNED_SHORT_4_4_4_4:
-		case GL_UNSIGNED_SHORT_5_5_5_1:
-		case GL_UNSIGNED_SHORT_5_6_5:
-			pixelSize = 2;
-			break;
-		default:
-			pixelSize = 4;
-			break;
-		}
-
-		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
-		finalBuf = RearrangeBuf(finalBuf, bufw * pixelSize, w * pixelSize, h);
 	}
 
 	return finalBuf;
@@ -1784,12 +1546,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 		texByteAlign = bpp;
 		useBGRA = false;
 	} else {
-
 		PROFILE_THIS_SCOPE("decodetex");
 
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		int bufw;
-		void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt, scaleFactor, &bufw);
+		void *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
 		if (finalBuf == NULL) {
 			return;
 		}
@@ -1800,6 +1561,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &repla
 			useUnpack = true;
 		}
 
+		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
+		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
 		useBGRA = UseBGRA8888() && dstFmt == GL_UNSIGNED_BYTE;
 
 		pixelData = (u32 *)finalBuf;
@@ -1882,7 +1645,6 @@ bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 		return false;
 	}
 
-	u32 texByteAlign = 1;
 	GLenum dstFmt = 0;
 
 	GETextureFormat format = gstate.getTextureFormat();
@@ -1893,7 +1655,7 @@ bool TextureCache::DecodeTexture(u8* output, const GPUgstate &state) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
-	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt, 1);
+	void *finalBuf = DecodeTextureLevelOld(format, clutformat, level, dstFmt, 1);
 	if (finalBuf == NULL) {
 		return false;
 	}

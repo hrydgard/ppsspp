@@ -152,8 +152,8 @@ protected:
 		u32 yOffset;
 	};
 
+	bool DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA = false);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
-	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
 	bool ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw);
 
 	template <typename T>
@@ -200,6 +200,10 @@ protected:
 	u32 clutMaxBytes_;
 	u32 clutRenderAddress_;
 	u32 clutRenderOffset_;
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear_;
+	u16 clutAlphaLinearColor_;
+
 	int standardScaleFactor_;
 };
 
