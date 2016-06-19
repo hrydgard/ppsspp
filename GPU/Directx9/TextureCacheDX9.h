@@ -78,14 +78,11 @@ protected:
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
-	void *ReadIndexedTex(int level, const u8 *texptr, int bytesPerIndex, u32 dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	void *DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, u32 &dstFmt, int *bufw = 0);
+	void *DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &dstFmt, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
-	template <typename T>
-	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
@@ -114,11 +111,7 @@ private:
 	bool lowMemoryMode_;
 	TextureScalerDX9 scaler;
 
-	u32 *clutBuf_;
 	u32 clutHash_;
-	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
-	u16 clutAlphaLinearColor_;
 
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;

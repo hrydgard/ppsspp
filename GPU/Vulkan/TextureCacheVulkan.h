@@ -126,14 +126,10 @@ protected:
 private:
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void DeleteTexture(TexCache::iterator it);
-	bool ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, VkFormat dstFmt, int bufw);
 	void UpdateSamplingParams(TexCacheEntry &entry, SamplerCacheKey &key);
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	bool DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, VkFormat dstFmt, int scaleFactor, int bufw);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h);
-	template <typename T>
-	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
 	bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) override;
@@ -158,11 +154,7 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	u32 *clutBuf_;
 	u32 clutHash_;
-	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
-	bool clutAlphaLinear_;
-	u16 clutAlphaLinearColor_;
 
 	CachedTextureVulkan *lastBoundTexture;
 

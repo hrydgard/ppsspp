@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -38,7 +39,8 @@
 
 TextureCacheCommon::TextureCacheCommon()
 	: cacheSizeEstimate_(0), nextTexture_(nullptr),
-	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF) {
+	clutLastFormat_(0xFFFFFFFF), clutTotalBytes_(0), clutMaxBytes_(0), clutRenderAddress_(0xFFFFFFFF),
+	clutAlphaLinear_(false) {
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
 	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
 	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
@@ -46,6 +48,7 @@ TextureCacheCommon::TextureCacheCommon()
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
 	memset(clutBufConverted_, 0, 1024 * sizeof(u32));
+	clutBuf_ = clutBufConverted_;
 
 	// These buffers will grow if necessary, but most won't need more than this.
 	tmpTexBuf32.resize(512 * 512);  // 1MB
@@ -408,23 +411,6 @@ void TextureCacheCommon::UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *te
 	DoUnswizzleTex16(texptr, dest, bxc, byc, destPitch);
 }
 
-void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {
-	const u8 *read = (const u8 *)inBuf;
-	void *outBuf = inBuf;
-	u8 *write = (u8 *)inBuf;
-	if (outRowBytes > inRowBytes || !allowInPlace) {
-		write = (u8 *)tmpTexBufRearrange.data();
-		outBuf = tmpTexBufRearrange.data();
-	}
-	for (int y = 0; y < h; y++) {
-		memmove(write, read, outRowBytes);
-		read += inRowBytes;
-		write += outRowBytes;
-	}
-
-	return outBuf;
-}
-
 bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 	const u32 bpp = gstate.getClutPaletteFormat() == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	const u32 pixels = 1024 / bpp;
@@ -464,4 +450,334 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 
 	// This in other words multiplies by w and h.
 	return pixelSize << (dimW + dimH);
+}
+
+static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
+	switch (fmt) {
+	case GE_TFMT_4444:
+		ConvertRGBA4444ToABGR4444((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		break;
+	// Final Fantasy 2 uses this heavily in animated textures.
+	case GE_TFMT_5551:
+		ConvertRGBA5551ToABGR1555((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		break;
+	case GE_TFMT_5650:
+		ConvertRGB565ToBGR565((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		break;
+	default:
+		if (useBGRA) {
+			ConvertRGBA8888ToBGRA8888((u32 *)dstBuf, (const u32 *)srcBuf, numPixels);
+		} else {
+			// No need to convert RGBA8888, right order already
+			if (dstBuf != srcBuf)
+				memcpy(dstBuf, srcBuf, numPixels * sizeof(u32));
+		}
+		break;
+	}
+}
+
+bool TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA) {
+	bool swizzled = gstate.isTextureSwizzled();
+	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
+		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
+		WARN_LOG_REPORT_ONCE(texmirror, G3D, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
+		if ((texaddr & 0x00200000) == 0x00200000) {
+			// Technically 2 and 6 are slightly different, but this is better than nothing probably.
+			swizzled = !swizzled;
+		}
+		// Note that (texaddr & 0x00600000) == 0x00600000 is very likely to be depth texturing.
+	}
+
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+	const u8 *texptr = Memory::GetPointer(texaddr);
+
+	switch (format) {
+	case GE_TFMT_CLUT4:
+	{
+		const bool mipmapShareClut = gstate.isClutSharedForMipmaps();
+		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+
+		if (swizzled) {
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw / 2, texptr, bufw, h, 0);
+			texptr = (u8 *)tmpTexBuf32.data();
+		}
+
+		switch (clutformat) {
+		case GE_CMODE_16BIT_BGR5650:
+		case GE_CMODE_16BIT_ABGR5551:
+		case GE_CMODE_16BIT_ABGR4444:
+		{
+			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
+			if (clutAlphaLinear_ && mipmapShareClut) {
+				// Here, reverseColors means the CLUT is already reversed.
+				if (reverseColors) {
+					for (int y = 0; y < h; ++y) {
+						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+					}
+				} else {
+					for (int y = 0; y < h; ++y) {
+						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+					}
+				}
+			} else {
+				for (int y = 0; y < h; ++y) {
+					DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+				}
+			}
+		}
+		break;
+
+		case GE_CMODE_32BIT_ABGR8888:
+		{
+			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+			}
+		}
+		break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
+			return false;
+		}
+	}
+	break;
+
+	case GE_TFMT_CLUT8:
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 1, bufw)) {
+			return false;
+		}
+		break;
+
+	case GE_TFMT_CLUT16:
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 2, bufw)) {
+			return false;
+		}
+		break;
+
+	case GE_TFMT_CLUT32:
+		if (!ReadIndexedTex(out, outPitch, level, texptr, 4, bufw)) {
+			return false;
+		}
+		break;
+
+	case GE_TFMT_4444:
+	case GE_TFMT_5551:
+	case GE_TFMT_5650:
+		if (!swizzled) {
+			// Just a simple copy, we swizzle the color format.
+			if (reverseColors) {
+				for (int y = 0; y < h; ++y) {
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u16) * y, format, w, useBGRA);
+				}
+			} else {
+				for (int y = 0; y < h; ++y) {
+					memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
+				}
+			}
+		} else if (h >= 8) {
+			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 2);
+			if (reverseColors) {
+				ReverseColors(out, out, format, h * outPitch / 2, useBGRA);
+			}
+		} else {
+			// We don't have enough space for all rows in out, so use a temp buffer.
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 2, texptr, bufw, h, 2);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+
+			if (reverseColors) {
+				for (int y = 0; y < h; ++y) {
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, format, w, useBGRA);
+				}
+			} else {
+				for (int y = 0; y < h; ++y) {
+					memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u16) * y, w * sizeof(u16));
+				}
+			}
+		}
+		break;
+
+	case GE_TFMT_8888:
+		if (!swizzled) {
+			if (reverseColors) {
+				for (int y = 0; y < h; ++y) {
+					ReverseColors(out + outPitch * y, texptr + bufw * sizeof(u32) * y, format, w, useBGRA);
+				}
+			} else {
+				for (int y = 0; y < h; ++y) {
+					memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
+				}
+			}
+		} else if (h >= 8) {
+			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 4);
+			if (reverseColors) {
+				ReverseColors(out, out, format, h * outPitch / 4, useBGRA);
+			}
+		} else {
+			// We don't have enough space for all rows in out, so use a temp buffer.
+			tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+			UnswizzleFromMem(tmpTexBuf32.data(), bufw * 4, texptr, bufw, h, 4);
+			const u8 *unswizzled = (u8 *)tmpTexBuf32.data();
+
+			if (reverseColors) {
+				for (int y = 0; y < h; ++y) {
+					ReverseColors(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, format, w, useBGRA);
+				}
+			} else {
+				for (int y = 0; y < h; ++y) {
+					memcpy(out + outPitch * y, unswizzled + bufw * sizeof(u32) * y, w * sizeof(u32));
+				}
+			}
+		}
+		break;
+
+	case GE_TFMT_DXT1:
+	{
+		int minw = std::min(bufw, w);
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
+		DXT1Block *src = (DXT1Block*)texptr;
+
+		for (int y = 0; y < h; y += 4) {
+			u32 blockIndex = (y / 4) * (bufw / 4);
+			for (int x = 0; x < minw; x += 4) {
+				DecodeDXT1Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				blockIndex++;
+			}
+		}
+		// TODO: Not height also?
+		w = (w + 3) & ~3;
+
+		if (reverseColors) {
+			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+		}
+	}
+	break;
+
+	case GE_TFMT_DXT3:
+	{
+		int minw = std::min(bufw, w);
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
+		DXT3Block *src = (DXT3Block*)texptr;
+
+		for (int y = 0; y < h; y += 4) {
+			u32 blockIndex = (y / 4) * (bufw / 4);
+			for (int x = 0; x < minw; x += 4) {
+				DecodeDXT3Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				blockIndex++;
+			}
+		}
+		// TODO: Not height also?
+		w = (w + 3) & ~3;
+
+		if (reverseColors) {
+			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+		}
+	}
+	break;
+
+	case GE_TFMT_DXT5:
+	{
+		int minw = std::min(bufw, w);
+		u32 *dst = (u32 *)out;
+		int outPitch32 = outPitch / sizeof(u32);
+		DXT5Block *src = (DXT5Block*)texptr;
+
+		for (int y = 0; y < h; y += 4) {
+			u32 blockIndex = (y / 4) * (bufw / 4);
+			for (int x = 0; x < minw; x += 4) {
+				DecodeDXT5Block(dst + outPitch32 * y + x, src + blockIndex, outPitch32);
+				blockIndex++;
+			}
+		}
+		// TODO: Not height also?
+		w = (w + 3) & ~3;
+
+		if (reverseColors) {
+			ReverseColors(out, out, GE_TFMT_8888, outPitch32 * h, useBGRA);
+		}
+	}
+	break;
+
+	default:
+		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
+		return false;
+	}
+
+	return true;
+}
+
+bool TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw) {
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+
+	if (gstate.isTextureSwizzled()) {
+		tmpTexBuf32.resize(bufw * ((h + 7) & ~7));
+		UnswizzleFromMem(tmpTexBuf32.data(), bufw * bytesPerIndex, texptr, bufw, h, bytesPerIndex);
+		texptr = (u8 *)tmpTexBuf32.data();
+	}
+
+	switch (gstate.getClutPaletteFormat()) {
+	case GE_CMODE_16BIT_BGR5650:
+	case GE_CMODE_16BIT_ABGR5551:
+	case GE_CMODE_16BIT_ABGR4444:
+	{
+		const u16 *clut = GetCurrentClut<u16>();
+		switch (bytesPerIndex) {
+		case 1:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 2:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 4:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u16 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+		}
+	}
+	break;
+
+	case GE_CMODE_32BIT_ABGR8888:
+	{
+		const u32 *clut = GetCurrentClut<u32>();
+		switch (bytesPerIndex) {
+		case 1:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 2:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+
+		case 4:
+			for (int y = 0; y < h; ++y) {
+				DeIndexTexture((u32 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut);
+			}
+			break;
+		}
+	}
+	break;
+
+	default:
+		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
+		return false;
+	}
+
+	return true;
 }

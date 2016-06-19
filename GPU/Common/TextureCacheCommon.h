@@ -146,14 +146,29 @@ protected:
 	// Can't be unordered_map, we use lower_bound ... although for some reason that compiles on MSVC.
 	typedef std::map<u64, TexCacheEntry> TexCache;
 
+	// Separate to keep main texture cache size down.
+	struct AttachedFramebufferInfo {
+		u32 xOffset;
+		u32 yOffset;
+	};
+
+	bool DecodeTextureLevel(u8 *out, int outPitch, GETextureFormat format, GEPaletteFormat clutformat, uint32_t texaddr, int level, int bufw, bool reverseColors, bool useBGRA = false);
 	void UnswizzleFromMem(u32 *dest, u32 destPitch, const u8 *texptr, u32 bufw, u32 height, u32 bytesPerPixel);
-	void *RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace = true);
+	bool ReadIndexedTex(u8 *out, int outPitch, int level, const u8 *texptr, int bytesPerIndex, int bufw);
+
+	template <typename T>
+	inline const T *GetCurrentClut() {
+		return (const T *)clutBuf_;
+	}
 
 	u32 EstimateTexMemoryUsage(const TexCacheEntry *entry);
 	void GetSamplingParams(int &minFilt, int &magFilt, bool &sClamp, bool &tClamp, float &lodBias, u8 maxLevel, u32 addr);
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
 
 	virtual bool AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset = 0) = 0;
+	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
 	virtual void DownloadFramebufferForClut(u32 clutAddr, u32 bytes) = 0;
 
@@ -164,16 +179,8 @@ protected:
 	TexCache cache;
 	u32 cacheSizeEstimate_;
 
-	// Separate to keep main texture cache size down.
-	struct AttachedFramebufferInfo {
-		u32 xOffset;
-		u32 yOffset;
-	};
 	std::vector<VirtualFramebuffer *> fbCache_;
 	std::map<u64, AttachedFramebufferInfo> fbTexInfo_;
-	void AttachFramebufferValid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void AttachFramebufferInvalid(TexCacheEntry *entry, VirtualFramebuffer *framebuffer, const AttachedFramebufferInfo &fbInfo);
-	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
 	std::map<u32, int> videos_;
 
@@ -186,11 +193,17 @@ protected:
 	// Raw is where we keep the original bytes.  Converted is where we swap colors if necessary.
 	u32 *clutBufRaw_;
 	u32 *clutBufConverted_;
+	// This is the active one.
+	u32 *clutBuf_;
 	u32 clutLastFormat_;
 	u32 clutTotalBytes_;
 	u32 clutMaxBytes_;
 	u32 clutRenderAddress_;
 	u32 clutRenderOffset_;
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear_;
+	u16 clutAlphaLinearColor_;
+
 	int standardScaleFactor_;
 };
 
