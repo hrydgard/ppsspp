@@ -39,7 +39,9 @@ static void __CheatStart() {
 
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 
-	cheatEngine->CreateCheatFile();
+	if (gameTitle != "") { //this only generates ini files on boot, let's leave homebrew ini file for UI
+		cheatEngine->CreateCheatFile();
+	}
 
 	cheatEngine = new CWCheatEngine();
 	cheatEngine->CreateCodeList();

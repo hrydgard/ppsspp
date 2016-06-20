@@ -214,6 +214,10 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 }
 
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
+	if (gameTitle.length() != 9) {
+		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameTitle.c_str());
+		return UI::EVENT_DONE;
+	}
 	std::string line;
 	std::vector<std::string> title;
 	bool finished = false, skip = false;
