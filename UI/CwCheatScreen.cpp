@@ -53,6 +53,19 @@ void CwCheatScreen::CreateCodeList() {
 	if (info && info->paramSFOLoaded) {
 		gameTitle = info->paramSFO.GetValueString("DISC_ID");
 	}
+	std::size_t lslash = gamePath_.find_last_of("/");
+	std::size_t lastdot = gamePath_.find_last_of(".");
+	std::string extension = gamePath_.substr(lastdot + 1);
+	for (int i = 0; i < extension.size(); i++) {
+		extension[i] = tolower(extension[i]);
+	}
+	if (extension != "iso" && extension != "cso" && extension != "pbp" || gameTitle == "") {
+		if (extension == "elf") {
+			gameTitle = "ELF000000";
+		} else {
+			gameTitle = gamePath_.substr(lslash + 1);
+		}
+	}
 	cheatEngine2 = new CWCheatEngine();
 	cheatEngine2->CreateCheatFile();
 	cheatList = cheatEngine2->GetCodesList(activeCheatFile);
