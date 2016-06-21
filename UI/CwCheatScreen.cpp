@@ -40,10 +40,36 @@ static bool enableAll = false;
 static std::vector<std::string> cheatList;
 static CWCheatEngine *cheatEngine2;
 static std::deque<bool> bEnableCheat;
+static std::string gamePath_;
+
+
+CwCheatScreen::CwCheatScreen(std::string gamePath)
+	: UIDialogScreenWithBackground() {
+	gamePath_ = gamePath;
+}
 
 void CwCheatScreen::CreateCodeList() {
+	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	if (info && info->paramSFOLoaded) {
+		gameTitle = info->paramSFO.GetValueString("DISC_ID");
+	}
+	std::size_t lslash = gamePath_.find_last_of("/");
+	std::size_t lastdot = gamePath_.find_last_of(".");
+	std::string extension = gamePath_.substr(lastdot + 1);
+	for (int i = 0; i < extension.size(); i++) {
+		extension[i] = tolower(extension[i]);
+	}
+	if (extension != "iso" && extension != "cso" && extension != "pbp" || gameTitle == "") {
+		if (extension == "elf") {
+			gameTitle = "ELF000000";
+		} else {
+			gameTitle = gamePath_.substr(lslash + 1);
+		}
+	}
 	cheatEngine2 = new CWCheatEngine();
+	cheatEngine2->CreateCheatFile();
 	cheatList = cheatEngine2->GetCodesList();
+
 	bEnableCheat.clear();
 	formattedList_.clear();
 	for (size_t i = 0; i < cheatList.size(); i++) {
@@ -201,6 +227,10 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 }
 
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
+	if (gameTitle.length() != 9) {
+		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameTitle.c_str());
+		return UI::EVENT_DONE;
+	}
 	std::string line;
 	std::vector<std::string> title;
 	bool finished = false, skip = false;

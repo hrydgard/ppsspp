@@ -23,6 +23,7 @@ public:
 	CWCheatEngine();
 	std::vector<std::string> GetCodesList();
 	void CreateCodeList();
+	void CreateCheatFile();
 	void Exit();
 	void Run();
 	std::vector<int> GetNextCode();
