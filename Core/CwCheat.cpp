@@ -269,10 +269,7 @@ inline void trim2(std::string& str) {
 	else str.erase(str.begin(), str.end());
 }
 
-std::vector<std::string> CWCheatEngine::GetCodesList(std::string file) { //Reads the entire cheat list from the appropriate .ini.
-	if (file.empty()) {
-		file = activeCheatFile;
-	}
+std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire cheat list from the appropriate .ini.
 	std::string line;
 	std::vector<std::string> codesList;  // Read from INI here
 #ifdef _WIN32

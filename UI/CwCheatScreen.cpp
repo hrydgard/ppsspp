@@ -68,7 +68,7 @@ void CwCheatScreen::CreateCodeList() {
 	}
 	cheatEngine2 = new CWCheatEngine();
 	cheatEngine2->CreateCheatFile();
-	cheatList = cheatEngine2->GetCodesList(activeCheatFile);
+	cheatList = cheatEngine2->GetCodesList();
 
 	bEnableCheat.clear();
 	formattedList_.clear();
