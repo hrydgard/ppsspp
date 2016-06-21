@@ -1156,6 +1156,21 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 			if (f) {
 				fwrite("\xEF\xBB\xBF", 0, 3, f);
 				fclose(f);
+				// Let's also write some defaults
+				std::fstream fs;
+				File::OpenCPPFile(fs, texturesDirectory + "textures.ini", std::ios::out);
+				fs << "# This file is optional\n";
+				fs << "# for syntax explanation check:\n";
+				fs << "# - https://github.com/hrydgard/ppsspp/pull/8715 \n";
+				fs << "# - https://github.com/hrydgard/ppsspp/pull/8792 \n";
+				fs << "[options]\n";
+				fs << "version = 1\n";
+				fs << "hash = quick\n";
+				fs << "\n";
+				fs << "[hashes]\n";
+				fs << "\n";
+				fs << "[hashranges]\n";
+				fs.close();
 			}
 		}
 		enabled_ = File::Exists(texturesDirectory + "textures.ini");
