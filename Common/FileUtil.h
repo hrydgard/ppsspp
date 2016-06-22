@@ -113,6 +113,9 @@ std::string GetCurrentDir();
 // Create directory and copy contents (does not overwrite existing files)
 void CopyDir(const std::string &source_path, const std::string &dest_path);
 
+// Opens ini file (cheats, texture replacements etc.)
+void openIniFile(const std::string fileName);
+
 // Set the current directory to given directory
 bool SetCurrentDir(const std::string &directory);
 

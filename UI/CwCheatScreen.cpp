@@ -172,57 +172,12 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 }
 
 UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
-	std::string cheatFile;
 	g_Config.bReloadCheats = true;
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
 	screenManager()->finishDialog(this, DR_OK);
-#ifdef _WIN32
-	cheatFile = activeCheatFile;
-	// Can't rely on a .txt file extension to auto-open in the right editor,
-	// so let's find notepad
-	wchar_t notepad_path[MAX_PATH + 1];
-	GetSystemDirectory(notepad_path, MAX_PATH);
-	wcscat(notepad_path, L"\\notepad.exe");
-
-	wchar_t cheat_path[MAX_PATH + 1] = {0};
-	wcsncpy(cheat_path, ConvertUTF8ToWString(cheatFile).c_str(), MAX_PATH);
-	// Flip any slashes...
-	for (size_t i = 0; i < wcslen(cheat_path); i++) {
-		if (cheat_path[i] == '/')
-			cheat_path[i] = '\\';
-	}
-
-	// One for the space, one for the null.
-	wchar_t command_line[MAX_PATH * 2 + 1 + 1];
-	wsprintf(command_line, L"%s %s", notepad_path, cheat_path);
-
-	STARTUPINFO si;
-	memset(&si, 0, sizeof(si));
-	si.cb = sizeof(si);
-	si.wShowWindow = SW_SHOW;
-	PROCESS_INFORMATION pi;
-	memset(&pi, 0, sizeof(pi));
-	UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
-	if (!retval) {
-		ERROR_LOG(COMMON, "Failed creating notepad process");
-	}
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
-#elif !defined(MOBILE_DEVICE)
-#if defined(__APPLE__)
-	cheatFile = "open ";
-#else
-	cheatFile = "xdg-open ";
-#endif
-	cheatFile.append(activeCheatFile);
-	NOTICE_LOG(BOOT, "Launching %s", cheatFile.c_str());
-	int retval = system(cheatFile.c_str());
-	if (retval != 0) {
-		ERROR_LOG(COMMON, "Failed to launch cheat file");
-	}
-#endif
+	File::openIniFile(activeCheatFile);
 	return UI::EVENT_DONE;
 }
 

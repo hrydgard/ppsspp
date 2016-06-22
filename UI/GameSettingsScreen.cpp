@@ -1156,57 +1156,27 @@ UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) 
 			if (f) {
 				fwrite("\xEF\xBB\xBF", 0, 3, f);
 				fclose(f);
+				// Let's also write some defaults
+				std::fstream fs;
+				File::OpenCPPFile(fs, texturesDirectory + "textures.ini", std::ios::out | std::ios::ate);
+				fs << "# This file is optional\n";
+				fs << "# for syntax explanation check:\n";
+				fs << "# - https://github.com/hrydgard/ppsspp/pull/8715 \n";
+				fs << "# - https://github.com/hrydgard/ppsspp/pull/8792 \n";
+				fs << "[options]\n";
+				fs << "version = 1\n";
+				fs << "hash = quick\n";
+				fs << "\n";
+				fs << "[hashes]\n";
+				fs << "\n";
+				fs << "[hashranges]\n";
+				fs.close();
 			}
 		}
 		enabled_ = File::Exists(texturesDirectory + "textures.ini");
 	}
 	if (enabled_) {
-		std::string texturesIniFile;
-#if defined(_WIN32)
-		texturesIniFile = texturesDirectory + "textures.ini";
-		// Can't rely on a .txt file extension to auto-open in the right editor,
-		// so let's find notepad
-		wchar_t notepad_path[MAX_PATH + 1];
-		GetSystemDirectory(notepad_path, MAX_PATH);
-		wcscat(notepad_path, L"\\notepad.exe");
-
-		wchar_t ini_path[MAX_PATH + 1] = { 0 };
-		wcsncpy(ini_path, ConvertUTF8ToWString(texturesIniFile).c_str(), MAX_PATH);
-		// Flip any slashes...
-		for (size_t i = 0; i < wcslen(ini_path); i++) {
-			if (ini_path[i] == '/')
-				ini_path[i] = '\\';
-		}
-
-		// One for the space, one for the null.
-		wchar_t command_line[MAX_PATH * 2 + 1 + 1];
-		wsprintf(command_line, L"%s %s", notepad_path, ini_path);
-
-		STARTUPINFO si;
-		memset(&si, 0, sizeof(si));
-		si.cb = sizeof(si);
-		si.wShowWindow = SW_SHOW;
-		PROCESS_INFORMATION pi;
-		memset(&pi, 0, sizeof(pi));
-		UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
-		if (!retval) {
-			ERROR_LOG(COMMON, "Failed creating notepad process");
-		}
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-#elif !defined(MOBILE_DEVICE)
-#if defined(__APPLE__)
-		texturesIniFile = "open ";
-#else
-		texturesIniFile = "xdg-open ";
-#endif
-		texturesIniFile.append(texturesDirectory + "textures.ini");
-		NOTICE_LOG(BOOT, "Launching %s", texturesIniFile.c_str());
-		int retval = system(texturesIniFile.c_str());
-		if (retval != 0) {
-			ERROR_LOG(COMMON, "Failed to launch textures.ini file");
-		}
-#endif
+		File::openIniFile(texturesDirectory + "textures.ini");
 	}
 	return UI::EVENT_DONE;
 }
