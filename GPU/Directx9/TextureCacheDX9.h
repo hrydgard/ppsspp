@@ -81,7 +81,6 @@ private:
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt);
 	D3DFORMAT GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
-	void *DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &dstFmt, int *bufw = 0);
 	TexCacheEntry::Status CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h);
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple);
