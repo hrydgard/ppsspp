@@ -17,6 +17,7 @@
 
 #include <map>
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 
 #include "Core/MemMap.h"
@@ -1304,38 +1305,6 @@ D3DFORMAT TextureCacheDX9::GetDestFormat(GETextureFormat format, GEPaletteFormat
 	}
 }
 
-void *TextureCacheDX9::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &dstFmt, int *bufwout) {
-	void *finalBuf = nullptr;
-	u32 texaddr = gstate.getTextureAddress(level);
-	int bufw = GetTextureBufw(level, texaddr, format);
-	if (bufwout)
-		*bufwout = bufw;
-
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	int decPitch = 0;
-	int pixelSize = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-	if (!(standardScaleFactor_ == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
-		decPitch = w * pixelSize;
-	} else {
-		decPitch = bufw * pixelSize;
-	}
-
-	tmpTexBufRearrange.resize(std::max(w, bufw) * h);
-	if (DecodeTextureLevel((u8 *)tmpTexBufRearrange.data(), decPitch, format, clutformat, texaddr, level, bufw, false)) {
-		finalBuf = tmpTexBufRearrange.data();
-	} else {
-		finalBuf = nullptr;
-	}
-
-	if (!finalBuf) {
-		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
-	}
-
-	return finalBuf;
-}
-
 TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pixelData, u32 dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
@@ -1355,31 +1324,6 @@ TextureCacheDX9::TexCacheEntry::Status TextureCacheDX9::CheckAlpha(const u32 *pi
 	}
 
 	return (TexCacheEntry::Status)res;
-}
-
-// TODO: xoffset and yoffset are unused - bug?
-static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch, int srcfmt, int fmt, void * pSrc, void * pDst) {
-	int y;
-	switch(fmt) {
-		case D3DFMT_R5G6B5:
-		case D3DFMT_A4R4G4B4:
-		case D3DFMT_A1R5G5B5:
-			for(y = 0; y < h; y++) {
-				const u16 *src = (const u16 *)((u8*)pSrc + (w*2) * y);
-				u16 *dst = (u16*)((u8*)pDst + pitch * y);
-				memcpy(dst, src, w * sizeof(u16));
-			}
-			break;
-				
-		// 32 bit texture
-		case D3DFMT_A8R8G8B8:
-			for(y = 0; y < h; y++) {
-				const u32 *src = (const u32 *)((u8*)pSrc + (w*4) * y);
-				u32 *dst = (u32*)((u8*)pDst + pitch * y);
-				memcpy(dst, src, w * sizeof(u32));
-			}
-			break;
-	}
 }
 
 ReplacedTextureFormat FromD3D9Format(u32 fmt) {
@@ -1413,31 +1357,83 @@ u32 ToD3D9Format(ReplacedTextureFormat fmt) {
 void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	int bufw;
 
-	u32 *pixelData;
-	gpuStats.numTexturesDecoded++;
-	if (replaced.GetSize(level, w, h)) {
-		tmpTexBufRearrange.resize(w * h);
-		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		bufw = w;
-		replaced.Load(level, tmpTexBufRearrange.data(), bpp * w);
-		pixelData = tmpTexBufRearrange.data();
-
-		dstFmt = ToD3D9Format(replaced.Format(level));
-	} else {
-		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		void *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, &bufw);
-		if (finalBuf == NULL) {
+	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
+	if (level == 0 && (!replaceImages || texture == nullptr)) {
+		// Create texture
+		D3DPOOL pool = D3DPOOL_MANAGED;
+		int usage = 0;
+		if (pD3DdeviceEx) {
+			pool = D3DPOOL_DEFAULT;
+			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
+		}
+		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
+		int tw = w, th = h;
+		D3DFORMAT tfmt = (D3DFORMAT)D3DFMT(dstFmt);
+		if (!replaced.GetSize(level, tw, th)) {
+			tw *= scaleFactor;
+			th *= scaleFactor;
+			if (scaleFactor > 1) {
+				tfmt = D3DFMT_A8R8G8B8;
+			}
+		}
+		HRESULT hr = pD3Ddevice->CreateTexture(tw, th, levels, usage, tfmt, pool, &texture, NULL);
+		if (FAILED(hr)) {
+			INFO_LOG(G3D, "Failed to create D3D texture");
+			ReleaseTexture(&entry);
 			return;
 		}
+	}
 
-		pixelData = (u32 *)finalBuf;
-		if (scaleFactor > 1 && (entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0)
-			scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
+	D3DLOCKED_RECT rect;
+	texture->LockRect(level, &rect, NULL, 0);
+
+	gpuStats.numTexturesDecoded++;
+	if (replaced.GetSize(level, w, h)) {
+		replaced.Load(level, rect.pBits, rect.Pitch);
+		dstFmt = ToD3D9Format(replaced.Format(level));
+	} else {
+		GETextureFormat tfmt = (GETextureFormat)entry.format;
+		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+		u32 texaddr = gstate.getTextureAddress(level);
+		int bufw = GetTextureBufw(level, texaddr, tfmt);
+		int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
+
+		u32 *pixelData = (u32 *)rect.pBits;
+		int decPitch = rect.Pitch;
+		if (scaleFactor > 1) {
+			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+			pixelData = tmpTexBufRearrange.data();
+			// We want to end up with a neatly packed texture for scaling.
+			decPitch = w * bpp;
+		}
+
+		bool decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
+		if (!decSuccess) {
+			memset(pixelData, 0, decPitch * h);
+		}
+
+		if (scaleFactor > 1) {
+			scaler.ScaleAlways((u32 *)rect.pBits, pixelData, dstFmt, w, h, scaleFactor);
+			pixelData = (u32 *)rect.pBits;
+
+			// We always end up at 8888.  Other parts assume this.
+			assert(dstFmt == D3DFMT_A8R8G8B8);
+			bpp = sizeof(u32);
+			decPitch = w * bpp;
+
+			if (decPitch != rect.Pitch) {
+				// Rearrange in place to match the requested pitch.
+				// (it can only be larger than w * bpp, and a match is likely.)
+				for (int y = h - 1; y >= 0; --y) {
+					memcpy((u8 *)rect.pBits + rect.Pitch * y, (u8 *)rect.pBits + decPitch * y, w * bpp);
+				}
+				decPitch = rect.Pitch;
+			}
+		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
-			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, w, w, h);
+			TexCacheEntry::Status alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
@@ -1453,33 +1449,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 			replacedInfo.scaleFactor = scaleFactor;
 			replacedInfo.fmt = FromD3D9Format(dstFmt);
 
-			int bpp = dstFmt == D3DFMT_A8R8G8B8 ? 4 : 2;
-			replacer.NotifyTextureDecoded(replacedInfo, pixelData, w * bpp, level, w, h);
+			replacer.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
-
-	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	if (level == 0 && (!replaceImages || texture == nullptr)) {
-		// Create texture
-		D3DPOOL pool = D3DPOOL_MANAGED;
-		int usage = 0;
-		if (pD3DdeviceEx) {
-			pool = D3DPOOL_DEFAULT;
-			usage = D3DUSAGE_DYNAMIC;  // TODO: Switch to using a staging texture?
-		}
-		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
-		HRESULT hr = pD3Ddevice->CreateTexture(w, h, levels, usage, (D3DFORMAT)D3DFMT(dstFmt), pool, &texture, NULL);
-		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture");
-			ReleaseTexture(&entry);
-			return;
-		}
-	}
-
-	D3DLOCKED_RECT rect;
-	texture->LockRect(level, &rect, NULL, 0);
-
-	copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
 
 	texture->UnlockRect(level);
 }

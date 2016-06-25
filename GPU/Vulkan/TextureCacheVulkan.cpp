@@ -1399,9 +1399,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 	CachedTextureVulkan *tex = entry.vkTex;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	u32 *pixelData;
-	int decPitch;
-	int rowBytes;
+
 	{
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -1411,8 +1409,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		int bufw = GetTextureBufw(level, texaddr, tfmt);
 		int bpp = dstFmt == VULKAN_8888_FORMAT ? 4 : 2;
 
-		pixelData = (u32 *)writePtr;
-		decPitch = rowPitch;
+		u32 *pixelData = (u32 *)writePtr;
+		int decPitch = rowPitch;
 		if (scaleFactor > 1) {
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			pixelData = tmpTexBufRearrange.data();
@@ -1425,19 +1423,27 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			memset(writePtr, 0, rowPitch * h);
 			return;
 		}
-		rowBytes = w * bpp;
 		gpuStats.numTexturesDecoded++;
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
-			scaler.ScaleAlways(pixelData, fmt, w, h, scaleFactor);
+			scaler.ScaleAlways((u32 *)writePtr, pixelData, fmt, w, h, scaleFactor);
+			pixelData = (u32 *)writePtr;
 			dstFmt = (VkFormat)fmt;
 
 			// We always end up at 8888.  Other parts assume this.
 			assert(dstFmt == VULKAN_8888_FORMAT);
 			bpp = sizeof(u32);
 			decPitch = w * bpp;
-			rowBytes = w * bpp;
+
+			if (decPitch != rowPitch) {
+				// Rearrange in place to match the requested pitch.
+				// (it can only be larger than w * bpp, and a match is likely.)
+				for (int y = h - 1; y >= 0; --y) {
+					memcpy(writePtr + rowPitch * y, writePtr + decPitch * y, w * bpp);
+				}
+				decPitch = rowPitch;
+			}
 		}
 
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -1445,14 +1451,6 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
-		}
-	}
-
-	PROFILE_THIS_SCOPE("loadtex");
-	if (pixelData != (u32 *)writePtr) {
-		// This is used when texture scaling was enabled.
-		for (int y = 0; y < h; y++) {
-			memcpy(writePtr + rowPitch * y, (const uint8_t *)pixelData + decPitch * y, rowBytes);
 		}
 	}
 }
