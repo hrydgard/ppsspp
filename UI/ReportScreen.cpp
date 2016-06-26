@@ -283,10 +283,49 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	screenManager()->finishDialog(this, DR_OK);
+	screenManager()->push(new ReportFinishScreen(gamePath_));
 	return EVENT_DONE;
 }
 
 EventReturn ReportScreen::HandleBrowser(EventParams &e) {
-	LaunchBrowser("http://report.ppsspp.org/");
+	const std::string url = "http://" + Reporting::ServerHost() + "/";
+	LaunchBrowser(url.c_str());
+	return EVENT_DONE;
+}
+
+ReportFinishScreen::ReportFinishScreen(const std::string &gamePath)
+	: UIScreenWithGameBackground(gamePath) {
+}
+
+void ReportFinishScreen::CreateViews() {
+	I18NCategory *rp = GetI18NCategory("Reporting");
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	Margins actionMenuMargins(0, 20, 15, 0);
+	Margins contentMargins(0, 20, 5, 5);
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
+	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+
+	leftColumnItems->Add(new TextView(rp->T("FeedbackThanks", "Thanks for your feedback."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumnItems->Add(new Choice(rp->T("View Feedback")))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);
+
+	rightColumnItems->Add(new Spacer(25.0));
+	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
+
+	leftColumn->Add(leftColumnItems);
+	rightColumn->Add(rightColumnItems);
+}
+
+UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
+	const std::string url = "http://" + Reporting::ServerHost() + "/game/" + Reporting::CurrentGameID();
+	LaunchBrowser(url.c_str());
 	return EVENT_DONE;
 }
