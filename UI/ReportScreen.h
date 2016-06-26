@@ -49,3 +49,13 @@ protected:
 	bool ratingEnabled_;
 	bool includeScreenshot_;
 };
+
+class ReportFinishScreen : public UIScreenWithGameBackground {
+public:
+	ReportFinishScreen(const std::string &gamePath);
+
+protected:
+	void CreateViews() override;
+
+	UI::EventReturn HandleViewFeedback(UI::EventParams &e);
+};

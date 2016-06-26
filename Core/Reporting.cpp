@@ -80,7 +80,7 @@ namespace Reporting
 	static int payloadBufferPos = 0;
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
-	inline std::string ServerHost()
+	std::string ServerHost()
 	{
 		if (g_Config.sReportHost.compare("default") == 0)
 			return "";
@@ -257,10 +257,17 @@ namespace Reporting
 		return logOnceUsed.insert(identifier).second;
 	}
 
-	void AddGameInfo(UrlEncoder &postdata)
+	std::string CurrentGameID()
 	{
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
-		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
+		const std::string disc_id = StripTrailingNull(g_paramSFO.GetValueString("DISC_ID"));
+		const std::string disc_version = StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION"));
+		return disc_id + "_" + disc_version;
+	}
+
+	void AddGameInfo(UrlEncoder &postdata)
+	{
+		postdata.Add("game", CurrentGameID());
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
 	}

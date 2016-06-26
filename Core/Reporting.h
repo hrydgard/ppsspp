@@ -74,4 +74,10 @@ namespace Reporting
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);
+
+	// Return the currently active host (or blank if not active.)
+	std::string ServerHost();
+
+	// Return the current game id.
+	std::string CurrentGameID();
 }
