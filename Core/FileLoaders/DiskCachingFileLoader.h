@@ -89,6 +89,8 @@ public:
 	// Guaranteed to read at least one block into the cache.
 	size_t SaveIntoCache(FileLoader *backend, s64 pos, size_t bytes, void *data);
 
+	bool HasData() const;
+
 private:
 	void InitCache(const std::string &path);
 	void ShutdownCache();
