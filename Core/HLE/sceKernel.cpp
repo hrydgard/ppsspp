@@ -306,7 +306,8 @@ u32 sceKernelDevkitVersion()
 	int minor = (firmwareVersion / 10) % 10;
 	int revision = firmwareVersion % 10;
 	int devkitVersion = (major << 24) | (minor << 16) | (revision << 8) | 0x10;
-	DEBUG_LOG(SCEKERNEL, "sceKernelDevkitVersion (%i) ", devkitVersion);
+
+	DEBUG_LOG_REPORT_ONCE(devkitVer, SCEKERNEL, "%08x=sceKernelDevkitVersion()", devkitVersion);
 	return devkitVersion;
 }
 
