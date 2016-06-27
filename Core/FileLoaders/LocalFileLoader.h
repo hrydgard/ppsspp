@@ -31,8 +31,8 @@ public:
 	virtual std::string Path() const override;
 
 	virtual void Seek(s64 absolutePos) override;
-	virtual size_t Read(size_t bytes, size_t count, void *data) override;
-	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override;
+	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
 
 private:
 	// First only used by Android, but we can keep it here for everyone.

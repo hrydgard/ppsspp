@@ -123,7 +123,7 @@ void HTTPFileLoader::Seek(s64 absolutePos) {
 	filepos_ = absolutePos;
 }
 
-size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);
 	if (absolutePos >= filesize_ || bytes == 0) {

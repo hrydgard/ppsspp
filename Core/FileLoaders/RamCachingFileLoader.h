@@ -34,23 +34,23 @@ public:
 	std::string Path() const override;
 
 	void Seek(s64 absolutePos) override;
-	size_t Read(size_t bytes, size_t count, void *data) override {
-		return ReadAt(filepos_, bytes, count, data);
+	size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(filepos_, bytes, count, data, flags);
 	}
-	size_t Read(size_t bytes, void *data) override {
-		return ReadAt(filepos_, bytes, data);
+	size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(filepos_, bytes, data, flags);
 	}
-	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override {
-		return ReadAt(absolutePos, bytes * count, data) / bytes;
+	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
-	size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
+	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
 private:
 	void InitCache();
 	void ShutdownCache();
 	size_t ReadFromCache(s64 pos, size_t bytes, void *data);
 	// Guaranteed to read at least one block into the cache.
-	void SaveIntoCache(s64 pos, size_t bytes);
+	void SaveIntoCache(s64 pos, size_t bytes, Flags flags);
 	void StartReadAhead(s64 pos);
 	u32 NextAheadBlock();
 

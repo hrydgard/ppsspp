@@ -81,7 +81,7 @@ void LocalFileLoader::Seek(s64 absolutePos) {
 #endif
 }
 
-size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data) {
+size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
 #ifdef ANDROID
 	return read(fd_, data, bytes * count) / bytes;
 #else
@@ -89,7 +89,7 @@ size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data) {
 #endif
 }
 
-size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) {
+size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
 	Seek(absolutePos);
 	return Read(bytes, count, data);
 }
