@@ -45,6 +45,21 @@ BlockDevice *constructBlockDevice(FileLoader *fileLoader) {
 		return new FileBlockDevice(fileLoader);
 }
 
+u32 BlockDevice::CalculateCRC() {
+	u32 crc = crc32(0, Z_NULL, 0);
+
+	u8 block[2048];
+	for (u32 i = 0; i < GetNumBlocks(); ++i) {
+		if (!ReadBlock(i, block, true)) {
+			ERROR_LOG(HLE, "Failed to read block for CRC");
+			return 0;
+		}
+		crc = crc32(crc, block, 2048);
+	}
+
+	return crc;
+}
+
 
 FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader) {

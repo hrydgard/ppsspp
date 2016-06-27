@@ -45,6 +45,8 @@ public:
 	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
+
+	u32 CalculateCRC();
 };
 
 

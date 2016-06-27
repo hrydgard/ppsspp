@@ -309,6 +309,7 @@ void ReportFinishScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
 	leftColumnItems->Add(new TextView(rp->T("FeedbackThanks", "Thanks for your feedback."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	leftColumnItems->Add(new TextView(rp->T("FeedbackDelayInfo", "Your data is being submitted in the background."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("View Feedback")))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);

@@ -21,8 +21,10 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
+#include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -37,6 +39,7 @@
 #include "base/stringutil.h"
 #include "base/buffer.h"
 #include "thread/thread.h"
+#include "thread/threadutil.h"
 #include "file/zip_read.h"
 
 #include <set>
@@ -78,6 +81,68 @@ namespace Reporting
 	};
 	static Payload payloadBuffer[PAYLOAD_BUFFER_SIZE];
 	static int payloadBufferPos = 0;
+
+	static recursive_mutex crcLock;
+	static condition_variable crcCond;
+	static std::string crcFilename;
+	static std::map<std::string, u32> crcResults;
+
+	static int CalculateCRCThread() {
+		setCurrentThreadName("ReportCRC");
+
+		// TODO: Use the blockDevice from pspFileSystem?
+		FileLoader *fileLoader = ConstructFileLoader(crcFilename);
+		BlockDevice *blockDevice = constructBlockDevice(fileLoader);
+
+		u32 crc = 0;
+		if (blockDevice) {
+			crc = blockDevice->CalculateCRC();
+		}
+
+		delete blockDevice;
+		delete fileLoader;
+
+		lock_guard guard(crcLock);
+		crcResults[crcFilename] = crc;
+		crcCond.notify_one();
+
+		return 0;
+	}
+
+	void QueueCRC() {
+		lock_guard guard(crcLock);
+
+		const std::string &gamePath = PSP_CoreParameter().fileToStart;
+		auto it = crcResults.find(gamePath);
+		if (it != crcResults.end()) {
+			// Nothing to do, we've already calculated it.
+			// Note: we assume it stays static until the app is closed.
+			return;
+		}
+
+		if (crcFilename == gamePath) {
+			// Already in process.
+			return;
+		}
+
+		crcFilename = gamePath;
+		std::thread th(CalculateCRCThread);
+		th.detach();
+	}
+
+	u32 RetrieveCRC() {
+		const std::string &gamePath = PSP_CoreParameter().fileToStart;
+		QueueCRC();
+
+		lock_guard guard(crcLock);
+		auto it = crcResults.find(gamePath);
+		while (it == crcResults.end()) {
+			crcCond.wait(crcLock);
+			it = crcResults.find(gamePath);
+		}
+
+		return it->second;
+	}
 
 	// Returns the full host (e.g. report.ppsspp.org:80.)
 	std::string ServerHost()
@@ -324,6 +389,8 @@ namespace Reporting
 
 	int Process(int pos)
 	{
+		setCurrentThreadName("Report");
+
 		Payload &payload = payloadBuffer[pos];
 
 		MultipartFormDataEncoder postdata;
@@ -335,6 +402,7 @@ namespace Reporting
 		switch (payload.type)
 		{
 		case RequestType::MESSAGE:
+			// TODO: Add CRC?
 			postdata.Add("message", payload.string1);
 			postdata.Add("value", payload.string2);
 			// We tend to get corrupted data, this acts as a very primitive verification check.
@@ -353,6 +421,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
+			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRC()));
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
@@ -484,7 +553,7 @@ namespace Reporting
 		th.detach();
 	}
 
-	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, std::string screenshotFilename)
+	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, const std::string &screenshotFilename)
 	{
 		if (!IsEnabled())
 			return;
@@ -503,5 +572,4 @@ namespace Reporting
 		std::thread th(Process, pos);
 		th.detach();
 	}
-
 }
