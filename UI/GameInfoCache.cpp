@@ -72,8 +72,8 @@ bool GameInfo::Delete() {
 	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
 		{
 			// TODO: This could be handled by Core/Util/GameManager too somehow.
-			const char *directoryToRemove = filePath_.c_str();
-			INFO_LOG(HLE, "Deleting %s", directoryToRemove);
+			std::string directoryToRemove = ResolvePBPDirectory(filePath_);
+			INFO_LOG(HLE, "Deleting %s", directoryToRemove.c_str());
 			if (!File::DeleteDirRecursively(directoryToRemove)) {
 				ERROR_LOG(HLE, "Failed to delete file");
 				return false;
@@ -109,7 +109,7 @@ bool GameInfo::Delete() {
 	}
 }
 
-static int64_t GetDirectoryRecursiveSize(std::string path) {
+static int64_t GetDirectoryRecursiveSize(const std::string &path) {
 	std::vector<FileInfo> fileInfo;
 	getFilesInDir(path.c_str(), &fileInfo);
 	int64_t sizeSum = 0;
@@ -129,9 +129,8 @@ u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case FILETYPE_PSP_PBP_DIRECTORY:
 	case FILETYPE_PSP_SAVEDATA_DIRECTORY:
-	{
-		return GetDirectoryRecursiveSize(filePath_);
-	}
+		return GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_));
+
 	default:
 		return GetFileLoader()->FileSize();
 	}
@@ -358,11 +357,14 @@ public:
 		: gamePath_(gamePath), info_(info) {
 	}
 
+	~GameInfoWorkItem() override {
+		info_->DisposeFileLoader();
+	}
+
 	virtual void run() {
 		if (!info_->LoadFromPath(gamePath_))
 			return;
 
-		std::string filename = gamePath_;
 		{
 			lock_guard lock(info_->lock);
 			info_->working = true;
@@ -376,8 +378,11 @@ public:
 				FileLoader *pbpLoader = info_->GetFileLoader();
 				std::unique_ptr<FileLoader> altLoader;
 				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY) {
-					pbpLoader = ConstructFileLoader(pbpLoader->Path() + "/EBOOT.PBP");
-					altLoader.reset(pbpLoader);
+					std::string ebootPath = ResolvePBPFile(gamePath_);
+					if (ebootPath != gamePath_) {
+						pbpLoader = ConstructFileLoader(ebootPath);
+						altLoader.reset(pbpLoader);
+					}
 				}
 
 				PBPReader pbp(pbpLoader);
@@ -592,8 +597,6 @@ handleELF:
 			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
-
-		info_->DisposeFileLoader();
 
 		lock_guard lock(info_->lock);
 		info_->pending = false;
