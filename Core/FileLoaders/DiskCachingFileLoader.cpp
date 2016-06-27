@@ -54,6 +54,11 @@ DiskCachingFileLoader::~DiskCachingFileLoader() {
 }
 
 bool DiskCachingFileLoader::Exists() {
+	if (cache_->HasData()) {
+		// It may require a slow operation to check - if we have data, let's say yes.
+		// This helps initial load, since we check each recent file for existence.
+		return true;
+	}
 	return backend_->Exists();
 }
 
@@ -716,6 +721,19 @@ void DiskCachingFileLoaderCache::CloseFileHandle() {
 	}
 	f_ = nullptr;
 	fd_ = 0;
+}
+
+bool DiskCachingFileLoaderCache::HasData() const {
+	if (!f_) {
+		return false;
+	}
+
+	for (size_t i = 0; i < blockIndexLookup_.size(); ++i) {
+		if (blockIndexLookup_[i] != INVALID_INDEX) {
+			return true;
+		}
+	}
+	return false;
 }
 
 u64 DiskCachingFileLoaderCache::FreeDiskSpace() {

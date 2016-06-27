@@ -194,14 +194,39 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader) {
 
 FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader) {
 	IdentifiedFileType type = Identify_File(fileLoader);
-	if (type == FILETYPE_PSP_PBP_DIRECTORY && !endsWith(fileLoader->Path(), "/EBOOT.PBP")) {
-		std::string ebootFilename = fileLoader->Path() + "/EBOOT.PBP";
-
-		// Switch fileLoader to the actual EBOOT.
-		delete fileLoader;
-		fileLoader = ConstructFileLoader(ebootFilename);
+	if (type == FILETYPE_PSP_PBP_DIRECTORY) {
+		const std::string ebootFilename = ResolvePBPFile(fileLoader->Path());
+		if (ebootFilename != fileLoader->Path()) {
+			// Switch fileLoader to the actual EBOOT.
+			delete fileLoader;
+			fileLoader = ConstructFileLoader(ebootFilename);
+		}
 	}
 	return fileLoader;
+}
+
+std::string ResolvePBPDirectory(const std::string &filename) {
+	bool hasPBP = endsWith(filename, "/EBOOT.PBP");
+#ifdef _WIN32
+	hasPBP = hasPBP || endsWith(filename, "\\EBOOT.PBP");
+#endif
+
+	if (hasPBP) {
+		return filename.substr(0, filename.length() - strlen("/EBOOT.PBP"));
+	}
+	return filename;
+}
+
+std::string ResolvePBPFile(const std::string &filename) {
+	bool hasPBP = endsWith(filename, "/EBOOT.PBP");
+#ifdef _WIN32
+	hasPBP = hasPBP || endsWith(filename, "\\EBOOT.PBP");
+#endif
+
+	if (!hasPBP) {
+		return filename + "/EBOOT.PBP";
+	}
+	return filename;
 }
 
 bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
@@ -227,9 +252,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				std::string path = fileLoader->Path();
 				size_t pos = path.find("/PSP/GAME/");
 				if (pos != std::string::npos) {
-					if (path.rfind("/EBOOT.PBP") != std::string::npos) {
-						path = path.substr(0, path.length() - strlen("/EBOOT.PBP"));
-					}
+					path = ResolvePBPDirectory(path);
 					pspFileSystem.SetStartingDirectory("ms0:" + path.substr(pos));
 				}
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
