@@ -388,8 +388,8 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
 				WRITE(p, "  float angle%i = dot(normalize(light.dir[%i]), toLight);\n", i, i);
-				WRITE(p, "  if (angle[%i] >= light.angle[%i]) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle[%i], light.spotCoef[%i]);\n", i, i, i);
+				WRITE(p, "  if (angle%i >= light.angle[%i]) {\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, light.spotCoef[%i]);\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
