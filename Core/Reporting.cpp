@@ -62,6 +62,8 @@ namespace Reporting
 	static bool everUnsupported = false;
 	// Support is cached here to avoid checking it on every single request.
 	static bool currentSupported = false;
+	// Whether the most recent server request seemed successful.
+	static bool serverWorking = true;
 
 	enum class RequestType
 	{
@@ -227,9 +229,10 @@ namespace Reporting
 
 		if (http.Resolve(serverHost, ServerPort())) {
 			http.Connect();
-			http.POST(uri, data, mimeType, output);
+			int result = http.POST(uri, data, mimeType, output);
 			http.Disconnect();
-			return true;
+
+			return result >= 200 && result < 300;
 		} else {
 			return false;
 		}
@@ -392,6 +395,7 @@ namespace Reporting
 		setCurrentThreadName("Report");
 
 		Payload &payload = payloadBuffer[pos];
+		Buffer output;
 
 		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
@@ -411,7 +415,8 @@ namespace Reporting
 			payload.string2.clear();
 
 			postdata.Finish();
-			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType());
+			if (!SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType()))
+				serverWorking = false;
 			break;
 
 		case RequestType::COMPAT:
@@ -427,7 +432,16 @@ namespace Reporting
 			payload.string2.clear();
 
 			postdata.Finish();
-			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType());
+			if (!SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), &output)) {
+				serverWorking = false;
+			} else {
+				char res = 0;
+				if (!output.empty()) {
+					output.Take(1, &res);
+				}
+				if (res == 0)
+					serverWorking = false;
+			}
 			break;
 
 		case RequestType::NONE:
@@ -494,6 +508,20 @@ namespace Reporting
 	void EnableDefault()
 	{
 		g_Config.sReportHost = "default";
+	}
+
+	Status GetStatus()
+	{
+		if (!serverWorking)
+			return Status::FAILING;
+
+		for (int pos = 0; pos < PAYLOAD_BUFFER_SIZE; ++pos)
+		{
+			if (payloadBuffer[pos].type != RequestType::NONE)
+				return Status::BUSY;
+		}
+
+		return Status::WORKING;
 	}
 
 	int NextFreePos()

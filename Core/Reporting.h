@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include <string>
@@ -74,6 +76,15 @@ namespace Reporting
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);
+
+	enum class Status {
+		WORKING,
+		BUSY,
+		FAILING,
+	};
+
+	// Whether server requests appear to be working.
+	Status GetStatus();
 
 	// Return the currently active host (or blank if not active.)
 	std::string ServerHost();

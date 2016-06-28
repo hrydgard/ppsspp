@@ -55,7 +55,11 @@ public:
 	ReportFinishScreen(const std::string &gamePath);
 
 protected:
+	void update(InputState &input) override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleViewFeedback(UI::EventParams &e);
+
+	UI::TextView *resultNotice_;
+	bool setStatus_;
 };
