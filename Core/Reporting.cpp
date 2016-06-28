@@ -415,6 +415,7 @@ namespace Reporting
 			payload.string2.clear();
 
 			postdata.Finish();
+			serverWorking = true;
 			if (!SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType()))
 				serverWorking = false;
 			break;
@@ -432,6 +433,7 @@ namespace Reporting
 			payload.string2.clear();
 
 			postdata.Finish();
+			serverWorking = true;
 			if (!SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), &output)) {
 				serverWorking = false;
 			} else {
