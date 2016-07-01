@@ -1013,9 +1013,6 @@ namespace MIPSComp {
 		}
 
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
-			DISABLE;
-		}
 		int n = GetMatrixSide(sz);
 
 		u8 sregs[16], dregs[16];
