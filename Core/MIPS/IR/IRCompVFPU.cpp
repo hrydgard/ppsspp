@@ -1903,7 +1903,7 @@ namespace MIPSComp {
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_0;
+				tempregs[i] = IRVTEMP_0 + i;
 			} else {
 				tempregs[i] = dregs[i];
 			}
@@ -1930,7 +1930,7 @@ namespace MIPSComp {
 
 		for (int i = 0; i < n; ++i) {
 			if (tempregs[i] != dregs[i])
-				dregs[i] = tempregs[i];
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
 
 		ApplyPrefixD(dregs, sz);
