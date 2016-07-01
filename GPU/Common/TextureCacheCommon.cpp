@@ -521,29 +521,8 @@ void *TextureCacheCommon::DecodeLevelToIndexed(GETextureFormat format, int level
 		ERROR_LOG_REPORT(G3D, "Unsupported indexed texture with CLUT indexes outside 0-255");
 	}
 
-	if (!(g_Config.iTexScalingLevel == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
-		// Need to rearrange the buffer to simulate GL_UNPACK_ROW_LENGTH etc.
-		finalBuf = (u8 *)RearrangeBuf(finalBuf, bufw, w, h);
-	}
-
+	// TODO: Change to using an output and stride.
 	return finalBuf;
-}
-
-void *TextureCacheCommon::RearrangeBuf(void *inBuf, u32 inRowBytes, u32 outRowBytes, int h, bool allowInPlace) {
-	const u8 *read = (const u8 *)inBuf;
-	void *outBuf = inBuf;
-	u8 *write = (u8 *)inBuf;
-	if (outRowBytes > inRowBytes || !allowInPlace) {
-		write = (u8 *)tmpTexBufRearrange.data();
-		outBuf = tmpTexBufRearrange.data();
-	}
-	for (int y = 0; y < h; y++) {
-		memmove(write, read, outRowBytes);
-		read += inRowBytes;
-		write += outRowBytes;
-	}
-
-	return outBuf;
 }
 
 bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {

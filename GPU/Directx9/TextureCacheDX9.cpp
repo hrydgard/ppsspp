@@ -1004,7 +1004,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 		cluthash = 0;
 	}
 	u64 cachekey = TexCacheEntry::CacheKey(texaddr, format, dim, cluthash);
-	
+
 	int bufw = GetTextureBufw(0, texaddr, format);
 	u8 maxLevel = gstate.getTextureMaxLevel();
 
@@ -1016,7 +1016,7 @@ void TextureCacheDX9::SetTexture(bool force) {
 	gstate_c.bgraTexture = true;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	
+
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
@@ -1544,7 +1544,17 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		if (!useIndexed) {
 			decSuccess = DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false);
 		} else {
-			finalBuf = DecodeLevelToIndexed(GETextureFormat(entry.format), level, &bufw);
+			pixelData = (u32 *)DecodeLevelToIndexed(GETextureFormat(entry.format), level, &bufw);
+			decSuccess = pixelData != nullptr;
+
+			if (decSuccess) {
+				for (int y = 0; y < h; ++y) {
+					memcpy((u8 *)rect.pBits + rect.Pitch * y, (u8 *)rect.pBits + bufw * y, w);
+				}
+			}
+			pixelData = (u32 *)rect.pBits;
+			bpp = 1;
+			decPitch = bufw;
 		}
 		if (!decSuccess) {
 			memset(pixelData, 0, decPitch * h);
