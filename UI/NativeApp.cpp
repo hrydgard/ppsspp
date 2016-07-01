@@ -230,6 +230,13 @@ std::string NativeQueryConfig(std::string query) {
 		return std::string(temp);
 	} else if (query == "force44khz") {
 		return std::string("0");
+	} else if (query == "androidJavaGL") {
+		// If we're using Vulkan, we say no... need C++ to use Vulkan.
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			return "false";
+		}
+		// Otherwise, some devices prefer the Java init so play it safe.
+		return "true";
 	} else {
 		return "";
 	}

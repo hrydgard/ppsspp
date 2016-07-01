@@ -60,7 +60,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// Change this to false to switch to C++ EGL.
+	// False to use C++ EGL, queried from C++ after NativeApp.init.
 	private static boolean javaGL = true;
 
 	// Graphics and audio interfaces for EGL (javaGL = false)
@@ -266,7 +266,10 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD, javaGL);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD);
+
+		// Allow C++ to tell us to use JavaGL or not.
+		javaGL = NativeApp.queryConfig("androidJavaGL") == "true";
 
 		sendInitialGrants();
 

@@ -343,6 +343,7 @@ InputState input_state;
 
 static bool renderer_inited = false;
 static bool first_lost = true;
+// See NativeQueryConfig("androidJavaGL") to change this value.
 static bool javaGL = true;
 
 static std::string library_path;
@@ -477,9 +478,8 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
   (JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
-		jint jAndroidVersion, jstring jboard, jboolean jjavaGL) {
+		jint jAndroidVersion, jstring jboard) {
 	jniEnvUI = env;
-	javaGL = jjavaGL;
 	setCurrentThreadName("androidInit");
 
 	ILOG("NativeApp.init() -- begin");
@@ -543,6 +543,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		const char *argv[3] = {app_name.c_str(), shortcut_param.c_str(), 0};
 		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
 	}
+
+	// Now that we've loaded config, set javaGL.
+	javaGL = NativeQueryConfig("androidJavaGL") == "true";
 
 	ILOG("NativeApp.init() -- end");
 }
