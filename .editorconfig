@@ -1,0 +1,21 @@
+# http://editorconfig.org/
+root = true
+
+[*]
+charset = utf-8
+indent_style = tab
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 2
+
+[*.sh]
+end_of_line = lf
+
+[Core/Dialog/PSPOskDialog.cpp]
+charset = utf-16le
+
+[Windows/version.rc]
+charset = utf-16le
