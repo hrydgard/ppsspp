@@ -107,6 +107,8 @@ private:
 	void EatInstruction(MIPSOpcode op);
 	MIPSOpcode GetOffsetInstruction(int offset);
 
+	void CheckBreakpoint(u32 addr, int downcountOffset);
+
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely);
 	void BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely);

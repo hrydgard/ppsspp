@@ -18,12 +18,12 @@
 #include "base/logging.h"
 
 #include "Common/ChunkFile.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Reporting.h"
-#include "Core/MemMap.h"
-
-#include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
-
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
@@ -37,6 +37,10 @@ IRFrontend::IRFrontend(bool startDefaultPrefix) {
 	js.startDefaultPrefix = true;
 	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
+
+	// The debugger sets this so that "go" on a breakpoint will actually... go.
+	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
+	CBreakPoints::SetSkipFirst(0);
 }
 
 void IRFrontend::DoState(PointerWrap &p) {
@@ -51,6 +55,10 @@ void IRFrontend::DoState(PointerWrap &p) {
 	} else {
 		js.hasSetRounding = 1;
 	}
+
+	// The debugger sets this so that "go" on a breakpoint will actually... go.
+	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
+	CBreakPoints::SetSkipFirst(0);
 }
 
 void IRFrontend::FlushAll() {
@@ -83,6 +91,7 @@ void IRFrontend::EatInstruction(MIPSOpcode op) {
 		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
 	}
 
+	CheckBreakpoint(GetCompilerPC() + 4, 0);
 	js.numInstructions++;
 	js.compilerPC += 4;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
@@ -90,6 +99,7 @@ void IRFrontend::EatInstruction(MIPSOpcode op) {
 
 void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = true;
+	CheckBreakpoint(GetCompilerPC() + 4, -2);
 	MIPSOpcode op = GetOffsetInstruction(1);
 	MIPSCompileOp(op, this);
 	js.inDelaySlot = false;
@@ -129,7 +139,18 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		return;
 	}
 
-	if (entry->flags & REPFLAG_DISABLED) {
+	u32 funcSize = g_symbolMap->GetFunctionSize(GetCompilerPC());
+	bool disabled = (entry->flags & REPFLAG_DISABLED) != 0;
+	if (!disabled && funcSize != SymbolMap::INVALID_ADDRESS && funcSize > sizeof(u32)) {
+		// We don't need to disable hooks, the code will still run.
+		if ((entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+			// Any breakpoint at the func entry was already tripped, so we can still run the replacement.
+			// That's a common case - just to see how often the replacement hits.
+			disabled = CBreakPoints::RangeContainsBreakPoint(GetCompilerPC() + sizeof(u32), funcSize - sizeof(u32));
+		}
+	}
+
+	if (disabled) {
 		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 	} else if (entry->replaceFunc) {
 		FlushAll();
@@ -210,12 +231,16 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	js.downcountAmount = 0;
 	js.curBlock = nullptr;
 	js.compiling = true;
+	js.hadBreakpoints = false;
 	js.inDelaySlot = false;
 	js.PrefixStart();
 	ir.Clear();
 
 	js.numInstructions = 0;
 	while (js.compiling) {
+		// Jit breakpoints are quite fast, so let's do them in release too.
+		CheckBreakpoint(GetCompilerPC(), 0);
+
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 		MIPSCompileOp(inst, this);
@@ -231,7 +256,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 
 	IRWriter simplified;
 	IRWriter *code = &ir;
-	if (true) {
+	if (!js.hadBreakpoints) {
 		static const IRPassFunc passes[] = {
 			&OptimizeFPMoves,
 			&PropagateConstants,
@@ -289,6 +314,23 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
+}
+
+void IRFrontend::CheckBreakpoint(u32 addr, int downcountOffset) {
+	if (CBreakPoints::IsAddressBreakPoint(addr)) {
+		FlushAll();
+
+		RestoreRoundingMode();
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		int downcountAmount = js.downcountAmount + downcountOffset;
+		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		// Note that this means downcount can't be metadata on the block.
+		js.downcountAmount = -downcountAmount;
+		ir.Write(IROp::Breakpoint);
+		ApplyRoundingMode();
+
+		js.hadBreakpoints = true;
+	}
 }
 
 }  // namespace

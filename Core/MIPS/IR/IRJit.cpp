@@ -20,23 +20,20 @@
 #include "Common/ChunkFile.h"
 #include "Common/StringUtils.h"
 
-#include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
-#include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
-
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Reporting.h"
 
 namespace MIPSComp {
 
