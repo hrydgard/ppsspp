@@ -78,6 +78,8 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
 
+	CheckMemoryBreakpoint(rs, offset);
+
 	switch (op >> 26) {
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
 		ir.Write(IROp::LoadFloat, ft, rs, ir.AddConstant(offset));

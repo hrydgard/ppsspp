@@ -131,14 +131,15 @@ namespace MIPSAnalyst
 	bool IsSyscall(MIPSOpcode op);
 
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size);
+	int OpMemoryAccessSize(u32 pc);
+	bool IsOpMemoryWrite(u32 pc);
+	bool OpHasDelaySlot(u32 pc);
 
-	void Shutdown();
-	
 	typedef struct {
 		DebugInterface* cpu;
 		u32 opcodeAddress;
 		MIPSOpcode encodedOpcode;
-		
+
 		// shared between branches and conditional moves
 		bool isConditional;
 		bool conditionMet;

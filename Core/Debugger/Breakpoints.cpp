@@ -364,6 +364,31 @@ void CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
 		check->Action(address, write, size, pc);
 }
 
+void CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
+{
+	// Note: currently, we don't check "on changed" for HLE (ExecMemCheck.)
+	// We'd need to more carefully specify memory changes in HLE for that.
+	int size = MIPSAnalyst::OpMemoryAccessSize(pc);
+	if (size == 0 && MIPSAnalyst::OpHasDelaySlot(pc)) {
+		// This means that the delay slot is what tripped us.
+		pc += 4;
+		size = MIPSAnalyst::OpMemoryAccessSize(pc);
+	}
+
+	bool write = MIPSAnalyst::IsOpMemoryWrite(pc);
+	auto check = GetMemCheck(address, size);
+	if (check) {
+		int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
+		if (write && (check->cond & mask) == mask) {
+			if (MIPSAnalyst::OpWouldChangeMemory(pc, address, size)) {
+				check->Action(address, write, size, pc);
+			}
+		} else {
+			check->Action(address, write, size, pc);
+		}
+	}
+}
+
 void CBreakPoints::ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc)
 {
 	auto check = GetMemCheck(address, size);
@@ -419,6 +444,11 @@ const std::vector<MemCheck> CBreakPoints::GetMemChecks()
 const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
 {
 	return breakPoints_;
+}
+
+bool CBreakPoints::HasMemChecks()
+{
+	return !memChecks_.empty();
 }
 
 void CBreakPoints::Update(u32 addr)

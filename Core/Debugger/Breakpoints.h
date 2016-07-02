@@ -134,6 +134,7 @@ public:
 
 	static MemCheck *GetMemCheck(u32 address, int size);
 	static void ExecMemCheck(u32 address, bool write, int size, u32 pc);
+	static void ExecOpMemCheck(u32 address, u32 pc);
 
 	// Executes memchecks but used by the jit.  Cleanup finalizes after jit is done.
 	static void ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc);
@@ -147,6 +148,8 @@ public:
 
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();
+
+	static bool HasMemChecks();
 
 	static void Update(u32 addr = 0);
 

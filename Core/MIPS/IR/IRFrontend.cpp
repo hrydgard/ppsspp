@@ -91,7 +91,7 @@ void IRFrontend::EatInstruction(MIPSOpcode op) {
 		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.");
 	}
 
-	CheckBreakpoint(GetCompilerPC() + 4, 0);
+	CheckBreakpoint(GetCompilerPC() + 4);
 	js.numInstructions++;
 	js.compilerPC += 4;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
@@ -99,7 +99,7 @@ void IRFrontend::EatInstruction(MIPSOpcode op) {
 
 void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = true;
-	CheckBreakpoint(GetCompilerPC() + 4, -2);
+	CheckBreakpoint(GetCompilerPC() + 4);
 	MIPSOpcode op = GetOffsetInstruction(1);
 	MIPSCompileOp(op, this);
 	js.inDelaySlot = false;
@@ -239,7 +239,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	js.numInstructions = 0;
 	while (js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
-		CheckBreakpoint(GetCompilerPC(), 0);
+		CheckBreakpoint(GetCompilerPC());
 
 		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
@@ -318,17 +318,43 @@ void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-void IRFrontend::CheckBreakpoint(u32 addr, int downcountOffset) {
+void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (CBreakPoints::IsAddressBreakPoint(addr)) {
 		FlushAll();
 
 		RestoreRoundingMode();
 		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		// 0 because we normally execute before increasing.
+		// TODO: In likely branches, downcount will be incorrect.
+		int downcountOffset = js.inDelaySlot && js.downcountAmount >= 2 ? -2 : 0;
 		int downcountAmount = js.downcountAmount + downcountOffset;
 		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
 		// Note that this means downcount can't be metadata on the block.
-		js.downcountAmount = -downcountAmount;
+		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::Breakpoint);
+		ApplyRoundingMode();
+
+		js.hadBreakpoints = true;
+	}
+}
+
+void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
+	if (CBreakPoints::HasMemChecks()) {
+		FlushAll();
+
+		RestoreRoundingMode();
+		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+		// 0 because we normally execute before increasing.
+		int downcountOffset = js.inDelaySlot ? -2 : -1;
+		// TODO: In likely branches, downcount will be incorrect.  This might make resume fail.
+		if (js.downcountAmount == 0) {
+			downcountOffset = 0;
+		}
+		int downcountAmount = js.downcountAmount + downcountOffset;
+		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		// Note that this means downcount can't be metadata on the block.
+		js.downcountAmount = -downcountOffset;
+		ir.Write(IROp::MemoryCheck, 0, rs, ir.AddConstant(offset));
 		ApplyRoundingMode();
 
 		js.hadBreakpoints = true;
