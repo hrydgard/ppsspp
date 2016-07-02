@@ -88,7 +88,7 @@ public:
 	void DoState(PointerWrap &p);
 	bool CheckRounding();  // returns true if we need a do-over
 
-	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants);
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes);
 
 	void EatPrefix() override {
 		js.EatPrefix();

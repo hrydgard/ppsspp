@@ -221,7 +221,7 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants) {
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -253,6 +253,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 			js.compiling = false;
 		}
 	}
+
+	mipsBytes = js.compilerPC - em_address;
 
 	IRWriter simplified;
 	IRWriter *code = &ir;

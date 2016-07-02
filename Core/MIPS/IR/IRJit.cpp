@@ -85,8 +85,10 @@ void IRJit::Compile(u32 em_address) {
 
 	std::vector<IRInst> instructions;
 	std::vector<u32> constants;
-	frontend_.DoJit(em_address, instructions, constants);
+	u32 mipsBytes;
+	frontend_.DoJit(em_address, instructions, constants, mipsBytes);
 	b->SetInstructions(instructions, constants);
+	b->SetOriginalSize(mipsBytes);
 	b->Finalize(block_num);  // Overwrites the first instruction
 
 	if (frontend_.CheckRounding()) {
@@ -152,8 +154,13 @@ void IRBlockCache::Clear() {
 	blocks_.clear();
 }
 
-void IRBlockCache::InvalidateICache(u32 addess, u32 length) {
-	// TODO
+void IRBlockCache::InvalidateICache(u32 address, u32 length) {
+	// TODO: Could be more efficient.
+	for (int i = 0; i < size_; ++i) {
+		if (blocks_[i].OverlapsRange(address, length)) {
+			blocks_[i].Destroy(i);
+		}
+	}
 }
 
 std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
@@ -215,6 +222,10 @@ void IRBlock::Destroy(int number) {
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}
+}
+
+bool IRBlock::OverlapsRange(u32 addr, u32 size) {
+	return addr + size > origAddr_ && addr < origAddr_ + origSize_;
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
