@@ -8,16 +8,19 @@
 #include <xmmintrin.h>
 #endif
 
-#include "Core/MemMap.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/Host.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
-#include "Core/CoreTiming.h"
 
 alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
@@ -28,6 +31,21 @@ alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 1.0f, 0.0f },
 	{ 0.0f, 0.0f, 0.0f, 1.0f },
 };
+
+u32 RunBreakpoint(u32 pc) {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == pc)
+		return 0;
+
+	auto cond = CBreakPoints::GetBreakPointCondition(pc);
+	if (cond && !cond->Evaluate())
+		return 0;
+
+	Core_EnableStepping(true);
+	host->SetDebugMode(true);
+
+	return 1;
+}
 
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
 	const IRInst *end = inst + count;
@@ -781,6 +799,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::SetCtrlVFPUFReg:
 			memcpy(&mips->vfpuCtrl[inst->dest], &mips->f[inst->src1], 4);
+			break;
+
+		case IROp::Breakpoint:
+			if (RunBreakpoint(mips->pc)) {
+				if (coreState != CORE_RUNNING)
+					CoreTiming::ForceCheck();
+				return mips->pc;
+			}
 			break;
 
 		default:

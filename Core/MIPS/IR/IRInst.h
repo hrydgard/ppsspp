@@ -60,7 +60,7 @@ enum class IROp : u8 {
 	ShrImm,
 	SarImm,
 	RorImm,
-		
+
 	Slt,
 	SltConst,
 	SltU,
@@ -92,7 +92,7 @@ enum class IROp : u8 {
 	MsubU,
 	Div,
 	DivU,
-	
+
 	// These take a constant from the pool as an offset.
 	// Loads from a constant address can be represented by using r0.
 	Load8,
@@ -219,6 +219,7 @@ enum class IROp : u8 {
 	SetPCConst,  // hack to make replacement know PC
 	CallReplacement,
 	Break,
+	Breakpoint,
 };
 
 enum IRComparison {
@@ -315,7 +316,7 @@ enum IRFlags {
 struct IRMeta {
 	IROp op;
 	const char *name;
-	const char types[4];  // GGG  
+	const char types[4];  // GGG
 	u32 flags;
 };
 

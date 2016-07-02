@@ -88,7 +88,7 @@ public:
 	void DoState(PointerWrap &p);
 	bool CheckRounding();  // returns true if we need a do-over
 
-	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants);
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes);
 
 	void EatPrefix() override {
 		js.EatPrefix();
@@ -106,6 +106,8 @@ private:
 	void CompileDelaySlot();
 	void EatInstruction(MIPSOpcode op);
 	MIPSOpcode GetOffsetInstruction(int offset);
+
+	void CheckBreakpoint(u32 addr, int downcountOffset);
 
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely);

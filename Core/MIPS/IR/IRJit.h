@@ -100,6 +100,10 @@ public:
 	bool HasOriginalFirstOp();
 	bool RestoreOriginalFirstOp(int number);
 	bool IsValid() const { return origAddr_ != 0; }
+	void SetOriginalSize(u32 size) {
+		origSize_ = size;
+	}
+	bool OverlapsRange(u32 addr, u32 size);
 
 	void Finalize(int number);
 	void Destroy(int number);
@@ -110,13 +114,14 @@ private:
 	u16 numInstructions_;
 	u16 numConstants_;
 	u32 origAddr_;
+	u32 origSize_;
 	MIPSOpcode origFirstOpcode_;
 };
 
 class IRBlockCache {
 public:
 	void Clear();
-	void InvalidateICache(u32 addess, u32 length);
+	void InvalidateICache(u32 address, u32 length);
 	int GetNumBlocks() const { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));

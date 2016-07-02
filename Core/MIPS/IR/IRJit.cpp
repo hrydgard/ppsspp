@@ -20,23 +20,20 @@
 #include "Common/ChunkFile.h"
 #include "Common/StringUtils.h"
 
-#include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
-#include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
-
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/Reporting.h"
 
 namespace MIPSComp {
 
@@ -88,8 +85,10 @@ void IRJit::Compile(u32 em_address) {
 
 	std::vector<IRInst> instructions;
 	std::vector<u32> constants;
-	frontend_.DoJit(em_address, instructions, constants);
+	u32 mipsBytes;
+	frontend_.DoJit(em_address, instructions, constants, mipsBytes);
 	b->SetInstructions(instructions, constants);
+	b->SetOriginalSize(mipsBytes);
 	b->Finalize(block_num);  // Overwrites the first instruction
 
 	if (frontend_.CheckRounding()) {
@@ -155,8 +154,13 @@ void IRBlockCache::Clear() {
 	blocks_.clear();
 }
 
-void IRBlockCache::InvalidateICache(u32 addess, u32 length) {
-	// TODO
+void IRBlockCache::InvalidateICache(u32 address, u32 length) {
+	// TODO: Could be more efficient.
+	for (int i = 0; i < size_; ++i) {
+		if (blocks_[i].OverlapsRange(address, length)) {
+			blocks_[i].Destroy(i);
+		}
+	}
 }
 
 std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
@@ -218,6 +222,10 @@ void IRBlock::Destroy(int number) {
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}
+}
+
+bool IRBlock::OverlapsRange(u32 addr, u32 size) {
+	return addr + size > origAddr_ && addr < origAddr_ + origSize_;
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {

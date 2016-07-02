@@ -77,6 +77,7 @@ namespace MIPSComp {
 		int downcountAmount;
 		int numInstructions;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
+		bool hadBreakpoints;
 		JitBlock *curBlock;
 
 		u8 hasSetRounding;
