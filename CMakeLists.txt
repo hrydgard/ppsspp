@@ -893,6 +893,7 @@ set(NativeAppSource
 	UI/GamepadEmu.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/RemoteISOScreen.cpp
 	UI/ReportScreen.cpp
 	UI/SavedataScreen.cpp
 	UI/Store.cpp

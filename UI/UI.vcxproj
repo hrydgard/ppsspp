@@ -37,6 +37,7 @@
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="PauseScreen.cpp" />
     <ClCompile Include="ProfilerDraw.cpp" />
+    <ClCompile Include="RemoteISOScreen.cpp" />
     <ClCompile Include="ReportScreen.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
     <ClCompile Include="Store.cpp" />
@@ -66,6 +67,7 @@
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PauseScreen.h" />
     <ClInclude Include="ProfilerDraw.h" />
+    <ClInclude Include="RemoteISOScreen.h" />
     <ClInclude Include="ReportScreen.h" />
     <ClInclude Include="SavedataScreen.h" />
     <ClInclude Include="Store.h" />
