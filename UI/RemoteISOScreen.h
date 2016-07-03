@@ -34,4 +34,5 @@ protected:
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
 
 	bool serverRunning_;
+	bool serverStopping_;
 };
