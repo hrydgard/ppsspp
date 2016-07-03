@@ -70,6 +70,10 @@ class Server {
   // better put this on a thread. Returns false if failed to start serving, never
   // returns if successful.
   bool Run(int port);
+  // May run for (significantly) longer than timeout, but won't wait longer than that
+  // for a new connection to handle.
+  bool RunSlice(double timeout);
+  bool Listen(int port);
 
   void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
   void SetFallbackHandler(UrlHandlerFunc handler);
@@ -86,11 +90,12 @@ class Server {
 
   // Things like default 404, etc.
   void HandleRequestDefault(const Request &request);
-  
+
   // Neat built-in handlers that are tied to the server.
   void HandleListing(const Request &request);
   void Handle404(const Request &request);
 
+  int listener_;
   int port_;
 
   UrlHandlerMap handlers_;

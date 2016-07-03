@@ -112,7 +112,7 @@ void Request::Close() {
   }
 }
 
-Server::Server(threading::Executor *executor) 
+Server::Server(threading::Executor *executor)
   : port_(0), executor_(executor) {
   RegisterHandler("/", std::bind(&Server::HandleListing, this, placeholder::_1));
   SetFallbackHandler(std::bind(&Server::Handle404, this, placeholder::_1));
@@ -126,43 +126,70 @@ void Server::SetFallbackHandler(UrlHandlerFunc handler) {
 	fallback_ = handler;
 }
 
-bool Server::Run(int port) {
-  ILOG("HTTP server started on port %i", port);
-  port_ = port;
+bool Server::Listen(int port) {
+	listener_ = socket(AF_INET, SOCK_STREAM, 0);
+	CHECK_GE(listener_, 0);
 
-  int listener = socket(AF_INET, SOCK_STREAM, 0);
-  CHECK_GE(listener, 0);
+	struct sockaddr_in server_addr;
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	server_addr.sin_port = htons(port);
 
-  struct sockaddr_in server_addr;
-  memset(&server_addr, 0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  server_addr.sin_port = htons(port);
+	int opt = 1;
+	// Enable re-binding to avoid the pain when restarting the server quickly.
+	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 
-  int opt = 1;
-  // Enable re-binding to avoid the pain when restarting the server quickly.
-  setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		ELOG("Failed to bind to port %i. Bailing.", port);
+		return false;
+	}
 
-  if (bind(listener, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-    ELOG("Failed to bind to port %i. Bailing.", port);
-    return false;
-  }
+	fd_util::SetNonBlocking(listener_, true);
 
-  // 1024 is the max number of queued requests.
-  CHECK_GE(listen(listener, 1024), 0);
-  while (true) {
+	// 1024 is the max number of queued requests.
+	CHECK_GE(listen(listener_, 1024), 0);
+
+	socklen_t len = sizeof(server_addr);
+	if (getsockname(listener_, (struct sockaddr *)&server_addr, &len) == 0) {
+		port = ntohs(server_addr.sin_port);
+	}
+
+	ILOG("HTTP server started on port %i", port);
+	port_ = port;
+
+	return true;
+}
+
+bool Server::RunSlice(double timeout) {
+	if (timeout <= 0.0) {
+		timeout = 86400.0;
+	}
+	if (!fd_util::WaitUntilReady(listener_, timeout, false)) {
+		return false;
+	}
+
     sockaddr client_addr;
     socklen_t client_addr_size = sizeof(client_addr);
-    int conn_fd = accept(listener, &client_addr, &client_addr_size);
+    int conn_fd = accept(listener_, &client_addr, &client_addr_size);
     if (conn_fd >= 0) {
-      executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
+		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
+		return true;
     } else {
-			FLOG("socket accept failed: %i", conn_fd);
+		FLOG("socket accept failed: %i", conn_fd);
+		return false;
     }
-  }
+}
 
-  // We'll never get here. Ever.
-  return true;
+bool Server::Run(int port) {
+	Listen(port);
+
+	while (true) {
+		RunSlice(0.0);
+	}
+
+	// We'll never get here. Ever.
+	return true;
 }
 
 void Server::HandleConnection(int conn_fd) {
