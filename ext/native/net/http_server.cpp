@@ -230,7 +230,7 @@ void Server::Handle404(const Request &request) {
 }
 
 void Server::HandleListing(const Request &request) {
-	request.WriteHttpResponseHeader(200, -1);
+	request.WriteHttpResponseHeader(200, -1, "text/plain");
 	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
 		request.Out()->Printf("%s\n", iter->first.c_str());
 	}
