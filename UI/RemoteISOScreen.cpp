@@ -164,7 +164,6 @@ void RemoteISOScreen::update(InputState &input) {
 }
 
 void RemoteISOScreen::CreateViews() {
-	I18NCategory *rp = GetI18NCategory("Reporting");
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *sy = GetI18NCategory("System");
 
@@ -179,14 +178,14 @@ void RemoteISOScreen::CreateViews() {
 	leftColumnItems->Add(new TextView(sy->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumnItems->Add(new Choice(rp->T("Browse Games")));
+	rightColumnItems->Add(new Choice(sy->T("Browse Games")));
 	ServerStatus status = RetrieveStatus();
 	if (status == ServerStatus::STOPPING) {
-		rightColumnItems->Add(new Choice(rp->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
+		rightColumnItems->Add(new Choice(sy->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
 	} else if (status != ServerStatus::STOPPED) {
-		rightColumnItems->Add(new Choice(rp->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
+		rightColumnItems->Add(new Choice(sy->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
 	} else {
-		rightColumnItems->Add(new Choice(rp->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
+		rightColumnItems->Add(new Choice(sy->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 	}
 
 	rightColumnItems->Add(new Spacer(25.0));
