@@ -27,8 +27,11 @@ public:
 	RemoteISOScreen();
 
 protected:
+	void update(InputState &input) override;
 	void CreateViews() override;
 
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
+
+	bool serverRunning_;
 };

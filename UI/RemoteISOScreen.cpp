@@ -70,7 +70,23 @@ static void ExecuteServer() {
 	UpdateStatus(ServerStatus::STOPPED);
 }
 
-RemoteISOScreen::RemoteISOScreen() {
+RemoteISOScreen::RemoteISOScreen() : serverRunning_(false) {
+}
+
+void RemoteISOScreen::update(InputState &input) {
+	UIScreenWithBackground::update(input);
+
+	bool nowRunning = RetrieveStatus() != ServerStatus::STOPPED;
+	if (serverRunning_ && !nowRunning) {
+		// Server stopped, delete the thread.
+		delete serverThread;
+		serverThread = nullptr;
+	}
+	if (serverRunning_ != nowRunning) {
+		RecreateViews();
+	}
+
+	serverRunning_ = nowRunning;
 }
 
 void RemoteISOScreen::CreateViews() {
@@ -89,7 +105,7 @@ void RemoteISOScreen::CreateViews() {
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("Browse Games")));
-	if (serverStatus != ServerStatus::STOPPED) {
+	if (RetrieveStatus() != ServerStatus::STOPPED) {
 		rightColumnItems->Add(new Choice(rp->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
 	} else {
 		rightColumnItems->Add(new Choice(rp->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
@@ -117,9 +133,6 @@ UI::EventReturn RemoteISOScreen::HandleStartServer(UI::EventParams &e) {
 	serverThread = new std::thread(&ExecuteServer);
 	serverThread->detach();
 
-	serverStatusCond.wait(serverStatusLock);
-	RecreateViews();
-
 	return EVENT_DONE;
 }
 
@@ -131,11 +144,6 @@ UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 	}
 
 	serverStatus = ServerStatus::STOPPING;
-	serverStatusCond.wait(serverStatusLock);
-	delete serverThread;
-	serverThread = nullptr;
-
-	RecreateViews();
 
 	return EVENT_DONE;
 }
