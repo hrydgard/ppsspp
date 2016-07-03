@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "i18n/i18n.h"
+#include "file/fd_util.h"
+#include "net/http_client.h"
 #include "net/http_server.h"
 #include "net/resolve.h"
 #include "net/sinks.h"
@@ -49,6 +51,26 @@ static void UpdateStatus(ServerStatus s) {
 static ServerStatus RetrieveStatus() {
 	lock_guard guard(serverStatusLock);
 	return serverStatus;
+}
+
+// This reports the local IP address to report.ppsspp.org, which can then
+// relay that address to a mobile device searching for the server.
+static void RegisterServer(int port) {
+	bool result = false;
+	net::AutoInit netInit;
+	http::Client http;
+	Buffer theVoid;
+
+	if (http.Resolve("report.ppsspp.org", 80)) {
+		http.Connect();
+
+		char resource[1024] = {};
+		std::string ip = fd_util::GetLocalIP(http.sock());
+		snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
+
+		http.GET(resource, &theVoid);
+		http.Disconnect();
+	}
 }
 
 static void ExecuteServer() {
@@ -131,8 +153,9 @@ static void ExecuteServer() {
 	}
 
 	http->Listen(0);
-	// TODO: Report local IP and port.
 	UpdateStatus(ServerStatus::RUNNING);
+
+	RegisterServer(http->Port());
 
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		http->RunSlice(5.0);
