@@ -57,12 +57,85 @@ static void ExecuteServer() {
 	net::Init();
 	auto http = new http::Server(new threading::SameThreadExecutor());
 
+	std::map<std::string, std::string> paths;
+	for (std::string filename : g_Config.recentIsos) {
+#ifdef _WIN32
+		static const std::string sep = "\\/";
+#else
+		static const std::string sep = "/";
+#endif
+		size_t basepos = filename.find_last_of(sep);
+		std::string basename = "/" + (basepos == filename.npos ? filename : filename.substr(basepos + 1));
+
+		// Let's not serve directories, since they won't work.  Only single files.
+		// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
+		if (endsWithNoCase(basename, ".cso") || endsWithNoCase(basename, ".iso")) {
+			paths[basename] = filename;
+		}
+	}
+
+	auto handler = [&](const http::Request &request) {
+		std::string filename = paths[request.resource()];
+		s64 sz = File::GetFileSize(filename);
+
+		std::string range;
+		if (request.Method() == http::RequestHeader::HEAD) {
+			request.WriteHttpResponseHeader(200, sz, "application/octet-stream", "Accept-Ranges: bytes\r\n");
+		} else if (request.GetHeader("range", &range)) {
+			s64 begin = 0, last = 0;
+			if (sscanf(range.c_str(), "bytes=%lld-%lld", &begin, &last) != 2) {
+				request.WriteHttpResponseHeader(400, -1, "text/plain");
+				request.Out()->Push("Could not understand range request.");
+				return;
+			}
+
+			if (begin < 0 || begin > last || last >= sz) {
+				request.WriteHttpResponseHeader(416, -1, "text/plain");
+				request.Out()->Push("Range goes outside of file.");
+				return;
+			}
+
+			FILE *fp = File::OpenCFile(filename, "rb");
+			if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
+				request.WriteHttpResponseHeader(500, -1, "text/plain");
+				request.Out()->Push("File access failed.");
+				if (fp) {
+					fclose(fp);
+				}
+				return;
+			}
+
+			s64 len = last - begin + 1;
+			char contentRange[1024];
+			sprintf(contentRange, "Content-Range: bytes %lld-%lld/%lld\r\n", begin, last, sz);
+			request.WriteHttpResponseHeader(206, len, "application/octet-stream", contentRange);
+
+			const size_t CHUNK_SIZE = 16 * 1024;
+			char *buf = new char[CHUNK_SIZE];
+			for (s64 pos = 0; pos < len; pos += CHUNK_SIZE) {
+				s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
+				fread(buf, chunklen, 1, fp);
+				request.Out()->Push(buf, chunklen);
+			}
+			fclose(fp);
+			delete [] buf;
+			request.Out()->Flush();
+		} else {
+			request.WriteHttpResponseHeader(418, -1, "text/plain");
+			request.Out()->Push("This server only supports range requests.");
+		}
+	};
+
+	for (auto pair : paths) {
+		http->RegisterHandler(pair.first.c_str(), handler);
+	}
+
 	http->Listen(0);
 	// TODO: Report local IP and port.
 	UpdateStatus(ServerStatus::RUNNING);
 
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
-        http->RunSlice(5.0);
+		http->RunSlice(5.0);
 	}
 
 	net::Shutdown();

@@ -60,48 +60,50 @@ private:
 
 // Register handlers on this class to serve stuff.
 class Server {
- public:
-  Server(threading::Executor *executor);
+public:
+	Server(threading::Executor *executor);
 
-  typedef std::function<void(const Request &)> UrlHandlerFunc;
-  typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;
+	typedef std::function<void(const Request &)> UrlHandlerFunc;
+	typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;
 
-  // Runs forever, serving request. If you want to do something else than serve pages,
-  // better put this on a thread. Returns false if failed to start serving, never
-  // returns if successful.
-  bool Run(int port);
-  // May run for (significantly) longer than timeout, but won't wait longer than that
-  // for a new connection to handle.
-  bool RunSlice(double timeout);
-  bool Listen(int port);
+	// Runs forever, serving request. If you want to do something else than serve pages,
+	// better put this on a thread. Returns false if failed to start serving, never
+	// returns if successful.
+	bool Run(int port);
+	// May run for (significantly) longer than timeout, but won't wait longer than that
+	// for a new connection to handle.
+	bool RunSlice(double timeout);
+	bool Listen(int port);
 
-  void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
-  void SetFallbackHandler(UrlHandlerFunc handler);
+	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
+	void SetFallbackHandler(UrlHandlerFunc handler);
 
-  // If you want to customize things at a lower level than just a simple path handler,
-  // then inherit and override this. Implementations should forward to HandleRequestDefault
-  // if they don't recognize the url.
-  virtual void HandleRequest(const Request &request);
+	// If you want to customize things at a lower level than just a simple path handler,
+	// then inherit and override this. Implementations should forward to HandleRequestDefault
+	// if they don't recognize the url.
+	virtual void HandleRequest(const Request &request);
 
- private:
-  void HandleConnection(int conn_fd);
+	int Port() {
+	  return port_;
+	}
 
-  void GetRequest(Request *request);
+private:
+	void HandleConnection(int conn_fd);
 
-  // Things like default 404, etc.
-  void HandleRequestDefault(const Request &request);
+	// Things like default 404, etc.
+	void HandleRequestDefault(const Request &request);
 
-  // Neat built-in handlers that are tied to the server.
-  void HandleListing(const Request &request);
-  void Handle404(const Request &request);
+	// Neat built-in handlers that are tied to the server.
+	void HandleListing(const Request &request);
+	void Handle404(const Request &request);
 
-  int listener_;
-  int port_;
+	int listener_;
+	int port_;
 
-  UrlHandlerMap handlers_;
-  UrlHandlerFunc fallback_;
+	UrlHandlerMap handlers_;
+	UrlHandlerFunc fallback_;
 
-  threading::Executor *executor_;
+	threading::Executor *executor_;
 };
 
 }  // namespace http
