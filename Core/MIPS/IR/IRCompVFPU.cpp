@@ -37,6 +37,7 @@
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
+#define INVALIDOP { Comp_Generic(op); return; }
 
 #define _RS MIPS_GET_RS(op)
 #define _RT MIPS_GET_RT(op)
@@ -290,7 +291,7 @@ namespace MIPSComp {
 			break;
 
 		default:
-			DISABLE;
+			INVALIDOP;
 		}
 	}
 
@@ -333,12 +334,11 @@ namespace MIPSComp {
 		case 53: // lvl/lvr.q - highly unusual
 		case 61: // svl/svr.q - highly unusual
 			logBlocks = 1;
-			Comp_Generic(op);
+			DISABLE;
 			break;
 
 		default:
-			DISABLE;
-			break;
+			INVALIDOP;
 		}
 	}
 
@@ -399,7 +399,7 @@ namespace MIPSComp {
 				ir.Write(IROp::SetConstF, dregs[3], ir.AddConstantFloat((vd & 3) == 3 ? 1.0f : 0.0f));
 				break;
 			default:
-				DISABLE;
+				INVALIDOP;
 			}
 		}
 
@@ -445,7 +445,6 @@ namespace MIPSComp {
 			}
 			ir.Write(IROp::Vec4Init, vec[0], (int)init);
 		}
-		return;
 	}
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
@@ -581,7 +580,7 @@ namespace MIPSComp {
 			case 7: // d[i] = s[i] / t[i]; break; //vdiv
 				break;
 			default:
-				DISABLE;
+				INVALIDOP;
 			}
 			break;
 		case 25: //VFPU1
@@ -589,7 +588,7 @@ namespace MIPSComp {
 			case 0: // d[i] = s[i] * t[i]; break; //vmul
 				break;
 			default:
-				DISABLE;
+				INVALIDOP;
 			}
 			break;
 		case 27: //VFPU3
@@ -603,12 +602,11 @@ namespace MIPSComp {
 				allowSIMD = false;
 				break;
 			default:
-				DISABLE;
+				INVALIDOP;
 			}
 			break;
 		default:
-			DISABLE;
-			break;
+			INVALIDOP;
 		}
 
 		VectorSize sz = GetVecSize(op);
@@ -762,6 +760,8 @@ namespace MIPSComp {
 		// Some can be SIMD'd.
 		switch ((op >> 16) & 0x1f) {
 		case 0:  // vmov
+		case 1:  // vabs
+		case 2:  // vneg
 			canSIMD = true;
 			break;
 		}
@@ -770,6 +770,12 @@ namespace MIPSComp {
 			switch ((op >> 16) & 0x1f) {
 			case 0:  // vmov
 				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
+				break;
+			case 1:  // vabs
+				ir.Write(IROp::Vec4Abs, dregs[0], sregs[0]);
+				break;
+			case 2:  // vneg
+				ir.Write(IROp::Vec4Neg, dregs[0], sregs[0]);
 				break;
 			}
 			ApplyPrefixD(dregs, sz);
@@ -828,8 +834,7 @@ namespace MIPSComp {
 				break;
 			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
 			default:
-				DISABLE;
-				break;
+				INVALIDOP;
 			}
 		}
 		for (int i = 0; i < n; i++) {
@@ -926,10 +931,10 @@ namespace MIPSComp {
 						FlushPrefixV();
 						break;
 					}
-					if (imm - 128 < 16) {
+					if (imm - 128 < VFPU_CTRL_MAX) {
 						ir.Write(IROp::VfpuCtrlToReg, rt, imm - 128);
 					} else {
-						DISABLE;
+						INVALIDOP;
 					}
 				}
 			}
@@ -941,7 +946,6 @@ namespace MIPSComp {
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
 				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
 
-				// TODO: Optimization if rt is Imm?
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
 					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 				} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
@@ -950,12 +954,12 @@ namespace MIPSComp {
 					js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 				}
 			} else {
-				DISABLE;
+				INVALIDOP;
 			}
 			break;
 
 		default:
-			DISABLE;
+			INVALIDOP;
 		}
 		// This op is marked not to auto-eat prefix so we must do it manually.
 		EatPrefix();
@@ -970,14 +974,10 @@ namespace MIPSComp {
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			//if (imm - 128 == VFPU_CTRL_CC) {
-			//	gpr.MapReg(MIPS_REG_VFPUCC, 0);
-			//	fp.FMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
-			// } else {
 			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
 			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
 		} else {
-			DISABLE;
+			INVALIDOP;
 		}
 	}
 
@@ -998,6 +998,8 @@ namespace MIPSComp {
 			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
+		} else {
+			INVALIDOP;
 		}
 	}
 
@@ -1016,9 +1018,6 @@ namespace MIPSComp {
 		}
 
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
-			DISABLE;
-		}
 		int n = GetMatrixSide(sz);
 
 		u8 sregs[16], dregs[16];
@@ -1906,7 +1905,7 @@ namespace MIPSComp {
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_0;
+				tempregs[i] = IRVTEMP_0 + i;
 			} else {
 				tempregs[i] = dregs[i];
 			}
@@ -1933,7 +1932,7 @@ namespace MIPSComp {
 
 		for (int i = 0; i < n; ++i) {
 			if (tempregs[i] != dregs[i])
-				dregs[i] = tempregs[i];
+				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
 
 		ApplyPrefixD(dregs, sz);
