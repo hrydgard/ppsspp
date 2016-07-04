@@ -596,7 +596,7 @@ VkResult VulkanContext::CreateDevice(int physical_device) {
 	assert(queue_count >= 1);
 
 	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-	float queue_priorities[1] = { 0.0 };
+	float queue_priorities[1] = { 1.0f };
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
@@ -901,12 +901,25 @@ void VulkanContext::InitQueue() {
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
-	if (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED) {
+	if (formatCount == 0 || (formatCount == 1 && surfFormats[0].format == VK_FORMAT_UNDEFINED)) {
 		ILOG("swapchain_format: Falling back to B8G8R8A8_UNORM");
 		swapchain_format = VK_FORMAT_B8G8R8A8_UNORM;
 	} else {
-		assert(formatCount >= 1);
-		swapchain_format = surfFormats[0].format;
+		swapchain_format = VK_FORMAT_UNDEFINED;
+		for (uint32_t i = 0; i < formatCount; ++i) {
+			if (surfFormats[i].colorSpace != VK_COLORSPACE_SRGB_NONLINEAR_KHR) {
+				continue;
+			}
+
+			if (surfFormats[i].format == VK_FORMAT_B8G8R8A8_UNORM || surfFormats[i].format == VK_FORMAT_R8G8B8A8_UNORM) {
+				swapchain_format = surfFormats[i].format;
+				break;
+			}
+		}
+		if (swapchain_format == VK_FORMAT_UNDEFINED) {
+			// Okay, take the first one then.
+			swapchain_format = surfFormats[0].format;
+		}
 		ILOG("swapchain_format: %d (/%d)", swapchain_format, formatCount);
 	}
 	delete[] surfFormats;
@@ -1005,6 +1018,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchain_format;
+	swap_chain_info.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
 	swap_chain_info.imageExtent.width = swapChainExtent.width;
 	swap_chain_info.imageExtent.height = swapChainExtent.height;
 	swap_chain_info.preTransform = preTransform;
@@ -1012,7 +1026,6 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	swap_chain_info.presentMode = swapchainPresentMode;
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
-	swap_chain_info.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
