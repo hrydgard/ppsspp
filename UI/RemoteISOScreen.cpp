@@ -263,14 +263,18 @@ void RemoteISOScreen::CreateViews() {
 	// TODO: Could display server address for manual entry.
 
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumnItems->Add(new Choice(sy->T("Browse Games")))->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
+	Choice *browseChoice = new Choice(sy->T("Browse Games"));
+	rightColumnItems->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
 	ServerStatus status = RetrieveStatus();
 	if (status == ServerStatus::STOPPING) {
 		rightColumnItems->Add(new Choice(sy->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
+		browseChoice->SetEnabled(false);
 	} else if (status != ServerStatus::STOPPED) {
 		rightColumnItems->Add(new Choice(sy->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
+		browseChoice->SetEnabled(false);
 	} else {
 		rightColumnItems->Add(new Choice(sy->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
+		browseChoice->SetEnabled(true);
 	}
 
 	rightColumnItems->Add(new Spacer(25.0));
