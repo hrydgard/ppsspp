@@ -155,9 +155,12 @@ static void ExecuteServer() {
 		http->RegisterHandler(pair.first.c_str(), handler);
 	}
 
-	http->Listen(0);
+	if (!http->Listen(g_Config.iRemoteISOPort)) {
+		http->Listen(0);
+	}
 	UpdateStatus(ServerStatus::RUNNING);
 
+	g_Config.iRemoteISOPort = http->Port();
 	RegisterServer(http->Port());
 	double lastRegister = real_time_now();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
