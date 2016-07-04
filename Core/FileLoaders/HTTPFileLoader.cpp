@@ -21,7 +21,15 @@
 #include "Core/FileLoaders/HTTPFileLoader.h"
 
 HTTPFileLoader::HTTPFileLoader(const std::string &filename)
-	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false) {
+	: filesize_(0), filepos_(0), url_(filename), filename_(filename), connected_(false), prepared_(false) {
+}
+
+void HTTPFileLoader::Prepare() {
+	if (prepared_) {
+		return;
+	}
+	prepared_ = true;
+
 	if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
 		// TODO: Should probably set some flag?
 		return;
@@ -39,7 +47,7 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 200) {
 		// Leave size at 0, invalid.
-		ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename.c_str());
+		ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename_.c_str());
 		Disconnect();
 		return;
 	}
@@ -78,7 +86,7 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 		WARN_LOG(LOADER, "HTTP server did not advertise support for range requests.");
 	}
 	if (filesize_ == 0) {
-		ERROR_LOG(LOADER, "Could not determine file size for %s", filename.c_str());
+		ERROR_LOG(LOADER, "Could not determine file size for %s", filename_.c_str());
 	}
 
 	// If we didn't end up with a filesize_ (e.g. chunked response), give up.  File invalid.
@@ -89,7 +97,12 @@ HTTPFileLoader::~HTTPFileLoader() {
 }
 
 bool HTTPFileLoader::Exists() {
+	Prepare();
 	return url_.Valid() && filesize_ > 0;
+}
+
+bool HTTPFileLoader::ExistsFast() {
+	return url_.Valid();
 }
 
 bool HTTPFileLoader::IsDirectory() {
@@ -98,6 +111,7 @@ bool HTTPFileLoader::IsDirectory() {
 }
 
 s64 HTTPFileLoader::FileSize() {
+	Prepare();
 	return filesize_;
 }
 
@@ -110,6 +124,7 @@ void HTTPFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	Prepare();
 	s64 absoluteEnd = std::min(absolutePos + (s64)bytes, filesize_);
 	if (absolutePos >= filesize_ || bytes == 0) {
 		// Read outside of the file or no read at all, just fail immediately.

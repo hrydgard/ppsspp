@@ -31,6 +31,7 @@ public:
 	virtual ~DiskCachingFileLoader() override;
 
 	virtual bool Exists() override;
+	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
@@ -50,9 +51,11 @@ public:
 	static std::vector<std::string> GetCachedPathsInUse();
 
 private:
+	void Prepare();
 	void InitCache();
 	void ShutdownCache();
 
+	bool prepared_;
 	s64 filesize_;
 	s64 filepos_;
 	FileLoader *backend_;

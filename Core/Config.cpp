@@ -1141,7 +1141,7 @@ void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
 		FileLoader *loader = ConstructFileLoader(recentIsos[i]);
-		if (loader->Exists()) {
+		if (loader->ExistsFast()) {
 			// Make sure we don't have any redundant items.
 			auto duplicate = std::find(cleanedRecent.begin(), cleanedRecent.end(), recentIsos[i]);
 			if (duplicate == cleanedRecent.end()) {

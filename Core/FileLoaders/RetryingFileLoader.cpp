@@ -35,6 +35,14 @@ bool RetryingFileLoader::Exists() {
 	return true;
 }
 
+bool RetryingFileLoader::ExistsFast() {
+	if (!backend_->ExistsFast()) {
+		// Retry once, immediately.
+		return backend_->ExistsFast();
+	}
+	return true;
+}
+
 bool RetryingFileLoader::IsDirectory() {
 	// Can't tell if it's an error either way.
 	return backend_->IsDirectory();

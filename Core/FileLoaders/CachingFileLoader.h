@@ -28,6 +28,7 @@ public:
 	virtual ~CachingFileLoader() override;
 
 	virtual bool Exists() override;
+	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
@@ -45,6 +46,7 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
 private:
+	void Prepare();
 	void InitCache();
 	void ShutdownCache();
 	size_t ReadFromCache(s64 pos, size_t bytes, void *data);
@@ -84,4 +86,5 @@ private:
 	recursive_mutex blocksMutex_;
 	mutable recursive_mutex backendMutex_;
 	bool aheadThread_;
+	bool prepared_;
 };
