@@ -148,13 +148,42 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 	*h = size.cy * fontScaleY_;
 }
 
+void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+	auto iter = fontMap_.find(fontHash_);
+	if (iter != fontMap_.end()) {
+		SelectObject(ctx_->hDC, iter->second->hFont);
+	}
+
+	std::string toMeasure = std::string(str, len);
+	if (align & FLAG_WRAP_TEXT) {
+		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
+		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w);
+	}
+
+	std::vector<std::string> lines;
+	SplitString(toMeasure, '\n', lines);
+	float total_w = 0.0f;
+	float total_h = 0.0f;
+	for (size_t i = 0; i < lines.size(); i++) {
+		SIZE size;
+		std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : lines[i]);
+		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
+		if (total_w < size.cx * fontScaleX_) {
+			total_w = size.cx * fontScaleX_;
+		}
+		total_h += size.cy * fontScaleY_;
+	}
+	*w = total_w;
+	*h = total_h;
+}
+
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	if (!strlen(str))
 		return;
 
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
 	uint32_t entryHash = stringHash ^ fontHash_;
-	
+
 	target.Flush(true);
 
 	TextStringEntry *entry;
@@ -288,6 +317,25 @@ void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) 
 #endif
 }
 
+void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(str, len);
+	if (align & FLAG_WRAP_TEXT) {
+		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
+		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w);
+	}
+
+#ifdef USING_QT_UI
+	QFont* font = fontMap_.find(fontHash_)->second;
+	QFontMetrics fm(*font);
+	QSize size = fm.size(0, QString::fromUtf8(toMeasure.c_str(), (int)toMeasure.size()));
+	*w = (float)size.width() * fontScaleX_;
+	*h = (float)size.height() * fontScaleY_;
+#else
+	*w = 0;
+	*h = 0;
+#endif
+}
+
 void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	if (!strlen(str))
 		return;
@@ -351,6 +399,11 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #endif
 
+void TextDrawer::WrapString(std::string &out, const char *str, float maxW) {
+	TextDrawerWordWrapper wrapper(this, str, maxW);
+	out = wrapper.Wrapped();
+}
+
 void TextDrawer::SetFontScale(float xscale, float yscale) {
 	fontScaleX_ = xscale;
 	fontScaleY_ = xscale;
@@ -370,7 +423,13 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 		y = bounds.y2();
 	}
 
-	DrawString(target, str, x, y, color, align);
+	std::string toDraw = str;
+	if (align & FLAG_WRAP_TEXT) {
+		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
+		WrapString(toDraw, str, rotated ? bounds.h : bounds.w);
+	}
+
+	DrawString(target, toDraw.c_str(), x, y, color, align);
 }
 
 void TextDrawer::OncePerFrame() {

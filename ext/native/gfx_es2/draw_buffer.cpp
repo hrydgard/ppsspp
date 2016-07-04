@@ -335,14 +335,14 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 class AtlasWordWrapper : public WordWrapper {
 public:
 	// Note: maxW may be height if rotated.
-	AtlasWordWrapper(AtlasFont &atlasfont, float scale, const char *str, float maxW) : WordWrapper(str, maxW), atlasfont_(atlasfont), scale_(scale) {
+	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW) : WordWrapper(str, maxW), atlasfont_(atlasfont), scale_(scale) {
 	}
 
 protected:
 	float MeasureWidth(const char *str, size_t bytes) override;
 
-	AtlasFont &atlasfont_;
-	float scale_;
+	const AtlasFont &atlasfont_;
+	const float scale_;
 };
 
 float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
@@ -393,6 +393,16 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 	if (h) *h = atlasfont.height * fontscaley * lines;
 }
 
+void DrawBuffer::MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(text, count);
+	if (align & FLAG_WRAP_TEXT) {
+		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toMeasure.c_str(), bounds.w);
+		toMeasure = wrapper.Wrapped();
+	}
+
+	MeasureTextCount(font, toMeasure.c_str(), (int)toMeasure.length(), w, h);
+}
+
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 	return MeasureTextCount(font, text, (int)strlen(text), w, h);
 }
@@ -428,7 +438,12 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 		y += h;
 	}
 
-	DrawText(font, text, x, y, color, align);
+	std::string toDraw = text;
+	if (align & FLAG_WRAP_TEXT) {
+		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toDraw.c_str(), w);
+		toDraw = wrapper.Wrapped();
+	}
+	DrawText(font, toDraw.c_str(), x, y, color, align);
 }
 
 // ROTATE_* doesn't yet work right.
