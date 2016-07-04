@@ -311,6 +311,9 @@
     <ClInclude Include="net\sinks.h">
       <Filter>net</Filter>
     </ClInclude>
+    <ClInclude Include="util\text\wrap_text.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -750,6 +753,9 @@
     </ClCompile>
     <ClCompile Include="net\sinks.cpp">
       <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="util\text\wrap_text.cpp">
+      <Filter>util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

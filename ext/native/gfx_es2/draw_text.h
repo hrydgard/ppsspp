@@ -49,6 +49,7 @@ public:
 
 	void SetFontScale(float xscale, float yscale);
 	void MeasureString(const char *str, float *w, float *h);
+	void MeasureString(const char *str, size_t len, float *w, float *h);
 	void DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
 	void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align);
 	// Use for housekeeping like throwing out old strings.

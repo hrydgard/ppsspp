@@ -1,6 +1,7 @@
 set(SRCS
   hash/hash.cpp
   text/utf8.cpp
+  text/wrap_text.cpp
 )
 
 set(SRCS ${SRCS})

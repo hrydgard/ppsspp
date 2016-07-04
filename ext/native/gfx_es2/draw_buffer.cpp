@@ -13,6 +13,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/glsl_program.h"
 #include "util/text/utf8.h"
+#include "util/text/wrap_text.h"
 
 enum {
 	// Enough?
@@ -329,6 +330,31 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 	DrawTexRect(x1, y1, xa, y2, u1, v1, um, v2, color);
 	DrawTexRect(xa, y1, xb, y2, um, v1, um, v2, color);
 	DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
+}
+
+class AtlasWordWrapper : public WordWrapper {
+public:
+	// Note: maxW may be height if rotated.
+	AtlasWordWrapper(AtlasFont &atlasfont, float scale, const char *str, float maxW) : WordWrapper(str, maxW), atlasfont_(atlasfont), scale_(scale) {
+	}
+
+protected:
+	float MeasureWidth(const char *str, size_t bytes) override;
+
+	AtlasFont &atlasfont_;
+	float scale_;
+};
+
+float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+	float w = 0.0f;
+	for (UTF8 utf(str); utf.byteIndex() < bytes; ) {
+		const AtlasChar *ch = atlasfont_.getChar(utf.next());
+		if (!ch)
+			ch = atlasfont_.getChar('?');
+
+		w += ch->wx * scale_;
+	}
+	return w;
 }
 
 void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *w, float *h) {

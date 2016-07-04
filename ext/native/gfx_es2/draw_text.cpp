@@ -2,6 +2,7 @@
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
 #include "util/hash/hash.h"
+#include "util/text/wrap_text.h"
 #include "util/text/utf8.h"
 #include "gfx_es2/draw_text.h"
 
@@ -11,6 +12,23 @@
 #include <QtGui/QFontMetrics>
 #include <QtOpenGL/QGLWidget>
 #endif
+
+class TextDrawerWordWrapper : public WordWrapper {
+public:
+	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW) : WordWrapper(str, maxW), drawer_(drawer) {
+	}
+
+protected:
+	float MeasureWidth(const char *str, size_t bytes) override;
+
+	TextDrawer *drawer_;
+};
+
+float TextDrawerWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+	float w, h;
+	drawer_->MeasureString(str, bytes, &w, &h);
+	return w;
+}
 
 #if defined(_WIN32) && !defined(USING_QT_UI)
 
@@ -114,13 +132,17 @@ void TextDrawer::SetFont(uint32_t fontHandle) {
 }
 
 void TextDrawer::MeasureString(const char *str, float *w, float *h) {
+	MeasureString(str, strlen(str), w, h);
+}
+
+void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) {
 	auto iter = fontMap_.find(fontHash_);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}
 
 	SIZE size;
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str, len), "\n", "\r\n"));
 	GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 	*w = size.cx * fontScaleX_;
 	*h = size.cy * fontScaleY_;
@@ -250,10 +272,14 @@ void TextDrawer::SetFont(uint32_t fontHandle) {
 }
 
 void TextDrawer::MeasureString(const char *str, float *w, float *h) {
+	MeasureString(str, strlen(str), w, h);
+}
+
+void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) {
 #ifdef USING_QT_UI
 	QFont* font = fontMap_.find(fontHash_)->second;
 	QFontMetrics fm(*font);
-	QSize size = fm.size(0, QString::fromUtf8(str));
+	QSize size = fm.size(0, QString::fromUtf8(str, (int)len));
 	*w = (float)size.width() * fontScaleX_;
 	*h = (float)size.height() * fontScaleY_;
 #else
