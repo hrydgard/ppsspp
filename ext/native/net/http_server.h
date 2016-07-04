@@ -74,6 +74,7 @@ public:
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
 	bool Listen(int port);
+	void Stop();
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
 	void SetFallbackHandler(UrlHandlerFunc handler);

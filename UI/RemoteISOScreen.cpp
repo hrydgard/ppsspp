@@ -79,7 +79,7 @@ static void RegisterServer(int port) {
 static void ExecuteServer() {
 	setCurrentThreadName("HTTPServer");
 
-	net::Init();
+	net::AutoInit netInit;
 	auto http = new http::Server(new threading::SameThreadExecutor());
 
 	std::map<std::string, std::string> paths;
@@ -156,7 +156,11 @@ static void ExecuteServer() {
 	}
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
-		http->Listen(0);
+		if (!http->Listen(0)) {
+			ERROR_LOG(COMMON, "Unable to listen on any port");
+			UpdateStatus(ServerStatus::STOPPED);
+			return;
+		}
 	}
 	UpdateStatus(ServerStatus::RUNNING);
 
@@ -173,7 +177,7 @@ static void ExecuteServer() {
 		}
 	}
 
-	net::Shutdown();
+	http->Stop();
 
 	UpdateStatus(ServerStatus::STOPPED);
 }

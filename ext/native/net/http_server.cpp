@@ -162,6 +162,10 @@ bool Server::Listen(int port) {
 }
 
 bool Server::RunSlice(double timeout) {
+	if (listener_ < 0 || port_ == 0) {
+		return false;
+	}
+
 	if (timeout <= 0.0) {
 		timeout = 86400.0;
 	}
@@ -182,7 +186,9 @@ bool Server::RunSlice(double timeout) {
 }
 
 bool Server::Run(int port) {
-	Listen(port);
+	if (!Listen(port)) {
+		return false;
+	}
 
 	while (true) {
 		RunSlice(0.0);
@@ -190,6 +196,10 @@ bool Server::Run(int port) {
 
 	// We'll never get here. Ever.
 	return true;
+}
+
+void Server::Stop() {
+	closesocket(listener_);
 }
 
 void Server::HandleConnection(int conn_fd) {
