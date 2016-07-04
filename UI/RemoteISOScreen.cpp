@@ -47,6 +47,8 @@ static ServerStatus serverStatus;
 static recursive_mutex serverStatusLock;
 static condition_variable serverStatusCond;
 
+static bool scanCancelled = false;
+
 static void UpdateStatus(ServerStatus s) {
 	lock_guard guard(serverStatusLock);
 	serverStatus = s;
@@ -194,7 +196,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		http.Disconnect();
 	}
 
-	if (code != 200) {
+	if (code != 200 || scanCancelled) {
 		return false;
 	}
 
@@ -247,7 +249,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		http.Disconnect();
 	}
 
-	if (code != 200) {
+	if (code != 200 || scanCancelled) {
 		return false;
 	}
 
@@ -365,6 +367,7 @@ UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 }
 
 RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
+	scanCancelled = false;
 	statusLock_ = new recursive_mutex();
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
@@ -374,8 +377,14 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING)
 }
 
 RemoteISOConnectScreen::~RemoteISOConnectScreen() {
+	int maxWait = 5000;
+	scanCancelled = true;
 	while (GetStatus() == ScanStatus::SCANNING || GetStatus() == ScanStatus::LOADING) {
 		sleep_ms(1);
+		if (--maxWait < 0) {
+			// If it does ever wake up, it may crash... but better than hanging?
+			break;
+		}
 	}
 	delete scanThread_;
 	delete statusLock_;
@@ -456,6 +465,9 @@ void RemoteISOConnectScreen::update(InputState &input) {
 
 void RemoteISOConnectScreen::ExecuteScan() {
 	FindServer(host_, port_);
+	if (scanCancelled) {
+		return;
+	}
 
 	lock_guard guard(*statusLock_);
 	status_ = host_.empty() ? ScanStatus::FAILED : ScanStatus::FOUND;
@@ -468,6 +480,9 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 
 void RemoteISOConnectScreen::ExecuteLoad() {
 	bool result = LoadGameList(host_, port_, games_);
+	if (scanCancelled) {
+		return;
+	}
 
 	lock_guard guard(*statusLock_);
 	status_ = result ? ScanStatus::LOADED : ScanStatus::FAILED;
