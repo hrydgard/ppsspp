@@ -54,7 +54,7 @@ DiskCachingFileLoader::~DiskCachingFileLoader() {
 }
 
 bool DiskCachingFileLoader::Exists() {
-	if (cache_->HasData()) {
+	if (cache_ && cache_->HasData()) {
 		// It may require a slow operation to check - if we have data, let's say yes.
 		// This helps initial load, since we check each recent file for existence.
 		return true;
