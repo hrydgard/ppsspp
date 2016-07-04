@@ -95,7 +95,7 @@ static void ExecuteServer() {
 		// Let's not serve directories, since they won't work.  Only single files.
 		// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
 		if (endsWithNoCase(basename, ".cso") || endsWithNoCase(basename, ".iso")) {
-			paths[basename] = filename;
+			paths[ReplaceAll(basename, " ", "%20")] = filename;
 		}
 	}
 
