@@ -30,10 +30,10 @@ struct AudioDebugStats;
 
 // 16 bit Stereo
 
-#define MAX_SAMPLES     (2*(1024 * 2)) // 2*64ms - had to double it for nVidia Shield which has huge buffers
+#define MAX_SAMPLES     (4*(1024 * 2)) // 4*64ms - we need this huge buffer to bridge Bluetooth transmission delays
 #define INDEX_MASK      (MAX_SAMPLES * 2 - 1)
 
-#define LOW_WATERMARK   1680 // 40 ms
+#define LOW_WATERMARK   3360 // 80 ms
 #define MAX_FREQ_SHIFT  200  // per 32000 Hz
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
 #define CONTROL_AVG     32
