@@ -561,6 +561,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out) {
 		case IROp::ExitToConstIfGtZ:
 		case IROp::ExitToConstIfLeZ:
 		case IROp::ExitToConstIfLtZ:
+		case IROp::Breakpoint:
+		case IROp::MemoryCheck:
 		default:
 		{
 		doDefaultAndFlush:

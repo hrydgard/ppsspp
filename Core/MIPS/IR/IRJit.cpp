@@ -230,7 +230,10 @@ bool IRBlock::OverlapsRange(u32 addr, u32 size) {
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
 	IRBlock *b = blocks_.GetBlock(op.encoding & 0xFFFFFF);
-	return b->GetOriginalFirstOp();
+	if (b) {
+		return b->GetOriginalFirstOp();
+	}
+	return op;
 }
 
 }  // namespace MIPSComp

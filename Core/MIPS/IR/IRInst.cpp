@@ -156,7 +156,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
 	{ IROp::CallReplacement, "CallRepl", "_C" },
-	{ IROp::Breakpoint, "Breakpoint", "" },
+	{ IROp::Breakpoint, "Breakpoint", "", IRFLAG_EXIT },
+	{ IROp::MemoryCheck, "MemoryCheck", "_GC", IRFLAG_EXIT },
 };
 
 const IRMeta *metaIndex[256];

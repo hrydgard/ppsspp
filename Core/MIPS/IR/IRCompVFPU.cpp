@@ -19,17 +19,17 @@
 
 #include "math/math_util.h"
 
+#include "Common/CPUDetect.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Common/CPUDetect.h"
-#include "Core/Config.h"
-#include "Core/Reporting.h"
-
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
+#include "Core/Reporting.h"
+
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -277,6 +277,9 @@ namespace MIPSComp {
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
+
+		CheckMemoryBreakpoint(rs, offset);
+
 		switch (op >> 26) {
 		case 50: //lv.s
 			ir.Write(IROp::LoadFloat, vfpuBase + voffset[vt], rs, ir.AddConstant(offset));
@@ -299,6 +302,8 @@ namespace MIPSComp {
 
 		u8 vregs[4];
 		GetVectorRegs(vregs, V_Quad, vt);
+
+		CheckMemoryBreakpoint(rs, imm);
 
 		switch (op >> 26) {
 		case 54: //lv.q

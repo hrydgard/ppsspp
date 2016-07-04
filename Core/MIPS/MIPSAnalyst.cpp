@@ -582,6 +582,41 @@ namespace MIPSAnalyst {
 		return (op & MIPSTABLE_IMM_MASK) == 0xF8000000;
 	}
 
+	int OpMemoryAccessSize(u32 pc) {
+		const auto op = Memory::Read_Instruction(pc, true);
+		MIPSInfo info = MIPSGetInfo(op);
+		if ((info & (IN_MEM | OUT_MEM)) == 0) {
+			return 0;
+		}
+
+		// TODO: Verify lwl/lwr/etc.?
+		switch (info & MEMTYPE_MASK) {
+		case MEMTYPE_BYTE:
+			return 1;
+		case MEMTYPE_HWORD:
+			return 2;
+		case MEMTYPE_WORD:
+		case MEMTYPE_FLOAT:
+			return 4;
+		case MEMTYPE_VQUAD:
+			return 16;
+		}
+
+		return 0;
+	}
+
+	bool IsOpMemoryWrite(u32 pc) {
+		const auto op = Memory::Read_Instruction(pc, true);
+		MIPSInfo info = MIPSGetInfo(op);
+		return (info & OUT_MEM) != 0;
+	}
+
+	bool OpHasDelaySlot(u32 pc) {
+		const auto op = Memory::Read_Instruction(pc, true);
+		MIPSInfo info = MIPSGetInfo(op);
+		return (info & DELAYSLOT) != 0;
+	}
+
 	bool OpWouldChangeMemory(u32 pc, u32 addr, u32 size) {
 		const auto op = Memory::Read_Instruction(pc, true);
 

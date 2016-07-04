@@ -196,7 +196,7 @@ enum class IROp : u8 {
 	// Fake/System instructions
 	Interpret,
 
-	// Emit this before you exits. Semantic is to set the downcount
+	// Emit this before you exit. Semantic is to set the downcount
 	// that will be used at the actual exit.
 	Downcount,  // src1 + (src2<<8)
 
@@ -220,6 +220,7 @@ enum class IROp : u8 {
 	CallReplacement,
 	Break,
 	Breakpoint,
+	MemoryCheck,
 };
 
 enum IRComparison {

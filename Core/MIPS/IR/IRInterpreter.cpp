@@ -47,6 +47,15 @@ u32 RunBreakpoint(u32 pc) {
 	return 1;
 }
 
+u32 RunMemCheck(u32 pc, u32 addr) {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == pc)
+		return 0;
+
+	CBreakPoints::ExecOpMemCheck(addr, pc);
+	return coreState != CORE_RUNNING ? 1 : 0;
+}
+
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
 	const IRInst *end = inst + count;
 	while (inst != end) {
@@ -803,8 +812,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::Breakpoint:
 			if (RunBreakpoint(mips->pc)) {
-				if (coreState != CORE_RUNNING)
-					CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck();
+				return mips->pc;
+			}
+			break;
+
+		case IROp::MemoryCheck:
+			if (RunMemCheck(mips->pc, mips->r[inst->src1] + constPool[inst->src2])) {
+				CoreTiming::ForceCheck();
 				return mips->pc;
 			}
 			break;
