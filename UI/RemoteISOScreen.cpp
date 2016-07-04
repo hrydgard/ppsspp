@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "i18n/i18n.h"
+#include "base/timeutil.h"
+#include "ext/vjson/json.h"
 #include "file/fd_util.h"
+#include "i18n/i18n.h"
 #include "net/http_client.h"
 #include "net/http_server.h"
 #include "net/resolve.h"
@@ -29,6 +31,9 @@
 #include "UI/RemoteISOScreen.h"
 
 using namespace UI;
+
+static const char *REPORT_HOSTNAME = "report.ppsspp.org";
+static const int REPORT_PORT = 80;
 
 enum class ServerStatus {
 	STOPPED,
@@ -56,12 +61,10 @@ static ServerStatus RetrieveStatus() {
 // This reports the local IP address to report.ppsspp.org, which can then
 // relay that address to a mobile device searching for the server.
 static void RegisterServer(int port) {
-	bool result = false;
-	net::AutoInit netInit;
 	http::Client http;
 	Buffer theVoid;
 
-	if (http.Resolve("report.ppsspp.org", 80)) {
+	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
 		http.Connect();
 
 		char resource[1024] = {};
@@ -156,14 +159,71 @@ static void ExecuteServer() {
 	UpdateStatus(ServerStatus::RUNNING);
 
 	RegisterServer(http->Port());
-
+	double lastRegister = real_time_now();
 	while (RetrieveStatus() == ServerStatus::RUNNING) {
 		http->RunSlice(5.0);
+
+		double now = real_time_now();
+		if (now > lastRegister + 540.0) {
+			RegisterServer(http->Port());
+			lastRegister = now;
+		}
 	}
 
 	net::Shutdown();
 
 	UpdateStatus(ServerStatus::STOPPED);
+}
+
+static std::string FindServer() {
+	http::Client http;
+	Buffer result;
+	int code = 500;
+
+	// Start by requesting a list of recent local ips for this network.
+	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
+		http.Connect();
+		code = http.GET("/match/list", &result);
+		http.Disconnect();
+	}
+
+	if (code != 200) {
+		return "";
+	}
+
+	std::string json;
+	result.TakeAll(&json);
+
+	JsonReader reader(json.c_str(), json.size());
+	if (!reader.ok()) {
+		return "";
+	}
+
+	const json_value *entries = reader.root();
+	if (!entries) {
+		return "";
+	}
+
+	std::vector<std::string> servers;
+	const json_value *entry = entries->first_child;
+	while (entry) {
+		const char *host = entry->getString("ip", "");
+		int port = entry->getInt("p", 0);
+
+		char url[1024] = {};
+		snprintf(url, sizeof(url), "http://%s:%d", host, port);
+		servers.push_back(url);
+
+		if (http.Resolve(host, port) && http.Connect()) {
+			http.Disconnect();
+			return url;
+		}
+
+		entry = entry->next_sibling;
+	}
+
+	// None of the local IPs were reachable.
+	return "";
 }
 
 RemoteISOScreen::RemoteISOScreen() : serverRunning_(false), serverStopping_(false) {
@@ -200,8 +260,10 @@ void RemoteISOScreen::CreateViews() {
 	leftColumnItems->Add(new TextView(sy->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	leftColumnItems->Add(new TextView(sy->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
+	// TODO: Could display server address for manual entry.
+
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumnItems->Add(new Choice(sy->T("Browse Games")));
+	rightColumnItems->Add(new Choice(sy->T("Browse Games")))->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
 	ServerStatus status = RetrieveStatus();
 	if (status == ServerStatus::STOPPING) {
 		rightColumnItems->Add(new Choice(sy->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
@@ -248,4 +310,97 @@ UI::EventReturn RemoteISOScreen::HandleStopServer(UI::EventParams &e) {
 	RecreateViews();
 
 	return EVENT_DONE;
+}
+
+UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
+	screenManager()->push(new RemoteISOConnectScreen());
+	return EVENT_DONE;
+}
+
+RemoteISOConnectScreen::RemoteISOConnectScreen() : scanComplete_(false), nextRetry_(0.0) {
+	scanLock_ = new recursive_mutex();
+
+	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
+		thiz->ExecuteScan();
+	}, this);
+	scanThread_->detach();
+}
+
+RemoteISOConnectScreen::~RemoteISOConnectScreen() {
+	while (!scanComplete_) {
+		sleep_ms(1);
+	}
+	delete scanThread_;
+	delete scanLock_;
+}
+
+void RemoteISOConnectScreen::CreateViews() {
+	I18NCategory *sy = GetI18NCategory("System");
+
+	Margins actionMenuMargins(0, 20, 15, 0);
+	Margins contentMargins(0, 20, 5, 5);
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
+	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+
+	leftColumnItems->Add(new TextView(sy->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+
+	// TODO: Here would be a good place for manual entry.
+
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumnItems->Add(new Choice(sy->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	root_->Add(leftColumn);
+	root_->Add(rightColumn);
+
+	leftColumn->Add(leftColumnItems);
+	rightColumn->Add(rightColumnItems);
+}
+
+void RemoteISOConnectScreen::update(InputState &input) {
+	UIScreenWithBackground::update(input);
+
+	if (IsComplete()) {
+		if (!url_.empty()) {
+			BrowseToURL(url_);
+		} else if (nextRetry_ <= 0.0f) {
+			nextRetry_ = real_time_now() + 30.0;
+		} else if (nextRetry_ < real_time_now()) {
+			scanComplete_ = false;
+			nextRetry_ = 0.0;
+
+			delete scanThread_;
+			scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
+				thiz->ExecuteScan();
+			}, this);
+			scanThread_->detach();
+		}
+	}
+}
+
+void RemoteISOConnectScreen::ExecuteScan() {
+	url_ = FindServer();
+
+	lock_guard guard(*scanLock_);
+	scanComplete_ = true;
+}
+
+bool RemoteISOConnectScreen::IsComplete() {
+	lock_guard guard(*scanLock_);
+	return scanComplete_;
+}
+
+void RemoteISOConnectScreen::BrowseToURL(const std::string &url) {
+	screenManager()->finishDialog(this, DR_OK);
+	screenManager()->push(new RemoteISOBrowseScreen(url));
+}
+
+RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url) {
+	// TODO
+}
+
+void RemoteISOBrowseScreen::CreateViews() {
+	// TODO
 }

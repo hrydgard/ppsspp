@@ -22,6 +22,12 @@
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
+namespace std {
+	class thread;
+}
+
+class recursive_mutex;
+
 class RemoteISOScreen : public UIScreenWithBackground {
 public:
 	RemoteISOScreen();
@@ -32,7 +38,36 @@ protected:
 
 	UI::EventReturn HandleStartServer(UI::EventParams &e);
 	UI::EventReturn HandleStopServer(UI::EventParams &e);
+	UI::EventReturn HandleBrowse(UI::EventParams &e);
 
 	bool serverRunning_;
 	bool serverStopping_;
+};
+
+class RemoteISOConnectScreen : public UIScreenWithBackground {
+public:
+	RemoteISOConnectScreen();
+	~RemoteISOConnectScreen() override;
+
+protected:
+	void update(InputState &input) override;
+	void CreateViews() override;
+
+	void ExecuteScan();
+	bool IsComplete();
+	void BrowseToURL(const std::string &url);
+
+	bool scanComplete_;
+	double nextRetry_;
+	std::thread *scanThread_;
+	recursive_mutex *scanLock_;
+	std::string url_;
+};
+
+class RemoteISOBrowseScreen : public UIScreenWithBackground {
+public:
+	RemoteISOBrowseScreen(const std::string &url);
+
+protected:
+	void CreateViews() override;
 };
