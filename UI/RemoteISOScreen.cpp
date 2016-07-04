@@ -67,14 +67,14 @@ static void RegisterServer(int port) {
 	Buffer theVoid;
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		http.Connect();
+		if (http.Connect()) {
+			char resource[1024] = {};
+			std::string ip = fd_util::GetLocalIP(http.sock());
+			snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-		char resource[1024] = {};
-		std::string ip = fd_util::GetLocalIP(http.sock());
-		snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
-
-		http.GET(resource, &theVoid);
-		http.Disconnect();
+			http.GET(resource, &theVoid);
+			http.Disconnect();
+		}
 	}
 }
 
@@ -191,9 +191,10 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
-		http.Connect();
-		code = http.GET("/match/list", &result);
-		http.Disconnect();
+		if (http.Connect()) {
+			code = http.GET("/match/list", &result);
+			http.Disconnect();
+		}
 	}
 
 	if (code != 200 || scanCancelled) {
@@ -244,9 +245,10 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 
 	// Start by requesting a list of recent local ips for this network.
 	if (http.Resolve(host.c_str(), port)) {
-		http.Connect();
-		code = http.GET("/", &result);
-		http.Disconnect();
+		if (http.Connect()) {
+			code = http.GET("/", &result);
+			http.Disconnect();
+		}
 	}
 
 	if (code != 200 || scanCancelled) {
