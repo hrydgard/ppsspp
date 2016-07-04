@@ -21,6 +21,7 @@
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/MainScreen.h"
 
 namespace std {
 	class thread;
@@ -44,6 +45,15 @@ protected:
 	bool serverStopping_;
 };
 
+enum class ScanStatus {
+	SCANNING,
+	RETRY_SCAN,
+	FOUND,
+	FAILED,
+	LOADING,
+	LOADED,
+};
+
 class RemoteISOConnectScreen : public UIScreenWithBackground {
 public:
 	RemoteISOConnectScreen();
@@ -53,21 +63,27 @@ protected:
 	void update(InputState &input) override;
 	void CreateViews() override;
 
+	ScanStatus GetStatus();
 	void ExecuteScan();
-	bool IsComplete();
-	void BrowseToURL(const std::string &url);
+	void ExecuteLoad();
 
-	bool scanComplete_;
+	UI::TextView *statusView_;
+
+	ScanStatus status_;
 	double nextRetry_;
 	std::thread *scanThread_;
-	recursive_mutex *scanLock_;
-	std::string url_;
+	recursive_mutex *statusLock_;
+	std::string host_;
+	int port_;
+	std::vector<std::string> games_;
 };
 
-class RemoteISOBrowseScreen : public UIScreenWithBackground {
+class RemoteISOBrowseScreen : public MainScreen {
 public:
-	RemoteISOBrowseScreen(const std::string &url);
+	RemoteISOBrowseScreen(const std::vector<std::string> &games);
 
 protected:
 	void CreateViews() override;
+
+	std::vector<std::string> games_;
 };

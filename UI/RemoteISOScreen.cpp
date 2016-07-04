@@ -178,7 +178,7 @@ static void ExecuteServer() {
 	UpdateStatus(ServerStatus::STOPPED);
 }
 
-static std::string FindServer() {
+static bool FindServer(std::string &resultHost, int &resultPort) {
 	http::Client http;
 	Buffer result;
 	int code = 500;
@@ -191,7 +191,7 @@ static std::string FindServer() {
 	}
 
 	if (code != 200) {
-		return "";
+		return false;
 	}
 
 	std::string json;
@@ -199,12 +199,12 @@ static std::string FindServer() {
 
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok()) {
-		return "";
+		return false;
 	}
 
 	const json_value *entries = reader.root();
 	if (!entries) {
-		return "";
+		return false;
 	}
 
 	std::vector<std::string> servers;
@@ -219,14 +219,50 @@ static std::string FindServer() {
 
 		if (http.Resolve(host, port) && http.Connect()) {
 			http.Disconnect();
-			return url;
+			resultHost = host;
+			resultPort = port;
+			return true;
 		}
 
 		entry = entry->next_sibling;
 	}
 
 	// None of the local IPs were reachable.
-	return "";
+	return false;
+}
+
+static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
+	http::Client http;
+	Buffer result;
+	int code = 500;
+
+	// Start by requesting a list of recent local ips for this network.
+	if (http.Resolve(host.c_str(), port)) {
+		http.Connect();
+		code = http.GET("/", &result);
+		http.Disconnect();
+	}
+
+	if (code != 200) {
+		return false;
+	}
+
+	std::string listing;
+	std::vector<std::string> items;
+	result.TakeAll(&listing);
+
+	SplitString(listing, '\n', items);
+	for (const std::string &item : items) {
+		if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
+			continue;
+		}
+
+		char temp[1024] = {};
+		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
+		games.push_back(temp);
+	}
+
+	return !games.empty();
 }
 
 RemoteISOScreen::RemoteISOScreen() : serverRunning_(false), serverStopping_(false) {
@@ -324,8 +360,8 @@ UI::EventReturn RemoteISOScreen::HandleBrowse(UI::EventParams &e) {
 	return EVENT_DONE;
 }
 
-RemoteISOConnectScreen::RemoteISOConnectScreen() : scanComplete_(false), nextRetry_(0.0) {
-	scanLock_ = new recursive_mutex();
+RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
+	statusLock_ = new recursive_mutex();
 
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
@@ -334,11 +370,11 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() : scanComplete_(false), nextRet
 }
 
 RemoteISOConnectScreen::~RemoteISOConnectScreen() {
-	while (!scanComplete_) {
+	while (GetStatus() == ScanStatus::SCANNING || GetStatus() == ScanStatus::LOADING) {
 		sleep_ms(1);
 	}
 	delete scanThread_;
-	delete scanLock_;
+	delete statusLock_;
 }
 
 void RemoteISOConnectScreen::CreateViews() {
@@ -351,7 +387,7 @@ void RemoteISOConnectScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new TextView(sy->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	statusView_ = leftColumnItems->Add(new TextView(sy->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	// TODO: Here would be a good place for manual entry.
 
@@ -367,15 +403,36 @@ void RemoteISOConnectScreen::CreateViews() {
 }
 
 void RemoteISOConnectScreen::update(InputState &input) {
+	I18NCategory *sy = GetI18NCategory("System");
+
 	UIScreenWithBackground::update(input);
 
-	if (IsComplete()) {
-		if (!url_.empty()) {
-			BrowseToURL(url_);
-		} else if (nextRetry_ <= 0.0f) {
-			nextRetry_ = real_time_now() + 30.0;
-		} else if (nextRetry_ < real_time_now()) {
-			scanComplete_ = false;
+	ScanStatus s = GetStatus();
+	switch (s) {
+	case ScanStatus::SCANNING:
+	case ScanStatus::LOADING:
+		break;
+
+	case ScanStatus::FOUND:
+		statusView_->SetText(sy->T("RemoteISOLoading", "Connected - loading game list"));
+		status_ = ScanStatus::LOADING;
+
+		// Let's reuse scanThread_.
+		delete scanThread_;
+		scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
+			thiz->ExecuteLoad();
+		}, this);
+		scanThread_->detach();
+		break;
+
+	case ScanStatus::FAILED:
+		nextRetry_ = real_time_now() + 30.0;
+		status_ = ScanStatus::RETRY_SCAN;
+		break;
+
+	case ScanStatus::RETRY_SCAN:
+		if (nextRetry_ < real_time_now()) {
+			status_ = ScanStatus::SCANNING;
 			nextRetry_ = 0.0;
 
 			delete scanThread_;
@@ -384,30 +441,110 @@ void RemoteISOConnectScreen::update(InputState &input) {
 			}, this);
 			scanThread_->detach();
 		}
+		break;
+
+	case ScanStatus::LOADED:
+		screenManager()->finishDialog(this, DR_OK);
+		screenManager()->push(new RemoteISOBrowseScreen(games_));
+		break;
 	}
 }
 
 void RemoteISOConnectScreen::ExecuteScan() {
-	url_ = FindServer();
+	FindServer(host_, port_);
 
-	lock_guard guard(*scanLock_);
-	scanComplete_ = true;
+	lock_guard guard(*statusLock_);
+	status_ = host_.empty() ? ScanStatus::FAILED : ScanStatus::FOUND;
 }
 
-bool RemoteISOConnectScreen::IsComplete() {
-	lock_guard guard(*scanLock_);
-	return scanComplete_;
+ScanStatus RemoteISOConnectScreen::GetStatus() {
+	lock_guard guard(*statusLock_);
+	return status_;
 }
 
-void RemoteISOConnectScreen::BrowseToURL(const std::string &url) {
-	screenManager()->finishDialog(this, DR_OK);
-	screenManager()->push(new RemoteISOBrowseScreen(url));
+void RemoteISOConnectScreen::ExecuteLoad() {
+	bool result = LoadGameList(host_, port_, games_);
+
+	lock_guard guard(*statusLock_);
+	status_ = result ? ScanStatus::LOADED : ScanStatus::FAILED;
 }
 
-RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url) {
-	// TODO
+class RemoteGameBrowser : public GameBrowser {
+public:
+	RemoteGameBrowser(const std::vector<std::string> &games, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0)
+	: GameBrowser("!REMOTE", allowBrowsing, gridStyle_, lastText, lastLink, flags, layoutParams) {
+		games_ = games;
+		Refresh();
+	}
+
+protected:
+	bool DisplayTopBar() override {
+		return false;
+	}
+
+	bool HasSpecialFiles(std::vector<std::string> &filenames) override;
+
+	std::vector<std::string> games_;
+};
+
+bool RemoteGameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
+	filenames = games_;
+	return true;
+}
+
+RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::vector<std::string> &games) : games_(games) {
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
-	// TODO
+	bool vertical = UseVerticalLayout();
+
+	I18NCategory *mm = GetI18NCategory("MainMenu");
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	Margins actionMenuMargins(0, 10, 10, 0);
+
+	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabHolder_ = leftColumn;
+	tabHolder_->SetTag("RemoteGames");
+	gameBrowsers_.clear();
+
+	leftColumn->SetClip(true);
+
+	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	scrollRecentGames->SetTag("RemoteGamesTab");
+	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
+		games_, false, &g_Config.bGridView1, "", "", 0,
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	scrollRecentGames->Add(tabRemoteGames);
+	gameBrowsers_.push_back(tabRemoteGames);
+
+	leftColumn->AddTab(mm->T("Remote Server"), scrollRecentGames);
+	tabRemoteGames->OnChoice.Handle<MainScreen>(this, &MainScreen::OnGameSelectedInstant);
+	tabRemoteGames->OnHoldChoice.Handle<MainScreen>(this, &MainScreen::OnGameSelected);
+	tabRemoteGames->OnHighlight.Handle<MainScreen>(this, &MainScreen::OnGameHighlight);
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	rightColumnItems->SetSpacing(0.0f);
+	rightColumn->Add(rightColumnItems);
+
+	rightColumnItems->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	if (vertical) {
+		root_ = new LinearLayout(ORIENT_VERTICAL);
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
+		root_->Add(rightColumn);
+		root_->Add(leftColumn);
+	} else {
+		root_ = new LinearLayout(ORIENT_HORIZONTAL);
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
+		rightColumn->ReplaceLayoutParams(new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+		root_->Add(leftColumn);
+		root_->Add(rightColumn);
+	}
+
+	root_->SetDefaultFocusView(tabHolder_);
+
+	upgradeBar_ = 0;
 }
