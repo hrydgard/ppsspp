@@ -28,6 +28,7 @@ public:
 	~RamCachingFileLoader() override;
 
 	bool Exists() override;
+	bool ExistsFast() override;
 	bool IsDirectory() override;
 	s64 FileSize() override;
 	std::string Path() const override;

@@ -38,8 +38,16 @@ recursive_mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
 DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), cache_(nullptr) {
-	filesize_ = backend->FileSize();
+	: prepared_(false), filesize_(0), filepos_(0), backend_(backend), cache_(nullptr) {
+}
+
+void DiskCachingFileLoader::Prepare() {
+	if (prepared_) {
+		return;
+	}
+	prepared_ = true;
+
+	filesize_ = backend_->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
 	}
@@ -54,19 +62,22 @@ DiskCachingFileLoader::~DiskCachingFileLoader() {
 }
 
 bool DiskCachingFileLoader::Exists() {
-	if (cache_->HasData()) {
-		// It may require a slow operation to check - if we have data, let's say yes.
-		// This helps initial load, since we check each recent file for existence.
-		return true;
-	}
+	Prepare();
 	return backend_->Exists();
 }
 
+bool DiskCachingFileLoader::ExistsFast() {
+	// It may require a slow operation to check - if we have data, let's say yes.
+	// This helps initial load, since we check each recent file for existence.
+	return true;
+}
+
 bool DiskCachingFileLoader::IsDirectory() {
-	return backend_->IsDirectory() ? 1 : 0;
+	return backend_->IsDirectory();
 }
 
 s64 DiskCachingFileLoader::FileSize() {
+	Prepare();
 	return filesize_;
 }
 
@@ -79,6 +90,7 @@ void DiskCachingFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	Prepare();
 	size_t readSize;
 
 	if (absolutePos >= filesize_) {

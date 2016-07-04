@@ -26,6 +26,7 @@ public:
 	virtual ~RetryingFileLoader() override;
 
 	virtual bool Exists() override;
+	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;

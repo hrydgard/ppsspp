@@ -4,11 +4,16 @@
 #include <math.h>
 #include <stdio.h>
 #ifndef _WIN32
-#include <unistd.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/select.h>
+#include <unistd.h>
 #else
 #include <io.h>
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #endif
 #include <fcntl.h>
 
@@ -125,6 +130,19 @@ void SetNonBlocking(int sock, bool non_blocking) {
 		ELOG("Error setting socket nonblocking status");
 	}
 #endif
+}
+
+std::string GetLocalIP(int sock) {
+	struct sockaddr_in server_addr;
+	memset(&server_addr, 0, sizeof(server_addr));
+	socklen_t len = sizeof(server_addr);
+	if (getsockname(sock, (struct sockaddr *)&server_addr, &len) == 0) {
+		char *result = inet_ntoa(*(in_addr *)&server_addr.sin_addr);
+		if (result) {
+			return result;
+		}
+	}
+	return "";
 }
 
 }  // fd_util

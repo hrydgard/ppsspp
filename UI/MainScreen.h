@@ -35,8 +35,13 @@ public:
 
 	void FocusGame(std::string gamePath);
 
-private:
+protected:
+	virtual bool DisplayTopBar();
+	virtual bool HasSpecialFiles(std::vector<std::string> &filenames);
+
 	void Refresh();
+
+private:
 	bool IsCurrentPathPinned();
 	const std::vector<std::string> GetPinnedPaths();
 	const std::string GetBaseName(const std::string &path);
@@ -61,6 +66,8 @@ private:
 	std::string focusGamePath_;
 };
 
+class RemoteISOBrowseScreen;
+
 class MainScreen : public UIScreenWithBackground {
 public:
 	MainScreen();
@@ -78,7 +85,7 @@ protected:
 	virtual void sendMessage(const char *message, const char *value);
 	virtual void dialogFinished(const Screen *dialog, DialogResult result);
 
-private:
+	bool UseVerticalLayout() const;
 	bool DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress);
 
 	UI::EventReturn OnGameSelected(UI::EventParams &e);
@@ -112,7 +119,7 @@ private:
 	bool lockBackgroundAudio_;
 	bool lastVertical_;
 
-	bool UseVerticalLayout() const;
+	friend class RemoteISOBrowseScreen;
 };
 
 class UmdReplaceScreen : public UIDialogScreenWithBackground {

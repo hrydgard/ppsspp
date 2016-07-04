@@ -457,6 +457,18 @@ UI::EventReturn GameBrowser::PinToggleClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+bool GameBrowser::DisplayTopBar() {
+	return path_.GetPath() != "!RECENT";
+}
+
+bool GameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
+	if (path_.GetPath() == "!RECENT") {
+		filenames = g_Config.recentIsos;
+		return true;
+	}
+	return false;
+}
+
 void GameBrowser::Refresh() {
 	using namespace UI;
 
@@ -468,7 +480,7 @@ void GameBrowser::Refresh() {
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 
 	// No topbar on recent screen
-	if (path_.GetPath() != "!RECENT") {
+	if (DisplayTopBar()) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
@@ -504,9 +516,10 @@ void GameBrowser::Refresh() {
 	std::vector<DirButton *> dirButtons;
 	std::vector<GameButton *> gameButtons;
 
-	if (path_.GetPath() == "!RECENT") {
-		for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
-			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+	std::vector<std::string> filenames;
+	if (HasSpecialFiles(filenames)) {
+		for (size_t i = 0; i < filenames.size(); i++) {
+			gameButtons.push_back(new GameButton(filenames[i], *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	} else {
 		std::vector<FileInfo> fileInfo;

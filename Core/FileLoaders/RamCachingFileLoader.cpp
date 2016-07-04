@@ -48,6 +48,14 @@ bool RamCachingFileLoader::Exists() {
 	return exists_ == 1;
 }
 
+bool RamCachingFileLoader::ExistsFast() {
+	if (exists_ == -1) {
+		lock_guard guard(backendMutex_);
+		return backend_->ExistsFast();
+	}
+	return exists_ == 1;
+}
+
 bool RamCachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
 		lock_guard guard(backendMutex_);

@@ -3,7 +3,9 @@
 
 #ifndef _WIN32
 #include <arpa/inet.h>
+#include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #define closesocket close
 #else
@@ -12,6 +14,7 @@
 #include <io.h>
 #endif
 
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -19,12 +22,13 @@
 #include "base/buffer.h"
 #include "base/stringutil.h"
 #include "data/compression.h"
+#include "file/fd_util.h"
 #include "net/resolve.h"
 #include "net/url.h"
 
 namespace net {
 
-Connection::Connection() 
+Connection::Connection()
 		: port_(-1), resolved_(NULL), sock_(-1) {
 }
 
@@ -68,33 +72,60 @@ bool Connection::Resolve(const char *host, int port) {
 	return true;
 }
 
-bool Connection::Connect(int maxTries) {
+bool Connection::Connect(int maxTries, double timeout) {
 	if (port_ <= 0) {
 		ELOG("Bad port");
 		return false;
 	}
-	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if ((intptr_t)sock_ == -1) {
-		ELOG("Bad socket");
-		return false;
-	}
+	sock_ = -1;
 
 	for (int tries = maxTries; tries > 0; --tries) {
-		for (addrinfo *possible = resolved_; possible != NULL; possible = possible->ai_next) {
+		std::vector<uintptr_t> sockets;
+		fd_set fds;
+		int maxfd = 1;
+		FD_ZERO(&fds);
+		for (addrinfo *possible = resolved_; possible != nullptr; possible = possible->ai_next) {
 			// TODO: Could support ipv6 without huge difficulty...
 			if (possible->ai_family != AF_INET)
 				continue;
 
-			int retval = connect(sock_, possible->ai_addr, (int)possible->ai_addrlen);
-			if (retval >= 0)
-				return true;
+			int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if ((intptr_t)sock == -1) {
+				ELOG("Bad socket");
+				continue;
+			}
+			fd_util::SetNonBlocking(sock, true);
+
+			// Start trying to connect (async with timeout.)
+			connect(sock, possible->ai_addr, (int)possible->ai_addrlen);
+			sockets.push_back(sock);
+			FD_SET(sock, &fds);
+			if (maxfd < sock + 1) {
+				maxfd = sock + 1;
+			}
+		}
+
+		struct timeval tv;
+		tv.tv_sec = floor(timeout);
+		tv.tv_usec = (timeout - floor(timeout)) * 1000000.0;
+		if (select(maxfd, NULL, &fds, NULL, &tv) > 0) {
+			// Something connected.  Pick the first one that did (if multiple.)
+			for (int sock : sockets) {
+				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
+					fd_util::SetNonBlocking(sock, false);
+					sock_ = sock;
+				} else {
+					closesocket(sock);
+				}
+			}
+
+			// Great, now we're good to go.
+			return true;
 		}
 		sleep_ms(1);
 	}
 
-	// Let's not leak this socket.
-	closesocket(sock_);
-	sock_ = -1;
+	// Nothing connected, unfortunately.
 	return false;
 }
 

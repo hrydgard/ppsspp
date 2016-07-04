@@ -23,8 +23,16 @@
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false) {
-	filesize_ = backend->FileSize();
+	: filesize_(0), filepos_(0), backend_(backend), exists_(-1), isDirectory_(-1), aheadThread_(false), prepared_(false) {
+}
+
+void CachingFileLoader::Prepare() {
+	if (prepared_) {
+		return;
+	}
+	prepared_ = true;
+
+	filesize_ = backend_->FileSize();
 	if (filesize_ > 0) {
 		InitCache();
 	}
@@ -46,6 +54,14 @@ bool CachingFileLoader::Exists() {
 	return exists_ == 1;
 }
 
+bool CachingFileLoader::ExistsFast() {
+	if (exists_ == -1) {
+		lock_guard guard(backendMutex_);
+		return backend_->ExistsFast();
+	}
+	return exists_ == 1;
+}
+
 bool CachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
 		lock_guard guard(backendMutex_);
@@ -55,6 +71,7 @@ bool CachingFileLoader::IsDirectory() {
 }
 
 s64 CachingFileLoader::FileSize() {
+	Prepare();
 	return filesize_;
 }
 
@@ -68,6 +85,7 @@ void CachingFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+	Prepare();
 	if (absolutePos >= filesize_) {
 		bytes = 0;
 	} else if (absolutePos + (s64)bytes >= filesize_) {

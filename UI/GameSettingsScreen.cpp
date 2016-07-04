@@ -34,6 +34,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
@@ -499,6 +500,7 @@ void GameSettingsScreen::CreateViews() {
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Handle(this, &GameSettingsScreen::OnSavedataManager);
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Handle(this, &GameSettingsScreen::OnSysInfo);
 	tools->Add(new Choice(sy->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+	tools->Add(new Choice(sy->T("Remote disc streaming")))->OnClick.Handle(this, &GameSettingsScreen::OnRemoteISO);
 
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -993,8 +995,14 @@ UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
+
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
+	screenManager()->push(new RemoteISOScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -1006,7 +1014,7 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnTouchControlLayout(UI::EventParams &e) {
 	screenManager()->push(new TouchControlLayoutScreen());
 	return UI::EVENT_DONE;
-};
+}
 
 //when the tilt event type is modified, we need to reset all tilt settings.
 //refer to the ResetTiltEvents() function for a detailed explanation.

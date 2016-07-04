@@ -54,6 +54,9 @@ public:
 	virtual ~FileLoader() {}
 
 	virtual bool Exists() = 0;
+	virtual bool ExistsFast() {
+		return Exists();
+	}
 	virtual bool IsDirectory() = 0;
 	virtual s64 FileSize() = 0;
 	virtual std::string Path() const = 0;

@@ -893,6 +893,7 @@ set(NativeAppSource
 	UI/GamepadEmu.cpp
 	UI/OnScreenDisplay.cpp
 	UI/ControlMappingScreen.cpp
+	UI/RemoteISOScreen.cpp
 	UI/ReportScreen.cpp
 	UI/SavedataScreen.cpp
 	UI/Store.cpp
@@ -995,10 +996,12 @@ add_library(native STATIC
 	ext/native/math/lin/vec3.h
 	ext/native/math/math_util.cpp
 	ext/native/math/math_util.h
-	ext/native/net/http_server.cpp
-	ext/native/net/http_server.h
 	ext/native/net/http_client.cpp
 	ext/native/net/http_client.h
+	ext/native/net/http_headers.cpp
+	ext/native/net/http_headers.h
+	ext/native/net/http_server.cpp
+	ext/native/net/http_server.h
 	ext/native/net/resolve.cpp
 	ext/native/net/resolve.h
 	ext/native/net/sinks.cpp
@@ -1010,6 +1013,8 @@ add_library(native STATIC
 	ext/native/thin3d/thin3d.cpp
 	ext/native/thin3d/thin3d.h
 	ext/native/thin3d/thin3d_gl.cpp
+	ext/native/thread/executor.cpp
+	ext/native/thread/executor.h
 	ext/native/thread/prioritizedworkqueue.cpp
 	ext/native/thread/prioritizedworkqueue.h
 	ext/native/thread/threadutil.cpp

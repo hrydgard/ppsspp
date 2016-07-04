@@ -29,6 +29,7 @@ public:
 	virtual ~HTTPFileLoader() override;
 
 	virtual bool Exists() override;
+	virtual bool ExistsFast() override;
 	virtual bool IsDirectory() override;
 	virtual s64 FileSize() override;
 	virtual std::string Path() const override;
@@ -46,6 +47,8 @@ public:
 	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
 
 private:
+	void Prepare();
+
 	void Connect() {
 		if (!connected_) {
 			connected_ = client_.Connect();
@@ -66,4 +69,5 @@ private:
 	http::Client client_;
 	std::string filename_;
 	bool connected_;
+	bool prepared_;
 };

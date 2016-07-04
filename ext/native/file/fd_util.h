@@ -22,6 +22,8 @@ bool WaitUntilReady(int fd, double timeout, bool for_write = false);
 
 void SetNonBlocking(int fd, bool non_blocking);
 
+std::string GetLocalIP(int sock);
+
 }  // fd_util
 
 #endif  // _FD_UTIL
