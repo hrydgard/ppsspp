@@ -84,7 +84,7 @@ void CachingFileLoader::Seek(s64 absolutePos) {
 	filepos_ = absolutePos;
 }
 
-size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	if (absolutePos >= filesize_) {
 		bytes = 0;
@@ -92,19 +92,25 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
 		bytes = filesize_ - absolutePos;
 	}
 
-	size_t readSize = ReadFromCache(absolutePos, bytes, data);
-	// While in case the cache size is too small for the entire read.
-	while (readSize < bytes) {
-		SaveIntoCache(absolutePos + readSize, bytes - readSize);
-		size_t bytesFromCache = ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
-		readSize += bytesFromCache;
-		if (bytesFromCache == 0) {
-			// We can't read any more.
-			break;
+	size_t readSize = 0;
+	if ((flags & Flags::HINT_UNCACHED) != 0) {
+		lock_guard guard(backendMutex_);
+		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
+	} else {
+		readSize = ReadFromCache(absolutePos, bytes, data);
+		// While in case the cache size is too small for the entire read.
+		while (readSize < bytes) {
+			SaveIntoCache(absolutePos + readSize, bytes - readSize, flags);
+			size_t bytesFromCache = ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			readSize += bytesFromCache;
+			if (bytesFromCache == 0) {
+				// We can't read any more.
+				break;
+			}
 		}
-	}
 
-	StartReadAhead(absolutePos + readSize);
+		StartReadAhead(absolutePos + readSize);
+	}
 
 	filepos_ = absolutePos + readSize;
 	return readSize;
@@ -158,7 +164,7 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 	return readSize;
 }
 
-void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, bool readingAhead) {
+void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool readingAhead) {
 	s64 cacheStartPos = pos >> BLOCK_SHIFT;
 	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
 
@@ -184,7 +190,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, bool readingAhead) 
 
 		u8 *buf = new u8[BLOCK_SIZE];
 		backendMutex_.lock();
-		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf);
+		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, BLOCK_SIZE, buf, flags);
 		backendMutex_.unlock();
 
 		blocksMutex_.lock();
@@ -200,7 +206,7 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, bool readingAhead) 
 
 		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
 		backendMutex_.lock();
-		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead);
+		backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead, flags);
 		backendMutex_.unlock();
 
 		blocksMutex_.lock();
@@ -288,7 +294,7 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 			auto block = blocks_.find(i);
 			if (block == blocks_.end()) {
 				blocksMutex_.unlock();
-				SaveIntoCache(i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD, true);
+				SaveIntoCache(i << BLOCK_SHIFT, BLOCK_SIZE * BLOCK_READAHEAD, Flags::NONE, true);
 				break;
 			}
 		}

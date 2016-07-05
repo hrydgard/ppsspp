@@ -223,6 +223,10 @@ void ReportScreen::CreateViews() {
 		reportingNotice_ = nullptr;
 	}
 
+#ifdef MOBILE_DEVICE
+	leftColumnItems->Add(new TextView(rp->T("FeedbackIncludeCRC", "Note: Battery will be used to send a disc CRC"), new LinearLayoutParams(Margins(12, 5, 0, 5))))->SetEnabledPtr(&enableReporting_);
+#endif
+
 	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
 	if (!File::Exists(path)) {
 		File::CreateDir(path);
@@ -294,7 +298,7 @@ EventReturn ReportScreen::HandleBrowser(EventParams &e) {
 }
 
 ReportFinishScreen::ReportFinishScreen(const std::string &gamePath)
-	: UIScreenWithGameBackground(gamePath) {
+	: UIScreenWithGameBackground(gamePath), resultNotice_(nullptr), setStatus_(false) {
 }
 
 void ReportFinishScreen::CreateViews() {
@@ -309,6 +313,7 @@ void ReportFinishScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
 	leftColumnItems->Add(new TextView(rp->T("FeedbackThanks", "Thanks for your feedback."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	resultNotice_ = leftColumnItems->Add(new TextView(rp->T("FeedbackDelayInfo", "Your data is being submitted in the background."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("View Feedback")))->OnClick.Handle(this, &ReportFinishScreen::HandleViewFeedback);
@@ -322,6 +327,30 @@ void ReportFinishScreen::CreateViews() {
 
 	leftColumn->Add(leftColumnItems);
 	rightColumn->Add(rightColumnItems);
+}
+
+void ReportFinishScreen::update(InputState &input) {
+	I18NCategory *rp = GetI18NCategory("Reporting");
+
+	if (!setStatus_) {
+		Reporting::Status status = Reporting::GetStatus();
+		switch (status) {
+		case Reporting::Status::WORKING:
+			resultNotice_->SetText(rp->T("FeedbackSubmitDone", "Your data has been submitted."));
+			break;
+
+		case Reporting::Status::FAILING:
+			resultNotice_->SetText(rp->T("FeedbackSubmitFail", "Could not submit data to server.  Try updating PPSSPP."));
+			break;
+
+		case Reporting::Status::BUSY:
+		default:
+			// Can't update yet.
+			break;
+		}
+	}
+
+	UIScreenWithGameBackground::update(input);
 }
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {

@@ -89,7 +89,7 @@ void DiskCachingFileLoader::Seek(s64 absolutePos) {
 	filepos_ = absolutePos;
 }
 
-size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
+size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
 	Prepare();
 	size_t readSize;
 
@@ -99,11 +99,11 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) 
 		bytes = filesize_ - absolutePos;
 	}
 
-	if (cache_ && cache_->IsValid()) {
+	if (cache_ && cache_->IsValid() && (flags & Flags::HINT_UNCACHED) == 0) {
 		readSize = cache_->ReadFromCache(absolutePos, bytes, data);
 		// While in case the cache size is too small for the entire read.
 		while (readSize < bytes) {
-			readSize += cache_->SaveIntoCache(backend_, absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
+			readSize += cache_->SaveIntoCache(backend_, absolutePos + readSize, bytes - readSize, (u8 *)data + readSize, flags);
 			// If there are already-cached blocks afterward, we have to read them.
 			size_t bytesFromCache = cache_->ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
 			readSize += bytesFromCache;
@@ -113,7 +113,7 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) 
 			}
 		}
 	} else {
-		readSize = backend_->ReadAt(absolutePos, bytes, data);
+		readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 	}
 
 	filepos_ = absolutePos + readSize;
@@ -256,12 +256,12 @@ size_t DiskCachingFileLoaderCache::ReadFromCache(s64 pos, size_t bytes, void *da
 	return readSize;
 }
 
-size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, size_t bytes, void *data) {
+size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, size_t bytes, void *data, FileLoader::Flags flags) {
 	lock_guard guard(lock_);
 
 	if (!f_) {
 		// Just to keep things working.
-		return backend->ReadAt(pos, bytes, data);
+		return backend->ReadAt(pos, bytes, data, flags);
 	}
 
 	s64 cacheStartPos = pos / blockSize_;
@@ -290,7 +290,7 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		auto &info = index_[cacheStartPos];
 
 		u8 *buf = new u8[blockSize_];
-		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blockSize_, buf);
+		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blockSize_, buf, flags);
 
 		// Check if it was written while we were busy.  Might happen if we thread.
 		if (info.block == INVALID_BLOCK && readBytes != 0) {
@@ -306,7 +306,7 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		delete [] buf;
 	} else {
 		u8 *wholeRead = new u8[blocksToRead * blockSize_];
-		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blocksToRead * blockSize_, wholeRead);
+		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blocksToRead * blockSize_, wholeRead, flags);
 
 		for (size_t i = 0; i < blocksToRead; ++i) {
 			auto &info = index_[cacheStartPos + i];

@@ -33,7 +33,7 @@ class BlockDevice
 {
 public:
 	virtual ~BlockDevice() {}
-	virtual bool ReadBlock(int blockNumber, u8 *outPtr) = 0;
+	virtual bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) = 0;
 	virtual bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		for (int b = 0; b < count; ++b) {
 			if (!ReadBlock(minBlock + b, outPtr)) {
@@ -45,6 +45,8 @@ public:
 	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
+
+	u32 CalculateCRC();
 };
 
 
@@ -53,7 +55,7 @@ class CISOFileBlockDevice : public BlockDevice
 public:
 	CISOFileBlockDevice(FileLoader *fileLoader);
 	~CISOFileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() override { return numBlocks; }
 
@@ -76,7 +78,7 @@ class FileBlockDevice : public BlockDevice
 public:
 	FileBlockDevice(FileLoader *fileLoader);
 	~FileBlockDevice();
-	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() override {return (u32)(filesize_ / GetBlockSize());}
 
@@ -102,7 +104,7 @@ public:
 	NPDRMDemoBlockDevice(FileLoader *fileLoader);
 	~NPDRMDemoBlockDevice();
 
-	bool ReadBlock(int blockNumber, u8 *outPtr) override;
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	u32 GetNumBlocks() override {return (u32)lbaSize;}
 
 private:

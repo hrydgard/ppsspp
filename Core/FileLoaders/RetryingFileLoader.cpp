@@ -64,13 +64,13 @@ void RetryingFileLoader::Seek(s64 absolutePos) {
 	filepos_ = absolutePos;
 }
 
-size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data) {
-	size_t readSize = backend_->ReadAt(absolutePos, bytes, data);
+size_t RetryingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
+	size_t readSize = backend_->ReadAt(absolutePos, bytes, data, flags);
 
 	int retries = 0;
 	while (readSize < bytes && retries < MAX_RETRIES) {
 		u8 *p = (u8 *)data;
-		readSize += backend_->ReadAt(absolutePos + readSize, bytes - readSize, p + readSize);
+		readSize += backend_->ReadAt(absolutePos + readSize, bytes - readSize, p + readSize, flags);
 		++retries;
 	}
 

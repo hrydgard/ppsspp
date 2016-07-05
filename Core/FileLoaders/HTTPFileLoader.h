@@ -35,16 +35,16 @@ public:
 	virtual std::string Path() const override;
 
 	virtual void Seek(s64 absolutePos) override;
-	virtual size_t Read(size_t bytes, size_t count, void *data) override {
-		return ReadAt(filepos_, bytes, count, data);
+	virtual size_t Read(size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(filepos_, bytes, count, data, flags);
 	}
-	virtual size_t Read(size_t bytes, void *data) override {
-		return ReadAt(filepos_, bytes, data);
+	virtual size_t Read(size_t bytes, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(filepos_, bytes, data, flags);
 	}
-	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data) override {
-		return ReadAt(absolutePos, bytes * count, data) / bytes;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
+		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
-	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data) override;
+	virtual size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
 
 private:
 	void Prepare();
