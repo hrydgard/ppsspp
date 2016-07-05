@@ -630,20 +630,9 @@ void Thin3DTextureView::Draw(UIContext &dc) {
 }
 
 void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// MeasureText doesn't seem to work with line breaks, so do something more sophisticated.
-	std::vector<std::string> lines;
-	SplitString(text_, '\n', lines);
-	float total_w = 0.f;
-	float total_h = 0.f;
-	for (size_t i = 0; i < lines.size(); i++) {
-		float temp_w, temp_h;
-		dc.MeasureText(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, lines[i].c_str(), &temp_w, &temp_h);
-		if (temp_w > total_w)
-			total_w = temp_w;
-		total_h += temp_h;
-	}
-	w = total_w;
-	h = total_h;
+	// We don't have the bounding w/h yet, so stick with hardset layout params.
+	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
 }
 
 void TextView::Draw(UIContext &dc) {

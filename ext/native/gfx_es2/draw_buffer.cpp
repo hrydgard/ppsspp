@@ -13,6 +13,7 @@
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/glsl_program.h"
 #include "util/text/utf8.h"
+#include "util/text/wrap_text.h"
 
 enum {
 	// Enough?
@@ -331,6 +332,31 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 	DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
 }
 
+class AtlasWordWrapper : public WordWrapper {
+public:
+	// Note: maxW may be height if rotated.
+	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW) : WordWrapper(str, maxW), atlasfont_(atlasfont), scale_(scale) {
+	}
+
+protected:
+	float MeasureWidth(const char *str, size_t bytes) override;
+
+	const AtlasFont &atlasfont_;
+	const float scale_;
+};
+
+float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
+	float w = 0.0f;
+	for (UTF8 utf(str); utf.byteIndex() < bytes; ) {
+		const AtlasChar *ch = atlasfont_.getChar(utf.next());
+		if (!ch)
+			ch = atlasfont_.getChar('?');
+
+		w += ch->wx * scale_;
+	}
+	return w;
+}
+
 void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *w, float *h) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
 
@@ -365,6 +391,16 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 	}
 	if (w) *w = std::max(wacc, maxX);
 	if (h) *h = atlasfont.height * fontscaley * lines;
+}
+
+void DrawBuffer::MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
+	std::string toMeasure = std::string(text, count);
+	if (align & FLAG_WRAP_TEXT) {
+		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toMeasure.c_str(), bounds.w);
+		toMeasure = wrapper.Wrapped();
+	}
+
+	MeasureTextCount(font, toMeasure.c_str(), (int)toMeasure.length(), w, h);
 }
 
 void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
@@ -402,7 +438,12 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 		y += h;
 	}
 
-	DrawText(font, text, x, y, color, align);
+	std::string toDraw = text;
+	if (align & FLAG_WRAP_TEXT) {
+		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toDraw.c_str(), w);
+		toDraw = wrapper.Wrapped();
+	}
+	DrawText(font, toDraw.c_str(), x, y, color, align);
 }
 
 // ROTATE_* doesn't yet work right.

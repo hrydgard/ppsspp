@@ -1042,6 +1042,8 @@ add_library(native STATIC
 	ext/native/util/text/utf8.cpp
 	ext/native/util/text/parsers.h
 	ext/native/util/text/parsers.cpp
+	ext/native/util/text/wrap_text.h
+	ext/native/util/text/wrap_text.cpp
 	ext/native/util/const_map.h
 	ext/native/ext/jpge/jpgd.cpp
 	ext/native/ext/jpge/jpgd.h

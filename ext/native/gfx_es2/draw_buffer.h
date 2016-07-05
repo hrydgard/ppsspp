@@ -38,7 +38,8 @@ enum {
 	// Avoids using system font drawing as it's too slow.
 	// Not actually used here but is reserved for whatever system wraps DrawBuffer.
 	FLAG_DYNAMIC_ASCII = 2048,
-	FLAG_NO_PREFIX = 4096  // means to not process ampersands
+	FLAG_NO_PREFIX = 4096,  // means to not process ampersands
+	FLAG_WRAP_TEXT = 8192,
 };
 
 class Thin3DShaderSet;
@@ -126,7 +127,8 @@ public:
 
 	// NOTE: Count is in plain chars not utf-8 chars!
 	void MeasureTextCount(int font, const char *text, int count, float *w, float *h);
-	
+	void MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align = 0);
+
 	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
