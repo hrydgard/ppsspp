@@ -37,14 +37,15 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0) {}
-	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), origAddr_(emAddr), numInstructions_(0) {}
+	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0), origSize_(0) {}
+	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), origAddr_(emAddr), origSize_(0), numInstructions_(0) {}
 	IRBlock(IRBlock &&b) {
 		instr_ = b.instr_;
 		const_ = b.const_;
 		numInstructions_ = b.numInstructions_;
 		numConstants_ = b.numConstants_;
 		origAddr_ = b.origAddr_;
+		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 		b.instr_ = nullptr;
 		b.const_ = nullptr;
@@ -70,6 +71,7 @@ public:
 			memcpy(const_, b.const_, sizeof(u32) * numConstants_);
 		}
 		origAddr_ = b.origAddr_;
+		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 
 		return *this;
