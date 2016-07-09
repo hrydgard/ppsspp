@@ -360,10 +360,10 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			}
 		} else {
 #ifdef _M_SSE
-			int numBlocks = bytes / 16;
 			if (bytes == loadBytes) {
 				const __m128i *source = (const __m128i *)Memory::GetPointerUnchecked(clutAddr);
 				__m128i *dest = (__m128i *)clutBufRaw_;
+				int numBlocks = bytes / 32;
 				for (int i = 0; i < numBlocks; i++, source += 2, dest += 2) {
 					__m128i data1 = _mm_loadu_si128(source);
 					__m128i data2 = _mm_loadu_si128(source + 1);
