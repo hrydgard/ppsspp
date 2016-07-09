@@ -426,9 +426,13 @@ int main(int argc, char *argv[]) {
 
 	net::Init();
 
+	bool joystick_enabled = true;
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO) < 0) {
-		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
-		return 1;
+		joystick_enabled = false;
+		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
+			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
+			return 1;
+		}
 	}
 
 #ifdef __APPLE__
@@ -659,7 +663,11 @@ int main(int argc, char *argv[]) {
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
 #ifndef _WIN32
-	joystick = new SDLJoystick();
+	if (joystick_enabled) {
+		joystick = new SDLJoystick();
+	} else {
+		joystick = nullptr;
+	}
 #endif
 	EnableFZ();
 
@@ -848,7 +856,9 @@ int main(int argc, char *argv[]) {
 				break;
 			default:
 #ifndef _WIN32
-				joystick->ProcessInput(event);
+				if (joystick) {
+					joystick->ProcessInput(event);
+				}
 #endif
 				break;
 			}
