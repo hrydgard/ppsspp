@@ -51,15 +51,13 @@ public:
 		b.const_ = nullptr;
 	}
 
+#ifdef __SYMBIAN32__
 	IRBlock(const IRBlock &b) {
 		*this = b;
 	}
 
 	IRBlock &operator=(const IRBlock &b) {
 		// No std::move on Symbian...  But let's try not to use elsewhere.
-#ifndef __SYMBIAN32__
-		_assert_(false);
-#endif
 		numInstructions_ = b.numInstructions_;
 		numConstants_ = b.numConstants_;
 		instr_ = new IRInst[numInstructions_];
@@ -76,6 +74,7 @@ public:
 
 		return *this;
 	}
+#endif
 
 	~IRBlock() {
 		delete[] instr_;

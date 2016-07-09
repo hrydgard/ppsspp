@@ -59,7 +59,7 @@ void CwCheatScreen::CreateCodeList() {
 	for (int i = 0; i < extension.size(); i++) {
 		extension[i] = tolower(extension[i]);
 	}
-	if (extension != "iso" && extension != "cso" && extension != "pbp" || gameTitle == "") {
+	if ((extension != "iso" && extension != "cso" && extension != "pbp") || gameTitle == "") {
 		if (extension == "elf") {
 			gameTitle = "ELF000000";
 		} else {
