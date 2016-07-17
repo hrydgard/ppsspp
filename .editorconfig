@@ -5,7 +5,8 @@ root = true
 charset = utf-8
 indent_style = tab
 insert_final_newline = true
-trim_trailing_whitespace = true
+# Would be nice, but don't want to change files unnecessarily.
+#trim_trailing_whitespace = true
 
 [*.py]
 indent_style = space

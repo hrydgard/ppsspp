@@ -1370,7 +1370,9 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		int levels = scaleFactor == 1 ? maxLevel + 1 : 1;
 		int tw = w, th = h;
 		D3DFORMAT tfmt = (D3DFORMAT)D3DFMT(dstFmt);
-		if (!replaced.GetSize(level, tw, th)) {
+		if (replaced.GetSize(level, tw, th)) {
+			tfmt = (D3DFORMAT)D3DFMT(ToD3D9Format(replaced.Format(level)));
+		} else {
 			tw *= scaleFactor;
 			th *= scaleFactor;
 			if (scaleFactor > 1) {
