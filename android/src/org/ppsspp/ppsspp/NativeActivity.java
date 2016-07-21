@@ -269,7 +269,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
-		javaGL = NativeApp.queryConfig("androidJavaGL") == "true";
+		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
 
 		sendInitialGrants();
 
