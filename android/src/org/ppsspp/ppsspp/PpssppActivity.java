@@ -18,7 +18,7 @@ public class PpssppActivity extends NativeActivity {
 	private static boolean m_hasNoNativeBinary = false;
 
 	@SuppressWarnings("deprecation")
-	static void CheckABIAndLoadLibrary() {
+	public static void CheckABIAndLoadLibrary() {
 		if (Build.CPU_ABI.equals("armeabi")) {
 			m_hasUnsupportedABI = true;
 		} else {
@@ -73,13 +73,13 @@ public class PpssppActivity extends NativeActivity {
 		// (from app drawer or file explorer).
 		Intent intent = getIntent();
 		String action = intent.getAction();
-		if(Intent.ACTION_VIEW.equals(action))
-		{
+		if (Intent.ACTION_VIEW.equals(action)) {
 			String path = intent.getData().getPath();
 			super.setShortcutParam(path);
 			Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
+		} else {
+			super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 		}
-		else super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 
 		super.onCreate(savedInstanceState);
 	}

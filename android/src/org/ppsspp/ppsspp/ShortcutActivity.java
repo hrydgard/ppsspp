@@ -3,10 +3,12 @@ package org.ppsspp.ppsspp;
 import java.io.File;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.Intent.ShortcutIconResource;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Looper;
 
 /**
  * This class will respond to android.intent.action.CREATE_SHORTCUT intent from
@@ -25,6 +27,8 @@ public class ShortcutActivity extends Activity {
 		fileDialog.showDialog();
 	}
 
+	public static native String queryGameName(String path);
+
 	// Create shortcut as response for ACTION_CREATE_SHORTCUT intent.
 	private void respondToShortcutRequest(String path) {
 		// This is Intent that will be sent when user execute our shortcut on
@@ -33,12 +37,18 @@ public class ShortcutActivity extends Activity {
 		Intent shortcutIntent = new Intent(this, PpssppActivity.class);
 		shortcutIntent.putExtra(PpssppActivity.SHORTCUT_EXTRA_KEY, path);
 
+		PpssppActivity.CheckABIAndLoadLibrary();
+		String name = queryGameName(path);
+		if (name.equals("")) {
+			showBadGameMessage();
+			return;
+		}
+
 		// This is Intent that will be returned by this method, as response to
 		// ACTION_CREATE_SHORTCUT. Wrap shortcut intent inside this intent.
 		Intent responseIntent = new Intent();
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
-		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, getResources()
-				.getString(R.string.app_name));
+		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, name);
 		ShortcutIconResource iconResource = Intent.ShortcutIconResource
 				.fromContext(this, R.drawable.ic_launcher);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE,
@@ -48,6 +58,29 @@ public class ShortcutActivity extends Activity {
 
 		// Must call finish for result to be returned immediately
 		finish();
+	}
+
+	private void showBadGameMessage() {
+		new Thread() {
+			@SuppressWarnings("deprecation")
+			@Override
+			public void run() {
+				Looper.prepare();
+				AlertDialog.Builder builder = new AlertDialog.Builder(ShortcutActivity.this);
+				builder.setMessage(getResources().getString(R.string.bad_disc_message));
+				builder.setTitle(getResources().getString(R.string.bad_disc_title));
+				builder.create().show();
+				Looper.loop();
+			}
+		}.start();
+
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		System.exit(-1);
 	}
 
 	// Event when a file is selected on file dialog.

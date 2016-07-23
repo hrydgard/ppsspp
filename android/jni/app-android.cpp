@@ -1069,3 +1069,27 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	WLOG("Render loop function exited.");
 	return true;
 }
+
+extern "C" jstring Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameName(JNIEnv *env, jclass, jstring jpath) {
+	std::string path = GetJavaString(env, jpath);
+	std::string result = "";
+
+	GameInfoCache *cache = new GameInfoCache();
+	GameInfo *info = cache->GetInfo(nullptr, path, 0);
+	// Wait until it's done: this is synchronous, unfortunately.
+	if (info) {
+		cache->WaitUntilDone(info);
+		if (info->fileType != FILETYPE_UNKNOWN) {
+			result = info->GetTitle();
+
+			// Pretty arbitrary, but the home screen will often truncate titles.
+			// Let's remove "The " from names since it's common in English titles.
+			if (result.length() > strlen("The ") && startsWithNoCase(result, "The ")) {
+				result = result.substr(strlen("The "));
+			}
+		}
+	}
+	delete cache;
+
+	return env->NewStringUTF(result.c_str());
+}
