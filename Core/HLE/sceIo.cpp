@@ -66,7 +66,8 @@ static const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
 static const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR         = 0x80020323;
-
+static const int ERROR_KERNEL_ILLEGAL_PERMISSION          = 0x800200d1;
+static const int ERROR_KERNEL_ASYNC_BUSY                  = 0x80020329;
 static const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
 
 /*
@@ -277,11 +278,19 @@ static int __IoAllocFd(FileNode *f) {
 }
 
 static void __IoFreeFd(int fd, u32 &error) {
-	if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
+	if (fd == PSP_STDIN || fd == PSP_STDERR || fd == PSP_STDOUT) {
+		error = ERROR_KERNEL_ILLEGAL_PERMISSION;
+	} else if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
 		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	} else {
 		FileNode *f = __IoGetFd(fd, error);
 		if (f) {
+			// If there are pending results, don't allow closing.
+			if (ioManager.HasOperation(f->handle)) {
+				error = ERROR_KERNEL_ASYNC_BUSY;
+				return;
+			}
+
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
