@@ -399,7 +399,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
-    @SuppressWarnings("deprecation")
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
