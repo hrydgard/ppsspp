@@ -2,7 +2,7 @@
 
 export USE_CCACHE=1
 export NDK_CCACHE=ccache
-NDK_VER=android-ndk-r10d
+NDK_VER=android-ndk-r12b
 
 download_extract() {
 	aria2c -x 16 $1 -o $2
@@ -10,17 +10,12 @@ download_extract() {
 }
 
 # This is used for the Android NDK.
-download_extract_xz() {
+download_extract_zip() {
 	aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2
-	stat -c 'ATTEMPT 1 - %s' $2
-	md5sum $2
 	# This resumes the download, in case it failed.
 	aria2c --file-allocation=none --timeout=120 --retry-wait=5 --max-tries=20 -Z -c $1 -o $2
-	stat -c 'ATTEMPT 2 - %s' $2
-	md5sum $2
 
-	# Keep some output going during the extract, so the build doesn't timeout.
-	pv $2 | xz -vd | tar -x
+	unzip $2 2>&1 | pv > /dev/null
 }
 
 travis_before_install() {
@@ -73,7 +68,7 @@ travis_install() {
 	if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
 		free -m
 		sudo apt-get install ant -qq
-		download_extract_xz http://hdkr.co/${NDK_VER}-x86_64.tar.xz ${NDK_VER}-x86_64.tar.xz
+		download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
 	fi
 
 	# Blackberry NDK: 10.3.0.440 + GCC: 4.8.2

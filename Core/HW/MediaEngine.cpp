@@ -34,6 +34,7 @@ extern "C" {
 
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
+#include "libavutil/imgutils.h"
 #include "libswscale/swscale.h"
 
 }
@@ -449,11 +450,19 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = av_frame_alloc();
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+	int numBytes = av_image_get_buffer_size((AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight, 1);
+#else
 	int numBytes = avpicture_get_size((AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
+#endif
 	m_buffer = (u8*)av_malloc(numBytes * sizeof(uint8_t));
 
 	// Assign appropriate parts of buffer to image planes in m_pFrameRGB
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+	av_image_fill_arrays(m_pFrameRGB->data, m_pFrameRGB->linesize, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight, 1);
+#else
 	avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
+#endif
 #endif // USE_FFMPEG
 	return true;
 }
@@ -522,8 +531,13 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 		// Still need to decode those, so keep calling avcodec_decode_video2().
 		if (dataEnd || packet.stream_index == m_videoStream) {
 			// avcodec_decode_video2() gives us the re-ordered frames with a NULL packet.
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+			if (dataEnd)
+				av_packet_unref(&packet);
+#else
 			if (dataEnd)
 				av_free_packet(&packet);
+#endif
 
 			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
 			if (frameFinished) {
@@ -547,7 +561,11 @@ bool MediaEngine::stepVideo(int videoPixelMode, bool skipFrame) {
 				break;
 			}
 		}
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+		av_packet_unref(&packet);
+#else
 		av_free_packet(&packet);
+#endif
 	}
 	return bGetFrame;
 #else

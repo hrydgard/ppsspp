@@ -186,12 +186,16 @@ bool SimpleAudio::Decode(void *inbuf, int inbytes, uint8_t *outbuf, int *outbyte
 	*outbytes = 0;
 	srcPos = 0;
 	int len = avcodec_decode_audio4(codecCtx_, frame_, &got_frame, &packet);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 12, 100)
+	av_packet_unref(&packet);
+#else
+	av_free_packet(&packet);
+#endif
+
 	if (len < 0) {
 		ERROR_LOG(ME, "Error decoding Audio frame (%i bytes): %i (%08x)", inbytes, len, len);
-		// TODO: cleanup
 		return false;
 	}
-	av_free_packet(&packet);
 	
 	// get bytes consumed in source
 	srcPos = len;
