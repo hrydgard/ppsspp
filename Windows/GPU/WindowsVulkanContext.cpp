@@ -128,7 +128,13 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 	// layout barrier. TODO: This one I should fix.
 	if (msgCode == 7 && startsWith(pMsg, "Cannot submit cmd buffer"))
 		return false;
-	if (msgCode == 43 && startsWith(pMsg, "At Draw time the active render"))
+	if (msgCode == 7 && startsWith(pMsg, "Cannot copy from an image"))
+		return false;
+	if (msgCode == 7 && startsWith(pMsg, "You cannot transition the layout"))
+		return false;
+	//if (msgCode == 43 && startsWith(pMsg, "At Draw time the active render"))
+	//	return false;
+	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
 		return false;
 
 #ifdef _WIN32
