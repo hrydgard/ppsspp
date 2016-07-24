@@ -121,6 +121,7 @@ private:
 
 class IRBlockCache {
 public:
+	IRBlockCache() : size_(0) {}
 	void Clear();
 	void InvalidateICache(u32 address, u32 length);
 	int GetNumBlocks() const { return (int)blocks_.size(); }
@@ -141,7 +142,7 @@ public:
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
 private:
-	int size_;
+	int size_;  // Hm, is this a cache for speed in debug mode, or what?
 	std::vector<IRBlock> blocks_;
 };
 
