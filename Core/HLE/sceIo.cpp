@@ -62,13 +62,9 @@ extern "C" {
 
 static const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
-static const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
-static const int ERROR_KERNEL_BAD_FILE_DESCRIPTOR         = 0x80020323;
-
 static const int ERROR_PGD_INVALID_HEADER                 = 0x80510204;
-
 /*
 
 TODO: async io is missing features!
@@ -256,7 +252,7 @@ static void TellFsThreadEnded (SceUID threadID) {
 
 static FileNode *__IoGetFd(int fd, u32 &error) {
 	if (fd < 0 || fd >= PSP_COUNT_FDS) {
-		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		error = SCE_KERNEL_ERROR_BADF;
 		return NULL;
 	}
 
@@ -277,11 +273,19 @@ static int __IoAllocFd(FileNode *f) {
 }
 
 static void __IoFreeFd(int fd, u32 &error) {
-	if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
-		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+	if (fd == PSP_STDIN || fd == PSP_STDERR || fd == PSP_STDOUT) {
+		error = SCE_KERNEL_ERROR_ILLEGAL_PERM;
+	} else if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
+		error = SCE_KERNEL_ERROR_BADF;
 	} else {
 		FileNode *f = __IoGetFd(fd, error);
 		if (f) {
+			// If there are pending results, don't allow closing.
+			if (ioManager.HasOperation(f->handle)) {
+				error = SCE_KERNEL_ERROR_ASYNC_BUSY;
+				return;
+			}
+
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -810,7 +814,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 		if (!(f->openMode & FILEACCESS_READ)) {
-			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			result = SCE_KERNEL_ERROR_BADF;
 			return true;
 		} else if (size < 0) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
@@ -949,7 +953,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			return true;
 		}
 		if (!(f->openMode & FILEACCESS_WRITE)) {
-			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			result = SCE_KERNEL_ERROR_BADF;
 			return true;
 		}
 		if (size < 0) {
@@ -1073,7 +1077,7 @@ static u32 sceIoGetDevType(int id) {
 		result = pspFileSystem.DevType(f->handle);
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
-		result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		result = SCE_KERNEL_ERROR_BADF;
 	}
 
 	return result;
@@ -1088,7 +1092,7 @@ static u32 sceIoCancel(int id)
 		// TODO: Cancel the async operation if possible?
 	} else {
 		ERROR_LOG(SCEIO, "sceIoCancel: unknown id %d", id);
-		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		error = SCE_KERNEL_ERROR_BADF;
 	}
 
 	return error;
@@ -1340,7 +1344,7 @@ static u32 sceIoMkdir(const char *dirname, int mode) {
 	if (pspFileSystem.MkDir(dirname))
 		return hleDelayResult(0, "mkdir", 1000);
 	else
-		return hleDelayResult(ERROR_ERRNO_FILE_ALREADY_EXISTS, "mkdir", 1000);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "mkdir", 1000);
 }
 
 static u32 sceIoRmdir(const char *dirname) {
