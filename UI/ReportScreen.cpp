@@ -23,6 +23,7 @@
 #include "UI/PauseScreen.h"
 #include "UI/ReportScreen.h"
 
+#include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
@@ -224,7 +225,9 @@ void ReportScreen::CreateViews() {
 	}
 
 #ifdef MOBILE_DEVICE
-	leftColumnItems->Add(new TextView(rp->T("FeedbackIncludeCRC", "Note: Battery will be used to send a disc CRC"), new LinearLayoutParams(Margins(12, 5, 0, 5))))->SetEnabledPtr(&enableReporting_);
+	if (!Core_GetPowerSaving()) {
+		leftColumnItems->Add(new TextView(rp->T("FeedbackIncludeCRC", "Note: Battery will be used to send a disc CRC"), new LinearLayoutParams(Margins(12, 5, 0, 5))))->SetEnabledPtr(&enableReporting_);
+	}
 #endif
 
 	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);

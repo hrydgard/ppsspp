@@ -18,6 +18,7 @@
 #include "Core/Reporting.h"
 
 #include "Common/CPUDetect.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
@@ -427,7 +428,7 @@ namespace Reporting
 			postdata.Add("graphics", StringFromFormat("%d", payload.int1));
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
-			postdata.Add("crc", StringFromFormat("%08x", RetrieveCRC()));
+			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC()));
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
