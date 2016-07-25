@@ -2294,7 +2294,6 @@ void Register_sceMpeg()
 // p pointing to a SceMpegLLI structure consists of video frame blocks.
 static u32 sceMpegbase_BEA18F91(u32 p)
 {
-#ifdef _WIN32
 	pmp_videoSource = p;
 	pmp_nBlocks = 0;
 	SceMpegLLI lli;
@@ -2309,11 +2308,6 @@ static u32 sceMpegbase_BEA18F91(u32 p)
 	}
 	
 	DEBUG_LOG(ME, "sceMpegbase_BEA18F91(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
-#else
-//	Temporarily disable PMP video for non-windows
-//	See issue #8603
-	WARN_LOG(ME, "Temporarily disable PMP video for non-windows");
-#endif
 	return 0;
 }
 
