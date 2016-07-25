@@ -28,6 +28,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.PowerManager;
 import android.os.Vibrator;
 import android.text.InputType;
 import android.util.DisplayMetrics;
@@ -121,6 +122,16 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			optimalSampleRate = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));
 		} catch (NumberFormatException e) {
 			// Ignore, if we can't parse it it's bogus and zero is a fine value (means we couldn't detect it).
+		}
+	}
+
+	@TargetApi(21)
+	private void sendPowerSaving() {
+		final PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
+		if (pm.isPowerSaveMode()) {
+			NativeApp.sendMessage("core_powerSaving", "true");
+		} else {
+			NativeApp.sendMessage("core_powerSaving", "false");
 		}
 	}
 
@@ -272,6 +283,9 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
 
 		sendInitialGrants();
+		if (Build.VERSION.SDK_INT >= 21) {
+			sendPowerSaving();
+		}
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
