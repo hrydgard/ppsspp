@@ -125,16 +125,6 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		}
 	}
 
-	@TargetApi(21)
-	private void sendPowerSaving() {
-		final PowerManager pm = (PowerManager)getSystemService(Context.POWER_SERVICE);
-		if (pm.isPowerSaveMode()) {
-			NativeApp.sendMessage("core_powerSaving", "true");
-		} else {
-			NativeApp.sendMessage("core_powerSaving", "false");
-		}
-	}
-
 	String getApplicationLibraryDir(ApplicationInfo application) {
 	    String libdir = null;
 	    try {
@@ -283,9 +273,7 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
 
 		sendInitialGrants();
-		if (Build.VERSION.SDK_INT >= 21) {
-			sendPowerSaving();
-		}
+		PowerSaveModeReceiver.initAndSend(this);
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= 9) {
