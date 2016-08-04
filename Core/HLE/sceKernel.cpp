@@ -892,13 +892,6 @@ void Register_LoadExecForKernel()
 	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
 
-const HLEFunction SysMemForKernel[] =
-{
-	{0X636C953B, nullptr,                                            "SysMemForKernel_636c953b",                  '?', ""        },
-	{0XC9805775, nullptr,                                            "SysMemForKernel_c9805775",                  '?', ""        },
-	{0X1C1FBFE7, nullptr,                                            "SysMemForKernel_1c1fbfe7",                  '?', ""        },
-};
-
 const HLEFunction ExceptionManagerForKernel[] =
 {
 	{0X3FB264FC, nullptr,                                            "sceKernelRegisterExceptionHandler",         '?', ""        },
@@ -910,11 +903,6 @@ const HLEFunction ExceptionManagerForKernel[] =
 	{0X15ADC862, nullptr,                                            "sceKernelRegisterNmiHandler",               '?', ""        },
 	{0XB15357C9, nullptr,                                            "sceKernelReleaseNmiHandler",                '?', ""        },
 };
-
-void Register_SysMemForKernel()
-{
-	RegisterModule("SysMemForKernel", ARRAY_SIZE(SysMemForKernel), SysMemForKernel);
-}
 
 void Register_ExceptionManagerForKernel()
 {
