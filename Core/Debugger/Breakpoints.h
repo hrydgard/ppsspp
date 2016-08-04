@@ -26,9 +26,16 @@ enum BreakAction
 	BREAK_ACTION_IGNORE = 0x00,
 	BREAK_ACTION_LOG = 0x01,
 	BREAK_ACTION_PAUSE = 0x02,
-
-	BREAK_ACTION_BOTH = 0x03,
 };
+
+static inline BreakAction &operator |= (BreakAction &lhs, const BreakAction &rhs) {
+	lhs = BreakAction(lhs | rhs);
+	return lhs;
+}
+
+static inline BreakAction operator | (const BreakAction &lhs, const BreakAction &rhs) {
+	return BreakAction((u32)lhs | (u32)rhs);
+}
 
 struct BreakPointCond
 {
@@ -54,11 +61,16 @@ struct BreakPoint
 	BreakPoint() : hasCond(false) {}
 
 	u32	addr;
-	bool enabled;
 	bool temporary;
+
+	BreakAction result;
 
 	bool hasCond;
 	BreakPointCond cond;
+
+	bool IsEnabled() const {
+		return (result & BREAK_ACTION_PAUSE) != 0;
+	}
 
 	bool operator == (const BreakPoint &other) const {
 		return addr == other.addr;
@@ -100,6 +112,10 @@ struct MemCheck
 
 	void Log(u32 addr, bool write, int size, u32 pc);
 
+	bool IsEnabled() const {
+		return (result & BREAK_ACTION_PAUSE) != 0;
+	}
+
 	bool operator == (const MemCheck &other) const {
 		return start == other.start && end == other.end;
 	}
@@ -121,6 +137,7 @@ public:
 	static void AddBreakPoint(u32 addr, bool temp = false);
 	static void RemoveBreakPoint(u32 addr);
 	static void ChangeBreakPoint(u32 addr, bool enable);
+	static void ChangeBreakPoint(u32 addr, BreakAction result);
 	static void ClearAllBreakPoints();
 	static void ClearTemporaryBreakPoints();
 
@@ -128,6 +145,8 @@ public:
 	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
 	static void ChangeBreakPointRemoveCond(u32 addr);
 	static BreakPointCond *GetBreakPointCondition(u32 addr);
+
+	static BreakAction ExecBreakPoint(u32 addr);
 
 	static void AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	static void RemoveMemCheck(u32 start, u32 end);

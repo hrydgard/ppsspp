@@ -114,7 +114,7 @@ size_t CBreakPoints::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
 		const auto &bp = breakPoints_[i];
 		if (bp.addr == addr && (!matchTemp || bp.temporary == temp))
 		{
-			if (bp.enabled)
+			if (bp.IsEnabled())
 				return i;
 			// Hold out until the first enabled one.
 			if (found == INVALID_BREAKPOINT)
@@ -139,14 +139,15 @@ size_t CBreakPoints::FindMemCheck(u32 start, u32 end)
 bool CBreakPoints::IsAddressBreakPoint(u32 addr)
 {
 	size_t bp = FindBreakpoint(addr);
-	return bp != INVALID_BREAKPOINT && breakPoints_[bp].enabled;
+	return bp != INVALID_BREAKPOINT && breakPoints_[bp].result != BREAK_ACTION_IGNORE;
 }
 
 bool CBreakPoints::IsAddressBreakPoint(u32 addr, bool* enabled)
 {
 	size_t bp = FindBreakpoint(addr);
 	if (bp == INVALID_BREAKPOINT) return false;
-	if (enabled != NULL) *enabled = breakPoints_[bp].enabled;
+	if (enabled != nullptr)
+		*enabled = breakPoints_[bp].IsEnabled();
 	return true;
 }
 
@@ -174,16 +175,16 @@ void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 	if (bp == INVALID_BREAKPOINT)
 	{
 		BreakPoint pt;
-		pt.enabled = true;
+		pt.result |= BREAK_ACTION_PAUSE;
 		pt.temporary = temp;
 		pt.addr = addr;
 
 		breakPoints_.push_back(pt);
 		Update(addr);
 	}
-	else if (!breakPoints_[bp].enabled)
+	else if (!breakPoints_[bp].IsEnabled())
 	{
-		breakPoints_[bp].enabled = true;
+		breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
 		breakPoints_[bp].hasCond = false;
 		Update(addr);
 	}
@@ -210,7 +211,20 @@ void CBreakPoints::ChangeBreakPoint(u32 addr, bool status)
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT)
 	{
-		breakPoints_[bp].enabled = status;
+		if (status)
+			breakPoints_[bp].result |= BREAK_ACTION_PAUSE;
+		else
+			breakPoints_[bp].result = BreakAction(breakPoints_[bp].result & ~BREAK_ACTION_PAUSE);
+		Update(addr);
+	}
+}
+
+void CBreakPoints::ChangeBreakPoint(u32 addr, BreakAction result)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].result = result;
 		Update(addr);
 	}
 }
@@ -270,6 +284,30 @@ BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
 		return &breakPoints_[bp].cond;
 	return NULL;
+}
+
+BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
+	size_t bp = FindBreakpoint(addr, false);
+	if (bp != INVALID_BREAKPOINT) {
+		if (breakPoints_[bp].hasCond) {
+			// Evaluate the breakpoint and abort if necessary.
+			auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+			if (cond && !cond->Evaluate())
+				return BREAK_ACTION_IGNORE;
+		}
+
+		if (breakPoints_[bp].result & BREAK_ACTION_LOG) {
+			NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+		}
+		if (breakPoints_[bp].result & BREAK_ACTION_PAUSE) {
+			Core_EnableStepping(true);
+			host->SetDebugMode(true);
+		}
+
+		return breakPoints_[bp].result;
+	}
+
+	return BREAK_ACTION_IGNORE;
 }
 
 void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)

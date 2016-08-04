@@ -28,7 +28,6 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
-		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
 
 		
 		if (bp->address != -1)
@@ -55,7 +54,6 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
-				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
 				break;
 			}
 			break;
@@ -69,7 +67,6 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
-				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
 				break;
 			}
 			break;
@@ -183,6 +180,12 @@ bool BreakpointWindow::exec()
 
 void BreakpointWindow::addBreakpoint()
 {
+	BreakAction result = BREAK_ACTION_IGNORE;
+	if (log)
+		result |= BREAK_ACTION_LOG;
+	if (enabled)
+		result |= BREAK_ACTION_PAUSE;
+
 	if (memory)
 	{
 		// add memcheck
@@ -194,13 +197,7 @@ void BreakpointWindow::addBreakpoint()
 		if (onChange)
 			cond |= MEMCHECK_WRITE_ONCHANGE;
 
-		int result = BREAK_ACTION_IGNORE;
-		if (log)
-			result |= BREAK_ACTION_LOG;
-		if (enabled)
-			result |= BREAK_ACTION_PAUSE;
-
-		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, (BreakAction)result);
+		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, result);
 	} else {
 		// add breakpoint
 		CBreakPoints::AddBreakPoint(address,false);
@@ -214,10 +211,7 @@ void BreakpointWindow::addBreakpoint()
 			CBreakPoints::ChangeBreakPointAddCond(address,cond);
 		}
 
-		if (enabled == false)
-		{
-			CBreakPoints::ChangeBreakPoint(address,false);
-		}
+		CBreakPoints::ChangeBreakPoint(address, result);
 	}
 }
 
@@ -240,12 +234,12 @@ void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
 {
 	memory = false;
 
-	enabled = breakpoint.enabled;
+	log = (breakpoint.result & BREAK_ACTION_LOG) != 0;
+	enabled = (breakpoint.result & BREAK_ACTION_PAUSE) != 0;
 	address = breakpoint.addr;
 	size = 1;
 
-	if (breakpoint.hasCond)
-	{
+	if (breakpoint.hasCond) {
 		strcpy(condition,breakpoint.cond.expressionString);
 	} else {
 		condition[0] = 0;
