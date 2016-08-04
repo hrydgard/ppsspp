@@ -183,7 +183,11 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	wchar_t tempLogFormat[512];
 	GetWindowTextW(GetDlgItem(hwnd, IDC_BREAKPOINT_LOG_FORMAT), tempLogFormat, 512);
 	logFormat = ConvertWStringToUTF8(tempLogFormat);
-	// TODO: Verify format.
+	if (!CBreakPoints::ValidateLogFormat(cpu, logFormat)) {
+		snprintf(errorMessage, sizeof(errorMessage), "Invalid log format (example: \"{a1}\").");
+		MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
+		return false;
+	}
 
 	return true;
 }

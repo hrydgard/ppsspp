@@ -177,6 +177,9 @@ public:
 
 	static void Update(u32 addr = 0);
 
+	static bool ValidateLogFormat(DebugInterface *cpu, const std::string &fmt);
+	static bool EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt, std::string &result);
+
 private:
 	static size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.

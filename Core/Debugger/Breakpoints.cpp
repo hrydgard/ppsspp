@@ -23,6 +23,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
@@ -42,7 +43,9 @@ void MemCheck::Log(u32 addr, bool write, int size, u32 pc) {
 		if (logFormat.empty()) {
 			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 		} else {
-			NOTICE_LOG(MEMMAP, "%s", logFormat.c_str());
+			std::string formatted;
+			CBreakPoints::EvaluateLogFormat(currentDebugMIPS, logFormat, formatted);
+			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x: %s", write ? "Write" : "Read", size * 8, addr, formatted.c_str());
 		}
 	}
 }
@@ -312,7 +315,9 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 			if (breakPoints_[bp].logFormat.empty()) {
 				NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
 			} else {
-				NOTICE_LOG(JIT, "%s", breakPoints_[bp].logFormat.c_str());
+				std::string formatted;
+				CBreakPoints::EvaluateLogFormat(currentDebugMIPS, breakPoints_[bp].logFormat, formatted);
+				NOTICE_LOG(JIT, "BKP PC=%08x: %s", addr, formatted.c_str());
 			}
 		}
 		if (breakPoints_[bp].result & BREAK_ACTION_PAUSE) {
@@ -543,4 +548,57 @@ void CBreakPoints::Update(u32 addr)
 
 	// Redraw in order to show the breakpoint.
 	host->UpdateDisassembly();
+}
+
+bool CBreakPoints::ValidateLogFormat(DebugInterface *cpu, const std::string &fmt) {
+	std::string ignore;
+	return EvaluateLogFormat(cpu, fmt, ignore);
+}
+
+bool CBreakPoints::EvaluateLogFormat(DebugInterface *cpu, const std::string &fmt, std::string &result) {
+	PostfixExpression exp;
+	result.clear();
+
+	size_t pos = 0;
+	while (pos < fmt.size()) {
+		size_t next = fmt.find_first_of("{", pos);
+		if (next == fmt.npos) {
+			// End of the string.
+			result += fmt.substr(pos);
+			break;
+		}
+		if (next != pos) {
+			result += fmt.substr(pos, next - pos);
+			pos = next;
+		}
+
+		size_t end = fmt.find_first_of("}", next + 1);
+		if (end == fmt.npos) {
+			// Invalid: every expression needs a { and a }.
+			return false;
+		}
+
+		std::string expression = fmt.substr(next + 1, end - next - 1);
+		if (expression.empty()) {
+			result += "{}";
+		} else {
+			if (!cpu->initExpression(expression.c_str(), exp)) {
+				return false;
+			}
+
+			u32 expResult;
+			char resultString[32];
+			if (!cpu->parseExpression(exp, expResult)) {
+				return false;
+			}
+
+			snprintf(resultString, 32, "%08x", expResult);
+			result += resultString;
+		}
+
+		// Skip the }.
+		pos = end + 1;
+	}
+
+	return true;
 }
