@@ -194,13 +194,13 @@ void BreakpointWindow::addBreakpoint()
 		if (onChange)
 			cond |= MEMCHECK_WRITE_ONCHANGE;
 
-		MemCheckResult result;
-		if (log && enabled) result = MEMCHECK_BOTH;
-		else if (log) result = MEMCHECK_LOG;
-		else if (enabled) result = MEMCHECK_BREAK;
-		else result = MEMCHECK_IGNORE;
+		int result = BREAK_ACTION_IGNORE;
+		if (log)
+			result |= BREAK_ACTION_LOG;
+		if (enabled)
+			result |= BREAK_ACTION_PAUSE;
 
-		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, result);
+		CBreakPoints::AddMemCheck(address, address + size, (MemCheckCondition)cond, (BreakAction)result);
 	} else {
 		// add breakpoint
 		CBreakPoints::AddBreakPoint(address,false);
@@ -229,23 +229,8 @@ void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
 	write = (memcheck.cond & MEMCHECK_WRITE) != 0;
 	onChange = (memcheck.cond & MEMCHECK_WRITE_ONCHANGE) != 0;
 
-	switch (memcheck.result)
-	{
-	case MEMCHECK_BOTH:
-		log = enabled = true;
-		break;
-	case MEMCHECK_LOG:
-		log = true;
-		enabled = false;
-		break;
-	case MEMCHECK_BREAK:
-		log = false;
-		enabled = true;
-		break;
-	case MEMCHECK_IGNORE:
-		log = enabled = false;
-		break;
-	}
+	log = (memcheck.result & BREAK_ACTION_LOG) != 0;
+	enabled = (memcheck.result & BREAK_ACTION_PAUSE) != 0;
 
 	address = memcheck.start;
 	size = memcheck.end-address;

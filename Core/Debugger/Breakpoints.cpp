@@ -39,11 +39,11 @@ MemCheck::MemCheck()
 
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc)
 {
-	if (result & MEMCHECK_LOG)
+	if (result & BREAK_ACTION_LOG)
 		NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
 }
 
-void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
+BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 {
 	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
 	if (cond & mask)
@@ -51,12 +51,16 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 		++numHits;
 
 		Log(addr, write, size, pc);
-		if (result & MEMCHECK_BREAK)
+		if (result & BREAK_ACTION_PAUSE)
 		{
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
 		}
+
+		return result;
 	}
+
+	return BREAK_ACTION_IGNORE;
 }
 
 void MemCheck::JitBefore(u32 addr, bool write, int size, u32 pc)
@@ -93,7 +97,7 @@ void MemCheck::JitCleanup()
 	}
 
 	// Resume if it should not have gone to stepping, or if it did not change.
-	if ((!(result & MEMCHECK_BREAK) || !changed) && coreState == CORE_STEPPING)
+	if ((!(result & BREAK_ACTION_PAUSE) || !changed) && coreState == CORE_STEPPING)
 	{
 		CBreakPoints::SetSkipFirst(lastPC);
 		Core_EnableStepping(false);
@@ -268,7 +272,7 @@ BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 	return NULL;
 }
 
-void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
+void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)
 {
 	// This will ruin any pending memchecks.
 	cleanupMemChecks_.clear();
@@ -288,7 +292,7 @@ void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCh
 	else
 	{
 		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
-		memChecks_[mc].result = (MemCheckResult)(memChecks_[mc].result | result);
+		memChecks_[mc].result = (BreakAction)(memChecks_[mc].result | result);
 		Update();
 	}
 }
@@ -306,7 +310,7 @@ void CBreakPoints::RemoveMemCheck(u32 start, u32 end)
 	}
 }
 
-void CBreakPoints::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
+void CBreakPoints::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result)
 {
 	size_t mc = FindMemCheck(start, end);
 	if (mc != INVALID_MEMCHECK)
@@ -357,14 +361,15 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 	return 0;
 }
 
-void CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
+BreakAction CBreakPoints::ExecMemCheck(u32 address, bool write, int size, u32 pc)
 {
 	auto check = GetMemCheck(address, size);
 	if (check)
-		check->Action(address, write, size, pc);
+		return check->Action(address, write, size, pc);
+	return BREAK_ACTION_IGNORE;
 }
 
-void CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
+BreakAction CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
 {
 	// Note: currently, we don't check "on changed" for HLE (ExecMemCheck.)
 	// We'd need to more carefully specify memory changes in HLE for that.
@@ -381,12 +386,13 @@ void CBreakPoints::ExecOpMemCheck(u32 address, u32 pc)
 		int mask = MEMCHECK_WRITE | MEMCHECK_WRITE_ONCHANGE;
 		if (write && (check->cond & mask) == mask) {
 			if (MIPSAnalyst::OpWouldChangeMemory(pc, address, size)) {
-				check->Action(address, write, size, pc);
+				return check->Action(address, write, size, pc);
 			}
 		} else {
-			check->Action(address, write, size, pc);
+			return check->Action(address, write, size, pc);
 		}
 	}
+	return BREAK_ACTION_IGNORE;
 }
 
 void CBreakPoints::ExecMemCheckJitBefore(u32 address, bool write, int size, u32 pc)
