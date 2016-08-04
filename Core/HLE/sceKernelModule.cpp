@@ -2326,22 +2326,8 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	return 0;
 }
 
-static u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
-{
-	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_977de386:Not support this patcher");
-	return sceKernelLoadModule(name, flags, optionAddr);
-}
-
-static void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
-{
-	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_50f0c1ec:Not support this patcher");
-	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
-}
-
 //fix for tiger x dragon
-static u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
-{
-	WARN_LOG(SCEMODULE,"ModuleMgrForKernel_a1a78c58:Not support this patcher");
+static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u32 optionAddr) {
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
@@ -2370,11 +2356,11 @@ const HLEFunction ModuleMgrForUser[] =
 
 const HLEFunction ModuleMgrForKernel[] =
 {
-	{0X50F0C1EC, &WrapV_UUUUU<ModuleMgrForKernel_50f0c1ec>,             "ModuleMgrForKernel_50f0c1ec",             'v', "xxxxx"  },//Not sure right
-	{0X977DE386, &WrapU_CUU<ModuleMgrForKernel_977de386>,               "ModuleMgrForKernel_977de386",             'x', "sxx"    },//Not sure right
-	{0XA1A78C58, &WrapU_CUU<ModuleMgrForKernel_a1a78c58>,               "ModuleMgrForKernel_a1a78c58",             'x', "sxx"    }, //fix for tiger x dragon
-	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx"     },//Bugz Homebrew
-	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },//Bugz Homebrew
+	{0x50F0C1EC, &WrapV_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
+	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
+	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
+	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser()

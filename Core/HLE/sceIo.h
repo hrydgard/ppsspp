@@ -36,5 +36,7 @@ void __IoCopyDate(ScePspDateTime& date_out, const tm& date_in);
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();
 
+void Register_IoFileMgrForKernel();
 void Register_IoFileMgrForUser();
+void Register_StdioForKernel();
 void Register_StdioForUser();

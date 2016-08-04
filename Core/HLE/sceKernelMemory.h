@@ -66,4 +66,5 @@ int sceKernelGetTlsAddr(SceUID uid);
 int sceKernelFreeTlspl(SceUID uid);
 int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr);
 
+void Register_SysMemForKernel();
 void Register_SysMemUserForUser();

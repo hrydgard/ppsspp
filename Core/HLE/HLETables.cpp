@@ -123,54 +123,6 @@ const HLEFunction UtilsForUser[] =
 	{0X920F104A, &WrapU_V<sceKernelIcacheInvalidateAll>,             "sceKernelIcacheInvalidateAll",            'x', ""   }
 };				   
 
-
-const HLEFunction IoFileMgrForKernel[] =
-{
-	{0XA905B705, nullptr,                                            "sceIoCloseAll",                           '?', ""   },
-	{0X411106BA, nullptr,                                            "sceIoGetThreadCwd",                       '?', ""   },
-	{0XCB0A151F, nullptr,                                            "sceIoChangeThreadCwd",                    '?', ""   },
-	{0X8E982A74, nullptr,                                            "sceIoAddDrv",                             '?', ""   },
-	{0XC7F35804, nullptr,                                            "sceIoDelDrv",                             '?', ""   },
-	{0X3C54E908, nullptr,                                            "sceIoReopen",                             '?', ""   },
-	{0XB29DDF9C, nullptr,                                            "sceIoDopen",                              '?', ""   },
-	{0XE3EB004C, nullptr,                                            "sceIoDread",                              '?', ""   },
-	{0XEB092469, nullptr,                                            "sceIoDclose",                             '?', ""   },
-	{0X109F50BC, nullptr,                                            "sceIoOpen",                               '?', ""   },
-	{0X6A638D83, nullptr,                                            "sceIoRead",                               '?', ""   },
-	{0X42EC03AC, nullptr,                                            "sceIoWrite",                              '?', ""   },
-	{0X68963324, nullptr,                                            "sceIoLseek32",                            '?', ""   },
-	{0X27EB27B8, nullptr,                                            "sceIoLseek",                              '?', ""   },
-	{0X810C4BC3, nullptr,                                            "sceIoClose",                              '?', ""   },
-	{0X779103A0, nullptr,                                            "sceIoRename",                             '?', ""   },
-	{0XF27A9C51, nullptr,                                            "sceIoRemove",                             '?', ""   },
-	{0X55F4717D, nullptr,                                            "sceIoChdir",                              '?', ""   },
-	{0X06A70004, nullptr,                                            "sceIoMkdir",                              '?', ""   },
-	{0X1117C65F, nullptr,                                            "sceIoRmdir",                              '?', ""   },
-	{0X54F5FB11, nullptr,                                            "sceIoDevctl",                             '?', ""   },
-	{0X63632449, nullptr,                                            "sceIoIoctl",                              '?', ""   },
-	{0XAB96437F, nullptr,                                            "sceIoSync",                               '?', ""   },
-	{0XB2A628C1, nullptr,                                            "sceIoAssign",                             '?', ""   },
-	{0X6D08A871, nullptr,                                            "sceIoUnassign",                           '?', ""   },
-	{0XACE946E8, nullptr,                                            "sceIoGetstat",                            '?', ""   },
-	{0XB8A740F4, nullptr,                                            "sceIoChstat",                             '?', ""   },
-	{0XA0B5A7C2, nullptr,                                            "sceIoReadAsync",                          '?', ""   },
-	{0X3251EA56, nullptr,                                            "sceIoPollAsync",                          '?', ""   },
-	{0XE23EEC33, nullptr,                                            "sceIoWaitAsync",                          '?', ""   },
-	{0X35DBD746, nullptr,                                            "sceIoWaitAsyncCB",                        '?', ""   },
-	{0XBD17474F, nullptr,                                            "IoFileMgrForKernel_BD17474F",             '?', ""   },
-	{0X76DA16E3, nullptr,                                            "IoFileMgrForKernel_76DA16E3",             '?', ""   },
-};
-const HLEFunction StdioForKernel[] = 
-{
-	{0X98220F3E, nullptr,                                            "sceKernelStdoutReopen",                   '?', ""   },
-	{0XFB5380C5, nullptr,                                            "sceKernelStderrReopen",                   '?', ""   },
-	{0XCAB439DF, nullptr,                                            "printf",                                  '?', ""   },
-	{0X2CCF071A, nullptr,                                            "fdprintf",                                '?', ""   },
-	{0XD97C8CB9, nullptr,                                            "puts",                                    '?', ""   },
-	{0X172D316E, nullptr,                                            "sceKernelStdin",                          '?', ""   },
-	{0XA6BAB2E9, nullptr,                                            "sceKernelStdout",                         '?', ""   },
-	{0XF78BA90A, nullptr,                                            "sceKernelStderr",                         '?', ""   },
-};
 const HLEFunction LoadCoreForKernel[] = 
 {
 	{0XACE23476, nullptr,                                            "sceKernelCheckPspConfig",                 '?', ""   },
@@ -180,7 +132,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XB4D6FECC, nullptr,                                            "sceKernelApplyElfRelSection",             '?', ""   },
 	{0X54AB2675, nullptr,                                            "sceKernelApplyPspRelSection",             '?', ""   },
 	{0X2952F5AC, nullptr,                                            "sceKernelDcacheWBinvAll",                 '?', ""   },
-	{0XD8779AC6, &WrapU_V<sceKernelIcacheClearAll>,                  "sceKernelIcacheClearAll",                 'x', ""   },
+	{0xD8779AC6, &WrapU_V<sceKernelIcacheClearAll>,                  "sceKernelIcacheClearAll",                 'x', "",       HLE_KERNEL_SYSCALL },
 	{0X99A695F0, nullptr,                                            "sceKernelRegisterLibrary",                '?', ""   },
 	{0X5873A31F, nullptr,                                            "sceKernelRegisterLibraryForUser",         '?', ""   },
 	{0X0B464512, nullptr,                                            "sceKernelReleaseLibrary",                 '?', ""   },
@@ -202,7 +154,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XCCE4A157, nullptr,                                            "sceKernelFindModuleByUID",                '?', ""   },
 	{0X82CE54ED, nullptr,                                            "sceKernelModuleCount",                    '?', ""   },
 	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
-	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s"  },
+	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
@@ -213,7 +165,7 @@ const HLEFunction KDebugForKernel[] =
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
 	{0X9B868276, nullptr,                                            "sceKernelGetDebugPutchar",                '?', ""   },
 	{0XE146606D, nullptr,                                            "sceKernelRegisterDebugPutchar",           '?', ""   },
-	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', ""   },
+	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', "",       HLE_KERNEL_SYSCALL },
 	{0X84F370BC, nullptr,                                            "Kprintf",                                 '?', ""   },
 	{0X5CE9838B, nullptr,                                            "sceKernelDebugWrite",                     '?', ""   },
 	{0X66253C4E, nullptr,                                            "sceKernelRegisterDebugWrite",             '?', ""   },
@@ -231,9 +183,6 @@ const HLEFunction KDebugForKernel[] =
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
 };
 
-
-#define SZ(a) sizeof(a)/sizeof(HLEFunction)
-
 const HLEFunction pspeDebug[] = 
 {
 	{0XDEADBEAF, nullptr,                                            "pspeDebugWrite",                          '?', ""   },
@@ -242,9 +191,9 @@ const HLEFunction pspeDebug[] =
 
 const HLEModule moduleList[] = 
 {
-	{"FakeSysCalls", SZ(FakeSysCalls), FakeSysCalls},
-	{"UtilsForUser",SZ(UtilsForUser),UtilsForUser},
-	{"KDebugForKernel",SZ(KDebugForKernel),KDebugForKernel},
+	{"FakeSysCalls", ARRAY_SIZE(FakeSysCalls), FakeSysCalls},
+	{"UtilsForUser", ARRAY_SIZE(UtilsForUser), UtilsForUser},
+	{"KDebugForKernel", ARRAY_SIZE(KDebugForKernel), KDebugForKernel},
 	{"sceSAScore"},
 	{"SceBase64_Library"},
 	{"sceCert_Loader"},
@@ -253,10 +202,7 @@ const HLEModule moduleList[] =
 	{"sceSIRCS_IrDA_Driver"},
 	{"Pspnet_Scan"},
 	{"Pspnet_Show_MacAddr"},
-	{"pspeDebug", SZ(pspeDebug), pspeDebug},
-	{"StdioForKernel", SZ(StdioForKernel), StdioForKernel},
-	{"LoadCoreForKernel", SZ(LoadCoreForKernel), LoadCoreForKernel},
-	{"IoFileMgrForKernel", SZ(IoFileMgrForKernel), IoFileMgrForKernel},
+	{"pspeDebug", ARRAY_SIZE(pspeDebug), pspeDebug},
 };
 
 static const int numModules = ARRAY_SIZE(moduleList);
@@ -326,6 +272,9 @@ void RegisterAllModules() {
 	}
 
 	// New modules have to be added at the end, or they will break savestates.
+	Register_StdioForKernel();
+	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
+	Register_IoFileMgrForKernel();
 	Register_LoadExecForKernel();
 	Register_SysMemForKernel();
 	Register_sceMt19937();

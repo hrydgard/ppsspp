@@ -568,5 +568,4 @@ void Register_ThreadManForUser();
 void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_LoadExecForKernel();
-void Register_SysMemForKernel();
 void Register_UtilsForKernel();

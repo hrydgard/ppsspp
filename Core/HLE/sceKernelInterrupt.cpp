@@ -729,14 +729,14 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 
 const HLEFunction SysclibForKernel[] =
 {
-	{0XAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx"  },
-	{0X476FD94A, &WrapU_UU<sysclib_strcat>,                    "strcat",                              'x', "xx"   },
-	{0XC0AB8932, &WrapI_UU<sysclib_strcmp>,                    "strcmp",                              'i', "xx"   },
-	{0XEC6F1CF2, &WrapU_UU<sysclib_strcpy>,                    "strcpy",                              'x', "xx"   },
-	{0X52DF196C, &WrapU_U<sysclib_strlen>,                     "strlen",                              'x', "x"    },
-	{0X81D0D1F7, &WrapI_UUU<sysclib_memcmp>,                   "memcmp",                              'i', "xxx"  },
-	{0X7661E728, &WrapI_UU<sysclib_sprintf>,                   "sprintf",                             'i', "xx"   },
-	{0X10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii"  },
+	{0xAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx",    HLE_KERNEL_SYSCALL },
+	{0x476FD94A, &WrapU_UU<sysclib_strcat>,                    "strcat",                              'x', "xx",     HLE_KERNEL_SYSCALL },
+	{0xC0AB8932, &WrapI_UU<sysclib_strcmp>,                    "strcmp",                              'i', "xx",     HLE_KERNEL_SYSCALL },
+	{0xEC6F1CF2, &WrapU_UU<sysclib_strcpy>,                    "strcpy",                              'x', "xx",     HLE_KERNEL_SYSCALL },
+	{0x52DF196C, &WrapU_U<sysclib_strlen>,                     "strlen",                              'x', "x",      HLE_KERNEL_SYSCALL },
+	{0x81D0D1F7, &WrapI_UUU<sysclib_memcmp>,                   "memcmp",                              'i', "xxx",    HLE_KERNEL_SYSCALL },
+	{0x7661E728, &WrapI_UU<sysclib_sprintf>,                   "sprintf",                             'i', "xx",     HLE_KERNEL_SYSCALL },
+	{0x10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii",    HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
