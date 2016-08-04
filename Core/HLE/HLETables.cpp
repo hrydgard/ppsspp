@@ -180,7 +180,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XB4D6FECC, nullptr,                                            "sceKernelApplyElfRelSection",             '?', ""   },
 	{0X54AB2675, nullptr,                                            "sceKernelApplyPspRelSection",             '?', ""   },
 	{0X2952F5AC, nullptr,                                            "sceKernelDcacheWBinvAll",                 '?', ""   },
-	{0XD8779AC6, &WrapU_V<sceKernelIcacheClearAll>,                  "sceKernelIcacheClearAll",                 'x', ""   },
+	{0xD8779AC6, &WrapU_V<sceKernelIcacheClearAll>,                  "sceKernelIcacheClearAll",                 'x', "",       HLE_KERNEL_SYSCALL },
 	{0X99A695F0, nullptr,                                            "sceKernelRegisterLibrary",                '?', ""   },
 	{0X5873A31F, nullptr,                                            "sceKernelRegisterLibraryForUser",         '?', ""   },
 	{0X0B464512, nullptr,                                            "sceKernelReleaseLibrary",                 '?', ""   },
@@ -202,7 +202,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0XCCE4A157, nullptr,                                            "sceKernelFindModuleByUID",                '?', ""   },
 	{0X82CE54ED, nullptr,                                            "sceKernelModuleCount",                    '?', ""   },
 	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
-	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s"  },
+	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 };
 
@@ -213,7 +213,7 @@ const HLEFunction KDebugForKernel[] =
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
 	{0X9B868276, nullptr,                                            "sceKernelGetDebugPutchar",                '?', ""   },
 	{0XE146606D, nullptr,                                            "sceKernelRegisterDebugPutchar",           '?', ""   },
-	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', ""   },
+	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', "",       HLE_KERNEL_SYSCALL },
 	{0X84F370BC, nullptr,                                            "Kprintf",                                 '?', ""   },
 	{0X5CE9838B, nullptr,                                            "sceKernelDebugWrite",                     '?', ""   },
 	{0X66253C4E, nullptr,                                            "sceKernelRegisterDebugWrite",             '?', ""   },

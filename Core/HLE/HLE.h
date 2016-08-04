@@ -36,7 +36,9 @@ enum {
 	// Don't allow the call if dispatch or interrupts are disabled.
 	HLE_NOT_DISPATCH_SUSPENDED = 1 << 9,
 	// Indicates the call should write zeros to the stack (stackBytesToClear in the table.)
-	HLE_CLEAR_STACK_BYTES = 1 << 10
+	HLE_CLEAR_STACK_BYTES = 1 << 10,
+	// Indicates that this call operates in kernel mode.
+	HLE_KERNEL_SYSCALL = 1 < 11,
 };
 
 struct HLEFunction
@@ -116,6 +118,8 @@ void hleDebugBreak();
 void hleSkipDeadbeef();
 // Set time spent in debugger (for more useful debug stats while debugging.)
 void hleSetSteppingTime(double t);
+// Check if the current syscall context is kernel.
+bool hleIsKernelMode();
 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);

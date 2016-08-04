@@ -671,24 +671,6 @@ static int sceKernelReferGlobalProfiler(u32 statusPtr) {
 	return 0;
 }
 
-static int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
-{
-	WARN_LOG(SCEKERNEL,"ThreadManForKernel_446d8de6:Not support this patcher");
-	return sceKernelCreateThread(threadName, entry, prio, stacksize,  attr, optionAddr);
-}
-
-static int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
-{	
-	WARN_LOG(SCEKERNEL,"ThreadManForKernel_f475845d:Not support this patcher");
-	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
-}
-
-static int ThreadManForKernel_ceadeb47(u32 usec)
-{	
-	WARN_LOG(SCEKERNEL,"ThreadManForKernel_ceadeb47:Not support this patcher");
-	return sceKernelDelayThread(usec);
-}
-
 const HLEFunction ThreadManForUser[] =
 {
 	{0X55C20A00, &WrapI_CUUU<sceKernelCreateEventFlag>,              "sceKernelCreateEventFlag",                  'i', "sxxx"    },
@@ -873,9 +855,9 @@ const HLEFunction ThreadManForUser[] =
 
 const HLEFunction ThreadManForKernel[] =
 {
-	{0XCEADEB47, &WrapI_U<ThreadManForKernel_ceadeb47>,              "ThreadManForKernel_ceadeb47",               'i', "x"       },
-	{0X446D8DE6, &WrapI_CUUIUU<ThreadManForKernel_446d8de6>,         "ThreadManForKernel_446d8de6",               'i', "sxxixx"  },//Not sure right
-	{0XF475845D, &WrapI_IIU<ThreadManForKernel_f475845d>,            "ThreadManForKernel_f475845d",               'i', "iix"     },//Not sure right
+	{0xCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0x446D8DE6, &WrapI_CUUIUU<sceKernelCreateThread>,               "sceKernelCreateThread",                     'i', "sxxixx", HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
+	{0xF475845D, &WrapI_IIU<sceKernelStartThread>,                   "sceKernelStartThread",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()
@@ -898,16 +880,10 @@ void Register_LoadExecForUser()
 {
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
-
-static int LoadExecForKernel_4AC57943(SceUID cbId) 
-{
-	WARN_LOG(SCEKERNEL,"LoadExecForKernel_4AC57943:Not support this patcher");
-	return sceKernelRegisterExitCallback(cbId);//not sure right
-}
  
 const HLEFunction LoadExecForKernel[] =
 {
-	{0X4AC57943, &WrapI_I<LoadExecForKernel_4AC57943>,               "LoadExecForKernel_4AC57943",                'i', "i"       },
+	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XA3D5E142, nullptr,                                            "LoadExecForKernel_a3d5e142",                '?', ""        },
 };
  
@@ -927,7 +903,7 @@ const HLEFunction ExceptionManagerForKernel[] =
 {
 	{0X3FB264FC, nullptr,                                            "sceKernelRegisterExceptionHandler",         '?', ""        },
 	{0X5A837AD4, nullptr,                                            "sceKernelRegisterPriorityExceptionHandler", '?', ""        },
-	{0x565C0B0E, &WrapI_V<sceKernelRegisterDefaultExceptionHandler>, "sceKernelRegisterDefaultExceptionHandler",  'i', ""        },
+	{0x565C0B0E, &WrapI_V<sceKernelRegisterDefaultExceptionHandler>, "sceKernelRegisterDefaultExceptionHandler",  'i', "",       HLE_KERNEL_SYSCALL },
 	{0X1AA6CFFA, nullptr,                                            "sceKernelReleaseExceptionHandler",          '?', ""        },
 	{0XDF83875E, nullptr,                                            "sceKernelGetActiveDefaultExceptionHandler", '?', ""        },
 	{0X291FF031, nullptr,                                            "sceKernelReleaseDefaultExceptionHandler",   '?', ""        },
@@ -947,7 +923,7 @@ void Register_ExceptionManagerForKernel()
 
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
-	{0XC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            '?', ""        },
+	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            '?', "",       HLE_KERNEL_SYSCALL },
 	{0X78934841, nullptr,                                            "sceKernelGzipDecompress",                   '?', ""        },
 	{0XE8DB3CE6, nullptr,                                            "sceKernelDeflateDecompress",                '?', ""        },
 	{0X840259F1, nullptr,                                            "sceKernelUtilsSha1Digest",                  '?', ""        },
