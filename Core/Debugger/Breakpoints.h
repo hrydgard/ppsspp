@@ -41,11 +41,10 @@ struct BreakPointCond
 {
 	DebugInterface *debug;
 	PostfixExpression expression;
-	char expressionString[128];
+	std::string expressionString;
 
-	BreakPointCond() : debug(NULL)
+	BreakPointCond() : debug(nullptr)
 	{
-		expressionString[0] = '\0';
 	}
 
 	u32 Evaluate()
@@ -64,6 +63,7 @@ struct BreakPoint
 	bool temporary;
 
 	BreakAction result;
+	std::string logFormat;
 
 	bool hasCond;
 	BreakPointCond cond;
@@ -89,8 +89,6 @@ enum MemCheckCondition
 	MEMCHECK_READWRITE = 0x03,
 };
 
-
-
 struct MemCheck
 {
 	MemCheck();
@@ -99,6 +97,7 @@ struct MemCheck
 
 	MemCheckCondition cond;
 	BreakAction result;
+	std::string logFormat;
 
 	u32 numHits;
 
@@ -146,12 +145,16 @@ public:
 	static void ChangeBreakPointRemoveCond(u32 addr);
 	static BreakPointCond *GetBreakPointCondition(u32 addr);
 
+	static void ChangeBreakPointLogFormat(u32 addr, const std::string &fmt);
+
 	static BreakAction ExecBreakPoint(u32 addr);
 
 	static void AddMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	static void RemoveMemCheck(u32 start, u32 end);
 	static void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, BreakAction result);
 	static void ClearAllMemChecks();
+
+	static void ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt);
 
 	static MemCheck *GetMemCheck(u32 address, int size);
 	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc);

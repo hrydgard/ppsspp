@@ -37,10 +37,14 @@ MemCheck::MemCheck()
 	numHits = 0;
 }
 
-void MemCheck::Log(u32 addr, bool write, int size, u32 pc)
-{
-	if (result & BREAK_ACTION_LOG)
-		NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+void MemCheck::Log(u32 addr, bool write, int size, u32 pc) {
+	if (result & BREAK_ACTION_LOG) {
+		if (logFormat.empty()) {
+			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, g_symbolMap->GetDescription(addr).c_str(), pc, g_symbolMap->GetDescription(pc).c_str());
+		} else {
+			NOTICE_LOG(MEMMAP, "%s", logFormat.c_str());
+		}
+	}
 }
 
 BreakAction MemCheck::Action(u32 addr, bool write, int size, u32 pc)
@@ -264,7 +268,7 @@ void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
 	{
 		breakPoints_[bp].hasCond = true;
 		breakPoints_[bp].cond = cond;
-		Update();
+		Update(addr);
 	}
 }
 
@@ -274,7 +278,7 @@ void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
 	if (bp != INVALID_BREAKPOINT)
 	{
 		breakPoints_[bp].hasCond = false;
-		Update();
+		Update(addr);
 	}
 }
 
@@ -284,6 +288,14 @@ BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
 		return &breakPoints_[bp].cond;
 	return NULL;
+}
+
+void CBreakPoints::ChangeBreakPointLogFormat(u32 addr, const std::string &fmt) {
+	size_t bp = FindBreakpoint(addr, true, false);
+	if (bp != INVALID_BREAKPOINT) {
+		breakPoints_[bp].logFormat = fmt;
+		Update(addr);
+	}
 }
 
 BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
@@ -297,7 +309,11 @@ BreakAction CBreakPoints::ExecBreakPoint(u32 addr) {
 		}
 
 		if (breakPoints_[bp].result & BREAK_ACTION_LOG) {
-			NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+			if (breakPoints_[bp].logFormat.empty()) {
+				NOTICE_LOG(JIT, "BKP PC=%08x (%s)", addr, g_symbolMap->GetDescription(addr).c_str());
+			} else {
+				NOTICE_LOG(JIT, "%s", breakPoints_[bp].logFormat.c_str());
+			}
 		}
 		if (breakPoints_[bp].result & BREAK_ACTION_PAUSE) {
 			Core_EnableStepping(true);
@@ -367,6 +383,14 @@ void CBreakPoints::ClearAllMemChecks()
 	if (!memChecks_.empty())
 	{
 		memChecks_.clear();
+		Update();
+	}
+}
+
+void CBreakPoints::ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt) {
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK) {
+		memChecks_[mc].logFormat = fmt;
 		Update();
 	}
 }
