@@ -38,7 +38,7 @@ enum {
 	// Indicates the call should write zeros to the stack (stackBytesToClear in the table.)
 	HLE_CLEAR_STACK_BYTES = 1 << 10,
 	// Indicates that this call operates in kernel mode.
-	HLE_KERNEL_SYSCALL = 1 < 11,
+	HLE_KERNEL_SYSCALL = 1 << 11,
 };
 
 struct HLEFunction
