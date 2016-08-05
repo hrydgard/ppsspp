@@ -56,7 +56,7 @@ void CwCheatScreen::CreateCodeList() {
 	std::size_t lslash = gamePath_.find_last_of("/");
 	std::size_t lastdot = gamePath_.find_last_of(".");
 	std::string extension = gamePath_.substr(lastdot + 1);
-	for (int i = 0; i < extension.size(); i++) {
+	for (size_t i = 0; i < extension.size(); i++) {
 		extension[i] = tolower(extension[i]);
 	}
 	if ((extension != "iso" && extension != "cso" && extension != "pbp") || gameTitle == "") {

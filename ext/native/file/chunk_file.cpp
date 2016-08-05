@@ -169,7 +169,7 @@ void ChunkFile::readData(void *what, int count) {
 	if (fastMode) {
 		memcpy(what, data + pos, count);
 	} else {
-		if (fread(what, 1, count, file) != count) {
+		if (fread(what, 1, count, file) != (size_t)count) {
 			ELOG("Failed to read complete %d bytes", count);
 		}
 	}

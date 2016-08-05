@@ -377,7 +377,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::FCmovVfpuCC:
-			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == (inst->src2 >> 7)) {
+			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == ((u32)inst->src2 >> 7)) {
 				mips->f[inst->dest] = mips->f[inst->src1];
 			}
 			break;

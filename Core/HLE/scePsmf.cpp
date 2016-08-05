@@ -834,7 +834,7 @@ static u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channel
 	if (!psmf) {
 		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "invalid psmf");
 	}
-	if (psmf->currentStreamNum == ERROR_PSMF_NOT_INITIALIZED) {
+	if (psmf->currentStreamNum == (int)ERROR_PSMF_NOT_INITIALIZED) {
 		return hleLogError(ME, ERROR_PSMF_NOT_INITIALIZED, "no stream set");
 	}
 	if (!Memory::IsValidAddress(typeAddr) || !Memory::IsValidAddress(channelAddr)) {

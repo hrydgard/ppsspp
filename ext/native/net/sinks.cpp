@@ -268,13 +268,13 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	bool success = true;
 
 	int result = vsnprintf(buf_ + write_, avail, fmt, args);
-	if (result >= avail) {
+	if (result >= (int)avail) {
 		// There wasn't enough space.  Let's use a buffer instead.
 		// This could be caused by wraparound.
 		char temp[BUFFER_SIZE];
 		result = vsnprintf(temp, BUFFER_SIZE, fmt, args);
 
-		if (result < BUFFER_SIZE && result > 0) {
+		if ((size_t)result < BUFFER_SIZE && result > 0) {
 			// In case it did return the null terminator.
 			if (temp[result - 1] == '\0') {
 				result--;
@@ -289,7 +289,7 @@ bool OutputSink::Printf(const char *fmt, ...) {
 	va_end(backup);
 
 	// Okay, did we actually write?
-	if (result >= avail) {
+	if (result >= (int)avail) {
 		// This means the result string was too big for the buffer.
 		ELOG("Not enough space to format output.");
 		return false;
