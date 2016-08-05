@@ -20,6 +20,7 @@
 #include "CommonTypes.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Math3D.h"
+#include "GPU/Common/Clipper.h"
 
 using namespace Math3D;
 
