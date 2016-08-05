@@ -64,11 +64,11 @@ bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
 		break;
 	case GPUCORE_DIRECTX11:
 		return false;
-#ifndef NO_VULKAN
 	case GPUCORE_VULKAN:
+#ifndef NO_VULKAN
 		SetGPU(new GPU_Vulkan(ctx));
-		break;
 #endif
+		break;
 	}
 
 	return gpu != NULL;
