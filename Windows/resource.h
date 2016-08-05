@@ -163,6 +163,7 @@
 #define IDC_GEDBG_MATRICES              1196
 #define IDC_GEDBG_FORCEOPAQUE           1197
 #define IDC_GEDBG_SHOWCLUT              1198
+#define IDC_BREAKPOINT_LOG_FORMAT       1199
 
 #define ID_SHADERS_BASE  5000
 
@@ -340,7 +341,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
 #define _APS_NEXT_COMMAND_VALUE         40165
-#define _APS_NEXT_CONTROL_VALUE         1199
+#define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

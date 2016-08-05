@@ -37,14 +37,8 @@ u32 RunBreakpoint(u32 pc) {
 	if (CBreakPoints::CheckSkipFirst() == pc)
 		return 0;
 
-	auto cond = CBreakPoints::GetBreakPointCondition(pc);
-	if (cond && !cond->Evaluate())
-		return 0;
-
-	Core_EnableStepping(true);
-	host->SetDebugMode(true);
-
-	return 1;
+	CBreakPoints::ExecBreakPoint(currentMIPS->pc);
+	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
 u32 RunMemCheck(u32 pc, u32 addr) {

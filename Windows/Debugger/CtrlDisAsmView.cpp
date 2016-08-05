@@ -1,4 +1,4 @@
-﻿// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
+// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
@@ -550,7 +550,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		
 		if (isInInterval(address,line.totalSize,debugger->getPC()))
 		{
-			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
+			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"\x25A0",1);
 		}
 
 		// display whether the condition of a branch is met
@@ -834,22 +834,18 @@ void CtrlDisAsmView::redraw()
 void CtrlDisAsmView::toggleBreakpoint(bool toggleEnabled)
 {
 	bool enabled;
-	if (CBreakPoints::IsAddressBreakPoint(curAddress,&enabled))
-	{
-		if (!enabled)
-		{
+	if (CBreakPoints::IsAddressBreakPoint(curAddress, &enabled)) {
+		if (!enabled) {
 			// enable disabled breakpoints
-			CBreakPoints::ChangeBreakPoint(curAddress,true);
-		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
-		{
+			CBreakPoints::ChangeBreakPoint(curAddress, true);
+		} else if (!toggleEnabled && CBreakPoints::GetBreakPointCondition(curAddress) != nullptr) {
 			// don't just delete a breakpoint with a custom condition
 			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
 			if (ret == IDYES)
 				CBreakPoints::RemoveBreakPoint(curAddress);
-		} else if (toggleEnabled)
-		{
+		} else if (toggleEnabled) {
 			// disable breakpoint
-			CBreakPoints::ChangeBreakPoint(curAddress,false);
+			CBreakPoints::ChangeBreakPoint(curAddress, false);
 		} else {
 			// otherwise just remove breakpoint
 			CBreakPoints::RemoveBreakPoint(curAddress);
