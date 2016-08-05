@@ -645,7 +645,7 @@ static void __LoadInternalFonts() {
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
 	}
-	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) {
+	if ((pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/zh_gb.pgf").exists) && (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/oldfont.prx").exists)) {
 		for (size_t i = 0; i < ARRAY_SIZE(fontRegistry); i++) {
 			const FontRegistryEntry &entry = fontRegistry[i];
 			std::string fontFilename = userfontPath + entry.fileName;
