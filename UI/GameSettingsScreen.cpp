@@ -68,7 +68,7 @@ extern bool targetIsJailbroken;
 #endif
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
-	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), bEditThenRestore(editThenRestore) {
+	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
 }
 
@@ -79,8 +79,7 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	if (bEditThenRestore)
-	{
+	if (editThenRestore_) {
 		g_Config.loadGameConfig(gameID_);
 	}
 
@@ -869,8 +868,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	Reporting::UpdateConfig();
 	g_Config.Save();
-	if (bEditThenRestore)
-	{
+	if (editThenRestore_) {
 		g_Config.unloadGameConfig();
 	}
 

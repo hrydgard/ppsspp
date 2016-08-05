@@ -626,7 +626,7 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 }
 
 PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string &title, const std::string &placeholder, int maxLen, ScreenManager *screenManager, LayoutParams *layoutParams)
-: Choice(title, "", false, layoutParams), value_(value), placeHolder_(placeholder), screenManager_(screenManager), maxLen_(maxLen) {
+: Choice(title, "", false, layoutParams), screenManager_(screenManager), value_(value), placeHolder_(placeholder), maxLen_(maxLen) {
 	OnClick.Handle(this, &PopupTextInputChoice::HandleClick);
 }
 

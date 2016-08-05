@@ -36,8 +36,8 @@ private:
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
 
-	std::string path_;
 	UI::ViewGroup *gameList_;
+	std::string path_;
 };
 
 class SavedataScreen : public UIDialogScreenWithGameBackground {

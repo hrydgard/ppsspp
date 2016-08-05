@@ -40,8 +40,6 @@ protected:
 
 private:
 	std::string gameID_;
-	//edit the game-specific settings and restore the global settings after exiting
-	bool bEditThenRestore;
 	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;
 	UI::Choice *layoutEditorChoice_;
@@ -106,6 +104,9 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
+
+	//edit the game-specific settings and restore the global settings after exiting
+	bool editThenRestore_;
 
 	// Cached booleans
 	bool vtxCacheEnable_;

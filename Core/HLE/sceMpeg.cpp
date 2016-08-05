@@ -163,7 +163,7 @@ typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
 struct MpegContext {
-	MpegContext() : mediaengine(nullptr), ringbufferNeedsReverse(false) {
+	MpegContext() : ringbufferNeedsReverse(false), mediaengine(nullptr) {
 		memcpy(mpegheader, defaultMpegheader, 2048);
 	}
 	~MpegContext() {

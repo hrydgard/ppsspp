@@ -38,7 +38,7 @@ namespace MIPSComp {
 class IRBlock {
 public:
 	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0), origSize_(0) {}
-	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), origAddr_(emAddr), origSize_(0), numInstructions_(0) {}
+	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(emAddr), origSize_(0) {}
 	IRBlock(IRBlock &&b) {
 		instr_ = b.instr_;
 		const_ = b.const_;
