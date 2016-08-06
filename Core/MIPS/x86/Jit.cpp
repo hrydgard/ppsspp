@@ -73,12 +73,9 @@ u32 JitBreakpoint()
 	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
 		return 0;
 
-	auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
-	if (cond && !cond->Evaluate())
+	BreakAction result = CBreakPoints::ExecBreakPoint(currentMIPS->pc);
+	if ((result & BREAK_ACTION_PAUSE) == 0)
 		return 0;
-
-	Core_EnableStepping(true);
-	host->SetDebugMode(true);
 
 	// There's probably a better place for this.
 	if (USE_JIT_MISSMAP) {

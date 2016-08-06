@@ -324,9 +324,9 @@ void CtrlBreakpointList::reloadBreakpoints()
 			continue;
 
 		if (isMemory)
-			SetCheckState(i,(displayedMemChecks_[index].result & MEMCHECK_BREAK) != 0);
+			SetCheckState(i, displayedMemChecks_[index].IsEnabled());
 		else
-			SetCheckState(i,displayedBreakPoints_[index].enabled);
+			SetCheckState(i, displayedBreakPoints_[index].IsEnabled());
 	}
 }
 
@@ -365,10 +365,10 @@ void CtrlBreakpointList::toggleEnabled(int itemIndex)
 
 	if (isMemory) {
 		MemCheck mcPrev = displayedMemChecks_[index];
-		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 	} else {
 		BreakPoint bpPrev = displayedBreakPoints_[index];
-		CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+		CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 	}
 }
 
@@ -605,18 +605,18 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 
 		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
 		if (isMemory) {
-			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		} else {
-			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.IsEnabled() ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, GetHandle(), 0))
 		{
 		case ID_DISASM_DISABLEBREAKPOINT:
 			if (isMemory) {
-				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, BreakAction(mcPrev.result ^ BREAK_ACTION_PAUSE));
 			} else {
-				CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+				CBreakPoints::ChangeBreakPoint(bpPrev.addr, BreakAction(bpPrev.result ^ BREAK_ACTION_PAUSE));
 			}
 			break;
 		case ID_DISASM_EDITBREAKPOINT:
