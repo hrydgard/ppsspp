@@ -88,7 +88,7 @@ struct ReplacementAliasKey {
 		};
 	};
 
-	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), hash(h), level(l) {
+	ReplacementAliasKey(u64 c, u32 h, u32 l) : cachekey(c), level(l), hash(h) {
 	}
 
 	bool operator ==(const ReplacementAliasKey &k) const {

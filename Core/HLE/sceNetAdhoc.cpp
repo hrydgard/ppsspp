@@ -712,7 +712,7 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 			if (timeout == 0) timeout = 1;
 
 			int affectedsockets = 0;
-			if (count > FD_SETSIZE) count = FD_SETSIZE; // return affectedsockets;
+			if (count > (int)FD_SETSIZE) count = FD_SETSIZE; // return affectedsockets;
 
 			// Acquire Network Lock
 			//acquireNetworkLock();

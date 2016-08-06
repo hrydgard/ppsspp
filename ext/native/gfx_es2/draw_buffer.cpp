@@ -347,7 +347,7 @@ protected:
 
 float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 	float w = 0.0f;
-	for (UTF8 utf(str); utf.byteIndex() < bytes; ) {
+	for (UTF8 utf(str); utf.byteIndex() < (int)bytes; ) {
 		const AtlasChar *ch = atlasfont_.getChar(utf.next());
 		if (!ch)
 			ch = atlasfont_.getChar('?');

@@ -165,6 +165,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		}
 	}
 
+	// Not used below, but useful for logging.
+	(void)skinning;
+
 	// if (skinning) log = true;
 
 	BitSet32 regs_to_save(Arm64Gen::ALL_CALLEE_SAVED);

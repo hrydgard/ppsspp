@@ -185,6 +185,9 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		}
 	}
 
+	// Not used below, but useful for logging.
+	(void)skinning;
+
 	SetCC(CC_AL);
 
 	PUSH(6, R4, R5, R6, R7, R8, R_LR);
