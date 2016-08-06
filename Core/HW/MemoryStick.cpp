@@ -53,7 +53,7 @@ void MemoryStick_SetFatState(MemStickFatState state)
 
 void MemoryStick_Init()
 {
-	memStickState = PSP_MEMORYSTICK_STATE_DRIVER_READY;
+	memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
 	memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
 	// Harry Potter and the Goblet of Fire has a bug where it can't handle certain amounts
 	// of free space due to incorrect 32-bit math.
