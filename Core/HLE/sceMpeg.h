@@ -42,6 +42,9 @@ static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
 static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x54;
 static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
 
+static const int PSMF_VIDEO_STREAM_ID = 0xE0;
+static const int PSMF_AUDIO_STREAM_ID = 0xBD;
+
 struct SceMpegAu {
 	s64_le pts;  // presentation time stamp
 	s64_le dts;  // decode time stamp

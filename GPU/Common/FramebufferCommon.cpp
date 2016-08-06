@@ -953,6 +953,11 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				const u8 *srcBase = Memory::GetPointerUnchecked(srcBasePtr) + (srcX + srcY * srcStride) * bpp;
 				int dstBpp = dstBuffer->format == GE_FORMAT_8888 ? 4 : 2;
 				float dstXFactor = (float)bpp / dstBpp;
+				if (dstWidth > dstBuffer->width || dstHeight > dstBuffer->height) {
+					// The buffer isn't big enough, and we have a clear hint of size.  Resize.
+					// This happens in Valkyrie Profile when uploading video at the ending.
+					ResizeFramebufFBO(dstBuffer, dstWidth, dstHeight, false, true);
+				}
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 				SetColorUpdated(dstBuffer, skipDrawReason);
 				RebindFramebuffer();

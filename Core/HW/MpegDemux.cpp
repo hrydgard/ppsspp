@@ -332,11 +332,11 @@ int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s
 bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2)
 {
 	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
-	if (gotsize == 0 || !isHeader(m_audioFrame, 0))
+	if (gotsize < 4 || !isHeader(m_audioFrame, 0))
 		return false;
 	u8 code1 = m_audioFrame[2];
 	u8 code2 = m_audioFrame[3];
-	int frameSize = (((code1 & 0x03) << 8) | ((code2 & 0xFF) * 8)) + 0x10;
+	int frameSize = (((code1 & 0x03) << 8) | (code2 * 8)) + 0x10;
 	if (frameSize > gotsize)
 		return false;
 
