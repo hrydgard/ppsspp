@@ -1140,6 +1140,15 @@ static int Hook_katamari_screenshot_to_565() {
 	return 0;
 }
 
+static int Hook_mytranwars_upload_frame() {
+	u32 fb_address = currentMIPS->r[MIPS_REG_S0];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformMemoryUpload(fb_address, 0x00088000);
+		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1236,6 +1245,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "omertachinmokunookitethelegacy_download_frame", &Hook_omertachinmokunookitethelegacy_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
 	{ "katamari_render_check", &Hook_katamari_render_check, 0, REPFLAG_HOOKENTER, 0, },
 	{ "katamari_screenshot_to_565", &Hook_katamari_screenshot_to_565, 0, REPFLAG_HOOKENTER, 0 },
+	{ "mytranwars_upload_frame", &Hook_mytranwars_upload_frame, 0, REPFLAG_HOOKENTER, 0x128 },
 	{}
 };
 
