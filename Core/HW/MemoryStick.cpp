@@ -59,6 +59,10 @@ void MemoryStick_SetFatState(MemStickFatState state) {
 }
 
 void MemoryStick_SetState(MemStickState state) {
+	if (memStickState == state) {
+		return;
+	}
+
 	memStickState = state;
 
 	// If removed, we unmount.  Otherwise, mounting is delayed.
@@ -71,8 +75,14 @@ void MemoryStick_SetState(MemStickState state) {
 }
 
 void MemoryStick_Init() {
-	memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
-	memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
+	if (g_Config.bMemStickInserted) {
+		memStickState = PSP_MEMORYSTICK_STATE_INSERTED;
+		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_ASSIGNED;
+	} else {
+		memStickState = PSP_MEMORYSTICK_STATE_NOT_INSERTED;
+		memStickFatState = PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED;
+	}
+
 	// Harry Potter and the Goblet of Fire has a bug where it can't handle certain amounts
 	// of free space due to incorrect 32-bit math.
 	// We use 9GB here, which does not trigger the bug, as a cap for the max free space.

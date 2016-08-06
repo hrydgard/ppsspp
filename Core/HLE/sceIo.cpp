@@ -506,6 +506,9 @@ static void __IoVblank() {
 	// We update memstick status here just to avoid possible thread safety issues.
 	// It doesn't actually need to be on a vblank.
 
+	// This will only change status if g_Config was changed.
+	MemoryStick_SetState(g_Config.bMemStickInserted ? PSP_MEMORYSTICK_STATE_INSERTED : PSP_MEMORYSTICK_STATE_NOT_INSERTED);
+
 	MemStickState newState = MemoryStick_State();
 	MemStickFatState newFatState = MemoryStick_FatState();
 
