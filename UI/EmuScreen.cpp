@@ -196,6 +196,11 @@ void EmuScreen::bootComplete() {
 		}
 	}
 
+	if (Core_GetPowerSaving()) {
+		I18NCategory *sy = GetI18NCategory("System");
+		osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+	}
+
 	System_SendMessage("event", "startgame");
 }
 

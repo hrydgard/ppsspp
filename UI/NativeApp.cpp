@@ -784,6 +784,14 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
 	}
+	if (msg == "core_powerSaving") {
+		if (value != "false") {
+			I18NCategory *sy = GetI18NCategory("System");
+			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+		}
+
+		Core_SetPowerSaving(value != "false");
+	}
 }
 
 void NativeUpdate(InputState &input) {

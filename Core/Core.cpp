@@ -56,9 +56,10 @@ static bool windowHidden = false;
 static double lastActivity = 0.0;
 static double lastKeepAwake = 0.0;
 static GraphicsContext *graphicsContext;
+static bool powerSaving = false;
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
-  graphicsContext = ctx;
+	graphicsContext = ctx;
 }
 
 void Core_NotifyWindowHidden(bool hidden) {
@@ -118,6 +119,14 @@ void Core_WaitInactive(int milliseconds) {
 	if (Core_IsActive()) {
 		m_hInactiveEvent.wait_for(m_hInactiveMutex, milliseconds);
 	}
+}
+
+void Core_SetPowerSaving(bool mode) {
+	powerSaving = mode;
+}
+
+bool Core_GetPowerSaving() {
+	return powerSaving;
 }
 
 bool UpdateScreenScale(int width, int height, bool smallWindow) {
