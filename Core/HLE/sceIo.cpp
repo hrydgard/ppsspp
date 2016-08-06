@@ -33,7 +33,9 @@
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/AsyncIOManager.h"
@@ -117,8 +119,12 @@ const int PSP_STDIN = 3;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
-static std::set<SceUID> memStickCallbacks;
-static std::set<SceUID> memStickFatCallbacks;
+
+static std::vector<SceUID> memStickCallbacks;
+static std::vector<SceUID> memStickFatCallbacks;
+static MemStickState lastMemStickState;
+static MemStickFatState lastMemStickFatState;
+
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
 static std::thread *ioManagerThread;
@@ -496,6 +502,53 @@ static void __IoWakeManager() {
 	ioManager.FinishEventLoop();
 }
 
+static void __IoVblank() {
+	// We update memstick status here just to avoid possible thread safety issues.
+	// It doesn't actually need to be on a vblank.
+
+	// This will only change status if g_Config was changed.
+	MemoryStick_SetState(g_Config.bMemStickInserted ? PSP_MEMORYSTICK_STATE_INSERTED : PSP_MEMORYSTICK_STATE_NOT_INSERTED);
+
+	MemStickState newState = MemoryStick_State();
+	MemStickFatState newFatState = MemoryStick_FatState();
+
+	// First, the fat callbacks, these are easy.
+	if (lastMemStickFatState != newFatState) {
+		int notifyMsg = 0;
+		if (newFatState == PSP_FAT_MEMORYSTICK_STATE_ASSIGNED) {
+			notifyMsg = 1;
+		} else if (newFatState == PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED) {
+			notifyMsg = 2;
+		}
+		if (notifyMsg != 0) {
+			for (SceUID cbId : memStickFatCallbacks) {
+				__KernelNotifyCallback(cbId, notifyMsg);
+			}
+		}
+	}
+
+	// Next, the controller notifies mounting (fat) too.
+	if (lastMemStickState != newState || lastMemStickFatState != newFatState) {
+		int notifyMsg = 0;
+		if (newState == PSP_MEMORYSTICK_STATE_INSERTED && newFatState == PSP_FAT_MEMORYSTICK_STATE_ASSIGNED) {
+			notifyMsg = 1;
+		} else if (newState == PSP_MEMORYSTICK_STATE_INSERTED && newFatState == PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED) {
+			// Still mounting (1 will come later.)
+			notifyMsg = 4;
+		} else if (newState == PSP_MEMORYSTICK_STATE_NOT_INSERTED) {
+			notifyMsg = 2;
+		}
+		if (notifyMsg != 0) {
+			for (SceUID cbId : memStickCallbacks) {
+				__KernelNotifyCallback(cbId, notifyMsg);
+			}
+		}
+	}
+
+	lastMemStickState = newState;
+	lastMemStickFatState = newFatState;
+}
+
 void __IoInit() {
 	MemoryStick_Init();
 
@@ -544,10 +597,14 @@ void __IoInit() {
 	}
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
+
+	lastMemStickState = MemoryStick_State();
+	lastMemStickFatState = MemoryStick_FatState();
+	__DisplayListenVblank(__IoVblank);
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1);
+	auto s = p.Section("sceIo", 1, 3);
 	if (!s)
 		return;
 
@@ -557,8 +614,29 @@ void __IoDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
 	p.Do(syncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(syncNotifyEvent, "IoSyncNotify", __IoSyncNotify);
-	p.Do(memStickCallbacks);
-	p.Do(memStickFatCallbacks);
+	if (s < 2) {
+		std::set<SceUID> legacy;
+		memStickCallbacks.clear();
+		memStickFatCallbacks.clear();
+
+		// Convert from set to vector.
+		p.Do(legacy);
+		for (SceUID id : legacy) {
+			memStickCallbacks.push_back(id);
+		}
+		p.Do(legacy);
+		for (SceUID id : legacy) {
+			memStickFatCallbacks.push_back(id);
+		}
+	} else {
+		p.Do(memStickCallbacks);
+		p.Do(memStickFatCallbacks);
+	}
+
+	if (s >= 3) {
+		p.Do(lastMemStickState);
+		p.Do(lastMemStickFatState);
+	}
 }
 
 void __IoShutdown() {
@@ -1471,45 +1549,69 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 
 	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:") || !strcmp(name, "memstick:"))
 	{
-		// MemorySticks Checks
+		// MemoryStick checks
 		switch (cmd) {
 		case 0x02025801:	
-			// Check the MemoryStick's driver status (mscmhc0).
-			if (Memory::IsValidAddress(outPtr)) {
-				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
+			// Check the MemoryStick's driver status (mscmhc0: only.)
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+				if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
+					// 1 = not inserted (ready), 4 = inserted
+					Memory::Write_U32(PSP_MEMORYSTICK_STATE_DEVICE_INSERTED, outPtr);
+				} else {
+					Memory::Write_U32(PSP_MEMORYSTICK_STATE_DRIVER_READY, outPtr);
+				}
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
-		case 0x02015804:	
+		case 0x02015804:
 			// Register MemoryStick's insert/eject callback (mscmhc0)
-			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-				// TODO: Verify how duplicates work / how many are allowed.
+			if (Memory::IsValidAddress(argAddr) && outPtr == 0 && argLen >= 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (memStickCallbacks.find(cbId) == memStickCallbacks.end()) {
-					memStickCallbacks.insert(cbId);
-					DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick callback %i registered, notifying immediately.", cbId);
-					__KernelNotifyCallback(cbId, MemoryStick_State());
+				int type = -1;
+				kernelObjects.GetIDType(cbId, &type);
+
+				if (memStickCallbacks.size() < 32 && type == SCE_KERNEL_TMID_Callback) {
+					memStickCallbacks.push_back(cbId);
+					if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
+						// Only fired immediately if the card is currently inserted.
+						// Values observed:
+						//  * 1 = Memory stick inserted
+						//  * 2 = Memory stick removed
+						//  * 4 = Memory stick mounting? (followed by a 1 about 500ms later)
+						DEBUG_LOG(SCEIO, "sceIoDevctl: Memstick callback %i registered, notifying immediately", cbId);
+						__KernelNotifyCallback(cbId, MemoryStick_State());
+					} else {
+						DEBUG_LOG(SCEIO, "sceIoDevctl: Memstick callback %i registered", cbId);
+					}
 					return 0;
 				} else {
-					return ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS;
+					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
-		case 0x02025805:	
+		case 0x02015805:	
 			// Unregister MemoryStick's insert/eject callback (mscmhc0)
-			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
-				// TODO: Verify how duplicates work / how many are allowed.
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (memStickCallbacks.find(cbId) != memStickCallbacks.end()) {
-					memStickCallbacks.erase(cbId);
-					DEBUG_LOG(SCEIO, "sceIoDevCtl: Unregistered memstick callback %i", cbId);
+				size_t slot = (size_t)-1;
+				// We want to only remove one at a time.
+				for (size_t i = 0; i < memStickCallbacks.size(); ++i) {
+					if (memStickCallbacks[i] == cbId) {
+						slot = i;
+						break;
+					}
+				}
+
+				if (slot != (size_t)-1) {
+					memStickCallbacks.erase(memStickCallbacks.begin() + slot);
+					DEBUG_LOG(SCEIO, "sceIoDevctl: Unregistered memstick callback %i", cbId);
 					return 0;
 				} else {
-					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
@@ -1517,18 +1619,21 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			break;
 		case 0x02025806:	
 			// Check if the device is inserted (mscmhc0)
-			if (Memory::IsValidAddress(outPtr)) {
-				// 0 = Not inserted.
+			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
 				// 1 = Inserted.
-				Memory::Write_U32(1, outPtr);
+				// 2 = Not inserted.
+				Memory::Write_U32(MemoryStick_State(), outPtr);
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
 		case 0x02425818:  
-			// // Get MS capacity (fatms0).
-			// Pretend we have a 2GB memory stick.
+			// Get MS capacity (fatms0).
+			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
+				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
+			}
+			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
 			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
 				u32 pointer = Memory::Read_U32(argAddr);
 				u32 sectorSize = 0x200;
@@ -1547,7 +1652,11 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
-		case 0x02425824:  // Check if write protected
+		case 0x02425824:
+			// Check if write protected
+			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
+				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
+			}
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
 				return 0;
@@ -1562,31 +1671,55 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	if (!strcmp(name, "fatms0:"))
 	{
 		switch (cmd) {
-		case 0x02415821:  // MScmRegisterMSInsertEjectCallback
-			{
-				// TODO: Verify how duplicates work / how many are allowed.
+		case 0x0240d81e:
+			// TODO: Invalidate MS driver file table cache (nop)
+			break;
+		case 0x02415821:
+			// MScmRegisterMSInsertEjectCallback
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (memStickFatCallbacks.find(cbId) == memStickFatCallbacks.end()) {
-					memStickFatCallbacks.insert(cbId);
-					DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately.", cbId);
-					__KernelNotifyCallback(cbId, MemoryStick_FatState());
+				int type = -1;
+				kernelObjects.GetIDType(cbId, &type);
+
+				if (memStickFatCallbacks.size() < 32 && type == SCE_KERNEL_TMID_Callback) {
+					memStickFatCallbacks.push_back(cbId);
+					if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
+						// Only fired immediately if the card is currently inserted.
+						// Values observed:
+						//  * 1 = Memory stick inserted
+						//  * 2 = Memory stick removed
+						DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately", cbId);
+						__KernelNotifyCallback(cbId, MemoryStick_FatState());
+					} else {
+						DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick FAT callback %i registered", cbId);
+					}
 					return 0;
 				} else {
-					return -1;
+					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
+			} else {
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			}
 			break;
-		case 0x02415822: 
-			{
-				// MScmUnregisterMSInsertEjectCallback
-				// TODO: Verify how duplicates work / how many are allowed.
+		case 0x02415822:
+			// MScmUnregisterMSInsertEjectCallback
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (memStickFatCallbacks.find(cbId) != memStickFatCallbacks.end()) {
-					memStickFatCallbacks.erase(cbId);
+				size_t slot = (size_t)-1;
+				// We want to only remove one at a time.
+				for (size_t i = 0; i < memStickFatCallbacks.size(); ++i) {
+					if (memStickFatCallbacks[i] == cbId) {
+						slot = i;
+						break;
+					}
+				}
+
+				if (slot != (size_t)-1) {
+					memStickFatCallbacks.erase(memStickFatCallbacks.begin() + slot);
 					DEBUG_LOG(SCEIO, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
 					return 0;
 				} else {
-					return -1;
+					return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 				}
 			}
 			break;
@@ -1612,12 +1745,16 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			} else {
 				// Does not care about outLen, even if it's 0.
+				// Note: writes 1 when inserted, 0 when not inserted.
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
 				return hleDelayResult(0, "check fat state", cyclesToUs(23500));
 			}
 			break;
 		case 0x02425824:  
 			// Check if write protected
+			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
+				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
+			}
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
 				return 0;
@@ -1627,8 +1764,11 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			break;
 		case 0x02425818:  
-			// // Get MS capacity (fatms0).
-			// Pretend we have a 2GB memory stick.
+			// Get MS capacity (fatms0).
+			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
+				return SCE_KERNEL_ERROR_ERRNO_DEVICE_NOT_FOUND;
+			}
+			// TODO: Pretend we have a 2GB memory stick?  Should we check MemoryStick_FreeSpace?
 			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
 				u32 pointer = Memory::Read_U32(argAddr);
 				u32 sectorSize = 0x200;

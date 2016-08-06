@@ -358,6 +358,8 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("DumpDecryptedEboots", &g_Config.bDumpDecryptedEboot, false, true, true),
 	ConfigSetting("FullscreenOnDoubleclick", &g_Config.bFullscreenOnDoubleclick, true, false, false),
 
+	ReportedConfigSetting("MemStickInserted", &g_Config.bMemStickInserted, true, true, true),
+
 	ConfigSetting(false),
 };
 
