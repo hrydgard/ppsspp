@@ -627,22 +627,28 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// some work.
 	// But, let's flip at least once every 10 vblanks, to update fps, etc.
 	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
-	if (gpu->FramebufferDirty() || noRecentFlip) {
+	const bool fbDirty = gpu->FramebufferDirty();
+	if (fbDirty || noRecentFlip) {
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
 
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
-		if (gpu->FramebufferReallyDirty() || noRecentFlip) {
+		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
+		if (fbReallyDirty || noRecentFlip) {
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
-				actualFlips++;
+				if (fbReallyDirty) {
+					actualFlips++;
+				}
 			}
 		}
 
-		gpuStats.numFlips++;
+		if (fbDirty) {
+			gpuStats.numFlips++;
+		}
 
 		bool throttle, skipFrame;
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
