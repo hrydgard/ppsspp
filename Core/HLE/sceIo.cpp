@@ -33,6 +33,7 @@
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/MIPS/MIPS.h"
@@ -118,8 +119,12 @@ const int PSP_STDIN = 3;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
+
 static std::vector<SceUID> memStickCallbacks;
 static std::vector<SceUID> memStickFatCallbacks;
+static MemStickState lastMemStickState;
+static MemStickFatState lastMemStickFatState;
+
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
 static std::thread *ioManagerThread;
@@ -497,6 +502,50 @@ static void __IoWakeManager() {
 	ioManager.FinishEventLoop();
 }
 
+static void __IoVblank() {
+	// We update memstick status here just to avoid possible thread safety issues.
+	// It doesn't actually need to be on a vblank.
+
+	MemStickState newState = MemoryStick_State();
+	MemStickFatState newFatState = MemoryStick_FatState();
+
+	// First, the fat callbacks, these are easy.
+	if (lastMemStickFatState != newFatState) {
+		int notifyMsg = 0;
+		if (newFatState == PSP_FAT_MEMORYSTICK_STATE_ASSIGNED) {
+			notifyMsg = 1;
+		} else if (newFatState == PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED) {
+			notifyMsg = 2;
+		}
+		if (notifyMsg != 0) {
+			for (SceUID cbId : memStickFatCallbacks) {
+				__KernelNotifyCallback(cbId, notifyMsg);
+			}
+		}
+	}
+
+	// Next, the controller notifies mounting (fat) too.
+	if (lastMemStickState != newState || lastMemStickFatState != newFatState) {
+		int notifyMsg = 0;
+		if (newState == PSP_MEMORYSTICK_STATE_INSERTED && newFatState == PSP_FAT_MEMORYSTICK_STATE_ASSIGNED) {
+			notifyMsg = 1;
+		} else if (newState == PSP_MEMORYSTICK_STATE_INSERTED && newFatState == PSP_FAT_MEMORYSTICK_STATE_UNASSIGNED) {
+			// Still mounting (1 will come later.)
+			notifyMsg = 4;
+		} else if (newState == PSP_MEMORYSTICK_STATE_NOT_INSERTED) {
+			notifyMsg = 2;
+		}
+		if (notifyMsg != 0) {
+			for (SceUID cbId : memStickCallbacks) {
+				__KernelNotifyCallback(cbId, notifyMsg);
+			}
+		}
+	}
+
+	lastMemStickState = newState;
+	lastMemStickFatState = newFatState;
+}
+
 void __IoInit() {
 	MemoryStick_Init();
 
@@ -545,10 +594,14 @@ void __IoInit() {
 	}
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
+
+	lastMemStickState = MemoryStick_State();
+	lastMemStickFatState = MemoryStick_FatState();
+	__DisplayListenVblank(__IoVblank);
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 2);
+	auto s = p.Section("sceIo", 1, 3);
 	if (!s)
 		return;
 
@@ -575,6 +628,11 @@ void __IoDoState(PointerWrap &p) {
 	} else {
 		p.Do(memStickCallbacks);
 		p.Do(memStickFatCallbacks);
+	}
+
+	if (s >= 3) {
+		p.Do(lastMemStickState);
+		p.Do(lastMemStickFatState);
 	}
 }
 

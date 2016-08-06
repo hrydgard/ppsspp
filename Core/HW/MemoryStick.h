@@ -28,6 +28,7 @@ void MemoryStick_DoState(PointerWrap &p);
 MemStickState MemoryStick_State();
 MemStickFatState MemoryStick_FatState();
 
+void MemoryStick_SetState(MemStickState state);
 void MemoryStick_SetFatState(MemStickFatState state);
 
 u64 MemoryStick_SectorSize();
