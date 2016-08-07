@@ -625,23 +625,30 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
-	// But, let's flip at least once every 10 frames if possible, since there may be sound effects.
-	if (gpu->FramebufferDirty() || (g_Config.iRenderingMode != 0 && numVBlanksSinceFlip >= 10)) {
+	// But, let's flip at least once every 10 vblanks, to update fps, etc.
+	const bool noRecentFlip = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && numVBlanksSinceFlip >= 10;
+	const bool fbDirty = gpu->FramebufferDirty();
+	if (fbDirty || noRecentFlip) {
 		if (g_Config.iShowFPSCounter && g_Config.iShowFPSCounter < 4) {
 			CalculateFPS();
 		}
 
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
-		if (gpu->FramebufferReallyDirty()) {
+		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
+		if (fbReallyDirty || noRecentFlip) {
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
-				actualFlips++;
+				if (fbReallyDirty) {
+					actualFlips++;
+				}
 			}
 		}
 
-		gpuStats.numFlips++;
+		if (fbDirty) {
+			gpuStats.numFlips++;
+		}
 
 		bool throttle, skipFrame;
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
