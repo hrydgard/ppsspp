@@ -484,15 +484,14 @@ void GameBrowser::Refresh() {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
-			Margins pathMargins(5, 0);
-			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 #if defined(_WIN32) || defined(USING_QT_UI)
-			topBar->Add(new Choice(mm->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
-			topBar->Add(new Choice(mm->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		} else {
-			topBar->Add(new Spacer(new LinearLayoutParams(1.0f)));
+			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
 
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));

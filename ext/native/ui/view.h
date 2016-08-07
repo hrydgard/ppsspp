@@ -388,6 +388,7 @@ public:
 
 	// Override this for easy standard behaviour. No need to override Measure.
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
 
 	// Called when the layout is done.
 	void SetBounds(Bounds bounds) { bounds_ = bounds; }
@@ -742,7 +743,7 @@ public:
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
 	void SetText(const std::string &text) { text_ = text; }

@@ -102,14 +102,33 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 			*measured = contentWidth < spec.size ? contentWidth : spec.size;
 		else if (spec.type == EXACTLY)
 			*measured = spec.size;
-	} else if (sz == FILL_PARENT)	{
+	} else if (sz == FILL_PARENT) {
+		// UNSPECIFIED may have a minimum size of the parent.  Let's use it to fill.
 		if (spec.type == UNSPECIFIED)
-			*measured = contentWidth;  // We have no value to set
+			*measured = std::max(spec.size, contentWidth);
 		else
 			*measured = spec.size;
 	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
 		*measured = spec.size;
 	}
+}
+
+void ApplyBoundBySpec(float &bound, MeasureSpec spec) {
+	switch (spec.type) {
+	case AT_MOST:
+		bound = bound < spec.size ? bound : spec.size;
+		break;
+	case EXACTLY:
+		bound = spec.size;
+		break;
+	case UNSPECIFIED:
+		break;
+	}
+}
+
+void ApplyBoundsBySpec(Bounds &bounds, MeasureSpec horiz, MeasureSpec vert) {
+	ApplyBoundBySpec(bounds.w, horiz);
+	ApplyBoundBySpec(bounds.h, vert);
 }
 
 void Event::Add(std::function<EventReturn(EventParams&)> func) {
@@ -142,7 +161,7 @@ View::~View() {
 
 void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	float contentW = 0.0f, contentH = 0.0f;
-	GetContentDimensions(dc, contentW, contentH);
+	GetContentDimensionsBySpec(dc, horiz, vert, contentW, contentH);
 	MeasureBySpec(layoutParams_->width, contentW, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, contentH, vert, &measuredHeight_);
 }
@@ -152,6 +171,10 @@ void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 10.0f;
 	h = 10.0f;
+}
+
+void View::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	GetContentDimensions(dc, w, h);
 }
 
 void View::Query(float x, float y, std::vector<View *> &list) {
@@ -657,17 +680,22 @@ void Thin3DTextureView::Draw(UIContext &dc) {
 	}
 }
 
-void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// We don't have the bounding w/h yet, so stick with hardset layout params.
+void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
+	if (bounds.w < 0) {
+		// If there's no size, let's grow as big as we want.
+		bounds.w = horiz.size == 0 ? 1000.f : horiz.size;
+	}
+	if (bounds.h < 0) {
+		bounds.h = vert.size == 0 ? 1000.f : vert.size;
+	}
+	ApplyBoundsBySpec(bounds, horiz, vert);
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
 }
 
 void TextView::Draw(UIContext &dc) {
-	float w, h;
-	GetContentDimensions(dc, w, h);
 	bool clip = false;
-	if (w > bounds_.w || h > bounds_.h)
+	if (measuredWidth_ > bounds_.w || measuredHeight_ > bounds_.h)
 		clip = true;
 	if (bounds_.w < 0 || bounds_.h < 0 || !clip_) {
 		// We have a layout but, but try not to screw up rendering.
