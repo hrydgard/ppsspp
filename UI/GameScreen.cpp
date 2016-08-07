@@ -66,17 +66,23 @@ void GameScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
-		tvTitle_ = leftColumn->Add(new TextView(info->GetTitle(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
+
+		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
+		leftColumn->Add(infoLayout);
+
+		tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle_->SetShadow(true);
+		infoLayout->Add(new Spacer(12));
 		// This one doesn't need to be updated.
-		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)))->SetShadow(true);
-		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 290, NONE, NONE)));
+		infoLayout->Add(new TextView(gamePath_, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
+		tvGameSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize_->SetShadow(true);
-		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 320, NONE, NONE)));
+		tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvSaveDataSize_->SetShadow(true);
-		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 350, NONE, NONE)));
+		tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvInstallDataSize_->SetShadow(true);
-		tvRegion_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 380, NONE, NONE)));
+		tvInstallDataSize_->SetVisibility(V_GONE);
+		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvRegion_->SetShadow(true);
 	} else {
 		texvGameIcon_ = nullptr;
@@ -208,6 +214,7 @@ void GameScreen::update(InputState &input) {
 		if (info->installDataSize > 0) {
 			sprintf(temp, "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvInstallDataSize_->SetText(temp);
+			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
 
