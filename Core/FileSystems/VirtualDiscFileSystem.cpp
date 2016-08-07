@@ -831,6 +831,8 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSys
 			dlclose(library);
 			library = NULL;
 		}
+	} else {
+		ERROR_LOG(FILESYS, "Unable to load handler: %s", filename);
 	}
 #ifdef _WIN32
 #undef dlopen
