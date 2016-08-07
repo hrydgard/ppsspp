@@ -15,11 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "DisplayLayoutEditor.h"
+#include <algorithm>
 #include "ui/ui_context.h"
 #include "ui_atlas.h"
-
-#include <algorithm>
+#include "UI/DisplayLayoutEditor.h"
 
 void MultiTouchDisplay::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	const AtlasImage &image = dc.Draw()->GetAtlas()->images[img_];
