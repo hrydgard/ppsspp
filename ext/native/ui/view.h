@@ -273,6 +273,13 @@ struct Margins {
 	Margins(int8_t horiz, int8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
 	Margins(int8_t l, int8_t t, int8_t r, int8_t b) : top(t), bottom(b), left(l), right(r) {}
 
+	int horiz() {
+		return left + right;
+	}
+	int vert() {
+		return top + bottom;
+	}
+
 	int8_t top;
 	int8_t bottom;
 	int8_t left;
