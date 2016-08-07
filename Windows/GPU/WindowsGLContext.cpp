@@ -251,10 +251,17 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		ExitProcess(1);
 	}
 
+	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+	// glewExperimental allows us to force GLEW to search for the pointers anyway.
+	if (gl_extensions.IsCoreContext)
+		glewExperimental = true;
 	if (GLEW_OK != glewInit()) {
 		*error_message = "Failed to initialize GLEW.";
 		return false;
 	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
 
 	CheckGLExtensions();
 

@@ -30,6 +30,7 @@
 #include "SDL_audio.h"
 #endif
 #include "QtMain.h"
+#include "gfx_es2/gpu_features.h"
 #include "math/math_util.h"
 
 #include <string.h>
@@ -349,10 +350,17 @@ bool MainUI::event(QEvent *e)
 void MainUI::initializeGL()
 {
 #ifndef USING_GLES2
-        glewInit();
+	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+	// glewExperimental allows us to force GLEW to search for the pointers anyway.
+	if (gl_extensions.IsCoreContext)
+		glewExperimental = true;
+	glewInit();
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
 #endif
-        graphicsContext = new QtDummyGraphicsContext();
-        NativeInitGraphics(graphicsContext);
+	graphicsContext = new QtDummyGraphicsContext();
+	NativeInitGraphics(graphicsContext);
 }
 
 void MainUI::paintGL()

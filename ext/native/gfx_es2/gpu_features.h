@@ -103,3 +103,4 @@ extern std::string g_all_gl_extensions;
 extern std::string g_all_egl_extensions;
 
 void CheckGLExtensions();
+void SetGLCoreContext(bool flag);
