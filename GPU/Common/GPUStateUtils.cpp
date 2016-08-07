@@ -1204,12 +1204,12 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	const u8 maskedRef = state.testRef & state.testMask;
 	const u8 usedRef = (state.testRef & 0x80) != 0 ? 0xFF : 0x00;
 
-	auto rewriteFunc = [&](GEComparison func, u8 ref, u8 mask = 0xFF) {
+	auto rewriteFunc = [&](GEComparison func, u8 ref) {
 		// We can only safely rewrite if it doesn't use the ref, or if the ref is the same.
 		if (!usesRef || usedRef == ref) {
 			state.testFunc = func;
 			state.testRef = ref;
-			state.testMask = mask;
+			state.testMask = 0xFF;
 		}
 	};
 	auto rewriteRef = [&](bool always) {
