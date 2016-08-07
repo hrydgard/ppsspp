@@ -632,7 +632,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 
 	if (views_.size()) {
 		if (orientation_ == ORIENT_HORIZONTAL) {
-			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED));
+			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(AT_MOST, measuredHeight_ - margins.vert()));
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		} else {
 			views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz()), MeasureSpec(UNSPECIFIED));
