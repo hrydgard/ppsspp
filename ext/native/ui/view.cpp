@@ -443,7 +443,7 @@ void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 		w = img.w;
 		h = img.h;
 	} else {
-		dc.MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
 	}
 	w += 24;
 	h += 16;
@@ -485,7 +485,7 @@ void Choice::Draw(UIContext &dc) {
 		float scale = 1.0f;
 
 		float actualWidth, actualHeight;
-		dc.MeasureText(dc.theme->uiFont, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
+		dc.MeasureText(dc.theme->uiFont, scale, scale, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
 		if (actualWidth > availWidth) {
 			scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 		}
@@ -541,7 +541,7 @@ void PopupHeader::Draw(UIContext &dc) {
 
 	float tw, th;
 	dc.SetFontStyle(dc.theme->uiFont);
-	dc.MeasureText(dc.GetFontStyle(), text_.c_str(), &tw, &th, 0);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_.c_str(), &tw, &th, 0);
 
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
@@ -591,7 +591,7 @@ void CheckBox::Draw(UIContext &dc) {
 	float scale = 1.0f;
 
 	float actualWidth, actualHeight;
-	dc.MeasureText(dc.theme->uiFont, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, scale, scale, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
 		scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
 	}
@@ -608,7 +608,7 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 		w = img->w;
 		h = img->h;
 	} else {
-		dc.MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
 	}
 	// Add some internal padding to not look totally ugly
 	w += 16;
@@ -625,7 +625,7 @@ void Button::Draw(UIContext &dc) {
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	dc.FillRect(style.background, bounds_);
 	float tw, th;
-	dc.MeasureText(dc.theme->uiFont, text_.c_str(), &tw, &th);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &tw, &th);
 	if (tw > bounds_.w || imageID_ != -1) {
 		dc.PushScissor(bounds_);
 	}
@@ -690,7 +690,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 		bounds.h = vert.size == 0 ? 1000.f : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
-	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
+	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
 }
 
 void TextView::Draw(UIContext &dc) {
@@ -749,7 +749,7 @@ void TextEdit::Draw(UIContext &dc) {
 
 	if (HasFocus()) {
 		// Hack to find the caret position. Might want to find a better way...
-		dc.MeasureTextCount(dc.theme->uiFont, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
+		dc.MeasureTextCount(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), caret_, &w, &h, ALIGN_VCENTER | ALIGN_LEFT);
 		float caretX = w;
 		caretX += textX;
 
@@ -763,7 +763,7 @@ void TextEdit::Draw(UIContext &dc) {
 }
 
 void TextEdit::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.theme->uiFont, text_.size() ? text_.c_str() : "Wj", &w, &h);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.size() ? text_.c_str() : "Wj", &w, &h);
 	w += 2;
 	h += 2;
 }
@@ -932,7 +932,7 @@ void TextEdit::InsertAtCaret(const char *text) {
 }
 
 void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.MeasureText(dc.theme->uiFont, "  100%  ", &w, &h);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, "  100%  ", &w, &h);
 }
 
 void ProgressBar::Draw(UIContext &dc) {

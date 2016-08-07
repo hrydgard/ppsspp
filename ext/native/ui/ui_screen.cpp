@@ -369,7 +369,7 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -435,7 +435,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -477,7 +477,7 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -667,7 +667,7 @@ void PopupTextInputChoice::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -726,7 +726,7 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);

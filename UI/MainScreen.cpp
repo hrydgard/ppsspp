@@ -284,7 +284,7 @@ void GameButton::Draw(UIContext &dc) {
 			title_ = ReplaceAll(title_, "\n", " ");
 		}
 
-		dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
+		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -367,7 +367,7 @@ void DirButton::Draw(UIContext &dc) {
 	}
 	
 	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), text.c_str(), &tw, &th, 0);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), &tw, &th, 0);
 
 	bool compact = bounds_.w < 180;
 
