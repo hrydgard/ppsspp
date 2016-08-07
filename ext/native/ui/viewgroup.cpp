@@ -422,12 +422,12 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 		if (orientation_ == ORIENT_HORIZONTAL) {
 			MeasureSpec v = vert;
-			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
+			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
 			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert());
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
-			if (h.type == UNSPECIFIED && measuredWidth_ != 0)
+			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
 			view->Measure(dc, h - (float)margins.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
 		}
@@ -458,7 +458,6 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
 		MeasureBySpec(layoutParams_->width, weightZeroSum, horiz, &measuredWidth_);
-		MeasureBySpec(layoutParams_->height, maxOther, vert, &measuredHeight_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedWidth = measuredWidth_;
@@ -480,7 +479,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (linLayoutParams->HasMargins())
 					margins = linLayoutParams->margins;
 				MeasureSpec v = vert;
-				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
+				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
 				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - margins.horiz());
 				if (horiz.type == EXACTLY) {
@@ -488,15 +487,18 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				}
 				view->Measure(dc, h, v - (float)margins.vert());
 				usedWidth += view->GetMeasuredWidth();
+				maxOther = std::max(maxOther, view->GetMeasuredHeight() + margins.vert());
 			}
 		}
 
 		if (horiz.type == AT_MOST && measuredWidth_ < horiz.size) {
 			measuredWidth_ += usedWidth;
 		}
+
+		// Measure here in case maxOther moved (can happen due to word wrap.)
+		MeasureBySpec(layoutParams_->height, maxOther, vert, &measuredHeight_);
 	} else {
 		MeasureBySpec(layoutParams_->height, weightZeroSum, vert, &measuredHeight_);
-		MeasureBySpec(layoutParams_->width, maxOther, horiz, &measuredWidth_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedHeight = measuredHeight_;
@@ -518,7 +520,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (linLayoutParams->HasMargins())
 					margins = linLayoutParams->margins;
 				MeasureSpec h = horiz;
-				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0)
+				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
 				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - margins.vert());
 				if (vert.type == EXACTLY) {
@@ -526,12 +528,16 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				}
 				view->Measure(dc, h - (float)margins.horiz(), v);
 				usedHeight += view->GetMeasuredHeight();
+				maxOther = std::max(maxOther, view->GetMeasuredWidth() + margins.horiz());
 			}
 		}
 
 		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
 			measuredHeight_ += usedHeight;
 		}
+
+		// Measure here in case maxOther moved (can happen due to word wrap.)
+		MeasureBySpec(layoutParams_->width, maxOther, horiz, &measuredWidth_);
 	}
 }
 
