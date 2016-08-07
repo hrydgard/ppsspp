@@ -2010,7 +2010,9 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	SafeGLReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
 
-	fbo_unbind();
+	// We may have clitted to a temp FBO.
+	fbo_unbind_read();
+	RebindFramebuffer();
 	return true;
 }
 
