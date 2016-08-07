@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if !defined(USING_GLES2)
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
 // special treatment in the shader generator.
 #if defined(__APPLE__)
-#define FORCE_OPENGL_2_0
-#endif
+const bool forceOpenGL2_0 = true;
+#else
+const bool forceOpenGL2_0 = false;
 #endif
 
 #include <cstdio>
@@ -117,31 +117,31 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "precision lowp float;\n");
 	} else {
 		// TODO: Handle this in VersionGEThan?
-#if !defined(FORCE_OPENGL_2_0)
-		if (gl_extensions.VersionGEThan(3, 3, 0)) {
-			fragColor0 = "fragColor0";
-			texture = "texture";
-			glslES30 = true;
-			bitwiseOps = true;
-			texelFetch = "texelFetch";
-			WRITE(p, "#version 330\n");
-		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
-			fragColor0 = "fragColor0";
-			bitwiseOps = true;
-			texelFetch = "texelFetch";
-			WRITE(p, "#version 130\n");
-			if (gl_extensions.EXT_gpu_shader4) {
-				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
-			}
-		} else {
-			WRITE(p, "#version 110\n");
-			if (gl_extensions.EXT_gpu_shader4) {
-				WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+		if (!forceOpenGL2_0 || gl_extensions.IsCoreContext) {
+			if (gl_extensions.VersionGEThan(3, 3, 0)) {
+				fragColor0 = "fragColor0";
+				texture = "texture";
+				glslES30 = true;
 				bitwiseOps = true;
-				texelFetch = "texelFetch2D";
+				texelFetch = "texelFetch";
+				WRITE(p, "#version 330\n");
+			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+				fragColor0 = "fragColor0";
+				bitwiseOps = true;
+				texelFetch = "texelFetch";
+				WRITE(p, "#version 130\n");
+				if (gl_extensions.EXT_gpu_shader4) {
+					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+				}
+			} else {
+				WRITE(p, "#version 110\n");
+				if (gl_extensions.EXT_gpu_shader4) {
+					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
+					bitwiseOps = true;
+					texelFetch = "texelFetch2D";
+				}
 			}
 		}
-#endif
 
 		// We remove these everywhere - GL4, GL3, Mac-forced-GL2, etc.
 		WRITE(p, "#define lowp\n");
@@ -149,7 +149,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 		WRITE(p, "#define highp\n");
 	}
 
-	if (glslES30) {
+	if (glslES30 || gl_extensions.IsCoreContext) {
 		varying = "in";
 	}
 

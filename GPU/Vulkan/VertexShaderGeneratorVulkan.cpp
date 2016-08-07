@@ -50,12 +50,6 @@ static const char *vulkan_glsl_preamble =
 
 
 
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
-#ifdef __APPLE__
-#define FORCE_OPENGL_2_0
-#endif
-
 #undef WRITE
 
 #define WRITE p+=sprintf

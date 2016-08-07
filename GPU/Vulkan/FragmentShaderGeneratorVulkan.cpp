@@ -15,14 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if !defined(USING_GLES2)
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
-#if defined(__APPLE__)
-#define FORCE_OPENGL_2_0
-#endif
-#endif
-
 #include <cstdio>
 #include <sstream>
 
