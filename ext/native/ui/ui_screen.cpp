@@ -365,9 +365,14 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	Choice::Draw(dc);
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
+
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
 	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
@@ -419,15 +424,22 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	Choice::Draw(dc);
+	int paddingX = 12;
+	dc.SetFontStyle(dc.theme->uiFont);
+
 	char temp[32];
 	if (zeroLabel_.size() && *value_ == 0) {
 		strcpy(temp, zeroLabel_.c_str());
 	} else {
 		sprintf(temp, fmt_, *value_);
 	}
-	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
+	dc.DrawText(temp, bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -454,15 +466,22 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	Choice::Draw(dc);
+	int paddingX = 12;
+	dc.SetFontStyle(dc.theme->uiFont);
+
 	char temp[32];
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		strcpy(temp, zeroLabel_.c_str());
 	} else {
 		sprintf(temp, fmt_, *value_);
 	}
-	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
+	dc.DrawText(temp, bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
@@ -644,8 +663,14 @@ void PopupTextInputChoice::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.theme->itemDisabledStyle;
 	}
-	Choice::Draw(dc);
+	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
+
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
 	dc.DrawText(value_->c_str(), bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
@@ -683,12 +708,14 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 
 void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
-	std::ostringstream valueText;
-	Choice::Draw(dc);
+	if (!IsEnabled()) {
+		style = dc.theme->itemDisabledStyle;
+	}
+	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	I18NCategory *category = GetI18NCategory(category_);
-
+	std::ostringstream valueText;
 	if (sValue_ != nullptr) {
 		if (category)
 			valueText << category->T(*sValue_);
@@ -698,7 +725,12 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 		valueText << *iValue_;
 	}
 
-	dc.DrawText(valueText.str().c_str(), bounds_.x2() - 12, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	float ignore;
+	dc.MeasureText(dc.theme->uiFont, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	textPadding_.right += paddingX;
+
+	Choice::Draw(dc);
+	dc.DrawText(valueText.str().c_str(), bounds_.x2() - paddingX, bounds_.centerY(), style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 }  // namespace UI

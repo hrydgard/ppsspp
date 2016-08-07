@@ -137,8 +137,10 @@ void UIContext::MeasureTextCount(const UI::FontStyle &style, const char *str, in
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->MeasureTextCount(style.atlasFont, str, count, x, y);
 	} else {
+		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		textDrawer_->MeasureString(str, count, x, y);
+		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
 
@@ -153,8 +155,10 @@ void UIContext::MeasureTextRect(const UI::FontStyle &style, const char *str, int
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->MeasureTextRect(style.atlasFont, str, count, bounds, x, y, align);
 	} else {
+		textDrawer_->SetFont(style.fontName.c_str(), style.sizePts, style.flags);
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		textDrawer_->MeasureStringRect(str, count, bounds, x, y, align);
+		textDrawer_->SetFont(fontStyle_->fontName.c_str(), fontStyle_->sizePts, fontStyle_->flags);
 	}
 }
 

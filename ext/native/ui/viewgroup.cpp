@@ -424,20 +424,20 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			MeasureSpec v = vert;
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
-			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)(margins.top + margins.bottom));
+			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert());
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0) h = MeasureSpec(AT_MOST, measuredWidth_);
-			views_[i]->Measure(dc, h - (float)(margins.left + margins.right), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			views_[i]->Measure(dc, h - (float)margins.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
 		}
 
 		float amount;
 		if (orientation_ == ORIENT_HORIZONTAL) {
-			amount = views_[i]->GetMeasuredWidth() + margins.left + margins.right;
-			maxOther = std::max(maxOther, views_[i]->GetMeasuredHeight() + margins.top + margins.bottom);
+			amount = views_[i]->GetMeasuredWidth() + margins.horiz();
+			maxOther = std::max(maxOther, views_[i]->GetMeasuredHeight() + margins.vert());
 		} else {
-			amount = views_[i]->GetMeasuredHeight() + margins.top + margins.bottom;
-			maxOther = std::max(maxOther, views_[i]->GetMeasuredWidth() + margins.left + margins.right);
+			amount = views_[i]->GetMeasuredHeight() + margins.vert();
+			maxOther = std::max(maxOther, views_[i]->GetMeasuredWidth() + margins.horiz());
 		}
 
 		sum += amount;
@@ -478,15 +478,14 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				Margins margins = defaultMargins_;
 				if (linLayoutParams->HasMargins())
 					margins = linLayoutParams->margins;
-				int marginSum = margins.left + margins.right;
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
-				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - marginSum);
+				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - margins.horiz());
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
 				}
-				views_[i]->Measure(dc, h, v - (float)(margins.top + margins.bottom));
+				views_[i]->Measure(dc, h, v - (float)margins.vert());
 				usedWidth += views_[i]->GetMeasuredWidth();
 			}
 		}
@@ -517,15 +516,14 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				Margins margins = defaultMargins_;
 				if (linLayoutParams->HasMargins())
 					margins = linLayoutParams->margins;
-				int marginSum = margins.top + margins.bottom;
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
-				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - marginSum);
+				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - margins.vert());
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
 				}
-				views_[i]->Measure(dc, h - (float)(margins.left + margins.right), v);
+				views_[i]->Measure(dc, h - (float)margins.horiz(), v);
 				usedHeight += views_[i]->GetMeasuredHeight();
 			}
 		}
@@ -569,10 +567,10 @@ void LinearLayout::Layout() {
 
 		if (orientation_ == ORIENT_HORIZONTAL) {
 			itemBounds.x = pos;
-			itemBounds.w = views_[i]->GetMeasuredWidth() + margins.left + margins.right;
+			itemBounds.w = views_[i]->GetMeasuredWidth() + margins.horiz();
 		} else {
 			itemBounds.y = pos;
-			itemBounds.h = views_[i]->GetMeasuredHeight() + margins.top + margins.bottom;
+			itemBounds.h = views_[i]->GetMeasuredHeight() + margins.vert();
 		}
 
 		Bounds innerBounds;
@@ -637,7 +635,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED));
 			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
 		} else {
-			views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
+			views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz()), MeasureSpec(UNSPECIFIED));
 			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
 		}
 		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY) {
@@ -666,8 +664,8 @@ void ScrollView::Layout() {
 		margins = linLayoutParams->margins;
 	}
 
-	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
-	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
+	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
+	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
 
 	float layoutScrollPos = ClampedScrollPos(scrollPos_);
 

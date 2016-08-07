@@ -406,7 +406,7 @@ void TextDrawer::WrapString(std::string &out, const char *str, float maxW) {
 
 void TextDrawer::SetFontScale(float xscale, float yscale) {
 	fontScaleX_ = xscale;
-	fontScaleY_ = xscale;
+	fontScaleY_ = yscale;
 }
 
 void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {

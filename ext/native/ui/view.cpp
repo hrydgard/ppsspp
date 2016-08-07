@@ -23,6 +23,7 @@ bool focusForced;
 static recursive_mutex mutex_;
 
 const float ITEM_HEIGHT = 64.f;
+const float MIN_TEXT_SCALE = 0.8f;
 
 
 struct DispatchQueueItem {
@@ -454,16 +455,29 @@ void Choice::Draw(UIContext &dc) {
 	if (atlasImage_ != -1) {
 		dc.Draw()->DrawImage(atlasImage_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	} else {
-		int paddingX = 12;
 		dc.SetFontStyle(dc.theme->uiFont);
+
+		const int paddingX = 12;
+		const float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
+		float scale = 1.0f;
+
+		float actualWidth, actualHeight;
+		dc.MeasureText(dc.theme->uiFont, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
+		if (actualWidth > availWidth) {
+			scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+		}
+
+		dc.SetFontScale(scale, scale);
 		if (centered_) {
 			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 		} else {
 			if (iconImage_ != -1) {
 				dc.Draw()->DrawImage(iconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
 			}
-			dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+
+			dc.DrawText(text_.c_str(), bounds_.x + paddingX + textPadding_.left, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		}
+		dc.SetFontScale(1.0f, 1.0f);
 	}
 
 	if (selected_) {
@@ -537,18 +551,32 @@ EventReturn CheckBox::OnClicked(EventParams &e) {
 }
 
 void CheckBox::Draw(UIContext &dc) {
-	ClickableItem::Draw(dc);
-	int paddingX = 12;
-
-	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
-
 	Style style = dc.theme->itemStyle;
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
-
 	dc.SetFontStyle(dc.theme->uiFont);
+
+	ClickableItem::Draw(dc);
+
+	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+	float imageW, imageH;
+	dc.Draw()->MeasureImage(image, &imageW, &imageH);
+
+	const int paddingX = 12;
+	// Padding right of the checkbox image too.
+	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
+	float scale = 1.0f;
+
+	float actualWidth, actualHeight;
+	dc.MeasureText(dc.theme->uiFont, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
+	if (actualWidth > availWidth) {
+		scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+
+	dc.SetFontScale(scale, scale);
 	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontScale(1.0f, 1.0f);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

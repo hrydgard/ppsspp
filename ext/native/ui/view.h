@@ -273,10 +273,36 @@ struct Margins {
 	Margins(int8_t horiz, int8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
 	Margins(int8_t l, int8_t t, int8_t r, int8_t b) : top(t), bottom(b), left(l), right(r) {}
 
+	int horiz() {
+		return left + right;
+	}
+	int vert() {
+		return top + bottom;
+	}
+
 	int8_t top;
 	int8_t bottom;
 	int8_t left;
 	int8_t right;
+};
+
+struct Padding {
+	Padding() : top(0), bottom(0), left(0), right(0) {}
+	explicit Padding(float all) : top(all), bottom(all), left(all), right(all) {}
+	Padding(float horiz, float vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
+	Padding(float l, float t, float r, float b) : top(t), bottom(b), left(l), right(r) {}
+
+	float horiz() {
+		return left + right;
+	}
+	float vert() {
+		return top + bottom;
+	}
+
+	float top;
+	float bottom;
+	float left;
+	float right;
 };
 
 enum LayoutParamsType {
@@ -595,11 +621,11 @@ protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
-	int height_;
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
 	ImageID iconImage_;  // Only applies for text, non-centered
+	Padding textPadding_;
 	bool centered_;
 	bool highlighted_;
 
