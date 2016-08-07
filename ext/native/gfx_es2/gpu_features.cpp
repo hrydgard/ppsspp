@@ -374,6 +374,12 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
 	gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
 
+	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
+		// These are required, and don't need to be specified by the driver (they aren't on Apple.)
+		gl_extensions.ARB_vertex_array_object = true;
+		gl_extensions.ARB_framebuffer_object = true;
+	}
+
 	ProcessGPUFeatures();
 
 	int error = glGetError();
