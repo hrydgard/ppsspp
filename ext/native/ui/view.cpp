@@ -1,4 +1,4 @@
-﻿#include <queue>
+#include <queue>
 #include <algorithm>
 
 #include "base/mutex.h"
