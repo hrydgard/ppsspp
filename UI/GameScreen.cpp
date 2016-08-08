@@ -46,7 +46,6 @@ GameScreen::~GameScreen() {
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-	g_gameInfoCache->WaitUntilDone(info);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
@@ -67,18 +66,31 @@ void GameScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new Thin3DTextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
-		tvTitle_ = leftColumn->Add(new TextView(info->GetTitle(), ALIGN_LEFT, false, new AnchorLayoutParams(10, 200, NONE, NONE)));
+
+		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
+		leftColumn->Add(infoLayout);
+
+		tvTitle_ = infoLayout->Add(new TextView(info->GetTitle(), ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvTitle_->SetShadow(true);
+		infoLayout->Add(new Spacer(12));
 		// This one doesn't need to be updated.
-		leftColumn->Add(new TextView(gamePath_, ALIGN_LEFT, true, new AnchorLayoutParams(10, 250, NONE, NONE)))->SetShadow(true);
-		tvGameSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 290, NONE, NONE)));
+		infoLayout->Add(new TextView(gamePath_, ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
+		tvGameSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize_->SetShadow(true);
-		tvSaveDataSize_ = leftColumn->Add(new TextView("...", ALIGN_LEFT, true, new AnchorLayoutParams(10, 320, NONE, NONE)));
+		tvSaveDataSize_ = infoLayout->Add(new TextView("...", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvSaveDataSize_->SetShadow(true);
-		tvInstallDataSize_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 350, NONE, NONE)));
+		tvInstallDataSize_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvInstallDataSize_->SetShadow(true);
-		tvRegion_ = leftColumn->Add(new TextView("", ALIGN_LEFT, true, new AnchorLayoutParams(10, 380, NONE, NONE)));
+		tvInstallDataSize_->SetVisibility(V_GONE);
+		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvRegion_->SetShadow(true);
+	} else {
+		texvGameIcon_ = nullptr;
+		tvTitle_ = nullptr;
+		tvGameSize_ = nullptr;
+		tvSaveDataSize_ = nullptr;
+		tvInstallDataSize_ = nullptr;
+		tvRegion_ = nullptr;
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -87,37 +99,52 @@ void GameScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
-	Choice *play = new Choice(ga->T("Play"));
-	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
-	if (info && !info->id.empty())
-	{
-		if (info->hasConfig)
-		{
-			rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-			rightColumnItems->Add(new Choice(ga->T("Delete Game Config")))->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
-		}
-		else
-		{
-			rightColumnItems->Add(new Choice(ga->T("Create Game Config")))->OnClick.Handle(this, &GameScreen::OnCreateConfig);
-		}
+
+	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+
+	if (info) {
+		btnGameSettings_ = rightColumnItems->Add(new Choice(ga->T("Game Settings")));
+		btnGameSettings_->OnClick.Handle(this, &GameScreen::OnGameSettings);
+		btnDeleteGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Delete Game Config")));
+		btnDeleteGameConfig_->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
+		btnCreateGameConfig_ = rightColumnItems->Add(new Choice(ga->T("Create Game Config")));
+		btnCreateGameConfig_->OnClick.Handle(this, &GameScreen::OnCreateConfig);
+
+		btnGameSettings_->SetVisibility(V_GONE);
+		btnDeleteGameConfig_->SetVisibility(V_GONE);
+		btnCreateGameConfig_->SetVisibility(V_GONE);
+
+		btnDeleteSaveData_ = new Choice(ga->T("Delete Save Data"));
+		rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+		btnDeleteSaveData_->SetVisibility(V_GONE);
+	} else {
+		btnGameSettings_ = nullptr;
+		btnCreateGameConfig_ = nullptr;
+		btnDeleteGameConfig_ = nullptr;
+		btnDeleteSaveData_ = nullptr;
 	}
-	std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
-	if (saveDirs.size()) {
-		rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	}
-	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+
+
+	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Delete Game"))))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	if (host->CanCreateShortcut()) {
-		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
+		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Create Shortcut"))))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
 	}
 	if (isRecentGame(gamePath_)) {
-		rightColumnItems->Add(new Choice(ga->T("Remove From Recent")))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
+		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
 #ifdef _WIN32
-	rightColumnItems->Add(new Choice(ga->T("Show In Folder")))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
+	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats")))->OnClick.Handle(this, &GameScreen::OnCwCheat);
+		rightColumnItems->Add(AddOtherChoice(new Choice(pa->T("Cheats"))))->OnClick.Handle(this, &GameScreen::OnCwCheat);
 	}
+}
+
+UI::Choice *GameScreen::AddOtherChoice(UI::Choice *choice) {
+	otherChoices_.push_back(choice);
+	// While loading.
+	choice->SetVisibility(UI::V_GONE);
+	return choice;
 }
 
 UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e)
@@ -187,6 +214,7 @@ void GameScreen::update(InputState &input) {
 		if (info->installDataSize > 0) {
 			sprintf(temp, "%s: %1.2f %s", ga->T("InstallData"), (float) (info->installDataSize) / 1024.f / 1024.f, ga->T("MB"));
 			tvInstallDataSize_->SetText(temp);
+			tvInstallDataSize_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
 
@@ -199,6 +227,23 @@ void GameScreen::update(InputState &input) {
 			"Asia"
 		};
 		tvRegion_->SetText(ga->T(regionNames[info->region]));
+	}
+
+	if (!info->id.empty()) {
+		btnGameSettings_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
+		btnDeleteGameConfig_->SetVisibility(info->hasConfig ? UI::V_VISIBLE : UI::V_GONE);
+		btnCreateGameConfig_->SetVisibility(info->hasConfig ? UI::V_GONE : UI::V_VISIBLE);
+
+		std::vector<std::string> saveDirs = info->GetSaveDataDirectories();
+		if (saveDirs.size()) {
+			btnDeleteSaveData_->SetVisibility(UI::V_VISIBLE);
+		}
+	}
+	if (!info->IsPending()) {
+		// At this point, the above buttons won't become visible.  We can show these now.
+		for (UI::Choice *choice : otherChoices_) {
+			choice->SetVisibility(UI::V_VISIBLE);
+		}
 	}
 }
 

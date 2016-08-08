@@ -44,6 +44,8 @@ protected:
 	bool isRecentGame(const std::string &gamePath);
 
 private:
+	UI::Choice *AddOtherChoice(UI::Choice *choice);
+
 	// Event handlers
 	UI::EventReturn OnPlay(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
@@ -64,4 +66,10 @@ private:
 	UI::TextView *tvSaveDataSize_;
 	UI::TextView *tvInstallDataSize_;
 	UI::TextView *tvRegion_;
+
+	UI::Choice *btnGameSettings_;
+	UI::Choice *btnCreateGameConfig_;
+	UI::Choice *btnDeleteGameConfig_;
+	UI::Choice *btnDeleteSaveData_;
+	std::vector<UI::Choice *> otherChoices_;
 };

@@ -284,7 +284,7 @@ void GameButton::Draw(UIContext &dc) {
 			title_ = ReplaceAll(title_, "\n", " ");
 		}
 
-		dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
+		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -367,7 +367,7 @@ void DirButton::Draw(UIContext &dc) {
 	}
 	
 	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), text.c_str(), &tw, &th, 0);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), &tw, &th, 0);
 
 	bool compact = bounds_.w < 180;
 
@@ -484,15 +484,14 @@ void GameBrowser::Refresh() {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
-			Margins pathMargins(5, 0);
-			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 #if defined(_WIN32) || defined(USING_QT_UI)
-			topBar->Add(new Choice(mm->T("Browse", "Browse...")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
-			topBar->Add(new Choice(mm->T("Home")))->OnClick.Handle(this, &GameBrowser::HomeClick);
+			topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		} else {
-			topBar->Add(new Spacer(new LinearLayoutParams(1.0f)));
+			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
 
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));

@@ -313,6 +313,14 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 
 namespace UI {
 
+std::string ChopTitle(const std::string &title) {
+	size_t pos = title.find('\n');
+	if (pos != title.npos) {
+		return title.substr(0, pos);
+	}
+	return title;
+}
+
 UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	restoreFocus_ = HasFocus();
 
@@ -323,7 +331,7 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 		choices.push_back(category ? category->T(choices_[i]) : choices_[i]);
 	}
 
-	ListPopupScreen *popupScreen = new ListPopupScreen(text_, choices, *value_ - minVal_,
+	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
 		std::bind(&PopupMultiChoice::ChoiceCallback, this, placeholder::_1));
 	popupScreen->SetHiddenChoices(hidden_);
 	screenManager_->push(popupScreen);
@@ -369,7 +377,7 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText_.c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -403,7 +411,7 @@ PopupSliderChoiceFloat::PopupSliderChoiceFloat(float *value, float minValue, flo
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_, step_, units_);
+	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -435,7 +443,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -445,7 +453,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_, step_, units_);
+	SliderFloatPopupScreen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoiceFloat::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -477,7 +485,7 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, temp, &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -652,7 +660,7 @@ PopupTextInputChoice::PopupTextInputChoice(std::string *value, const std::string
 EventReturn PopupTextInputChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
-	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, text_, maxLen_);
+	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(value_, placeHolder_, ChopTitle(text_), maxLen_);
 	popupScreen->OnChange.Handle(this, &PopupTextInputChoice::HandleChange);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
@@ -667,7 +675,7 @@ void PopupTextInputChoice::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.theme->uiFont);
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, value_->c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);
@@ -726,7 +734,7 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 	}
 
 	float ignore;
-	dc.MeasureText(dc.theme->uiFont, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, valueText.str().c_str(), &textPadding_.right, &ignore, ALIGN_RIGHT | ALIGN_VCENTER);
 	textPadding_.right += paddingX;
 
 	Choice::Draw(dc);

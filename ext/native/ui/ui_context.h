@@ -59,9 +59,9 @@ public:
 	void SetFontStyle(const UI::FontStyle &style);
 	const UI::FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
-	void MeasureTextCount(const UI::FontStyle &style, const char *str, int count, float *x, float *y, int align = 0) const;
-	void MeasureText(const UI::FontStyle &style, const char *str, float *x, float *y, int align = 0) const;
-	void MeasureTextRect(const UI::FontStyle &style, const char *str, int count, const Bounds &bounds, float *x, float *y, int align = 0) const;
+	void MeasureTextCount(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, float *x, float *y, int align = 0) const;
+	void MeasureText(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, float *x, float *y, int align = 0) const;
+	void MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align = 0) const;
 	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextShadow(const char *str, float x, float y, uint32_t color, int align = 0);
 	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);

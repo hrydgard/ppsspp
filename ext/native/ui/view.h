@@ -273,10 +273,10 @@ struct Margins {
 	Margins(int8_t horiz, int8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
 	Margins(int8_t l, int8_t t, int8_t r, int8_t b) : top(t), bottom(b), left(l), right(r) {}
 
-	int horiz() {
+	int horiz() const {
 		return left + right;
 	}
-	int vert() {
+	int vert() const {
 		return top + bottom;
 	}
 
@@ -292,10 +292,10 @@ struct Padding {
 	Padding(float horiz, float vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
 	Padding(float l, float t, float r, float b) : top(t), bottom(b), left(l), right(r) {}
 
-	float horiz() {
+	float horiz() const {
 		return left + right;
 	}
-	float vert() {
+	float vert() const {
 		return top + bottom;
 	}
 
@@ -388,6 +388,7 @@ public:
 
 	// Override this for easy standard behaviour. No need to override Measure.
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const;
 
 	// Called when the layout is done.
 	void SetBounds(Bounds bounds) { bounds_ = bounds; }
@@ -608,7 +609,7 @@ public:
 		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
 
 	virtual void HighlightChanged(bool highlighted);
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 	virtual void SetCentered(bool c) {
 		centered_ = c;
@@ -620,6 +621,7 @@ public:
 protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
+	virtual float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	std::string text_;
 	std::string smallText_;
@@ -708,11 +710,14 @@ public:
 	}
 
 	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	EventReturn OnClicked(EventParams &e);
 	//allow external agents to toggle the checkbox
 	void Toggle();
 private:
+	float CalculateTextScale(const UIContext &dc, float availWidth) const;
+
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
@@ -742,7 +747,7 @@ public:
 	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), text_(text), textAlign_(textAlign), textColor_(0xFFFFFFFF), small_(small), shadow_(false), focusable_(false), clip_(true) {}
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
 	void SetText(const std::string &text) { text_ = text; }

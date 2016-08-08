@@ -51,20 +51,28 @@ std::string GetFileDateAsString(std::string filename) {
 	return "";
 }
 
+static std::string TrimString(const std::string &str) {
+	size_t pos = str.find_last_not_of(" \r\n\t");
+	if (pos != str.npos) {
+		return str.substr(0, pos + 1);
+	}
+	return str;
+}
+
 class SavedataPopupScreen : public PopupScreen {
 public:
-	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(title), savePath_(savePath) {
+	SavedataPopupScreen(std::string savePath, std::string title) : PopupScreen(TrimString(title)), savePath_(savePath) {
 	}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override {
 		using namespace UI;
 		GameInfo *ginfo = g_gameInfoCache->GetInfo(screenManager()->getThin3DContext(), savePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
-		LinearLayout *root = new LinearLayout(ORIENT_VERTICAL);
-		parent->Add(root);
+		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
+		parent->Add(content);
 		if (!ginfo)
 			return;
 		LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		root->Add(toprow);
+		content->Add(toprow);
 
 		I18NCategory *sa = GetI18NCategory("Savedata");
 		if (ginfo->fileType == FILETYPE_PSP_SAVEDATA_DIRECTORY) {
@@ -74,15 +82,15 @@ public:
 			if (ginfo->iconTexture) {
 				toprow->Add(new Thin3DTextureView(ginfo->iconTexture, IS_FIXED, new LinearLayoutParams(Margins(10, 5))));
 			}
-			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+			LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 			topright->SetSpacing(1.0f);
-			topright->Add(new TextView(savedata_title, 0, false));
+			topright->Add(new TextView(savedata_title, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 			topright->Add(new TextView(StringFromFormat("%d kB", ginfo->gameSize / 1024), 0, true));
 			topright->Add(new TextView(GetFileDateAsString(savePath_ + "/PARAM.SFO"), 0, true));
 			toprow->Add(topright);
-			root->Add(new Spacer(3.0));
-			root->Add(new TextView(savedata_detail, 0, true, new LinearLayoutParams(Margins(10, 0))));
-			root->Add(new Spacer(3.0));
+			content->Add(new Spacer(3.0));
+			content->Add(new TextView(ReplaceAll(savedata_detail, "\r", ""), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
+			content->Add(new Spacer(3.0));
 		} else {
 			std::string image_path = ReplaceAll(savePath_, ".ppst", ".jpg");
 			if (File::Exists(image_path)) {
@@ -91,14 +99,14 @@ public:
 			} else {
 				toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))));
 			}
-			root->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
+			content->Add(new TextView(GetFileDateAsString(savePath_), 0, true, new LinearLayoutParams(Margins(10, 5))));
 		}
 
 		I18NCategory *di = GetI18NCategory("Dialog");
 		LinearLayout *buttons = new LinearLayout(ORIENT_HORIZONTAL);
 		buttons->Add(new Button(di->T("Back"), new LinearLayoutParams(1.0)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		buttons->Add(new Button(di->T("Delete"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &SavedataPopupScreen::OnDeleteButtonClick);
-		root->Add(buttons);
+		content->Add(buttons);
 	}
 
 protected:
@@ -243,7 +251,7 @@ void SavedataButton::Draw(UIContext &dc) {
 		subtitle_ = CleanSaveString(savedata_title) + StringFromFormat(" (%d kB)", ginfo->gameSize / 1024);
 	}
 
-	dc.MeasureText(dc.GetFontStyle(), title_.c_str(), &tw, &th, 0);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 	int availableWidth = bounds_.w - 150;
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
