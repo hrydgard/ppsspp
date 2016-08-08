@@ -22,9 +22,5 @@ charset = utf-16le
 # This file may need to force a BOM so compilers treat as utf-8.
 charset = utf-8-bom
 
-[Windows/GEDebugger/CtrlDisplayListView.cpp]
-# This file may need to force a BOM so compilers treat as utf-8.
-charset = utf-8-bom
-
 [Windows/version.rc]
 charset = utf-16le
