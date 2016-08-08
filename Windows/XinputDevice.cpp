@@ -1,4 +1,4 @@
-﻿#include <limits.h>
+#include <limits.h>
 #include <algorithm>
 
 #include "base/NativeApp.h"

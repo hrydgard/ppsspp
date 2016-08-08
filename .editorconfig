@@ -18,5 +18,9 @@ end_of_line = lf
 [Core/Dialog/PSPOskDialog.cpp]
 charset = utf-16le
 
+[ext/native/tools/kanjifilter.h]
+# This file may need to force a BOM so compilers treat as utf-8.
+charset = utf-8-bom
+
 [Windows/version.rc]
 charset = utf-16le

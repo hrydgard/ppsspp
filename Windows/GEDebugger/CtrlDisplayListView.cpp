@@ -1,4 +1,4 @@
-﻿#include "Windows/GEDebugger/CtrlDisplayListView.h"
+#include "Windows/GEDebugger/CtrlDisplayListView.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/InputBox.h"
 #include "Windows/Main.h"
@@ -230,7 +230,7 @@ void CtrlDisplayListView::onPaint(WPARAM wParam, LPARAM lParam)
 
 		if (address == list.pc)
 		{
-			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
+			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"\x25A0",1);
 		}
 
 		const char* opcode = op.desc.c_str();
