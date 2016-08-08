@@ -145,11 +145,6 @@ void UIContext::MeasureTextCount(const UI::FontStyle &style, float scaleX, float
 }
 
 void UIContext::MeasureTextRect(const UI::FontStyle &style, float scaleX, float scaleY, const char *str, int count, const Bounds &bounds, float *x, float *y, int align) const {
-	if ((align & FLAG_WRAP_TEXT) == 0) {
-		MeasureTextCount(style, scaleX, scaleY, str, count, x, y, align);
-		return;
-	}
-
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);

@@ -24,7 +24,7 @@ static recursive_mutex mutex_;
 
 const float ITEM_HEIGHT = 64.f;
 const float MIN_TEXT_SCALE = 0.8f;
-
+const float MAX_ITEM_SIZE = 65535.0f;
 
 struct DispatchQueueItem {
 	Event *e;
@@ -413,14 +413,13 @@ void Item::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 
 void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 0.0f;
-	h = 0.0f;
+	h = ITEM_HEIGHT;
 }
 
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
 	if (!layoutParams) {
 		if (layoutParams_->width == WRAP_CONTENT)
 			layoutParams_->width = FILL_PARENT;
-		layoutParams_->height = ITEM_HEIGHT;
 	}
 }
 
@@ -437,16 +436,35 @@ void ClickableItem::Draw(UIContext &dc) {
 	dc.FillRect(style.background, bounds_);
 }
 
-void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	if (atlasImage_ != -1) {
 		const AtlasImage &img = dc.Draw()->GetAtlas()->images[atlasImage_];
 		w = img.w;
 		h = img.h;
 	} else {
-		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
+		const int paddingX = 12;
+		float availWidth = horiz.size - paddingX * 2 - textPadding_.horiz();
+		if (availWidth < 0.0f) {
+			// Let it have as much space as it needs.
+			availWidth = MAX_ITEM_SIZE;
+		}
+		float scale = CalculateTextScale(dc, availWidth);
+		Bounds availBounds(0, 0, availWidth, vert.size);
+		dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &w, &h, FLAG_WRAP_TEXT);
 	}
 	w += 24;
 	h += 16;
+	h = std::max(h, ITEM_HEIGHT);
+}
+
+float Choice::CalculateTextScale(const UIContext &dc, float availWidth) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight);
+	if (actualWidth > availWidth) {
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+	return 1.0f;
 }
 
 void Choice::HighlightChanged(bool highlighted){
@@ -482,23 +500,18 @@ void Choice::Draw(UIContext &dc) {
 
 		const int paddingX = 12;
 		const float availWidth = bounds_.w - paddingX * 2 - textPadding_.horiz();
-		float scale = 1.0f;
-
-		float actualWidth, actualHeight;
-		dc.MeasureText(dc.theme->uiFont, scale, scale, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
-		if (actualWidth > availWidth) {
-			scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-		}
+		float scale = CalculateTextScale(dc, availWidth);
 
 		dc.SetFontScale(scale, scale);
 		if (centered_) {
-			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+			dc.DrawTextRect(text_.c_str(), bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT);
 		} else {
 			if (iconImage_ != -1) {
 				dc.Draw()->DrawImage(iconImage_, bounds_.x2() - 32 - paddingX, bounds_.centerY(), 0.5f, style.fgColor, ALIGN_CENTER);
 			}
 
-			dc.DrawText(text_.c_str(), bounds_.x + paddingX + textPadding_.left, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			Bounds textBounds(bounds_.x + paddingX + textPadding_.left, bounds_.y, availWidth, bounds_.h);
+			dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
@@ -588,18 +601,45 @@ void CheckBox::Draw(UIContext &dc) {
 	const int paddingX = 12;
 	// Padding right of the checkbox image too.
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	float scale = 1.0f;
-
-	float actualWidth, actualHeight;
-	dc.MeasureText(dc.theme->uiFont, scale, scale, text_.c_str(), &actualWidth, &actualHeight, ALIGN_VCENTER);
-	if (actualWidth > availWidth) {
-		scale = std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
-	}
+	float scale = CalculateTextScale(dc, availWidth);
 
 	dc.SetFontScale(scale, scale);
-	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+	dc.DrawTextRect(text_.c_str(), textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	dc.SetFontScale(1.0f, 1.0f);
+}
+
+float CheckBox::CalculateTextScale(const UIContext &dc, float availWidth) const {
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	if (actualWidth > availWidth) {
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+	}
+	return 1.0f;
+}
+
+void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+	float imageW, imageH;
+	dc.Draw()->MeasureImage(image, &imageW, &imageH);
+
+	const int paddingX = 12;
+	// Padding right of the checkbox image too.
+	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
+	if (availWidth < 0.0f) {
+		// Let it have as much space as it needs.
+		availWidth = MAX_ITEM_SIZE;
+	}
+	float scale = CalculateTextScale(dc, availWidth);
+
+	float actualWidth, actualHeight;
+	Bounds availBounds(0, 0, availWidth, bounds_.h);
+	dc.MeasureTextRect(dc.theme->uiFont, scale, scale, text_.c_str(), (int)text_.size(), availBounds, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+
+	w = bounds_.w;
+	h = std::max(actualHeight, ITEM_HEIGHT);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -684,10 +724,10 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
 	if (bounds.w < 0) {
 		// If there's no size, let's grow as big as we want.
-		bounds.w = horiz.size == 0 ? 1000.f : horiz.size;
+		bounds.w = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
 	}
 	if (bounds.h < 0) {
-		bounds.h = vert.size == 0 ? 1000.f : vert.size;
+		bounds.h = vert.size == 0 ? MAX_ITEM_SIZE : vert.size;
 	}
 	ApplyBoundsBySpec(bounds, horiz, vert);
 	dc.MeasureTextRect(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), (int)text_.length(), bounds, &w, &h, textAlign_);
