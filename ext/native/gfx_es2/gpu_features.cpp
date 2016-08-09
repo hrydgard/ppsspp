@@ -379,6 +379,12 @@ void CheckGLExtensions() {
 		gl_extensions.ARB_vertex_array_object = true;
 		gl_extensions.ARB_framebuffer_object = true;
 	}
+#ifdef __APPLE__
+	if (!gl_extensions.IsGLES && !gl_extensions.IsCoreContext) {
+		// Apple doesn't allow OpenGL 3.x+ in compatibility contexts.
+		gl_extensions.ForceGL2 = true;
+	}
+#endif
 
 	ProcessGPUFeatures();
 

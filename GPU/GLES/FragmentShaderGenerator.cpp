@@ -15,14 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
-// special treatment in the shader generator.
-#if defined(__APPLE__)
-const bool forceOpenGL2_0 = true;
-#else
-const bool forceOpenGL2_0 = false;
-#endif
-
 #include <cstdio>
 #include <sstream>
 
@@ -116,8 +108,7 @@ bool GenerateFragmentShader(const ShaderID &id, char *buffer) {
 
 		WRITE(p, "precision lowp float;\n");
 	} else {
-		// TODO: Handle this in VersionGEThan?
-		if (!forceOpenGL2_0 || gl_extensions.IsCoreContext) {
+		if (!gl_extensions.ForceGL2 || gl_extensions.IsCoreContext) {
 			if (gl_extensions.VersionGEThan(3, 3, 0)) {
 				fragColor0 = "fragColor0";
 				texture = "texture";
