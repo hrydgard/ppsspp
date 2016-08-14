@@ -20,6 +20,8 @@
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
 
+class SettingInfoMessage;
+
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithGameBackground {
@@ -47,6 +49,7 @@ private:
 	UI::Choice *displayEditor_;
 	UI::PopupMultiChoice *resolutionChoice_;
 	UI::CheckBox *frameSkipAuto_;
+	SettingInfoMessage *settingInfo_;
 #ifdef _WIN32
 	UI::CheckBox *SavePathInMyDocumentChoice;
 	UI::CheckBox *SavePathInOtherChoice;
@@ -113,6 +116,25 @@ private:
 	bool postProcEnable_;
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
+};
+
+class SettingInfoMessage : public UI::TextView {
+public:
+	SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
+		: UI::TextView("", align, false, lp), timeShown_(0.0) {
+	}
+
+	void SetBottomCutoff(float y) {
+		cutOffY_ = y;
+	}
+	void Show(const std::string &text, UI::View *refView = nullptr);
+
+	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const;
+	void Draw(UIContext &dc);
+
+private:
+	double timeShown_;
+	float cutOffY_;
 };
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {

@@ -104,17 +104,15 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 	I18NCategory *dev = GetI18NCategory("Developer");
 
-	if (vertical) {
-		root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	} else {
-		root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	}
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	TabHolder *tabHolder;
 	if (vertical) {
+		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
-		root_->Add(tabHolder);
-		root_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		verticalLayout->Add(tabHolder);
+		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->Add(verticalLayout);
 	} else {
 		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 		root_->Add(tabHolder);
@@ -122,6 +120,14 @@ void GameSettingsScreen::CreateViews() {
 	}
 	tabHolder->SetTag("GameSettings");
 	root_->SetDefaultFocusView(tabHolder);
+
+	float leftSide = 40.0f;
+	if (!vertical) {
+		leftSide += 200.0f;
+	}
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, dp_yres - 80.0f - 40.0f, NONE, NONE));
+	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
+	root_->Add(settingInfo_);
 
 	// TODO: These currently point to global settings, not game specific ones.
 
@@ -1323,4 +1329,53 @@ UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
 	tempProAdhocServer = g_Config.proAdhocServer;
 	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
+}
+
+void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
+	if (refView) {
+		Bounds b = refView->GetBounds();
+		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
+		if (b.y >= cutOffY_) {
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+		} else {
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		}
+	}
+	SetText(text);
+	timeShown_ = time_now_d();
+}
+
+void SettingInfoMessage::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
+	TextView::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
+	w += 20.0f;
+	h += 20.0f;
+}
+
+void SettingInfoMessage::Draw(UIContext &dc) {
+	static const double FADE_TIME = 1.0;
+	static const float MAX_ALPHA = 0.9f;
+
+	// Let's show longer messages for more time (guesstimate at reading speed.)
+	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
+	double timeToShow = std::max(1.5, GetText().size() * 0.05);
+
+	double sinceShow = time_now_d() - timeShown_;
+	float alpha = MAX_ALPHA;
+	if (timeShown_ == 0.0 || sinceShow > timeToShow + FADE_TIME) {
+		alpha = 0.0f;
+	} else if (sinceShow > timeToShow) {
+		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
+	}
+
+	if (alpha >= 0.1f) {
+		UI::Style style = dc.theme->popupTitle;
+		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
+		dc.FillRect(style.background, bounds_);
+	}
+
+	SetTextColor(whiteAlpha(alpha));
+	// Fake padding by adjusting bounds.
+	SetBounds(bounds_.Expand(-10.0f));
+	TextView::Draw(dc);
+	SetBounds(bounds_.Expand(10.0f));
 }
