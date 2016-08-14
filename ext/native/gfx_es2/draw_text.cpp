@@ -182,7 +182,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		return;
 
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
-	uint32_t entryHash = stringHash ^ fontHash_;
+	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 
 	target.Flush(true);
 
@@ -206,8 +206,11 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		SetBkColor(ctx_->hDC, 0);
 		SetTextAlign(ctx_->hDC, TA_TOP);
 
+		// This matters for multi-line text - DT_CENTER is horizontal only.
+		UINT dtAlign = (align & ALIGN_HCENTER) == 0 ? DT_LEFT : DT_CENTER;
+
 		RECT textRect = {0};
-		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_HIDEPREFIX|DT_TOP|DT_LEFT|DT_CALCRECT, 0);
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_HIDEPREFIX|DT_TOP|dtAlign|DT_CALCRECT, 0);
 		size.cx = textRect.right;
 		size.cy = textRect.bottom;
 
@@ -217,7 +220,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		rc.bottom = size.cy + 4;
 		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
 		//ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
-		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|dtAlign, 0);
 
 		if (size.cx > MAX_TEXT_WIDTH)
 			size.cx = MAX_TEXT_WIDTH;
@@ -342,7 +345,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 
 #ifdef USING_QT_UI
 	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, strlen(str));
-	uint32_t entryHash = stringHash ^ fontHash_;
+	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
 	
 	target.Flush(true);
 
@@ -367,6 +370,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		painter.begin(&image);
 		painter.setFont(*font);
 		painter.setPen(color);
+		// TODO: Involve ALIGN_HCENTER (bounds etc.)
 		painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str).replace("&&", "&"));
 		painter.end();
 
