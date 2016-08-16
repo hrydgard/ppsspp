@@ -32,6 +32,9 @@ GLExtensions gl_extensions;
 std::string g_all_gl_extensions;
 std::string g_all_egl_extensions;
 
+static bool extensionsDone = false;
+static bool useCoreContext = false;
+
 bool GLExtensions::VersionGEThan(int major, int minor, int sub) {
 	if (gl_extensions.ver[0] > major)
 		return true;
@@ -73,11 +76,11 @@ void ProcessGPUFeatures() {
 
 void CheckGLExtensions() {
 	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
-	static bool done = false;
-	if (done)
+	if (extensionsDone)
 		return;
-	done = true;
+	extensionsDone = true;
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
+	gl_extensions.IsCoreContext = useCoreContext;
 
 #ifdef USING_GLES2
 	gl_extensions.IsGLES = true;
@@ -371,9 +374,30 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
 	gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
 
+	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
+		// These are required, and don't need to be specified by the driver (they aren't on Apple.)
+		gl_extensions.ARB_vertex_array_object = true;
+		gl_extensions.ARB_framebuffer_object = true;
+	}
+#ifdef __APPLE__
+	if (!gl_extensions.IsGLES && !gl_extensions.IsCoreContext) {
+		// Apple doesn't allow OpenGL 3.x+ in compatibility contexts.
+		gl_extensions.ForceGL2 = true;
+	}
+#endif
+
 	ProcessGPUFeatures();
 
 	int error = glGetError();
 	if (error)
 		ELOG("GL error in init: %i", error);
+}
+
+void SetGLCoreContext(bool flag) {
+	if (extensionsDone)
+		FLOG("SetGLCoreContext() after CheckGLExtensions()");
+
+	useCoreContext = flag;
+	// For convenience, it'll get reset later.
+	gl_extensions.IsCoreContext = useCoreContext;
 }

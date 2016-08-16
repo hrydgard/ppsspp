@@ -587,10 +587,17 @@ int main(int argc, char *argv[]) {
 
 
 #ifndef USING_GLES2
+	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
+	// glewExperimental allows us to force GLEW to search for the pointers anyway.
+	if (gl_extensions.IsCoreContext)
+		glewExperimental = true;
 	if (GLEW_OK != glewInit()) {
 		printf("Failed to initialize glew!\n");
 		return 1;
 	}
+	// Unfortunately, glew will generate an invalid enum error, ignore.
+	if (gl_extensions.IsCoreContext)
+		glGetError();
 
 	if (GLEW_VERSION_2_0) {
 		printf("OpenGL 2.0 or higher.\n");
