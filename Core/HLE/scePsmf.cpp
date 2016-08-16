@@ -50,10 +50,11 @@ const int PSMF_PLAYER_WARMUP_FRAMES = 3;
 
 static const int VIDEO_FRAME_DURATION_TS = 3003;
 
-int audioSamples = 2048;  
-int audioSamplesBytes = audioSamples * 4;
-int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
-int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
+static const int audioSamples = 2048;
+static const int audioSamplesBytes = audioSamples * 4;
+static int videoPixelMode = GE_CMODE_32BIT_ABGR8888;
+static int videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
+static int psmfPlayerLibVersion = 0;
 
 enum PsmfPlayerError {
 	ERROR_PSMF_NOT_INITIALIZED       = 0x80615001,
@@ -231,9 +232,8 @@ public:
 	}
 
 	bool HasReachedEnd() {
-		bool videoPtsEnd = (s64)psmfPlayerAvcAu.pts >= (s64)totalDurationTimestamp - VIDEO_FRAME_DURATION_TS;
-		// If we're out of video data and have no audio, it's over even if the pts isn't there yet.
-		return videoPtsEnd || (mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData());
+		// The pts are ignored - the end is when we're out of data.
+		return mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData();
 	}
 
 	u32 filehandle;
@@ -647,14 +647,17 @@ static PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
 		return 0;
 }
 
-void __PsmfInit()
-{
+void __PsmfInit() {
 	videoPixelMode = GE_CMODE_32BIT_ABGR8888;
 	videoLoopStatus = PSMF_PLAYER_CONFIG_NO_LOOP;
+	psmfPlayerLibVersion = 0;
 }
 
-void __PsmfDoState(PointerWrap &p)
-{
+void __PsmfPlayerLoadModule(int devkitVersion) {
+	psmfPlayerLibVersion = devkitVersion;
+}
+
+void __PsmfDoState(PointerWrap &p) {
 	auto s = p.Section("scePsmf", 1);
 	if (!s)
 		return;
@@ -662,19 +665,23 @@ void __PsmfDoState(PointerWrap &p)
 	p.Do(psmfMap);
 }
 
-void __PsmfPlayerDoState(PointerWrap &p)
-{
-	auto s = p.Section("scePsmfPlayer", 1);
+void __PsmfPlayerDoState(PointerWrap &p) {
+	auto s = p.Section("scePsmfPlayer", 1, 2);
 	if (!s)
 		return;
 
 	p.Do(psmfPlayerMap);
 	p.Do(videoPixelMode);
 	p.Do(videoLoopStatus);
+	if (s >= 2) {
+		p.Do(psmfPlayerLibVersion);
+	} else {
+		// Assume the latest, which is what we were emulating before.
+		psmfPlayerLibVersion = 0x06060010;
+	}
 }
 
-void __PsmfShutdown()
-{
+void __PsmfShutdown() {
 	for (auto it = psmfMap.begin(), end = psmfMap.end(); it != end; ++it)
 		delete it->second;
 	for (auto it = psmfPlayerMap.begin(), end = psmfPlayerMap.end(); it != end; ++it)
@@ -1233,7 +1240,13 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 
 	int mpegoffset = *(s32_be *)(buf + PSMF_STREAM_OFFSET_OFFSET);
 	psmfplayer->readSize = size - mpegoffset;
-	psmfplayer->streamSize = *(s32_be *)(buf + PSMF_STREAM_SIZE_OFFSET);
+	if (psmfPlayerLibVersion >= 0x05050010) {
+		psmfplayer->streamSize = *(s32_be *)(buf + PSMF_STREAM_SIZE_OFFSET);
+	} else {
+		// Older versions just read until the end of the file.
+		PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+		psmfplayer->streamSize = info.size - offset - mpegoffset;
+	}
 	psmfplayer->fileoffset = offset + mpegoffset;
 	psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, tempbufSize));
 	_PsmfPlayerFillRingbuffer(psmfplayer);

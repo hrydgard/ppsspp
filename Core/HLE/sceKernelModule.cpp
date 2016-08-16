@@ -51,6 +51,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
@@ -1065,6 +1066,9 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 			if (!strcmp(head->modname, "sceMpeg_library")) {
 				__MpegLoadModule(ver);
 			}
+			if (!strcmp(head->modname, "scePsmfP_library") || !strcmp(head->modname, "scePsmfPlayer")) {
+				__PsmfPlayerLoadModule(head->devkitversion);
+			}
 		}
 
 		const u8 *in = ptr;
@@ -1420,6 +1424,9 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, bool fromT
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
 			__MpegLoadModule(modinfo->moduleVersion);
+		}
+		if (!strcmp(modinfo->name, "scePsmfP_library") || !strcmp(modinfo->name, "scePsmfPlayer")) {
+			__PsmfPlayerLoadModule(devkitVersion);
 		}
 	}
 
