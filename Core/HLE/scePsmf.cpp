@@ -232,9 +232,14 @@ public:
 	}
 
 	bool HasReachedEnd() {
-		bool videoPtsEnd = (s64)psmfPlayerAvcAu.pts >= (s64)totalDurationTimestamp - VIDEO_FRAME_DURATION_TS;
-		// If we're out of video data and have no audio, it's over even if the pts isn't there yet.
-		return videoPtsEnd || (mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData());
+		if (psmfPlayerLibVersion >= 0x05050010) {
+			bool videoPtsEnd = (s64)psmfPlayerAvcAu.pts >= (s64)totalDurationTimestamp - VIDEO_FRAME_DURATION_TS;
+			// If we're out of video data and have no audio, it's over even if the pts isn't there yet.
+			return videoPtsEnd || (mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData());			
+		}
+		else {// Older versions just read until the end of the file. 
+			return (mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData());
+		}
 	}
 
 	u32 filehandle;
