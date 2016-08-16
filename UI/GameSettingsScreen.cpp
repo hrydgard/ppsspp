@@ -104,17 +104,15 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 	I18NCategory *dev = GetI18NCategory("Developer");
 
-	if (vertical) {
-		root_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	} else {
-		root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	}
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	TabHolder *tabHolder;
 	if (vertical) {
+		LinearLayout *verticalLayout = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 		tabHolder = new TabHolder(ORIENT_HORIZONTAL, 200, new LinearLayoutParams(1.0f));
-		root_->Add(tabHolder);
-		root_->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		verticalLayout->Add(tabHolder);
+		verticalLayout->Add(new Choice(di->T("Back"), "", false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		root_->Add(verticalLayout);
 	} else {
 		tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 		root_->Add(tabHolder);
@@ -122,6 +120,14 @@ void GameSettingsScreen::CreateViews() {
 	}
 	tabHolder->SetTag("GameSettings");
 	root_->SetDefaultFocusView(tabHolder);
+
+	float leftSide = 40.0f;
+	if (!vertical) {
+		leftSide += 200.0f;
+	}
+	settingInfo_ = new SettingInfoMessage(ALIGN_CENTER | FLAG_WRAP_TEXT, new AnchorLayoutParams(dp_xres - leftSide - 40.0f, WRAP_CONTENT, leftSide, dp_yres - 80.0f - 40.0f, NONE, NONE));
+	settingInfo_->SetBottomCutoff(dp_yres - 200.0f);
+	root_->Add(settingInfo_);
 
 	// TODO: These currently point to global settings, not game specific ones.
 
@@ -149,6 +155,22 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
+	renderingModeChoice->OnChoice.Add([&](EventParams &e) {
+		switch (g_Config.iRenderingMode) {
+		case FB_NON_BUFFERED_MODE:
+			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but nothing may draw in some games"), e.v);
+			break;
+		case FB_BUFFERED_MODE:
+			break;
+#ifndef USING_GLES2
+		case FB_READFBOMEMORY_CPU:
+#endif
+		case FB_READFBOMEMORY_GPU:
+			settingInfo_->Show(gr->T("RenderingMode ReadFromMemory Tip", "Causes crashes in many games, not recommended"), e.v);
+			break;
+		}
+		return UI::EVENT_CONTINUE;
+	});
 	renderingModeChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 	renderingModeChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	CheckBox *blockTransfer = graphicsSettings->Add(new CheckBox(&g_Config.bBlockTransferGPU, gr->T("Simulate Block Transfer", "Simulate Block Transfer (unfinished)")));
@@ -221,6 +243,10 @@ void GameSettingsScreen::CreateViews() {
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
+	vtxCache->OnClick.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	vtxCache->SetEnabledPtr(&vtxCacheEnable_);
 
@@ -228,6 +254,10 @@ void GameSettingsScreen::CreateViews() {
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
+	texSecondary_->OnClick.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	texSecondary_->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
@@ -261,6 +291,12 @@ void GameSettingsScreen::CreateViews() {
 		texScalingChoice->HideChoice(3); // 3x
 		texScalingChoice->HideChoice(5); // 5x
 	}
+	texScalingChoice->OnChoice.Add([&](EventParams &e) {
+		if (g_Config.iTexScalingLevel != 1) {
+			settingInfo_->Show(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter"), e.v);
+		}
+		return UI::EVENT_CONTINUE;
+	});
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
@@ -297,6 +333,10 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
 	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gr->T("Disable Alpha Test (PowerVR speedup)")));
+	alphaHack->OnClick.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("DisableAlphaTest Tip", "Faster by sometimes drawing ugly boxes around things"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	alphaHack->OnClick.Handle(this, &GameSettingsScreen::OnShaderChange);
 	alphaHack->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
@@ -333,6 +373,10 @@ void GameSettingsScreen::CreateViews() {
 
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (experimental)")));
+	softwareGPU->OnClick.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	softwareGPU->OnClick.Handle(this, &GameSettingsScreen::OnSoftwareRendering);
 
 	if (PSP_IsInited())
@@ -461,7 +505,12 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
 #endif // #if defined(USING_WIN_UI)
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0"));
+	auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
+	controlsSettings->Add(analogLimiter);
+	analogLimiter->OnChange.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 
 	ViewGroup *networkingSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	networkingSettingsScroll->SetTag("GameSettingsNetworking");
@@ -522,7 +571,12 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, sy->T("Fast Memory", "Fast Memory (Unstable)")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)")));
+	auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
+	systemSettings->Add(separateCPUThread);
+	separateCPUThread->OnClick.Add([&](EventParams &e) {
+		settingInfo_->Show(gr->T("Mulithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 	static const char *ioTimingMethods[] = { "Fast (lag on slow storage)", "Host (bugs, less lag)", "Simulate UMD delays" };
 	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
@@ -1323,4 +1377,53 @@ UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
 	tempProAdhocServer = g_Config.proAdhocServer;
 	UIScreen::OnBack(e);
 	return UI::EVENT_DONE;
+}
+
+void SettingInfoMessage::Show(const std::string &text, UI::View *refView) {
+	if (refView) {
+		Bounds b = refView->GetBounds();
+		const UI::AnchorLayoutParams *lp = GetLayoutParams()->As<UI::AnchorLayoutParams>();
+		if (b.y >= cutOffY_) {
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, 80.0f, lp->right, lp->bottom, lp->center));
+		} else {
+			ReplaceLayoutParams(new UI::AnchorLayoutParams(lp->width, lp->height, lp->left, dp_yres - 80.0f - 40.0f, lp->right, lp->bottom, lp->center));
+		}
+	}
+	SetText(text);
+	timeShown_ = time_now_d();
+}
+
+void SettingInfoMessage::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
+	TextView::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
+	w += 20.0f;
+	h += 20.0f;
+}
+
+void SettingInfoMessage::Draw(UIContext &dc) {
+	static const double FADE_TIME = 1.0;
+	static const float MAX_ALPHA = 0.9f;
+
+	// Let's show longer messages for more time (guesstimate at reading speed.)
+	// Note: this will give multibyte characters more time, but they often have shorter words anyway.
+	double timeToShow = std::max(1.5, GetText().size() * 0.05);
+
+	double sinceShow = time_now_d() - timeShown_;
+	float alpha = MAX_ALPHA;
+	if (timeShown_ == 0.0 || sinceShow > timeToShow + FADE_TIME) {
+		alpha = 0.0f;
+	} else if (sinceShow > timeToShow) {
+		alpha = MAX_ALPHA - MAX_ALPHA * (float)((sinceShow - timeToShow) / FADE_TIME);
+	}
+
+	if (alpha >= 0.1f) {
+		UI::Style style = dc.theme->popupTitle;
+		style.background.color = colorAlpha(style.background.color, alpha - 0.1f);
+		dc.FillRect(style.background, bounds_);
+	}
+
+	SetTextColor(whiteAlpha(alpha));
+	// Fake padding by adjusting bounds.
+	SetBounds(bounds_.Expand(-10.0f));
+	TextView::Draw(dc);
+	SetBounds(bounds_.Expand(10.0f));
 }

@@ -5,6 +5,7 @@
 
 #include "base/display.h"
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "math/math_util.h"
 #include "gfx/texture_atlas.h"
 #include "gfx/gl_debug_log.h"
@@ -348,7 +349,12 @@ protected:
 float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 	float w = 0.0f;
 	for (UTF8 utf(str); utf.byteIndex() < (int)bytes; ) {
-		const AtlasChar *ch = atlasfont_.getChar(utf.next());
+		uint32_t c = utf.next();
+		if (c == '&') {
+			// Skip ampersand prefixes ("&&" is an ampersand.)
+			c = utf.next();
+		}
+		const AtlasChar *ch = atlasfont_.getChar(c);
 		if (!ch)
 			ch = atlasfont_.getChar('?');
 
@@ -443,7 +449,30 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toDraw.c_str(), w);
 		toDraw = wrapper.Wrapped();
 	}
-	DrawText(font, toDraw.c_str(), x, y, color, align);
+
+	float totalWidth, totalHeight;
+	MeasureTextRect(font, toDraw.c_str(), (int)toDraw.size(), Bounds(x, y, w, h), &totalWidth, &totalHeight, align);
+
+	std::vector<std::string> lines;
+	SplitString(toDraw, '\n', lines);
+
+	float baseY = y;
+	if (align & ALIGN_VCENTER) {
+		baseY -= totalHeight / 2;
+		align = align & ~ALIGN_VCENTER;
+	} else if (align & ALIGN_BOTTOM) {
+		baseY -= totalHeight;
+		align = align & ~ALIGN_BOTTOM;
+	}
+
+	// This allows each line to be horizontally centered by itself.
+	for (const std::string &line : lines) {
+		DrawText(font, line.c_str(), x, baseY, color, align);
+
+		float tw, th;
+		MeasureText(font, line.c_str(), &tw, &th);
+		baseY += th;
+	}
 }
 
 // ROTATE_* doesn't yet work right.

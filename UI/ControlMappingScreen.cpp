@@ -116,7 +116,7 @@ void ControlMapper::Refresh() {
 		root->Add(c)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	}
 
-	Choice *p = root->Add(new Choice(" + ", new LayoutParams(FILL_PARENT, itemH)));
+	Choice *p = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
 	p->OnClick.Handle(this, &ControlMapper::OnAdd);
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
@@ -138,7 +138,7 @@ void ControlMapper::Refresh() {
 		c->SetTag(tagbuf);
 		c->OnClick.Handle(this, &ControlMapper::OnReplace);
 
-		Choice *d = row->Add(new Choice(" X ", new LayoutParams(FILL_PARENT, itemH)));
+		Choice *d = row->Add(new Choice(" X ", new LayoutParams(WRAP_CONTENT, itemH)));
 		d->SetTag(tagbuf);
 		d->OnClick.Handle(this, &ControlMapper::OnDelete);
 	}
