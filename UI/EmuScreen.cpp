@@ -202,6 +202,8 @@ void EmuScreen::bootComplete() {
 	}
 
 	System_SendMessage("event", "startgame");
+
+	saveStateSlot_ = SaveState::GetCurrentSlot();
 }
 
 EmuScreen::~EmuScreen() {
@@ -804,7 +806,7 @@ void EmuScreen::update(InputState &input) {
 		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 
-	if (saveStatePreview_) {
+	if (saveStatePreview_ && !bootPending_) {
 		int currentSlot = SaveState::GetCurrentSlot();
 		if (saveStateSlot_ != currentSlot) {
 			saveStateSlot_ = currentSlot;
