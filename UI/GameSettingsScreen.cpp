@@ -155,7 +155,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
-	renderingModeChoice->OnChoice.Add([&](EventParams &e) {
+	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 		switch (g_Config.iRenderingMode) {
 		case FB_NON_BUFFERED_MODE:
 			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but nothing may draw in some games"), e.v);
@@ -243,7 +243,7 @@ void GameSettingsScreen::CreateViews() {
 	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
-	vtxCache->OnClick.Add([&](EventParams &e) {
+	vtxCache->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
@@ -254,7 +254,7 @@ void GameSettingsScreen::CreateViews() {
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *texSecondary_ = graphicsSettings->Add(new CheckBox(&g_Config.bTextureSecondaryCache, gr->T("Retain changed textures", "Retain changed textures (speedup, mem hog)")));
-	texSecondary_->OnClick.Add([&](EventParams &e) {
+	texSecondary_->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RetainChangedTextures Tip", "Makes many games slower, but some games a lot faster"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
@@ -291,7 +291,7 @@ void GameSettingsScreen::CreateViews() {
 		texScalingChoice->HideChoice(3); // 3x
 		texScalingChoice->HideChoice(5); // 5x
 	}
-	texScalingChoice->OnChoice.Add([&](EventParams &e) {
+	texScalingChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iTexScalingLevel != 1) {
 			settingInfo_->Show(gr->T("UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter"), e.v);
 		}
@@ -333,7 +333,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
 	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gr->T("Disable Alpha Test (PowerVR speedup)")));
-	alphaHack->OnClick.Add([&](EventParams &e) {
+	alphaHack->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("DisableAlphaTest Tip", "Faster by sometimes drawing ugly boxes around things"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
@@ -373,7 +373,7 @@ void GameSettingsScreen::CreateViews() {
 
 	// We normally use software rendering to debug so put it in debugging.
 	CheckBox *softwareGPU = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareRendering, gr->T("Software Rendering", "Software Rendering (experimental)")));
-	softwareGPU->OnClick.Add([&](EventParams &e) {
+	softwareGPU->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("SoftGPU Tip", "Currently VERY slow"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
@@ -507,8 +507,8 @@ void GameSettingsScreen::CreateViews() {
 #endif // #if defined(USING_WIN_UI)
 	auto analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
 	controlsSettings->Add(analogLimiter);
-	analogLimiter->OnChange.Add([&](EventParams &e) {
-		settingInfo_->Show(gr->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
+	analogLimiter->OnChange.Add([=](EventParams &e) {
+		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 
@@ -573,8 +573,8 @@ void GameSettingsScreen::CreateViews() {
 
 	auto separateCPUThread = new CheckBox(&g_Config.bSeparateCPUThread, sy->T("Multithreaded (experimental)"));
 	systemSettings->Add(separateCPUThread);
-	separateCPUThread->OnClick.Add([&](EventParams &e) {
-		settingInfo_->Show(gr->T("Mulithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
+	separateCPUThread->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(sy->T("Mulithreaded Tip", "Not always faster, causes glitches/crashing"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, sy->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
