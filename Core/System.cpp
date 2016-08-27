@@ -182,7 +182,7 @@ void CPU_Shutdown();
 void CPU_Init() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
-	
+
 	g_symbolMap = new SymbolMap();
 
 	// Default memory settings
@@ -386,7 +386,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 #else
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
-	
+
 	GraphicsContext *temp = coreParameter.graphicsContext;
 	coreParameter = coreParam;
 	if (coreParameter.graphicsContext == nullptr) {
@@ -593,6 +593,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 			return g_Config.appCacheDirectory;
 		}
 		return g_Config.memStickDirectory + "PSP/SYSTEM/CACHE/";
+	case DIRECTORY_VIDEO_DUMP:
+		return g_Config.memStickDirectory + "PSP/FRAMEDUMP/";
 	// Just return the memory stick root if we run into some sort of problem.
 	default:
 		ERROR_LOG(FILESYS, "Unknown directory type.");

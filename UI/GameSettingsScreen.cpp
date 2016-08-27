@@ -273,7 +273,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *quality[] = { "Low", "Medium", "High"};
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	
+
 	// In case we're going to add few other antialiasing option like MSAA in the future.
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
@@ -676,6 +676,8 @@ void GameSettingsScreen::CreateViews() {
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
+	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Dump Frames")));
+	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use FFV1 for Frame Dumps")));
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
@@ -801,7 +803,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
-	const std::string PPSSPPpath = File::GetExeDirectory();	
+	const std::string PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
 		I18NCategory *di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
@@ -983,8 +985,8 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {	
-#if defined(_WIN32) || defined(USING_QT_UI)	
+UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
+#if defined(_WIN32) || defined(USING_QT_UI)
 	if (!g_Config.bFullScreen) {
 		const size_t name_len = 256;
 
@@ -1002,7 +1004,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 #else
 	screenManager()->push(new ProAdhocServerScreen);
 #endif
-	
+
 	return UI::EVENT_DONE;
 }
 
@@ -1246,14 +1248,14 @@ UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) 
 }
 
 void ProAdhocServerScreen::CreateViews() {
-	using namespace UI;	
+	using namespace UI;
 	I18NCategory *sy = GetI18NCategory("System");
 	I18NCategory *di = GetI18NCategory("Dialog");
-	
+
 	tempProAdhocServer = g_Config.proAdhocServer;
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	
+
 	leftColumn->Add(new ItemHeader(sy->T("proAdhocServer Address:")));
 	addrView_ = new TextView(tempProAdhocServer, ALIGN_LEFT, false);
 	leftColumn->Add(addrView_);

@@ -104,6 +104,8 @@ public:
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
+	bool bUseFFV1;
+	bool bDumpFrames;
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
 	bool bFullscreenOnDoubleclick;
@@ -235,7 +237,7 @@ public:
 	//considers this orientation to be equal to no movement of the analog stick.
 	float fTiltBaseX, fTiltBaseY;
 	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
-	bool bInvertTiltX, bInvertTiltY; 
+	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction
 	int iTiltSensitivityX;
 	//the sensitivity of the tilt in the Y direction
@@ -330,7 +332,7 @@ public:
 	bool bShowComboKey2;
 	bool bShowComboKey3;
 	bool bShowComboKey4;
-	
+
 	// Combo_key mapping. These are bitfields.
 	int iCombokey0;
 	int iCombokey1;
@@ -359,9 +361,9 @@ public:
 	// proper options when good enough.
 	// PrescaleUV:
 	//   * Applies UV scale/offset when decoding verts. Get rid of some work in the vertex shader,
-	//     saves a uniform upload and is a prerequisite for future optimized hybrid 
+	//     saves a uniform upload and is a prerequisite for future optimized hybrid
 	//     (SW skinning, HW transform) skinning.
-	//   * Still has major problems so off by default - need to store tex scale/offset per DeferredDrawCall, 
+	//   * Still has major problems so off by default - need to store tex scale/offset per DeferredDrawCall,
 	//     which currently isn't done so if texscale/offset isn't static (like in Tekken 6) things go wrong.
 	bool bPrescaleUV;
 	bool bDisableAlphaTest;  // Helps PowerVR immensely, breaks some graphics
@@ -424,7 +426,7 @@ public:
 	bool bShowFrameProfiler;
 
 	std::string currentDirectory;
-	std::string externalDirectory; 
+	std::string externalDirectory;
 	std::string memStickDirectory;
 	std::string flash0Directory;
 	std::string internalDataDirectory;
@@ -438,7 +440,7 @@ public:
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save();
 	void RestoreDefaults();
-	
+
 	//per game config managment, should maybe be in it's own class
 	void changeGameSpecific(const std::string &gameId = "");
 	bool createGameConfig(const std::string &game_id);
@@ -472,7 +474,7 @@ public:
 
 protected:
 	void LoadStandardControllerIni();
-	
+
 private:
 	std::string gameId_;
 	std::string iniFilename_;

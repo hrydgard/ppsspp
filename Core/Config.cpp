@@ -40,7 +40,7 @@
 #include "HLE/sceUtility.h"
 
 #ifndef USING_QT_UI
-extern const char *PPSSPP_GIT_VERSION; 
+extern const char *PPSSPP_GIT_VERSION;
 #endif
 
 // TODO: Find a better place for this.
@@ -327,6 +327,8 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
+	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false),
+	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
@@ -926,7 +928,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		fcombo4X /= screen_width;
 		fcombo4Y /= screen_height;
 	}
-	
+
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);
 	Version upgrade(upgradeVersion);
@@ -955,7 +957,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	bSaveSettings = true;
 
 	LoadStandardControllerIni();
-	
+
 	//so this is all the way down here to overwrite the controller settings
 	//sadly it won't benefit from all the "version conversion" going on up-above
 	//but these configs shouldn't contain older versions anyhow
@@ -987,7 +989,7 @@ void Config::Save() {
 		g_Config.iCpuCore = CPU_CORE_JIT;
 	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
-		
+
 		saveGameConfig(gameId_);
 
 		CleanRecent();

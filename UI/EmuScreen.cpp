@@ -32,6 +32,7 @@
 
 #include "Common/KeyMap.h"
 
+#include "Core/AVIDump.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -70,8 +71,11 @@
 #include "Windows/MainWindow.h"
 #endif
 
+AVIDump avi;
+
 static bool frameStep_;
 static int lastNumFlips;
+static bool startDumping;
 
 static void __EmuScreenVblank()
 {
@@ -80,6 +84,21 @@ static void __EmuScreenVblank()
 		frameStep_ = false;
 		Core_EnableStepping(true);
 		lastNumFlips = gpuStats.numFlips;
+	}
+
+	if (g_Config.bDumpFrames && !startDumping)
+	{
+		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		startDumping = true;
+	}
+	if (g_Config.bDumpFrames && startDumping)
+	{
+		avi.AddFrame();
+	}
+	else if (!g_Config.bDumpFrames && startDumping)
+	{
+		avi.Stop();
+		startDumping = false;
 	}
 }
 
@@ -90,6 +109,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 	__DisplayListenVblank(__EmuScreenVblank);
 	frameStep_ = false;
 	lastNumFlips = gpuStats.numFlips;
+	startDumping = false;
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -226,6 +246,11 @@ EmuScreen::~EmuScreen() {
 	if (!invalid_) {
 		// If we were invalid, it would already be shutdown.
 		PSP_Shutdown();
+	}
+	if (g_Config.bDumpFrames && startDumping)
+	{
+		avi.Stop();
+		startDumping = false;
 	}
 }
 

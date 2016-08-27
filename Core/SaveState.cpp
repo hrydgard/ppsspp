@@ -25,6 +25,7 @@
 #include "Common/FileUtil.h"
 #include "Common/ChunkFile.h"
 
+#include "Core/AVIDump.h"
 #include "Core/SaveState.h"
 #include "Core/Config.h"
 #include "Core/Core.h"

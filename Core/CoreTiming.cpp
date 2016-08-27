@@ -240,6 +240,11 @@ u64 GetTicks()
 	return (u64)globalTimer + slicelength - currentMIPS->downcount;
 }
 
+u64 GetTicksPerSecond()
+{
+	return CPU_HZ;
+}
+
 u64 GetIdleTicks()
 {
 	return (u64)idledCycles;
@@ -308,7 +313,7 @@ void AddEventToQueue(Event* ne)
 
 // This must be run ONLY from within the cpu thread
 // cyclesIntoFuture may be VERY inaccurate if called from anything else
-// than Advance 
+// than Advance
 void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 {
 	Event *ne = GetNewEvent();
@@ -418,7 +423,7 @@ void RegisterMHzChangeCallback(MHzChangeCallback callback) {
 	mhzChangeCallbacks.push_back(callback);
 }
 
-bool IsScheduled(int event_type) 
+bool IsScheduled(int event_type)
 {
 	if (!first)
 		return false;
@@ -498,7 +503,7 @@ void RemoveThreadsafeEvent(int event_type)
 	while (ptr)
 	{
 		if (ptr->type == event_type)
-		{	
+		{
 			prev->next = ptr->next;
 			if (ptr == tsLast)
 				tsLast = prev;
@@ -526,7 +531,7 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= (s64)GetTicks())
 		{
-//			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ", 
+//			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ",
 //				first->name ? first->name : "?", (u64)GetTicks(), (u64)first->time);
 			Event* evt = first;
 			first = first->next;
