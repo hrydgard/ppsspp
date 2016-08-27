@@ -1257,7 +1257,9 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 	if (result >= 0 || result == -1) {
 		DEBUG_LOG(SCEIO, "%lli = sceIoLseek(%d, %llx, %i)", result, id, offset, whence);
 		// Educated guess at timing.
-		return hleDelayResult(result, "io seek", 100);
+		hleEatCycles(1400);
+		hleReSchedule("io seek");
+		return result;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoLseek(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
 		return result;
@@ -1269,7 +1271,9 @@ static u32 sceIoLseek32(int id, int offset, int whence) {
 	if (result >= 0 || result == -1) {
 		DEBUG_LOG(SCEIO, "%i = sceIoLseek32(%d, %x, %i)", result, id, offset, whence);
 		// Educated guess at timing.
-		return hleDelayResult(result, "io seek", 100);
+		hleEatCycles(1400);
+		hleReSchedule("io seek");
+		return result;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoLseek32(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
 		return result;
