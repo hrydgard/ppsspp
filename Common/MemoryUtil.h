@@ -29,18 +29,21 @@ using std::size_t;
 // Returns true if we need to avoid setting both writable and executable at the same time (W^X)
 bool PlatformIsWXExclusive();
 
-
 #define MEM_PROT_READ  1
 #define MEM_PROT_WRITE 2
 #define MEM_PROT_EXEC  4
 
 // Note that some platforms go through special contortions to allocate executable memory. So for memory
 // that's intended for execution, allocate it first using AllocateExecutableMemory, then modify protection as desired.
-// AllocateMemoryPages is simpler and more generic.
+// AllocateMemoryPages is simpler and more generic. Note that on W^X platforms, this will return executable but not writable
+// memory!
 void* AllocateExecutableMemory(size_t size);
 void* AllocateMemoryPages(size_t size, uint32_t memProtFlags);
 // Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
 void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags);
+inline void ProtectMemoryPages(const void *start, const void *end, uint32_t memProtFlags) {
+	ProtectMemoryPages((void *)start, (const uint8_t *)end - (const uint8_t *)start, memProtFlags);
+}
 void FreeMemoryPages(void* ptr, size_t size);
 
 // Regular aligned memory. Don't try to apply memory protection willy-nilly to memory allocated this way as in-page alignment is unknown (though could be checked).
@@ -52,12 +55,8 @@ void ResetExecutableMemory(void* ptr);
 #endif
 
 inline int GetMemoryProtectPageSize() {
-#ifdef _WIN32
-	// For memory protection purposes, Windows is still stuck at 64k except in WSL (linux on windows).
-	return 65536;
-#else
-	return PAGE_SIZE;
-#endif
+	// This is 4096 on all platforms we care about. 8k on Itanium but meh.
+	return 4096;
 }
 
 template <typename T>

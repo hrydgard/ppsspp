@@ -94,7 +94,7 @@ namespace MIPSComp {
 using namespace Arm64JitConstants;
 
 void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
-	const u8 *start = AlignCode16();
+	const u8 *start = AlignCodePage();
 	if (jo.useStaticAlloc) {
 		saveStaticRegisters = AlignCode16();
 		STR(INDEX_UNSIGNED, DOWNCOUNTREG, CTXREG, offsetof(MIPSState, downcount));
@@ -316,6 +316,9 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
+	// Freeze the dispatcher code
+	const void *end = AlignCodePage();
+	ProtectMemoryPages(start, end, MEM_PROT_READ | MEM_PROT_EXEC);
 }
 
 }  // namespace MIPSComp

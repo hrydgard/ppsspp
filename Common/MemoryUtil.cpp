@@ -291,6 +291,10 @@ bool PlatformIsWXExclusive() {
 }
 
 void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags) {
+	if (PlatformIsWXExclusive()) {
+		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
+			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
+	}
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	DWORD oldValue;
@@ -300,10 +304,21 @@ void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags) {
 	// Do nothing
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
-	if (PlatformIsWXExclusive()) {
-		if ((flags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
-			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
-	}
 	mprotect(ptr, size, protect);
 #endif
 }
+
+// Hardcoded in the header. This is a way to check it dynamically in case it ever becomes necessary.
+/*
+#ifdef _WIN32
+
+// 4k on most archs, 8k on Itanium (but who cares).
+// Should not be confused with the allocation granularity which is 65k and is how precise
+// VirtualAlloc allocations can be located in memory. We don't really care about that much though.
+int GetMemoryProtectPageSize() {
+	if (sys_info.dwPageSize == 0)
+		GetSystemInfo(&sys_info);
+	return sys_info.dwPageSize;
+}
+#endif
+*/

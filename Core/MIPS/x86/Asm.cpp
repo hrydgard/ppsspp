@@ -63,7 +63,7 @@ void ImHere() {
 }
 
 void Jit::GenerateFixedCode(JitOptions &jo) {
-	const u8 *start = AlignCode16();
+	const u8 *start = AlignCodePage();
 
 	restoreRoundingMode = AlignCode16(); {
 		STMXCSR(M(&mips_->temp));
@@ -217,7 +217,10 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
-	endOfPregeneratedCode = GetCodePtr();
+	endOfPregeneratedCode = AlignCodePage();
+
+	// Freeze the pre-generated code.
+	ProtectMemoryPages(start, endOfPregeneratedCode, MEM_PROT_READ | MEM_PROT_EXEC);
 }
 
 }  // namespace
