@@ -38,8 +38,7 @@ protected:
 	size_t region_size;
 };
 
-template<class T> class CodeBlock : public CodeBlockCommon, public T, NonCopyable
-{
+template<class T> class CodeBlock : public CodeBlockCommon, public T, NonCopyable {
 private:
 	// A privately used function to set the executable RAM space to something invalid.
 	// For debugging usefulness it should be used to set the RAM to a host specific breakpoint instruction
@@ -50,8 +49,7 @@ public:
 	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
-	void AllocCodeSpace(int size)
-	{
+	void AllocCodeSpace(int size) {
 		region_size = size;
 		region = (u8*)AllocateExecutableMemory(region_size);
 		T::SetCodePointer(region);
@@ -59,15 +57,13 @@ public:
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace()
-	{
+	void ClearCodeSpace() {
 		PoisonMemory();
 		ResetCodePtr();
 	}
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
-	void FreeCodeSpace()
-	{
+	void FreeCodeSpace() {
 #ifdef __SYMBIAN32__
 		ResetExecutableMemory(region);
 #else
@@ -79,9 +75,8 @@ public:
 
 	// Cannot currently be undone. Will write protect the entire code region.
 	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect()
-	{
-		WriteProtectMemory(region, region_size, true);
+	void WriteProtect() {
+		ProtectMemory(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC);
 	}
 
 	void SetCodePtr(u8 *ptr) override {

@@ -497,11 +497,11 @@ void MIPSCodeBlock::FreeCodeSpace() {
 }
 
 void MIPSCodeBlock::WriteProtect() {
-	WriteProtectMemory(region, region_size, true);
+	ProtectMemory(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC);
 }
 
 void MIPSCodeBlock::UnWriteProtect() {
-	UnWriteProtectMemory(region, region_size, false);
+	ProtectMemory(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC | MEM_PROT_WRITE);
 }
 
 }

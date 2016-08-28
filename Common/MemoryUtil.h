@@ -26,13 +26,22 @@
 using std::size_t;
 #endif
 
+// Returns true if we need to avoid setting both writable and executable at the same time (W^X)
+bool PlatformIsWXExclusive();
+
 void* AllocateExecutableMemory(size_t size, bool exec = true);
 void* AllocateMemoryPages(size_t size);
 void FreeMemoryPages(void* ptr, size_t size);
 void* AllocateAlignedMemory(size_t size,size_t alignment);
 void FreeAlignedMemory(void* ptr);
-void WriteProtectMemory(void* ptr, size_t size, bool executable = false);
-void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute = false);
+
+// Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
+
+#define MEM_PROT_READ  1
+#define MEM_PROT_WRITE 2
+#define MEM_PROT_EXEC  4
+void ProtectMemory(void* ptr, size_t size, uint32_t flags);
+
 #ifdef __SYMBIAN32__
 void ResetExecutableMemory(void* ptr);
 #endif

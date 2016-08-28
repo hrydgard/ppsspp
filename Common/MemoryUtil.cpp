@@ -31,7 +31,6 @@
 #include <sys/mman.h>
 #endif
 
-
 #if defined(_M_X64)
 #ifndef _WIN32
 #include <unistd.h>
@@ -65,15 +64,13 @@ void ResetExecutableMemory(void* ptr)
 
 #if defined(_WIN32) && defined(_M_X64)
 static uintptr_t last_executable_addr;
-static void *SearchForFreeMem(size_t size)
-{
+static void *SearchForFreeMem(size_t size) {
 	if (!last_executable_addr)
 		last_executable_addr = (uintptr_t) &hint_location - sys_info.dwPageSize;
 	last_executable_addr -= size;
 
 	MEMORY_BASIC_INFORMATION info;
-	while (VirtualQuery((void *)last_executable_addr, &info, sizeof(info)) == sizeof(info))
-	{
+	while (VirtualQuery((void *)last_executable_addr, &info, sizeof(info)) == sizeof(info)) {
 		// went too far, unusable for executable memory
 		if (last_executable_addr + 0x80000000 < (uintptr_t) &hint_location)
 			return NULL;
@@ -189,8 +186,7 @@ void *AllocateExecutableMemory(size_t size, bool exec) {
 	return ptr;
 }
 
-void* AllocateMemoryPages(size_t size)
-{
+void *AllocateMemoryPages(size_t size) {
 	size = (size + 4095) & (~4095);
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
@@ -208,8 +204,7 @@ void* AllocateMemoryPages(size_t size)
 	return ptr;
 }
 
-void* AllocateAlignedMemory(size_t size,size_t alignment)
-{
+void *AllocateAlignedMemory(size_t size, size_t alignment) {
 #ifdef _WIN32
 	void* ptr =  _aligned_malloc(size,alignment);
 #else
@@ -234,52 +229,65 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 	return ptr;
 }
 
-void FreeMemoryPages(void *ptr, size_t size)
-{
+void FreeMemoryPages(void *ptr, size_t size) {
+	if (!ptr)
+		return;
 	size = (size + 4095) & (~4095);
-	if (ptr)
-	{
 #ifdef _WIN32
-		if (!VirtualFree(ptr, 0, MEM_RELEASE))
-			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
+	if (!VirtualFree(ptr, 0, MEM_RELEASE))
+		PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
 #elif defined(__SYMBIAN32__)
-		free(ptr);
+	free(ptr);
 #else
-		munmap(ptr, size);
+	munmap(ptr, size);
 #endif
-	}
 }
 
-void FreeAlignedMemory(void* ptr)
-{
-	if (ptr)
-	{
+void FreeAlignedMemory(void* ptr) {
+	if (!ptr)
+		return;
 #ifdef _WIN32
-		_aligned_free(ptr);
+	_aligned_free(ptr);
 #else
-		free(ptr);
+	free(ptr);
 #endif
-	}
 }
 
-void WriteProtectMemory(void* ptr, size_t size, bool allowExecute)
-{
+bool PlatformIsWXExclusive() {
+	// TODO: Turn on on 64-bit iOS9, respect everywhere.
+	return false;
+}
+
+void ProtectMemory(void* ptr, size_t size, uint32_t flags) {
 #ifdef _WIN32
+	uint32_t protect = 0;
+	// Win32 flags are odd...
+	switch (flags) {
+	case 0: protect = PAGE_NOACCESS; break;
+	case MEM_PROT_READ: protect = PAGE_READONLY; break;
+	case MEM_PROT_WRITE: protect = PAGE_READWRITE; break;   // Can't set write-only
+	case MEM_PROT_EXEC: protect = PAGE_EXECUTE; break;
+	case MEM_PROT_READ | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READ; break;
+	case MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;  // Can't set write-only
+	case MEM_PROT_READ | MEM_PROT_WRITE: protect = PAGE_READWRITE; break;
+	case MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;
+	}
+
 	DWORD oldValue;
-	if (!VirtualProtect(ptr, size, allowExecute ? PAGE_EXECUTE_READ : PAGE_READONLY, &oldValue))
+	if (!VirtualProtect(ptr, size, protect, &oldValue))
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 #else
-	mprotect(ptr, size, allowExecute ? (PROT_READ | PROT_EXEC) : PROT_READ);
-#endif
-}
-
-void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute)
-{
-#ifdef _WIN32
-	DWORD oldValue;
-	if (!VirtualProtect(ptr, size, allowExecute ? PAGE_EXECUTE_READWRITE : PAGE_READWRITE, &oldValue))
-		PanicAlert("UnWriteProtectMemory failed!\n%s", GetLastErrorMsg());
-#else
-	mprotect(ptr, size, allowExecute ? (PROT_READ | PROT_WRITE | PROT_EXEC) : PROT_WRITE | PROT_READ);
+	if (PlatformIsWXExclusive()) {
+		if ((flags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
+			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
+	}
+	uint32_t protect = 0;
+	if (flags & MEM_PROT_READ)
+		protect |= PROT_READ;
+	if (flags & MEM_PROT_WRITE)
+		protect |= PROT_WRITE;
+	if (flags & MEM_PROT_EXEC)
+		protect |= PROT_EXEC;
+	mprotect(ptr, size, protect);
 #endif
 }
