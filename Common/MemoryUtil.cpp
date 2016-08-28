@@ -31,21 +31,21 @@
 #include <sys/mman.h>
 #endif
 
-#if defined(_M_X64)
 #ifndef _WIN32
 #include <unistd.h>
 #endif
 static int hint_location;
 #ifdef __APPLE__
-#define MEM_PAGE_MASK (4096-1)
+#define MEM_PAGE_SIZE (PAGE_SIZE)
 #elif defined(_WIN32)
 static SYSTEM_INFO sys_info;
-#define MEM_PAGE_MASK (uintptr_t)(sys_info.dwPageSize - 1)
+#define MEM_PAGE_SIZE (uintptr_t)(sys_info.dwPageSize)
 #else
-#define MEM_PAGE_MASK     (getpagesize() - 1)
+#define MEM_PAGE_SIZE (getpagesize())
 #endif
+
+#define MEM_PAGE_MASK ((MEM_PAGE_SIZE)-1)
 #define round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
-#endif
 
 #ifdef __SYMBIAN32__
 #include <e32std.h>
@@ -326,14 +326,8 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 
 int GetMemoryProtectPageSize() {
 #ifdef _WIN32
-	// This is 4096 on all Windows platforms we care about. 8k on Itanium but meh.
-	return 4096;
-	// For reference, here's how to check:
-	// if (sys_info.dwPageSize == 0)
-	//   GetSystemInfo(&sys_info);
-	// return sys_info.dwPageSize;
-
-#else
-	return PAGE_SIZE;
+	if (sys_info.dwPageSize == 0)
+		GetSystemInfo(&sys_info);
 #endif
+	return MEM_PAGE_SIZE;
 }
