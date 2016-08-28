@@ -74,6 +74,7 @@
 #include "sceAdler.h"
 #include "sceSfmt19937.h"
 #include "sceG729.h"
+#include "KUBridge.h"
 
 #define N(s) s
 
@@ -266,12 +267,12 @@ void RegisterAllModules() {
 	Register_sceAudiocodec();
 	Register_sceHeap();
 
-	for (int i = 0; i < numModules; i++)
-	{
+	for (int i = 0; i < numModules; i++) {
 		RegisterModule(moduleList[i].name, moduleList[i].numFunctions, moduleList[i].funcTable);
 	}
 
-	// New modules have to be added at the end, or they will break savestates.
+	// IMPORTANT: New modules have to be added at the end, or they will break savestates.
+
 	Register_StdioForKernel();
 	RegisterModule("LoadCoreForKernel", ARRAY_SIZE(LoadCoreForKernel), LoadCoreForKernel);
 	Register_IoFileMgrForKernel();
@@ -292,5 +293,8 @@ void RegisterAllModules() {
 	Register_sceG729();
 	Register_sceNetUpnp();
 	Register_sceNetIfhandle();
+	Register_KUBridge();
+
+	// add new modules here.
 }
 
