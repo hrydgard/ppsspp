@@ -70,10 +70,22 @@
 #include "Windows/MainWindow.h"
 #endif
 
+bool frameStep_;
+
+static void __EmuScreenVblank()
+{
+	if (frameStep_)
+	{
+		frameStep_ = false;
+		Core_EnableStepping(true);
+	}
+}
+
 EmuScreen::EmuScreen(const std::string &filename)
 	: bootPending_(true), gamePath_(filename), invalid_(true), quit_(false), pauseTrigger_(false), saveStatePreviewShownTime_(0.0), saveStatePreview_(nullptr) {
 	memset(axisState_, 0, sizeof(axisState_));
 	saveStateSlot_ = SaveState::GetCurrentSlot();
+	__DisplayListenVblank(__EmuScreenVblank);
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -174,7 +186,7 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
-	I18NCategory *sc = GetI18NCategory("Screen"); 
+	I18NCategory *sc = GetI18NCategory("Screen");
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
@@ -341,7 +353,7 @@ bool EmuScreen::touch(const TouchInput &touch) {
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
-	I18NCategory *sc = GetI18NCategory("Screen"); 
+	I18NCategory *sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
@@ -361,6 +373,19 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	case VIRTKEY_PAUSE:
 		pauseTrigger_ = true;
+		break;
+
+	case VIRTKEY_FRAME_ADVANCE:
+		// If game is running, pause emulation immediately. Otherwise, advance a single frame.
+		if (Core_IsStepping())
+		{
+			frameStep_ = true;
+			Core_EnableStepping(false);
+		}
+		else if (!frameStep_)
+		{
+			Core_EnableStepping(true);
+		}
 		break;
 
 	case VIRTKEY_AXIS_SWAP:
@@ -778,7 +803,7 @@ void EmuScreen::update(InputState &input) {
 		}
 
 		float delta_y =  tiltInputCurve(normalized_input_y * 2.0 * (g_Config.iTiltSensitivityY)) ;
-		
+
 		if (g_Config.bInvertTiltY) {
 			delta_y *= -1;
 		}
@@ -787,7 +812,7 @@ void EmuScreen::update(InputState &input) {
 		leftstick_x += clamp1(delta_x);
 		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
 
-		
+
 		leftstick_y += clamp1(delta_y);
 		__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
 	}

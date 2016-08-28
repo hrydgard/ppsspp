@@ -102,7 +102,7 @@ const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT
 static void __CtrlUpdateLatch()
 {
 	lock_guard guard(ctrlMutex);
-	
+
 	// Copy in the current data to the current buffer.
 	ctrlBufs[ctrlBuf] = ctrlCurrent;
 	u32 buttons = ctrlCurrent.buttons;
@@ -119,7 +119,7 @@ static void __CtrlUpdateLatch()
 	latch.btnRelease |= ~buttons;
 	dialogBtnMake |= buttons & changed;
 	ctrlLatchBufs++;
-		
+
 	ctrlOldButtons = buttons;
 
 	ctrlBufs[ctrlBuf].frame = (u32) CoreTiming::GetGlobalTimeUs();
@@ -327,7 +327,7 @@ void __CtrlInit()
 void __CtrlDoState(PointerWrap &p)
 {
 	lock_guard guard(ctrlMutex);
-	
+
 	auto s = p.Section("sceCtrl", 1, 3);
 	if (!s)
 		return;
@@ -519,7 +519,7 @@ static u32 sceCtrlReadLatch(u32 latchDataPtr)
 	return __CtrlResetLatch();
 }
 
-static const HLEFunction sceCtrl[] = 
+static const HLEFunction sceCtrl[] =
 {
 	{0X3E65A0EA, nullptr,                                  "sceCtrlInit",                      '?', ""  }, //(int unknown), init with 0
 	{0X1F4011E6, &WrapU_U<sceCtrlSetSamplingMode>,         "sceCtrlSetSamplingMode",           'x', "x" },
@@ -538,7 +538,7 @@ static const HLEFunction sceCtrl[] =
 	{0X6841BE1A, nullptr,                                  "sceCtrlSetRapidFire",              '?', ""  },
 	{0XA7144800, &WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold",    'i', "ii"},
 	{0X687660FA, &WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold",    'i', "xx"},
-};	
+};
 
 void Register_sceCtrl()
 {
