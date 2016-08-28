@@ -555,6 +555,10 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const {
 void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
+		if (charCode < firstGlyph) {
+			// Don't draw anything if the character is before the first available glyph.
+			return;
+		}
 		// No Glyph available for this charCode, try to use the alternate char.
 		charCode = altCharCode;
 		if (!GetCharGlyph(charCode, glyphType, glyph)) {
