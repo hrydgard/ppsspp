@@ -158,8 +158,8 @@ void *AllocateExecutableMemory(size_t size) {
 	if( g_code_chunk == NULL && g_code_heap == NULL)
 	{
 		g_code_chunk = new RChunk();
-		g_code_chunk->CreateLocalCode(CODECHUNK_SIZE, CODECHUNK_SIZE + 3*GetPageSize());
-		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, CODECHUNK_SIZE, 1, CODECHUNK_SIZE + 3*GetPageSize());
+		g_code_chunk->CreateLocalCode(CODECHUNK_SIZE, CODECHUNK_SIZE + 3*GetMemoryProtectPageSize());
+		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, CODECHUNK_SIZE, 1, CODECHUNK_SIZE + 3*GetMemoryProtectPageSize());
 		g_next_ptr = reinterpret_cast<u8*>(g_code_heap->AllocZ(CODECHUNK_SIZE));
 		g_orig_ptr = g_next_ptr;
 	}
