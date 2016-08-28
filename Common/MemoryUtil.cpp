@@ -170,14 +170,13 @@ void *AllocateExecutableMemory(size_t size) {
 #if defined(_M_X64)
 	// Try to request one that is close to our memory location if we're in high memory.
 	// We use a dummy global variable to give us a good location to start from.
-	if (exec && (!map_hint))
-	{
+	if (!map_hint) {
 		if ((uintptr_t) &hint_location > 0xFFFFFFFFULL)
 			map_hint = (char*)round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
 		else
 			map_hint = (char*)0x20000000; // 0.5GB mark in memory
 	}
-	else if (exec && (uintptr_t) map_hint > 0xFFFFFFFFULL)
+	else if ((uintptr_t) map_hint > 0xFFFFFFFFULL)
 	{
 		map_hint -= round_page(size); /* round down to the next page if we're in high memory */
 	}
@@ -185,7 +184,7 @@ void *AllocateExecutableMemory(size_t size) {
 	void* ptr = mmap(map_hint, size, PROT_READ | PROT_WRITE	| PROT_EXEC,
 		MAP_ANON | MAP_PRIVATE
 #if defined(_M_X64) && defined(MAP_32BIT)
-		| (exec && (uintptr_t) map_hint == 0 ? MAP_32BIT : 0)
+		| ((uintptr_t) map_hint == 0 ? MAP_32BIT : 0)
 #endif
 		, -1, 0);
 
@@ -202,7 +201,7 @@ void *AllocateExecutableMemory(size_t size) {
 		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 #if defined(_M_X64) && !defined(_WIN32)
-	else if (exec && (uintptr_t)map_hint <= 0xFFFFFFFF) {
+	else if ((uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
 		map_hint += round_page(size);
 
@@ -286,25 +285,43 @@ void FreeAlignedMemory(void* ptr) {
 }
 
 bool PlatformIsWXExclusive() {
-	// TODO: Turn on on 64-bit iOS9, respect everywhere.
+	// Only 64-bit iOS9 really needs this mode, but that's most iOS devices and all future ones,
+	// so let's keep things the same for all of them. Even without block linking, still should be much
+	// faster than IR JIT.
+#ifdef IOS
+	return true;
+#else
+	// Returning true here lets you test the W^X path on Windows and other non-W^X platforms.
 	return false;
+#endif
 }
 
-void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags) {
+void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
+	INFO_LOG(JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size, (memProtFlags & MEM_PROT_READ) != 0, (memProtFlags & MEM_PROT_WRITE) != 0, (memProtFlags & MEM_PROT_EXEC) != 0);
+
 	if (PlatformIsWXExclusive()) {
 		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
 			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
 	}
+	// Note - both VirtualProtect and mprotect will affect the full pages containing the requested range,
+	// so no need to round ptr and size down/up.
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	DWORD oldValue;
-	if (!VirtualProtect(ptr, size, protect, &oldValue))
+	if (!VirtualProtect((void *)ptr, size, protect, &oldValue))
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
 #elif defined(__SYMBIAN32__)
 	// Do nothing
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
-	mprotect(ptr, size, protect);
+	uint32_t page_size = GetMemoryProtectPageSize();
+
+	uintptr_t start = (uintptr_t)ptr;
+	uintptr_t end = (uintptr_t)ptr + size;
+	start &= ~(page_size - 1);
+	end = (end + page_size - 1) & ~(page_size - 1);
+	INFO_LOG(JIT, "mprotect: %p to %p", (void *)start, (void *)end);
+	mprotect((void *)start, end - start, protect);
 #endif
 }
 

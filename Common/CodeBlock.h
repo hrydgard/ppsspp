@@ -45,7 +45,7 @@ private:
 	virtual void PoisonMemory() = 0;
 
 public:
-	CodeBlock() {}
+	CodeBlock() : writeStart_(nullptr) {}
 	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
@@ -53,14 +53,46 @@ public:
 		region_size = size;
 		region = (u8*)AllocateExecutableMemory(region_size);
 		T::SetCodePointer(region);
+		// On W^X platforms, we start with writable but not executable pages.
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
 	// uninitialized, it just breaks into the debugger.
 	void ClearCodeSpace() {
+		if (PlatformIsWXExclusive()) {
+			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
+		} else {
+			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC);
+		}
 		PoisonMemory();
 		ResetCodePtr();
-		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC);
+	}
+
+	// BeginWrite/EndWrite assumes that we keep appending. If you don't specify a size and we encounter later executable block, we're screwed.
+	// These CANNOT be nested.
+	void BeginWrite(size_t sizeEstimate = 1) {
+#ifdef _DEBUG
+		if (writeStart_) {
+			PanicAlert("Can't nest BeginWrite calls");
+		}
+#endif
+		// In case the last block made the current page exec/no-write, let's fix that.
+		if (PlatformIsWXExclusive()) {
+			writeStart_ = GetCodePtr();
+			ProtectMemoryPages(writeStart_, sizeEstimate, MEM_PROT_READ | MEM_PROT_WRITE);
+		}
+	}
+
+	void EndWrite() {
+		// OK, we're done. Re-protect the memory we touched.
+		if (PlatformIsWXExclusive()) {
+			const uint8_t *end = GetCodePtr();
+			ProtectMemoryPages(writeStart_, end, MEM_PROT_READ | MEM_PROT_EXEC);
+			writeStart_ = nullptr;
+		}
 	}
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
@@ -82,13 +114,15 @@ public:
 		return T::GetCodePointer();
 	}
 
-	void ResetCodePtr()
-	{
+	void ResetCodePtr() {
 		T::SetCodePointer(region);
 	}
 
 	size_t GetSpaceLeft() const {
 		return region_size - (T::GetCodePointer() - region);
 	}
+
+private:
+	const uint8_t *writeStart_;
 };
 

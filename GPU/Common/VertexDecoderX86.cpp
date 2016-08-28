@@ -159,7 +159,8 @@ static const JitLookup jitLookup[] = {
 
 JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int32_t *jittedSize) {
 	dec_ = &dec;
-	const u8 *start = this->GetCodePtr();
+	BeginWrite();
+	const u8 *start = this->AlignCode16();
 
 #ifdef _M_IX86
 	// Store register values
@@ -270,6 +271,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	RET();
 
 	*jittedSize = GetCodePtr() - start;
+	EndWrite();
 	return (JittedVertexDecoder)start;
 }
 

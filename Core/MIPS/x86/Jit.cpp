@@ -290,15 +290,18 @@ void Jit::EatInstruction(MIPSOpcode op)
 void Jit::Compile(u32 em_address)
 {
 	PROFILE_THIS_SCOPE("jitc");
-	if (GetSpaceLeft() < 0x10000 || blocks.IsFull())
-	{
+	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
 	}
+
+	BeginWrite();
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+
+	EndWrite();
 
 	bool cleanSlate = false;
 
@@ -513,12 +516,18 @@ void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 }
 
 void Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
 	XEmitter emit(checkedEntry);
 	emit.MOV(32, M(&mips_->pc), Imm32(originalAddress));
 	emit.JMP(MIPSComp::jit->GetDispatcher(), true);
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
+	}
 }
 
 bool Jit::ReplaceJalTo(u32 dest) {
