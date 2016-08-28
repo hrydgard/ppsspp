@@ -329,6 +329,7 @@ int GetMemoryProtectPageSize() {
 #ifdef _WIN32
 	if (sys_info.dwPageSize == 0)
 		GetSystemInfo(&sys_info);
+	return sys_info.dwPageSize;
 #endif
 	return MEM_PAGE_SIZE;
 }
