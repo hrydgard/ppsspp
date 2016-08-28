@@ -1109,17 +1109,8 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(sy->T("General")));
 
 	bool canUseJit = true;
-#ifdef IOS
-	if (!iosCanUseJit) {
-		canUseJit = false;
-		if (targetIsJailbroken) {
-			// if the device is jailbroken and it's being marked as unable to JIT, then that means it must be arm64 iOS 9
-			list->Add(new TextView(sy->T("iOS9NoDynarec", "Dynarec (JIT) - (JIT not yet working on arm64 iOS 9)")));
-		} else {
-			list->Add(new TextView(sy->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
-		}
-	}
-#endif
+	// iOS can now use JIT on all modes, apparently.
+	// The bool may come in handy for future non-jit platforms though (UWP XB1?)
 
 	static const char *cpuCores[] = { "Interpreter", "Dynarec (JIT)", "IR Interpreter" };
 	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, gr->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), sy->GetName(), screenManager()));
