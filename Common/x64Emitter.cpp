@@ -135,9 +135,11 @@ const u8 *XEmitter::AlignCode16()
 
 const u8 *XEmitter::AlignCodePage()
 {
-	int c = int((u64)code & 4095);
+	// Memory protection pages matter.
+	int page_size = GetMemoryProtectPageSize();
+	int c = int((u64)code & (page_size - 1));
 	if (c)
-		ReserveCodeSpace(4096-c);
+		ReserveCodeSpace(page_size - c);
 	return code;
 }
 

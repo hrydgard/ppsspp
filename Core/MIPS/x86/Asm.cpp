@@ -63,7 +63,8 @@ void ImHere() {
 }
 
 void Jit::GenerateFixedCode(JitOptions &jo) {
-	const u8 *start = AlignCode16();
+	const u8 *start = AlignCodePage();
+	BeginWrite();
 
 	restoreRoundingMode = AlignCode16(); {
 		STMXCSR(M(&mips_->temp));
@@ -217,7 +218,9 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
-	endOfPregeneratedCode = GetCodePtr();
+	// Let's spare the pre-generated code from unprotect-reprotect.
+	endOfPregeneratedCode = AlignCodePage();
+	EndWrite();
 }
 
 }  // namespace

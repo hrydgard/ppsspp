@@ -361,7 +361,7 @@ public:
 		info_->DisposeFileLoader();
 	}
 
-	virtual void run() {
+	void run() override {
 		if (!info_->LoadFromPath(gamePath_))
 			return;
 

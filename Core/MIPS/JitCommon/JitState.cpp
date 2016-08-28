@@ -17,6 +17,7 @@
 
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Common/MemoryUtil.h"
 
 namespace MIPSComp {
 	JitOptions::JitOptions() {
@@ -40,7 +41,9 @@ namespace MIPSComp {
 		useASIMDVFPU = false;  // true
 
 		// Common
-		enableBlocklink = true;
+
+		// We can get block linking to work with W^X by doing even more unprotect/re-protect, but let's try without first.
+		enableBlocklink = !PlatformIsWXExclusive();
 		immBranches = false;
 		continueBranches = false;
 		continueJumps = false;

@@ -1402,7 +1402,6 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 	}
 }
 
-
 VertexDecoderJitCache::VertexDecoderJitCache()
 #ifdef ARM64
  : fp(this)

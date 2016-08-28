@@ -201,10 +201,14 @@ void ArmJit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
+	BeginWrite();
+
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+
+	EndWrite();
 
 	bool cleanSlate = false;
 
@@ -417,6 +421,9 @@ void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 }
 
 void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
 	// I hope there's enough space...
@@ -426,6 +433,9 @@ void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->GetDispatcher());
 	emit.FlushIcache();
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
+	}
 }
 
 bool ArmJit::ReplaceJalTo(u32 dest) {

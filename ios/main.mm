@@ -4,6 +4,7 @@
 #import <string>
 #import <stdio.h>
 #import <stdlib.h>
+#import <sys/syscall.h>
 #import <AudioToolbox/AudioToolbox.h>
 
 #import "AppDelegate.h"
@@ -58,16 +59,16 @@ std::string System_GetProperty(SystemProperty prop) {
 }
 
 int System_GetPropertyInt(SystemProperty prop) {
-  switch (prop) {
-  case SYSPROP_AUDIO_SAMPLE_RATE:
-    return 44100;
-  case SYSPROP_DISPLAY_REFRESH_RATE:
-    return 60000;
-  case SYSPROP_DEVICE_TYPE:
-    return DEVICE_TYPE_MOBILE;
-  default:
-    return -1;
-  }
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return 44100;
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60000;
+	case SYSPROP_DEVICE_TYPE:
+		return DEVICE_TYPE_MOBILE;
+	default:
+		return -1;
+	}
 }
 
 void System_SendMessage(const char *command, const char *parameter) {
@@ -94,6 +95,8 @@ void Vibrate(int length_ms) {
 
 int main(int argc, char *argv[])
 {
+	// Simulates a debugger. Makes it possible to use JIT (though only W^X)
+	syscall(SYS_ptrace, 0 /*PTRACE_TRACEME*/, 0, 0, 0);
 	@autoreleasepool {
 		return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
 	}

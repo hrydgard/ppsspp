@@ -299,11 +299,6 @@ public:
 		return ptr >= region && ptr < region + region_size;
 	}
 
-	// Can possibly be undone. Will write protect the entire code region.
-	// Start over if you need to change the code, though (call FreeCodeSpace(), AllocCodeSpace().)
-	void WriteProtect();
-	void UnWriteProtect();
-
 	void ResetCodePtr() {
 		SetCodePtr(region);
 	}

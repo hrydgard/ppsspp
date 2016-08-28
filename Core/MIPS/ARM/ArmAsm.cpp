@@ -72,7 +72,8 @@ namespace MIPSComp {
 using namespace ArmJitConstants;
 
 void ArmJit::GenerateFixedCode() {
-	const u8 *start = GetCodePtr();
+	const u8 *start = AlignCodePage();
+	BeginWrite();
 
 	// LR == SCRATCHREG2 on ARM32 so it needs to be pushed.
 	restoreRoundingMode = AlignCode16(); {
@@ -279,6 +280,10 @@ void ArmJit::GenerateFixedCode() {
 	// Don't forget to zap the instruction cache!
 	FlushLitPool();
 	FlushIcache();
+
+	// Let's spare the pre-generated code from unprotect-reprotect.
+	AlignCodePage();
+	EndWrite();
 }
 
 }  // namespace MIPSComp

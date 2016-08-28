@@ -496,14 +496,6 @@ void MIPSCodeBlock::FreeCodeSpace() {
 	region_size = 0;
 }
 
-void MIPSCodeBlock::WriteProtect() {
-	WriteProtectMemory(region, region_size, true);
-}
-
-void MIPSCodeBlock::UnWriteProtect() {
-	UnWriteProtectMemory(region, region_size, false);
-}
-
 }
 
 #endif

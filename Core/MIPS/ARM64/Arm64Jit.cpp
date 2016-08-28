@@ -191,10 +191,14 @@ void Arm64Jit::Compile(u32 em_address) {
 		ClearCache();
 	}
 
+	BeginWrite();
+
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
+
+	EndWrite();
 
 	bool cleanSlate = false;
 
@@ -412,11 +416,19 @@ void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. works.
 	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
+
 	ARM64XEmitter emit(checkedEntry);
 	emit.MOVI2R(SCRATCH1, originalAddress);
 	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->GetDispatcher());
 	emit.FlushIcache();
+
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_EXEC);
+	}
 }
 
 bool Arm64Jit::ReplaceJalTo(u32 dest) {
