@@ -86,6 +86,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 	memset(axisState_, 0, sizeof(axisState_));
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 	__DisplayListenVblank(__EmuScreenVblank);
+	frameStep_ = false;
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
