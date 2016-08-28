@@ -402,6 +402,10 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 }
 
 void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
+
 	ARMXEmitter emit(exitPoint);
 	u32 op = *((const u32 *)emit.GetCodePointer());
 	bool prelinked = (op & 0xFF000000) == 0xEA000000;
@@ -418,6 +422,9 @@ void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 		} while ((op & 0xFF000000) != 0xEA000000 && (op & 0xFFF000F0) != 0xE1200070);
 	}
 	emit.FlushIcache();
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_EXEC);
+	}
 }
 
 void ArmJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {

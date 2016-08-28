@@ -406,10 +406,16 @@ void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
 }
 
 void Arm64Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 	ARM64XEmitter emit(exitPoint);
 	emit.B(checkedEntry);
 	// TODO: Write stuff after.
 	emit.FlushIcache();
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_EXEC);
+	}
 }
 
 void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {

@@ -494,13 +494,15 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-void Jit::Comp_RunBlock(MIPSOpcode op)
-{
+void Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock");
 }
 
 void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_WRITE);
+	}
 	XEmitter emit(exitPoint);
 	// Okay, this is a bit ugly, but we check here if it already has a JMP.
 	// That means it doesn't have a full exit to pad with INT 3.
@@ -512,6 +514,9 @@ void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 		for (int i = 0; i < pad; ++i) {
 			emit.INT3();
 		}
+	}
+	if (PlatformIsWXExclusive()) {
+		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_EXEC);
 	}
 }
 
