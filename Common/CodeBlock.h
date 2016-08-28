@@ -60,6 +60,7 @@ public:
 	void ClearCodeSpace() {
 		PoisonMemory();
 		ResetCodePtr();
+		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC);
 	}
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
@@ -71,12 +72,6 @@ public:
 #endif
 		region = nullptr;
 		region_size = 0;
-	}
-
-	// Cannot currently be undone. Will write protect the entire code region.
-	// Start over if you need to change the code (call FreeCodeSpace(), AllocCodeSpace()).
-	void WriteProtect() {
-		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC);
 	}
 
 	void SetCodePtr(u8 *ptr) override {

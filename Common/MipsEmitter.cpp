@@ -496,14 +496,6 @@ void MIPSCodeBlock::FreeCodeSpace() {
 	region_size = 0;
 }
 
-void MIPSCodeBlock::WriteProtect() {
-	ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC);
-}
-
-void MIPSCodeBlock::UnWriteProtect() {
-	ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_EXEC | MEM_PROT_WRITE);
-}
-
 }
 
 #endif
