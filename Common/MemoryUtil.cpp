@@ -302,8 +302,8 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
 			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
 	}
-	// Note - both VirtualProtect and mprotect will affect the full pages containing the requested range,
-	// so no need to round ptr and size down/up.
+	// Note - both VirtualProtect will affect the full pages containing the requested range.
+	// mprotect does not seem to, at least not on Android unless I made a mistake somewhere, so we manually round.
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	DWORD oldValue;
