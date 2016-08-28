@@ -99,7 +99,7 @@ static GraphicsContext *graphicsContext;
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
 		
-		iosCanUseJit = false;
+		iosCanUseJit = true;
 		targetIsJailbroken = false;
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
@@ -112,11 +112,6 @@ static GraphicsContext *graphicsContext;
 			if ([[NSFileManager defaultManager] fileExistsAtPath:string]) {
 				// checking device jailbreak status in order to determine which message to show in GameSettingsScreen
 				targetIsJailbroken = true;
-				// if we're running on iOS arm64, only iOS <9 is supported with JIT.
-				// if we're running on anything that isn't arm64, then JIT is supported on all iOS versions.
-				if (![self isArm64] || ([self isArm64] && kCFCoreFoundationVersionNumber < kCFCoreFoundationVersionNumber_IOS_9_0)) {
-					iosCanUseJit = true;
-				}
 			}
 		}
 		
