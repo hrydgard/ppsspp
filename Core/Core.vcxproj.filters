@@ -673,6 +673,9 @@
     <ClCompile Include="MIPS\IR\IRFrontend.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\KUBridge.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1235,6 +1238,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\IR\IRFrontend.h">
       <Filter>MIPS\IR</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\KUBridge.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
