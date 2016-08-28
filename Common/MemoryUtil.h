@@ -54,10 +54,7 @@ void FreeAlignedMemory(void* ptr);
 void ResetExecutableMemory(void* ptr);
 #endif
 
-inline int GetMemoryProtectPageSize() {
-	// This is 4096 on all platforms we care about. 8k on Itanium but meh.
-	return 4096;
-}
+int GetMemoryProtectPageSize();
 
 template <typename T>
 class SimpleBuf {

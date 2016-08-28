@@ -71,8 +71,8 @@ public:
 		ResetCodePtr();
 	}
 
-	// BeginWrite/EndWrite assumes that we keep appending. If you don't specify a size and we encounter later executable block, we're screwed.
-	// These CANNOT be nested.
+	// BeginWrite/EndWrite assume that we keep appending. If you don't specify a size and we encounter later executable block, we're screwed.
+	// These CANNOT be nested. We rely on the memory protection starting at READ|WRITE after start and reset.
 	void BeginWrite(size_t sizeEstimate = 1) {
 #ifdef _DEBUG
 		if (writeStart_) {

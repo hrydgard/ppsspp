@@ -285,9 +285,8 @@ void FreeAlignedMemory(void* ptr) {
 }
 
 bool PlatformIsWXExclusive() {
-	// Only 64-bit iOS9 really needs this mode, but that's most iOS devices and all future ones,
-	// so let's keep things the same for all of them. Even without block linking, still should be much
-	// faster than IR JIT.
+	// Only iOS really needs this mode currently. Even without block linking, still should be much faster than IR JIT.
+	// This might also come in useful for UWP (Universal Windows Platform) if I'm understanding things correctly.
 #ifdef IOS
 	return true;
 #else
@@ -325,17 +324,16 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 #endif
 }
 
-// Hardcoded in the header. This is a way to check it dynamically in case it ever becomes necessary.
-/*
-#ifdef _WIN32
-
-// 4k on most archs, 8k on Itanium (but who cares).
-// Should not be confused with the allocation granularity which is 65k and is how precise
-// VirtualAlloc allocations can be located in memory. We don't really care about that much though.
 int GetMemoryProtectPageSize() {
-	if (sys_info.dwPageSize == 0)
-		GetSystemInfo(&sys_info);
-	return sys_info.dwPageSize;
-}
+#ifdef _WIN32
+	// This is 4096 on all Windows platforms we care about. 8k on Itanium but meh.
+	return 4096;
+	// For reference, here's how to check:
+	// if (sys_info.dwPageSize == 0)
+	//   GetSystemInfo(&sys_info);
+	// return sys_info.dwPageSize;
+
+#else
+	return PAGE_SIZE;
 #endif
-*/
+}
