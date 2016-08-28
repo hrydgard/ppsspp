@@ -29,24 +29,36 @@ using std::size_t;
 // Returns true if we need to avoid setting both writable and executable at the same time (W^X)
 bool PlatformIsWXExclusive();
 
-void* AllocateExecutableMemory(size_t size, bool exec = true);
-void* AllocateMemoryPages(size_t size);
-void FreeMemoryPages(void* ptr, size_t size);
-void* AllocateAlignedMemory(size_t size,size_t alignment);
-void FreeAlignedMemory(void* ptr);
-
-// Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
 
 #define MEM_PROT_READ  1
 #define MEM_PROT_WRITE 2
 #define MEM_PROT_EXEC  4
-void ProtectMemory(void* ptr, size_t size, uint32_t flags);
+
+// Note that some platforms go through special contortions to allocate executable memory. So for memory
+// that's intended for execution, allocate it first using AllocateExecutableMemory, then modify protection as desired.
+// AllocateMemoryPages is simpler and more generic.
+void* AllocateExecutableMemory(size_t size);
+void* AllocateMemoryPages(size_t size, uint32_t memProtFlags);
+// Note that on platforms returning PlatformIsWXExclusive, you cannot set a page to be both readable and writable at the same time.
+void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags);
+void FreeMemoryPages(void* ptr, size_t size);
+
+// Regular aligned memory. Don't try to apply memory protection willy-nilly to memory allocated this way as in-page alignment is unknown (though could be checked).
+void* AllocateAlignedMemory(size_t size, size_t alignment);
+void FreeAlignedMemory(void* ptr);
 
 #ifdef __SYMBIAN32__
 void ResetExecutableMemory(void* ptr);
 #endif
 
-inline int GetPageSize() { return 4096; }
+inline int GetMemoryProtectPageSize() {
+#ifdef _WIN32
+	// For memory protection purposes, Windows is still stuck at 64k except in WSL (linux on windows).
+	return 65536;
+#else
+	return PAGE_SIZE;
+#endif
+}
 
 template <typename T>
 class SimpleBuf {
@@ -74,7 +86,7 @@ public:
 			if (buf_ != 0) {
 				FreeMemoryPages(buf_, size_ * sizeof(T));
 			}
-			buf_ = (T *)AllocateMemoryPages(size * sizeof(T));
+			buf_ = (T *)AllocateMemoryPages(size * sizeof(T), MEM_PROT_READ | MEM_PROT_WRITE);
 			size_ = size;
 		}
 	}

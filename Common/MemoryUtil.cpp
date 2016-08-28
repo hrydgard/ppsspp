@@ -55,11 +55,42 @@ static RHeap* g_code_heap = NULL;
 static u8* g_next_ptr = NULL;
 static u8* g_orig_ptr = NULL;
 
-void ResetExecutableMemory(void* ptr)
-{
+void ResetExecutableMemory(void* ptr) {
 	// Just reset the ptr to the base
 	g_next_ptr = g_orig_ptr;
 }
+#endif
+
+#ifdef _WIN32
+// Win32 flags are odd...
+uint32_t ConvertProtFlagsWin32(uint32_t flags) {
+	uint32_t protect = 0;
+	switch (flags) {
+	case 0: protect = PAGE_NOACCESS; break;
+	case MEM_PROT_READ: protect = PAGE_READONLY; break;
+	case MEM_PROT_WRITE: protect = PAGE_READWRITE; break;   // Can't set write-only
+	case MEM_PROT_EXEC: protect = PAGE_EXECUTE; break;
+	case MEM_PROT_READ | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READ; break;
+	case MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;  // Can't set write-only
+	case MEM_PROT_READ | MEM_PROT_WRITE: protect = PAGE_READWRITE; break;
+	case MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;
+	}
+	return protect;
+}
+
+#else
+
+uint32_t ConvertProtFlagsUnix(uint32_t flags) {
+	uint32_t protect = 0;
+	if (flags & MEM_PROT_READ)
+		protect |= PROT_READ;
+	if (flags & MEM_PROT_WRITE)
+		protect |= PROT_WRITE;
+	if (flags & MEM_PROT_EXEC)
+		protect |= PROT_EXEC;
+	return protect;
+}
+
 #endif
 
 #if defined(_WIN32) && defined(_M_X64)
@@ -96,11 +127,11 @@ static void *SearchForFreeMem(size_t size) {
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 
-void *AllocateExecutableMemory(size_t size, bool exec) {
+void *AllocateExecutableMemory(size_t size) {
 #if defined(_WIN32)
 	void *ptr;
 #if defined(_M_X64)
-	if (exec && (uintptr_t)&hint_location > 0xFFFFFFFFULL) {
+	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
 		if (sys_info.dwPageSize == 0)
 			GetSystemInfo(&sys_info);
 
@@ -186,21 +217,22 @@ void *AllocateExecutableMemory(size_t size, bool exec) {
 	return ptr;
 }
 
-void *AllocateMemoryPages(size_t size) {
+void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	size = (size + 4095) & (~4095);
 #ifdef _WIN32
-	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
+	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
+	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
 #elif defined(__SYMBIAN32__)
 	void* ptr = malloc(size);
 #else
-	void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
+	void* ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
 #endif
 
 	// printf("Mapped memory at %p (size %ld)\n", ptr,
 	//	(unsigned long)size);
 	if (ptr == NULL)
 		PanicAlert("Failed to allocate raw memory");
-
 	return ptr;
 }
 
@@ -215,7 +247,7 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	// On Symbian, alignment won't matter as NEON isn't supported.
 	ptr = malloc(size);
 #else
-	if(posix_memalign(&ptr, alignment, size) != 0)
+	if (posix_memalign(&ptr, alignment, size) != 0)
 		ptr = NULL;
 #endif
 #endif
@@ -258,36 +290,20 @@ bool PlatformIsWXExclusive() {
 	return false;
 }
 
-void ProtectMemory(void* ptr, size_t size, uint32_t flags) {
+void ProtectMemoryPages(void* ptr, size_t size, uint32_t memProtFlags) {
 #ifdef _WIN32
-	uint32_t protect = 0;
-	// Win32 flags are odd...
-	switch (flags) {
-	case 0: protect = PAGE_NOACCESS; break;
-	case MEM_PROT_READ: protect = PAGE_READONLY; break;
-	case MEM_PROT_WRITE: protect = PAGE_READWRITE; break;   // Can't set write-only
-	case MEM_PROT_EXEC: protect = PAGE_EXECUTE; break;
-	case MEM_PROT_READ | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READ; break;
-	case MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;  // Can't set write-only
-	case MEM_PROT_READ | MEM_PROT_WRITE: protect = PAGE_READWRITE; break;
-	case MEM_PROT_READ | MEM_PROT_WRITE | MEM_PROT_EXEC: protect = PAGE_EXECUTE_READWRITE; break;
-	}
-
+	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	DWORD oldValue;
 	if (!VirtualProtect(ptr, size, protect, &oldValue))
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+#elif defined(__SYMBIAN32__)
+	// Do nothing
 #else
+	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	if (PlatformIsWXExclusive()) {
 		if ((flags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
 			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
 	}
-	uint32_t protect = 0;
-	if (flags & MEM_PROT_READ)
-		protect |= PROT_READ;
-	if (flags & MEM_PROT_WRITE)
-		protect |= PROT_WRITE;
-	if (flags & MEM_PROT_EXEC)
-		protect |= PROT_EXEC;
 	mprotect(ptr, size, protect);
 #endif
 }
