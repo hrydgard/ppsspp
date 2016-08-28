@@ -29,6 +29,7 @@
 #ifdef __APPLE__
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <mach/vm_param.h>
 #endif
 
 #ifndef _WIN32
