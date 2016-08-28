@@ -69,7 +69,7 @@ static const int sslModuleDeps[] = {0x0102, 0};
 static const int httpStorageModuleDeps[] = {0x00100, 0x0102, 0x0103, 0x0104, 0x0105, 0};
 static const int atrac3PlusModuleDeps[] = {0x0300, 0};
 static const int mpegBaseModuleDeps[] = {0x0300, 0};
-static const int mp4ModuleDeps[] = {0x0300, 0x0303, 0};
+static const int mp4ModuleDeps[] = {0x0300, 0};
 
 struct ModuleLoadInfo {
 	ModuleLoadInfo(int m, u32 s) : mod(m), size(s), dependencies(noDeps) {
