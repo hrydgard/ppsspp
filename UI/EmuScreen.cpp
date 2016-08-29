@@ -71,13 +71,15 @@
 #endif
 
 bool frameStep_;
+int lastNumFlips;
 
 static void __EmuScreenVblank()
 {
-	if (frameStep_)
+	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
 		frameStep_ = false;
 		Core_EnableStepping(true);
+		lastNumFlips = gpuStats.numFlips;
 	}
 }
 
@@ -87,6 +89,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 	__DisplayListenVblank(__EmuScreenVblank);
 	frameStep_ = false;
+	lastNumFlips = gpuStats.numFlips;
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
