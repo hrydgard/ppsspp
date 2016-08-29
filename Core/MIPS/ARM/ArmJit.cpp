@@ -403,7 +403,7 @@ void ArmJit::Comp_RunBlock(MIPSOpcode op)
 
 void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	if (PlatformIsWXExclusive()) {
-		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_WRITE);
+		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_WRITE);
 	}
 
 	ARMXEmitter emit(exitPoint);
@@ -423,7 +423,7 @@ void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	}
 	emit.FlushIcache();
 	if (PlatformIsWXExclusive()) {
-		ProtectMemoryPages(checkedEntry, 32, MEM_PROT_READ | MEM_PROT_EXEC);
+		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_EXEC);
 	}
 }
 
