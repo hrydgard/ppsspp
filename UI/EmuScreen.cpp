@@ -70,8 +70,8 @@
 #include "Windows/MainWindow.h"
 #endif
 
-bool frameStep_;
-int lastNumFlips;
+static bool frameStep_;
+static int lastNumFlips;
 
 static void __EmuScreenVblank()
 {
