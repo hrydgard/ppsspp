@@ -672,8 +672,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
-	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
 #ifndef MOBILE_DEVICE
+	{VIRTKEY_FRAME_ADVANCE, "Frame Advance"},
 	{VIRTKEY_REWIND, "Rewind"},
 #endif
 	{VIRTKEY_SAVE_STATE, "Save State"},
