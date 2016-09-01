@@ -74,8 +74,9 @@ namespace MainWindow {
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
-		MENU_OPTIONS = 3,
-		MENU_HELP = 4,
+		MENU_MOVIE = 3,
+		MENU_OPTIONS = 4,
+		MENU_HELP = 5,
 
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
@@ -217,6 +218,7 @@ namespace MainWindow {
 		TranslateMenu(menu, "File", MENU_FILE);
 		TranslateMenu(menu, "Emulation", MENU_EMULATION);
 		TranslateMenu(menu, "Debugging", MENU_DEBUG);
+		TranslateMenu(menu, "Movie", MENU_MOVIE);
 		TranslateMenu(menu, "Game Settings", MENU_OPTIONS);
 		TranslateMenu(menu, "Help", MENU_HELP);
 
@@ -270,6 +272,10 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(menu, ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_LAYOUT);
+
+		// Movie menu
+		TranslateMenuItem(menu, ID_MOVIE_DUMPFRAMES);
+		TranslateMenuItem(menu, ID_MOVIE_USEFFV1);
 
 		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
@@ -928,6 +934,14 @@ namespace MainWindow {
 			g_TakeScreenshot = true;
 			break;
 
+		case ID_MOVIE_DUMPFRAMES:
+			g_Config.bDumpFrames = !g_Config.bDumpFrames;
+			break;
+
+		case ID_MOVIE_USEFFV1:
+			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
+			break;
+
 		default:
 		{
 			// Handle the dynamic shader switching here.
@@ -966,6 +980,8 @@ namespace MainWindow {
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
+		CHECKITEM(ID_MOVIE_DUMPFRAMES, g_Config.bDumpFrames);
+		CHECKITEM(ID_MOVIE_USEFFV1, g_Config.bUseFFV1);
 
 		static const int displayrotationitems[] = {
 			ID_EMULATION_ROTATION_H,

@@ -19,17 +19,17 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE 
+1 TEXTINCLUDE
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE 
+2 TEXTINCLUDE
 BEGIN
     "\0"
 END
 
-3 TEXTINCLUDE 
+3 TEXTINCLUDE
 BEGIN
     "\r\n"
     "\0"
@@ -401,7 +401,7 @@ BEGIN
             MENUITEM "&5",                                  ID_FILE_SAVESTATE_SLOT_5
         END
         MENUITEM "Load State",                              ID_FILE_QUICKLOADSTATE
-        MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE 
+        MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE
         MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
         MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
         MENUITEM SEPARATOR
@@ -443,6 +443,12 @@ BEGIN
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
         MENUITEM "Log Console",                             ID_DEBUG_LOG
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
+    END
+
+    POPUP "Movie"
+    BEGIN
+        MENUITEM "Dump Frames", ID_MOVIE_DUMPFRAMES
+        MENUITEM "Lossless Codec (FFV1)", ID_MOVIE_USEFFV1
     END
 
     POPUP "Options"
