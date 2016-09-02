@@ -89,6 +89,7 @@ static void __EmuScreenVblank()
 	if (g_Config.bDumpFrames && !startDumping)
 	{
 		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		osm.Show("AVI Dump started.", 3.0f);
 		startDumping = true;
 	}
 	if (g_Config.bDumpFrames && startDumping)
@@ -98,6 +99,7 @@ static void __EmuScreenVblank()
 	else if (!g_Config.bDumpFrames && startDumping)
 	{
 		avi.Stop();
+		osm.Show("AVI Dump stopped.", 3.0f);
 		startDumping = false;
 	}
 }
@@ -250,6 +252,7 @@ EmuScreen::~EmuScreen() {
 	if (g_Config.bDumpFrames && startDumping)
 	{
 		avi.Stop();
+		osm.Show("AVI Dump stopped.", 3.0f);
 		startDumping = false;
 	}
 }
