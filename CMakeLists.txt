@@ -1190,6 +1190,12 @@ else()
 		ext/disarm.cpp)
 endif()
 
+if (NOT MOBILE_DEVICE)
+	set(CoreExtra ${CoreExtra}
+		Core/AVIDump.cpp
+		Core/AVIDump.h)
+endif()
+
 if(ARMV7)
 	set(CORE_NEON Core/Util/AudioFormatNEON.cpp Core/Util/AudioFormatNEON.h)
 endif()
