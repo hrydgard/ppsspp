@@ -32,6 +32,7 @@
 #include "Core/Host.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
@@ -54,7 +55,7 @@ enum latency {
 };
 
 int eventAudioUpdate = -1;
-int eventHostAudioUpdate = -1; 
+int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
@@ -66,6 +67,9 @@ static int audioIntervalCycles;
 static int audioHostIntervalCycles;
 
 static s32 *mixBuffer;
+
+WaveFileWriter g_wave_writer;
+bool m_logAudio;
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak. Hm, there aren't actually even used currently...
@@ -134,6 +138,13 @@ void __AudioInit() {
 
 	resampler.Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
+
+	if (g_Config.bDumpAudio)
+	{
+		std::string audio_file_name = GetSysDirectory(DIRECTORY_VIDEO_DUMP) + "audiodump.wav";
+		File::CreateEmptyFile(audio_file_name);
+		__StartLogAudio(audio_file_name);
+	}
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -177,6 +188,11 @@ void __AudioShutdown() {
 	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
+
+	if (g_Config.bDumpAudio)
+	{
+		__StopLogAudio();
+	}
 }
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
@@ -364,6 +380,15 @@ void __AudioUpdate() {
 
 	if (g_Config.bEnableSound) {
 		resampler.PushSamples(mixBuffer, hwBlockSize);
+		if (m_logAudio)
+		{
+			s16 *clamped_data = new s16[hwBlockSize * 2];
+
+			for (int i = 0; i < hwBlockSize * 2; i++) {
+				clamped_data[i] = clamp_s16(mixBuffer[i]);
+			}
+			g_wave_writer.AddStereoSamples(clamped_data, hwBlockSize);
+		}
 	}
 }
 
@@ -383,5 +408,34 @@ void __PushExternalAudio(const s32 *audio, int numSamples) {
 		resampler.PushSamples(audio, numSamples);
 	} else {
 		resampler.Clear();
+	}
+}
+
+void __StartLogAudio(const std::string& filename)
+{
+	if (!m_logAudio)
+	{
+		m_logAudio = true;
+		g_wave_writer.Start(filename, 44100);
+		g_wave_writer.SetSkipSilence(false);
+		NOTICE_LOG(SCEAUDIO, "Starting Audio logging");
+	}
+	else
+	{
+		WARN_LOG(SCEAUDIO, "Audio logging has already been started");
+	}
+}
+
+void __StopLogAudio()
+{
+	if (m_logAudio)
+	{
+		m_logAudio = false;
+		g_wave_writer.Stop();
+		NOTICE_LOG(SCEAUDIO, "Stopping Audio logging");
+	}
+	else
+	{
+		WARN_LOG(SCEAUDIO, "Audio logging has already been stopped");
 	}
 }

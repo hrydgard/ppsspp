@@ -106,6 +106,7 @@ public:
 	bool bScreenshotsAsPNG;
 	bool bUseFFV1;
 	bool bDumpFrames;
+	bool bDumpAudio;
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
 	bool bFullscreenOnDoubleclick;

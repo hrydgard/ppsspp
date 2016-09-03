@@ -276,6 +276,7 @@ namespace MainWindow {
 		// Movie menu
 		TranslateMenuItem(menu, ID_MOVIE_DUMPFRAMES);
 		TranslateMenuItem(menu, ID_MOVIE_USEFFV1);
+		TranslateMenuItem(menu, ID_MOVIE_DUMPAUDIO);
 
 		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
@@ -942,6 +943,10 @@ namespace MainWindow {
 			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
 			break;
 
+		case ID_MOVIE_DUMPAUDIO:
+			g_Config.bDumpAudio = !g_Config.bDumpAudio;
+			break;
+
 		default:
 		{
 			// Handle the dynamic shader switching here.
@@ -982,6 +987,7 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 		CHECKITEM(ID_MOVIE_DUMPFRAMES, g_Config.bDumpFrames);
 		CHECKITEM(ID_MOVIE_USEFFV1, g_Config.bUseFFV1);
+		CHECKITEM(ID_MOVIE_DUMPAUDIO, g_Config.bDumpAudio);
 
 		static const int displayrotationitems[] = {
 			ID_EMULATION_ROTATION_H,

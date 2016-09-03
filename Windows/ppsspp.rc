@@ -447,8 +447,9 @@ BEGIN
 
     POPUP "Movie"
     BEGIN
-        MENUITEM "Dump Frames", ID_MOVIE_DUMPFRAMES
-        MENUITEM "Lossless Codec (FFV1)", ID_MOVIE_USEFFV1
+        MENUITEM "Dump Frames",                             ID_MOVIE_DUMPFRAMES
+        MENUITEM "Lossless Codec (FFV1)",                   ID_MOVIE_USEFFV1
+		MENUITEM "Dump Audio",                              ID_MOVIE_DUMPAUDIO
     END
 
     POPUP "Options"

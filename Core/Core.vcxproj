@@ -501,6 +501,7 @@
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AnySuitable</InlineFunctionExpansion>
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AnySuitable</InlineFunctionExpansion>
     </ClCompile>
+    <ClCompile Include="WaveFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ext\disarm.h" />
@@ -731,6 +732,7 @@
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />
     <ClInclude Include="..\ext\xxhash.h" />
+    <ClInclude Include="WaveFile.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\android\jni\Android.mk" />

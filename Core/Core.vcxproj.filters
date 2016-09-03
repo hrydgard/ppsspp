@@ -676,6 +676,7 @@
     <ClCompile Include="AVIDump.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="WaveFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1242,6 +1243,7 @@
     <ClInclude Include="AVIDump.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="WaveFile.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

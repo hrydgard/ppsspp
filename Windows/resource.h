@@ -330,6 +330,7 @@
 #define ID_GEDBG_WATCH                   40164
 #define ID_MOVIE_DUMPFRAMES              40165
 #define ID_MOVIE_USEFFV1                 40166
+#define ID_MOVIE_DUMPAUDIO               40167
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

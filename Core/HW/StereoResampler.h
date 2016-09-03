@@ -25,6 +25,7 @@
 
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
+#include "Core/WaveFile.h"
 
 struct AudioDebugStats;
 
