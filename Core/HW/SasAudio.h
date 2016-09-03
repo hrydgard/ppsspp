@@ -289,8 +289,6 @@ public:
 	s16 *sendBufferDownsampled;
 	s16 *sendBufferProcessed;
 
-	s16 *resampleBuffer;
-
 	FILE *audioDump;
 
 	void Mix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0);
