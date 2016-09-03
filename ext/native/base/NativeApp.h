@@ -175,3 +175,4 @@ enum SystemProperty {
 
 std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
+
