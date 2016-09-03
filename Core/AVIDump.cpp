@@ -26,10 +26,6 @@ extern "C" {
 #include "Core/Screenshot.h"
 
 #include "GPU/Common/GPUDebugInterface.h"
-#ifdef _WIN32
-#include "GPU/Directx9/GPU_DX9.h"
-#endif
-#include "GPU/GLES/GPU_GLES.h"
 
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(55, 28, 1)
 #define av_frame_alloc avcodec_alloc_frame
@@ -48,6 +44,7 @@ static bool s_start_dumping = false;
 static int s_current_width;
 static int s_current_height;
 static int s_file_index = 0;
+static GPUDebugBuffer buf;
 
 static void InitAVCodec()
 {
@@ -80,10 +77,10 @@ bool AVIDump::CreateAVI()
 	s_format_context = avformat_alloc_context();
 	std::stringstream s_file_index_str;
 	s_file_index_str << s_file_index;
-	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", (GetSysDirectory(DIRECTORY_VIDEO_DUMP) + "framedump" + s_file_index_str.str() + ".avi").c_str());
+	snprintf(s_format_context->filename, sizeof(s_format_context->filename), "%s", (GetSysDirectory(DIRECTORY_VIDEO) + "framedump" + s_file_index_str.str() + ".avi").c_str());
 	// Make sure that the path exists
-	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO_DUMP)))
-		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO_DUMP));
+	if (!File::Exists(GetSysDirectory(DIRECTORY_VIDEO)))
+		File::CreateDir(GetSysDirectory(DIRECTORY_VIDEO));
 
 	if (File::Exists(s_format_context->filename))
 		File::Delete(s_format_context->filename);
@@ -150,101 +147,8 @@ static void PreparePacket(AVPacket* pkt)
 	pkt->stream_index = s_stream->index;
 }
 
-static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
-	// The temp buffer will be freed by the caller if set, and can be the return value.
-	temp = nullptr;
-
-	w = std::min(w, buf.GetStride());
-	h = std::min(h, buf.GetHeight());
-
-	const u8 *buffer = buf.GetData();
-	if (buf.GetFlipped() && buf.GetFormat() == GPU_DBG_FORMAT_888_RGB) {
-		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
-		temp = new u8[3 * w * h];
-		for (u32 y = 0; y < h; y++) {
-			memcpy(temp + y * w * 3, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * 3, w * 3);
-		}
-		buffer = temp;
-	}
-	else if (buf.GetFormat() != GPU_DBG_FORMAT_888_RGB) {
-		// Let's boil it down to how we need to interpret the bits.
-		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
-		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
-		bool brswap = (buf.GetFormat() & GPU_DBG_FORMAT_BRSWAP_FLAG) != 0;
-		bool flip = buf.GetFlipped();
-
-		temp = new u8[3 * w * h];
-
-		// This is pretty inefficient.
-		const u16 *buf16 = (const u16 *)buffer;
-		const u32 *buf32 = (const u32 *)buffer;
-		for (u32 y = 0; y < h; y++) {
-			for (u32 x = 0; x < w; x++) {
-				u8 *dst;
-				if (flip) {
-					dst = &temp[(h - y - 1) * w * 3 + x * 3];
-				}
-				else {
-					dst = &temp[y * w * 3 + x * 3];
-				}
-
-				u8 &r = brswap ? dst[2] : dst[0];
-				u8 &g = dst[1];
-				u8 &b = brswap ? dst[0] : dst[2];
-
-				u32 src;
-				switch (baseFmt) {
-				case GPU_DBG_FORMAT_565:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert5To8((src >> 0) & 0x1F);
-					g = Convert6To8((src >> 5) & 0x3F);
-					b = Convert5To8((src >> 11) & 0x1F);
-					break;
-				case GPU_DBG_FORMAT_5551:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert5To8((src >> 0) & 0x1F);
-					g = Convert5To8((src >> 5) & 0x1F);
-					b = Convert5To8((src >> 10) & 0x1F);
-					break;
-				case GPU_DBG_FORMAT_4444:
-					src = buf16[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap16(src);
-					}
-					r = Convert4To8((src >> 0) & 0xF);
-					g = Convert4To8((src >> 4) & 0xF);
-					b = Convert4To8((src >> 8) & 0xF);
-					break;
-				case GPU_DBG_FORMAT_8888:
-					src = buf32[y * buf.GetStride() + x];
-					if (rev) {
-						src = bswap32(src);
-					}
-					r = (src >> 0) & 0xFF;
-					g = (src >> 8) & 0xFF;
-					b = (src >> 16) & 0xFF;
-					break;
-				default:
-					ERROR_LOG(COMMON, "Unsupported framebuffer format for screenshot: %d", buf.GetFormat());
-					return nullptr;
-				}
-			}
-		}
-		buffer = temp;
-	}
-
-	return buffer;
-}
-
 void AVIDump::AddFrame()
 {
-	GPUDebugBuffer buf;
 	gpuDebug->GetCurrentFramebuffer(buf);
 	u32 w = buf.GetStride();
 	u32 h = buf.GetHeight();
@@ -257,14 +161,10 @@ void AVIDump::AddFrame()
 	s_src_frame->width = s_width;
 	s_src_frame->height = s_height;
 
-	// Convert image from BGR24 to desired pixel format, and scale to initial
-	// width and height
-	if ((s_sws_context =
-           sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height,
-                                s_stream->codec->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr)))
+	// Convert image from BGR24 to desired pixel format, and scale to initial width and height
+	if ((s_sws_context = sws_getCachedContext(s_sws_context, w, h, AV_PIX_FMT_RGB24, s_width, s_height, s_stream->codec->pix_fmt, SWS_BICUBIC, nullptr, nullptr, nullptr)))
 	{
-		sws_scale(s_sws_context, s_src_frame->data, s_src_frame->linesize, 0, h,
-              s_scaled_frame->data, s_scaled_frame->linesize);
+		sws_scale(s_sws_context, s_src_frame->data, s_src_frame->linesize, 0, h, s_scaled_frame->data, s_scaled_frame->linesize);
 	}
 
 	s_scaled_frame->format = s_stream->codec->pix_fmt;
@@ -344,10 +244,9 @@ void AVIDump::CloseFile()
 void AVIDump::CheckResolution(int width, int height)
 {
 	// We check here to see if the requested width and height have changed since the last frame which
-	// was dumped, then create a new file accordingly. However, is it possible for the height
-	// (possibly width as well, but no examples known) to have a value of zero. This can occur as the
-	// VI is able to be set to a zero value for height/width to disable output. If this is the case,
-	// simply keep the last known resolution of the video for the added frame.
+	// was dumped, then create a new file accordingly. However, is it possible for the width and height
+	// to have a value of zero. If this is the case, simply keep the last known resolution of the video
+	// for the added frame.
 	if ((width != s_current_width || height != s_current_height) && (width > 0 && height > 0))
 	{
 		int temp_file_index = s_file_index;

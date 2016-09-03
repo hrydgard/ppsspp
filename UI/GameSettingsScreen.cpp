@@ -676,9 +676,9 @@ void GameSettingsScreen::CreateViews() {
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	// Screenshot functionality is not yet available on non-Windows/non-Qt
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, sy->T("Screenshots as PNG")));
-	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Dump Frames")));
-	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use FFV1 for Frame Dumps")));
-	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Dump Audio")));
+	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
+	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
+	systemSettings->Add(new CheckBox(&g_Config.bDumpAudio, sy->T("Export Audio")));
 #endif
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};

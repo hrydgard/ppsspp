@@ -1193,7 +1193,9 @@ endif()
 if (NOT MOBILE_DEVICE)
 	set(CoreExtra ${CoreExtra}
 		Core/AVIDump.cpp
-		Core/AVIDump.h)
+		Core/AVIDump.h
+		Core/WaveFile.cpp
+		Core/WaveFile.h)
 endif()
 
 if(ARMV7)
@@ -1218,8 +1220,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/ThreadEventQueue.h
-	Core/WaveFile.cpp
-	Core/WaveFile.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h

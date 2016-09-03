@@ -240,11 +240,6 @@ u64 GetTicks()
 	return (u64)globalTimer + slicelength - currentMIPS->downcount;
 }
 
-u64 GetTicksPerSecond()
-{
-	return CPU_HZ;
-}
-
 u64 GetIdleTicks()
 {
 	return (u64)idledCycles;

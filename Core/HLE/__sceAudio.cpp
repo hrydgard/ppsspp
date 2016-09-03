@@ -33,6 +33,9 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#ifndef MOBILE_DEVICE
+#include "Core/WaveFile.h"
+#endif
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
@@ -67,9 +70,11 @@ static int audioIntervalCycles;
 static int audioHostIntervalCycles;
 
 static s32 *mixBuffer;
-
+static s16 *clampedMixBuffer;
+#ifndef MOBILE_DEVICE
 WaveFileWriter g_wave_writer;
-bool m_logAudio;
+static bool m_logAudio;
+#endif
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak. Hm, there aren't actually even used currently...
@@ -134,17 +139,21 @@ void __AudioInit() {
 		chans[i].clear();
 
 	mixBuffer = new s32[hwBlockSize * 2];
+	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	resampler.Clear();
 	CoreTiming::RegisterMHzChangeCallback(&__AudioCPUMHzChange);
-
+#ifndef MOBILE_DEVICE
 	if (g_Config.bDumpAudio)
 	{
-		std::string audio_file_name = GetSysDirectory(DIRECTORY_VIDEO_DUMP) + "audiodump.wav";
+		std::string audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) + "audiodump.wav";
+		// Create the path just in case it doesn't exist
+		File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
 		File::CreateEmptyFile(audio_file_name);
 		__StartLogAudio(audio_file_name);
 	}
+#endif
 }
 
 void __AudioDoState(PointerWrap &p) {
@@ -184,15 +193,18 @@ void __AudioDoState(PointerWrap &p) {
 
 void __AudioShutdown() {
 	delete [] mixBuffer;
+	delete [] clampedMixBuffer;
 
 	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 
+#ifndef MOBILE_DEVICE
 	if (g_Config.bDumpAudio)
 	{
 		__StopLogAudio();
 	}
+#endif
 }
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
@@ -380,15 +392,15 @@ void __AudioUpdate() {
 
 	if (g_Config.bEnableSound) {
 		resampler.PushSamples(mixBuffer, hwBlockSize);
+#ifndef MOBILE_DEVICE
 		if (m_logAudio)
 		{
-			s16 *clamped_data = new s16[hwBlockSize * 2];
-
 			for (int i = 0; i < hwBlockSize * 2; i++) {
-				clamped_data[i] = clamp_s16(mixBuffer[i]);
+				clampedMixBuffer[i] = clamp_s16(mixBuffer[i]);
 			}
-			g_wave_writer.AddStereoSamples(clamped_data, hwBlockSize);
+			g_wave_writer.AddStereoSamples(clampedMixBuffer, hwBlockSize);
 		}
+#endif
 	}
 }
 
@@ -410,7 +422,7 @@ void __PushExternalAudio(const s32 *audio, int numSamples) {
 		resampler.Clear();
 	}
 }
-
+#ifndef MOBILE_DEVICE
 void __StartLogAudio(const std::string& filename)
 {
 	if (!m_logAudio)
@@ -439,3 +451,4 @@ void __StopLogAudio()
 		WARN_LOG(SCEAUDIO, "Audio logging has already been stopped");
 	}
 }
+#endif

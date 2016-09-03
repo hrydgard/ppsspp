@@ -125,7 +125,7 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 }
 #endif
 
-static const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
+const u8 *ConvertBufferTo888RGB(const GPUDebugBuffer &buf, u8 *&temp, u32 &w, u32 &h) {
 	// The temp buffer will be freed by the caller if set, and can be the return value.
 	temp = nullptr;
 

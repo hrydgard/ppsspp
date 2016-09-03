@@ -18,7 +18,6 @@
 #pragma once
 
 #include "sceAudio.h"
-#include "Core/WaveFile.h"
 
 struct AudioDebugStats {
 	int buffered;
