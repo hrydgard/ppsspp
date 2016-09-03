@@ -15,8 +15,6 @@
 #include "net/resolve.h"
 #include "base/NativeApp.h"
 
-#define _PS3_ true
-
 extern "C" {
 	int SDLJoystickThreadWrapper(void *SDLJoy);
 }
