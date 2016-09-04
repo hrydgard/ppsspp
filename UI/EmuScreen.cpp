@@ -110,7 +110,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		return;
 	}
 
-	SetBackgroundAudioGame(filename);
+	SetBackgroundAudioGame("");
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, filename, 0);
