@@ -93,12 +93,6 @@ TextDrawer::~TextDrawer() {
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
-	std::wstring fname;
-	if (fontName) 
-		fname = ConvertUTF8ToWString(fontName);
-	else
-		fname = L"Tahoma";
-
 	uint32_t fontHash = fontName ? hash::Fletcher((const uint8_t *)fontName, strlen(fontName)) : 0;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
@@ -108,7 +102,13 @@ uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
 		fontHash_ = fontHash;
 		return fontHash;
 	}
-	
+
+	std::wstring fname;
+	if (fontName)
+		fname = ConvertUTF8ToWString(fontName);
+	else
+		fname = L"Tahoma";
+
 	TextDrawerFontContext *font = new TextDrawerFontContext();
 
 	float textScale = 1.0f;
