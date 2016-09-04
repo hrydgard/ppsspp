@@ -404,6 +404,14 @@ BEGIN
         MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE
         MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
         MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
+
+		POPUP "Record"
+		BEGIN
+		    MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
+		    MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
+            MENUITEM SEPARATOR
+		    MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
+		END
         MENUITEM SEPARATOR
         MENUITEM "Exit",                                    ID_FILE_EXIT
     END
@@ -443,13 +451,6 @@ BEGIN
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
         MENUITEM "Log Console",                             ID_DEBUG_LOG
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
-    END
-
-    POPUP "Movie"
-    BEGIN
-        MENUITEM "Record Display",                          ID_MOVIE_DUMPFRAMES
-        MENUITEM "Use Lossless Video Codec (FFV1)",         ID_MOVIE_USEFFV1
-        MENUITEM "Export Audio",                            ID_MOVIE_DUMPAUDIO
     END
 
     POPUP "Options"
