@@ -250,13 +250,20 @@ bool TryParse(const std::string &str, bool *const output)
 
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output)
 {
-	std::istringstream iss(str);
-	output.resize(1);
+	size_t next = 0;
+	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
+		if (str[pos] == delim) {
+			output.push_back(str.substr(next, pos - next));
+			// Skip the delimiter itself.
+			next = pos + 1;
+		}
+	}
 
-	while (std::getline(iss, *output.rbegin(), delim))
-		output.push_back("");
-
-	output.pop_back();
+	if (next == 0) {
+		output.push_back(str);
+	} else if (next < str.length()) {
+		output.push_back(str.substr(next));
+	}
 }
 
 std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest)
