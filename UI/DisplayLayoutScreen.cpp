@@ -212,7 +212,7 @@ void DisplayLayoutScreen::CreateViews() {
 	if (g_Config.iSmallDisplayZoomType > 1) { // Scaling
 		if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
 			mode_->AddChoice(gr->T("Auto Scaling"));
-			mode_->ReplaceLayoutParams(new AnchorLayoutParams(0, 0, local_dp_xres / 2.0f - 70.0f, NONE, NONE, local_dp_yres / 2.0f + 32.0f));
+			mode_->ReplaceLayoutParams(new AnchorLayoutParams(160.0f, 0, local_dp_xres / 2.0f - 80.0f, NONE, NONE, local_dp_yres / 2.0f + 32.0f));
 			float autoBound = local_dp_yres / 270.0f;
 			// Case of screen rotated ~ only works with buffered rendering
 			if (bRotated) {
@@ -248,7 +248,7 @@ void DisplayLayoutScreen::CreateViews() {
 		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
 		mode_->AddChoice(gr->T("Stretching"));
-		mode_->ReplaceLayoutParams(new AnchorLayoutParams(0, 0, local_dp_xres / 2.0f - 70.0f, NONE, NONE, local_dp_yres / 2.0f + 32.0f));
+		mode_->ReplaceLayoutParams(new AnchorLayoutParams(140.0f, 0, local_dp_xres / 2.0f - 70.0f, NONE, NONE, local_dp_yres / 2.0f + 32.0f));
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = local_dp_xres / 2.0f;
