@@ -673,6 +673,10 @@
     <ClCompile Include="MIPS\IR\IRFrontend.cpp">
       <Filter>MIPS\IR</Filter>
     </ClCompile>
+    <ClCompile Include="AVIDump.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="WaveFile.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1236,6 +1240,10 @@
     <ClInclude Include="MIPS\IR\IRFrontend.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
+    <ClInclude Include="AVIDump.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="WaveFile.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

@@ -38,7 +38,7 @@
 StereoResampler::StereoResampler()
 	: m_dma_mixer(this, 44100)
 {
-	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit. 
+	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit.
 	// TODO: should only do this if auto frameskip is off?
 
 	float refresh = System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f;
@@ -120,7 +120,7 @@ unsigned int StereoResampler::MixerFifo::Mix(short* samples, unsigned int numSam
 		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
 		aid_sample_rate_ = m_input_sample_rate + offset;
-	
+
 		/* Hm?
 		u32 framelimit = SConfig::GetInstance().m_Framelimit;
 		if (consider_framelimit && framelimit > 1) {

@@ -32,6 +32,9 @@
 
 #include "Common/KeyMap.h"
 
+#ifndef MOBILE_DEVICE
+#include "Core/AVIDump.h"
+#endif
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -71,8 +74,13 @@
 #include "Windows/MainWindow.h"
 #endif
 
+#ifndef MOBILE_DEVICE
+AVIDump avi;
+#endif
+
 static bool frameStep_;
 static int lastNumFlips;
+static bool startDumping;
 
 static void __EmuScreenVblank()
 {
@@ -82,6 +90,24 @@ static void __EmuScreenVblank()
 		Core_EnableStepping(true);
 		lastNumFlips = gpuStats.numFlips;
 	}
+#ifndef MOBILE_DEVICE
+	if (g_Config.bDumpFrames && !startDumping)
+	{
+		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+		osm.Show("AVI Dump started.", 3.0f);
+		startDumping = true;
+	}
+	if (g_Config.bDumpFrames && startDumping)
+	{
+		avi.AddFrame();
+	}
+	else if (!g_Config.bDumpFrames && startDumping)
+	{
+		avi.Stop();
+		osm.Show("AVI Dump stopped.", 3.0f);
+		startDumping = false;
+	}
+#endif
 }
 
 EmuScreen::EmuScreen(const std::string &filename)
@@ -91,6 +117,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 	__DisplayListenVblank(__EmuScreenVblank);
 	frameStep_ = false;
 	lastNumFlips = gpuStats.numFlips;
+	startDumping = false;
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
@@ -230,6 +257,14 @@ EmuScreen::~EmuScreen() {
 		// If we were invalid, it would already be shutdown.
 		PSP_Shutdown();
 	}
+#ifndef MOBILE_DEVICE
+	if (g_Config.bDumpFrames && startDumping)
+	{
+		avi.Stop();
+		osm.Show("AVI Dump stopped.", 3.0f);
+		startDumping = false;
+	}
+#endif
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {

@@ -79,6 +79,7 @@ namespace MainWindow {
 
 		// File submenus
 		SUBMENU_FILE_SAVESTATE_SLOT = 6,
+		SUBMENU_FILE_RECORD = 11,
 
 		// Emulation submenus
 		SUBMENU_DISPLAY_ROTATION = 4,
@@ -232,6 +233,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_FILE_QUICKSAVESTATE, L"\tF2");
 		TranslateMenuItem(menu, ID_FILE_LOADSTATEFILE);
 		TranslateMenuItem(menu, ID_FILE_SAVESTATEFILE);
+		TranslateSubMenu(menu, "Record", MENU_FILE, SUBMENU_FILE_RECORD);
 		TranslateMenuItem(menu, ID_FILE_EXIT, L"\tAlt+F4");
 
 		// Emulation menu
@@ -270,6 +272,11 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_MORE_SETTINGS);
 		TranslateMenuItem(menu, ID_OPTIONS_CONTROLS);
 		TranslateMenuItem(menu, ID_OPTIONS_DISPLAY_LAYOUT);
+
+		// Movie menu
+		TranslateMenuItem(menu, ID_FILE_DUMPFRAMES);
+		TranslateMenuItem(menu, ID_FILE_USEFFV1);
+		TranslateMenuItem(menu, ID_FILE_DUMPAUDIO);
 
 		// Skip display multipliers x1-x10
 		TranslateMenuItem(menu, ID_OPTIONS_FULLSCREEN, L"\tAlt+Return, F11");
@@ -928,6 +935,18 @@ namespace MainWindow {
 			g_TakeScreenshot = true;
 			break;
 
+		case ID_FILE_DUMPFRAMES:
+			g_Config.bDumpFrames = !g_Config.bDumpFrames;
+			break;
+
+		case ID_FILE_USEFFV1:
+			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
+			break;
+
+		case ID_FILE_DUMPAUDIO:
+			g_Config.bDumpAudio = !g_Config.bDumpAudio;
+			break;
+
 		default:
 		{
 			// Handle the dynamic shader switching here.
@@ -966,6 +985,9 @@ namespace MainWindow {
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
+		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
+		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
+		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
 
 		static const int displayrotationitems[] = {
 			ID_EMULATION_ROTATION_H,

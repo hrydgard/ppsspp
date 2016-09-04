@@ -19,17 +19,17 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_DEFAULT
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE 
+1 TEXTINCLUDE
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE 
+2 TEXTINCLUDE
 BEGIN
     "\0"
 END
 
-3 TEXTINCLUDE 
+3 TEXTINCLUDE
 BEGIN
     "\r\n"
     "\0"
@@ -401,9 +401,17 @@ BEGIN
             MENUITEM "&5",                                  ID_FILE_SAVESTATE_SLOT_5
         END
         MENUITEM "Load State",                              ID_FILE_QUICKLOADSTATE
-        MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE 
+        MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE
         MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
         MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
+
+		POPUP "Record"
+		BEGIN
+		    MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
+		    MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
+            MENUITEM SEPARATOR
+		    MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
+		END
         MENUITEM SEPARATOR
         MENUITEM "Exit",                                    ID_FILE_EXIT
     END
