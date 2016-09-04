@@ -2,6 +2,7 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#ifndef MOBILE_DEVICE
 #if defined(__FreeBSD__)
 #define __STDC_CONSTANT_MACROS 1
 #endif
@@ -257,3 +258,4 @@ void AVIDump::CheckResolution(int width, int height)
 		s_current_height = height;
 	}
 }
+#endif

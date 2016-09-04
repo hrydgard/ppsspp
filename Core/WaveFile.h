@@ -7,12 +7,11 @@
 // Description: Simple utility class to make it easy to write long 16-bit stereo
 // audio streams to disk.
 // Use Start() to start recording to a file, and AddStereoSamples to add wave data.
-// The float variant will convert from -1.0-1.0 range and clamp.
-// Alternatively, AddSamplesBE for big endian wave data.
 // If Stop is not called when it destructs, the destructor will call Stop().
 // ---------------------------------------------------------------------------------
 
 #pragma once
+#ifndef MOBILE_DEVICE
 
 #include <array>
 #include <string>
@@ -41,4 +40,6 @@ private:
 	void Write(u32 value);
 	void Write4(const char* ptr);
 };
+
+#endif
 
