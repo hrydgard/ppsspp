@@ -29,6 +29,12 @@ struct TextStringEntry {
 	int lastUsedFrame;
 };
 
+struct TextMeasureEntry {
+	int width;
+	int height;
+	int lastUsedFrame;
+};
+
 // Not yet functional
 enum {
 	FONTSTYLE_BOLD = 1,
@@ -75,4 +81,5 @@ private:
 	uint32_t fontHash_;
 	// The key is the CityHash of the string xor the fontHash_.
 	std::map<uint32_t, TextStringEntry *> cache_;
+	std::map<uint32_t, TextMeasureEntry *> sizeCache_;
 };

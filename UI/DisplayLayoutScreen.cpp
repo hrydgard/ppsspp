@@ -62,6 +62,7 @@ public:
 
 DisplayLayoutScreen::DisplayLayoutScreen() {
 	picked_ = 0;
+	mode_ = nullptr;
 };
 
 
@@ -70,7 +71,7 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 
 	using namespace UI;
 
-	int mode = mode_->GetSelection();
+	int mode = mode_ ? mode_->GetSelection() : 0;
 	if (g_Config.iSmallDisplayZoomType == 2) { mode = -1; }
 
 	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
@@ -172,6 +173,17 @@ public:
 	}
 };
 
+// Stealing StickyChoice's layout and text rendering.
+class HighlightLabel : public UI::StickyChoice {
+public:
+	HighlightLabel(const std::string &text, UI::LayoutParams *layoutParams)
+		: UI::StickyChoice(text, "", layoutParams) {
+		Press();
+	}
+
+	bool CanBeFocused() const override { return false; }
+};
+
 void DisplayLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 
@@ -202,7 +214,6 @@ void DisplayLayoutScreen::CreateViews() {
 	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding - vertBoundariesHeight, NONE, NONE)));
 	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, NONE, NONE, vertPreviewPadding - vertBoundariesHeight)));
 
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	static const char *zoomLevels[] = { "Stretching", "Partial Stretch", "Auto Scaling", "Manual Scaling" };
 	zoom_ = new PopupMultiChoice(&g_Config.iSmallDisplayZoomType, di->T("Options"), zoomLevels, 0, ARRAY_SIZE(zoomLevels), gr->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, NONE, NONE, 10));
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
@@ -215,12 +226,13 @@ void DisplayLayoutScreen::CreateViews() {
 	if (displayRotEnable_ && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		bRotated = true;
 	}
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 	displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f; // Visual representation image is just icon size and have to be scaled 8 times to match PSP native resolution which is used as 1.0 for zoom
+
+	HighlightLabel *label = nullptr;
+	mode_ = nullptr;
 	if (g_Config.iSmallDisplayZoomType > 1) { // Scaling
 		if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
-			mode_->AddChoice(gr->T("Auto Scaling"));
-			mode_->ReplaceLayoutParams(new AnchorLayoutParams(160.0f, 0, local_dp_xres / 2.0f - 80.0f, local_dp_yres / 2.0f - 32.0f, NONE, NONE));
+			label = new HighlightLabel(gr->T("Auto Scaling"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
 			float autoBound = local_dp_yres / 270.0f;
 			// Case of screen rotated ~ only works with buffered rendering
 			if (bRotated) {
@@ -246,8 +258,9 @@ void DisplayLayoutScreen::CreateViews() {
 			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 74));
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
-			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, 1.0f, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 134));
+			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, 1.0f, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10 + 64 + 64));
 			root_->Add(zoomlvl);
+			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 			mode_->AddChoice(di->T("Move"));
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0);
@@ -255,8 +268,7 @@ void DisplayLayoutScreen::CreateViews() {
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
-		mode_->AddChoice(gr->T("Stretching"));
-		mode_->ReplaceLayoutParams(new AnchorLayoutParams(140.0f, 0, local_dp_xres / 2.0f - 70.0f, local_dp_yres / 2.0f - 32.0f, NONE, NONE));
+		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = previewWidth;
@@ -288,9 +300,15 @@ void DisplayLayoutScreen::CreateViews() {
 		displayRepresentation_->SetAngle(90.0f);
 	}
 
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	root_->Add(displayRepresentation_);
-	root_->Add(mode_);
+	if (mode_) {
+		root_->Add(mode_);
+	}
+	if (label) {
+		root_->Add(label);
+	}
 	root_->Add(zoom_);
 	root_->Add(rotation_);
 	root_->Add(back);

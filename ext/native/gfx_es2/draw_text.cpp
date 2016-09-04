@@ -73,12 +73,17 @@ TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto iter = cache_.begin(); iter != cache_.end(); ++iter) {
-		if (iter->second->texture)
-			iter->second->texture->Release();
-		delete iter->second;
+	for (auto iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+		delete iter.second;
 	}
 	cache_.clear();
+
+	for (auto iter : sizeCache_) {
+		delete iter.second;
+	}
+	sizeCache_.clear();
 
 	for (auto iter = fontMap_.begin(); iter != fontMap_.end(); ++iter) {
 		DeleteObject(iter->second->hFont);
@@ -136,16 +141,32 @@ void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 }
 
 void TextDrawer::MeasureString(const char *str, size_t len, float *w, float *h) {
-	auto iter = fontMap_.find(fontHash_);
-	if (iter != fontMap_.end()) {
-		SelectObject(ctx_->hDC, iter->second->hFont);
+	uint32_t stringHash = hash::Fletcher((const uint8_t *)str, len);
+	uint32_t entryHash = stringHash ^ fontHash_;
+
+	TextMeasureEntry *entry;
+	auto iter = sizeCache_.find(entryHash);
+	if (iter != sizeCache_.end()) {
+		entry = iter->second;
+	} else {
+		auto iter = fontMap_.find(fontHash_);
+		if (iter != fontMap_.end()) {
+			SelectObject(ctx_->hDC, iter->second->hFont);
+		}
+
+		SIZE size;
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str, len), "\n", "\r\n"));
+		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
+
+		entry = new TextMeasureEntry();
+		entry->width = size.cx;
+		entry->height = size.cy;
+		sizeCache_[entryHash] = entry;
 	}
 
-	SIZE size;
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(std::string(str, len), "\n", "\r\n"));
-	GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-	*w = size.cx * fontScaleX_;
-	*h = size.cy * fontScaleY_;
+	entry->lastUsedFrame = frameCount_;
+	*w = entry->width * fontScaleX_;
+	*h = entry->height * fontScaleY_;
 }
 
 void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
@@ -165,13 +186,29 @@ void TextDrawer::MeasureStringRect(const char *str, size_t len, const Bounds &bo
 	float total_w = 0.0f;
 	float total_h = 0.0f;
 	for (size_t i = 0; i < lines.size(); i++) {
-		SIZE size;
-		std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : lines[i]);
-		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
-		if (total_w < size.cx * fontScaleX_) {
-			total_w = size.cx * fontScaleX_;
+		uint32_t stringHash = hash::Fletcher((const uint8_t *)&lines[i][0], lines[i].length());
+		uint32_t entryHash = stringHash ^ fontHash_;
+
+		TextMeasureEntry *entry;
+		auto iter = sizeCache_.find(entryHash);
+		if (iter != sizeCache_.end()) {
+			entry = iter->second;
+		} else {
+			SIZE size;
+			std::wstring wstr = ConvertUTF8ToWString(lines[i].length() == 0 ? " " : lines[i]);
+			GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
+
+			entry = new TextMeasureEntry();
+			entry->width = size.cx;
+			entry->height = size.cy;
+			sizeCache_[entryHash] = entry;
 		}
-		total_h += size.cy * fontScaleY_;
+		entry->lastUsedFrame = frameCount_;
+
+		if (total_w < entry->width * fontScaleX_) {
+			total_w = entry->width * fontScaleX_;
+		}
+		total_h += entry->height * fontScaleY_;
 	}
 	*w = total_w;
 	*h = total_h;
@@ -268,11 +305,17 @@ TextDrawer::TextDrawer(Thin3DContext *thin3d) : thin3d_(thin3d), ctx_(NULL) {
 }
 
 TextDrawer::~TextDrawer() {
-	for (auto iter = cache_.begin(); iter != cache_.end(); ++iter) {
-		iter->second->texture->Release();
-		delete iter->second;
+	for (auto iter : cache_) {
+		if (iter.second->texture)
+			iter.second->texture->Release();
+		delete iter.second;
 	}
 	cache_.clear();
+
+	for (auto iter : sizeCache_) {
+		delete iter.second;
+	}
+	sizeCache_.clear();
 }
 
 uint32_t TextDrawer::SetFont(const char *fontName, int size, int flags) {
@@ -446,6 +489,15 @@ void TextDrawer::OncePerFrame() {
 					iter->second->texture->Release();
 				delete iter->second;
 				cache_.erase(iter++);
+			} else {
+				iter++;
+			}
+		}
+
+		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
+			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+				delete iter->second;
+				sizeCache_.erase(iter++);
 			} else {
 				iter++;
 			}
