@@ -297,7 +297,7 @@ bool PlatformIsWXExclusive() {
 }
 
 void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
-	INFO_LOG(JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size, (memProtFlags & MEM_PROT_READ) != 0, (memProtFlags & MEM_PROT_WRITE) != 0, (memProtFlags & MEM_PROT_EXEC) != 0);
+	VERBOSE_LOG(JIT, "ProtectMemoryPages: %p (%d) : r%d w%d x%d", ptr, (int)size, (memProtFlags & MEM_PROT_READ) != 0, (memProtFlags & MEM_PROT_WRITE) != 0, (memProtFlags & MEM_PROT_EXEC) != 0);
 
 	if (PlatformIsWXExclusive()) {
 		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC))
@@ -320,7 +320,6 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	uintptr_t end = (uintptr_t)ptr + size;
 	start &= ~(page_size - 1);
 	end = (end + page_size - 1) & ~(page_size - 1);
-	INFO_LOG(JIT, "mprotect: %p to %p", (void *)start, (void *)end);
 	mprotect((void *)start, end - start, protect);
 #endif
 }
