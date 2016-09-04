@@ -928,7 +928,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
-		SetBackgroundAudioGame(value);
 	}
 	if (!strcmp(message, "control mapping")) {
 		UpdateUIState(UISTATE_MENU);

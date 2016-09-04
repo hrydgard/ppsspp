@@ -52,6 +52,7 @@
 #include "Core/HLE/__sceAudio.h"
 
 #include "UI/ui_atlas.h"
+#include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
 #include "UI/PauseScreen.h"
@@ -108,6 +109,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 		}
 		return;
 	}
+
+	SetBackgroundAudioGame(filename);
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	GameInfo *info = g_gameInfoCache->GetInfo(NULL, filename, 0);
