@@ -1,4 +1,5 @@
 #include "SDL/SDLJoystick.h"
+#include "Core/Config.h"
 
 #include <iostream>
 
@@ -16,13 +17,22 @@ SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 		SDL_setenv("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1", 0);
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO);
 	}
-	fillMapping();
 
 	int numjoys = SDL_NumJoysticks();
 	SDL_JoystickEventState(SDL_ENABLE);
 	for (int i = 0; i < numjoys; i++) {
 		joys.push_back(SDL_JoystickOpen(i));
+//		printf("Initialized joystick %d: %s",i,SDL_JoystickNameForIndex(i));
+		if(strstr(SDL_JoystickNameForIndex(i),"PLAYSTATION(R)3 Controller"))
+			g_Config.bPS3Controller = true;
 	}
+
+        if (g_Config.bPS3Controller)
+                fillMappingPS3();
+        else
+                fillMapping();
+
+
 }
 
 SDLJoystick::~SDLJoystick(){

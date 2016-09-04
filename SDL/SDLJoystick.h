@@ -31,6 +31,30 @@ public:
 private:
 
 	void runLoop();
+	void fillMappingPS3()
+	{
+                SDLJoyButtonMap[14] = NKCODE_BUTTON_1;   // Cross
+                SDLJoyButtonMap[13] = NKCODE_BUTTON_2;   // Circle
+                SDLJoyButtonMap[15] = NKCODE_BUTTON_3;   // Sqlare
+                SDLJoyButtonMap[12] = NKCODE_BUTTON_4;   // Triangle
+                SDLJoyButtonMap[10] = NKCODE_BUTTON_5;   // L1
+                SDLJoyButtonMap[11] = NKCODE_BUTTON_6;   // R1
+                SDLJoyButtonMap[8] = NKCODE_BUTTON_7;   // L2
+                SDLJoyButtonMap[9] = NKCODE_BUTTON_8;   // R2
+                SDLJoyButtonMap[0] = NKCODE_BUTTON_9;   // Select
+                SDLJoyButtonMap[3] = NKCODE_BUTTON_10;  // Start
+                SDLJoyButtonMap[1] = NKCODE_BUTTON_11; // L3
+                SDLJoyButtonMap[2] = NKCODE_BUTTON_12; // R3
+                SDLJoyButtonMap[16] = NKCODE_BUTTON_13; // PS
+                SDLJoyButtonMap[4] = NKCODE_DPAD_UP;
+                SDLJoyButtonMap[6] = NKCODE_DPAD_DOWN;
+                SDLJoyButtonMap[7] = NKCODE_DPAD_LEFT;
+                SDLJoyButtonMap[5] = NKCODE_DPAD_RIGHT;
+                SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
+                SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
+                SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
+                SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
+	}
 	void fillMapping()
 	{
 		//TODO: C++11 aggregate initialization

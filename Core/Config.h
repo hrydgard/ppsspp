@@ -121,6 +121,7 @@ public:
 #if !defined(MOBILE_DEVICE)
 	bool bPauseExitsEmulator;
 #endif
+	bool bPS3Controller;
 
 	// Core
 	bool bIgnoreBadMemAccess;
