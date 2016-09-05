@@ -2016,8 +2016,9 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	Memory::Write_U32(MIPS_MAKE_B(-1), sp + 8);
 	Memory::Write_U32(MIPS_MAKE_NOP(), sp + 12);
 
-	// Point ra at our return stub.
+	// Point ra at our return stub, and start fp off matching sp.
 	startThread->context.r[MIPS_REG_RA] = sp;
+	startThread->context.r[MIPS_REG_FP] = sp;
 
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority) {
