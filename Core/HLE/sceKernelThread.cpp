@@ -1828,7 +1828,8 @@ void __KernelResetThread(Thread *t, int lowestPriority)
 	t->currentMipscallId = 0;
 	t->pendingMipsCalls.clear();
 
-	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
+	// This will be overwritten when starting the thread, but let's point it somewhere useful.
+	t->context.r[MIPS_REG_RA] = threadReturnHackAddr;
 	// TODO: Not sure if it's reset here, but this makes sense.
 	t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 	t->FillStack();
@@ -2008,6 +2009,16 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
 	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
 	sp -= 64;
+
+	// At the bottom of those 64 bytes, the return syscall and ra is written.
+	// Test Drive Unlimited actually depends on it being in the correct place.
+	WriteSyscall("FakeSysCalls", NID_THREADRETURN, sp);
+	Memory::Write_U32(MIPS_MAKE_B(-1), sp + 8);
+	Memory::Write_U32(MIPS_MAKE_NOP(), sp + 12);
+
+	// Point ra at our return stub, and start fp off matching sp.
+	startThread->context.r[MIPS_REG_RA] = sp;
+	startThread->context.r[MIPS_REG_FP] = sp;
 
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority) {
