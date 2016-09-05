@@ -1019,7 +1019,7 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 bool Slider::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & KEY_DOWN)) {
+	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
 			repeat_ = 0;
@@ -1132,7 +1132,7 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 bool SliderFloat::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & KEY_DOWN)) {
+	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
 			repeat_ = 0;
