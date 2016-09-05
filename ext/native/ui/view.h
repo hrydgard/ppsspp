@@ -509,15 +509,16 @@ private:
 class Slider : public Clickable {
 public:
 	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), step_(1) {}
+		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), step_(1), repeat_(-1) {}
 
 	Slider(int *value, int minValue, int maxValue, int step = 1, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {
+		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {
 		step_ = step <= 0 ? 1 : step;
 	}
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
+	void Update(const InputState &input_state) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void SetShowPercent(bool s) { showPercent_ = s; }
 
@@ -527,6 +528,8 @@ public:
 	Event OnChange;
 
 private:
+	bool ApplyKey(int keyCode);
+
 	int *value_;
 	bool showPercent_;
 	int minValue_;
@@ -534,15 +537,18 @@ private:
 	float paddingLeft_;
 	float paddingRight_;
 	int step_;
+	int repeat_;
+	int repeatCode_;
 };
 
 class SliderFloat : public Clickable {
 public:
 	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70) {}
+		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {}
 	void Draw(UIContext &dc) override;
 	bool Key(const KeyInput &input) override;
 	void Touch(const TouchInput &input) override;
+	void Update(const InputState &input_state) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	// OK to call this from the outside after having modified *value_
@@ -551,11 +557,15 @@ public:
 	Event OnChange;
 
 private:
+	bool ApplyKey(int keyCode);
+
 	float *value_;
 	float minValue_;
 	float maxValue_;
 	float paddingLeft_;
 	float paddingRight_;
+	int repeat_;
+	int repeatCode_;
 };
 
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
