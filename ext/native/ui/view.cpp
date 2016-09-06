@@ -1019,38 +1019,50 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 }
 
 bool Slider::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & KEY_DOWN)) {
-		switch (input.keyCode) {
-		case NKCODE_DPAD_LEFT:
-		case NKCODE_MINUS:
-		case NKCODE_NUMPAD_SUBTRACT:
-			*value_ -= step_;
-			break;
-		case NKCODE_DPAD_RIGHT:
-		case NKCODE_PLUS:
-		case NKCODE_NUMPAD_ADD:
-			*value_ += step_;
-			break;
-		case NKCODE_PAGE_UP:
-			*value_ -= step_ * 10;
-			break;
-		case NKCODE_PAGE_DOWN:
-			*value_ += step_ * 10;
-			break;
-		case NKCODE_MOVE_HOME:
-			*value_ = minValue_;
-			break;
-		case NKCODE_MOVE_END:
-			*value_ = maxValue_;
-			break;
-		default:
-			return false;
+	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+		if (ApplyKey(input.keyCode)) {
+			Clamp();
+			repeat_ = 0;
+			repeatCode_ = input.keyCode;
+			return true;
 		}
-		Clamp();
-		return true;
+		return false;
+	} else if ((input.flags & KEY_UP) && input.keyCode == repeatCode_) {
+		repeat_ = -1;
+		return false;
 	} else {
 		return false;
 	}
+}
+
+bool Slider::ApplyKey(int keyCode) {
+	switch (keyCode) {
+	case NKCODE_DPAD_LEFT:
+	case NKCODE_MINUS:
+	case NKCODE_NUMPAD_SUBTRACT:
+		*value_ -= step_;
+		break;
+	case NKCODE_DPAD_RIGHT:
+	case NKCODE_PLUS:
+	case NKCODE_NUMPAD_ADD:
+		*value_ += step_;
+		break;
+	case NKCODE_PAGE_UP:
+		*value_ -= step_ * 10;
+		break;
+	case NKCODE_PAGE_DOWN:
+		*value_ += step_ * 10;
+		break;
+	case NKCODE_MOVE_HOME:
+		*value_ = minValue_;
+		break;
+	case NKCODE_MOVE_END:
+		*value_ = maxValue_;
+		break;
+	default:
+		return false;
+	}
+	return true;
 }
 
 void Slider::Touch(const TouchInput &input) {
@@ -1066,6 +1078,9 @@ void Slider::Touch(const TouchInput &input) {
 		params.f = (float)(*value_);
 		OnChange.Trigger(params);
 	}
+
+	// Cancel any key repeat.
+	repeat_ = -1;
 }
 
 void Slider::Clamp() {
@@ -1093,6 +1108,23 @@ void Slider::Draw(UIContext &dc) {
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
+void Slider::Update(const InputState &input_state) {
+	if (repeat_ >= 0) {
+		repeat_++;
+	}
+
+	if (repeat_ >= 47) {
+		ApplyKey(repeatCode_);
+		if ((maxValue_ - minValue_) / step_ >= 300) {
+			ApplyKey(repeatCode_);
+		}
+		Clamp();
+	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
+		ApplyKey(repeatCode_);
+		Clamp();
+	}
+}
+
 void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	// TODO
 	w = 100;
@@ -1100,38 +1132,50 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 bool SliderFloat::Key(const KeyInput &input) {
-	if (HasFocus() && (input.flags & KEY_DOWN)) {
-		switch (input.keyCode) {
-		case NKCODE_DPAD_LEFT:
-		case NKCODE_MINUS:
-		case NKCODE_NUMPAD_SUBTRACT:
-			*value_ -= (maxValue_ - minValue_) / 20.0f;
-			break;
-		case NKCODE_DPAD_RIGHT:
-		case NKCODE_PLUS:
-		case NKCODE_NUMPAD_ADD:
-			*value_ += (maxValue_ - minValue_) / 30.0f;
-			break;
-		case NKCODE_PAGE_UP:
-			*value_ -= (maxValue_ - minValue_) / 5.0f;
-			break;
-		case NKCODE_PAGE_DOWN:
-			*value_ += (maxValue_ - minValue_) / 5.0f;
-			break;
-		case NKCODE_MOVE_HOME:
-			*value_ = minValue_;
-			break;
-		case NKCODE_MOVE_END:
-			*value_ = maxValue_;
-			break;
-		default:
+	if (HasFocus() && (input.flags & (KEY_DOWN | KEY_IS_REPEAT)) == KEY_DOWN) {
+		if (ApplyKey(input.keyCode)) {
+			Clamp();
+			repeat_ = 0;
+			repeatCode_ = input.keyCode;
 			return true;
 		}
-		Clamp();
-		return true;
+		return false;
+	} else if ((input.flags & KEY_UP) && input.keyCode == repeatCode_) {
+		repeat_ = -1;
+		return false;
 	} else {
 		return false;
 	}
+}
+
+bool SliderFloat::ApplyKey(int keyCode) {
+	switch (keyCode) {
+	case NKCODE_DPAD_LEFT:
+	case NKCODE_MINUS:
+	case NKCODE_NUMPAD_SUBTRACT:
+		*value_ -= (maxValue_ - minValue_) / 50.0f;
+		break;
+	case NKCODE_DPAD_RIGHT:
+	case NKCODE_PLUS:
+	case NKCODE_NUMPAD_ADD:
+		*value_ += (maxValue_ - minValue_) / 50.0f;
+		break;
+	case NKCODE_PAGE_UP:
+		*value_ -= (maxValue_ - minValue_) / 5.0f;
+		break;
+	case NKCODE_PAGE_DOWN:
+		*value_ += (maxValue_ - minValue_) / 5.0f;
+		break;
+	case NKCODE_MOVE_HOME:
+		*value_ = minValue_;
+		break;
+	case NKCODE_MOVE_END:
+		*value_ = maxValue_;
+		break;
+	default:
+		return false;
+	}
+	return true;
 }
 
 void SliderFloat::Touch(const TouchInput &input) {
@@ -1146,6 +1190,9 @@ void SliderFloat::Touch(const TouchInput &input) {
 		params.f = (float)(*value_);
 		OnChange.Trigger(params);
 	}
+
+	// Cancel any key repeat.
+	repeat_ = -1;
 }
 
 void SliderFloat::Clamp() {
@@ -1168,6 +1215,20 @@ void SliderFloat::Draw(UIContext &dc) {
 	sprintf(temp, "%0.2f", *value_);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
+}
+
+void SliderFloat::Update(const InputState &input_state) {
+	if (repeat_ >= 0) {
+		repeat_++;
+	}
+
+	if (repeat_ >= 47) {
+		ApplyKey(repeatCode_);
+		Clamp();
+	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
+		ApplyKey(repeatCode_);
+		Clamp();
+	}
 }
 
 void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
