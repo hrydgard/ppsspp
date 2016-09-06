@@ -368,7 +368,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 		busFreq = busfreq;
 		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	}
-	return hleDelayResult(0, "scepower set clockFrequency", 150);
+	return hleDelayResult(0, "scepower set clockFrequency", 150000);
 }
 
 static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
