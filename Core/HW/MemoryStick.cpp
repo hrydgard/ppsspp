@@ -9,7 +9,7 @@ static MemStickState memStickState;
 static MemStickFatState memStickFatState;
 static u64 memStickSize;
 static bool memStickNeedsAssign = false;
-static s64 memStickInsertedAt = 0;
+static u64 memStickInsertedAt = 0;
 
 void MemoryStick_DoState(PointerWrap &p) {
 	auto s = p.Section("MemoryStick", 1, 3);
