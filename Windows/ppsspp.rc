@@ -405,13 +405,13 @@ BEGIN
         MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
         MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
 
-		POPUP "Record"
-		BEGIN
-		    MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
-		    MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
+        POPUP "Record"
+        BEGIN
+            MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
+            MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
             MENUITEM SEPARATOR
-		    MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
-		END
+            MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
+        END
         MENUITEM SEPARATOR
         MENUITEM "Exit",                                    ID_FILE_EXIT
     END
@@ -492,7 +492,7 @@ BEGIN
         BEGIN
             MENUITEM "Direct3D9" ID_OPTIONS_DIRECT3D9
             MENUITEM "OpenGL" ID_OPTIONS_OPENGL
-           	MENUITEM "Vulkan" ID_OPTIONS_VULKAN
+            MENUITEM "Vulkan" ID_OPTIONS_VULKAN
         END
 
         POPUP "Rendering Mode"

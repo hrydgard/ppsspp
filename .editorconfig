@@ -15,6 +15,10 @@ indent_size = 2
 [*.sh]
 end_of_line = lf
 
+[*.rc]
+indent_style = space
+indent_size = 4
+
 [Core/Dialog/PSPOskDialog.cpp]
 charset = utf-16le
 
@@ -22,5 +26,5 @@ charset = utf-16le
 # This file may need to force a BOM so compilers treat as utf-8.
 charset = utf-8-bom
 
-[Windows/version.rc]
+[Windows/{aboutbox.rc,version.rc}]
 charset = utf-16le
