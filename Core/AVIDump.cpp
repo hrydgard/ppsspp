@@ -138,14 +138,6 @@ static void PreparePacket(AVPacket* pkt)
 	av_init_packet(pkt);
 	pkt->data = nullptr;
 	pkt->size = 0;
-	if (s_stream->codec->coded_frame->pts != AV_NOPTS_VALUE)
-	{
-		pkt->pts = av_rescale_q(s_stream->codec->coded_frame->pts,
-			s_stream->codec->time_base, s_stream->time_base);
-	}
-	if (s_stream->codec->coded_frame->key_frame)
-		pkt->flags |= AV_PKT_FLAG_KEY;
-	pkt->stream_index = s_stream->index;
 }
 
 void AVIDump::AddFrame()
