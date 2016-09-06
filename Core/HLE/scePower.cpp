@@ -368,7 +368,7 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 		busFreq = busfreq;
 		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
 	}
-	return 0;
+	return hleDelayResult(0, "scepower set clockFrequency", 150000);
 }
 
 static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
@@ -381,7 +381,7 @@ static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 			return SCE_KERNEL_ERROR_INVALID_VALUE;
 		}
 		CoreTiming::SetClockFrequencyMHz(cpufreq);
-		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
+		INFO_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
 	}
 	return 0;
 }
@@ -397,14 +397,14 @@ static u32 scePowerSetBusClockFrequency(u32 busfreq) {
 		}
 		// TODO: It seems related to other frequencies, though.
 		busFreq = busfreq;
-		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
+		INFO_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
 	}
 	return 0;
 }
 
 static u32 scePowerGetCpuClockFrequencyInt() {
 	int cpuFreq = CoreTiming::GetClockFrequencyMHz();
-	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
+	INFO_LOG(HLE,"%i=scePowerGetCpuClockFrequencyInt()", cpuFreq);
 	return cpuFreq;
 }
 
