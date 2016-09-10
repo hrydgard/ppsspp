@@ -278,14 +278,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	RET();
 
-	if (cpu_info.sBugs.bExynos8890Invalidation) {
-		// Apparently the vertex cache hasn't been the problem, but adding this here for the same
-		// reasons as the standard jit.
-		for (int i = 0; i < 32; ++i) {
-			HINT(HINT_NOP);
-		}
-	}
-
 	FlushIcache();
 
 	if (log) {
