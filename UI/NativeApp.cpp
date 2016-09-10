@@ -384,7 +384,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
 
-	bool gfxLog = true;
+	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -396,7 +396,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				logLevel = LogTypes::LDEBUG;
 				break;
 			case 'g':
-				gfxLog = false;
+				gfxLog = true;
 				break;
 			case 'j':
 				g_Config.iCpuCore = CPU_CORE_JIT;
@@ -457,11 +457,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	}
 
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, gfxLog && i == LogTypes::G3D ? LogTypes::LDEBUG : logLevel);
+		logman->SetLogLevel(type, (gfxLog && i == LogTypes::G3D) ? LogTypes::LDEBUG : logLevel);
 #ifdef ANDROID
 		logman->AddListener(type, logger);
 #endif
