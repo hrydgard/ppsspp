@@ -333,14 +333,6 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	if (dontLogBlocks > 0)
 		dontLogBlocks--;
 
-	if (cpu_info.sBugs.bExynos8890Invalidation) {
-		// What a waste.  If we don't do both this and over-invalidate, the device crashes.
-		// This space won't ever get run, but it's wasted jit cache space.
-		for (int i = 0; i < 32; ++i) {
-			HINT(HINT_NOP);
-		}
-	}
-
 	// Don't forget to zap the newly written instructions in the instruction cache!
 	FlushIcache();
 

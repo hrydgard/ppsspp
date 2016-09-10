@@ -526,7 +526,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	// Unfortunately, on the Samsung Galaxy S7, this isn't in /proc/cpuinfo.
 	// We also can't read it from __system_property_get.
 	if (buildBoard == "universal8890") {
-		cpu_info.sBugs.bExynos8890Invalidation = true;
+		cpu_info.sQuirks.bExynos8890DifferingCachelineSizes = true;
 	}
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
