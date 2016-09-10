@@ -579,7 +579,7 @@ static void DoFrameIdleTiming() {
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
-	DEBUG_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
+	VERBOSE_LOG(SCEDISPLAY, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
 	vCount++; // vCount increases at each VBLANK.
@@ -692,7 +692,7 @@ void hleAfterFlip(u64 userdata, int cyclesLate) {
 
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
-	DEBUG_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
+	VERBOSE_LOG(SCEDISPLAY,"Leave VBlank %i", (int)userdata - 1);
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 
 	// Fire the vblank listeners after the vblank completes.
@@ -989,7 +989,7 @@ static int sceDisplayGetAccumulatedHcount() {
 
 static float sceDisplayGetFramePerSec() {
 	const static float framePerSec = 59.9400599f;
-	DEBUG_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	VERBOSE_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 

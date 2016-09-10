@@ -384,7 +384,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
 
-	bool gfxLog = false;
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
 	for (int i = 1; i < argc; i++) {
@@ -395,8 +394,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				// Note that you must also change the max log level in Log.h.
 				logLevel = LogTypes::LDEBUG;
 				break;
-			case 'g':
-				gfxLog = true;
+			case 'v':
+				// Enable verbose logging
+				// Note that you must also change the max log level in Log.h.
+				logLevel = LogTypes::LVERBOSE;
 				break;
 			case 'j':
 				g_Config.iCpuCore = CPU_CORE_JIT;
@@ -460,17 +461,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
-		logman->SetLogLevel(type, (gfxLog && i == LogTypes::G3D) ? LogTypes::LDEBUG : logLevel);
+		logman->SetLogLevel(type, logLevel);
 #ifdef ANDROID
 		logman->AddListener(type, logger);
 #endif
 	}
 #endif
-	// Special hack for G3D as it's very spammy. Need to make a flag for this.
-	if (!gfxLog) {
-		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-		logman->SetLogLevel(LogTypes::SCEGE, LogTypes::LERROR);
-	}
+
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
 	// test new languages without recompiling the entire app, which is a hassle).
 	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
