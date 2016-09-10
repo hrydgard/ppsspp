@@ -18,6 +18,27 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+What's new in 1.3.0
+-------------------
+* Fix JIT problems on Galaxy S7 and iOS 9+ devices. (#8965, #8937)
+* Fix Android TV support and use latest FFmpeg. (#8651, #8870)
+* Texture replacement support - for custom textures and upscaling. (#8715, #8821)
+* Initial game recording / TAS features. (#8939, #8945)
+* Correctly map memory on Raspberry Pi 3, much better performance. (#8801)
+* Workaround rendering issues on Tegra K1/X1. (8294a54)
+* Disc streaming to play quickly from tablet/phone on wifi. (#8845)
+* Initial Vulkan support - not full featured yet. (#8601, etc.)
+* Experimental new CPU backend and CPU fixes. (#8725)
+* Allow insert/eject of memstick - required by some games. (#8889)
+* Better support for ps3 controller mapping. (#8949)
+* Better UI handling for settings with long names in some languages. (#8900, #8898)
+* Screenshots in compatibility reporting, better website. (#8812)
+* Fix type D cheat codes, allow for homebrew. (#8818)
+* Graphic glitch fixes in several games. (#8686, #8757, #8804)
+* Fix video playback glitches in several games. (#8793, #8803, #8867, #8914)
+* Various performance and compatibility improvements. (#8868, #8884, #8932, #8934, #8813, #8701)
+* Various debugger and GE debugger improvements. (#8882, #8762)
+
 What's new in 1.2.2
 -------------------
 * Went back to the old way of initializing graphics on Android. Should fix many recent issues.
