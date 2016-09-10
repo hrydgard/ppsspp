@@ -36,7 +36,7 @@ What's new in 1.3.0
 * Fix type D cheat codes, allow for homebrew. (#8818)
 * Graphic glitch fixes in several games. (#8686, #8757, #8804)
 * Fix video playback glitches in several games. (#8793, #8803, #8867, #8914)
-* Various performance and compatibility improvements. (#8868, #8884, #8932, #8934, #8813, #8701)
+* Various performance and compatibility improvements. (#8868, #8884, #8932, #8934, #8813, #8701, #8960)
 * Various debugger and GE debugger improvements. (#8882, #8762)
 
 What's new in 1.2.2
