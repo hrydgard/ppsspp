@@ -439,8 +439,6 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 		return true;
 	}
 
-	lock_guard guard(eventLock_);
-
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
@@ -461,8 +459,6 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	// a controller would be confusing for the user.
 	char buf[512];
 
-	lock_guard guard(eventLock_);
-
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
@@ -481,8 +477,6 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
-
-	lock_guard guard(eventLock_);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 
