@@ -373,10 +373,6 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
-			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
-		}
-
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferColor(GL_TEXTURE1, gstate.getFrameBufRawAddress(), nullptr, BINDFBCOLOR_MAY_COPY);
@@ -394,5 +390,10 @@ void DrawEngineGLES::ApplyDrawStateLate() {
 		// Apply the texture after the FBO tex, since it might unbind the texture.
 		// TODO: Could use a separate texture unit to be safer?
 		textureCache_->ApplyTexture();
+
+		// Apply last, once we know the alpha params of the texture.
+		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
+			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+		}
 	}
 }
