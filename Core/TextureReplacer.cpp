@@ -261,6 +261,8 @@ void TextureReplacer::PopulateReplacement(ReplacedTexture *result, u64 cachekey,
 		png_image_free(&png);
 #endif
 	}
+
+	result->alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
 #ifndef USING_QT_UI
@@ -488,7 +490,9 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	bool checkedAlpha = false;
 	if ((png.format & PNG_FORMAT_FLAG_ALPHA) == 0) {
 		// Well, we know for sure it doesn't have alpha.
-		alphaStatus_ = ReplacedTextureAlpha::FULL;
+		if (level == 0) {
+			alphaStatus_ = ReplacedTextureAlpha::FULL;
+		}
 		checkedAlpha = true;
 	}
 	png.format = PNG_FORMAT_RGBA;
@@ -498,10 +502,14 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 		return;
 	}
 
-	if (level == 0 && !checkedAlpha) {
+	if (!checkedAlpha) {
 		// This will only check the hashed bits.
 		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
-		alphaStatus_ = ReplacedTextureAlpha(res);
+		if (res == CHECKALPHA_ANY || level == 0) {
+			alphaStatus_ = ReplacedTextureAlpha(res);
+		} else if (res == CHECKALPHA_ZERO && alphaStatus_ == ReplacedTextureAlpha::FULL) {
+			alphaStatus_ = ReplacedTextureAlpha(res);
+		}
 	}
 
 	fclose(fp);

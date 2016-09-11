@@ -306,8 +306,6 @@ void DrawEngineDX9::ApplyDrawStateLate() {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		// TODO: Test texture?
-
 		textureCache_->ApplyTexture();
 
 		if (fboTexNeedBind_) {
@@ -319,6 +317,8 @@ void DrawEngineDX9::ApplyDrawStateLate() {
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}
+
+		// TODO: Test texture?
 	}
 }
 
