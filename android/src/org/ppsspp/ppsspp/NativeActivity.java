@@ -28,7 +28,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.PowerManager;
 import android.os.Vibrator;
 import android.text.InputType;
 import android.util.DisplayMetrics;
