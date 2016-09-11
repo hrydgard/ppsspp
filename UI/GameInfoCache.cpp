@@ -604,7 +604,7 @@ handleELF:
 		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
 	}
 
-	virtual float priority() {
+	float priority() override {
 		return info_->lastAccessedTime;
 	}
 
