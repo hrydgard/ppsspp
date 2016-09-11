@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <deque>
 
+#include "base/mutex.h"
 #include "base/colorutil.h"
 #include "base/logging.h"
 #include "i18n/i18n.h"
@@ -437,6 +438,9 @@ bool AnalogTestScreen::key(const KeyInput &key) {
 		screenManager()->finishDialog(this, DR_BACK);
 		return true;
 	}
+
+	lock_guard guard(eventLock_);
+
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Keycode: %d Device ID: %d [%s%s%s%s]", key.keyCode, key.deviceId,
 		(key.flags & KEY_IS_REPEAT) ? "REP" : "",
@@ -457,6 +461,8 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	// a controller would be confusing for the user.
 	char buf[512];
 
+	lock_guard guard(eventLock_);
+
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
@@ -475,6 +481,8 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 
 void AnalogTestScreen::CreateViews() {
 	using namespace UI;
+
+	lock_guard guard(eventLock_);
 
 	I18NCategory *di = GetI18NCategory("Dialog");
 
