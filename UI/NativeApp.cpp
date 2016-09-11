@@ -808,11 +808,16 @@ void NativeUpdate(InputState &input) {
 	screenManager->update(input);
 }
 
-void NativeDeviceRestore() {
+void NativeDeviceLost() {
 	if (g_gameInfoCache)
 		g_gameInfoCache->Clear();
 	screenManager->deviceLost();
+	gl_lost();
+}
 
+void NativeDeviceRestore() {
+	NativeDeviceLost();
+	screenManager->deviceRestore();
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		gl_restore();
 	}

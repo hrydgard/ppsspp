@@ -1947,6 +1947,10 @@ void GPU_Vulkan::DeviceLost() {
 	// TODO
 }
 
+void GPU_Vulkan::DeviceRestore() {
+	// TODO
+}
+
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 	const DrawEngineVulkanStats &drawStats = drawEngine_.GetStats();
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;

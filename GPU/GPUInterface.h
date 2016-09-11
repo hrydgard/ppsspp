@@ -268,6 +268,7 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
+	virtual void DeviceRestore() = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void SyncThread(bool force = false) = 0;
 	virtual void SyncBeginFrame() = 0;

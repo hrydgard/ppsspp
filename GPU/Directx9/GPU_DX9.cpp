@@ -534,6 +534,10 @@ void GPU_DX9::DeviceLost() {
 	framebufferManager_.DeviceLost();
 }
 
+void GPU_DX9::DeviceRestore() {
+	// Nothing needed.
+}
+
 void GPU_DX9::InitClear() {
 	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }

@@ -651,6 +651,10 @@ void GPU_GLES::DeviceLost() {
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
 	framebufferManager_.DeviceLost();
+}
+
+void GPU_GLES::DeviceRestore() {
+	ILOG("GPU_GLES: DeviceRestore");
 
 	UpdateVsyncInterval(true);
 }

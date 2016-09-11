@@ -50,6 +50,7 @@ public:
 	virtual void render() {}
 	virtual void postRender() {}
 	virtual void deviceLost() {}
+	virtual void deviceRestore() {}
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual bool touch(const TouchInput &touch) { return false;  }
@@ -103,6 +104,7 @@ public:
 	void render();
 	void resized();
 	void deviceLost();
+	void deviceRestore();
 	void shutdown();
 
 	// Push a dialog box in front. Currently 1-level only.

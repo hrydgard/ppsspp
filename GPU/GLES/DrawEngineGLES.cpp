@@ -207,14 +207,18 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 	}
 }
 
-void DrawEngineGLES::GLRestore() {
-	ILOG("TransformDrawEngine::GLRestore()");
+void DrawEngineGLES::GLLost() {
+	ILOG("TransformDrawEngine::GLLost()");
 	// The objects have already been deleted.
 	bufferNameCache_.clear();
 	bufferNameInfo_.clear();
 	freeSizedBuffers_.clear();
 	bufferNameCacheSize_ = 0;
 	ClearTrackedVertexArrays();
+}
+
+void DrawEngineGLES::GLRestore() {
+	ILOG("TransformDrawEngine::GLRestore()");
 	InitDeviceObjects();
 }
 

@@ -60,6 +60,7 @@ public:
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
+	void DeviceRestore() override;
 
 	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
