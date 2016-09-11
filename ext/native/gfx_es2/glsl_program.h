@@ -43,6 +43,7 @@ struct GLSLProgram : public GfxResourceHolder {
 	GLuint fsh_;
 	GLuint program_;
 
+	void GLLost() override;
 	void GLRestore() override;
 };
 

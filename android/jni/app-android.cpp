@@ -697,6 +697,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
 	ILOG("NativeApp.displayShutdown()");
 	if (renderer_inited) {
+		NativeDeviceLost();
 		NativeShutdownGraphics();
 		renderer_inited = false;
 		NativeMessageReceived("recreateviews", "");

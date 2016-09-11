@@ -69,6 +69,7 @@ public:
 	void ClearCacheNextFrame() override {}
 
 	void DeviceLost() override;
+	void DeviceRestore() override;
 	void DumpNextFrame() override {}
 
 	void Resized() override {}

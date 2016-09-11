@@ -47,7 +47,6 @@ void gl_restore() {
 		return;
 	}
 
-	// TODO: We should really do this when we get the context back, not during gl_lost...
 	ILOG("gl_restore() restoring %i items:", (int)holders->size());
 	for (size_t i = 0; i < holders->size(); i++) {
 		ILOG("gl_restore(%i / %i, %p, %08x)", (int)(i + 1), (int)holders->size(), (*holders)[i], *((uint32_t *)((*holders)[i])));
@@ -55,6 +54,23 @@ void gl_restore() {
 	}
 	ILOG("gl_restore() completed on %i items:", (int)holders->size());
 	inRestore = false;
+}
+
+void gl_lost() {
+	inLost = true;
+	if (!holders) {
+		WLOG("GL resource holder not initialized, cannot process restore request");
+		inLost = false;
+		return;
+	}
+
+	ILOG("gl_lost() clearing %i items:", (int)holders->size());
+	for (size_t i = 0; i < holders->size(); i++) {
+		ILOG("gl_lost(%i / %i, %p, %08x)", (int)(i + 1), (int)holders->size(), (*holders)[i], *((uint32_t *)((*holders)[i])));
+		(*holders)[i]->GLLost();
+	}
+	ILOG("gl_lost() completed on %i items:", (int)holders->size());
+	inLost = false;
 }
 
 void gl_lost_manager_init() {

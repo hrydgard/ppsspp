@@ -1068,7 +1068,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		{
 			bool result = param.GetSize(param.GetPspParam());
 			// TODO: According to JPCSP, should test/verify this part but seems edge casey.
-			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_DRIVER_READY) {
+			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
 				param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
 			} else if (result) {
 				param.GetPspParam()->common.result = 0;

@@ -207,8 +207,12 @@ public:
 		glBindBuffer(target_, buffer_);
 	}
 
+	void GLLost() override {
+		buffer_ = 0;
+	}
+
 	void GLRestore() override {
-		ILOG("Recreating vertex buffer after glLost");
+		ILOG("Recreating vertex buffer after gl_restore");
 		knownSize_ = 0;  // Will cause a new glBufferData call. Should genBuffers again though?
 		glGenBuffers(1, &buffer_);
 	}
@@ -235,6 +239,10 @@ public:
 	}
 	const std::string &GetSource() const { return source_; }
 
+	void Unset() {
+		shader_ = 0;
+	}
+
 	~Thin3DGLShader() {
 		glDeleteShader(shader_);
 	}
@@ -257,7 +265,7 @@ bool Thin3DGLShader::Compile(const char *source) {
 		source = temp.c_str();
 	}
 
-	glShaderSource(shader_, 1, &source, 0);
+	glShaderSource(shader_, 1, &source, nullptr);
 	glCompileShader(shader_);
 	GLint success = 0;
 	glGetShaderiv(shader_, GL_COMPILE_STATUS, &success);
@@ -283,6 +291,7 @@ public:
 	void Unapply();
 	void Compile();
 	void GLRestore() override;
+	void GLLost() override;
 	bool RequiresBuffer() override {
 		return id_ != 0;
 	}
@@ -322,6 +331,12 @@ public:
 
 	void SetVector(const char *name, float *value, int n) override;
 	void SetMatrix4x4(const char *name, const float value[16]) override;
+
+	void GLLost() override {
+		program_ = 0;
+		vshader->Unset();
+		fshader->Unset();
+	}
 
 	void GLRestore() override {
 		vshader->Compile(vshader->GetSource().c_str());
@@ -550,15 +565,19 @@ public:
 		glBindTexture(target_, tex_);
 	}
 
-	void GLRestore() override {
+	void GLLost() override {
 		// We can assume that the texture is gone.
 		tex_ = 0;
 		generatedMips_ = false;
+	}
+
+	void GLRestore() override {
 		if (!filename_.empty()) {
 			if (LoadFromFile(filename_.c_str())) {
 				ILOG("Reloaded lost texture %s", filename_.c_str());
 			} else {
 				ELOG("Failed to reload lost texture %s", filename_.c_str());
+				tex_ = 0;
 			}
 		} else {
 			WLOG("Texture %p cannot be restored - has no filename", this);
@@ -661,6 +680,10 @@ void Thin3DGLVertexFormat::Compile() {
 	}
 	needsEnable_ = true;
 	lastBase_ = -1;
+}
+
+void Thin3DGLVertexFormat::GLLost() {
+	id_ = 0;
 }
 
 void Thin3DGLVertexFormat::GLRestore() {

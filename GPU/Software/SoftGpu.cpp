@@ -78,6 +78,10 @@ void SoftGPU::DeviceLost() {
 	// Handled by thin3d.
 }
 
+void SoftGPU::DeviceRestore() {
+	// Handled by thin3d.
+}
+
 SoftGPU::~SoftGPU() {
 	vformat->Release();
 	vformat = nullptr;

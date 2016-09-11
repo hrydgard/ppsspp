@@ -584,11 +584,11 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
     	Log.i(TAG, "onStop - do nothing special");
     }
 
-    @Override
+	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-	    if (javaGL) {
-	      	Log.i(TAG, "onDestroy");
+		if (javaGL) {
+			Log.i(TAG, "onDestroy");
 			mGLSurfaceView.onDestroy();
 			nativeRenderer.onDestroyed();
 			NativeApp.audioShutdown();
@@ -597,8 +597,8 @@ public class NativeActivity extends Activity implements SurfaceHolder.Callback {
 			audioFocusChangeListener = null;
 			audioManager = null;
 			unregisterCallbacks();
-	    }
-		if (shuttingDown) {
+		}
+		if (shuttingDown || isFinishing()) {
 			NativeApp.shutdown();
 		}
 	}
