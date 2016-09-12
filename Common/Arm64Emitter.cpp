@@ -322,19 +322,25 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 	// Don't rely on GCC's __clear_cache implementation, as it caches
 	// icache/dcache cache line sizes, that can vary between cores on
 	// big.LITTLE architectures.
-	u64 addr, ctr_el0;
-	static size_t icache_line_size = 0xffff, dcache_line_size = 0xffff;
 	size_t isize, dsize;
 
-	__asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr_el0));
-	isize = 4 << ((ctr_el0 >> 0) & 0xf);
-	dsize = 4 << ((ctr_el0 >> 16) & 0xf);
+	if (cpu_info.sQuirks.bExynos8890DifferingCachelineSizes) {
+		// Enforce the minimum cache line size to be completely safe on these CPUs.
+		isize = 64;
+		dsize = 64;
+	} else {
+		u64 ctr_el0;
+		static size_t icache_line_size = 0xffff, dcache_line_size = 0xffff;
+		__asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr_el0));
+		isize = 4 << ((ctr_el0 >> 0) & 0xf);
+		dsize = 4 << ((ctr_el0 >> 16) & 0xf);
 
-	// use the global minimum cache line size
-	icache_line_size = isize = icache_line_size < isize ? icache_line_size : isize;
-	dcache_line_size = dsize = dcache_line_size < dsize ? dcache_line_size : dsize;
+		// use the global minimum cache line size
+		icache_line_size = isize = icache_line_size < isize ? icache_line_size : isize;
+		dcache_line_size = dsize = dcache_line_size < dsize ? dcache_line_size : dsize;
+	}
 
-	addr = (u64)start & ~(u64)(dsize - 1);
+	u64 addr = (u64)start & ~(u64)(dsize - 1);
 	for (; addr < (u64)end; addr += dsize)
 		// use "civac" instead of "cvau", as this is the suggested workaround for
 		// Cortex-A53 errata 819472, 826319, 827319 and 824069.
