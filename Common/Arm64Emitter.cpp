@@ -323,10 +323,16 @@ void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
 	// icache/dcache cache line sizes, that can vary between cores on
 	// big.LITTLE architectures.
 	u64 addr, ctr_el0;
+	static size_t icache_line_size = 0xffff, dcache_line_size = 0xffff;
+	size_t isize, dsize;
 
 	__asm__ volatile("mrs %0, ctr_el0" : "=r"(ctr_el0));
-	size_t isize = 4 << ((ctr_el0 >> 0) & 0xf);
-	size_t dsize = 4 << ((ctr_el0 >> 16) & 0xf);
+	isize = 4 << ((ctr_el0 >> 0) & 0xf);
+	dsize = 4 << ((ctr_el0 >> 16) & 0xf);
+
+	// use the global minimum cache line size
+	icache_line_size = isize = icache_line_size < isize ? icache_line_size : isize;
+	dcache_line_size = dsize = dcache_line_size < dsize ? dcache_line_size : dsize;
 
 	addr = (u64)start & ~(u64)(dsize - 1);
 	for (; addr < (u64)end; addr += dsize)
