@@ -1,4 +1,4 @@
-VERSION = 1.2.2.0
+VERSION = 1.3.0.0
 DEFINES += USING_QT_UI USE_FFMPEG NO_VULKAN
 
 exists( /usr/include/snappy-c.h ) {
