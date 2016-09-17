@@ -1015,11 +1015,11 @@ rotateVBO:
 						}
 					}
 				} else if (bpp == 2) {
-					u16 *addr32 = (u16 *)addr;
+					u16 *addr16 = (u16 *)addr;
 					const int stride = gstate.FrameBufStride();
 					for (int y = scissorY1; y < scissorY2; ++y) {
 						for (int x = scissorX1; x < scissorX2; ++x) {
-							addr32[y * stride + x] = clearColor;
+							addr16[y * stride + x] = clearColor;
 						}
 					}
 				}
