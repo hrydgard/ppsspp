@@ -15,24 +15,31 @@ SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 	if (init_SDL)
 	{
 		SDL_setenv("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1", 0);
-		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO);
+		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
+	}
+	
+	if (SDL_GameControllerAddMappingsFromFile("assets/gamecontrollerdb.txt") == -1)
+	{
+			printf("Failed to load control pad mappings, please place gamecontrollerdb.txt in your assets directory\n");
+	}
+	else {
+		printf("Loaded game controller mappings for SDL2\n");
 	}
 
 	int numjoys = SDL_NumJoysticks();
+	int firstController = -1;
 	SDL_JoystickEventState(SDL_ENABLE);
 	for (int i = 0; i < numjoys; i++) {
 		joys.push_back(SDL_JoystickOpen(i));
-//		printf("Initialized joystick %d: %s",i,SDL_JoystickNameForIndex(i));
-		if(strstr(SDL_JoystickNameForIndex(i),"PLAYSTATION(R)3 Controller"))
-			g_Config.bPS3Controller = true;
+		//printf("Initialized joystick %d: %s\n",i,SDL_JoystickNameForIndex(i));
+		if (firstController == -1 && SDL_IsGameController(i))
+		{
+			firstController = i;
+		}
 	}
-
-        if (g_Config.bPS3Controller)
-                fillMappingPS3();
-        else
-                fillMapping();
-
-
+	
+	printf("Player 1 will be using joystick %d, %s\n", firstController, SDL_JoystickNameForIndex(firstController));
+	fillMapping(firstController);
 }
 
 SDLJoystick::~SDLJoystick(){
@@ -184,4 +191,53 @@ void SDLJoystick::runLoop(){
 			ProcessInput(evt);
 		}
 	}
+}
+
+void SDLJoystick::buttonMappingHelper(SDL_GameController* controller, SDL_GameControllerButton button, keycode_t buttonKeyCode)
+{
+	SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForButton(controller, button);
+	if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
+	{
+		SDLJoyButtonMap[bind.value.button] = buttonKeyCode;
+	}
+}
+
+void SDLJoystick::axisMappingHelper(SDL_GameController* controller, SDL_GameControllerAxis axis, keycode_t buttonKeyCode, AndroidJoystickAxis axisCode)
+{
+	SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForAxis(controller, axis);
+	if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON && buttonKeyCode != NKCODE_UNKNOWN)
+	{
+		SDLJoyButtonMap[bind.value.button] = buttonKeyCode;
+	}
+	else if (bind.bindType == SDL_CONTROLLER_BINDTYPE_AXIS)
+	{
+		SDLJoyAxisMap[bind.value.axis] = axisCode;
+	}
+}
+
+void SDLJoystick::fillMapping(int joyIndex)
+{
+		SDL_GameController *controller = SDL_GameControllerOpen(joyIndex);
+		printf("control pad mapping: %s\n", SDL_GameControllerMapping(controller));
+		
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_UP, NKCODE_DPAD_UP);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN, NKCODE_DPAD_DOWN);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT, NKCODE_DPAD_LEFT);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, NKCODE_DPAD_RIGHT);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_A, NKCODE_BUTTON_2);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_B, NKCODE_BUTTON_3);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_X, NKCODE_BUTTON_4);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_Y, NKCODE_BUTTON_1);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_START, NKCODE_BUTTON_10);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_BACK, NKCODE_BUTTON_9); // back == select
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, NKCODE_BUTTON_5);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, NKCODE_BUTTON_6);
+		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_GUIDE, NKCODE_BACK); // pause emulator
+			
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT, NKCODE_BUTTON_7, JOYSTICK_AXIS_LTRIGGER); // L2
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, NKCODE_BUTTON_8, JOYSTICK_AXIS_RTRIGGER); // R2
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_LEFTX, NKCODE_UNKNOWN, JOYSTICK_AXIS_X);
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_LEFTY, NKCODE_UNKNOWN, JOYSTICK_AXIS_Y);
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_RIGHTX, NKCODE_UNKNOWN, JOYSTICK_AXIS_Z);
+		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_RIGHTY, NKCODE_UNKNOWN, JOYSTICK_AXIS_RZ);
 }
