@@ -2,13 +2,9 @@
 
 #ifdef _WIN32
 #include "SDL/SDL.h"
-#include "SDL/SDL_joystick.h"
-#include "SDL/SDL_gamecontroller.h"
 #include "SDL/SDL_thread.h"
 #else
 #include "SDL.h"
-#include "SDL_joystick.h"
-#include "SDL_gamecontroller.h"
 #include "SDL_thread.h"
 #endif
 
@@ -33,16 +29,12 @@ public:
 private:
 
 	void runLoop();
-	void fillMapping(int joyIndex);
-	void axisMappingHelper(SDL_GameController* controller, SDL_GameControllerAxis axis, keycode_t buttonKeyCode, AndroidJoystickAxis axisCode);
-	void buttonMappingHelper(SDL_GameController* controller, SDL_GameControllerButton button, keycode_t buttonKeyCode);
-	
-	std::map<int, int> SDLJoyButtonMap;
-	std::map<int, int> SDLJoyAxisMap;
-
-	std::vector<SDL_Joystick *> joys;
+	void setUpPlayer1();
+	keycode_t getKeycodeForButton(SDL_GameControllerButton button);
+	int getDeviceIndex(int instanceId);
 	SDL_Thread *thread ;
 	bool running ;
-
-	int getDeviceIndex(int instanceId);
+	SDL_GameController *player1Controller;
+	SDL_JoystickID player1JoyInstanceID;
+	
 };

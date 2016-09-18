@@ -11,10 +11,10 @@ extern "C" {
 	}
 }
 
-SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
+SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true), player1Controller(NULL), player1JoyInstanceID(-1) {
 	if (init_SDL)
 	{
-		SDL_setenv("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1", 0);
+		SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
 	
@@ -24,36 +24,57 @@ SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 	}
 	else {
 		printf("Loaded game controller mappings for SDL2\n");
+		setUpPlayer1();
 	}
+}
 
+void SDLJoystick::setUpPlayer1()
+{
 	int numjoys = SDL_NumJoysticks();
-	int firstController = -1;
-	SDL_JoystickEventState(SDL_ENABLE);
+	int joyIndex = -1;
 	for (int i = 0; i < numjoys; i++) {
-		joys.push_back(SDL_JoystickOpen(i));
-		//printf("Initialized joystick %d: %s\n",i,SDL_JoystickNameForIndex(i));
-		if (firstController == -1 && SDL_IsGameController(i))
+		if (joyIndex == -1 && SDL_IsGameController(i))
 		{
-			firstController = i;
+			joyIndex = i;
+			break;
 		}
 	}
-	
-	printf("Player 1 will be using joystick %d, %s\n", firstController, SDL_JoystickNameForIndex(firstController));
-	fillMapping(firstController);
+	if (joyIndex != -1)
+	{
+		printf("Player 1 will be using joystick %d, %s\n", joyIndex, SDL_JoystickNameForIndex(joyIndex));
+		player1Controller = SDL_GameControllerOpen(joyIndex);
+		if (player1Controller && SDL_GameControllerGetAttached(player1Controller))
+		{
+			player1JoyInstanceID = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(player1Controller));
+			char *mapping = SDL_GameControllerMapping(player1Controller);
+			if (mapping == NULL)
+			{
+				printf("control pad %s is not in the game controller database, unable to set mappings!\n", SDL_JoystickNameForIndex(joyIndex));
+			}
+			else
+			{
+				printf("control pad mapping: %s\n", SDL_GameControllerMapping(player1Controller));
+			}
+		}
+		else
+		{
+			printf("Error! Could not open controller\n");
+		}
+	}
 }
 
 SDLJoystick::~SDLJoystick(){
 	if (thread)
 	{
 		running = false;
+		if (player1Controller)
+		{
+			SDL_GameControllerClose(player1Controller);
+		}
 		SDL_Event evt;
 		evt.type = SDL_USEREVENT;
 		SDL_PushEvent(&evt);
 		SDL_WaitThread(thread,0);
-	}
-	for (SDL_Joystick *joy : joys)
-	{
-		SDL_JoystickClose(joy);
 	}
 }
 
@@ -61,112 +82,120 @@ void SDLJoystick::startEventLoop(){
 	thread = SDL_CreateThread(SDLJoystickThreadWrapper, "joystick",static_cast<void *>(this));
 }
 
+keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button)
+{
+	switch (button)
+	{
+		case SDL_CONTROLLER_BUTTON_DPAD_UP: return NKCODE_DPAD_UP;
+		case SDL_CONTROLLER_BUTTON_DPAD_DOWN: return NKCODE_DPAD_DOWN;
+		case SDL_CONTROLLER_BUTTON_DPAD_LEFT: return NKCODE_DPAD_LEFT;
+		case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: return NKCODE_DPAD_RIGHT;
+		case SDL_CONTROLLER_BUTTON_A: return NKCODE_BUTTON_2;
+		case SDL_CONTROLLER_BUTTON_B: return NKCODE_BUTTON_3;
+		case SDL_CONTROLLER_BUTTON_X: return NKCODE_BUTTON_4;
+		case SDL_CONTROLLER_BUTTON_Y: return NKCODE_BUTTON_1;
+		case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: return NKCODE_BUTTON_5;
+		case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: return NKCODE_BUTTON_6;
+		case SDL_CONTROLLER_BUTTON_START: return NKCODE_BUTTON_10;
+		case SDL_CONTROLLER_BUTTON_BACK: return NKCODE_BUTTON_9; // select button
+		case SDL_CONTROLLER_BUTTON_GUIDE: return NKCODE_BACK; // pause menu
+	}
+	return NKCODE_UNKNOWN;
+}
+
 void SDLJoystick::ProcessInput(SDL_Event &event){
 	switch (event.type) {
-	case SDL_JOYAXISMOTION:
+		case SDL_CONTROLLERBUTTONDOWN:
 		{
-			std::map<int, int>::const_iterator i = SDLJoyAxisMap.find(event.jaxis.axis);
-			int deviceIndex = getDeviceIndex(event.jaxis.which);
-			if (i != SDLJoyAxisMap.end() && deviceIndex >= 0) {
+			if (event.cbutton.which == player1JoyInstanceID && event.cbutton.state == SDL_PRESSED)
+			{
+				keycode_t code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
+				if (code != NKCODE_UNKNOWN)
+				{
+					KeyInput key;
+					key.flags = KEY_DOWN;
+					key.keyCode = code;
+					key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+					NativeKey(key);
+				}
+			}
+			break;
+		}
+		case SDL_CONTROLLERBUTTONUP:
+		{
+			if (event.cbutton.which == player1JoyInstanceID && event.cbutton.state == SDL_RELEASED)
+			{
+				keycode_t code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
+				if (code != NKCODE_UNKNOWN)
+				{
+					KeyInput key;
+					key.flags = KEY_UP;
+					key.keyCode = code;
+					key.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.cbutton.which);
+					NativeKey(key);
+				}
+			}
+			break;
+		}
+		case SDL_CONTROLLERAXISMOTION:
+		{
+			if (event.caxis.which == player1JoyInstanceID)
+			{
 				AxisInput axis;
-				axis.axisId = i->second;
+				axis.axisId = event.caxis.axis;
 				// 1.2 to try to approximate the PSP's clamped rectangular range.
-				axis.value = 1.2 * event.jaxis.value / 32767.0f;
+				axis.value = 1.2 * event.caxis.value / 32767.0f;
 				if (axis.value > 1.0f) axis.value = 1.0f;
 				if (axis.value < -1.0f) axis.value = -1.0f;
-				axis.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
+				axis.deviceId = DEVICE_ID_PAD_0 + getDeviceIndex(event.caxis.which);
 				axis.flags = 0;
 				NativeAxis(axis);
-			}
-			break;
-		}
-
-	case SDL_JOYBUTTONDOWN:
-		{
-			std::map<int, int>::const_iterator i = SDLJoyButtonMap.find(event.jbutton.button);
-			int deviceIndex = getDeviceIndex(event.jbutton.which);
-			if (i != SDLJoyButtonMap.end() && deviceIndex >= 0) {
-				KeyInput key;
-				key.flags = KEY_DOWN;
-				key.keyCode = i->second;
-				key.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
-				NativeKey(key);
-			}
-			break;
-		}
-
-	case SDL_JOYBUTTONUP:
-		{
-			std::map<int, int>::const_iterator i = SDLJoyButtonMap.find(event.jbutton.button);
-			int deviceIndex = getDeviceIndex(event.jbutton.which);
-			if (i != SDLJoyButtonMap.end() && deviceIndex >= 0) {
-				KeyInput key;
-				key.flags = KEY_UP;
-				key.keyCode = i->second;
-				key.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
-				NativeKey(key);
-			}
-			break;
-		}
-
-	case SDL_JOYHATMOTION:
-		{
-			int deviceIndex = getDeviceIndex(event.jhat.which);
-			if (deviceIndex < 0) {
 				break;
 			}
-#ifdef _WIN32
-			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
-
-			key.flags = (event.jhat.value & SDL_HAT_UP)?KEY_DOWN:KEY_UP;
-			key.keyCode = NKCODE_DPAD_UP;
-			NativeKey(key);
-			key.flags = (event.jhat.value & SDL_HAT_LEFT)?KEY_DOWN:KEY_UP;
-			key.keyCode = NKCODE_DPAD_LEFT;
-			NativeKey(key);
-			key.flags = (event.jhat.value & SDL_HAT_DOWN)?KEY_DOWN:KEY_UP;
-			key.keyCode = NKCODE_DPAD_DOWN;
-			NativeKey(key);
-			key.flags = (event.jhat.value & SDL_HAT_RIGHT)?KEY_DOWN:KEY_UP;
-			key.keyCode = NKCODE_DPAD_RIGHT;
-			NativeKey(key);
-#else
-			AxisInput axisX;
-			AxisInput axisY;
-			axisX.axisId = JOYSTICK_AXIS_HAT_X;
-			axisY.axisId = JOYSTICK_AXIS_HAT_Y;
-			axisX.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
-			axisY.deviceId = DEVICE_ID_PAD_0 + deviceIndex;
-			axisX.value = 0.0f;
-			axisY.value = 0.0f;
-			if (event.jhat.value & SDL_HAT_LEFT) axisX.value = -1.0f;
-			if (event.jhat.value & SDL_HAT_RIGHT) axisX.value = 1.0f;
-			if (event.jhat.value & SDL_HAT_DOWN) axisY.value = 1.0f;
-			if (event.jhat.value & SDL_HAT_UP) axisY.value = -1.0f;
-			NativeAxis(axisX);
-			NativeAxis(axisY);
-#endif
-			break;
 		}
-
-	case SDL_JOYDEVICEADDED:
+		case SDL_CONTROLLERDEVICEREMOVED:
 		{
-			int deviceIndex = event.jdevice.which;
-			if (deviceIndex >= joys.size()) {
-				joys.resize(deviceIndex+1);
+			// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED
+			if (event.cdevice.which == player1JoyInstanceID)
+			{
+				printf("control pad removed for player 1\n");
+				if (player1Controller){
+						SDL_GameControllerClose(player1Controller);
+						player1Controller = NULL;
+				}
+				// are there any other control pads we could use?
+				setUpPlayer1();
 			}
-			joys[deviceIndex] = SDL_JoystickOpen(deviceIndex);
-			SDL_JoystickEventState(SDL_ENABLE);
 			break;
 		}
-
-	case SDL_JOYDEVICEREMOVED:
+		case SDL_CONTROLLERDEVICEADDED:
 		{
-			int deviceIndex = getDeviceIndex(event.jdevice.which);
-			if (deviceIndex >= 0) {
-				SDL_JoystickClose(joys[deviceIndex]);
-				joys[deviceIndex] = 0;
+			// for add events, "which" is the device index!
+			if (!player1Controller)
+			{
+				if (SDL_IsGameController(event.cdevice.which))
+				{
+					player1Controller = SDL_GameControllerOpen(event.cdevice.which);
+					SDL_GameControllerEventState(SDL_ENABLE);
+					if (player1Controller && SDL_GameControllerGetAttached(player1Controller))
+					{
+						player1JoyInstanceID = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(player1Controller));
+						printf("Player 1 will be using control pad: %s, instance ID: %d\n", SDL_GameControllerName(player1Controller), player1JoyInstanceID);
+						char *mapping = SDL_GameControllerMapping(player1Controller);
+						if (mapping == NULL)
+						{
+							printf("control pad %s is not in the game controller database, unable to set mappings!\n", SDL_GameControllerName(player1Controller));
+						}
+						else
+						{
+							printf("control pad mapping: %s\n", SDL_GameControllerMapping(player1Controller));
+						}
+					}
+					else
+					{
+						printf("Error! Could not open controller\n");
+					}
+				}
 			}
 			break;
 		}
@@ -174,11 +203,17 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 }
 
 int SDLJoystick::getDeviceIndex(int instanceId) {
-	for (int i = 0; i < joys.size(); i++) {
-		SDL_Joystick *joy = joys[i];
-		if (SDL_JoystickInstanceID(joy) == instanceId) {
+	int numjoys = SDL_NumJoysticks();
+	SDL_Joystick *joy;
+	for (int i = 0; i < numjoys; i++)
+	{
+		joy = SDL_JoystickOpen(i);
+		if (SDL_JoystickInstanceID(joy) == instanceId)
+		{
+			SDL_JoystickClose(joy);
 			return i;
 		}
+		SDL_JoystickClose(joy);
 	}
 	return -1;
 }
@@ -191,53 +226,4 @@ void SDLJoystick::runLoop(){
 			ProcessInput(evt);
 		}
 	}
-}
-
-void SDLJoystick::buttonMappingHelper(SDL_GameController* controller, SDL_GameControllerButton button, keycode_t buttonKeyCode)
-{
-	SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForButton(controller, button);
-	if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
-	{
-		SDLJoyButtonMap[bind.value.button] = buttonKeyCode;
-	}
-}
-
-void SDLJoystick::axisMappingHelper(SDL_GameController* controller, SDL_GameControllerAxis axis, keycode_t buttonKeyCode, AndroidJoystickAxis axisCode)
-{
-	SDL_GameControllerButtonBind bind = SDL_GameControllerGetBindForAxis(controller, axis);
-	if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON && buttonKeyCode != NKCODE_UNKNOWN)
-	{
-		SDLJoyButtonMap[bind.value.button] = buttonKeyCode;
-	}
-	else if (bind.bindType == SDL_CONTROLLER_BINDTYPE_AXIS)
-	{
-		SDLJoyAxisMap[bind.value.axis] = axisCode;
-	}
-}
-
-void SDLJoystick::fillMapping(int joyIndex)
-{
-		SDL_GameController *controller = SDL_GameControllerOpen(joyIndex);
-		printf("control pad mapping: %s\n", SDL_GameControllerMapping(controller));
-		
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_UP, NKCODE_DPAD_UP);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_DOWN, NKCODE_DPAD_DOWN);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_LEFT, NKCODE_DPAD_LEFT);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, NKCODE_DPAD_RIGHT);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_A, NKCODE_BUTTON_2);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_B, NKCODE_BUTTON_3);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_X, NKCODE_BUTTON_4);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_Y, NKCODE_BUTTON_1);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_START, NKCODE_BUTTON_10);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_BACK, NKCODE_BUTTON_9); // back == select
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, NKCODE_BUTTON_5);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, NKCODE_BUTTON_6);
-		buttonMappingHelper(controller, SDL_CONTROLLER_BUTTON_GUIDE, NKCODE_BACK); // pause emulator
-			
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT, NKCODE_BUTTON_7, JOYSTICK_AXIS_LTRIGGER); // L2
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT, NKCODE_BUTTON_8, JOYSTICK_AXIS_RTRIGGER); // R2
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_LEFTX, NKCODE_UNKNOWN, JOYSTICK_AXIS_X);
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_LEFTY, NKCODE_UNKNOWN, JOYSTICK_AXIS_Y);
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_RIGHTX, NKCODE_UNKNOWN, JOYSTICK_AXIS_Z);
-		axisMappingHelper(controller, SDL_CONTROLLER_AXIS_RIGHTY, NKCODE_UNKNOWN, JOYSTICK_AXIS_RZ);
 }
