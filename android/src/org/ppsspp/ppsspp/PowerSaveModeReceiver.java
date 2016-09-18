@@ -10,10 +10,13 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.util.Log;
 
 public class PowerSaveModeReceiver extends BroadcastReceiver {
 	private static boolean isPowerSaving = false;
 	private static boolean isBatteryLow = false;
+
+	private static final String TAG = "PowerSaveModeReceiver";
 
 	@Override
 	public void onReceive(final Context context, final Intent intent) {
@@ -30,18 +33,21 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 	public static void initAndSend(final Activity activity) {
 		sendPowerSaving(activity);
 
-		activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, new ContentObserver(null) {
-			@Override
-			public void onChange(boolean selfChange, Uri uri) {
-				super.onChange(selfChange, uri);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+			activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, new ContentObserver(null) {
+				@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+				@Override
+				public void onChange(boolean selfChange, Uri uri) {
+					super.onChange(selfChange, uri);
 
-				String key = uri.getPath();
-				key = key.substring(key.lastIndexOf("/") + 1, key.length());
-				if (key != null && (key.equals("user_powersaver_enable") || key.equals("psm_switch"))) {
-					PowerSaveModeReceiver.sendPowerSaving(activity);
+					String key = uri.getPath();
+					key = key.substring(key.lastIndexOf("/") + 1, key.length());
+					if (key != null && (key.equals("user_powersaver_enable") || key.equals("psm_switch"))) {
+						PowerSaveModeReceiver.sendPowerSaving(activity);
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
 	@TargetApi(21)
@@ -72,10 +78,19 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 			isPowerSaving = getExtraPowerSaving(context);
 		}
 
-		if (isBatteryLow || isPowerSaving) {
-			NativeApp.sendMessage("core_powerSaving", "true");
-		} else {
-			NativeApp.sendMessage("core_powerSaving", "false");
+		if (!PpssppActivity.libraryLoaded) {
+			Log.e(TAG, "Cannot send power saving: Library not loaded");
+			return;
+		}
+
+		try {
+			if (isBatteryLow || isPowerSaving) {
+				NativeApp.sendMessage("core_powerSaving", "true");
+			} else {
+				NativeApp.sendMessage("core_powerSaving", "false");
+			}
+		} catch (Exception e) {
+			Log.e(TAG, "Exception in sendPowerSaving: " + e.toString());
 		}
 	}
 }

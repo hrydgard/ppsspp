@@ -16,6 +16,8 @@ public class PpssppActivity extends NativeActivity {
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
 
+	public static boolean libraryLoaded = false;
+
 	@SuppressWarnings("deprecation")
 	public static void CheckABIAndLoadLibrary() {
 		if (Build.CPU_ABI.equals("armeabi")) {
@@ -23,6 +25,7 @@ public class PpssppActivity extends NativeActivity {
 		} else {
 			try {
 				System.loadLibrary("ppsspp_jni");
+				libraryLoaded = true;
 			} catch (UnsatisfiedLinkError e) {
 				Log.e(TAG, "LoadLibrary failed, UnsatifiedLinkError: " + e.toString());
 				m_hasNoNativeBinary = true;
