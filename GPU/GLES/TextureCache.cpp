@@ -513,7 +513,11 @@ static inline u32 QuickTexHash(TextureReplacer &replacer, u32 addr, int bufw, in
 	const u32 sizeInRAM = (textureBitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 
-	return DoQuickTexHash(checkp, sizeInRAM);
+	if (Memory::IsValidAddress(addr + sizeInRAM)) {
+		return DoQuickTexHash(checkp, sizeInRAM);
+	} else {
+		return 0;
+	}
 }
 
 void TextureCache::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) {
@@ -661,7 +665,6 @@ void TextureCache::ApplyTexture() {
 			// This texture existed previously, let's handle the change.
 			replaceImages = HandleTextureChange(entry, nextChangeReason_, false, true);
 		}
-
 		// We actually build afterward (shared with rehash rebuild.)
 	} else if (nextNeedsRehash_) {
 		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
