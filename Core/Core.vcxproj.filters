@@ -1249,6 +1249,5 @@
     <None Include="CMakeLists.txt" />
     <None Include="..\LICENSE.TXT" />
     <None Include="..\android\jni\Android.mk" />
-    <None Include="GameLogNotes.txt" />
   </ItemGroup>
 </Project>

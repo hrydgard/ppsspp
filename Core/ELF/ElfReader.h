@@ -85,11 +85,11 @@ public:
 	}
 	u8 *GetSectionDataPtr(int section) const {
 		if (section < 0 || section >= header->e_shnum)
-			return 0;
+			return nullptr;
 		if (sections[section].sh_type != SHT_NOBITS)
 			return GetPtr(sections[section].sh_offset);
 		else
-			return 0;
+			return nullptr;
 	}
 	u8 *GetSegmentPtr(int segment) const {
 		return GetPtr(segments[segment].p_offset);

@@ -738,7 +738,6 @@
     <None Include="..\android\jni\Android.mk" />
     <None Include="..\LICENSE.TXT" />
     <None Include="CMakeLists.txt" />
-    <None Include="GameLogNotes.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
