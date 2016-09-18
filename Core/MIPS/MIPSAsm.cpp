@@ -31,8 +31,7 @@ std::wstring GetAssembleError()
 class PspAssemblerFile: public AssemblerFile
 {
 public:
-	PspAssemblerFile()
-	{
+	PspAssemblerFile() {
 		address = 0;
 	}
 
@@ -63,8 +62,10 @@ public:
 		return true;
 	}
 	bool seekPhysical(u64 physicalAddress) override { return seekVirtual(physicalAddress); }
+	const std::wstring &getFileName() override { return dummyWFilename_; }
 private:
 	u64 address;
+	std::wstring dummyWFilename_;
 };
 #endif
 
