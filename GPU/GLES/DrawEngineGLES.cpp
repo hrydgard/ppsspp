@@ -987,9 +987,43 @@ rotateVBO:
 			glClear(target);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
+			int scissorX1 = gstate.getScissorX1();
+			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
+
+			// If easy, immediately clear the RAM too.
+			if (g_Config.bBlockTransferGPU && colorMask && alphaMask) {
+				u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
+				const bool singleByteClear = (clearColor >> 16) == (clearColor && 0xFFFF) && (clearColor >> 24) == (clearColor & 0xFF);
+				const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+				if (singleByteClear) {
+					const int xoff = scissorX1 * bpp;
+					const int stride = gstate.FrameBufStride() * bpp;
+					const int xlen = (scissorX2 - scissorX1) * bpp;
+					addr += xoff;
+					for (int y = scissorY1; y < scissorY2; ++y) {
+						memset(addr + y * stride, clearColor, xlen);
+					}
+				} else if (bpp == 4) {
+					u32 *addr32 = (u32 *)addr;
+					const int stride = gstate.FrameBufStride();
+					for (int y = scissorY1; y < scissorY2; ++y) {
+						for (int x = scissorX1; x < scissorX2; ++x) {
+							addr32[y * stride + x] = clearColor;
+						}
+					}
+				} else if (bpp == 2) {
+					u16 *addr16 = (u16 *)addr;
+					const int stride = gstate.FrameBufStride();
+					for (int y = scissorY1; y < scissorY2; ++y) {
+						for (int x = scissorX1; x < scissorX2; ++x) {
+							addr16[y * stride + x] = clearColor;
+						}
+					}
+				}
+			}
 		}
 	}
 
