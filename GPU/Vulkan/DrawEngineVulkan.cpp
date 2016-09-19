@@ -823,7 +823,7 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 
-			if (g_Config.bBlockTransferGPU && gstate.isClearModeColorMask() && gstate.isClearModeAlphaMask()) {
+			if (g_Config.bBlockTransferGPU && gstate.isClearModeColorMask() && (gstate.isClearModeAlphaMask() || gstate.FrameBufFormat() == GE_FORMAT_565)) {
 				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
 			}
 		}
