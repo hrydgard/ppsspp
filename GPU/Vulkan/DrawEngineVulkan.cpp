@@ -817,9 +817,15 @@ void DrawEngineVulkan::DoFlush(VkCommandBuffer cmd) {
 			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
 			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 
+			int scissorX1 = gstate.getScissorX1();
+			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
+
+			if (g_Config.bBlockTransferGPU && gstate.isClearModeColorMask() && gstate.isClearModeAlphaMask()) {
+				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, result.color);
+			}
 		}
 	}
 

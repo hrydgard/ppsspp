@@ -987,9 +987,15 @@ rotateVBO:
 			glClear(target);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
+			int scissorX1 = gstate.getScissorX1();
+			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
+
+			if (g_Config.bBlockTransferGPU && colorMask && alphaMask) {
+				ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
+			}
 		}
 	}
 
