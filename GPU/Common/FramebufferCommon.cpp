@@ -129,6 +129,8 @@ void FramebufferManagerCommon::Init() {
 	// The game draws solid colors to a small framebuffer, and then reads this directly in VRAM.
 	// We force this framebuffer to 1x and force download it automatically.
 	hackForce04154000Download_ = gameId == "NPJH50631" || gameId == "NPJH50372" || gameId == "NPJH90164" || gameId == "NPJH50515";
+	// Let's also apply to Me & My Katamari.
+	hackForce04154000Download_ = hackForce04154000Download_ || gameId == "ULUS10094" || gameId == "ULES00339" || gameId == "ULJS00033" || gameId == "UCKS45022" || gameId == "ULJS19009" || gameId == "NPJH50141";
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
