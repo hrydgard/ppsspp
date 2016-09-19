@@ -1,5 +1,4 @@
 #pragma once
-
 #ifdef _WIN32
 #include "SDL/SDL.h"
 #include "SDL/SDL_thread.h"
@@ -8,6 +7,7 @@
 #include "SDL_thread.h"
 #endif
 
+#include <algorithm>
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"
@@ -29,12 +29,12 @@ public:
 private:
 
 	void runLoop();
-	void setUpPlayer1();
+	void setUpController(int deviceIndex);
+	void setUpControllers();
 	keycode_t getKeycodeForButton(SDL_GameControllerButton button);
 	int getDeviceIndex(int instanceId);
 	SDL_Thread *thread ;
 	bool running ;
-	SDL_GameController *player1Controller;
-	SDL_JoystickID player1JoyInstanceID;
-	
+	std::vector<SDL_GameController *> controllers;
+	std::map<int, int> controllerDeviceMap;
 };
