@@ -7,7 +7,6 @@
 #include "SDL_thread.h"
 #endif
 
-#include <algorithm>
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"

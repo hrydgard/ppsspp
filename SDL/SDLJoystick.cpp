@@ -1,7 +1,11 @@
 #include "SDL/SDLJoystick.h"
 #include "Core/Config.h"
+#include "Common/FileUtil.h"
 
 #include <iostream>
+#include <string>
+
+using namespace std;
 
 extern "C" {
 	int SDLJoystickThreadWrapper(void *SDLJoy){
@@ -17,10 +21,13 @@ SDLJoystick::SDLJoystick(bool init_SDL ): thread(NULL), running(true) {
 		SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER);
 	}
 	
-	if (SDL_GameControllerAddMappingsFromFile("assets/gamecontrollerdb.txt") == -1) {
-			printf("Failed to load control pad mappings, please place gamecontrollerdb.txt in your assets directory\n");
+	auto dbPath = File::GetExeDirectory() + "assets/gamecontrollerdb.txt";
+	cout << "loading control pad mappings from " << dbPath << ": ";
+ 	
+	if (SDL_GameControllerAddMappingsFromFile(dbPath.c_str()) == -1) {
+		cout << "FAILED! Please place gamecontrollerdb.txt in your assets directory." << endl;
 	} else {
-		printf("Loaded game controller mappings for SDL2\n");
+ 		cout << "SUCCESS!" << endl;
 		setUpControllers();
 	}
 }
@@ -31,7 +38,7 @@ void SDLJoystick::setUpControllers() {
 		setUpController(i);
 	}
 	if (controllers.size() > 0) {
-		printf("Pad 1 has been assigned to control pad: %s\n",  SDL_GameControllerName(controllers.front()));
+		cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
 	}
 }
 
@@ -42,12 +49,12 @@ void SDLJoystick::setUpController(int deviceIndex) {
 			if (SDL_GameControllerGetAttached(controller)) {
 				controllers.push_back(controller);
 				controllerDeviceMap[SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller))] = deviceIndex;
-				printf("found control pad: %s, loading mapping: ", SDL_GameControllerName(controller));
-				char *mapping = SDL_GameControllerMapping(controller);
+				cout << "found control pad: " << SDL_GameControllerName(controller) << ", loading mapping: ";
+				auto mapping = SDL_GameControllerMapping(controller);
 				if (mapping == NULL) {
-					printf("FAILED\n");
+					cout << "FAILED" << endl;
 				} else {
-					printf("SUCCESS, mapping is:\n%s\n", mapping);
+					cout << "SUCCESS, mapping is:" << endl << mapping << endl;
 				}
 			} else {
 				SDL_GameControllerClose(controller);
@@ -64,7 +71,7 @@ SDLJoystick::~SDLJoystick() {
 		SDL_PushEvent(&evt);
 		SDL_WaitThread(thread,0);
 	}
-	for (SDL_GameController *controller : controllers) {
+	for (auto & controller : controllers) {
 		SDL_GameControllerClose(controller);
 	}
 }
@@ -109,7 +116,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 	switch (event.type) {
 	case SDL_CONTROLLERBUTTONDOWN:
 		if (event.cbutton.state == SDL_PRESSED) {
-			keycode_t code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
+			auto code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
 			if (code != NKCODE_UNKNOWN) {
 				KeyInput key;
 				key.flags = KEY_DOWN;
@@ -121,7 +128,7 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		break;
 	case SDL_CONTROLLERBUTTONUP:
 		if (event.cbutton.state == SDL_RELEASED) {
-			keycode_t code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
+			auto code = getKeycodeForButton((SDL_GameControllerButton)event.cbutton.button);
 			if (code != NKCODE_UNKNOWN) {
 				KeyInput key;
 				key.flags = KEY_UP;
@@ -143,18 +150,13 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		NativeAxis(axis);
 		break;
 	case SDL_CONTROLLERDEVICEREMOVED:
-		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED
-		SDL_GameController *removeThisController;
-		for (auto & controller : controllers) {
-			if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(controller)) == event.cdevice.which) {
-				printf("control pad %s has been disconnected\n", SDL_GameControllerName(controller));
-				removeThisController = controller;
-				SDL_GameControllerClose(controller);
+		// for removal events, "which" is the instance ID for SDL_CONTROLLERDEVICEREMOVED		
+		for (auto it = controllers.begin(); it != controllers.end(); ++it) {
+			if (SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(*it)) == event.cdevice.which) {
+				SDL_GameControllerClose(*it);
+				controllers.erase(it);
 				break;
 			}
-		}
-		if (removeThisController) {
-			controllers.erase(std::remove(controllers.begin(), controllers.end(), removeThisController), controllers.end());
 		}
 		break;
 	case SDL_CONTROLLERDEVICEADDED:
@@ -162,14 +164,14 @@ void SDLJoystick::ProcessInput(SDL_Event &event){
 		int prevNumControllers = controllers.size();
 		setUpController(event.cdevice.which);
 		if (prevNumControllers == 0 && controllers.size() > 0) {
-			printf("Pad 1 has been assigned to control pad: %s\n",  SDL_GameControllerName(controllers.front()));
+			cout << "pad 1 has been assigned to control pad: " << SDL_GameControllerName(controllers.front()) << endl;
 		}
 		break;
 	}
 }
 
 int SDLJoystick::getDeviceIndex(int instanceId) {
-	std::map<int,int>::iterator it = controllerDeviceMap.find(instanceId);
+	auto it = controllerDeviceMap.find(instanceId);
 	if (it == controllerDeviceMap.end()) {
 			// could not find device
 			return -1;
