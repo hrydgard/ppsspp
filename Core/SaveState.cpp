@@ -21,6 +21,8 @@
 #include "base/mutex.h"
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
 
 #include "Common/FileUtil.h"
 #include "Common/ChunkFile.h"
@@ -96,6 +98,8 @@ namespace SaveState
 
 		CChunkFileReader::Error Save()
 		{
+			lock_guard guard(lock_);
+
 			int n = next_++ % size_;
 			if ((next_ % size_) == first_)
 				++first_;
@@ -116,7 +120,7 @@ namespace SaveState
 				err = SaveToRam(buffer);
 
 			if (err == CChunkFileReader::ERROR_NONE)
-				Compress(states_[n], *compressBuffer, bases_[base_]);
+				ScheduleCompress(&states_[n], compressBuffer, &bases_[base_]);
 			else
 				states_[n].clear();
 			baseMapping_[n] = base_;
@@ -125,6 +129,8 @@ namespace SaveState
 
 		CChunkFileReader::Error Restore()
 		{
+			lock_guard guard(lock_);
+
 			// No valid states left.
 			if (Empty())
 				return CChunkFileReader::ERROR_BAD_FILE;
@@ -138,8 +144,22 @@ namespace SaveState
 			return LoadFromRam(buffer);
 		}
 
+		void ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base)
+		{
+			auto th = new std::thread([=]{
+				setCurrentThreadName("SaveStateCompress");
+				Compress(*result, *state, *base);
+			});
+			th->detach();
+		}
+
 		void Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base)
 		{
+			lock_guard guard(lock_);
+			// Bail if we were cleared before locking.
+			if (first_ == 0 && next_ == 0)
+				return;
+
 			result.clear();
 			for (size_t i = 0; i < state.size(); i += BLOCK_SIZE)
 			{
@@ -156,6 +176,7 @@ namespace SaveState
 
 		void Decompress(std::vector<u8> &result, const std::vector<u8> &compressed, const std::vector<u8> &base)
 		{
+			lock_guard guard(lock_);
 			result.clear();
 			result.reserve(base.size());
 			auto basePos = base.begin();
@@ -181,6 +202,8 @@ namespace SaveState
 
 		void Clear()
 		{
+			// This lock is mainly for shutdown.
+			lock_guard guard(lock_);
 			first_ = 0;
 			next_ = 0;
 		}
@@ -193,13 +216,18 @@ namespace SaveState
 		static const int BLOCK_SIZE;
 		// TODO: Instead, based on size of compressed state?
 		static const int BASE_USAGE_INTERVAL;
+
 		typedef std::vector<u8> StateBuffer;
+
 		int first_;
 		int next_;
 		int size_;
+
 		std::vector<StateBuffer> states_;
 		StateBuffer bases_[2];
 		std::vector<int> baseMapping_;
+		recursive_mutex lock_;
+
 		int base_;
 		int baseUsage_;
 	};
@@ -673,5 +701,11 @@ namespace SaveState
 		rewindStates.Clear();
 
 		hasLoadedState = false;
+	}
+
+	void Shutdown()
+	{
+		lock_guard guard(mutex);
+		rewindStates.Clear();
 	}
 }
