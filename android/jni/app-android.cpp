@@ -17,6 +17,7 @@
 #include <queue>
 
 #include "base/basictypes.h"
+#include "base/stringutil.h"
 #include "base/display.h"
 #include "base/mutex.h"
 #include "base/NativeApp.h"
@@ -29,12 +30,13 @@
 #include "profiler/profiler.h"
 #include "math/math_util.h"
 #include "net/resolve.h"
+#include "util/text/parsers.h"
 #include "android/jni/native_audio.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "thin3d/thin3d.h"
-#include "Core/Config.cpp"
+#include "Core/Config.h"
 #include "Common/CPUDetect.h"
 #include "Common/GraphicsContext.h"
 #include "Common/GL/GLInterfaceBase.h"
