@@ -30,6 +30,7 @@ namespace SaveState
 	static const char *SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();
+	void Shutdown();
 
 	// Cycle through the 5 savestate slots
 	void NextSlot();
