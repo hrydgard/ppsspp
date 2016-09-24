@@ -1,12 +1,9 @@
 #pragma once
-
 #ifdef _WIN32
 #include "SDL/SDL.h"
-#include "SDL/SDL_joystick.h"
 #include "SDL/SDL_thread.h"
 #else
 #include "SDL.h"
-#include "SDL_joystick.h"
 #include "SDL_thread.h"
 #endif
 
@@ -31,120 +28,12 @@ public:
 private:
 
 	void runLoop();
-	void fillMappingPS3()
-	{
-                SDLJoyButtonMap[14] = NKCODE_BUTTON_1;   // Cross
-                SDLJoyButtonMap[13] = NKCODE_BUTTON_2;   // Circle
-                SDLJoyButtonMap[15] = NKCODE_BUTTON_3;   // Sqlare
-                SDLJoyButtonMap[12] = NKCODE_BUTTON_4;   // Triangle
-                SDLJoyButtonMap[10] = NKCODE_BUTTON_5;   // L1
-                SDLJoyButtonMap[11] = NKCODE_BUTTON_6;   // R1
-                SDLJoyButtonMap[8] = NKCODE_BUTTON_7;   // L2
-                SDLJoyButtonMap[9] = NKCODE_BUTTON_8;   // R2
-                SDLJoyButtonMap[0] = NKCODE_BUTTON_9;   // Select
-                SDLJoyButtonMap[3] = NKCODE_BUTTON_10;  // Start
-                SDLJoyButtonMap[1] = NKCODE_BUTTON_11; // L3
-                SDLJoyButtonMap[2] = NKCODE_BUTTON_12; // R3
-                SDLJoyButtonMap[16] = NKCODE_BUTTON_13; // PS
-                SDLJoyButtonMap[4] = NKCODE_DPAD_UP;
-                SDLJoyButtonMap[6] = NKCODE_DPAD_DOWN;
-                SDLJoyButtonMap[7] = NKCODE_DPAD_LEFT;
-                SDLJoyButtonMap[5] = NKCODE_DPAD_RIGHT;
-                SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
-                SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
-                SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
-                SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
-	}
-	void fillMapping()
-	{
-		//TODO: C++11 aggregate initialization
-		//would remove runtime overhead completely
-		
-		// Mapping on Windows
-#ifdef _WIN32
-		SDLJoyButtonMap[0] = NKCODE_BUTTON_2;
-		SDLJoyButtonMap[1] = NKCODE_BUTTON_3;
-		SDLJoyButtonMap[2] = NKCODE_BUTTON_4;
-		SDLJoyButtonMap[3] = NKCODE_BUTTON_1;
-		SDLJoyButtonMap[4] = NKCODE_BUTTON_7;
-		SDLJoyButtonMap[5] = NKCODE_BUTTON_8;
-		SDLJoyButtonMap[6] = NKCODE_BUTTON_9;
-		SDLJoyButtonMap[7] = NKCODE_BUTTON_10;
-		SDLJoyButtonMap[8] = NKCODE_BUTTON_11;
-		SDLJoyButtonMap[9] = NKCODE_BUTTON_12;
-		SDLJoyButtonMap[10] = NKCODE_BUTTON_5;
-		SDLJoyButtonMap[11] = NKCODE_BUTTON_6;
-		SDLJoyButtonMap[12] = NKCODE_BUTTON_7;
-		SDLJoyButtonMap[13] = NKCODE_BUTTON_8;
-		SDLJoyButtonMap[14] = NKCODE_BUTTON_9;
-
-		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
-		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
-		SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
-		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
-		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
-		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
-		// Mapping on MacOSX to match X360 controller
-#elif __APPLE__
-		SDLJoyButtonMap[0] = NKCODE_DPAD_UP;
-		SDLJoyButtonMap[1] = NKCODE_DPAD_DOWN;
-		SDLJoyButtonMap[2] = NKCODE_DPAD_LEFT;
-		SDLJoyButtonMap[3] = NKCODE_DPAD_RIGHT;
-		SDLJoyButtonMap[4] = NKCODE_BUTTON_10;
-		SDLJoyButtonMap[5] = NKCODE_BUTTON_9;
-		SDLJoyButtonMap[6] = NKCODE_BUTTON_5;
-		SDLJoyButtonMap[7] = NKCODE_BUTTON_6;
-		SDLJoyButtonMap[8] = NKCODE_BUTTON_7;
-		SDLJoyButtonMap[9] = NKCODE_BUTTON_8;
-		SDLJoyButtonMap[10] = NKCODE_BUTTON_SELECT;
-		SDLJoyButtonMap[11] = NKCODE_BUTTON_2;
-		SDLJoyButtonMap[12] = NKCODE_BUTTON_3;
-		SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
-		SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
-		SDLJoyButtonMap[15] = NKCODE_BUTTON_11;
-		SDLJoyButtonMap[16] = NKCODE_BUTTON_12;
-
-		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
-		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
-		SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
-		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
-		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
-		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
-		// Mapping on Linux/Android/Other to match X360 and wii-u pro controller
-#else
-		SDLJoyButtonMap[0] = NKCODE_BUTTON_1;
-		SDLJoyButtonMap[1] = NKCODE_BUTTON_2;
-		SDLJoyButtonMap[2] = NKCODE_BUTTON_3;
-		SDLJoyButtonMap[3] = NKCODE_BUTTON_4;
-		SDLJoyButtonMap[4] = NKCODE_BUTTON_5;
-		SDLJoyButtonMap[5] = NKCODE_BUTTON_6;
-		SDLJoyButtonMap[6] = NKCODE_BUTTON_7;
-		SDLJoyButtonMap[7] = NKCODE_BUTTON_8;
-		SDLJoyButtonMap[8] = NKCODE_BUTTON_9;
-		SDLJoyButtonMap[9] = NKCODE_BUTTON_10;
-		SDLJoyButtonMap[10] = NKCODE_BUTTON_11;
-		SDLJoyButtonMap[11] = NKCODE_BUTTON_12;
-		SDLJoyButtonMap[12] = NKCODE_BUTTON_13;
-		SDLJoyButtonMap[13] = NKCODE_DPAD_UP;
-		SDLJoyButtonMap[14] = NKCODE_DPAD_DOWN;
-		SDLJoyButtonMap[15] = NKCODE_DPAD_LEFT;
-		SDLJoyButtonMap[16] = NKCODE_DPAD_RIGHT;
-	
-		SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
-		SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
-		SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
-		SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
-		SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
-		SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
-
-#endif
-	}
-	std::map<int, int> SDLJoyButtonMap;
-	std::map<int, int> SDLJoyAxisMap;
-
-	std::vector<SDL_Joystick *> joys;
+	void setUpController(int deviceIndex);
+	void setUpControllers();
+	keycode_t getKeycodeForButton(SDL_GameControllerButton button);
+	int getDeviceIndex(int instanceId);
 	SDL_Thread *thread ;
 	bool running ;
-
-	int getDeviceIndex(int instanceId);
+	std::vector<SDL_GameController *> controllers;
+	std::map<int, int> controllerDeviceMap;
 };

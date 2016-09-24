@@ -1686,6 +1686,7 @@ set(NativeAssets
 	assets/ppge_atlas.zim
 	assets/compat.ini
 	assets/langregion.ini
+	assets/gamecontrollerdb.txt
 	assets/unknown.png)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 

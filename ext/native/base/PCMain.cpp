@@ -427,7 +427,7 @@ int main(int argc, char *argv[]) {
 	net::Init();
 
 	bool joystick_enabled = true;
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO) < 0) {
 		joystick_enabled = false;
 		if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
