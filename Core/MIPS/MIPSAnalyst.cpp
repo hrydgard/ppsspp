@@ -18,6 +18,7 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <unordered_set>
 #include "base/mutex.h"
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
@@ -59,9 +60,22 @@ struct HashMapFunc {
 	bool operator < (const HashMapFunc &other) const {
 		return hash < other.hash || (hash == other.hash && size < other.size);
 	}
+
+	bool operator == (const HashMapFunc &other) const {
+		return hash == other.hash && size == other.size;
+	}
 };
 
-static std::set<HashMapFunc> hashMap;
+namespace std {
+	template <>
+	struct hash<HashMapFunc> {
+		size_t operator()(const HashMapFunc &f) const {
+			return std::hash<u64>()(f.hash) ^ f.size;
+		}
+	};
+}
+
+static std::unordered_set<HashMapFunc> hashMap;
 
 static std::string hashmapFileName;
 
