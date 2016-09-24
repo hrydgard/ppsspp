@@ -15,15 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
+#include "Common/ColorConv.h"
+#include "Core/Config.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-
-#include "Core/Config.h"
-
-#include <algorithm>
 
 #define QUAD_INDICES_MAX 65536
 
@@ -114,6 +114,67 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
 	return DrawEngineCommon::NormalizeVertices(outPtr, bufPtr, inPtr, dec, lowerBound, upperBound, vertType);
+}
+
+void DrawEngineCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor) {
+	u8 *addr = Memory::GetPointer(gstate.getFrameBufAddress());
+	const bool singleByteClear = (clearColor >> 16) == (clearColor & 0xFFFF) && (clearColor >> 24) == (clearColor & 0xFF);
+	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const int stride = gstate.FrameBufStride();
+	const int width = x2 - x1;
+
+	// Simple, but often alpha is different and gums up the works.
+	if (singleByteClear) {
+		const int byteStride = stride * bpp;
+		const int byteWidth = width * bpp;
+		addr += x1 * bpp;
+		for (int y = y1; y < y2; ++y) {
+			memset(addr + y * byteStride, clearColor, byteWidth);
+		}
+	} else {
+		u16 clear16 = 0;
+		switch (gstate.FrameBufFormat()) {
+		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		}
+
+		// This will most often be true - rarely is the width not aligned.
+		if ((width & 3) == 0 && (x1 & 3) == 0) {
+			u64 val64 = clearColor | ((u64)clearColor << 32);
+			int xstride = 2;
+			if (bpp == 2) {
+				// Spread to all eight bytes.
+				u64 c2 = clear16 | (clear16 << 16);
+				val64 = c2 | (c2 << 32);
+				xstride = 4;
+			}
+
+			u64 *addr64 = (u64 *)addr;
+			const int stride64 = stride / xstride;
+			const int x1_64 = x1 / xstride;
+			const int x2_64 = x2 / xstride;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1_64; x < x2_64; ++x) {
+					addr64[y * stride64 + x] = val64;
+				}
+			}
+		} else if (bpp == 4) {
+			u32 *addr32 = (u32 *)addr;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1; x < x2; ++x) {
+					addr32[y * stride + x] = clearColor;
+				}
+			}
+		} else if (bpp == 2) {
+			u16 *addr16 = (u16 *)addr;
+			for (int y = y1; y < y2; ++y) {
+				for (int x = x1; x < x2; ++x) {
+					addr16[y * stride + x] = clear16;
+				}
+			}
+		}
+	}
 }
 
 // This code is HIGHLY unoptimized!
