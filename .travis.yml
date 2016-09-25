@@ -63,9 +63,6 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Blackberry
            CMAKE=TRUE
     - os: linux
-      compiler: "gcc symbian"
-      env: PPSSPP_BUILD_TYPE=Symbian
-    - os: linux
       compiler: "clang linux"
       env: PPSSPP_BUILD_TYPE=Linux
            CMAKE=TRUE

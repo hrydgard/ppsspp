@@ -204,8 +204,6 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 		// Simplify away bones and morph before proceeding
 		u8 *temp_buffer = decoded + 65536 * 24;
 		NormalizeVertices((u8 *)corners, temp_buffer, (u8 *)control_points, 0, vertexCount, vertType);
-		// Special case for float positions only.
-		const float *ctrl = (const float *)control_points;
 		for (int i = 0; i < vertexCount; i++) {
 			verts[i * 3] = corners[i].pos.x;
 			verts[i * 3 + 1] = corners[i].pos.y;

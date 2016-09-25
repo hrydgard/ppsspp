@@ -78,23 +78,6 @@ travis_install() {
 		sed -i 's/-g../&-4.8.2/g' Blackberry/bb.toolchain.cmake
 	fi
 
-	# Symbian NDK: Belle + GCC: 4.8.3
-	if [ "$PPSSPP_BUILD_TYPE" = "Symbian" ]; then
-		sudo apt-get install lib32stdc++6 lib32bz2-1.0 -qq
-		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/gcc4.8.3_x86-64.tar.bz2 compiler.tar.bz2
-		download_extract https://github.com/xsacha/SymbianGCC/releases/download/4.8.3/ndk-new.tar.bz2 ndk.tar.bz2
-
-		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-gcc-4.8.3
-		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-gcc
-		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-g++
-		setup_ccache_script $(pwd)/gcce-ccache $(pwd)/gcc4.8.3_x86-64/bin arm-none-symbianelf-c++
-
-		ln -s $(pwd)/gcc4.8.3_x86-64/bin/arm-none-symbianelf-{strip,strings,size,readelf,ranlib,objdump,objcopy,nm,ld,gprof,gcov,gcc-ranlib,gcc-nm,gcc-ar,elfedit,cpp,c++filt,as,ar,addr2line} $(pwd)/gcce-ccache
-
-		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN="$(pwd)/gcce-ccache"
-		cp ffmpeg/symbian/armv6/lib/* $EPOCROOT/epoc32/release/armv5/urel/
-	fi
-
 	# Ensure we're using ccache
 	if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
 		export CXX="ccache clang" CC="ccache clang"
@@ -134,11 +117,6 @@ travis_script() {
 		export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH"
 
 		./b.sh --release --no-package
-	fi
-	if [ "$PPSSPP_BUILD_TYPE" = "Symbian" ]; then
-		export EPOCROOT=$(pwd)/SDKs/SymbianSR1Qt474/ SBS_GCCE483BIN="$(pwd)/gcce-ccache"
-		PATH=$SBS_GCCE483BIN:$(pwd)/gcc4.8.3_x86-64/bin:$(pwd)/tools/sbs/bin:$EPOCROOT/epoc32/tools:$EPOCROOT/bin:$(pwd)/tools/sbs/linux-x86_64-libc2_15/bin:$PATH
-		QMAKE_ARGS="CONFIG+=no_assets" ./b.sh --debug --no-package
 	fi
 	if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
 		./b.sh --ios

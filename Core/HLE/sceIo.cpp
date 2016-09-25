@@ -1600,7 +1600,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02015805:	
 			// Unregister MemoryStick's insert/eject callback (mscmhc0)
 			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
-				u32 cbId = Memory::Read_U32(argAddr);
+				SceUID cbId = Memory::Read_U32(argAddr);
 				size_t slot = (size_t)-1;
 				// We want to only remove one at a time.
 				for (size_t i = 0; i < memStickCallbacks.size(); ++i) {
@@ -1708,7 +1708,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02415822:
 			// MScmUnregisterMSInsertEjectCallback
 			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
-				u32 cbId = Memory::Read_U32(argAddr);
+				SceUID cbId = Memory::Read_U32(argAddr);
 				size_t slot = (size_t)-1;
 				// We want to only remove one at a time.
 				for (size_t i = 0; i < memStickFatCallbacks.size(); ++i) {
