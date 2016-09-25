@@ -1311,9 +1311,10 @@ namespace DX9 {
 		resized_ = true;
 	}
 
-	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes) {
-		u32 fb_address = gstate.getFrameBufRawAddress();
-		int fb_stride = gstate.FrameBufStride();
+	bool FramebufferManagerDX9::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
+		u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.getFrameBufRawAddress() : displayFramebufPtr_;
+		int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : displayStride_;
+		GEBufferFormat fb_format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : displayFormat_;
 
 		VirtualFramebuffer *vfb = currentRenderVfb_;
 		if (!vfb) {
@@ -1322,7 +1323,7 @@ namespace DX9 {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, gstate.FrameBufFormat());
+			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, fb_format);
 			return true;
 		}
 

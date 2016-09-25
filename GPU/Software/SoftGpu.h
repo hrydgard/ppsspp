@@ -84,7 +84,7 @@ public:
 		return !(gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME);
 	}
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes = -1) override;
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level) override;

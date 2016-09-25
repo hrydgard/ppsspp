@@ -191,6 +191,13 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	u32 DisplayFramebufStride() {
+		return displayFramebuf_ ? displayStride_ : 0;
+	}
+	GEBufferFormat DisplayFramebufFormat() {
+		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
+	}
+
 	bool MayIntersectFramebuffer(u32 start) {
 		// Clear the cache/kernel bits.
 		start = start & 0x3FFFFFFF;

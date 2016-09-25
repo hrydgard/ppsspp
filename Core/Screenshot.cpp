@@ -223,7 +223,7 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 
 	if (type == SCREENSHOT_RENDER) {
 		if (gpuDebug) {
-			success = gpuDebug->GetCurrentFramebuffer(buf, maxRes);
+			success = gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
 		}
 
 		// Only crop to the top left when using a render screenshot.
