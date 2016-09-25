@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <map>
+#include <unordered_map>
 
 #include "base/basictypes.h"
 #include "base/logging.h"
@@ -1251,7 +1252,7 @@ static const ReplacementTableEntry entries[] = {
 
 
 static std::map<u32, u32> replacedInstructions;
-static std::map<std::string, std::vector<int> > replacementNameLookup;
+static std::unordered_map<std::string, std::vector<int> > replacementNameLookup;
 
 void Replacement_Init() {
 	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
