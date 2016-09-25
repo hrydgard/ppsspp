@@ -85,7 +85,7 @@ public:
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
+	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 

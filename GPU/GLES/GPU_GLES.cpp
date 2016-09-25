@@ -2482,8 +2482,8 @@ bool GPU_GLES::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return textureCache_.GetCurrentClutBuffer(buffer);
 }
 
-bool GPU_GLES::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
-	return FramebufferManager::GetDisplayFramebuffer(buffer);
+bool GPU_GLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	return FramebufferManager::GetOutputFramebuffer(buffer);
 }
 
 bool GPU_GLES::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {

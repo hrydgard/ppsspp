@@ -673,7 +673,7 @@ void TakeScreenshot() {
 		i++;
 	}
 
-	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? SCREENSHOT_PNG : SCREENSHOT_JPG, SCREENSHOT_DISPLAY);
+	bool success = TakeGameScreenshot(filename, g_Config.bScreenshotsAsPNG ? SCREENSHOT_PNG : SCREENSHOT_JPG, SCREENSHOT_OUTPUT);
 	if (success) {
 		osm.Show(filename);
 	} else {

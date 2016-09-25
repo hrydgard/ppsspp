@@ -2016,7 +2016,7 @@ bool FramebufferManager::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferF
 	return true;
 }
 
-bool FramebufferManager::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+bool FramebufferManager::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	fbo_unbind_read();
 
 	int pw = PSP_CoreParameter().pixelWidth;

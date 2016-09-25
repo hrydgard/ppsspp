@@ -1358,7 +1358,7 @@ namespace DX9 {
 		return success;
 	}
 
-	bool FramebufferManagerDX9::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+	bool FramebufferManagerDX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 		fbo_unbind();
 
 		LPDIRECT3DSURFACE9 renderTarget = nullptr;
