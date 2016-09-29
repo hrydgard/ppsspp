@@ -1624,7 +1624,7 @@ bool FramebufferManagerVulkan::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	return false;
 }
 
-bool FramebufferManagerVulkan::GetDisplayFramebuffer(GPUDebugBuffer &buffer) {
+bool FramebufferManagerVulkan::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	// TODO: Doing this synchronously will require stalling the pipeline. Maybe better
 	// to do it callback-style?
 	/*

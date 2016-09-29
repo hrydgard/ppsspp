@@ -82,10 +82,10 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *vfb) override;
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, u16 w, u16 h, bool force = false, bool skipCopy = false) override;
 
-	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes);
+	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes);
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer);
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer);
-	static bool GetDisplayFramebuffer(GPUDebugBuffer &buffer);
+	static bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
 
 	virtual void RebindFramebuffer() override;
 

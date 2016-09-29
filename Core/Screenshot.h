@@ -25,9 +25,12 @@ enum ScreenshotFormat {
 };
 
 enum ScreenshotType {
-	// What's begin show on screen (e.g. including FPS, etc.)
+	// What's being show on screen (e.g. including FPS, etc.)
+	SCREENSHOT_OUTPUT,
+	// What the game rendered (e.g. at render resolution) to the display.
+	// Can only be used while in game.
 	SCREENSHOT_DISPLAY,
-	// What the game rendered (e.g. at render resolution.)
+	// What the game is in-progress rendering now.
 	// Can only be used while in game.
 	SCREENSHOT_RENDER,
 };

@@ -221,9 +221,9 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 	u32 w = (u32)-1;
 	u32 h = (u32)-1;
 
-	if (type == SCREENSHOT_RENDER) {
+	if (type == SCREENSHOT_DISPLAY || type == SCREENSHOT_RENDER) {
 		if (gpuDebug) {
-			success = gpuDebug->GetCurrentFramebuffer(buf, maxRes);
+			success = gpuDebug->GetCurrentFramebuffer(buf, type == SCREENSHOT_RENDER ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes);
 		}
 
 		// Only crop to the top left when using a render screenshot.
@@ -231,10 +231,10 @@ bool TakeGameScreenshot(const char *filename, ScreenshotFormat fmt, ScreenshotTy
 		h = maxRes > 0 ? 272 * maxRes : PSP_CoreParameter().renderHeight;
 	} else {
 		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			success = GPU_GLES::GetDisplayFramebuffer(buf);
+			success = GPU_GLES::GetOutputFramebuffer(buf);
 #ifdef _WIN32
 		} else if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-			success = DX9::GPU_DX9::GetDisplayFramebuffer(buf);
+			success = DX9::GPU_DX9::GetOutputFramebuffer(buf);
 #endif
 		}
 	}

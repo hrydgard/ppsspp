@@ -825,19 +825,34 @@ bool SoftGPU::FramebufferDirty() {
 	return true;
 }
 
-bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, int maxRes)
+bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes)
 {
-	const int w = gstate.getRegionX2() - gstate.getRegionX1() + 1;
-	const int h = gstate.getRegionY2() - gstate.getRegionY1() + 1;
-	buffer.Allocate(w, h, gstate.FrameBufFormat());
+	int x1 = gstate.getRegionX1();
+	int y1 = gstate.getRegionY1();
+	int x2 = gstate.getRegionX2() + 1;
+	int y2 = gstate.getRegionY2() + 1;
+	int stride = gstate.FrameBufStride();
+	GEBufferFormat fmt = gstate.FrameBufFormat();
 
-	const int depth = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
-	const u8 *src = fb.data + gstate.FrameBufStride() * depth * gstate.getRegionY1();
+	if (type == GPU_DBG_FRAMEBUF_DISPLAY) {
+		x1 = 0;
+		y1 = 0;
+		x2 = 480;
+		y2 = 272;
+		stride = displayStride_;
+		fmt = displayFormat_;
+	}
+
+	buffer.Allocate(x2 - x1, y2 - y1, fmt);
+
+	const int depth = fmt == GE_FORMAT_8888 ? 4 : 2;
+	const u8 *src = fb.data + stride * depth * y1;
 	u8 *dst = buffer.GetData();
-	for (int y = gstate.getRegionY1(); y <= gstate.getRegionY2(); ++y) {
-		memcpy(dst, src + gstate.getRegionX1(), (gstate.getRegionX2() + 1) * depth);
-		dst += w * depth;
-		src += gstate.FrameBufStride() * depth;
+	const int byteWidth = (x2 - x1) * depth;
+	for (int y = y1; y < y2; ++y) {
+		memcpy(dst, src + x1, byteWidth);
+		dst += byteWidth;
+		src += stride * depth;
 	}
 	return true;
 }

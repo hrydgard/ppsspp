@@ -100,7 +100,7 @@ void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
-	gpuDebug->GetCurrentFramebuffer(buffer);
+	gpuDebug->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_RENDER);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, 512, 272);
 
 	std::string error;

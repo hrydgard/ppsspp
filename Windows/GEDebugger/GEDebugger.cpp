@@ -256,7 +256,7 @@ void CGEDebugger::UpdatePrimaryPreview(const GPUgstate &state) {
 	} else {
 		switch (PrimaryDisplayType(fbTabs->CurrentTabIndex())) {
 		case PRIMARY_FRAMEBUF:
-			bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer_);
+			bufferResult = GPU_GetCurrentFramebuffer(primaryBuffer_, GPU_DBG_FRAMEBUF_RENDER);
 			break;
 
 		case PRIMARY_DEPTHBUF:

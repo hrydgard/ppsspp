@@ -142,7 +142,7 @@ static void PreparePacket(AVPacket* pkt)
 
 void AVIDump::AddFrame()
 {
-	gpuDebug->GetCurrentFramebuffer(buf);
+	gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY);
 	u32 w = buf.GetStride();
 	u32 h = buf.GetHeight();
 	CheckResolution(w, h);

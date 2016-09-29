@@ -49,6 +49,7 @@ static volatile bool actionComplete;
 // Below are values used to perform actions that return results.
 
 static bool bufferResult;
+static GPUDebugFramebufferType bufferType = GPU_DBG_FRAMEBUF_RENDER;
 static GPUDebugBuffer bufferFrame;
 static GPUDebugBuffer bufferDepth;
 static GPUDebugBuffer bufferStencil;
@@ -84,7 +85,7 @@ static void RunPauseAction() {
 		break;
 
 	case PAUSE_GETFRAMEBUF:
-		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame);
+		bufferResult = gpuDebug->GetCurrentFramebuffer(bufferFrame, bufferType);
 		break;
 
 	case PAUSE_GETDEPTHBUF:
@@ -160,7 +161,8 @@ static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPU
 	return bufferResult;
 }
 
-bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer) {
+bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer, GPUDebugFramebufferType type) {
+	bufferType = type;
 	return GetBuffer(buffer, PAUSE_GETFRAMEBUF, bufferFrame);
 }
 
