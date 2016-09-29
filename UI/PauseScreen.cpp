@@ -452,6 +452,7 @@ UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 
 
 void GamePauseScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
 	// Since the language message isn't allowed to be in native, we have to have add this
 	// to every screen which directly inherits from UIScreen(which are few right now, luckily).
 	if (!strcmp(message, "language")) {

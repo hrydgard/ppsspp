@@ -31,10 +31,13 @@
 #include "util/random/rng.h"
 #include "file/vfs.h"
 #include "UI/ui_atlas.h"
-#include "UI/MiscScreens.h"
+#include "UI/ControlMappingScreen.h"
+#include "UI/DisplayLayoutScreen.h"
 #include "UI/EmuScreen.h"
-#include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GameSettingsScreen.h"
+#include "UI/MainScreen.h"
+#include "UI/MiscScreens.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Core/System.h"
@@ -136,6 +139,16 @@ void HandleCommonMessages(const char *message, const char *value, ScreenManager 
 		if (PSP_IsInited()) {
 			currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 		}
+	} else if (!strcmp(message, "control mapping")) {
+		manager->push(new ControlMappingScreen());
+	} else if (!strcmp(message, "display layout editor")) {
+		manager->push(new DisplayLayoutScreen());
+	} else if (!strcmp(message, "window minimized")) {
+		if (!strcmp(value, "true")) {
+			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
+		} else {
+			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
+		}
 	}
 }
 
@@ -153,8 +166,24 @@ void UIScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	}
 }
 
+void UIScreenWithGameBackground::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "settings")) {
+		screenManager()->push(new GameSettingsScreen(gamePath_));
+	} else {
+		UIScreenWithBackground::sendMessage(message, value);
+	}
+}
+
 void UIDialogScreenWithGameBackground::DrawBackground(UIContext &dc) {
 	DrawGameBackground(dc, gamePath_);
+}
+
+void UIDialogScreenWithGameBackground::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "settings")) {
+		screenManager()->push(new GameSettingsScreen(gamePath_));
+	} else {
+		UIDialogScreenWithBackground::sendMessage(message, value);
+	}
 }
 
 void UIScreenWithBackground::sendMessage(const char *message, const char *value) {
@@ -164,6 +193,8 @@ void UIScreenWithBackground::sendMessage(const char *message, const char *value)
 		auto langScreen = new NewLanguageScreen(dev->T("Language"));
 		langScreen->OnChoice.Handle(this, &UIScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
+	} else if (!strcmp(message, "settings")) {
+		screenManager()->push(new GameSettingsScreen("", ""));
 	}
 }
 
@@ -203,12 +234,8 @@ void UIDialogScreenWithBackground::sendMessage(const char *message, const char *
 		auto langScreen = new NewLanguageScreen(dev->T("Language"));
 		langScreen->OnChoice.Handle(this, &UIDialogScreenWithBackground::OnLanguageChange);
 		screenManager()->push(langScreen);
-	} else if (!strcmp(message, "window minimized")) {
-		if (!strcmp(value, "true")) {
-			gstate_c.skipDrawReason |= SKIPDRAW_WINDOW_MINIMIZED;
-		} else {
-			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
-		}
+	} else if (!strcmp(message, "settings")) {
+		screenManager()->push(new GameSettingsScreen("", ""));
 	}
 }
 
