@@ -338,13 +338,6 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		UpdateUIState(UISTATE_MENU);
 		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));
-	} else if (!strcmp(message, "gpu resized") || !strcmp(message, "gpu clear cache")) {
-		if (gpu) {
-			gpu->ClearCacheNextFrame();
-			gpu->Resized();
-		}
-		Reporting::UpdateConfig();
-		RecreateViews();
 	} else if (!strcmp(message, "gpu dump next frame")) {
 		if (gpu)
 			gpu->DumpNextFrame();
