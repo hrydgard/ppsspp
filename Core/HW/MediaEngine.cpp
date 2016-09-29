@@ -396,8 +396,12 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 #ifdef USE_FFMPEG
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_mpegheaderSize = m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
-			m_pdata->pop_front(0, m_mpegheaderSize);
-			openContext();
+			int streamOffset = (int)(*(s32_be *)(m_mpegheader + 8));
+			if (streamOffset <= m_mpegheaderSize) {
+				m_mpegheaderSize = streamOffset;
+				m_pdata->pop_front(0, m_mpegheaderSize);
+				openContext();
+			}
 		}
 #endif // USE_FFMPEG
 

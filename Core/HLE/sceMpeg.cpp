@@ -1660,12 +1660,18 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(ME, "video end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ringbuffer->packetsAvail = 0;
+		// TODO: Is this correct?
+		if (!ctx->mediaengine->IsNoAudioData()) {
+			WARN_LOG_REPORT(ME, "Video end without audio end, potentially skipping some audio?");
+		}
 		result = ERROR_MPEG_NO_DATA;
 	}
 
 	if (ctx->atracRegistered && ctx->mediaengine->IsNoAudioData() && !ctx->endOfAudioReached) {
 		WARN_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ctx->endOfAudioReached = true;
+	}
+	if (ctx->mediaengine->IsNoAudioData()) {
 		result = ERROR_MPEG_NO_DATA;
 	}
 
