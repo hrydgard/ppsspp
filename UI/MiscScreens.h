@@ -45,6 +45,7 @@ public:
 	UIScreenWithGameBackground(const std::string &gamePath)
 		: UIScreenWithBackground(), gamePath_(gamePath) {}
 	virtual void DrawBackground(UIContext &dc);
+	virtual void sendMessage(const char *message, const char *value) override;
 protected:
 	std::string gamePath_;
 };
@@ -65,6 +66,7 @@ public:
 	UIDialogScreenWithGameBackground(const std::string &gamePath)
 		: UIDialogScreenWithBackground(), gamePath_(gamePath) {}
 	virtual void DrawBackground(UIContext &dc) override;
+	virtual void sendMessage(const char *message, const char *value) override;
 protected:
 	std::string gamePath_;
 };

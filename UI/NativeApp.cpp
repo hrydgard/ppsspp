@@ -72,6 +72,7 @@
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"
+#include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
@@ -79,11 +80,12 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
+#include "GPU/GPUInterface.h"
 
 #include "ui_atlas.h"
-#include "EmuScreen.h"
-#include "GameInfoCache.h"
-#include "HostTypes.h"
+#include "UI/EmuScreen.h"
+#include "UI/GameInfoCache.h"
+#include "UI/HostTypes.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 #include "UI/TiltEventProcessor.h"
@@ -781,6 +783,13 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
+	}
+	if (msg == "gpu resized" || msg == "gpu clear cache") {
+		if (gpu) {
+			gpu->ClearCacheNextFrame();
+			gpu->Resized();
+		}
+		Reporting::UpdateConfig();
 	}
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
