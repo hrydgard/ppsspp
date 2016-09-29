@@ -458,11 +458,11 @@ BEGIN
         MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
         MENUITEM "Pause When Not Focused",                  ID_OPTIONS_PAUSE_FOCUS
         MENUITEM "Ignore Windows Key",                      ID_OPTIONS_IGNOREWINKEY
-        MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
-        MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM "Language...",                             ID_OPTIONS_LANGUAGE
-        MENUITEM SEPARATOR
+        MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM "Display Layout Editor"                    ID_OPTIONS_DISPLAY_LAYOUT
+        MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
+        MENUITEM SEPARATOR
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
         MENUITEM "Postprocessing Shader",                   ID_OPTIONS_FXAA
