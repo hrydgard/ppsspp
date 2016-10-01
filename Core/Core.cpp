@@ -60,6 +60,7 @@ static bool powerSaving = false;
 
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
 	graphicsContext = ctx;
+	PSP_CoreParameter().graphicsContext = graphicsContext;
 }
 
 void Core_NotifyWindowHidden(bool hidden) {
