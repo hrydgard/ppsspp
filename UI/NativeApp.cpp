@@ -821,7 +821,9 @@ void NativeDeviceLost() {
 	if (g_gameInfoCache)
 		g_gameInfoCache->Clear();
 	screenManager->deviceLost();
-	gl_lost();
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		gl_lost();
+	}
 }
 
 void NativeDeviceRestore() {

@@ -165,8 +165,6 @@ unsigned int WINAPI TheThread(void *)
 		ExitProcess(1);
 	}
 
-	PSP_CoreParameter().graphicsContext = graphicsContext;
-
 	NativeInitGraphics(graphicsContext);
 	NativeResized();
 

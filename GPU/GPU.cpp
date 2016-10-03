@@ -66,6 +66,10 @@ bool GPU_Init(GraphicsContext *ctx, Thin3DContext *thin3d) {
 		return false;
 	case GPUCORE_VULKAN:
 #ifndef NO_VULKAN
+		if (!ctx) {
+			ERROR_LOG(G3D, "Unable to init Vulkan GPU backend, no context");
+			break;
+		}
 		SetGPU(new GPU_Vulkan(ctx));
 #endif
 		break;

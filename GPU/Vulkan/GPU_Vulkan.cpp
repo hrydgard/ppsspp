@@ -401,7 +401,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 
 	shaderManager_ = new ShaderManagerVulkan(vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
-	framebufferManager_ = new FramebufferManagerVulkan(vulkan_),
+	framebufferManager_ = new FramebufferManagerVulkan(vulkan_);
 	drawEngine_.SetTextureCache(&textureCache_);
 	drawEngine_.SetFramebufferManager(framebufferManager_);
 	drawEngine_.SetShaderManager(shaderManager_);

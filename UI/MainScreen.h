@@ -73,17 +73,17 @@ public:
 	MainScreen();
 	~MainScreen();
 
-	virtual bool isTopLevel() const { return true; }
+	bool isTopLevel() const override { return true; }
 
 	// Horrible hack to show the demos & homebrew tab after having installed a game from a zip file.
 	static bool showHomebrewTab;
 
 protected:
-	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
-	virtual void update(InputState &input);
-	virtual void sendMessage(const char *message, const char *value);
-	virtual void dialogFinished(const Screen *dialog, DialogResult result);
+	void CreateViews() override;
+	void DrawBackground(UIContext &dc) override;
+	void update(InputState &input) override;
+	void sendMessage(const char *message, const char *value) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	bool UseVerticalLayout() const;
 	bool DrawBackgroundFor(UIContext &dc, const std::string &gamePath, float progress);
@@ -127,8 +127,8 @@ public:
 	UmdReplaceScreen() {}
 
 protected:
-	virtual void CreateViews();
-	virtual void update(InputState &input);
+	void CreateViews() override;
+	void update(InputState &input) override;
 	//virtual void sendMessage(const char *message, const char *value);
 
 private:
