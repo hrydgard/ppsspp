@@ -41,8 +41,11 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 					super.onChange(selfChange, uri);
 
 					String key = uri.getPath();
+					if (key == null) {
+						return;
+					}
 					key = key.substring(key.lastIndexOf("/") + 1, key.length());
-					if (key != null && (key.equals("user_powersaver_enable") || key.equals("psm_switch"))) {
+					if (key.equals("user_powersaver_enable") || key.equals("psm_switch") || key.equals("powersaving_switch")) {
 						PowerSaveModeReceiver.sendPowerSaving(activity);
 					}
 				}
@@ -59,21 +62,27 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 	private static boolean getExtraPowerSaving(final Context context) {
 		// http://stackoverflow.com/questions/25065635/checking-for-power-saver-mode-programically
 		// HTC (Sense)
-		String htcValue = Settings.System.getString(context.getContentResolver(), "user_powersaver_enable");
-		if (htcValue != null && htcValue.equals("1")) {
+		if (getBooleanSetting(context, "user_powersaver_enable")) {
 			return true;
 		}
 		// Samsung (Touchwiz)
-		String samsungValue = Settings.System.getString(context.getContentResolver(), "psm_switch");
-		if (samsungValue != null && samsungValue.equals("1")) {
+		String s5Value = Settings.System.getString(context.getContentResolver(), "powersaving_switch");
+		boolean hasS5Value = s5Value != null && !s5Value.equals("");
+		// On newer devices, psm_switch is always set, and powersaving_switch is used instead.
+		if ((!hasS5Value && getBooleanSetting(context, "psm_switch")) || getBooleanSetting(context, "powersaving_switch")) {
 			return true;
 		}
 		return false;
 	}
 
+	private static boolean getBooleanSetting(final Context context, final String name) {
+		String value = Settings.System.getString(context.getContentResolver(), name);
+		return value != null && value.equals("1");
+	}
+
 	private static void sendPowerSaving(final Context context) {
 		if (Build.VERSION.SDK_INT >= 21) {
-			isPowerSaving = getNativePowerSaving(context) || getExtraPowerSaving(context);
+			isPowerSaving = getNativePowerSaving(context);
 		} else {
 			isPowerSaving = getExtraPowerSaving(context);
 		}
