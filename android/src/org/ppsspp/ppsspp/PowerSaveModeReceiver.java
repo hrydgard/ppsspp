@@ -73,7 +73,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 
 	private static void sendPowerSaving(final Context context) {
 		if (Build.VERSION.SDK_INT >= 21) {
-			isPowerSaving = getNativePowerSaving(context) || getExtraPowerSaving(context);
+			isPowerSaving = getNativePowerSaving(context);
 		} else {
 			isPowerSaving = getExtraPowerSaving(context);
 		}
