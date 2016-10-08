@@ -23,6 +23,10 @@
 #if defined(__APPLE__) || defined(__SYMBIAN32__)
 #define __thread
 #endif
+// Experiencing emutls crashes on ARM64 Android, so disabling for now.
+#if defined(ANDROID) && !defined(ARM64)
+#define __thread
+#endif
 
 #ifdef _WIN32
 #include "CommonWindows.h"
