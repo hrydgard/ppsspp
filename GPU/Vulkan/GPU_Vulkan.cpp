@@ -494,6 +494,8 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	if (resized_) {
 		CheckGPUFeatures();
+		// In case the GPU changed.
+		BuildReportingInfo();
 		UpdateCmdInfo();
 		drawEngine_.Resized();
 		textureCache_.NotifyConfigChanged();
@@ -524,7 +526,6 @@ void GPU_Vulkan::EndHostFrame() {
 }
 
 // Needs to be called on GPU thread, not reporting thread.
-// TODO
 void GPU_Vulkan::BuildReportingInfo() {
 	const auto &props = vulkan_->GetPhysicalDeviceProperties();
 	const auto &features = vulkan_->GetFeaturesAvailable();
