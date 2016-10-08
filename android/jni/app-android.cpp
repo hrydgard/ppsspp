@@ -345,7 +345,7 @@ static float dp_yscale = 1.0f;
 InputState input_state;
 
 static bool renderer_inited = false;
-static bool first_lost = true;
+static bool renderer_ever_inited = false;
 // See NativeQueryConfig("androidJavaGL") to change this value.
 static bool javaGL = true;
 
@@ -490,7 +490,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	memset(&input_state, 0, sizeof(input_state));
 	renderer_inited = false;
-	first_lost = true;
+	renderer_ever_inited = false;
 	androidVersion = jAndroidVersion;
 	deviceType = jdeviceType;
 
@@ -607,8 +607,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	if (!renderer_inited) {
 		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
+		renderer_ever_inited = true;
 	} else {
-		NativeDeviceRestore();  // ???
+		NativeDeviceRestore();
 		ILOG("displayInit: NativeDeviceRestore completed.");
 	}
 }
@@ -681,6 +682,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	} else {
 		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
 		// Shouldn't really get here. Let's draw magenta.
+		// TODO: Should we have GL here?
 		glDepthMask(GL_TRUE);
 		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(1.0, 0.0, 1.0f, 1.0f);
@@ -1022,7 +1024,11 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	if (!renderer_inited) {
 		NativeInitGraphics(graphicsContext);
+		if (renderer_ever_inited) {
+			NativeDeviceRestore();
+		}
 		renderer_inited = true;
+		renderer_ever_inited = true;
 	}
 
 	exitRenderLoop = false;
@@ -1064,6 +1070,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	ILOG("After render loop.");
 	g_gameInfoCache->WorkQueue()->Flush();
 
+	NativeDeviceLost();
 	NativeShutdownGraphics();
 	renderer_inited = false;
 
