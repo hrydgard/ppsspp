@@ -94,6 +94,16 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	pipelinePostShader_(VK_NULL_HANDLE),
 	vulkan2D_(vulkan) {
 
+	InitDeviceObjects();
+}
+
+FramebufferManagerVulkan::~FramebufferManagerVulkan() {
+	delete[] convBuf_;
+
+	DestroyDeviceObjects();
+}
+
+void FramebufferManagerVulkan::InitDeviceObjects() {
 	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
 	// with and without pre-clearing of both depth/stencil and color, so 4 combos.
 	VkAttachmentDescription attachments[2] = {};
@@ -189,33 +199,61 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 	assert(res == VK_SUCCESS);
 }
 
-FramebufferManagerVulkan::~FramebufferManagerVulkan() {
-	delete[] convBuf_;
-
-	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
-	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
-	vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
-	vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
+void FramebufferManagerVulkan::DestroyDeviceObjects() {
+	if (rpLoadColorLoadDepth_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
+	rpLoadColorLoadDepth_ = VK_NULL_HANDLE;
+	if (rpClearColorLoadDepth_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
+	rpClearColorLoadDepth_ = VK_NULL_HANDLE;
+	if (rpClearColorClearDepth_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
+	rpClearColorClearDepth_ = VK_NULL_HANDLE;
+	if (rpLoadColorClearDepth_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
+	rpLoadColorClearDepth_ = VK_NULL_HANDLE;
 
 	for (int i = 0; i < 2; i++) {
 		if (frameData_[i].numCommandBuffers_ > 0) {
 			vkFreeCommandBuffers(vulkan_->GetDevice(), frameData_[i].cmdPool_, frameData_[i].numCommandBuffers_, frameData_[i].commandBuffers_);
+			frameData_[i].numCommandBuffers_ = 0;
+			frameData_[i].totalCommandBuffers_ = 0;
 		}
-		vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
-		frameData_[i].push_->Destroy(vulkan_);
-		delete frameData_[i].push_;
+		if (frameData_[i].cmdPool_ != VK_NULL_HANDLE) {
+			vkDestroyCommandPool(vulkan_->GetDevice(), frameData_[i].cmdPool_, nullptr);
+			frameData_[i].cmdPool_ = VK_NULL_HANDLE;
+		}
+		if (frameData_[i].push_) {
+			frameData_[i].push_->Destroy(vulkan_);
+			delete frameData_[i].push_;
+			frameData_[i].push_ = nullptr;
+		}
 	}
 	delete drawPixelsTex_;
+	drawPixelsTex_ = nullptr;
 
-	vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
-	vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
+	if (fsBasicTex_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
+	fsBasicTex_ = VK_NULL_HANDLE;
+	if (vsBasicTex_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
+	vsBasicTex_ = VK_NULL_HANDLE;
 
-	vulkan_->Delete().QueueDeleteSampler(linearSampler_);
-	vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-	vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
+	if (linearSampler_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
+	linearSampler_ = VK_NULL_HANDLE;
+	if (nearestSampler_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
+	nearestSampler_ = VK_NULL_HANDLE;
+	if (pipelineBasicTex_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
+	pipelineBasicTex_ = VK_NULL_HANDLE;
 	if (pipelinePostShader_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipeline(pipelinePostShader_);
-	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
+	pipelinePostShader_ = VK_NULL_HANDLE;
+	if (pipelineCache2D_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
+	pipelineCache2D_ = VK_NULL_HANDLE;
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -1515,7 +1553,17 @@ void FramebufferManagerVulkan::EndFrame() {
 
 void FramebufferManagerVulkan::DeviceLost() {
 	DestroyAllFBOs(false);
+	DestroyDeviceObjects();
 	resized_ = false;
+
+	vulkan2D_.DeviceLost();
+}
+
+void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+
+	vulkan2D_.DeviceRestore(vulkan_);
+	InitDeviceObjects();
 }
 
 std::vector<FramebufferInfo> FramebufferManagerVulkan::GetFramebufferList() {

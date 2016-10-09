@@ -104,6 +104,7 @@ public:
 
 	void Resized();
 	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
 	void CopyDisplayToOutput();
 	int GetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);
@@ -173,6 +174,9 @@ private:
 
 	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
 
 	VulkanContext *vulkan_;
 
