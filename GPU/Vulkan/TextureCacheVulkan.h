@@ -75,6 +75,9 @@ public:
 	~SamplerCache();
 	VkSampler GetOrCreateSampler(const SamplerCacheKey &key);
 
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
+
 private:
 	VulkanContext *vulkan_;
 	std::map<SamplerCacheKey, VkSampler> cache_;
@@ -95,6 +98,9 @@ public:
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
+
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
 
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
 		framebufferManager_ = fbManager;
