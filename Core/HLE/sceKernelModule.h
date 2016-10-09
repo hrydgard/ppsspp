@@ -45,3 +45,6 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
+
+// Expose for use by KUBridge.
+u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr);
