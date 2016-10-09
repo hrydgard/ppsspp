@@ -87,7 +87,9 @@ public:
 		framebufferManager_ = fbManager;
 	}
 
-	void Resized();  // TODO: Call
+	void Resized();
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
 
 	void SetupVertexDecoder(u32 vertType);
 	void SetupVertexDecoderInternal(u32 vertType);
@@ -160,6 +162,9 @@ public:
 private:
 	struct FrameData;
 
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
 	void DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
@@ -200,6 +205,8 @@ private:
 		VulkanPushBuffer *pushIndex;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		std::map<DescriptorSetKey, VkDescriptorSet> descSets;
+
+		void Destroy(VulkanContext *vulkan);
 	};
 
 	int curFrame_;
