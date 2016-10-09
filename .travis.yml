@@ -59,10 +59,6 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=x86_64
     - os: linux
-      compiler: "gcc blackberry"
-      env: PPSSPP_BUILD_TYPE=Blackberry
-           CMAKE=TRUE
-    - os: linux
       compiler: "clang linux"
       env: PPSSPP_BUILD_TYPE=Linux
            CMAKE=TRUE

@@ -71,13 +71,6 @@ travis_install() {
 		download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
 	fi
 
-	# Blackberry NDK: 10.3.0.440 + GCC: 4.8.2
-	if [ "$PPSSPP_BUILD_TYPE" = "Blackberry" ]; then
-		download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.libraries.10.3.0.440.tar.gz libs.tar.gz
-		download_extract http://downloads.blackberry.com/upr/developers/update/bbndk/10_3_beta/ndktarget_10.3.0.440/ndktargetrepo_10.3.0.440/packages/bbndk.linux.tools.10.3.0.2702.tar.gz tools.tar.gz
-		sed -i 's/-g../&-4.8.2/g' Blackberry/bb.toolchain.cmake
-	fi
-
 	# Ensure we're using ccache
 	if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
 		export CXX="ccache clang" CC="ccache clang"
@@ -112,11 +105,6 @@ travis_script() {
 		pushd android
 		./ab.sh -j2 APP_ABI=$APP_ABI
 		popd
-	fi
-	if [ "$PPSSPP_BUILD_TYPE" = "Blackberry" ]; then
-		export QNX_TARGET="$(pwd)/target_10_3_0_440/qnx6" QNX_HOST="$(pwd)/host_10_3_0_2702/linux/x86" && PATH="$QNX_HOST/usr/bin:$PATH"
-
-		./b.sh --release --no-package
 	fi
 	if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
 		./b.sh --ios
