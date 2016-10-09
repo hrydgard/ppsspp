@@ -437,6 +437,11 @@ void ShaderManagerVulkan::BoneUpdateUniforms(int dirtyUniforms) {
 	}
 }
 
+void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+}
+
 void ShaderManagerVulkan::Clear() {
 	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
 		delete iter->second;

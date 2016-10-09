@@ -27,6 +27,16 @@ void PipelineManagerVulkan::Clear() {
 	pipelines_.clear();
 }
 
+void PipelineManagerVulkan::DeviceLost() {
+	Clear();
+	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+}
+
+void PipelineManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+	pipelineCache_ = vulkan->CreatePipelineCache();
+}
+
 struct DeclTypeInfo {
 	VkFormat type;
 	const char *name;

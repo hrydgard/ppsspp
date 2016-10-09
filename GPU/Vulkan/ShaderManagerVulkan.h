@@ -229,6 +229,8 @@ public:
 	ShaderManagerVulkan(VulkanContext *vulkan);
 	~ShaderManagerVulkan();
 
+	void DeviceRestore(VulkanContext *vulkan);
+
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
 	void ClearShaders();
 	void DirtyShader();
