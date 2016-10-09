@@ -55,6 +55,10 @@ Vulkan2D::~Vulkan2D() {
 	DestroyDeviceObjects();
 }
 
+void Vulkan2D::Shutdown() {
+	DestroyDeviceObjects();
+}
+
 void Vulkan2D::DestroyDeviceObjects() {
 	for (int i = 0; i < 2; i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {

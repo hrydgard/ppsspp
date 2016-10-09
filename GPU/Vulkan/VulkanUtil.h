@@ -81,6 +81,7 @@ public:
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
+	void Shutdown();
 
 	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
 

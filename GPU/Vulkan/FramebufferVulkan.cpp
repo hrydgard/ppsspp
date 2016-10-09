@@ -100,6 +100,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(VulkanContext *vulkan) :
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 	delete[] convBuf_;
 
+	vulkan2D_.Shutdown();
 	DestroyDeviceObjects();
 }
 
@@ -237,10 +238,7 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-	if (pipelineBasicTex_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
-	if (pipelinePostShader_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeletePipeline(pipelinePostShader_);
+	// pipelineBasicTex_ and pipelineBasicTex_ come from vulkan2D_.
 	if (pipelineCache2D_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
 }
@@ -1541,11 +1539,11 @@ void FramebufferManagerVulkan::EndFrame() {
 }
 
 void FramebufferManagerVulkan::DeviceLost() {
+	vulkan2D_.DeviceLost();
+
 	DestroyAllFBOs(false);
 	DestroyDeviceObjects();
 	resized_ = false;
-
-	vulkan2D_.DeviceLost();
 }
 
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
