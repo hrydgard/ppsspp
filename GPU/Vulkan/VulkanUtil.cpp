@@ -59,7 +59,6 @@ void Vulkan2D::DestroyDeviceObjects() {
 	for (int i = 0; i < 2; i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
-			frameData_[i].descPool = VK_NULL_HANDLE;
 		}
 	}
 	for (auto it : pipelines_) {

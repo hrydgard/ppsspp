@@ -208,7 +208,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 	if (descPool != VK_NULL_HANDLE) {
 		vulkan->Delete().QueueDeleteDescriptorPool(descPool);
-		descPool = VK_NULL_HANDLE;
 	}
 
 	if (pushUBO) {
@@ -234,10 +233,8 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	}
 	if (depalSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(depalSampler_);
-	depalSampler_ = VK_NULL_HANDLE;
 	if (nullSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
-	nullSampler_ = VK_NULL_HANDLE;
 	if (pipelineLayout_ != VK_NULL_HANDLE)
 		vkDestroyPipelineLayout(vulkan_->GetDevice(), pipelineLayout_, nullptr);
 	pipelineLayout_ = VK_NULL_HANDLE;

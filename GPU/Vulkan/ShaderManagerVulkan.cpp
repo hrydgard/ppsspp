@@ -81,7 +81,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
-	if (module_) {
+	if (module_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }
@@ -134,7 +134,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 }
 
 VulkanVertexShader::~VulkanVertexShader() {
-	if (module_) {
+	if (module_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }

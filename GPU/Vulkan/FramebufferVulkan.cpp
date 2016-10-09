@@ -202,16 +202,12 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
 	if (rpLoadColorLoadDepth_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorLoadDepth_);
-	rpLoadColorLoadDepth_ = VK_NULL_HANDLE;
 	if (rpClearColorLoadDepth_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorLoadDepth_);
-	rpClearColorLoadDepth_ = VK_NULL_HANDLE;
 	if (rpClearColorClearDepth_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteRenderPass(rpClearColorClearDepth_);
-	rpClearColorClearDepth_ = VK_NULL_HANDLE;
 	if (rpLoadColorClearDepth_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteRenderPass(rpLoadColorClearDepth_);
-	rpLoadColorClearDepth_ = VK_NULL_HANDLE;
 
 	for (int i = 0; i < 2; i++) {
 		if (frameData_[i].numCommandBuffers_ > 0) {
@@ -234,26 +230,19 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 
 	if (fsBasicTex_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
-	fsBasicTex_ = VK_NULL_HANDLE;
 	if (vsBasicTex_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
-	vsBasicTex_ = VK_NULL_HANDLE;
 
 	if (linearSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
-	linearSampler_ = VK_NULL_HANDLE;
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-	nearestSampler_ = VK_NULL_HANDLE;
 	if (pipelineBasicTex_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipeline(pipelineBasicTex_);
-	pipelineBasicTex_ = VK_NULL_HANDLE;
 	if (pipelinePostShader_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipeline(pipelinePostShader_);
-	pipelinePostShader_ = VK_NULL_HANDLE;
 	if (pipelineCache2D_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache2D_);
-	pipelineCache2D_ = VK_NULL_HANDLE;
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {

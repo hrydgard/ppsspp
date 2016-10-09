@@ -13,7 +13,8 @@ PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vu
 
 PipelineManagerVulkan::~PipelineManagerVulkan() {
 	Clear();
-	vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
+	if (pipelineCache_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
 }
 
 void PipelineManagerVulkan::Clear() {
@@ -31,7 +32,6 @@ void PipelineManagerVulkan::DeviceLost() {
 	Clear();
 	if (pipelineCache_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineCache(pipelineCache_);
-	pipelineCache_ = VK_NULL_HANDLE;
 }
 
 void PipelineManagerVulkan::DeviceRestore(VulkanContext *vulkan) {

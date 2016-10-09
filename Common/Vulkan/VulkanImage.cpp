@@ -22,11 +22,9 @@ void VulkanTexture::CreateMappableImage() {
 	// If we already have a mappableImage, forget it.
 	if (mappableImage) {
 		vulkan_->Delete().QueueDeleteImage(mappableImage);
-		mappableImage = VK_NULL_HANDLE;
 	}
 	if (mappableMemory) {
 		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
-		mappableMemory = VK_NULL_HANDLE;
 	}
 
 	bool U_ASSERT_ONLY pass;
@@ -193,9 +191,6 @@ void VulkanTexture::Unlock() {
 		// Then drop the temporary mappable image - although should not be necessary...
 		vulkan_->Delete().QueueDeleteImage(mappableImage);
 		vulkan_->Delete().QueueDeleteDeviceMemory(mappableMemory);
-
-		mappableImage = VK_NULL_HANDLE;
-		mappableMemory = VK_NULL_HANDLE;
 	}
 
 	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
@@ -218,15 +213,12 @@ void VulkanTexture::Unlock() {
 void VulkanTexture::Wipe() {
 	if (image) {
 		vulkan_->Delete().QueueDeleteImage(image);
-		image = VK_NULL_HANDLE;
 	}
 	if (view) {
 		vulkan_->Delete().QueueDeleteImageView(view);
-		view = VK_NULL_HANDLE;
 	}
 	if (mem && !allocator_) {
 		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
-		mem = VK_NULL_HANDLE;
 	} else if (mem) {
 		allocator_->Free(mem, offset_);
 		mem = VK_NULL_HANDLE;
@@ -371,25 +363,22 @@ void VulkanTexture::EndCreate() {
 }
 
 void VulkanTexture::Destroy() {
-	if (view) {
+	if (view != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImageView(view);
 	}
-	if (image) {
-		vulkan_->Delete().QueueDeleteImage(image);
+	if (image != VK_NULL_HANDLE) {
 		if (mappableImage == image) {
 			mappableImage = VK_NULL_HANDLE;
 		}
+		vulkan_->Delete().QueueDeleteImage(image);
 	}
-	if (mem && !allocator_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
+	if (mem != VK_NULL_HANDLE && !allocator_) {
 		if (mappableMemory == mem) {
 			mappableMemory = VK_NULL_HANDLE;
 		}
-	} else if (mem) {
+		vulkan_->Delete().QueueDeleteDeviceMemory(mem);
+	} else if (mem != VK_NULL_HANDLE) {
 		allocator_->Free(mem, offset_);
+		mem = VK_NULL_HANDLE;
 	}
-
-	view = VK_NULL_HANDLE;
-	image = VK_NULL_HANDLE;
-	mem = VK_NULL_HANDLE;
 }
