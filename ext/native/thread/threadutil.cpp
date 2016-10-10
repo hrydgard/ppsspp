@@ -1,8 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #define TLS_SUPPORTED
-// Experiencing emutls crashes on ARM64 Android, so disabling for now.
-#elif defined(ANDROID) && !defined(ARM64)
+#elif defined(ANDROID)
 #define TLS_SUPPORTED
 #endif
 
