@@ -79,9 +79,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	addrinfo hints = {0};
 	// TODO: Might be uses to lookup other values.
 	hints.ai_socktype = SOCK_STREAM;
-#ifdef BLACKBERRY
-	hints.ai_flags = 0;
-#elif ANDROID
+#if ANDROID
 	hints.ai_flags = AI_ADDRCONFIG;
 #else
 	// AI_V4MAPPED seems to have issues on some platforms, not sure we should include it:

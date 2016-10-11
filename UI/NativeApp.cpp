@@ -317,7 +317,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// We want this to be FIRST.
 #ifdef USING_QT_UI
 	VFSRegister("", new AssetsAssetReader());
-#elif defined(BLACKBERRY) || defined(IOS)
+#elif defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #elif !defined(MOBILE_DEVICE) && !defined(_WIN32)
@@ -340,7 +340,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// most sense.
 	g_Config.memStickDirectory = std::string(external_dir) + "/";
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
+#elif defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
 #elif !defined(_WIN32)
@@ -450,7 +450,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_dir;
-#elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
+#elif defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_dir;
 #else
 		if (getenv("HOME") != NULL)

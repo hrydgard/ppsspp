@@ -59,7 +59,7 @@ enum {
 	PAD_BUTTON_MENU = 4096,
 	PAD_BUTTON_BACK = 8192,
 
-	// For Blackberry and Qt
+	// For Qt
 	PAD_BUTTON_JOY_UP = 1<<14,
 	PAD_BUTTON_JOY_DOWN = 1<<15,
 	PAD_BUTTON_JOY_LEFT = 1<<16,

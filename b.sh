@@ -1,13 +1,5 @@
 #!/bin/bash
 CMAKE=1
-# Check Blackberry NDK
-BB_OS=`cat ${QNX_TARGET}/etc/qversion 2>/dev/null`
-if [ ! -z "$BB_OS" ]; then
-	CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=Blackberry/bb.toolchain.cmake -DBLACKBERRY=${BB_OS} ${CMAKE_ARGS}"
-	DEBUG_ARGS="-devMode -debugToken ${QNX_CONFIGURATION}/../debugtoken.bar"
-	PACKAGE=1
-	TARGET_OS=Blackberry
-fi
 
 # Check Symbian NDK
 if [ ! -z "$EPOCROOT" ]; then
@@ -57,12 +49,6 @@ do
 		--no-package) echo "Packaging disabled"
 			PACKAGE=0
 			;;
-		--release-package) echo "Blackberry release package enabled"
-			if [ ! -f "Blackberry/build.txt" ]; then
-				echo "1" > "Blackberry/build.txt"
-			fi
-			DEBUG_ARGS="-buildId ../Blackberry/build.txt"
-			;;
 		--*) echo "Bad option: $1"
 			exit 1
 			;;
@@ -103,10 +89,7 @@ fi
 make -j4 $MAKE_OPT
 
 if [ "$PACKAGE" == "1" ]; then
-	if [ "$TARGET_OS" == "Blackberry" ]; then
-		cp ../Blackberry/bar-descriptor.xml .
-		blackberry-nativepackager -package PPSSPP.bar bar-descriptor.xml $DEBUG_ARGS
-	elif [ "$TARGET_OS" == "Symbian" ]; then
+	if [ "$TARGET_OS" == "Symbian" ]; then
 		make sis
 	elif [ "$TARGET_OS" == "iOS" ]; then
 		xcodebuild -configuration Release

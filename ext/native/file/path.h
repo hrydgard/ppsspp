@@ -27,13 +27,7 @@ public:
 	}
 	std::string GetFriendlyPath() {
 		std::string str = GetPath();
-#if defined(BLACKBERRY)
-		char *home = getenv("PERIMETER_HOME");
-		if (home != NULL && !strncmp(str.c_str(), home, strlen(home))) {
-			str = str.substr(strlen(home));
-			str.insert(0, 1, '~');
-		}
-#elif defined(ANDROID)
+#if defined(ANDROID)
 		// Do nothing
 #elif defined(__linux)
 		char *home = getenv("HOME");

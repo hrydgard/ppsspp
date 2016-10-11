@@ -631,8 +631,6 @@ void CreditsScreen::render() {
 		cr->T("tools", "Free tools used:"),
 #ifdef ANDROID
 		"Android SDK + NDK",
-#elif defined(BLACKBERRY)
-		"Blackberry NDK",
 #endif
 #if defined(USING_QT_UI)
 		"Qt",

@@ -22,10 +22,6 @@
 #endif
 #include <stdint.h>
 
-#ifdef BLACKBERRY
-using std::size_t;
-#endif
-
 // Returns true if we need to avoid setting both writable and executable at the same time (W^X)
 bool PlatformIsWXExclusive();
 

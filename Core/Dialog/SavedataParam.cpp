@@ -36,10 +36,6 @@
 
 #include <algorithm>
 
-#ifdef BLACKBERRY
-using std::strnlen;
-#endif
-
 static const std::string ICON0_FILENAME = "ICON0.PNG";
 static const std::string ICON1_FILENAME = "ICON1.PMF";
 static const std::string PIC1_FILENAME = "PIC1.PNG";

@@ -421,9 +421,6 @@
     <ClCompile Include="ui\ui_context.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="base\BlackberryMain.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\gpu_features.cpp">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -734,9 +731,6 @@
       <Filter>thread</Filter>
     </ClCompile>
     <ClCompile Include="base\compat.cpp">
-      <Filter>base</Filter>
-    </ClCompile>
-    <ClCompile Include="base\BlackberryMain.cpp">
       <Filter>base</Filter>
     </ClCompile>
     <ClCompile Include="base\PCMain.cpp">
