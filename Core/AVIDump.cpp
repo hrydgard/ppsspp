@@ -8,6 +8,7 @@
 #endif
 
 #include <string>
+#include <cstdint>
 #include <sstream>
 
 extern "C" {
