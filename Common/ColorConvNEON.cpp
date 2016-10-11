@@ -15,14 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#if defined(__arm__) || defined(__aarch64__)
+
 #include <arm_neon.h>
 #include "ColorConvNEON.h"
 #include "Common.h"
 #include "CPUDetect.h"
-
-#if !defined(ARM) && !defined(ARM64)
-#error Should not be compiled on non-ARM.
-#endif
 
 // TODO: More NEON color conversion funcs.
 
@@ -109,3 +107,5 @@ void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, const u32 numPixels) {
 		ConvertRGB565ToBGR565Basic(dstp, srcp, numPixels - simdable);
 	}
 }
+
+#endif // defined(__arm__) || defined(__aarch64__)
