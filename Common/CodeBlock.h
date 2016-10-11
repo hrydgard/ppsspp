@@ -97,11 +97,7 @@ public:
 
 	// Call this when shutting down. Don't rely on the destructor, even though it'll do the job.
 	void FreeCodeSpace() {
-#ifdef __SYMBIAN32__
-		ResetExecutableMemory(region);
-#else
 		FreeMemoryPages(region, region_size);
-#endif
 		region = nullptr;
 		region_size = 0;
 	}

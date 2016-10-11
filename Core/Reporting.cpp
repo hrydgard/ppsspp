@@ -260,8 +260,6 @@ namespace Reporting
 		return "iOS";
 #elif defined(__APPLE__)
 		return "Mac";
-#elif defined(__SYMBIAN32__)
-		return "Symbian";
 #elif defined(LOONGSON)
 		return "Loongson";
 #elif defined(MAEMO)

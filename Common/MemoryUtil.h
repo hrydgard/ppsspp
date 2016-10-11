@@ -46,10 +46,6 @@ void FreeMemoryPages(void* ptr, size_t size);
 void* AllocateAlignedMemory(size_t size, size_t alignment);
 void FreeAlignedMemory(void* ptr);
 
-#ifdef __SYMBIAN32__
-void ResetExecutableMemory(void* ptr);
-#endif
-
 int GetMemoryProtectPageSize();
 
 template <typename T>

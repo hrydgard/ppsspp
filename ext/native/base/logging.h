@@ -68,18 +68,6 @@ void OutputDebugStringUTF8(const char *p);
 
 #define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
 
-#elif defined(__SYMBIAN32__)
-#include <QDebug>
-#ifdef _DEBUG
-#define DLOG(...) { qDebug(__VA_ARGS__);}
-#else
-#define DLOG(...)
-#endif
-#define ILOG(...) { qDebug(__VA_ARGS__);}
-#define WLOG(...) { qDebug(__VA_ARGS__);}
-#define ELOG(...) { qDebug(__VA_ARGS__);}
-#define FLOG(...) { qDebug(__VA_ARGS__); Crash();}
-
 #else
 
 #ifdef _WIN32

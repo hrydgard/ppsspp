@@ -39,7 +39,7 @@ typedef void * HANDLE;
 #define HOST_IS_CASE_SENSITIVE 1
 #endif
 
-#elif defined(_WIN32) || defined(__SYMBIAN32__)
+#elif defined(_WIN32)
 #define HOST_IS_CASE_SENSITIVE 0
 
 #else  // Android, Linux, BSD (and the rest?)

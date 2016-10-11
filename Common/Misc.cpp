@@ -20,7 +20,7 @@
 
 #include <string.h>
 
-#if defined(__APPLE__) || defined(__SYMBIAN32__)
+#if defined(__APPLE__)
 #define __thread
 #endif
 

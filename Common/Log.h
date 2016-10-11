@@ -121,16 +121,12 @@ bool GenericLogEnabled(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type);
 					   __LINE__, __FILE__); \
 		if (!PanicYesNo("*** Assertion (see log)***\n")) {Crash();} \
 	}
-#ifdef __SYMBIAN32__
-#define _dbg_assert_msg_(_t_, _a_, ...) if (!(_a_)) ERROR_LOG(_t_, __VA_ARGS__);
-#else
 #define _dbg_assert_msg_(_t_, _a_, ...)\
 	if (!(_a_)) {\
 		printf(__VA_ARGS__); \
 		ERROR_LOG(_t_, __VA_ARGS__); \
 		if (!PanicYesNo(__VA_ARGS__)) {Crash();} \
 	}
-#endif
 #define _dbg_update_() ; //Host_UpdateLogDisplay();
 
 #else // not debug

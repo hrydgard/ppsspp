@@ -51,31 +51,6 @@ public:
 		b.const_ = nullptr;
 	}
 
-#ifdef __SYMBIAN32__
-	IRBlock(const IRBlock &b) {
-		*this = b;
-	}
-
-	IRBlock &operator=(const IRBlock &b) {
-		// No std::move on Symbian...  But let's try not to use elsewhere.
-		numInstructions_ = b.numInstructions_;
-		numConstants_ = b.numConstants_;
-		instr_ = new IRInst[numInstructions_];
-		if (numInstructions_) {
-			memcpy(instr_, b.instr_, sizeof(IRInst) * numInstructions_);
-		}
-		const_ = new u32[numConstants_];
-		if (numConstants_) {
-			memcpy(const_, b.const_, sizeof(u32) * numConstants_);
-		}
-		origAddr_ = b.origAddr_;
-		origSize_ = b.origSize_;
-		origFirstOpcode_ = b.origFirstOpcode_;
-
-		return *this;
-	}
-#endif
-
 	~IRBlock() {
 		delete[] instr_;
 		delete[] const_;

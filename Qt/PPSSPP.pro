@@ -4,8 +4,7 @@ TARGET = ppsspp
 QT += core gui opengl
 
 # PPSSPP Modules
-symbian: LIBS += -lCore.lib -lGPU.lib -lCommon.lib -lNative.lib
-else: LIBS += -lCore -lGPU -lCommon -lNative
+LIBS += -lCore -lGPU -lCommon -lNative
 
 include(Settings.pri)
 
@@ -29,7 +28,6 @@ greaterThan(QT_MAJOR_VERSION,4) {
 } else:!maemo5:mobile_platform {
 	CONFIG += mobility
 	MOBILITY += sensors
-	symbian: MOBILITY += systeminfo feedback
 }
 
 # External (platform-dependant) libs
@@ -45,7 +43,7 @@ macx|equals(PLATFORM_NAME, "linux") {
 	}
 }
 
-!symbian:exists( /usr/include/GL/glew.h ) {
+exists( /usr/include/GL/glew.h ) {
 	LIBS += -lGLEW
 }
 
@@ -74,10 +72,6 @@ unix:contains(QT_CONFIG, system-zlib) {
 # Main
 SOURCES += $$P/ext/native/base/QtMain.cpp
 HEADERS += $$P/ext/native/base/QtMain.h
-symbian {
-	SOURCES += $$P/ext/native/base/SymbianMediaKeys.cpp
-	HEADERS += $$P/ext/native/base/SymbianMediaKeys.h
-}
 
 # UI
 SOURCES += $$P/UI/*.cpp \

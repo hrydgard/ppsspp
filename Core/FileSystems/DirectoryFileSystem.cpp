@@ -40,9 +40,6 @@
 #include <sys/types.h>
 #include <sys/vfs.h>
 #define statvfs statfs
-#elif defined(__SYMBIAN32__)
-#include <mw/QSystemStorageInfo>
-QTM_USE_NAMESPACE
 #else
 #include <sys/statvfs.h>
 #endif

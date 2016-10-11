@@ -48,20 +48,6 @@ static SYSTEM_INFO sys_info;
 #define MEM_PAGE_MASK ((MEM_PAGE_SIZE)-1)
 #define round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
 
-#ifdef __SYMBIAN32__
-#include <e32std.h>
-#define CODECHUNK_SIZE 1024*1024*20
-static RChunk* g_code_chunk = NULL;
-static RHeap* g_code_heap = NULL;
-static u8* g_next_ptr = NULL;
-static u8* g_orig_ptr = NULL;
-
-void ResetExecutableMemory(void* ptr) {
-	// Just reset the ptr to the base
-	g_next_ptr = g_orig_ptr;
-}
-#endif
-
 #ifdef _WIN32
 // Win32 flags are odd...
 uint32_t ConvertProtFlagsWin32(uint32_t flags) {
@@ -153,19 +139,6 @@ void *AllocateExecutableMemory(size_t size) {
 	else
 #endif
 		ptr = VirtualAlloc(0, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-#elif defined(__SYMBIAN32__)
-	//This function may be called more than once, and we want to create only one big
-	//memory chunk for all the executable code for the JIT
-	if( g_code_chunk == NULL && g_code_heap == NULL)
-	{
-		g_code_chunk = new RChunk();
-		g_code_chunk->CreateLocalCode(CODECHUNK_SIZE, CODECHUNK_SIZE + 3*GetMemoryProtectPageSize());
-		g_code_heap = UserHeap::ChunkHeap(*g_code_chunk, CODECHUNK_SIZE, 1, CODECHUNK_SIZE + 3*GetMemoryProtectPageSize());
-		g_next_ptr = reinterpret_cast<u8*>(g_code_heap->AllocZ(CODECHUNK_SIZE));
-		g_orig_ptr = g_next_ptr;
-	}
-	void* ptr = (void*)g_next_ptr;
-	g_next_ptr += size;
 #else
 	static char *map_hint = 0;
 #if defined(_M_X64)
@@ -191,7 +164,7 @@ void *AllocateExecutableMemory(size_t size) {
 
 #endif /* defined(_WIN32) */
 
-#if !defined(_WIN32) && !defined(__SYMBIAN32__)
+#if !defined(_WIN32)
 	static const void *failed_result = MAP_FAILED;
 #else
 	static const void *failed_result = nullptr;
@@ -222,8 +195,6 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 #ifdef _WIN32
 	uint32_t protect = ConvertProtFlagsWin32(memProtFlags);
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, protect);
-#elif defined(__SYMBIAN32__)
-	void* ptr = malloc(size);
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	void* ptr = mmap(0, size, protect, MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -243,9 +214,6 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	void* ptr = NULL;
 #ifdef ANDROID
 	ptr = memalign(alignment, size);
-#elif defined(__SYMBIAN32__)
-	// On Symbian, alignment won't matter as NEON isn't supported.
-	ptr = malloc(size);
 #else
 	if (posix_memalign(&ptr, alignment, size) != 0)
 		ptr = NULL;
@@ -268,8 +236,6 @@ void FreeMemoryPages(void *ptr, size_t size) {
 #ifdef _WIN32
 	if (!VirtualFree(ptr, 0, MEM_RELEASE))
 		PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
-#elif defined(__SYMBIAN32__)
-	free(ptr);
 #else
 	munmap(ptr, size);
 #endif
@@ -310,8 +276,6 @@ void ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 	DWORD oldValue;
 	if (!VirtualProtect((void *)ptr, size, protect, &oldValue))
 		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
-#elif defined(__SYMBIAN32__)
-	// Do nothing
 #else
 	uint32_t protect = ConvertProtFlagsUnix(memProtFlags);
 	uint32_t page_size = GetMemoryProtectPageSize();

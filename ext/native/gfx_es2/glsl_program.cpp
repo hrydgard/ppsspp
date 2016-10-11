@@ -75,7 +75,7 @@ GLSLProgram *glsl_create_source(const char *vshader_src, const char *fshader_src
 }
 
 // Not wanting to change ReadLocalFile semantics.
-// Needs to use delete [], not delete like auto_ptr, and can't use unique_ptr because of Symbian.
+// TODO: Use C++11 unique_ptr, remove delete[]
 struct AutoCharArrayBuf {
 	AutoCharArrayBuf(char *buf = nullptr) : buf_(buf) {
 	}

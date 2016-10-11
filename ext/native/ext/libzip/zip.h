@@ -59,14 +59,6 @@ extern "C" {
 #include <stdio.h>
 #include <time.h>
 
-#ifdef __SYMBIAN32__
-#define _stat stat
-#define _wcsdup wcsdup
-#define _wfopen wfopen
-#define _wremove wremove
-#define _wstat wstat
-#endif
-
 
 /* flags for zip_open */
 

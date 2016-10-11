@@ -1,15 +1,6 @@
 #!/bin/bash
 CMAKE=1
 
-# Check Symbian NDK
-if [ ! -z "$EPOCROOT" ]; then
-	QMAKE_ARGS="-spec symbian-sbsv2 ${QMAKE_ARGS}"
-	CMAKE=0
-	PACKAGE=1
-	MAKE_OPT="release-gcce ${MAKE_OPT}"
-	TARGET_OS=Symbian
-fi
-
 # Check arguments
 while test $# -gt 0
 do
@@ -61,10 +52,6 @@ done
 if [ ! -z "$TARGET_OS" ]; then
 	echo "Building for $TARGET_OS"
 	BUILD_DIR="$(tr [A-Z] [a-z] <<< build-"$TARGET_OS")"
-	# HACK (doesn't like shadowed dir)
-	if [ "$TARGET_OS" == "Symbian" ]; then
-		BUILD_DIR="Qt"
-	fi
 else
 	echo "Building for native host."
 	if [ "$CMAKE" == "0" ]; then
@@ -89,9 +76,7 @@ fi
 make -j4 $MAKE_OPT
 
 if [ "$PACKAGE" == "1" ]; then
-	if [ "$TARGET_OS" == "Symbian" ]; then
-		make sis
-	elif [ "$TARGET_OS" == "iOS" ]; then
+	if [ "$TARGET_OS" == "iOS" ]; then
 		xcodebuild -configuration Release
 	fi
 fi

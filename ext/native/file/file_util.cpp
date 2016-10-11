@@ -29,23 +29,6 @@
 #define stat64 stat
 #endif
 
-// Hack
-#ifdef __SYMBIAN32__
-static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
-	struct dirent *readdir_entry;
-
-	readdir_entry = readdir(dirp);
-	if (readdir_entry == NULL) {
-		*result = NULL;
-		return errno;
-	}
-
-	*entry = *readdir_entry;
-	*result = entry;
-	return 0;
-}
-#endif
-
 FILE *openCFile(const std::string &filename, const char *mode)
 {
 #if defined(_WIN32) && defined(UNICODE)

@@ -15,10 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef __SYMBIAN32__
-#include <sys/param.h>
-#endif
-
 #include "file/file_util.h"
 
 #include "Common/StringUtils.h"

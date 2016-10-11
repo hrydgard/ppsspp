@@ -1,8 +1,5 @@
 PLATFORM_ARCH="generic"
 
-# Override some bad defaults
-symbian: QMAKE_TARGET.arch=armv6
-
 contains(QT_ARCH, ".*86.*")|contains(QMAKE_TARGET.arch, ".*86.*") {
 	!win32-msvc*: QMAKE_ALLFLAGS += -msse2
 	else: QMAKE_ALLFLAGS += /arch:SSE2
@@ -21,15 +18,12 @@ contains(QT_ARCH, ".*86.*")|contains(QMAKE_TARGET.arch, ".*86.*") {
 	CONFIG += arm
 
 	# Will need to see how QT_ARCH and QMAKE_TARGET.arch are populated for various ARM platforms.
-	symbian: PLATFORM_ARCH="armv6"
-	else {
-		PLATFORM_ARCH="armv7"
-		CONFIG += armv7
-		QMAKE_CFLAGS_RELEASE ~= s/-mfpu.*/
-		QMAKE_CFLAGS_DEBUG ~= s/-mfpu.*/
-		QMAKE_ALLFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
-		QMAKE_ALLFLAGS_RELEASE += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
-	}
+	PLATFORM_ARCH="armv7"
+	CONFIG += armv7
+	QMAKE_CFLAGS_RELEASE ~= s/-mfpu.*/
+	QMAKE_CFLAGS_DEBUG ~= s/-mfpu.*/
+	QMAKE_ALLFLAGS_DEBUG += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
+	QMAKE_ALLFLAGS_RELEASE += -march=armv7-a -mtune=cortex-a8 -mfpu=neon -ftree-vectorize
 	# TODO: aarch32/64?
 } else:contains(QT_ARCH, ".*mips.*") {
 	DEFINES += MIPS
