@@ -36,7 +36,7 @@ typedef char GLchar;
 #define GL_MAX_EXT 0x8008
 #endif
 
-#if defined(ANDROID) || defined(BLACKBERRY)
+#if defined(ANDROID)
 #include <EGL/egl.h>
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
@@ -75,14 +75,12 @@ extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 
 #endif
 
-#if !defined(BLACKBERRY)
 #ifndef GL_READ_FRAMEBUFFER
 #define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
 #define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
 #endif
 #ifndef GL_DEPTH_COMPONENT24
 #define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
-#endif
 #endif
 
 #ifndef GL_RGBA8

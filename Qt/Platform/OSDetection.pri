@@ -8,7 +8,6 @@ maemo5|contains(MEEGO_EDITION,harmattan): CONFIG += maemo
 PLATFORM_NAME="generic"
 win32: PLATFORM_NAME="Windows"
 unix: PLATFORM_NAME="linux"
-qnx: PLATFORM_NAME="blackberry"
 mac: PLATFORM_NAME="macosx"
 ios: PLATFORM_NAME="ios"
 maemo: PLATFORM_NAME="maemo"

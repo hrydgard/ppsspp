@@ -3,7 +3,7 @@
  *
  */
 // Qt 4.7+ / 5.0+ implementation of the framework.
-// Currently supports: Android, Symbian, Blackberry, Maemo/Meego, Linux, Windows, Mac OSX
+// Currently supports: Android, Symbian, Maemo/Meego, Linux, Windows, Mac OSX
 
 #include <QApplication>
 #include <QUrl>
@@ -49,8 +49,6 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_NAME:
 #ifdef __SYMBIAN32__
 		return "Qt:Symbian";
-#elif defined(BLACKBERRY)
-		return "Qt:Blackberry";
 #elif defined(MAEMO)
 		return "Qt:Maemo";
 #elif defined(ANDROID)
@@ -79,8 +77,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 #ifdef __SYMBIAN32__
-		return DEVICE_TYPE_MOBILE;
-#elif defined(BLACKBERRY)
 		return DEVICE_TYPE_MOBILE;
 #elif defined(MAEMO)
 		return DEVICE_TYPE_MOBILE;
@@ -480,9 +476,6 @@ int main(int argc, char *argv[])
 #elif defined(__SYMBIAN32__)
 	savegame_dir = "E:/PPSSPP";
 	assets_dir = "E:/PPSSPP";
-#elif defined(BLACKBERRY)
-	savegame_dir = "/accounts/1000/shared/misc";
-	assets_dir = "app/native/assets";
 #elif defined(MAEMO)
 	savegame_dir = "/home/user/MyDocs/PPSSPP";
 	assets_dir = "/opt/PPSSPP";

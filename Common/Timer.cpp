@@ -39,10 +39,6 @@ u32 Timer::GetTimeMs()
 	return GetTickCount();
 #elif defined(_WIN32)
 	return timeGetTime();
-#elif defined(BLACKBERRY)
-	struct timespec time;
-	clock_gettime(CLOCK_MONOTONIC, &time);
-	return (u32)(time.tv_sec * 1000 + time.tv_nsec / 1000000);
 #else
 	// REALTIME is probably not a good idea for measuring updates.
 	struct timeval t;

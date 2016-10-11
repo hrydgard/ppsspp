@@ -403,15 +403,7 @@ static int DefaultInternalResolution() {
 }
 
 static int DefaultZoomType() {
-#ifdef BLACKBERRY
-	if (pixel_xres < 1.3 * pixel_yres) {
-		return 1;
-	} else {
-		return 2;
-	}
-#else
 	return 2;
-#endif
 }
 
 static bool DefaultTimerHack() {
@@ -946,7 +938,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	// Sometimes the download may not be finished when the main screen shows (if the user dismisses the
 	// splash screen quickly), but then we'll just show the notification next time instead, we store the
 	// upgrade number in the ini.
-#if !defined(ARMEABI)  // blackberry and stuff? why do we still keep this check?
+#if !defined(ARMEABI)  // which platforms? why do we still keep this check?
 	if (iRunCount % 10 == 0 && bCheckForNewVersion) {
 		std::shared_ptr<http::Download> dl = g_DownloadManager.StartDownloadWithCallback(
 			"http://www.ppsspp.org/version.json", "", &DownloadCompletedCallback);

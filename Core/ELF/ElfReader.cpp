@@ -24,10 +24,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
 
-#ifdef BLACKBERRY
-using std::strnlen;
-#endif
-
 const char *ElfReader::GetSectionName(int section) const {
 	if (sections[section].sh_type == SHT_NULL)
 		return 0;

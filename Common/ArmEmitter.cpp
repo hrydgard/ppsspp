@@ -24,17 +24,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-// For cache flushing on Symbian/iOS/Blackberry
+// For cache flushing on Symbian/iOS
 #ifdef __SYMBIAN32__
 #include <e32std.h>
 #endif
 
 #ifdef IOS
 #include <libkern/OSCacheControl.h>
-#include <sys/mman.h>
-#endif
-
-#ifdef BLACKBERRY
 #include <sys/mman.h>
 #endif
 
@@ -634,8 +630,6 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 {
 #ifdef __SYMBIAN32__
 	User::IMB_Range(start, end);
-#elif defined(BLACKBERRY)
-	msync(start, end - start, MS_SYNC | MS_INVALIDATE_ICACHE);
 #elif defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);

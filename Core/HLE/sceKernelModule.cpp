@@ -60,10 +60,6 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#ifdef BLACKBERRY
-using std::strnlen;
-#endif
-
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
 };

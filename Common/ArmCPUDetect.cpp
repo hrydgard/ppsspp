@@ -20,9 +20,6 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
-#ifdef BLACKBERRY
-#include <bps/deviceinfo.h>
-#endif
 
 // Only Linux platforms have /proc/cpuinfo
 #if defined(__linux__)
@@ -208,15 +205,6 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
-#elif defined(BLACKBERRY)
-	isVFP3 = true;
-	deviceinfo_details_t* details;
-	deviceinfo_get_details(&details);
-	num_cores = deviceinfo_details_get_processor_core_count(details);
-	strcpy(brand_string, deviceinfo_details_get_processor_name(details));
-	if (!strncmp(brand_string, "MSM", 3))
-		isVFP4 = true;
-	deviceinfo_free_details(&details);
 #elif defined(__SYMBIAN32__)
 	strcpy(brand_string, "Samsung ARMv6");
 	num_cores = 1;

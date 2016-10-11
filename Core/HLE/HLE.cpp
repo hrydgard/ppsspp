@@ -43,10 +43,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/HLE.h"
 
-#ifdef BLACKBERRY
-using std::strnlen;
-#endif
-
 enum
 {
 	// Do nothing after the syscall.

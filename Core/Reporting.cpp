@@ -262,8 +262,6 @@ namespace Reporting
 		return "Mac";
 #elif defined(__SYMBIAN32__)
 		return "Symbian";
-#elif defined(BLACKBERRY)
-		return "Blackberry";
 #elif defined(LOONGSON)
 		return "Loongson";
 #elif defined(MAEMO)

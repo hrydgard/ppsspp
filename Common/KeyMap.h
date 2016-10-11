@@ -60,7 +60,6 @@ enum DefaultMaps {
 	DEFAULT_MAPPING_PAD,
 	DEFAULT_MAPPING_X360,
 	DEFAULT_MAPPING_SHIELD,
-	DEFAULT_MAPPING_BLACKBERRY_QWERTY,
 	DEFAULT_MAPPING_OUYA,
 	DEFAULT_MAPPING_XPERIA_PLAY,
 };
@@ -132,7 +131,6 @@ namespace KeyMap {
 	void NotifyPadConnected(const std::string &name);
 	bool IsNvidiaShield(const std::string &name);
 	bool IsNvidiaShieldTV(const std::string &name);
-	bool IsBlackberryQWERTY(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
 	bool IsOuya(const std::string &name);
 	bool HasBuiltinController(const std::string &name);

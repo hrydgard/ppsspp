@@ -44,10 +44,6 @@ enum RegMIPSLoc {
 	ML_MEM,
 };
 
-// These collide with something on Blackberry.
-#undef MAP_NOINIT
-#undef MAP_READ
-
 // Initing is the default so the flag is reversed.
 enum {
 	MAP_DIRTY = 1,

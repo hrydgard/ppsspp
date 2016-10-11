@@ -42,7 +42,7 @@ inline float clamp(float f) {
 
 Tilt TiltEventProcessor::NormalizeTilt(const Tilt &tilt){
 	// Normalise the accelerometer manually per-platform, to 'g'
-	#if defined(ANDROID) || defined(BLACKBERRY) || defined(__SYMBIAN32__)
+	#if defined(ANDROID) || defined(__SYMBIAN32__)
 		// Values are in metres per second. Divide by 9.8 to get 'g' value
 		float maxX = 9.8f, maxY = 9.8f;
 	#else
