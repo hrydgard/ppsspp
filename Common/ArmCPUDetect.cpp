@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#if defined(__arm__) || defined(__aarch64__)
+
 #include <ctype.h>
 #include "Common.h"
 #include "CPUDetect.h"
@@ -299,3 +301,5 @@ std::string CPUInfo::Summarize()
 
 	return sum;
 }
+
+#endif // defined(__arm__) || defined(__aarch64__)

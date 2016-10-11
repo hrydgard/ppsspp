@@ -18,6 +18,10 @@
 #include "CommonTypes.h"
 #include "CPUDetect.h"
 
+#ifdef IOS
+#include <libkern/OSCacheControl.h>
+#endif
+
 namespace Arm64Gen
 {
 

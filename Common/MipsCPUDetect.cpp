@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#ifdef __mips__
+
 #include "Common.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"
@@ -196,3 +198,5 @@ std::string CPUInfo::Summarize()
 
 	return sum;
 }
+
+#endif // __mips__

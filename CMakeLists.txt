@@ -312,59 +312,59 @@ endmacro()
 # Commented-out files are files that don't compile
 # and were disabled in the original MSVC project anyway
 
-set(CommonExtra)
-if(ARM)
-	set(CommonExtra ${CommonExtra}
-		Common/ArmCPUDetect.cpp)
-if(ARMV7)
-	set(CommonExtra ${CommonExtra}
-		Common/ColorConvNEON.cpp)
-endif()
-elseif(X86)
-	set(CommonExtra ${CommonExtra}
-		Common/ABI.cpp
-		Common/ABI.h
-		Common/CPUDetect.cpp
-		Common/CPUDetect.h
-		Common/Thunk.cpp
-		Common/Thunk.h
-		Common/x64Analyzer.cpp
-		Common/x64Analyzer.h
-		Common/x64Emitter.cpp
-		Common/x64Emitter.h)
-elseif(MIPS)
-	set(CommonExtra ${CommonExtra}
-		Common/MipsCPUDetect.cpp
-		Common/MipsEmitter.cpp
-		Common/MipsEmitter.h)
-else()
-	set(CommonExtra ${CommonExtra}
+set(CommonX86
+	Common/ABI.cpp
+	Common/ABI.h
+	Common/CPUDetect.cpp
+	Common/CPUDetect.h
+	Common/Thunk.cpp
+	Common/Thunk.h
+	Common/x64Analyzer.cpp
+	Common/x64Analyzer.h
+	Common/x64Emitter.cpp
+	Common/x64Emitter.h)
+source_group(x86 FILES ${CommonX86})
+
+set(CommonARM
+	Common/ArmCPUDetect.cpp
+	Common/ArmEmitter.h
+	Common/ArmEmitter.cpp
+	Common/ColorConvNEON.cpp)
+source_group(ARM FILES ${CommonARM})
+
+set(CommonARM64
+	Common/Arm64Emitter.h
+	Common/Arm64Emitter.cpp
+	Common/ArmEmitter.h
+	Common/ArmEmitter.cpp
+	Core/Util/DisArm64.cpp)
+source_group(ARM64 FILES ${CommonARM64})
+
+set(CommonMIPS
+	Common/MipsCPUDetect.cpp
+	Common/MipsEmitter.cpp
+	Common/MipsEmitter.h)
+source_group(MIPS FILES ${CommonMIPS})
+
+if(NOT (X86 OR ARM OR MIPS))
+	set(CommonFake
 		Common/FakeCPUDetect.cpp
 		Common/FakeEmitter.h)
+    source_group(Fake FILES ${CommonFake})
 endif()
 
-if(UNITTEST)
-set(CommonExtra ${CommonExtra}
-		Common/Arm64Emitter.h
-		Common/Arm64Emitter.cpp
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp
-		Core/Util/DisArm64.cpp)
-else()
-#Blackberry appears to depend on this being here, should clean it up.
-set(CommonExtra ${CommonExtra}
-		Common/ArmEmitter.h
-		Common/ArmEmitter.cpp)
-endif()
-
-if(WIN32)
-	set(CommonExtra ${CommonExtra}
-		Common/stdafx.cpp
-		Common/stdafx.h)
-endif()
+set(CommonWindows
+	Common/stdafx.cpp
+	Common/stdafx.h)
+source_group(Windows FILES ${CommonWindows})
 
 add_library(Common STATIC
-	${CommonExtra}
+	${CommonX86}
+	${CommonARM}
+	${CommonARM64}
+	${CommonMIPS}
+	${CommonFake}
+	${CommonWindows}
 	Common/ColorConv.cpp
 	Common/ColorConv.h
 	Common/ChunkFile.cpp

@@ -15,6 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#if defined(_M_IX86) || defined(_M_X64)
+
 #include "x64Emitter.h"
 #include "ABI.h"
 
@@ -679,4 +681,4 @@ void XEmitter::ABI_RestoreStack(unsigned int /*frameSize*/) {
 
 #endif // 32bit
 
-
+#endif // defined(_M_IX86) || defined(_M_X64)
