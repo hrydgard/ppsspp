@@ -37,6 +37,16 @@ static const char *validationLayers[] = {
 	"VK_LAYER_LUNARG_object_tracker",
 	"VK_LAYER_LUNARG_param_checker",
 	*/
+	/*
+	// For layers included in the Android NDK.
+	"VK_LAYER_GOOGLE_threading",
+	"VK_LAYER_LUNARG_parameter_validation",
+	"VK_LAYER_LUNARG_core_validation",
+	"VK_LAYER_LUNARG_image",
+	"VK_LAYER_LUNARG_object_tracker",
+	"VK_LAYER_LUNARG_swapchain",
+	"VK_LAYER_GOOGLE_unique_objects",
+	*/
 };
 
 static VkBool32 CheckLayers(const std::vector<layer_properties> &layer_props, const std::vector<const char *> &layer_names);
@@ -1030,7 +1040,13 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
 	swap_chain_info.pQueueFamilyIndices = NULL;
-	swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	// OPAQUE is not supported everywhere.
+	if (surfCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
+		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	} else {
+		// This should be supported anywhere, and is the only thing supported on the SHIELD TV, for example.
+		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+	}
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swap_chain_);
 	assert(res == VK_SUCCESS);
