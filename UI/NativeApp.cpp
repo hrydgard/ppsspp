@@ -794,7 +794,11 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
 			I18NCategory *sy = GetI18NCategory("System");
+#ifdef ANDROID
+			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+#else
 			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
+#endif
 		}
 
 		Core_SetPowerSaving(value != "false");
