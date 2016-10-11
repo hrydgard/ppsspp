@@ -18,9 +18,6 @@
 #pragma once
 
 #include <cstring>
-#ifdef __SYMBIAN32__
-#include <e32std.h>
-#endif
 #ifndef offsetof
 #include <stddef.h>
 #endif

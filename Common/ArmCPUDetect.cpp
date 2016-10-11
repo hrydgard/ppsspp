@@ -207,9 +207,6 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
-#elif defined(__SYMBIAN32__)
-	strcpy(brand_string, "Samsung ARMv6");
-	num_cores = 1;
 #else
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;

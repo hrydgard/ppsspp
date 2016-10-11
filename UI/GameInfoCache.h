@@ -52,7 +52,7 @@ enum GameInfoWantFlags {
 	GAMEINFO_WANTSND = 0x04,
 };
 
-// TODO: Need to fix c++11 still on Symbian and use std::atomic<bool> instead.
+// TODO: Need to use std::atomic<bool> instead.
 class CompletionFlag {
 public:
 	CompletionFlag() : pending(1) {

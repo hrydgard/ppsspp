@@ -133,9 +133,6 @@ bool Core_GetPowerSaving() {
 bool UpdateScreenScale(int width, int height, bool smallWindow) {
 	g_dpi = 72;
 	g_dpi_scale = 1.0f;
-#if defined(__SYMBIAN32__)
-	g_dpi_scale = 1.4f;
-#endif
 	if (smallWindow) {
 		g_dpi_scale = 2.0f;
 	}

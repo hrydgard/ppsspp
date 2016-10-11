@@ -1,11 +1,8 @@
 #include "math/math_util.h"
 #include <stdlib.h>
-#ifdef __SYMBIAN32__
-#include <e32std.h>
-#endif
 
 // QNX can only use RunFast mode and it is already the default.
-#if defined(__ARM_ARCH_7A__) && !defined(__SYMBIAN32__)
+#if defined(__ARM_ARCH_7A__)
 // Enables 'RunFast' VFP mode.
 void EnableFZ() {
 	int x;
@@ -39,10 +36,6 @@ void FPU_SetFastMode() {
 #else
 
 void EnableFZ() {
-#ifdef __SYMBIAN32__
-	// Set RunFast hardware mode for Symbian VFPv2.
-	User::SetFloatingPointMode(EFpModeRunFast);
-#endif
 	// TODO
 }
 

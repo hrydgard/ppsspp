@@ -25,10 +25,6 @@
 
 #undef small
 
-#ifdef __SYMBIAN32__
-#define unique_ptr auto_ptr
-#endif
-
 struct KeyInput;
 struct TouchInput;
 struct AxisInput;

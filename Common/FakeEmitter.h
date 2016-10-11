@@ -26,8 +26,6 @@
 #include "Common.h"
 #include "MsgHandler.h"
 
-// TODO: Check if Pandora still needs signal.h/kill here. Symbian doesn't.
-
 // VCVT flags
 #define TO_FLOAT      0
 #define TO_INT        1 << 0

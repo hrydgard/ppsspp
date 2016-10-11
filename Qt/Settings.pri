@@ -42,14 +42,9 @@ include(Platform/OSDetection.pri)
 }
 
 # Work out the git version in a way that works on every QMake
-symbian {
-	exists($$P/.git): GIT_VERSION = $$system(git describe --always)
-	isEmpty(GIT_VERSION): GIT_VERSION = $$VERSION
-} else {
-	# QMake seems to change how it handles quotes with every version. This works for most systems:
-	exists($$P/.git): GIT_VERSION = '\\"$$system(git describe --always)\\"'
-	isEmpty(GIT_VERSION): GIT_VERSION = '\\"$$VERSION\\"'
-}
+# QMake seems to change how it handles quotes with every version. This works for most systems:
+exists($$P/.git): GIT_VERSION = '\\"$$system(git describe --always)\\"'
+isEmpty(GIT_VERSION): GIT_VERSION = '\\"$$VERSION\\"'
 DEFINES += PPSSPP_GIT_VERSION=\"$$GIT_VERSION\"
 
 # Optimisations
@@ -65,11 +60,6 @@ win32-msvc* {
 	QMAKE_CFLAGS_RELEASE ~= s/-O.*/
 	QMAKE_CXXFLAGS_RELEASE ~= s/-O.*/
 	QMAKE_ALLFLAGS_RELEASE += -O3 -ffast-math
-}
-
-symbian {
-	# Silence a common warning in system headers.
-	QMAKE_CXXFLAGS += -Wno-address
 }
 
 contains(QT_CONFIG, opengles.) {

@@ -61,12 +61,7 @@ void HTTPFileLoader::Prepare() {
 				size_pos = header.find_first_not_of(' ', size_pos);
 			}
 			if (size_pos != header.npos) {
-				// TODO: Find a way to get this to work right on Symbian?
-#ifndef __SYMBIAN32__
 				filesize_ = atoll(&header[size_pos]);
-#else
-				filesize_ = atoi(&header[size_pos]);
-#endif
 			}
 		}
 		if (startsWithNoCase(header, "Accept-Ranges:")) {

@@ -95,10 +95,6 @@
 #include "Common/KeyMap.h"
 #endif
 
-#ifdef __SYMBIAN32__
-#define unique_ptr auto_ptr
-#endif
-
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
@@ -340,7 +336,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// most sense.
 	g_Config.memStickDirectory = std::string(external_dir) + "/";
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
-#elif defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS)
+#elif defined(MAEMO) || defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
 #elif !defined(_WIN32)
@@ -450,7 +446,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	if (g_Config.currentDirectory == "") {
 #if defined(ANDROID)
 		g_Config.currentDirectory = external_dir;
-#elif defined(__SYMBIAN32__) || defined(MAEMO) || defined(IOS) || defined(_WIN32)
+#elif defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_dir;
 #else
 		if (getenv("HOME") != NULL)

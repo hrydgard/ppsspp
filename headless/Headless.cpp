@@ -358,8 +358,7 @@ int main(int argc, const char* argv[])
 	InitSysDirectories();
 #endif
 
-#if defined(ANDROID) || defined(__SYMBIAN32__)
-#elif !defined(_WIN32)
+#if !defined(ANDROID) && !defined(_WIN32)
 	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
 #endif
 

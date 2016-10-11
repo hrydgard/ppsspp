@@ -23,9 +23,6 @@
 #include "Timer.h"
 #include "FileUtil.h"
 #include "../Core/Config.h"
-#ifdef __SYMBIAN32__
-#include <e32debug.h>
-#endif
 
 // Don't need to savestate this.
 const char *hleCurrentThreadName = NULL;
@@ -278,16 +275,12 @@ void LogChannel::RemoveListener(LogListener *listener) {
 }
 
 void LogChannel::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
-#ifdef __SYMBIAN32__
-	RDebug::Printf("%s",msg);
-#else
 	lock_guard lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
 	for (i = m_listeners.begin(); i != m_listeners.end(); ++i) {
 		(*i)->Log(level, msg);
 	}
-#endif
 }
 
 FileLogListener::FileLogListener(const char *filename) {

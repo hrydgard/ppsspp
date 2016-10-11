@@ -11,7 +11,6 @@ unix: PLATFORM_NAME="linux"
 mac: PLATFORM_NAME="macosx"
 ios: PLATFORM_NAME="ios"
 maemo: PLATFORM_NAME="maemo"
-symbian: PLATFORM_NAME="symbian"
 android: PLATFORM_NAME="android"
 
 !equals(PLATFORM_NAME, "generic"): include($$PLATFORM_NAME".pri")

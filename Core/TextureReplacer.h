@@ -103,7 +103,6 @@ struct ReplacementAliasKey {
 	}
 };
 
-#ifndef __SYMBIAN32__
 namespace std {
 	template <>
 	struct hash<ReplacementCacheKey> {
@@ -119,7 +118,6 @@ namespace std {
 		}
 	};
 }
-#endif
 
 struct ReplacedTexture {
 	inline bool Valid() {
@@ -202,20 +200,10 @@ protected:
 	std::string basePath_;
 	ReplacedTextureHash hash_;
 	typedef std::pair<int, int> WidthHeightPair;
-#ifdef __SYMBIAN32__
-	std::map<u64, WidthHeightPair> hashranges_;
-	std::map<ReplacementAliasKey, std::string> aliases_;
-#else
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;
-#endif
 
 	ReplacedTexture none_;
-#ifdef __SYMBIAN32__
-	std::map<ReplacementCacheKey, ReplacedTexture> cache_;
-	std::map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
-#else
 	std::unordered_map<ReplacementCacheKey, ReplacedTexture> cache_;
 	std::unordered_map<ReplacementCacheKey, ReplacedTextureLevel> savedCache_;
-#endif
 };

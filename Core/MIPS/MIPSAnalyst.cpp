@@ -44,12 +44,7 @@ recursive_mutex functions_lock;
 
 // One function can appear in multiple copies in memory, and they will all have 
 // the same hash and should all be replaced if possible.
-#ifdef __SYMBIAN32__
-// Symbian does not have a functional unordered_multimap.
-static std::multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
-#else
 static std::unordered_multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
-#endif
 
 struct HashMapFunc {
 	char name[64];
@@ -755,7 +750,7 @@ namespace MIPSAnalyst {
 		lock_guard guard(functions_lock);
 		hashToFunction.clear();
 		// Really need to detect C++11 features with better defines.
-#if !defined(__SYMBIAN32__) && !defined(IOS)
+#if !defined(IOS)
 		hashToFunction.reserve(functions.size());
 #endif
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {

@@ -6,16 +6,6 @@
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
-#ifdef __SYMBIAN32__
-// Seems std::move() doesn't exist, so assuming it can't do moves at all.
-namespace std {
-	template <typename T>
-	const T &move(const T &x) {
-		return x;
-	}
-};
-#endif
-
 // Basic IR
 //
 // This IR refers implicitly to the MIPS register set and is simple to interpret.
