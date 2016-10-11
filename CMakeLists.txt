@@ -641,7 +641,11 @@ if (PNG_FOUND)
 	include_directories(${PNG_PNG_INCLUDE_DIR})
 else()
 	if(ARM)
-		file(GLOB PNG_ARM_INCLUDES ext/native/ext/libpng17/arm/*)
+		set(PNG_ARM_INCLUDES
+            ext/native/ext/libpng17/arm/arm_init.c
+            ext/native/ext/libpng17/arm/filter_neon.S
+            ext/native/ext/libpng17/arm/filter_neon_intrinsics.c
+        )
 	endif()
 	add_library(png17 STATIC
 		ext/native/ext/libpng17/pngconf.h
@@ -674,7 +678,6 @@ endif()
 
 set(nativeExtra)
 set(nativeExtraLibs)
-
 if(ARMV7)
 	set(nativeExtra ${nativeExtra}
 		ext/native/math/fast/fast_matrix_neon.S)
@@ -1644,24 +1647,24 @@ if(IOS)
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
-	file(INSTALL ${IOSAssets} DESTINATION assets)
+	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	file(GLOB IOSAssets ios/assets/Default-568h@*.png)
-	file(INSTALL ${IOSAssets} DESTINATION .)
+	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	if (IOS_DEBUG)
-		file(INSTALL pspautotests DESTINATION assets)
+		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
 	set(RSRC_XIB_FILES assets/Icon@2x.png)
 	set_source_files_properties(${RSRC_XIB_FILES}
 		PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 	)
-	set(APP_DIR_NAME \${TARGET_BUILD_DIR}/\${FULL_PRODUCT_NAME})
+    if(CMAKE_GENERATOR STREQUAL "Xcode")
+	  set(APP_DIR_NAME "$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)")
+    else()
+      set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
+    endif()
 	add_custom_command(TARGET PPSSPP POST_BUILD
-		COMMAND tar -c -C . --exclude .DS_Store --exclude .git -H gnu assets *.png | tar -x -C '${APP_DIR_NAME}'
-	)
-	# Force Xcode to relink the binary.
-	add_custom_command(TARGET Core PRE_BUILD
-		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-		COMMAND rm -f PPSSPP.build/{Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.build/Objects-normal/*/PPSSPP {Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.app/PPSSPP
+        COMMAND mkdir -p ${APP_DIR_NAME}
+		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C ${APP_DIR_NAME}
 	)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
