@@ -76,7 +76,7 @@ inline bool connectInProgress(int errcode){ return (errcode == WSAEWOULDBLOCK ||
 #define SOCKET_ERROR -1
 #define closesocket close
 #define PACK __attribute__((packed))
-inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS); }
+inline bool connectInProgress(int errcode){ return (errcode == EINPROGRESS || errcode == EALREADY); }
 #endif
 
 #ifndef POLL_ERR
