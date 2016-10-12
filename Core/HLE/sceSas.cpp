@@ -27,8 +27,9 @@
 // https://github.com/hrydgard/ppsspp/issues/1078
 
 #include <cstdlib>
+#include <functional>
+
 #include "base/basictypes.h"
-#include "base/functional.h"
 #include "base/mutex.h"
 #include "profiler/profiler.h"
 #include "thread/thread.h"

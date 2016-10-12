@@ -196,7 +196,6 @@
     <ClInclude Include="base\colorutil.h" />
     <ClInclude Include="base\compat.h" />
     <ClInclude Include="base\display.h" />
-    <ClInclude Include="base\functional.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
     <ClInclude Include="base\NativeApp.h" />

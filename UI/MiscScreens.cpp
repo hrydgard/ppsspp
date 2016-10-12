@@ -16,8 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <functional>
 
-#include "base/functional.h"
 #include "base/colorutil.h"
 #include "base/display.h"
 #include "base/timeutil.h"

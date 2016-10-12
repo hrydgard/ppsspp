@@ -15,11 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <vector>
-#include <string>
+#include <functional>
 #include <set>
+#include <string>
+#include <vector>
 
-#include "base/functional.h"
 #include "Common/ColorConv.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"

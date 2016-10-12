@@ -7,15 +7,15 @@
 // Works very similarly to Android, there's a Measure pass and a Layout pass which you don't
 // really need to care about if you just use the standard containers and widgets.
 
-#include <string>
-#include <vector>
-#include <map>
 #include <cmath>
 #include <cstdio>
+#include <functional>
+#include <map>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "base/logging.h"
-#include "base/functional.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include "gfx/texture_atlas.h"
@@ -251,7 +251,7 @@ public:
 	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
 	template<class T>
 	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
-		Add(std::bind(theCallback, thiz, placeholder::_1));
+		Add(std::bind(theCallback, thiz, std::placeholders::_1));
 		return thiz;
 	}
 

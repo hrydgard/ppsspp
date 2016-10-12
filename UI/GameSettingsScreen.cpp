@@ -961,7 +961,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
-			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, placeholder::_1)));
+			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, std::placeholders::_1)));
 	}
 #endif
 	return UI::EVENT_DONE;
@@ -1165,13 +1165,13 @@ UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e)
 	{
 		screenManager()->push(
 			new PromptScreen(dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	}
 	else
 	{
 		screenManager()->push(
 			new PromptScreen(dev->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), di->T("OK"), di->T("Cancel"),
-			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
+			std::bind(&GameSettingsScreen::CallbackRestoreDefaults, this, std::placeholders::_1)));
 	}
 
 	return UI::EVENT_DONE;

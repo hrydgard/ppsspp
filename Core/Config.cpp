@@ -15,12 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstdlib>
 #include <ctime>
-#include <algorithm>
+#include <functional>
 
 #include "base/display.h"
-#include "base/functional.h"
 #include "base/NativeApp.h"
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"

@@ -47,15 +47,15 @@ void TextureScalerDX9::ConvertTo8888(u32 format, u32* source, u32* &dest, int wi
 		break;
 
 	case D3DFMT_A4R4G4B4:
-		GlobalThreadPool::Loop(std::bind(&convert4444_dx9, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert4444_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	case D3DFMT_R5G6B5:
-		GlobalThreadPool::Loop(std::bind(&convert565_dx9, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert565_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	case D3DFMT_A1R5G5B5:
-		GlobalThreadPool::Loop(std::bind(&convert5551_dx9, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert5551_dx9, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	default:

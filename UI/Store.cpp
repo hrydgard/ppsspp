@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/functional.h"
+#include <functional>
+
 #include "base/basictypes.h"
 #include "ext/vjson/json.h"
 
@@ -135,7 +136,7 @@ void HttpImageFileView::DownloadCompletedCallback(http::Download &download) {
 
 void HttpImageFileView::Draw(UIContext &dc) {
 	if (!texture_ && !textureFailed_ && !path_.empty() && !download_) {
-		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, placeholder::_1));
+		download_ = downloader_->StartDownloadWithCallback(path_, "", std::bind(&HttpImageFileView::DownloadCompletedCallback, this, std::placeholders::_1));
 		download_->SetHidden(true);
 	}
 

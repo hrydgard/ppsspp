@@ -17,8 +17,9 @@
 
 #pragma once
 
+#include <functional>
+
 #include "UI/MiscScreens.h"
-#include "base/functional.h"
 #include "ui/ui_screen.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,

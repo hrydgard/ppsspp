@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+
 #include "Common/CommonTypes.h"
 #include "GPU/Common/GPUDebugInterface.h"
 

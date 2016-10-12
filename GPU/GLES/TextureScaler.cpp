@@ -44,15 +44,15 @@ void TextureScalerGL::ConvertTo8888(u32 format, u32* source, u32* &dest, int wid
 		break;
 
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		GlobalThreadPool::Loop(std::bind(&convert4444_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert4444_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_6_5:
-		GlobalThreadPool::Loop(std::bind(&convert565_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert565_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		GlobalThreadPool::Loop(std::bind(&convert5551_gl, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert5551_gl, (u16*)source, dest, width, std::placeholders::_1, std::placeholders::_2), 0, height);
 		break;
 
 	default:
