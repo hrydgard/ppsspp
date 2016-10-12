@@ -3,7 +3,7 @@
  *
  */
 // Qt 4.7+ / 5.0+ implementation of the framework.
-// Currently supports: Android, Maemo/Meego, Linux, Windows, Mac OSX
+// Currently supports: Android, Linux, Windows, Mac OSX
 
 #include <QApplication>
 #include <QUrl>
@@ -42,9 +42,7 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:
-#if defined(MAEMO)
-		return "Qt:Maemo";
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
 		return "Qt:Android";
 #elif defined(Q_OS_LINUX)
 		return "Qt:Linux";
@@ -69,9 +67,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
-#if defined(MAEMO)
-		return DEVICE_TYPE_MOBILE;
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
 #elif defined(Q_OS_LINUX)
 		return DEVICE_TYPE_DESKTOP;
@@ -183,7 +179,7 @@ MainUI::MainUI(QWidget *parent):
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     setAttribute(Qt::WA_LockLandscapeOrientation);
 #endif
-#if defined(MOBILE_DEVICE) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE)
     acc = new QAccelerometer(this);
     acc->start();
 #endif
@@ -194,7 +190,7 @@ MainUI::MainUI(QWidget *parent):
 
 MainUI::~MainUI()
 {
-#if defined(MOBILE_DEVICE) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE)
         delete acc;
 #endif
         NativeShutdownGraphics();
@@ -347,7 +343,7 @@ void MainUI::paintGL()
 
 void MainUI::updateAccelerometer()
 {
-#if defined(MOBILE_DEVICE) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE)
         // TODO: Toggle it depending on whether it is enabled
         QAccelerometerReading *reading = acc->reading();
         if (reading) {
@@ -434,7 +430,7 @@ Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
 {
-#if defined(Q_OS_LINUX) && !defined(MAEMO)
+#if defined(Q_OS_LINUX)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
@@ -451,9 +447,6 @@ int main(int argc, char *argv[])
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
 	savegame_dir = QStandardPaths::writableLocation(QStandardPaths::HomeLocation).toStdString();
 	assets_dir = QStandardPaths::writableLocation(QStandardPaths::DataLocation).toStdString();
-#elif defined(MAEMO)
-	savegame_dir = "/home/user/MyDocs/PPSSPP";
-	assets_dir = "/opt/PPSSPP";
 #endif
 	savegame_dir += "/";
 	assets_dir += "/";

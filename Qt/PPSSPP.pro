@@ -25,7 +25,7 @@ greaterThan(QT_MAJOR_VERSION,4) {
 		DEFINES += QT_HAS_SYSTEMINFO
 	}
 	mobile_platform: QT += sensors
-} else:!maemo5:mobile_platform {
+} else:mobile_platform {
 	CONFIG += mobility
 	MOBILITY += sensors
 }

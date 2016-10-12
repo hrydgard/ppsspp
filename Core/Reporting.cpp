@@ -262,8 +262,6 @@ namespace Reporting
 		return "Mac";
 #elif defined(LOONGSON)
 		return "Loongson";
-#elif defined(MAEMO)
-		return "Nokia Maemo";
 #elif defined(__linux__)
 		return "Linux";
 #elif defined(__Bitrig__)

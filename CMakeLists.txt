@@ -102,7 +102,6 @@ option(X86 "Set to ON if targeting an X86 processor" ${X86})
 # :: Platforms
 option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
-option(MAEMO "Set to ON if targeting a Maemo (N900) device" ${MAEMO})
 option(BB "Set to ON if targeting a Beaglebone/Beaglebone Black device" ${BB})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
@@ -153,11 +152,6 @@ elseif(NOT IOS)
 	include(FindOpenGL REQUIRED)
 endif()
 
-if(MAEMO)
-	#Maemo's gcc-4.7.2 is strict
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
-endif()
-
 if (NOT ANDROID AND NOT IOS)
 	include(FindSDL2)
 endif()
@@ -179,9 +173,6 @@ endif()
 
 if(IOS)
 	add_definitions(-DIOS)
-endif()
-if(MAEMO)
-	add_definitions(-DMAEMO)
 endif()
 if(RPI)
 	add_definitions(-DRPI)
