@@ -10,7 +10,7 @@
 #endif
 
 #if defined(USING_GLES2)
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
@@ -279,7 +279,7 @@ void CheckGLExtensions() {
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
 		// https://twitter.com/ID_AA_Carmack/status/387383037794603008
 #ifdef _DEBUG
@@ -329,7 +329,7 @@ void CheckGLExtensions() {
 		gl_extensions.EXT_unpack_subimage = true;
 	}
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 	if (gl_extensions.OES_mapbuffer) {
 		glMapBuffer = (PFNGLMAPBUFFERPROC)eglGetProcAddress("glMapBufferOES");
 	}

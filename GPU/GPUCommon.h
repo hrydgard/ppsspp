@@ -6,7 +6,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 #include <atomic>
 #elif defined(_M_SSE)
 #include <xmmintrin.h>
@@ -64,7 +64,7 @@ public:
 	void Execute_End(u32 op, u32 diff);
 
 	u64 GetTickEstimate() override {
-#if defined(_M_X64) || defined(ANDROID)
+#if defined(_M_X64) || defined(__ANDROID__)
 		return curTickEst_;
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&curTickEst_;
@@ -195,7 +195,7 @@ protected:
 
 private:
 	// For CPU/GPU sync.
-#ifdef ANDROID
+#ifdef __ANDROID__
 	std::atomic<u64> curTickEst_;
 #else
 	volatile MEMORY_ALIGNED16(u64) curTickEst_;
@@ -203,7 +203,7 @@ private:
 #endif
 
 	inline void UpdateTickEstimate(u64 value) {
-#if defined(_M_X64) || defined(ANDROID)
+#if defined(_M_X64) || defined(__ANDROID__)
 		curTickEst_ = value;
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&value;

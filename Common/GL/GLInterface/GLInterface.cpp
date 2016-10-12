@@ -4,7 +4,7 @@
 
 #include "Common/GL/GLInterfaceBase.h"
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include "Common/GL/GLInterface/EGLAndroid.h"
 #elif defined(__APPLE__)
 #include "Common/GL/GLInterface/AGL.h"
@@ -21,7 +21,7 @@
 #endif
 
 cInterfaceBase* HostGL_CreateGLInterface(){
-	#ifdef ANDROID
+	#ifdef __ANDROID__
 		return new cInterfaceEGLAndroid;
 	#elif defined(__APPLE__)
 		return new cInterfaceAGL;

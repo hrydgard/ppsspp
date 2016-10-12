@@ -27,7 +27,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 		return;
 	}
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// Android NDK does not support 64-bit file I/O using C streams
 	// so we fall back onto syscalls
 	fd_ = fileno(f_);
@@ -74,7 +74,7 @@ std::string LocalFileLoader::Path() const {
 }
 
 void LocalFileLoader::Seek(s64 absolutePos) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	lseek64(fd_, absolutePos, SEEK_SET);
 #else
 	fseeko(f_, absolutePos, SEEK_SET);
@@ -82,7 +82,7 @@ void LocalFileLoader::Seek(s64 absolutePos) {
 }
 
 size_t LocalFileLoader::Read(size_t bytes, size_t count, void *data, Flags flags) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	return read(fd_, data, bytes * count) / bytes;
 #else
 	return fread(data, bytes, count, f_);

@@ -6,7 +6,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 #include <sys/types.h>
 #include <sys/vfs.h>
 #define statvfs statfs
@@ -33,7 +33,7 @@ bool free_disk_space(const std::string &dir, uint64_t &space) {
 	int res = statvfs(dir.c_str(), &diskstat);
 
 	if (res == 0) {
-#ifndef ANDROID
+#ifndef __ANDROID__
 		if (diskstat.f_flag & ST_RDONLY) {
 			space = 0;
 			return true;

@@ -344,7 +344,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CacheFullIsoInRam", &g_Config.bCacheFullIsoInRam, false, true, true),
 	ConfigSetting("RemoteISOPort", &g_Config.iRemoteISOPort, 0, true, false),
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
 #endif
 	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, 1),
@@ -411,7 +411,7 @@ static bool DefaultTimerHack() {
 }
 
 static int DefaultAndroidHwScale() {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// Get the real resolution as passed in during startup, not dp_xres and stuff
 	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
 	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);

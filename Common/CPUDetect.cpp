@@ -17,7 +17,7 @@
 
 #if defined(_M_IX86) || defined(_M_X64)
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <sys/stat.h>
 #include <fcntl.h>
 #endif

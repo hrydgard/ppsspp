@@ -161,7 +161,7 @@ PFN_vkCmdNextSubpass vkCmdNextSubpass;
 PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
 PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
@@ -366,7 +366,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 
 #ifdef _WIN32
 	LOAD_INSTANCE_FUNC(instance, vkCreateWin32SurfaceKHR);
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 	LOAD_INSTANCE_FUNC(instance, vkCreateAndroidSurfaceKHR);
 #endif
 

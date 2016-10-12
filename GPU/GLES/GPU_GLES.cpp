@@ -492,7 +492,7 @@ void GPU_GLES::CheckGPUFeatures() {
 			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
 			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
 		} else {
-#ifdef ANDROID
+#ifdef __ANDROID__
 			// This appears to be broken on nVidia Shield TV.
 			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
 				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;

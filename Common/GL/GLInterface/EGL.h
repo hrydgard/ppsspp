@@ -9,7 +9,7 @@
 
 #include "Common/GL/GLInterfaceBase.h"
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 // On Android, EGL creation is so early that our regular logging system is not
 // up and running yet. Use Android logging.
 #include "base/logging.h"

@@ -250,7 +250,7 @@ namespace Reporting
 	std::string GetPlatformIdentifer()
 	{
 		// TODO: Do we care about OS version?
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 		return "Android";
 #elif defined(_WIN64)
 		return "Windows 64";

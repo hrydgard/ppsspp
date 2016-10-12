@@ -212,7 +212,7 @@ void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	void* ptr =  _aligned_malloc(size,alignment);
 #else
 	void* ptr = NULL;
-#ifdef ANDROID
+#ifdef __ANDROID__
 	ptr = memalign(alignment, size);
 #else
 	if (posix_memalign(&ptr, alignment, size) != 0)

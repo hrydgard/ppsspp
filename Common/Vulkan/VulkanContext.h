@@ -1,7 +1,7 @@
 #ifndef UTIL_INIT
 #define UTIL_INIT
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #undef NDEBUG   // asserts
 #endif
 #include <cassert>
@@ -17,7 +17,7 @@
 #define NOMINMAX              /* Don't let Windows define min() or max() */
 #define APP_NAME_STR_LEN 80
 #include <Windows.h>
-#elif defined(ANDROID)  // _WIN32
+#elif defined(__ANDROID__)  // _WIN32
 #include <android/native_window_jni.h>
 #define VK_USE_PLATFORM_ANDROID_KHR
 #else
@@ -201,7 +201,7 @@ public:
 #ifdef _WIN32
 	void InitSurfaceWin32(HINSTANCE conn, HWND wnd);
 	void ReinitSurfaceWin32();
-#elif ANDROID
+#elif __ANDROID__
 	void InitSurfaceAndroid(ANativeWindow *native_window, int width, int height);
 	void ReinitSurfaceAndroid(int width, int height);
 #endif
@@ -294,7 +294,7 @@ private:
 #ifdef _WIN32
 	HINSTANCE connection;        // hInstance - Windows Instance
 	HWND window;          // hWnd - window handle
-#elif ANDROID  // _WIN32
+#elif __ANDROID__  // _WIN32
 	ANativeWindow *native_window;
 #endif // _WIN32
 

@@ -1,7 +1,7 @@
 // TODO: Move much of this code to vfs.cpp
 #pragma once
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <zip.h>
 #endif
 
@@ -41,7 +41,7 @@ public:
 };
 #endif
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 uint8_t *ReadFromZip(zip *archive, const char* filename, size_t *size);
 class ZipAssetReader : public AssetReader {
 public:

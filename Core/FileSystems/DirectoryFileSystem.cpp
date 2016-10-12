@@ -36,7 +36,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 #include <sys/types.h>
 #include <sys/vfs.h>
 #define statvfs statfs

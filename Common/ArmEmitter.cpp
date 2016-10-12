@@ -34,7 +34,7 @@
 #include "CPUDetect.h"
 
 // Want it in release builds too
-#ifdef ANDROID
+#ifdef __ANDROID__
 #undef _dbg_assert_msg_
 #define _dbg_assert_msg_ _assert_msg_
 #endif
@@ -628,7 +628,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif !defined(_WIN32)
 #if defined(ARM)
-#if defined(__clang__) || defined(ANDROID)
+#if defined(__clang__) || defined(__ANDROID__)
 	__clear_cache(start, end);
 #else
 	__builtin___clear_cache(start, end);

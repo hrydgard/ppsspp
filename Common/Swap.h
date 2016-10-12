@@ -18,7 +18,7 @@
 #pragma once
 
 // Android
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 #include <sys/endian.h>
 
 #if _BYTE_ORDER == _LITTLE_ENDIAN && !defined(COMMON_LITTLE_ENDIAN)

@@ -55,7 +55,7 @@ inline uint64_t swap64(uint64_t _data) {return _byteswap_uint64(_data);}
 inline uint16_t swap16 (uint16_t _data) { uint32_t data = _data; __asm__ ("rev16 %0, %1\n" : "=l" (data) : "l" (data)); return (uint16_t)data;} 
 inline uint32_t swap32 (uint32_t _data) {__asm__ ("rev %0, %1\n" : "=l" (_data) : "l" (_data)); return _data;}
 inline uint64_t swap64(uint64_t _data) {return ((uint64_t)swap32(_data) << 32) | swap32(_data >> 32);}
-#elif __linux__ && !defined(ANDROID)
+#elif __linux__ && !defined(__ANDROID__)
 #include <byteswap.h>
 inline uint16_t swap16(uint16_t _data) {return bswap_16(_data);}
 inline uint32_t swap32(uint32_t _data) {return bswap_32(_data);}

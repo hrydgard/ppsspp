@@ -184,7 +184,7 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 };
 
 static const DefMappingStruct defaultPadMap[] = {
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 	{CTRL_CROSS          , NKCODE_BUTTON_A},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
 	{CTRL_SQUARE         , NKCODE_BUTTON_X},
@@ -289,7 +289,7 @@ void UpdateNativeMenuKeys() {
 	KeyFromPspButton(CTRL_LEFT, &leftKeys);
 	KeyFromPspButton(CTRL_RIGHT, &rightKeys);
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// Hardcode DPAD on Android
 	upKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_UP));
 	downKeys.push_back(KeyDef(DEVICE_ID_ANY, NKCODE_DPAD_DOWN));
@@ -835,7 +835,7 @@ void RestoreDefault() {
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 	// Autodetect a few common devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {

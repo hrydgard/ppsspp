@@ -358,7 +358,7 @@ int main(int argc, const char* argv[])
 	InitSysDirectories();
 #endif
 
-#if !defined(ANDROID) && !defined(_WIN32)
+#if !defined(__ANDROID__) && !defined(_WIN32)
 	g_Config.memStickDirectory = std::string(getenv("HOME")) + "/.ppsspp/";
 #endif
 
@@ -375,7 +375,7 @@ int main(int argc, const char* argv[])
 	if (screenshotFilename != 0)
 		headlessHost->SetComparisonScreenshot(screenshotFilename);
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// For some reason the debugger installs it with this name?
 	if (File::Exists("/data/app/org.ppsspp.ppsspp-2.apk")) {
 		VFSRegister("", new ZipAssetReader("/data/app/org.ppsspp.ppsspp-2.apk", "assets/"));

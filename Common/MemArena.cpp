@@ -29,13 +29,13 @@
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <sys/ioctl.h>
 #include <linux/ashmem.h>
 #endif
 #endif
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 
 // Hopefully this ABI will never change...
 
@@ -131,7 +131,7 @@ void MemArena::GrabLowMemSpace(size_t size)
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
 	GetSystemInfo(&sysInfo);
 #endif
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 	// Use ashmem so we don't have to allocate a file on disk!
 	fd = ashmem_create_region("PPSSPP_RAM", size);
 	// Note that it appears that ashmem is pinned by default, so no need to pin.

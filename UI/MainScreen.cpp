@@ -420,7 +420,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	path_.SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI)
 	I18NCategory *mm = GetI18NCategory("MainMenu");
@@ -900,7 +900,7 @@ UI::EventReturn MainScreen::OnAllowStorage(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnDownloadUpgrade(UI::EventParams &e) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// Go to app store
 #ifdef GOLD
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
@@ -1116,7 +1116,7 @@ UI::EventReturn MainScreen::OnHomebrewStore(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
 	LaunchBrowser("http://central.ppsspp.org/buygold");
@@ -1143,7 +1143,7 @@ UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	// However, let's make sure the config was saved, since it may not have been.
 	g_Config.Save();
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #ifdef ANDROID_NDK_PROFILER
 	moncleanup();
 #endif

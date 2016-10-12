@@ -27,7 +27,7 @@ public:
 	}
 	std::string GetFriendlyPath() {
 		std::string str = GetPath();
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 		// Do nothing
 #elif defined(__linux)
 		char *home = getenv("HOME");
