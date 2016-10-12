@@ -17,11 +17,12 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+#include <vector>
+
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "MiscScreens.h"
-#include <vector>
 
 class DragDropButton;
 

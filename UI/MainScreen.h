@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+
 #include "file/path.h"
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"

@@ -896,7 +896,6 @@ add_library(native STATIC
 	ext/native/base/colorutil.h
 	ext/native/base/display.cpp
 	ext/native/base/display.h
-	ext/native/base/functional.h
 	ext/native/base/linked_ptr.h
 	ext/native/base/logging.h
 	ext/native/base/mutex.h

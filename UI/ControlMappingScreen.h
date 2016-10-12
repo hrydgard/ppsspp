@@ -17,8 +17,9 @@
 
 #pragma once
 
+#include <functional>
 #include <vector>
-#include "base/functional.h"
+
 #include "base/mutex.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"

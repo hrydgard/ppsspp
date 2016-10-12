@@ -1,11 +1,12 @@
 #ifndef _NET_HTTP_HTTP_CLIENT
 #define _NET_HTTP_HTTP_CLIENT
 
+#include <functional>
 #include <memory>
+
 #include "base/basictypes.h"
 #include "base/buffer.h"
 #include "thread/thread.h"
-#include "base/functional.h"
 
 #ifdef _WIN32
 #define NOMINMAX

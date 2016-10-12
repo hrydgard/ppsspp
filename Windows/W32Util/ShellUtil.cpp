@@ -4,7 +4,8 @@
 
 #include "stdafx.h"
 
-#include "base/functional.h"
+#include <functional>
+
 #include "thread/thread.h"
 #include "util/text/utf8.h"
 #include "ShellUtil.h"

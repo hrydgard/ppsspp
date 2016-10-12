@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include <vector>
+#include <functional>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "file/file_util.h"
-#include "base/functional.h"
 #include "ui/ui_screen.h"
 
 struct ShaderInfo;

@@ -21,10 +21,11 @@
 #endif
 
 #include <algorithm>
+#include <functional>
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "base/functional.h"
 #include "base/logging.h"
 #include "base/buffer.h"
 #include "file/fd_util.h"
@@ -114,8 +115,8 @@ void Request::Close() {
 
 Server::Server(threading::Executor *executor)
   : port_(0), executor_(executor) {
-  RegisterHandler("/", std::bind(&Server::HandleListing, this, placeholder::_1));
-  SetFallbackHandler(std::bind(&Server::Handle404, this, placeholder::_1));
+  RegisterHandler("/", std::bind(&Server::HandleListing, this, std::placeholders::_1));
+  SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }
 
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {

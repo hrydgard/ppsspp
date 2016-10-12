@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "base/functional.h"
+#include <functional>
+
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"

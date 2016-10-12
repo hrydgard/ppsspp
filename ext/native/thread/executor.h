@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
 
 namespace threading {
 

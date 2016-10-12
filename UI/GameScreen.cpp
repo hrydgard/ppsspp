@@ -175,7 +175,7 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 	I18NCategory *ga = GetI18NCategory("Game");
 	screenManager()->push(
 		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
-		std::bind(&GameScreen::CallbackDeleteConfig, this, placeholder::_1)));
+		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
 
 	return UI::EVENT_DONE;
 }
@@ -289,7 +289,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 		if (saveDirs.size()) {
 			screenManager()->push(
 				new PromptScreen(di->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
-				std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
+				std::bind(&GameScreen::CallbackDeleteSaveData, this, std::placeholders::_1)));
 		}
 	}
 
@@ -313,7 +313,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	if (info) {
 		screenManager()->push(
 			new PromptScreen(di->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("ConfirmDelete"), di->T("Cancel"),
-			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
+			std::bind(&GameScreen::CallbackDeleteGame, this, std::placeholders::_1)));
 	}
 
 	return UI::EVENT_DONE;

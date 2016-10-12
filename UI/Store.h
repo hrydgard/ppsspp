@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+
 #include "ui/ui_screen.h"
 #include "ui/viewgroup.h"
 #include "net/http_client.h"

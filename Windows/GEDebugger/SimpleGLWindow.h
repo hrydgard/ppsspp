@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+
 #include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
 #include "Globals.h"

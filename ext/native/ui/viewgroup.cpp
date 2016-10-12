@@ -1,6 +1,6 @@
+#include <functional>
 #include <set>
 
-#include "base/functional.h"
 #include "base/logging.h"
 #include "base/mutex.h"
 #include "base/stringutil.h"
@@ -1286,7 +1286,7 @@ void ListView::CreateAllItems() {
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
 		if (hidden_.find(i) == hidden_.end()) {
 			View * v = linLayout_->Add(adaptor_->CreateItemView(i));
-			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+			adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, std::placeholders::_1));
 		}
 	}
 }

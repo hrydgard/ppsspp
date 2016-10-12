@@ -1,5 +1,6 @@
 #include "thread/executor.h"
-#include "base/functional.h"
+
+#include <functional>
 
 namespace threading {
 

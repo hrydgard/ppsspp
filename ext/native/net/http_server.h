@@ -1,9 +1,9 @@
 #ifndef _HTTP_SERVER_H
 #define _HTTP_SERVER_H
 
+#include <functional>
 #include <map>
 
-#include "base/functional.h"
 #include "base/buffer.h"
 #include "net/http_headers.h"
 #include "thread/executor.h"

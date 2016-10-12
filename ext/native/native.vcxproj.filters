@@ -203,9 +203,6 @@
     <ClInclude Include="net\url.h">
       <Filter>net</Filter>
     </ClInclude>
-    <ClInclude Include="base\functional.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="ui\ui_screen.h">
       <Filter>ui</Filter>
     </ClInclude>

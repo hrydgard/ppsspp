@@ -1,8 +1,11 @@
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <vector>
+
 #include "thread.h"
 #include "base/mutex.h"
-#include "base/functional.h"
 
 // This is the simplest possible worker implementation I can think of
 // but entirely sufficient for the given purpose.

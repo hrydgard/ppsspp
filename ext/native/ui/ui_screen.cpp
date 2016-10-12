@@ -332,7 +332,7 @@ UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
 	}
 
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_,
-		std::bind(&PopupMultiChoice::ChoiceCallback, this, placeholder::_1));
+		std::bind(&PopupMultiChoice::ChoiceCallback, this, std::placeholders::_1));
 	popupScreen->SetHiddenChoices(hidden_);
 	screenManager_->push(popupScreen);
 	return UI::EVENT_DONE;

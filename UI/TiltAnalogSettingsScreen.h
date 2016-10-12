@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "base/functional.h"
+#include <functional>
+
 #include "ui/view.h"
 #include "MiscScreens.h"
 
