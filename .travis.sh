@@ -24,10 +24,6 @@ travis_before_install() {
 	if [ ! "$TRAVIS_OS_NAME" = "osx" ]; then
 		sudo apt-get update -qq
 		sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
-
-		if [ "$CMAKE" = "TRUE" ]; then
-			sudo apt-get install lib32stdc++6 lib32z1 lib32z1-dev cmake -qq
-		fi
 	fi
 }
 
@@ -64,6 +60,10 @@ travis_install() {
 		fi
 	fi
 
+    if [ "$CMAKE" = "TRUE" ]; then
+        download_extract "https://cmake.org/files/v3.6/cmake-3.6.2-Linux-x86_64.tar.gz" cmake-3.6.2-Linux-x86_64.tar.gz
+    fi
+
 	# Android NDK + GCC 4.8
 	if [ "$PPSSPP_BUILD_TYPE" = "Android" ]; then
 		free -m
@@ -88,6 +88,10 @@ travis_install() {
 }
 
 travis_script() {
+    if [ -d cmake-3.6.2-Linux-x86_64 ]; then
+        export PATH=$(pwd)/cmake-3.6.2-Linux-x86_64/bin:$PATH
+    fi
+
 	# Compile PPSSPP
 	if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
 		if [ "$QT" = "TRUE" ]; then
