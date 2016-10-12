@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.6)
 project(PPSSPP)
 enable_language(ASM)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-DPPSSPP)
 
