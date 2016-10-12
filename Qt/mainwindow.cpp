@@ -25,6 +25,8 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
+    Q_INIT_RESOURCE(desktop_assets);
+
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
 	
@@ -402,7 +404,7 @@ void MainWindow::forumAct()
 
 void MainWindow::aboutAct()
 {
-	QMessageBox::about(this, "About", QString::fromUtf8("PPSSPP Qt " PPSSPP_GIT_VERSION "\n\n"
+	QMessageBox::about(this, "About", QString("PPSSPP Qt %1\n\n"
 	                                                    "PSP emulator and debugger\n\n"
 	                                                    "Copyright (c) by Henrik Rydg\xc3\xa5rd and the PPSSPP Project 2012-\n"
 	                                                    "Qt port maintained by xSacha\n\n"
@@ -412,7 +414,7 @@ void MainWindow::aboutAct()
 	                                                    "    zlib by Jean-loup Gailly (compression) and Mark Adler (decompression)\n"
 	                                                    "    Qt project by Digia\n\n"
 	                                                    "All trademarks are property of their respective owners.\n"
-	                                                    "The emulator is for educational and development purposes only and it may not be used to play games you do not legally own."));
+	                                                    "The emulator is for educational and development purposes only and it may not be used to play games you do not legally own.").arg(PPSSPP_GIT_VERSION));
 }
 
 /* Private functions */
@@ -449,7 +451,7 @@ void MainWindow::SetWindowScale(int zoom) {
 
 void MainWindow::SetGameTitle(QString text)
 {
-	QString title = "PPSSPP " PPSSPP_GIT_VERSION;
+	QString title = QString("PPSSPP %1").arg(PPSSPP_GIT_VERSION);
 	if (text != "")
 		title += QString(" - %1").arg(text);
 

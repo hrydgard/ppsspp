@@ -727,21 +727,48 @@ elseif(IOS)
 
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
-	# Currently unused
-	message(FATAL_ERROR "Cmake does not yet support Qt. Please use qmake instead.")
-	find_package(Qt4 COMPONENTS QtMultimedia QtOpenGL QtGui QtCore)
-	include(${QT_USE_FILE})
-	qt4_wrap_cpp(nativeQtHeader ext/native/base/QtMain.h)
-	set(nativeExtra ${nativeExtra} ext/native/base/QtMain.cpp ${nativeQtHeader})
-	if(NOT MOBILE_DEVICE)
-		qt4_wrap_cpp(nativeQtHeader Qt/mainwindow.h)
-		set(nativeExtra ${nativeExtra} Qt/mainwindow.cpp)
-	endif()
-	set(nativeExtraLibs ${nativeExtraLibs} ${QT_LIBRARIES})
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+
+	find_package(Qt5 COMPONENTS Multimedia OpenGL Gui Core)
+    set(Qt_UI
+      Qt/Debugger/debugger_disasm.ui
+      Qt/Debugger/debugger_displaylist.ui
+      Qt/Debugger/debugger_memory.ui
+      Qt/Debugger/debugger_memorytex.ui
+      Qt/Debugger/debugger_vfpu.ui
+    )
+    qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
+    list(APPEND NativeAppSource
+      ${QT_UI_GEN}
+      ext/native/base/QtMain.cpp
+      ext/native/base/QtMain.h
+      Qt/mainwindow.cpp
+      Qt/mainwindow.h
+      Qt/desktop_assets.qrc
+      Qt/Debugger/ctrldisasmview.cpp
+      Qt/Debugger/ctrldisasmview.h
+      Qt/Debugger/ctrlmemview.cpp
+      Qt/Debugger/ctrlmemview.h
+      Qt/Debugger/ctrlregisterlist.cpp
+      Qt/Debugger/ctrlregisterlist.h
+      Qt/Debugger/ctrlvfpuview.cpp
+      Qt/Debugger/ctrlvfpuview.h
+      Qt/Debugger/debugger_disasm.cpp
+      Qt/Debugger/debugger_disasm.h
+      Qt/Debugger/debugger_displaylist.cpp
+      Qt/Debugger/debugger_displaylist.h
+      Qt/Debugger/debugger_memory.cpp
+      Qt/Debugger/debugger_memory.h
+      Qt/Debugger/debugger_memorytex.cpp
+      Qt/Debugger/debugger_memorytex.h
+      Qt/Debugger/debugger_vfpu.cpp
+      Qt/Debugger/debugger_vfpu.h
+    )
+    add_definitions(-DUSING_QT_UI)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
+	set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
-	if(APPLE)
-		set(nativeExtraLibs ${nativeExtraLibs} "-framework CoreFoundation")
-	endif()
 elseif(SDL2_FOUND)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
@@ -763,7 +790,7 @@ else()
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
-set(NativeAppSource
+list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
@@ -945,7 +972,7 @@ if (LINUX AND NOT ANDROID)
 	SET(RT_LIB rt)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES} ${nativeExtraLibs})
 
 if(ANDROID)
 	target_link_libraries(native log EGL)
@@ -1581,7 +1608,7 @@ set(NativeAssets
 	assets/langregion.ini
 	assets/gamecontrollerdb.txt
 	assets/unknown.png)
-set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
+set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 
 if(HEADLESS)
