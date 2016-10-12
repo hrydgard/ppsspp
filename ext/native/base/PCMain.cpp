@@ -150,9 +150,6 @@ int8_t EGL_Init() {
 #endif
 		EGL_SAMPLE_BUFFERS,  0,
 		EGL_SAMPLES,         0,
-#ifdef MAEMO
-		EGL_BUFFER_SIZE, 16,
-#endif
 		EGL_NONE};
 
 	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };

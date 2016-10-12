@@ -96,9 +96,7 @@ static const std::string tmpfs_location = "/dev/shm";
 static const std::string tmpfs_ram_temp_file = "/dev/shm/gc_mem.tmp";
 
 // do not make this "static"
-#ifdef MAEMO
-std::string ram_temp_file = "/home/user/gc_mem.tmp";
-#elif defined(BB)
+#if defined(BB)
 std::string ram_temp_file = "/home/root/gc_mem.tmp";
 #else
 std::string ram_temp_file = "/tmp/gc_mem.tmp";

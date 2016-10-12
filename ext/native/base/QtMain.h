@@ -11,7 +11,7 @@
 #include <QAudioOutput>
 #include <QAudioFormat>
 #endif
-#if defined(MOBILE_DEVICE) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE)
 #include <QAccelerometer>
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 QTM_USE_NAMESPACE
@@ -76,7 +76,7 @@ private:
 	QtDummyGraphicsContext *graphicsContext;
 
     float xscale, yscale;
-#if defined(MOBILE_DEVICE) && !defined(MAEMO)
+#if defined(MOBILE_DEVICE)
 	QAccelerometer* acc;
 #endif
 };

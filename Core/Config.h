@@ -342,7 +342,7 @@ public:
 	int iCombokey3;
 	int iCombokey4;
 
-#if !defined(IOS) && !defined(MAEMO)
+#if !defined(IOS)
 	bool bShowTouchPause;
 #endif
 

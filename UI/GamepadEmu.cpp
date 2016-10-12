@@ -616,7 +616,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	const int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
 
 	// These platforms always need the pause menu button to be shown.
-#if defined(IOS) || defined(MAEMO)
+#if defined(IOS)
 	root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 #endif
 
@@ -628,7 +628,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		const int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
 		static const int comboKeyImages[5] = { I_1, I_2, I_3, I_4, I_5 };
 
-#if !defined(IOS) && !defined(MAEMO)
+#if !defined(IOS)
 		if (g_Config.bShowTouchPause)
 			root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
 #endif

@@ -65,7 +65,7 @@ win32-msvc* {
 contains(QT_CONFIG, opengles.) {
 	DEFINES += USING_GLES2
 	# How else do we know if the environment prefers windows?
-	!equals(PLATFORM_NAME, "linux")|android|maemo {
+	!equals(PLATFORM_NAME, "linux")|android {
 		CONFIG += mobile_platform
 	}
 }
