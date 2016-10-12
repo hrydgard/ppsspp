@@ -1747,7 +1747,7 @@ if(IOS)
 		COMMAND rm -f PPSSPP.build/{Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.build/Objects-normal/*/PPSSPP {Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.app/PPSSPP
 	)
 	set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
         XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
         XCODE_ATTRIBUTE_ENABLE_BITCODE NO
