@@ -52,6 +52,8 @@ set(APPLE ON)
 set(IOS ON)
 set(APP_TYPE MACOSX_BUNDLE)
 set(CMAKE_CROSSCOMPILING ON)
+set(CMAKE_MACOSX_BUNDLE YES)
+set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
 set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 
 # Determine the cmake host system version so we know where to find the iOS SDKs
@@ -147,7 +149,7 @@ endif (${IOS_PLATFORM} STREQUAL "OS")
 
 set (CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE string  "Build architecture for iOS")
 
-set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -arch ${CMAKE_OSX_ARCHITECTURES}")
+set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -arch ${CMAKE_OSX_ARCHITECTURES}" CACHE STRING "" FORCE)
 
 # Set the find root to the iOS developer roots and to user defined paths
 set (CMAKE_FIND_ROOT_PATH ${CMAKE_IOS_DEVELOPER_ROOT} ${CMAKE_IOS_SDK_ROOT} ${CMAKE_PREFIX_PATH} CACHE string  "iOS find search path root")
