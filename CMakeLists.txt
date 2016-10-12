@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.6)
 project(PPSSPP)
 enable_language(ASM)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeTests)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
 
 add_definitions(-DPPSSPP)
 
@@ -33,19 +33,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	endif()
 endif()
 
-# Using ccache greatly improves the speed of our CI builds, let's enable for all.
-# Without this, our CI can't use ccache for clang, for some reason.
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-	set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ${CCACHE_FOUND})
-	set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ${CCACHE_FOUND})
-
-	# ccache uses -I when compiling without preprocessor, which makes clang complain.
-	if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Qunused-arguments -fcolor-diagnostics")
-		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments -fcolor-diagnostics")
-	endif()
-endif(CCACHE_FOUND)
+include(ccache)
 
 # Remove soon?
 set(USE_FFMPEG ON)
@@ -54,19 +42,6 @@ if(ARM OR SIMULATOR)
 	set(USING_EGL ON)
 endif()
 
-if(EXISTS "/opt/vc/include/bcm_host.h")
-	message(STATUS "RaspberryPI VC Found")
-	set(RPI ON)
-	set(USING_GLES2 ON)
-	set(USING_FBDEV ON)
-endif()
-
-if(BB)
-	set(ARMV7 ON)
-	set(USING_FBDEV ON)
-endif()
-
-
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	add_definitions(-D__STDC_CONSTANT_MACROS)
@@ -74,6 +49,10 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
+    set(ANDROID ON)
 endif()
 
 if (X86 AND NOT MIPS)
@@ -99,10 +78,6 @@ option(ARMV7 "Set to ON if targeting an ARMv7 processor" ${ARMV7})
 option(ARM "Set to ON if targeting an ARM processor" ${ARM})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS})
 option(X86 "Set to ON if targeting an X86 processor" ${X86})
-# :: Platforms
-option(ANDROID "Set to ON if targeting an Android device" ${ANDROID})
-option(IOS "Set to ON if targeting an iOS device" ${IOS})
-option(BB "Set to ON if targeting a Beaglebone/Beaglebone Black device" ${BB})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
@@ -118,18 +93,6 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 
-if(IOS)
-	if (NOT CMAKE_TOOLCHAIN_FILE)
-		set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/ios/ios.toolchain.cmake)
-		message(FATAL_ERROR "CMAKE_TOOLCHAIN_FILE was not set!\n"
-			"Delete the CMakeCache.txt file and CMakeFiles directory.\n"
-			"Re-run ${CMAKE_COMMAND} with:\n"
-			"\"-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\"")
-	endif()
-	set(MOBILE_DEVICE ON)
-	set(USING_GLES2 ON)
-endif()
-
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
 	set(CoreLinkType SHARED)
@@ -142,19 +105,15 @@ endif()
 
 include_directories(ext/native)
 
-if(RPI)
-	include_directories(/opt/vc/include /opt/vc/include/interface/vcos/pthreads /opt/vc/include/interface/vmcs_host/linux)
-	link_directories(/opt/vc/lib)
-	set(OPENGL_LIBRARIES GLESv2 bcm_host)
-elseif(USING_GLES2 AND NOT IOS)
+if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2)
-elseif(NOT IOS)
+endif()
+
+if(NOT OPENGL_LIBRARIES)
 	include(FindOpenGL REQUIRED)
 endif()
 
-if (NOT ANDROID AND NOT IOS)
-	include(FindSDL2)
-endif()
+include(FindSDL2)
 include(FindThreads)
 
 if(APPLE)
@@ -171,13 +130,6 @@ if(MIPS)
 	add_definitions(-DMIPS)
 endif()
 
-if(IOS)
-	add_definitions(-DIOS)
-endif()
-if(RPI)
-	add_definitions(-DRPI)
-endif()
-
 if(USING_EGL)
 	add_definitions(-DUSING_EGL)
 endif()
@@ -189,9 +141,6 @@ if(USING_GLES2)
 endif()
 if(MOBILE_DEVICE)
 	add_definitions(-DMOBILE_DEVICE)
-endif()
-if(ARMV7 AND RASPBIAN)
-	add_definitions(-U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2)
 endif()
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -236,16 +185,9 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		add_definitions(-DGL_ETC1_RGB8_OES=0)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
-		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
-		# armv7s (without resorting to FastMemory) is still a work in progress
-		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
-		set(CMAKE_OSX_ARCHITECTURES "armv7")
-	elseif(APPLE)
+	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
+        # We want C++11, so target 10.7+
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7 -stdlib=libc++ -U__STRICT_ANSI__")
-		# Karen/angelXwind: -mmacosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
-		# vit9696: OSX 10.6 builds are possible: http://forums.ppsspp.org/showthread.php?tid=1826&pid=18875#pid18875
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	else()
 		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel" AND NOT CMAKE_C_COMPILER_ID STREQUAL "Clang")
@@ -265,10 +207,6 @@ endif()
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-
-if(ANDROID)
-	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/android/libs/${ANDROID_ABI}")
-endif()
 
 # This sets up the MSVC project dirs according to the physical project dirs
 macro(setup_target_project TargetName ProjectDir)
@@ -738,23 +676,8 @@ set(nativeExtra)
 set(nativeExtraLibs)
 
 if(ARMV7)
-	if(BB)
-		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a8")
-	elseif(RPI)
-		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
-		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
-	else()
-		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
-		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
-		set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -march=armv7-a -mfpu=neon -mcpu=cortex-a9")
-	endif()
 	set(nativeExtra ${nativeExtra}
 		ext/native/math/fast/fast_matrix_neon.S)
-elseif(RPI)
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
-	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
-	set (CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mfpu=vfp -march=armv6j -mfloat-abi=hard")
 endif()
 if(X86 AND NOT MIPS)
 	set(nativeExtra ${nativeExtra}
@@ -786,7 +709,7 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL")
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
@@ -1165,6 +1088,98 @@ if(ARMV7)
 	set(CORE_NEON Core/Util/AudioFormatNEON.cpp Core/Util/AudioFormatNEON.h)
 endif()
 
+if(ARMV7)
+	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
+endif()
+set(GPU_SOURCES
+	GPU/Common/DepalettizeShaderCommon.cpp
+	GPU/Common/DepalettizeShaderCommon.h
+	GPU/Common/FramebufferCommon.cpp
+	GPU/Common/FramebufferCommon.h
+	GPU/Common/GPUDebugInterface.cpp
+	GPU/Common/GPUDebugInterface.h
+	GPU/Common/GPUStateUtils.cpp
+	GPU/Common/GPUStateUtils.h
+	GPU/Common/DrawEngineCommon.cpp
+	GPU/Common/DrawEngineCommon.h
+	GPU/Common/ShaderId.cpp
+	GPU/Common/ShaderId.h
+	GPU/Common/SplineCommon.cpp
+	GPU/Common/SplineCommon.h
+	GPU/Common/SoftwareTransformCommon.cpp
+	GPU/Common/SoftwareTransformCommon.h
+	GPU/Common/VertexDecoderCommon.cpp
+	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/TransformCommon.cpp
+	GPU/Common/TransformCommon.h
+	GPU/Common/IndexGenerator.cpp
+	GPU/Common/IndexGenerator.h
+	GPU/Common/TextureDecoder.cpp
+	GPU/Common/TextureDecoder.h
+	GPU/Common/TextureCacheCommon.cpp
+	GPU/Common/TextureCacheCommon.h
+	GPU/Common/TextureScalerCommon.cpp
+	GPU/Common/TextureScalerCommon.h
+	${GPU_NEON}
+	GPU/Common/PostShader.cpp
+	GPU/Common/PostShader.h
+	GPU/Common/SplineCommon.h
+	GPU/Debugger/Breakpoints.cpp
+	GPU/Debugger/Breakpoints.h
+	GPU/Debugger/Stepping.cpp
+	GPU/Debugger/Stepping.h
+	GPU/GLES/DepalettizeShader.cpp
+	GPU/GLES/DepalettizeShader.h
+	GPU/GLES/FBO.cpp
+	GPU/GLES/FBO.h
+	GPU/GLES/GPU_GLES.cpp
+	GPU/GLES/GPU_GLES.h
+	GPU/GLES/GLStateCache.cpp
+	GPU/GLES/GLStateCache.h
+	GPU/GLES/FragmentShaderGenerator.cpp
+	GPU/GLES/FragmentShaderGenerator.h
+	GPU/GLES/FragmentTestCache.cpp
+	GPU/GLES/FragmentTestCache.h
+	GPU/GLES/Framebuffer.cpp
+	GPU/GLES/Framebuffer.h
+	GPU/GLES/ShaderManager.cpp
+	GPU/GLES/ShaderManager.h
+	GPU/GLES/StateMapping.cpp
+	GPU/GLES/StateMapping.h
+	GPU/GLES/StencilBuffer.cpp
+	GPU/GLES/TextureCache.cpp
+	GPU/GLES/TextureCache.h
+	GPU/GLES/TextureScaler.cpp
+	GPU/GLES/TextureScaler.h
+	GPU/GLES/DrawEngineGLES.cpp
+	GPU/GLES/DrawEngineGLES.h
+	GPU/GLES/VertexShaderGenerator.cpp
+	GPU/GLES/VertexShaderGenerator.h
+	GPU/GPUInterface.h
+	GPU/GeDisasm.cpp
+	GPU/GeDisasm.h
+	GPU/GPU.cpp
+	GPU/GPU.h
+	GPU/GPUCommon.cpp
+	GPU/GPUCommon.h
+	GPU/GPUState.cpp
+	GPU/GPUState.h
+	GPU/Math3D.cpp
+	GPU/Math3D.h
+	GPU/Null/NullGpu.cpp
+	GPU/Null/NullGpu.h
+	GPU/Software/Clipper.cpp
+	GPU/Software/Clipper.h
+	GPU/Software/Lighting.cpp
+	GPU/Software/Lighting.h
+	GPU/Software/Rasterizer.cpp
+	GPU/Software/Rasterizer.h
+	GPU/Software/SoftGpu.cpp
+	GPU/Software/SoftGpu.h
+	GPU/Software/TransformUnit.cpp
+	GPU/Software/TransformUnit.h
+	GPU/ge_constants.h)
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -1460,7 +1475,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.cpp
 	Core/Util/ppge_atlas.h
 	${CORE_NEON}
-	$<TARGET_OBJECTS:GPU>
+	${GPU_SOURCES}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
@@ -1478,98 +1493,6 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
-if(ARMV7)
-	set(GPU_NEON GPU/Common/TextureDecoderNEON.cpp)
-endif()
-add_library(GPU OBJECT
-	GPU/Common/DepalettizeShaderCommon.cpp
-	GPU/Common/DepalettizeShaderCommon.h
-	GPU/Common/FramebufferCommon.cpp
-	GPU/Common/FramebufferCommon.h
-	GPU/Common/GPUDebugInterface.cpp
-	GPU/Common/GPUDebugInterface.h
-	GPU/Common/GPUStateUtils.cpp
-	GPU/Common/GPUStateUtils.h
-	GPU/Common/DrawEngineCommon.cpp
-	GPU/Common/DrawEngineCommon.h
-	GPU/Common/ShaderId.cpp
-	GPU/Common/ShaderId.h
-	GPU/Common/SplineCommon.cpp
-	GPU/Common/SplineCommon.h
-	GPU/Common/SoftwareTransformCommon.cpp
-	GPU/Common/SoftwareTransformCommon.h
-	GPU/Common/VertexDecoderCommon.cpp
-	GPU/Common/VertexDecoderCommon.h
-	GPU/Common/TransformCommon.cpp
-	GPU/Common/TransformCommon.h
-	GPU/Common/IndexGenerator.cpp
-	GPU/Common/IndexGenerator.h
-	GPU/Common/TextureDecoder.cpp
-	GPU/Common/TextureDecoder.h
-	GPU/Common/TextureCacheCommon.cpp
-	GPU/Common/TextureCacheCommon.h
-	GPU/Common/TextureScalerCommon.cpp
-	GPU/Common/TextureScalerCommon.h
-	${GPU_NEON}
-	GPU/Common/PostShader.cpp
-	GPU/Common/PostShader.h
-	GPU/Common/SplineCommon.h
-	GPU/Debugger/Breakpoints.cpp
-	GPU/Debugger/Breakpoints.h
-	GPU/Debugger/Stepping.cpp
-	GPU/Debugger/Stepping.h
-	GPU/GLES/DepalettizeShader.cpp
-	GPU/GLES/DepalettizeShader.h
-	GPU/GLES/FBO.cpp
-	GPU/GLES/FBO.h
-	GPU/GLES/GPU_GLES.cpp
-	GPU/GLES/GPU_GLES.h
-	GPU/GLES/GLStateCache.cpp
-	GPU/GLES/GLStateCache.h
-	GPU/GLES/FragmentShaderGenerator.cpp
-	GPU/GLES/FragmentShaderGenerator.h
-	GPU/GLES/FragmentTestCache.cpp
-	GPU/GLES/FragmentTestCache.h
-	GPU/GLES/Framebuffer.cpp
-	GPU/GLES/Framebuffer.h
-	GPU/GLES/ShaderManager.cpp
-	GPU/GLES/ShaderManager.h
-	GPU/GLES/StateMapping.cpp
-	GPU/GLES/StateMapping.h
-	GPU/GLES/StencilBuffer.cpp
-	GPU/GLES/TextureCache.cpp
-	GPU/GLES/TextureCache.h
-	GPU/GLES/TextureScaler.cpp
-	GPU/GLES/TextureScaler.h
-	GPU/GLES/DrawEngineGLES.cpp
-	GPU/GLES/DrawEngineGLES.h
-	GPU/GLES/VertexShaderGenerator.cpp
-	GPU/GLES/VertexShaderGenerator.h
-	GPU/GPUInterface.h
-	GPU/GeDisasm.cpp
-	GPU/GeDisasm.h
-	GPU/GPU.cpp
-	GPU/GPU.h
-	GPU/GPUCommon.cpp
-	GPU/GPUCommon.h
-	GPU/GPUState.cpp
-	GPU/GPUState.h
-	GPU/Math3D.cpp
-	GPU/Math3D.h
-	GPU/Null/NullGpu.cpp
-	GPU/Null/NullGpu.h
-	GPU/Software/Clipper.cpp
-	GPU/Software/Clipper.h
-	GPU/Software/Lighting.cpp
-	GPU/Software/Lighting.h
-	GPU/Software/Rasterizer.cpp
-	GPU/Software/Rasterizer.h
-	GPU/Software/SoftGpu.cpp
-	GPU/Software/SoftGpu.h
-	GPU/Software/TransformUnit.cpp
-	GPU/Software/TransformUnit.h
-	GPU/ge_constants.h)
-setup_target_project(GPU GPU)
 
 if(WIN32)
 	add_executable(PPSSPPWindows WIN32
@@ -1716,14 +1639,8 @@ endif()
 file(INSTALL ${NativeAssets} DESTINATION assets)
 file(INSTALL flash0 lang DESTINATION assets)
 
-if(APPLE AND NOT IOS)
-	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -F /Library/Frameworks")
-endif()
-
 # packaging and code signing
 if(IOS)
-	add_dependencies(PPSSPP ${CoreLibName} GPU Common native)
-
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -1747,7 +1664,7 @@ if(IOS)
 		COMMAND rm -f PPSSPP.build/{Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.build/Objects-normal/*/PPSSPP {Debug,Release,MinSizeRel,RelWithDebInfo}-iphoneos/PPSSPP.app/PPSSPP
 	)
 	set_target_properties(${TargetBin} PROPERTIES
-		MACOSX_BUNDLE_INFO_PLIST "../ios/PPSSPP-Info.plist"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
         XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
         XCODE_ATTRIBUTE_ENABLE_BITCODE NO
