@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM64)
+
 #include <cstring>
 
 #include "base/logging.h"
@@ -526,3 +529,5 @@ ARM64Reg Arm64RegCacheFPU::R(int mipsReg) {
 		return INVALID_REG;  // BAAAD
 	}
 }
+
+#endif // PPSSPP_ARCH(ARM64)

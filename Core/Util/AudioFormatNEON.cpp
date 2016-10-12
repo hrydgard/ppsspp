@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM_NEON)
+
 #include <arm_neon.h>
 #include "Common/Common.h"
 #include "Core/Util/AudioFormat.h"
@@ -57,3 +60,5 @@ void AdjustVolumeBlockNEON(s16 *out, s16 *in, size_t size, int leftVol, int righ
 		out[i + 1] = ApplySampleVolume(in[i + 1], rightVol);
 	}
 }
+
+#endif // PPSSPP_ARCH(ARM_NEON)

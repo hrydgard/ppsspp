@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include <emmintrin.h>
 
 #include "Common/CPUDetect.h"
@@ -1626,3 +1629,5 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	}
 	return false;
 }
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

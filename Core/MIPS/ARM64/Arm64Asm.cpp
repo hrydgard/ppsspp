@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM64)
+
 #include "base/logging.h"
 
 #include "Core/MemMap.h"
@@ -324,3 +327,5 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 }
 
 }  // namespace MIPSComp
+
+#endif // PPSSPP_ARCH(ARM64)

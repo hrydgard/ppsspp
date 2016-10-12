@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <cstring>
 #ifndef offsetof
 #include <stddef.h>
@@ -26,10 +28,6 @@
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Core/Opcode.h"
-
-#if defined(_M_IX86) && !defined(_ARCH_32)
-#error Make sure _ARCH_32 is defined correctly.
-#endif
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
@@ -94,7 +92,7 @@ enum
 
 	SCRATCHPAD_SIZE = 0x00004000,
 
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	// This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
@@ -160,7 +158,7 @@ u64 Read_U64(const u32 _Address);
 #endif
 
 inline u8* GetPointerUnchecked(const u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	return (u8 *)(base + (address & MEMVIEW32_MASK));
 #else
 	return (u8 *)(base + address);
@@ -178,7 +176,7 @@ void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 #else
 
 inline u32 ReadUnchecked_U32(const u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u32_le *)(base + address);
@@ -186,7 +184,7 @@ inline u32 ReadUnchecked_U32(const u32 address) {
 }
 
 inline float ReadUnchecked_Float(const u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	return *(float *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(float *)(base + address);
@@ -194,7 +192,7 @@ inline float ReadUnchecked_Float(const u32 address) {
 }
 
 inline u16 ReadUnchecked_U16(const u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
 #else
 	return *(u16_le *)(base + address);
@@ -202,7 +200,7 @@ inline u16 ReadUnchecked_U16(const u32 address) {
 }
 
 inline u8 ReadUnchecked_U8(const u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	return (*(u8 *)(base + (address & MEMVIEW32_MASK))); 
 #else
 	return (*(u8 *)(base + address));
@@ -210,7 +208,7 @@ inline u8 ReadUnchecked_U8(const u32 address) {
 }
 
 inline void WriteUnchecked_U32(u32 data, u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u32_le *)(base + address) = data;
@@ -218,7 +216,7 @@ inline void WriteUnchecked_U32(u32 data, u32 address) {
 }
 
 inline void WriteUnchecked_Float(float data, u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	*(float *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(float *)(base + address) = data;
@@ -226,7 +224,7 @@ inline void WriteUnchecked_Float(float data, u32 address) {
 }
 
 inline void WriteUnchecked_U16(u16 data, u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	*(u16_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
 	*(u16_le *)(base + address) = data;
@@ -234,7 +232,7 @@ inline void WriteUnchecked_U16(u16 data, u32 address) {
 }
 
 inline void WriteUnchecked_U8(u8 data, u32 address) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	(*(u8 *)(base + (address & MEMVIEW32_MASK))) = data;
 #else
 	(*(u8 *)(base + address)) = data;
@@ -341,7 +339,7 @@ struct PSPPointer
 
 	inline T &operator*() const
 	{
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 		return *(T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return *(T *)(Memory::base + ptr);
@@ -350,7 +348,7 @@ struct PSPPointer
 
 	inline T &operator[](int i) const
 	{
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 		return *((T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK)) + i);
 #else
 		return *((T *)(Memory::base + ptr) + i);
@@ -359,7 +357,7 @@ struct PSPPointer
 
 	inline T *operator->() const
 	{
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
@@ -428,7 +426,7 @@ struct PSPPointer
 
 	inline operator T*()
 	{
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 		return (T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (T *)(Memory::base + ptr);
@@ -437,7 +435,7 @@ struct PSPPointer
 
 	inline operator const T*() const
 	{
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 		return (const T *)(Memory::base + (ptr & Memory::MEMVIEW32_MASK));
 #else
 		return (const T *)(Memory::base + ptr);

@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -381,7 +384,7 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 			} else {
 				gpr.MapDirtyIn(rt, MIPS_REG_FPCOND);
 				LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 				BFI(gpr.R(rt), gpr.R(MIPS_REG_FPCOND), 23, 1);
 #else
 				AND(SCRATCHREG1, gpr.R(MIPS_REG_FPCOND), Operand2(1)); // Just in case
@@ -424,7 +427,7 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
 			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 			if (!wasImm) {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 #else
 				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
@@ -441,3 +444,5 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 }
 
 }	// namespace MIPSComp
+
+#endif // PPSSPP_ARCH(ARM)

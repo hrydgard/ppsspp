@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+//TODO: Doesn't build, FIXME!
+#if 0
+
 #include "base/logging.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
@@ -270,3 +273,4 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	return false;
 }
 
+#endif

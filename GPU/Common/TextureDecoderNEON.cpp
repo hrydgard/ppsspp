@@ -15,14 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM_NEON)
+
 #include <arm_neon.h>
 
 #include "GPU/GPUState.h"
 #include "GPU/Common/TextureDecoder.h"
-
-#if !defined(ARM) && !defined(ARM64)
-#error Should not be compiled on non-ARM.
-#endif
 
 static const u16 MEMORY_ALIGNED16(QuickTexHashInitial[8]) = {0xc00bU, 0x9bd9U, 0x4b73U, 0xb651U, 0x4d9bU, 0x4309U, 0x0083U, 0x0001U};
 
@@ -367,3 +366,5 @@ CheckAlphaResult CheckAlphaABGR1555NEON(const u32 *pixelData, int stride, int w,
 
 	return CHECKALPHA_FULL;
 }
+
+#endif

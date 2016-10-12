@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include <algorithm>
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -547,7 +550,7 @@ namespace MIPSComp
 			}
 
 			gpr.MapDirtyIn(rt, rs);
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 #else
 			MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
@@ -573,7 +576,7 @@ namespace MIPSComp
 					}
 				} else {
 					gpr.MapDirtyIn(rt, rs, false);
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 					BFI(gpr.R(rt), gpr.R(rs), pos, size - pos);
 #else
 					ANDI2R(SCRATCHREG1, gpr.R(rs), sourcemask, SCRATCHREG2);
@@ -627,7 +630,7 @@ namespace MIPSComp
 				return;
 			}
 
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 			gpr.MapDirtyIn(rd, rt);
 			RBIT(gpr.R(rd), gpr.R(rt));
 #else
@@ -882,3 +885,5 @@ namespace MIPSComp
 	}
 
 }
+
+#endif // PPSSPP_ARCH(ARM)

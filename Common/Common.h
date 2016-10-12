@@ -27,12 +27,6 @@
 #pragma warning (disable:4100)
 #endif
 
-#ifdef __arm__
-#if !defined(ARM)
-#define ARM
-#endif
-#endif
-
 // Force enable logging in the right modes. For some reason, something had changed
 // so that debugfast no longer logged.
 #if defined(_DEBUG) || defined(DEBUGFAST)

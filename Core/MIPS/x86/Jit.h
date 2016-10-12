@@ -21,10 +21,6 @@
 #include "Common/Thunk.h"
 #include "Common/x64Emitter.h"
 
-#if defined(ARM)
-#error DO NOT BUILD X86 JIT ON ARM
-#endif
-
 #include "Common/x64Emitter.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"

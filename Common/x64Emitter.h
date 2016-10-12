@@ -18,14 +18,12 @@
 #ifndef _DOLPHIN_INTEL_CODEGEN_
 #define _DOLPHIN_INTEL_CODEGEN_
 
+#include "ppsspp_config.h"
+
 #include "Common.h"
 #include "CodeBlock.h"
 
-#if defined(_M_X64) && !defined(_ARCH_64)
-#define _ARCH_64
-#endif
-
-#ifdef _ARCH_64
+#if PPSSPP_ARCH(64BIT)
 #define PTRBITS 64
 #else
 #define PTRBITS 32
@@ -275,6 +273,12 @@ inline OpArg Imm8 (u8 imm)  {return OpArg(imm, SCALE_IMM8);}
 inline OpArg Imm16(u16 imm) {return OpArg(imm, SCALE_IMM16);} //rarely used
 inline OpArg Imm32(u32 imm) {return OpArg(imm, SCALE_IMM32);}
 inline OpArg Imm64(u64 imm) {return OpArg(imm, SCALE_IMM64);}
+
+template<int N> OpArg ImmPtrTpl(const void *imm);
+template<> inline OpArg ImmPtrTpl<8>(const void *imm) {return Imm64((u64)imm);}
+template<> inline OpArg ImmPtrTpl<4>(const void *imm) {return Imm32((u32)(uintptr_t)imm);}
+inline OpArg ImmPtr(const void* imm) {return ImmPtrTpl<sizeof(void*)>(imm);}
+
 inline OpArg UImmAuto(u32 imm) {
 	return OpArg(imm, imm >= 128 ? SCALE_IMM32 : SCALE_IMM8);
 }
@@ -282,15 +286,8 @@ inline OpArg SImmAuto(s32 imm) {
 	return OpArg(imm, (imm >= 128 || imm < -128) ? SCALE_IMM32 : SCALE_IMM8);
 }
 
-#ifdef _ARCH_64
-inline OpArg ImmPtr(const void* imm) {return Imm64((u64)imm);}
-#else
-inline OpArg ImmPtr(const void* imm) {return Imm32((u32)imm);}
-#endif
-
-inline u32 PtrOffset(const void* ptr, const void* base)
-{
-#ifdef _ARCH_64
+template<int N> u32 PtrOffsetTpl(const void* ptr, const void* base);
+template<> inline u32 PtrOffsetTpl<8>(const void *ptr, const void* base) {
 	s64 distance = (s64)ptr-(s64)base;
 	if (distance >= 0x80000000LL ||
 	    distance < -0x80000000LL)
@@ -300,9 +297,12 @@ inline u32 PtrOffset(const void* ptr, const void* base)
 	}
 
 	return (u32)distance;
-#else
-	return (u32)ptr-(u32)base;
-#endif
+}
+template<> inline u32 PtrOffsetTpl<4>(const void *ptr, const void* base) {
+	return (u32)(uintptr_t)ptr-(u32)(uintptr_t)base;
+}
+inline u32 PtrOffset(const void* ptr, const void* base) {
+    return PtrOffsetTpl<sizeof(void*)>(ptr, base);
 }
 
 //usage: int a[]; ARRAY_OFFSET(a,10)

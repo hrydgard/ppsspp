@@ -25,6 +25,9 @@
 // are below Q8 (D16, S32) using regular VFP instructions but really not sure
 // if it's worth it.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include <cmath>
 
 #include "base/logging.h"
@@ -415,3 +418,5 @@ void ArmJit::NEONTranspose4x4(ARMReg cols[4]) {
 }
 
 }  // namespace MIPSComp
+
+#endif // PPSSPP_ARCH(ARM)

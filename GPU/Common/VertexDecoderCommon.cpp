@@ -1403,7 +1403,7 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) {
 }
 
 VertexDecoderJitCache::VertexDecoderJitCache()
-#ifdef ARM64
+#if PPSSPP_ARCH(ARM64)
  : fp(this)
 #endif
 {

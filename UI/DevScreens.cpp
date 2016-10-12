@@ -298,15 +298,15 @@ void LogLevelScreen::OnCompleted(DialogResult result) {
 }
 
 const char *GetCompilerABI() {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 	return "armeabi-v7a";
-#elif defined(ARM)
+#elif PPSSPP_ARCH(ARM)
 	return "armeabi";
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 	return "arm64";
-#elif defined(_M_IX86)
+#elif PPSSPP_ARCH(X86)
 	return "x86";
-#elif defined(_M_X64)
+#elif PPSSPP_ARCH(AMD64)
 	return "x86-64";
 #else
 	return "other";

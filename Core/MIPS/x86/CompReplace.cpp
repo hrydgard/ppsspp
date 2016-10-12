@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/x86/RegCache.h"
@@ -35,3 +38,5 @@ int Jit::Replace_fabsf() {
 }
 
 }
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

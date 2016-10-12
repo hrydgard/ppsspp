@@ -152,7 +152,7 @@ u32 QuickTexHashNonSSE(const void *checkp, u32 size) {
 }
 
 static u32 QuickTexHashBasic(const void *checkp, u32 size) {
-#if defined(ARM) && defined(__GNUC__)
+#if PPSSPP_ARCH(ARM) && defined(__GNUC__)
 	__builtin_prefetch(checkp, 0, 0);
 
 	u32 check;
@@ -299,7 +299,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 }
 
 #ifndef _M_SSE
-#ifndef ARM64
+#if !PPSSPP_ARCH(ARM64)
 QuickTexHashFunc DoQuickTexHash = &QuickTexHashBasic;
 QuickTexHashFunc StableQuickTexHash = &QuickTexHashNonSSE;
 UnswizzleTex16Func DoUnswizzleTex16 = &DoUnswizzleTex16Basic;
@@ -310,12 +310,12 @@ ReliableHash64Func DoReliableHash64 = &XXH64;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARM)
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 		StableQuickTexHash = &QuickTexHashNEON;
 		DoUnswizzleTex16 = &DoUnswizzleTex16NEON;
-#ifndef IOS
+#if !PPSSPP_PLATFORM(IOS)
 		// Not sure if this is safe on iOS, it's had issues with xxhash.
 		DoReliableHash32 = &ReliableHash32NEON;
 #endif
@@ -614,7 +614,7 @@ CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w
 	if ((w & 3) == 0 && (stride & 3) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaRGBA8888SSE2(pixelData, stride, w, h);
-#elif (defined(ARM) && defined(HAVE_ARMV7)) || defined(ARM64)
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
 		if (cpu_info.bNEON) {
 			return CheckAlphaRGBA8888NEON(pixelData, stride, w, h);
 		}
@@ -648,7 +648,7 @@ CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaABGR4444SSE2(pixelData, stride, w, h);
-#elif (defined(ARM) && defined(HAVE_ARMV7)) || defined(ARM64)
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
 		if (cpu_info.bNEON) {
 			return CheckAlphaABGR4444NEON(pixelData, stride, w, h);
 		}
@@ -685,7 +685,7 @@ CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w
 	if ((w & 7) == 0 && (stride & 7) == 0) {
 #ifdef _M_SSE
 		return CheckAlphaABGR1555SSE2(pixelData, stride, w, h);
-#elif (defined(ARM) && defined(HAVE_ARMV7)) || defined(ARM64)
+#elif PPSSPP_ARCH(ARMV7) || PPSSPP_ARCH(ARM64)
 		if (cpu_info.bNEON) {
 			return CheckAlphaABGR1555NEON(pixelData, stride, w, h);
 		}

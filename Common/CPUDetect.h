@@ -18,11 +18,7 @@
 // Detect the cpu, so we'll know which optimizations to use
 #pragma once
 
-// Every architecture has its own define. This needs to be added to.
-#if defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7S__)
-#define HAVE_ARMV7 1
-#endif
-
+#include "ppsspp_config.h"
 #include <string>
 
 enum CPUVendor {

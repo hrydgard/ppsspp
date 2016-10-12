@@ -15,6 +15,9 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include "math/math_util.h"
 
 #include "ABI.h"
@@ -224,3 +227,5 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 }
 
 }  // namespace
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

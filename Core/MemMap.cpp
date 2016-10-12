@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "ppsspp_config.h"
 #include "base/mutex.h"
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
@@ -118,7 +119,7 @@ static MemoryView views[] =
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
 inline static bool CanIgnoreView(const MemoryView &view) {
-#ifdef _ARCH_32
+#if PPSSPP_ARCH(32BIT)
 	// Basically, 32-bit platforms can ignore views that are masked out anyway.
 	return (view.flags & MV_MIRROR_PREVIOUS) && (view.virtual_address & ~MEMVIEW32_MASK) != 0;
 #else
@@ -175,7 +176,7 @@ static bool Memory_TryBase(u32 flags) {
 			if (!*view.out_ptr_low)
 				goto bail;
 		}
-#if defined(_ARCH_64)
+#if PPSSPP_ARCH(64BIT)
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 #else

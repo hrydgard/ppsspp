@@ -643,7 +643,7 @@ Convert16bppTo16bppFunc ConvertRGB565ToBGR565 = &ConvertRGB565ToBGR565Basic;
 #endif
 
 void SetupColorConv() {
-#if defined(HAVE_ARMV7) && !defined(ARM64)
+#if PPSSPP_ARCH(ARMV7) && PPSSPP_ARCH(ARM_NEON)
 	if (cpu_info.bNEON) {
 		ConvertRGBA4444ToABGR4444 = &ConvertRGBA4444ToABGR4444NEON;
 		ConvertRGBA5551ToABGR1555 = &ConvertRGBA5551ToABGR1555NEON;

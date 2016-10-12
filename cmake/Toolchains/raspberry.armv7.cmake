@@ -13,7 +13,7 @@ link_directories(
 )
 
 add_definitions(
-  -DRPI
+  -DPPSSPP_PLATFORM_RPI=1
   -U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2
 )
 

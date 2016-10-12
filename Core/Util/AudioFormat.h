@@ -17,11 +17,12 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Globals.h"
 
 static inline s16 ApplySampleVolume(s16 sample, int vol) {
-#ifdef ARM
+#if PPSSPP_ARCH(ARM)
 	register int r;
 	asm volatile("smulwb %0, %1, %2\n\t" \
 	             "ssat %0, #16, %0" \
