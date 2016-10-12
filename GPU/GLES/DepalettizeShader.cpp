@@ -69,7 +69,7 @@ static bool CheckShaderCompileSuccess(GLuint shader, const char *code) {
 		GLsizei len;
 		glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
 		infoLog[len] = '\0';
-#ifdef ANDROID
+#ifdef __ANDROID__
 		ELOG("Error in shader compilation! %s\n", infoLog);
 		ELOG("Shader source:\n%s\n", (const char *)code);
 #endif

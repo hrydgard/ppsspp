@@ -494,7 +494,7 @@ void CreditsScreen::CreateViews() {
 #endif
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
-#ifdef ANDROID
+#ifdef __ANDROID__
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
@@ -506,7 +506,7 @@ void CreditsScreen::CreateViews() {
 }
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 #else
 	LaunchBrowser("http://central.ppsspp.org/buygold");
@@ -515,7 +515,7 @@ UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
 }
 
 UI::EventReturn CreditsScreen::OnTwitter(UI::EventParams &e) {
-#ifdef ANDROID
+#ifdef __ANDROID__
 	System_SendMessage("showTwitter", "PPSSPP_emu");
 #else
 	LaunchBrowser("https://twitter.com/#!/PPSSPP_emu");
@@ -629,7 +629,7 @@ void CreditsScreen::render() {
 		"",
 		"",
 		cr->T("tools", "Free tools used:"),
-#ifdef ANDROID
+#ifdef __ANDROID__
 		"Android SDK + NDK",
 #endif
 #if defined(USING_QT_UI)

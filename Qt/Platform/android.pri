@@ -1,4 +1,3 @@
-DEFINES += ANDROID
 INCLUDEPATH += $$P/ext/native/ext/libzip
 
 !contains(CONFIG, staticlib) {

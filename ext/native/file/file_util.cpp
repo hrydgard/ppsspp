@@ -72,7 +72,7 @@ uint64_t GetSize(FILE *f)
 {
 	// This will only support 64-bit when large file support is available.
 	// That won't be the case on some versions of Android, at least.
-#if defined(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+#if defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
 	int fd = fileno(f);
 
 	off64_t pos = lseek64(fd, 0, SEEK_CUR);

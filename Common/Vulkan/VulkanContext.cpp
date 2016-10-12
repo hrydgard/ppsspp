@@ -57,7 +57,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 #ifdef _WIN32
 	connection(nullptr),
 	window(nullptr),
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 	native_window(nullptr),
 #endif
 	graphics_queue_family_index_(-1),
@@ -81,7 +81,7 @@ VulkanContext::VulkanContext(const char *app_name, int app_ver, uint32_t flags)
 	instance_extension_names.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #ifdef _WIN32
 	instance_extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 	instance_extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #endif
 	device_extension_names.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -830,7 +830,7 @@ void VulkanContext::ReinitSurfaceWin32() {
 	assert(res == VK_SUCCESS);
 }
 
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 
 void VulkanContext::InitSurfaceAndroid(ANativeWindow *wnd, int width, int height) {
 	native_window = wnd;
@@ -999,7 +999,7 @@ void VulkanContext::InitSwapchain(VkCommandBuffer cmd) {
 			break;
 		}
 	}
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// HACK
 	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 #endif

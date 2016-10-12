@@ -44,7 +44,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_NAME:
 #if defined(MAEMO)
 		return "Qt:Maemo";
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 		return "Qt:Android";
 #elif defined(Q_OS_LINUX)
 		return "Qt:Linux";
@@ -71,7 +71,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DEVICE_TYPE:
 #if defined(MAEMO)
 		return DEVICE_TYPE_MOBILE;
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
 #elif defined(Q_OS_LINUX)
 		return DEVICE_TYPE_DESKTOP;

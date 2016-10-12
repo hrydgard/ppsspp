@@ -36,7 +36,7 @@ typedef char GLchar;
 #define GL_MAX_EXT 0x8008
 #endif
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 #include <EGL/egl.h>
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 

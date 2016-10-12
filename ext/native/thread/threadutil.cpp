@@ -1,7 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #define TLS_SUPPORTED
-#elif defined(ANDROID)
+#elif defined(__ANDROID__)
 #define TLS_SUPPORTED
 #endif
 
@@ -9,7 +9,7 @@
 #include "base/logging.h"
 #include "thread/threadutil.h"
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 #include <pthread.h>
 #endif
 
@@ -43,7 +43,7 @@ void setCurrentThreadName(const char* threadName) {
 	{}
 #else
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 	pthread_setname_np(pthread_self(), threadName);
 // #else
 //	pthread_setname_np(thread_name);

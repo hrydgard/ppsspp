@@ -99,9 +99,9 @@
 
 static UI::Theme ui_theme;
 
-#if defined(ARM) && defined(ANDROID)
+#if defined(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
-#elif defined(ARM64) && defined(ANDROID)
+#elif defined(ARM64) && defined(__ANDROID__)
 #include "../../android/jni/Arm64EmitterTest.h"
 #endif
 
@@ -262,9 +262,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 	*landscape = true;
 	*version = PPSSPP_GIT_VERSION;
 
-#if defined(ARM) && defined(ANDROID)
+#if defined(ARM) && defined(__ANDROID__)
 	ArmEmitterTest();
-#elif defined(ARM64) && defined(ANDROID)
+#elif defined(ARM64) && defined(__ANDROID__)
 	Arm64EmitterTest();
 #endif
 }
@@ -329,7 +329,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	host = new NativeHost();
 #endif
 
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 	g_Config.internalDataDirectory = savegame_dir;
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
@@ -370,7 +370,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 	LogManager *logman = LogManager::GetInstance();
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
@@ -444,7 +444,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #ifndef _WIN32
 	if (g_Config.currentDirectory == "") {
-#if defined(ANDROID)
+#if defined(__ANDROID__)
 		g_Config.currentDirectory = external_dir;
 #elif defined(MAEMO) || defined(IOS) || defined(_WIN32)
 		g_Config.currentDirectory = savegame_dir;
@@ -460,7 +460,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		logman->SetEnable(type, true);
 		logman->SetLogLevel(type, logLevel);
-#ifdef ANDROID
+#ifdef __ANDROID__
 		logman->AddListener(type, logger);
 #endif
 	}
@@ -790,7 +790,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
 			I18NCategory *sy = GetI18NCategory("System");
-#ifdef ANDROID
+#ifdef __ANDROID__
 			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
 			osm.Show(sy->T("WARNING: Battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
@@ -1010,7 +1010,7 @@ void NativeShutdown() {
 	// This means that the activity has been completely destroyed. PPSSPP does not
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
-#ifdef ANDROID
+#ifdef __ANDROID__
 	exit(0);
 #endif
 

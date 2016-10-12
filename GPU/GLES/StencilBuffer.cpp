@@ -226,9 +226,9 @@ bool FramebufferManager::NotifyStencilUpload(u32 addr, int size, bool skipZero) 
 		if (!useNV) {
 			glBlitFramebuffer(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
 		} else {
-#if defined(USING_GLES2) && defined(ANDROID)  // We only support this extension on Android, it's not even available on PC.
+#if defined(USING_GLES2) && defined(__ANDROID__)  // We only support this extension on Android, it's not even available on PC.
 			glBlitFramebufferNV(0, 0, w, h, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, GL_STENCIL_BUFFER_BIT, GL_NEAREST);
-#endif // defined(USING_GLES2) && defined(ANDROID)
+#endif // defined(USING_GLES2) && defined(__ANDROID__)
 		}
 	}
 

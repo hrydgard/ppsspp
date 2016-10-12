@@ -455,7 +455,7 @@ bool DiskCachingFileLoaderCache::ReadBlockData(u8 *dest, BlockInfo &info, size_t
 	fflush(f_);
 
 	bool failed = false;
-#ifdef ANDROID
+#ifdef __ANDROID__
 	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
 		failed = true;
 	} else if (read(fd_, dest + offset, size) != (ssize_t)size) {
@@ -483,7 +483,7 @@ void DiskCachingFileLoaderCache::WriteBlockData(BlockInfo &info, u8 *src) {
 	s64 blockOffset = GetBlockOffset(info.block);
 
 	bool failed = false;
-#ifdef ANDROID
+#ifdef __ANDROID__
 	if (lseek64(fd_, blockOffset, SEEK_SET) != blockOffset) {
 		failed = true;
 	} else if (write(fd_, src, blockSize_) != (ssize_t)blockSize_) {
@@ -548,7 +548,7 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const std::string &path) {
 	if (valid) {
 		f_ = fp;
 
-#ifdef ANDROID
+#ifdef __ANDROID__
 		// Android NDK does not support 64-bit file I/O using C streams
 		fd_ = fileno(f_);
 #endif
@@ -626,7 +626,7 @@ void DiskCachingFileLoaderCache::CreateCacheFile(const std::string &path) {
 		ERROR_LOG(LOADER, "Could not create disk cache file");
 		return;
 	}
-#ifdef ANDROID
+#ifdef __ANDROID__
 	// Android NDK does not support 64-bit file I/O using C streams
 	fd_ = fileno(f_);
 #endif
