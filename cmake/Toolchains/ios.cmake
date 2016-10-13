@@ -12,7 +12,7 @@
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
 set(USING_GLES2 ON)
-set(IPHONEOS_DEPLOYMENT_TARGET 8.0)
+set(IPHONEOS_DEPLOYMENT_TARGET 6.0)
 add_definitions(
   -DIOS
   -DGL_ETC1_RGB8_OES=0
@@ -20,6 +20,7 @@ add_definitions(
 )
 
 set(OPENGL_LIBRARIES "-framework OpenGLES")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mios-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")
 set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
