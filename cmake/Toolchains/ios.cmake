@@ -37,26 +37,26 @@ set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGE
 
 # Setup iOS platform unless specified manually with IOS_PLATFORM
 if(NOT DEFINED IOS_PLATFORM)
-	set(IOS_PLATFORM "OS")
+  set(IOS_PLATFORM "OS")
 endif()
 set(IOS_PLATFORM ${IOS_PLATFORM} CACHE STRING "Type of iOS Platform")
 
 # Check the platform selection and setup for developer root
 if(${IOS_PLATFORM} STREQUAL "OS")
-    set(IOS_SDK_NAME "iphoneos")
+  set(IOS_SDK_NAME "iphoneos")
 elseif(${IOS_PLATFORM} STREQUAL "SIMULATOR")
-    set(IOS_SDK_NAME "iphonesimulator")
+  set(IOS_SDK_NAME "iphonesimulator")
 else()
-	message (FATAL_ERROR "Unsupported IOS_PLATFORM value selected. Please choose OS or leave default")
+  message (FATAL_ERROR "Unsupported IOS_PLATFORM value selected. Please choose OS or leave default")
 endif()
 
 # Setup iOS developer location unless specified manually with CMAKE_IOS_DEVELOPER_ROOT
 if(NOT CMAKE_IOS_SDK_ROOT)
-    execute_process(COMMAND xcrun --sdk ${IOS_SDK_NAME} --show-sdk-path
-        OUTPUT_VARIABLE CMAKE_IOS_SDK_ROOT
-        OUTPUT_STRIP_TRAILING_WHITESPACE
-    )
-	message (STATUS "Toolchain using default iOS SDK: ${CMAKE_IOS_SDK_ROOT}")
+  execute_process(COMMAND xcrun --sdk ${IOS_SDK_NAME} --show-sdk-path
+    OUTPUT_VARIABLE CMAKE_IOS_SDK_ROOT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  message (STATUS "Toolchain using default iOS SDK: ${CMAKE_IOS_SDK_ROOT}")
 endif()
 
 set(CMAKE_IOS_SDK_ROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Location of the selected iOS SDK")
@@ -66,9 +66,9 @@ set(CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS sup
 
 # set the architecture for iOS 
 if(${IOS_PLATFORM} STREQUAL "OS")
-	set(IOS_ARCH armv7)
+  set(IOS_ARCH armv7)
 else()
-    set(IOS_ARCH i386)
+  set(IOS_ARCH i386)
 endif()
 
 set(CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE string  "Build architecture for iOS")
@@ -83,11 +83,12 @@ set(CMAKE_FIND_FRAMEWORK FIRST)
 
 # set up the default search directories for frameworks
 set(CMAKE_SYSTEM_FRAMEWORK_PATH
-	${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks
-	${CMAKE_IOS_SDK_ROOT}/System/Library/PrivateFrameworks
-	${CMAKE_IOS_SDK_ROOT}/Developer/Library/Frameworks
+  ${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks
+  ${CMAKE_IOS_SDK_ROOT}/System/Library/PrivateFrameworks
+  ${CMAKE_IOS_SDK_ROOT}/Developer/Library/Frameworks
 )
 
 # only search the iOS sdks, not the remainder of the host filesystem
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+
