@@ -1622,7 +1622,7 @@ if (TargetBin)
 		# Now this is very prone to errors when changes occur.
 		# Also better to have assets under Resources dir for OS X.
 		file(GLOB_RECURSE FLASH0_FILES flash0/*)
-		file(GLOB_RECURSE LANG_FILES lang/*)
+		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
 		if (APPLE AND NOT IOS)
