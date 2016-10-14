@@ -1574,6 +1574,7 @@ endif()
 
 set(NativeAssets
 	android/assets/ui_atlas.zim
+	assets/lang
 	assets/shaders
 	assets/ppge_atlas.zim
 	assets/compat.ini
@@ -1613,7 +1614,7 @@ endif()
 if (TargetBin)
 	if (IOS OR APPLE)
 		if (APPLE AND NOT IOS)
-		set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/assets/ppsspp.icns)
+		set(ICON_PATH_ABS ${CMAKE_CURRENT_SOURCE_DIR}/icons/ppsspp.icns)
 		set( MACOSX_BUNDLE_ICON_FILE ppsspp.icns )
 		set_source_files_properties(${ICON_PATH_ABS} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 		endif()
@@ -1622,7 +1623,7 @@ if (TargetBin)
 		# Now this is very prone to errors when changes occur.
 		# Also better to have assets under Resources dir for OS X.
 		file(GLOB_RECURSE FLASH0_FILES flash0/*)
-		file(GLOB_RECURSE LANG_FILES lang/*)
+		file(GLOB_RECURSE LANG_FILES assets/lang/*)
 		file(GLOB_RECURSE SHADER_FILES assets/shaders/*)
 
 		if (APPLE AND NOT IOS)
@@ -1641,7 +1642,7 @@ endif()
 
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
-file(INSTALL flash0 lang DESTINATION assets)
+file(INSTALL flash0 DESTINATION assets)
 
 # packaging and code signing
 if(IOS)

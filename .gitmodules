@@ -2,7 +2,7 @@
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
 [submodule "lang"]
-	path = lang
+	path = assets/lang
 	url = https://github.com/hrydgard/ppsspp-lang.git
 [submodule "ffmpeg"]
 	path = ffmpeg
