@@ -1574,6 +1574,7 @@ endif()
 
 set(NativeAssets
 	android/assets/ui_atlas.zim
+	assets/lang
 	assets/shaders
 	assets/ppge_atlas.zim
 	assets/compat.ini
@@ -1641,7 +1642,7 @@ endif()
 
 # installs
 file(INSTALL ${NativeAssets} DESTINATION assets)
-file(INSTALL flash0 lang DESTINATION assets)
+file(INSTALL flash0 DESTINATION assets)
 
 # packaging and code signing
 if(IOS)
