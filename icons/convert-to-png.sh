@@ -15,7 +15,7 @@
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 # Very simple bash script to convert svg to png files, you can choose inkscape or imagemagick ('convert' command) and the path to icons export.
-# Only converts assets/unix-icons/icon-512.svg
+# Only converts icons/icon-512.svg
 # Needs improvement, yeah, i know, it is not so good... at least it work :)
 
 
@@ -27,7 +27,7 @@
 
 # Default options
 software_option="inkscape"      # sometimes imagemagick does not convert very well, so inkscape is default
-path="icons"                    # i.e. assets/unix-icons/icons/
+path="icons"                    # i.e. icons/icons/
 
 echo -e
 
@@ -56,7 +56,7 @@ while [ "$1" != "" ]; do
 done
 
 
-# Creating assets/unix-icons/icons/ if user does not choose any directory
+# Creating icons/icons/ if user does not choose any directory
 if [ "$path" == "icons" ] && [ ! -d "$path" ]; then
     mkdir icons/
 fi
