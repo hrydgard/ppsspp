@@ -58,10 +58,10 @@ travis_install() {
         if [ "$QT" = "TRUE" ]; then
             sudo apt-get install -qq qt5-qmake qtmultimedia5-dev qtsystems5-dev qtbase5-dev qtdeclarative5-dev qttools5-dev-tools libqt5webkit5-dev libsqlite3-dev qt5-default
         fi
-    fi
 
-    if [ "$CMAKE" = "TRUE" ]; then
-        download_extract "https://cmake.org/files/v3.6/cmake-3.6.2-Linux-x86_64.tar.gz" cmake-3.6.2-Linux-x86_64.tar.gz
+        if [ "$CMAKE" = "TRUE" ]; then
+            download_extract "https://cmake.org/files/v3.6/cmake-3.6.2-Linux-x86_64.tar.gz" cmake-3.6.2-Linux-x86_64.tar.gz
+        fi
     fi
 
     # Android NDK + GCC 4.8
@@ -88,12 +88,12 @@ travis_install() {
 }
 
 travis_script() {
-    if [ -d cmake-3.6.2-Linux-x86_64 ]; then
-        export PATH=$(pwd)/cmake-3.6.2-Linux-x86_64/bin:$PATH
-    fi
-
     # Compile PPSSPP
     if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
+        if [ -d cmake-3.6.2-Linux-x86_64 ]; then
+            export PATH=$(pwd)/cmake-3.6.2-Linux-x86_64/bin:$PATH
+        fi
+
         if [ "$QT" = "TRUE" ]; then
             ./b.sh --qt
         else
@@ -112,9 +112,6 @@ travis_script() {
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios
-        pushd build
-        xcodebuild -configuration Release
-        popd build
     fi
 }
 

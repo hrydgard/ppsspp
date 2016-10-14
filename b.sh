@@ -8,10 +8,8 @@ do
 		--qt) echo "Qt enabled"
 			CMAKE=0
 			;;
-		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=ios/ios.toolchain.cmake -GXcode ${CMAKE_ARGS}"
+		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake ${CMAKE_ARGS}"
 			TARGET_OS=iOS
-			PACKAGE=1
-			echo !!!!!!!!!!!!!!! The error below is expected. Go into build-ios and open the XCodeProj.
 			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android
@@ -74,10 +72,4 @@ else
 fi
 
 make -j4 $MAKE_OPT
-
-if [ "$PACKAGE" == "1" ]; then
-	if [ "$TARGET_OS" == "iOS" ]; then
-		xcodebuild -configuration Release
-	fi
-fi
 popd
