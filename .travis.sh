@@ -71,6 +71,11 @@ travis_install() {
         download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
     fi
 
+    if [ "$PPSSPP_BUILD_TYPE" = "macOS" ]; then
+        brew update
+        brew install sdl2
+    fi
+
     # Ensure we're using ccache
     if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
         export CXX="ccache clang" CC="ccache clang"
@@ -112,6 +117,9 @@ travis_script() {
     fi
     if [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
         ./b.sh --ios
+    fi
+    if [ "$PPSSPP_BUILD_TYPE" = "macOS" ]; then
+        ./b.sh --headless
     fi
 }
 
