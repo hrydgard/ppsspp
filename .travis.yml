@@ -68,6 +68,11 @@ matrix:
            QT=TRUE
     - os: osx
       osx_image: xcode8
+      compiler: "clang macos"
+      env: PPSSPP_BUILD_TYPE=macOS
+           CMAKE=TRUE
+    - os: osx
+      osx_image: xcode8
       compiler: "clang ios"
       env: PPSSPP_BUILD_TYPE=iOS
            CMAKE=TRUE
