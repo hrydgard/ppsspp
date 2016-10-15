@@ -18,12 +18,20 @@ download_extract_zip() {
     unzip $2 2>&1 | pv > /dev/null
 }
 
+brew_install() {
+    brew install $1
+    brew outdated $1 || brew upgrade $1
+}
+
 travis_before_install() {
     git submodule update --init --recursive
 
-    if [ ! "$TRAVIS_OS_NAME" = "osx" ]; then
+    if [ "$TRAVIS_OS_NAME" = "linux" ]; then
         sudo apt-get update -qq
         sudo apt-get install software-properties-common aria2 pv build-essential libgl1-mesa-dev libglu1-mesa-dev -qq
+    elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
+        brew update
+        brew_install ccache
     fi
 }
 
@@ -72,8 +80,7 @@ travis_install() {
     fi
 
     if [ "$PPSSPP_BUILD_TYPE" = "macOS" ]; then
-        brew update
-        brew install sdl2
+        brew_install sdl2
     fi
 
     # Ensure we're using ccache
