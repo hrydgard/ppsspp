@@ -728,7 +728,6 @@ elseif(IOS)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
     set(CMAKE_AUTOMOC ON)
-    set(CMAKE_AUTORCC ON)
 
 	find_package(Qt5 COMPONENTS Multimedia OpenGL Gui Core)
     set(Qt_UI
@@ -745,7 +744,6 @@ elseif(USING_QT_UI)
       ext/native/base/QtMain.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/desktop_assets.qrc
       Qt/Debugger/ctrldisasmview.cpp
       Qt/Debugger/ctrldisasmview.h
       Qt/Debugger/ctrlmemview.cpp

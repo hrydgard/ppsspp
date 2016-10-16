@@ -25,8 +25,6 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	memoryTexWindow(0),
 	displaylistWindow(0)
 {
-    Q_INIT_RESOURCE(desktop_assets);
-
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
 	

@@ -320,9 +320,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
-#else
-	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
+	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
