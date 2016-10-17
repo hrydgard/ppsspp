@@ -23,9 +23,7 @@
 
 #include "CommonTypes.h"
 
-#if !defined(USING_QT_UI)
 extern const char *PPSSPP_GIT_VERSION;
-#endif
 
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;

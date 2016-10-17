@@ -50,6 +50,7 @@
 #include <crtdbg.h>
 #include <sstream>
 
+#include "Core/Config.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
 
@@ -57,8 +58,6 @@
 #include "thin3d/thin3d.h"
 #include "util/text/parsers.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
-
-extern const char *PPSSPP_GIT_VERSION;
 
 #ifdef _DEBUG
 static const bool g_validate_ = true;

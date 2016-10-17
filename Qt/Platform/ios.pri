@@ -1,1 +1,0 @@
-DEFINES += IOS

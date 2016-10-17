@@ -320,9 +320,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
-#else
-	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
+	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if defined(MOBILE_DEVICE) || !defined(USING_QT_UI)
@@ -579,13 +578,8 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d.Init(thin3d);
 	ui_draw2d_front.Init(thin3d);
 
-#ifdef USING_QT_UI
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas_lowmem.zim", T3DImageType::ZIM);
-	if (!uiTexture) {
-#else
 	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
 	if (!uiTexture) {
-#endif
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 #ifdef _WIN32

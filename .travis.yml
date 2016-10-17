@@ -41,7 +41,6 @@ matrix:
     - os: linux
       compiler: "gcc linux"
       env: PPSSPP_BUILD_TYPE=Linux
-           CMAKE=TRUE
     - os: linux
       compiler: "gcc android-arm64-v8a"
       env: PPSSPP_BUILD_TYPE=Android
@@ -61,7 +60,6 @@ matrix:
     - os: linux
       compiler: "clang linux"
       env: PPSSPP_BUILD_TYPE=Linux
-           CMAKE=TRUE
     - os: linux
       compiler: "gcc qt"
       env: PPSSPP_BUILD_TYPE=Linux
