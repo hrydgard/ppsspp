@@ -66,14 +66,18 @@ set(CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS sup
 
 # set the architecture for iOS 
 if(${IOS_PLATFORM} STREQUAL "OS")
-  set(IOS_ARCH armv7)
+  # When ffmpeg has been rebuilt for arm64 use:
+  #set(IOS_ARCH "armv7;arm64")
+  set(IOS_ARCH "armv7")
 else()
   set(IOS_ARCH i386)
 endif()
 
-set(CMAKE_OSX_ARCHITECTURES ${IOS_ARCH} CACHE string  "Build architecture for iOS")
-
-set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -arch ${CMAKE_OSX_ARCHITECTURES}" CACHE STRING "" FORCE)
+set(CMAKE_OSX_ARCHITECTURES "${IOS_ARCH}" CACHE string  "Build architecture for iOS")
+set(CMAKE_ASM_FLAGS "" CACHE STRING "" FORCE)
+foreach(arch ${IOS_ARCH})
+  set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -arch ${arch}" CACHE STRING "" FORCE)
+endforeach()
 
 # Set the find root to the iOS developer roots and to user defined paths
 set(CMAKE_FIND_ROOT_PATH ${CMAKE_IOS_SDK_ROOT} ${CMAKE_PREFIX_PATH} CACHE string  "iOS find search path root")
