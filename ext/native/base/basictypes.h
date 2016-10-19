@@ -51,22 +51,8 @@ inline uint8_t swap8(uint8_t _data) {return _data;}
 inline uint16_t swap16(uint16_t _data) {return _byteswap_ushort(_data);}
 inline uint32_t swap32(uint32_t _data) {return _byteswap_ulong (_data);}
 inline uint64_t swap64(uint64_t _data) {return _byteswap_uint64(_data);}
-#elif defined(ARM)
-inline uint16_t swap16 (uint16_t _data) { uint32_t data = _data; __asm__ ("rev16 %0, %1\n" : "=l" (data) : "l" (data)); return (uint16_t)data;} 
-inline uint32_t swap32 (uint32_t _data) {__asm__ ("rev %0, %1\n" : "=l" (_data) : "l" (_data)); return _data;}
-inline uint64_t swap64(uint64_t _data) {return ((uint64_t)swap32(_data) << 32) | swap32(_data >> 32);}
-#elif __linux__ && !defined(__ANDROID__)
-#include <byteswap.h>
-inline uint16_t swap16(uint16_t _data) {return bswap_16(_data);}
-inline uint32_t swap32(uint32_t _data) {return bswap_32(_data);}
-inline uint64_t swap64(uint64_t _data) {return bswap_64(_data);}
-#elif defined(__DragonFly__) || defined(__FreeBSD__)
-#include <sys/endian.h>
-inline uint16_t swap16(uint16_t _data) {return bswap16(_data);}
-inline uint32_t swap32(uint32_t _data) {return bswap32(_data);}
-inline uint64_t swap64(uint64_t _data) {return bswap64(_data);}
 #elif defined(__GNUC__)
-inline uint16_t swap16(uint16_t _data) {return (_data >> 8) | (_data << 8);}
+inline uint16_t swap16(uint16_t _data) {return __builtin_bswap16(_data);}
 inline uint32_t swap32(uint32_t _data) {return __builtin_bswap32(_data);}
 inline uint64_t swap64(uint64_t _data) {return __builtin_bswap64(_data);}
 #else

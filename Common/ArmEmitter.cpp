@@ -268,7 +268,7 @@ bool ARMXEmitter::TryANDI2R(ARMReg rd, ARMReg rs, u32 val)
 		}
 		return true;
 	} else {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 		// Check if we have a single pattern of sequential bits.
 		int seq = -1;
 		for (int i = 0; i < 32; ++i) {
@@ -300,7 +300,7 @@ bool ARMXEmitter::TryANDI2R(ARMReg rd, ARMReg rs, u32 val)
 		}
 
 		// The worst case is 4 (e.g. 0x55555555.)
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 		if (ops > 3) {
 			return false;
 		}
@@ -401,7 +401,7 @@ bool ARMXEmitter::TryORI2R(ARMReg rd, ARMReg rs, u32 val)
 		bool inversed;
 		if (TryMakeOperand2_AllowInverse(val, op2, &inversed) && ops >= 3) {
 			return false;
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 		} else if (ops > 3) {
 			return false;
 #endif
@@ -488,7 +488,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	Operand2 op2;
 	bool inverse;
 
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 	// Unused
 	if (!optimize)
 	{
@@ -502,7 +502,7 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 	if (TryMakeOperand2_AllowInverse(val, op2, &inverse)) {
 		inverse ? MVN(reg, op2) : MOV(reg, op2);
 	} else {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7)
 		// Use MOVW+MOVT for ARMv7+
 		MOVW(reg, val & 0xFFFF);
 		if(val & 0xFFFF0000)

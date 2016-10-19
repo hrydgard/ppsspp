@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM64)
+
 #include <cmath>
 #include "math/math_util.h"
 
@@ -1977,3 +1980,5 @@ namespace MIPSComp {
 		DISABLE;
 	}
 }
+
+#endif // PPSSPP_ARCH(ARM64)

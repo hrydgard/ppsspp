@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM64)
+
 #include <algorithm>
 
 #include "Core/MIPS/MIPS.h"
@@ -721,3 +724,5 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 }
 
 }
+
+#endif // PPSSPP_ARCH(ARM64)

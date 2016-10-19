@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Common.h"
+#include "Common/CPUDetect.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"
 #include "Globals.h"
@@ -94,7 +95,7 @@ AdjustVolumeBlockFunc AdjustVolumeBlock = &AdjustVolumeBlockStandard;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupAudioFormats() {
-#ifdef HAVE_ARMV7
+#if PPSSPP_ARCH(ARMV7) && PPSSPP_ARCH(ARM_NEON)
 	if (cpu_info.bNEON) {
 		AdjustVolumeBlock = &AdjustVolumeBlockNEON;
 	}

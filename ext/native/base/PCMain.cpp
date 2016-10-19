@@ -22,7 +22,7 @@
 SDLJoystick *joystick = NULL;
 #endif
 
-#ifdef RPI
+#if PPSSPP_PLATFORM(RPI)
 #include <bcm_host.h>
 #endif
 
@@ -410,7 +410,7 @@ void ToggleFullScreenIfFlagSet() {
 #undef main
 #endif
 int main(int argc, char *argv[]) {
-#ifdef RPI
+#if PPSSPP_PLATFORM(RPI)
 	bcm_host_init();
 #endif
 	putenv((char*)"SDL_VIDEO_CENTERED=1");
@@ -924,7 +924,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_DeleteContext(glContext);
 	SDL_Quit();
 	net::Shutdown();
-#ifdef RPI
+#if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();
 #endif
 

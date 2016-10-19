@@ -158,7 +158,7 @@ void CPUInfo::Detect()
 {
 	// Set some defaults here
 	HTT = false;
-#ifdef _ARCH_64
+#ifdef PPSSPP_ARCH(MIPS64)
 	OS64bit = true;
 	CPU64bit = true;
 	Mode64bit = true;

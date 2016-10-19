@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 // This allows highlighting to work.  Yay.
 #ifdef __INTELLISENSE__
 #define ARM
@@ -1608,3 +1611,5 @@ bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	}
 	return false;
 }
+
+#endif // PPSSPP_ARCH(ARM)

@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include "base/logging.h"
 #include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
@@ -317,7 +320,7 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		js.numInstructions++;
-#ifndef HAVE_ARMV7
+#if !PPSSPP_ARCH(ARMV7)
 		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
 		{
 			// We need to prematurely flush as we are out of range
@@ -705,3 +708,5 @@ MIPSOpcode ArmJit::GetOriginalOp(MIPSOpcode op) {
 }
 
 }  // namespace
+
+#endif // PPSSPP_ARCH(ARM)

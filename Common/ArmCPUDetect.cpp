@@ -15,7 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#if defined(__arm__) || defined(__aarch64__)
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <ctype.h>
 #include "Common.h"
@@ -24,7 +25,7 @@
 #include "FileUtil.h"
 
 // Only Linux platforms have /proc/cpuinfo
-#if defined(__linux__)
+#if PPSSPP_PLATFORM(LINUX)
 const char procfile[] = "/proc/cpuinfo";
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
 const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
@@ -184,7 +185,7 @@ void CPUInfo::Detect()
 {
 	// Set some defaults here
 	HTT = false;
-#ifdef ARM64
+#if PPSSPP_ARCH(ARM64)
 	OS64bit = true;
 	CPU64bit = true;
 	Mode64bit = true;
@@ -196,10 +197,10 @@ void CPUInfo::Detect()
 	vendor = VENDOR_ARM;
 
 	// Get the information about the CPU 
-#if !defined(__linux__)
+#if !PPSSPP_PLATFORM(LINUX)
 	bool isVFP3 = false;
 	bool isVFP4 = false;
-#ifdef IOS
+#if PPSSPP_PLATFORM(IOS)
 	isVFP3 = true;
 	// Check for swift arch (VFP4)
 #ifdef __ARM_ARCH_7S__
@@ -207,7 +208,7 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
-#else
+#else // !PPSSPP_PLATFORM(IOS)
 	strcpy(brand_string, "Unknown");
 	num_cores = 1;
 #endif
@@ -228,7 +229,7 @@ void CPUInfo::Detect()
 	bIDIVt = isVFP4;
 	bFP = false;
 	bASIMD = false;
-#else // __linux__
+#else // PPSSPP_PLATFORM(LINUX)
 	strncpy(cpu_string, GetCPUString().c_str(), sizeof(cpu_string));
 	strncpy(brand_string, GetCPUBrandString().c_str(), sizeof(brand_string));
 
@@ -254,7 +255,7 @@ void CPUInfo::Detect()
 	bASIMD = CheckCPUFeature("asimd");
 	num_cores = GetCoreCount();
 #endif
-#ifdef ARM64
+#if PPSSPP_ARCH(ARM64)
 	// Whether the above detection failed or not, on ARM64 we do have ASIMD/NEON.
 	bNEON = true;
 	bASIMD = true;
@@ -287,4 +288,4 @@ std::string CPUInfo::Summarize()
 	return sum;
 }
 
-#endif // defined(__arm__) || defined(__aarch64__)
+#endif // PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)

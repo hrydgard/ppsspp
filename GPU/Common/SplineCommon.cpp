@@ -21,6 +21,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/CPUDetect.h"
+#include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 
 #include "GPU/Common/SplineCommon.h"

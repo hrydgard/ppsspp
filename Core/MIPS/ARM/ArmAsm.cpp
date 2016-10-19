@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
 
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -190,7 +192,7 @@ void ArmJit::GenerateFixedCode() {
 		// IMPORTANT - We jump on negative, not carry!!!
 		FixupBranch bailCoreState = B_CC(CC_MI);
 
-		MOVI2R(R0, (u32)&coreState);
+		MOVI2R(R0, (u32)(uintptr_t)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
 		FixupBranch badCoreState = B_CC(CC_NEQ);
@@ -231,7 +233,7 @@ void ArmJit::GenerateFixedCode() {
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
 				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
-				MOVI2R(JITBASEREG, (u32)GetBasePtr());
+				MOVI2R(JITBASEREG, (u32)(uintptr_t)GetBasePtr());
 #endif
 				ADD(R0, R0, JITBASEREG);
 				B(R0);
@@ -249,7 +251,7 @@ void ArmJit::GenerateFixedCode() {
 		SetJumpTarget(bail);
 		SetJumpTarget(bailCoreState);
 
-		MOVI2R(R0, (u32)&coreState);
+		MOVI2R(R0, (u32)(uintptr_t)&coreState);
 		LDR(R0, R0);
 		CMP(R0, 0);
 		B_CC(CC_EQ, outerLoop);
@@ -287,3 +289,5 @@ void ArmJit::GenerateFixedCode() {
 }
 
 }  // namespace MIPSComp
+
+#endif // PPSSPP_ARCH(ARM)

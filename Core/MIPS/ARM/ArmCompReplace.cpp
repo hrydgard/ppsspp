@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include "Common/CPUDetect.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -30,3 +33,5 @@ int ArmJit::Replace_fabsf() {
 }
 
 }
+
+#endif // PPSSPP_ARCH(ARM)

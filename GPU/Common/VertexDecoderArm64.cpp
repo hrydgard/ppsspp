@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM64)
+
 // This allows highlighting to work.  Yay.
 #ifdef __INTELLISENSE__
 #define ARM64
@@ -783,3 +786,5 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 	}
 	fp.STUR(128, accNEON, dstReg, outOff);
 }
+
+#endif // PPSSPP_ARCH(ARM64)

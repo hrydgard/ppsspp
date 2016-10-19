@@ -9,14 +9,6 @@ add_definitions(-DPPSSPP)
 # None of these platforms support Vulkan yet.
 add_definitions(-DNO_VULKAN)
 
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-	set(_ARCH_64 1)
-	add_definitions(-D_ARCH_64=1)
-else()
-	set(_ARCH_32 1)
-	add_definitions(-D_ARCH_32=1)
-endif()
-
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
@@ -53,14 +45,6 @@ endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
     set(ANDROID ON)
-endif()
-
-if (X86 AND NOT MIPS)
-	if(_ARCH_64)
-		add_definitions(-D_M_X64)
-	else()
-		add_definitions(-D_M_IX86)
-	endif()
 endif()
 
 if(NOT DEFINED HEADLESS)
@@ -123,13 +107,6 @@ endif()
 # Needed for Globals.h
 include_directories("${CMAKE_SOURCE_DIR}")
 
-if(ARM)
-	add_definitions(-DARM)
-endif()
-if(MIPS)
-	add_definitions(-DMIPS)
-endif()
-
 if(USING_EGL)
 	add_definitions(-DUSING_EGL)
 endif()
@@ -171,6 +148,13 @@ if(NOT MSVC)
 	set(CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} -Os -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O3 -D_NDEBUG")
 	set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O2 -g -D_NDEBUG")
+
+    #TODO: Remove this and include the file properly everywhere it makes sense
+    # First step is too use the macros everywhere
+    # Second step is to remove the compatibility defines
+    # Third step is to include the file
+    # Fourth step is to remove that line!
+    add_compile_options(-include ${CMAKE_CURRENT_SOURCE_DIR}/ppsspp_config.h)
 
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
@@ -1036,74 +1020,72 @@ set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRRegCache.h
 	)
 
-if(ARM)
-	set(CoreExtra ${CoreExtra}
-		Core/MIPS/ARM/ArmAsm.cpp
-		Core/MIPS/ARM/ArmCompALU.cpp
-		Core/MIPS/ARM/ArmCompBranch.cpp
-		Core/MIPS/ARM/ArmCompFPU.cpp
-		Core/MIPS/ARM/ArmCompLoadStore.cpp
-		Core/MIPS/ARM/ArmCompVFPU.cpp
-		Core/MIPS/ARM/ArmCompVFPUNEON.cpp
-		Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
-		Core/MIPS/ARM/ArmCompReplace.cpp
-		Core/MIPS/ARM/ArmJit.cpp
-		Core/MIPS/ARM/ArmJit.h
-		Core/MIPS/ARM/ArmRegCache.cpp
-		Core/MIPS/ARM/ArmRegCache.h
-		Core/MIPS/ARM/ArmRegCacheFPU.cpp
-		Core/MIPS/ARM/ArmRegCacheFPU.h
-		GPU/Common/VertexDecoderArm.cpp
-		ext/disarm.cpp)
-elseif(ARM64)
-  set(CoreExtra ${CoreExtra}
-		Core/MIPS/ARM64/Arm64Asm.cpp
-		Core/MIPS/ARM64/Arm64CompALU.cpp
-		Core/MIPS/ARM64/Arm64CompBranch.cpp
-		Core/MIPS/ARM64/Arm64CompFPU.cpp
-		Core/MIPS/ARM64/Arm64CompLoadStore.cpp
-		Core/MIPS/ARM64/Arm64CompVFPU.cpp
-		Core/MIPS/ARM64/Arm64CompReplace.cpp
-		Core/MIPS/ARM64/Arm64Jit.cpp
-		Core/MIPS/ARM64/Arm64Jit.h
-		Core/MIPS/ARM64/Arm64RegCache.cpp
-		Core/MIPS/ARM64/Arm64RegCache.h
-		Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
-		Core/MIPS/ARM64/Arm64RegCacheFPU.h
-		GPU/Common/VertexDecoderArm.cpp
-		Core/Util/DisArm64.cpp)
-elseif(X86)
-	set(CoreExtra ${CoreExtra}
-		Core/MIPS/x86/Asm.cpp
-		Core/MIPS/x86/CompALU.cpp
-		Core/MIPS/x86/CompBranch.cpp
-		Core/MIPS/x86/CompFPU.cpp
-		Core/MIPS/x86/CompLoadStore.cpp
-		Core/MIPS/x86/CompVFPU.cpp
-		Core/MIPS/x86/CompReplace.cpp
-		Core/MIPS/x86/Jit.cpp
-		Core/MIPS/x86/Jit.h
-		Core/MIPS/x86/JitSafeMem.cpp
-		Core/MIPS/x86/JitSafeMem.h
-		Core/MIPS/x86/RegCache.cpp
-		Core/MIPS/x86/RegCache.h
-		Core/MIPS/x86/RegCacheFPU.cpp
-		Core/MIPS/x86/RegCacheFPU.h
-		GPU/Common/VertexDecoderX86.cpp
-		ext/disarm.cpp)
-elseif(MIPS)
-	set(CoreExtra ${CoreExtra}
-		Core/MIPS/MIPS/MipsJit.cpp
-		Core/MIPS/MIPS/MipsJit.h
-		GPU/Common/VertexDecoderFake.cpp
-		ext/disarm.cpp)
-else()
-	set(CoreExtra ${CoreExtra}
-		Core/MIPS/fake/FakeJit.cpp
-		Core/MIPS/fake/FakeJit.h
-		GPU/Common/VertexDecoderFake.cpp
-		ext/disarm.cpp)
-endif()
+list(APPEND CoreExtra
+	Core/MIPS/ARM/ArmAsm.cpp
+	Core/MIPS/ARM/ArmCompALU.cpp
+	Core/MIPS/ARM/ArmCompBranch.cpp
+	Core/MIPS/ARM/ArmCompFPU.cpp
+	Core/MIPS/ARM/ArmCompLoadStore.cpp
+	Core/MIPS/ARM/ArmCompVFPU.cpp
+	Core/MIPS/ARM/ArmCompVFPUNEON.cpp
+	Core/MIPS/ARM/ArmCompVFPUNEONUtil.cpp
+	Core/MIPS/ARM/ArmCompReplace.cpp
+	Core/MIPS/ARM/ArmJit.cpp
+	Core/MIPS/ARM/ArmJit.h
+	Core/MIPS/ARM/ArmRegCache.cpp
+	Core/MIPS/ARM/ArmRegCache.h
+	Core/MIPS/ARM/ArmRegCacheFPU.cpp
+	Core/MIPS/ARM/ArmRegCacheFPU.h
+	GPU/Common/VertexDecoderArm.cpp
+)
+
+list(APPEND CoreExtra
+	Core/MIPS/ARM64/Arm64Asm.cpp
+	Core/MIPS/ARM64/Arm64CompALU.cpp
+	Core/MIPS/ARM64/Arm64CompBranch.cpp
+	Core/MIPS/ARM64/Arm64CompFPU.cpp
+	Core/MIPS/ARM64/Arm64CompLoadStore.cpp
+	Core/MIPS/ARM64/Arm64CompVFPU.cpp
+	Core/MIPS/ARM64/Arm64CompReplace.cpp
+	Core/MIPS/ARM64/Arm64Jit.cpp
+	Core/MIPS/ARM64/Arm64Jit.h
+	Core/MIPS/ARM64/Arm64RegCache.cpp
+	Core/MIPS/ARM64/Arm64RegCache.h
+	Core/MIPS/ARM64/Arm64RegCacheFPU.cpp
+	Core/MIPS/ARM64/Arm64RegCacheFPU.h
+	GPU/Common/VertexDecoderArm64.cpp
+	Core/Util/DisArm64.cpp)
+
+list(APPEND CoreExtra
+	Core/MIPS/x86/Asm.cpp
+	Core/MIPS/x86/CompALU.cpp
+	Core/MIPS/x86/CompBranch.cpp
+	Core/MIPS/x86/CompFPU.cpp
+	Core/MIPS/x86/CompLoadStore.cpp
+	Core/MIPS/x86/CompVFPU.cpp
+	Core/MIPS/x86/CompReplace.cpp
+	Core/MIPS/x86/Jit.cpp
+	Core/MIPS/x86/Jit.h
+	Core/MIPS/x86/JitSafeMem.cpp
+	Core/MIPS/x86/JitSafeMem.h
+	Core/MIPS/x86/RegCache.cpp
+	Core/MIPS/x86/RegCache.h
+	Core/MIPS/x86/RegCacheFPU.cpp
+	Core/MIPS/x86/RegCacheFPU.h
+	GPU/Common/VertexDecoderX86.cpp
+)
+
+list(APPEND CoreExtra
+	Core/MIPS/MIPS/MipsJit.cpp
+	Core/MIPS/MIPS/MipsJit.h
+	GPU/Common/VertexDecoderFake.cpp
+)
+
+#list(APPEND CoreExtra
+#	Core/MIPS/fake/FakeJit.cpp
+#	Core/MIPS/fake/FakeJit.h
+#	GPU/Common/VertexDecoderFake.cpp
+#)
 
 if (NOT MOBILE_DEVICE)
 	set(CoreExtra ${CoreExtra}
@@ -1506,7 +1488,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CORE_NEON}
 	${GPU_SOURCES}
 	Globals.h
-	git-version.cpp)
+	git-version.cpp
+    ext/disarm.cpp
+)
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 setup_target_project(${CoreLibName} Core)

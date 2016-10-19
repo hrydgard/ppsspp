@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(MIPS)
+
 #include "base/logging.h"
 #include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
@@ -358,3 +361,5 @@ void MipsJit::WriteSyscallExit()
 // mov dreg, [eax+offreg]
 	
 }
+
+#endif // PPSSPP_ARCH(MIPS)

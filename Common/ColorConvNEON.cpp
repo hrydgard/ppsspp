@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#if defined(__arm__) || defined(__aarch64__)
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
 
 #include <arm_neon.h>
 #include "ColorConvNEON.h"
@@ -108,4 +109,4 @@ void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-#endif // defined(__arm__) || defined(__aarch64__)
+#endif // PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)

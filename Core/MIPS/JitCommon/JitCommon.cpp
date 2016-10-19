@@ -28,13 +28,13 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/IR/IRJit.h"
 
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 #include "../ARM/ArmJit.h"
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 #include "../ARM64/Arm64Jit.h"
-#elif defined(_M_IX86) || defined(_M_X64)
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "../x86/Jit.h"
-#elif defined(MIPS)
+#elif PPSSPP_ARCH(MIPS)
 #include "../MIPS/MipsJit.h"
 #else
 #include "../fake/FakeJit.h"
@@ -47,13 +47,13 @@ namespace MIPSComp {
 	}
 
 	JitInterface *CreateNativeJit(MIPSState *mips) {
-#if defined(ARM)
+#if PPSSPP_ARCH(ARM)
 		return new MIPSComp::ArmJit(mips);
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 		return new MIPSComp::Arm64Jit(mips);
-#elif defined(_M_IX86) || defined(_M_X64)
+#elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 		return new MIPSComp::Jit(mips);
-#elif defined(MIPS)
+#elif PPSSPP_ARCH(MIPS)
 		return new MIPSComp::MipsJit(mips);
 #else
 		return new MIPSComp::FakeJit(mips);
@@ -61,11 +61,11 @@ namespace MIPSComp {
 	}
 
 }
-#if (defined(_M_IX86) || defined(_M_X64)) && defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 #define DISASM_ALL 1
 #endif
 
-#if defined(ARM) || defined(DISASM_ALL)
+#if PPSSPP_ARCH(ARM) || defined(DISASM_ALL)
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.
 std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 	std::vector<std::string> lines;
@@ -114,7 +114,7 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 	return std::string(buf2) + " " + buf;
 }
 
-#if defined(ARM64) || defined(DISASM_ALL)
+#if PPSSPP_ARCH(ARM64) || defined(DISASM_ALL)
 
 static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
 	if (MIPSComp::jit) {
@@ -173,7 +173,7 @@ std::vector<std::string> DisassembleArm64(const u8 *data, int size) {
 }
 #endif
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 const char *ppsspp_resolver(struct ud*,
 	uint64_t addr,
@@ -220,11 +220,7 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	std::vector<std::string> lines;
 	ud_t ud_obj;
 	ud_init(&ud_obj);
-#ifdef _M_X64
-	ud_set_mode(&ud_obj, 64);
-#else
-	ud_set_mode(&ud_obj, 32);
-#endif
+	ud_set_mode(&ud_obj, sizeof(void*) * 8);
 	ud_set_pc(&ud_obj, (intptr_t)data);
 	ud_set_vendor(&ud_obj, UD_VENDOR_ANY);
 	ud_set_syntax(&ud_obj, UD_SYN_INTEL);

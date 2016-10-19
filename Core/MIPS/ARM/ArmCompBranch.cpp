@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
+
 #include "profiler/profiler.h"
 
 #include "Core/Reporting.h"
@@ -642,3 +645,5 @@ void ArmJit::Comp_Break(MIPSOpcode op)
 }
 
 }   // namespace Mipscomp
+
+#endif // PPSSPP_ARCH(ARM)

@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Common/Common.h"
@@ -451,3 +454,5 @@ void Jit::Comp_mxc1(MIPSOpcode op) {
 }
 
 }	// namespace MIPSComp
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

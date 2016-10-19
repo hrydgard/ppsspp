@@ -1,3 +1,6 @@
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM) && PPSSPP_ARCH(ARM_NEON)
+
 	.syntax unified		// Allow both ARM and Thumb-2 instructions
 	.text
 	.align 2		// Align the function code to a 4-byte (2^n) word boundary.
@@ -48,3 +51,4 @@ fast_matrix_mul_4x4_neon:
     vst1.32     {d28-d31}, [r0]!            @ store second eight elements of result
 	bx lr
 
+#endif

@@ -13,7 +13,7 @@ link_directories(
 )
 
 add_definitions(
-  -DRPI
+  -DPPSSPP_PLATFORM_RPI=1
 )
 
 set(ARCH_FLAGS "-mfpu=vfp -march=armv6j -mfloat-abi=hard")

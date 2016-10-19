@@ -22,12 +22,6 @@
 
 #pragma once
 
-#ifdef __arm__
-#if !defined(ARM)
-#define ARM
-#endif
-#endif
-
 struct u24_be {
 	unsigned char value[3]; 
 

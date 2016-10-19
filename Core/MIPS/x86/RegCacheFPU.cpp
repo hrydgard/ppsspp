@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+
 #include <cstring>
 #include <xmmintrin.h>
 
@@ -1101,3 +1104,5 @@ void FPURegCache::RestoreState(const FPURegCacheState& state) {
 	memcpy(xregs, state.xregs, sizeof(xregs));
 	pendingFlush = true;
 }
+
+#endif // PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

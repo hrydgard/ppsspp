@@ -36,6 +36,8 @@
 // Also, if we kept track of the likely register content of a cached register,
 // (pointer or data), we could avoid many BIC instructions.
 
+#include "ppsspp_config.h"
+#if PPSSPP_ARCH(ARM)
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -427,3 +429,5 @@ namespace MIPSComp
 		}
 	}
 }
+
+#endif // PPSSPP_ARCH(ARM)
