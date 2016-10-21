@@ -33,6 +33,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceUtility.h"
+#include "UI/ChatScreen.h"
 
 class PointerWrap;
 
@@ -841,6 +842,14 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
  * @param packet Friend Information
  */
 void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
+
+/**
+* Send chat or get that
+* @param std::string ChatString 
+*/
+void setChatPointer(ChatMenu* chatmenu);
+void sendChat(std::string chatString);
+std::vector<std::string> getChatLog();
 
 /*
  * Find a Peer/Friend by MAC address

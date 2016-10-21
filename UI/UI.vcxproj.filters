@@ -70,6 +70,9 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="TextureUtil.cpp" />
+    <ClCompile Include="ChatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -141,6 +144,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TextureUtil.h" />
+    <ClInclude Include="ChatScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

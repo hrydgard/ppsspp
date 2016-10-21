@@ -55,6 +55,11 @@ std::recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
 uint32_t localip;
+std::vector<std::string> chatLog;
+ChatMenu* ch;
+std::string name = "";
+std::string incoming = "";
+std::string message = "";
 
 int isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -981,6 +986,35 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 	free(node);
 }
 
+void setChatPointer(ChatMenu* chatmenu) {
+	//set chatscreen instance
+	ch = chatmenu;
+}
+
+void sendChat(std::string chatString) {
+	SceNetAdhocctlChatPacketC2S chat;
+	chat.base.opcode = OPCODE_CHAT;
+	//Send Chat Messages need to check network inited and already connected to server or not
+	//if (friendFinderRunning)
+	//{
+	// Send Chat to Server 
+	//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
+	message = chatString.substr(0, 57); // 64 return chat variable corrupted is it out of memory?
+	strcpy(chat.message, message.c_str());
+	NOTICE_LOG(SCENET, "Send %s to Adhoc Server", chat.message);
+	int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
+	//need to check if send success or not before appending to chat screen
+	name = g_Config.sNickName.c_str();
+	chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+	//}
+}
+
+
+std::vector<std::string> getChatLog() {
+	// this log used by chat screen
+	return chatLog;
+}
+
 int friendFinder(){
 	// Receive Buffer
 	int rxpos = 0;
@@ -1023,13 +1057,6 @@ int friendFinder(){
 			//friendFinderRunning = false;
 			}*/
 		}
-
-		// Send Chat Messages
-		//while(popFromOutbox(chat.message))
-		//{
-		//  // Send Chat to Server
-		//  sceNetInetSend(metasocket, (const char *)&chat, sizeof(chat), 0);
-		//}
 
 		// Wait for Incoming Data
 		int received = recv(metasocket, (char *)(rx + rxpos), sizeof(rx) - rxpos, 0);
@@ -1084,7 +1111,19 @@ int friendFinder(){
 
 					// Add Incoming Chat to HUD
 					//printf("Receive chat message %s", packet->base.message);
-					DEBUG_LOG(SCENET, "Received chat message %s", packet->base.message);
+					NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
+					incoming = "";
+					name = (char *)packet->name.data;
+					incoming.append(name.substr(0, 8));
+					incoming.append(": ");
+					incoming.append((char *)packet->base.message);
+					chatLog.push_back(incoming);
+					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+					if (ch) {
+						ch->UpdateChat();
+					}
+					// Move RX Buffer
+					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
 
 					// Move RX Buffer
 					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
@@ -1107,7 +1146,16 @@ int friendFinder(){
 
 					// Add User
 					addFriend(packet);
-
+					incoming = "";
+					incoming.append((char *)packet->name.data);
+					incoming.append(" Joined ");
+					//do we need ip?
+					//joined.append((char *)packet->ip);
+					chatLog.push_back(incoming);
+					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+					if (ch) {
+						ch->UpdateChat();
+					}
 					// Update HUD User Count
 #ifdef LOCALHOST_AS_PEER
 					setUserCount(getActivePeerCount());

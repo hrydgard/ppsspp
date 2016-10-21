@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="ChatScreen.cpp" />
     <ClCompile Include="ComboKeyMappingScreen.cpp" />
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
@@ -51,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="ChatScreen.h" />
     <ClInclude Include="ComboKeyMappingScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
