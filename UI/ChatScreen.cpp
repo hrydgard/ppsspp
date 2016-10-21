@@ -7,19 +7,21 @@
 #include "Core/System.h"
 #include "Common/LogManager.h"
 #include "Core/HLE/proAdhoc.h"
+#include "i18n/i18n.h"
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	//tried to give instance to proAdhoc not working
 	//setChatPointer(this);
+	I18NCategory *n = GetI18NCategory("Networking");
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(PopupWidth(), FILL_PARENT, 1.0f)));
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(PopupWidth(), WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	chatEdit_ = bottom->Add(new TextEdit("", "Chat Here", new LinearLayoutParams(1.0)));
+	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
-	bottom->Add(new Button("Send"))->OnClick.Handle(this, &ChatMenu::OnSubmit);
+	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 	parent->Add(outer);
 	UpdateChat();
 }
@@ -27,6 +29,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateViews() {
 	using namespace UI;
 
+	I18NCategory *n = GetI18NCategory("Networking");
 	UIContext &dc = *screenManager()->getUIContext();
 
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -42,7 +45,7 @@ void ChatMenu::CreateViews() {
 	box_->SetBG(UI::Drawable(0x66303030));
 	box_->SetHasDropShadow(false);
 
-	View *title = new PopupHeader("Chat");
+	View *title = new PopupHeader(n->T("Chat"));
 	box_->Add(title);
 
 	CreatePopupContents(box_);
