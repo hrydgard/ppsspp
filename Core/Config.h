@@ -424,6 +424,7 @@ public:
 	bool bEnableAdhocServer;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	bool bEnableNetworkChat;
 
 	int iPSPModel;
 	int iFirmwareVersion;

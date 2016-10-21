@@ -778,8 +778,8 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bShowDeveloperMenu) {
 		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
-	// TODO add options in networking menu checkbox enable chat
-	root_->Add(new Button("Chat", new AnchorLayoutParams(50, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
+	if (g_Config.bEnableNetworkChat)
+		root_->Add(new Button("Chat", new AnchorLayoutParams(50, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
