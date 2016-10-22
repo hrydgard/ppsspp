@@ -56,7 +56,7 @@ SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
 uint32_t localip;
 std::vector<std::string> chatLog;
-ChatMenu* ch;
+ChatMenu * ch;
 std::string name = "";
 std::string incoming = "";
 std::string message = "";
@@ -986,7 +986,8 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 	free(node);
 }
 
-void setChatPointer(ChatMenu* chatmenu) {
+//@params chatmenu pass NULL on Hide , and pass ChatMenu On Create (EmuScreen.cpp)
+void setChatPointer(ChatMenu * chatmenu) {
 	//set chatscreen instance
 	ch = chatmenu;
 }
@@ -994,24 +995,28 @@ void setChatPointer(ChatMenu* chatmenu) {
 void sendChat(std::string chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
 	chat.base.opcode = OPCODE_CHAT;
-	//Send Chat Messages need to check network inited and already connected to server or not
-	//if (friendFinderRunning)
+	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
+	//if (friendFinderRunning) //need to check network inited and already connected to server or not is this correct?
 	//{
-	// Send Chat to Server 
-	//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-	message = chatString.substr(0, 57); // 64 return chat variable corrupted is it out of memory?
-	strcpy(chat.message, message.c_str());
-	NOTICE_LOG(SCENET, "Send %s to Adhoc Server", chat.message);
-	int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
-	//need to check if send success or not before appending to chat screen
-	name = g_Config.sNickName.c_str();
-	chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+		// Send Chat to Server 
+		//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
+		message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
+		strcpy(chat.message, message.c_str());
+		//Send Chat Messages 
+		int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
+		NOTICE_LOG(SCENET, "Send %s to Adhoc Server", chat.message);
+		name = g_Config.sNickName.c_str();
+		chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
 	//}
 }
 
 
 std::vector<std::string> getChatLog() {
 	// this log used by chat screen
+	if (chatLog.size() > 50) {
+		//erase the first 40 element limit the chatlog size
+		chatLog.erase(chatLog.begin(), chatLog.begin() + 40);
+	}
 	return chatLog;
 }
 
