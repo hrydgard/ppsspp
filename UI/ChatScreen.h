@@ -5,6 +5,7 @@
 class ChatMenu : public PopupScreen {
 public:
 	ChatMenu() : PopupScreen("Chat") {}
+	~ChatMenu();
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void CreateViews() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

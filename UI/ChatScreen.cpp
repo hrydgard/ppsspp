@@ -110,13 +110,13 @@ void ChatMenu::UpdateChat() {
 				//split long text
 				std::vector<std::string> splitted = Split(i);
 				for (auto j : splitted) {
-					TextView *v = chatVert_->Add(new TextView(j, FLAG_DYNAMIC_ASCII, false, new LayoutParams(PopupWidth(), WRAP_CONTENT)));
+					TextView *v = chatVert_->Add(new TextView(j, FLAG_DYNAMIC_ASCII, false));
 					uint32_t color = 0xFFFFFF;
 					v->SetTextColor(0xFF000000 | color);
 				}
 			}
 			else {
-				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, false, new LayoutParams(PopupWidth(), WRAP_CONTENT)));
+				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, false));
 				uint32_t color = 0xFFFFFF;
 				v->SetTextColor(0xFF000000 | color);
 			}
@@ -144,4 +144,8 @@ void ChatMenu::update(InputState &input) {
 		scroll_->ScrollToBottom();
 	}
 	PopupScreen::update(input);
+}
+
+ChatMenu::~ChatMenu() {
+	setChatPointer(NULL);
 }
