@@ -4,11 +4,13 @@
 #include "ui/ui.h"
 #include "ChatScreen.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Common/LogManager.h"
 #include "Core/HLE/proAdhoc.h"
 #include "i18n/i18n.h"
 #include <ctype.h>
+
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -16,9 +18,14 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	
+#if defined(_WIN32) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
+#elif defined(__ANDROID__)
+	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
+#endif
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
 	parent->Add(outer);
@@ -59,12 +66,15 @@ void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
+#if defined(_WIN32) || defined(USING_QT_UI)
 	std::string chat = chatEdit_->GetText();
-	NOTICE_LOG(HLE, "Chat Send to socket: %s", chat.c_str());
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-	UpdateChat();
+#elif defined(__ANDROID__)
+	scroll_->ScrollToBottom();
+	System_SendMessage("inputbox", "Chat:");
+#endif
 	return UI::EVENT_DONE;
 }
 

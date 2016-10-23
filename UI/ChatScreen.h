@@ -18,6 +18,5 @@ private:
 	UI::ScrollView *scroll_;
 	UI::LinearLayout *chatVert_;
 	UI::ViewGroup *box_;
-	UI::Button *defaultButton_;
 	bool toBottom_;
 };
