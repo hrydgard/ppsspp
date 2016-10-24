@@ -183,6 +183,11 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 		if (initialCodesList[i].substr(0,2) == "_L") {
 			if (cheatEnabled == true) {
 				currentcode = initialCodesList[i];
+				std::size_t comment = currentcode.find("//");
+				if (comment != std::string::npos) {
+					currentcode.erase(currentcode.begin() + comment, currentcode.end());
+					//Purge comments after code lines before adding them to codelist
+				}
 				currentcode.erase(currentcode.begin(), currentcode.begin() + 3);
 				codelist.push_back(currentcode);
 			}
