@@ -779,7 +779,8 @@ void EmuScreen::CreateViews() {
 		root_->Add(new Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 	if (g_Config.bEnableNetworkChat) {
-		root_->Add(new Button(sc->T("Chat"), new AnchorLayoutParams(50, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
+		//root_->Add(new Button(sc->T("Chat"), new AnchorLayoutParams(50, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
+		root_->Add(new ChoiceWithValueDisplay(&g_Config.iNewChat, sc->T("Chat"), new AnchorLayoutParams(130,WRAP_CONTENT,80, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
 	}
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);

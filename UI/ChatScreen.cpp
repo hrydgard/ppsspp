@@ -56,6 +56,7 @@ void ChatMenu::CreateViews() {
 
 	CreatePopupContents(box_);
 	root_->SetDefaultFocusView(box_);
+	g_Config.iNewChat = 0;
 }
 
 void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
