@@ -29,7 +29,6 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
 	parent->Add(outer);
-	UpdateChat();
 }
 
 void ChatMenu::CreateViews() {
@@ -56,6 +55,7 @@ void ChatMenu::CreateViews() {
 
 	CreatePopupContents(box_);
 	root_->SetDefaultFocusView(box_);
+	this->UpdateChat();
 	g_Config.iNewChat = 0;
 }
 
@@ -73,7 +73,6 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	chatEdit_->SetFocus();
 	sendChat(chat);
 #elif defined(__ANDROID__)
-	scroll_->ScrollToBottom();
 	System_SendMessage("inputbox", "Chat:");
 #endif
 	return UI::EVENT_DONE;
@@ -132,7 +131,7 @@ void ChatMenu::UpdateChat() {
 				v->SetTextColor(0xFF000000 | color);
 			}
 		}
-		toBottom_ = true;
+		this->ScrollChat();
 	}
 }
 
@@ -150,11 +149,20 @@ bool ChatMenu::touch(const TouchInput &touch) {
 }
 
 void ChatMenu::update(InputState &input) {
-	if (toBottom_) {
-		toBottom_ = false;
+	PopupScreen::update(input);
+	this->ScrollChat();
+}
+
+void ChatMenu::sendMessage(const char *message, const char *value) {
+	// Always call the base class method first to handle the most common messages.
+	PopupScreen::sendMessage(message, value);
+	this->ScrollChat();
+}
+
+void ChatMenu::ScrollChat() {
+	if (scroll_) {
 		scroll_->ScrollToBottom();
 	}
-	PopupScreen::update(input);
 }
 
 ChatMenu::~ChatMenu() {

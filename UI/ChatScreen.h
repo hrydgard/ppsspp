@@ -12,6 +12,9 @@ public:
 	bool touch(const TouchInput &touch) override;
 	void update(InputState &input) override;
 	void UpdateChat();
+	void ScrollChat();
+protected:
+	virtual void sendMessage(const char *message, const char *value);
 private:
 	UI::EventReturn OnSubmit(UI::EventParams &e);
 	UI::TextEdit *chatEdit_;

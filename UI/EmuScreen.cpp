@@ -371,6 +371,11 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
+	} else if (!strcmp(message, "chat screen")) {
+		releaseButtons();
+		ChatMenu * ch = new ChatMenu();
+		setChatPointer(ch);
+		screenManager()->push(ch);
 	}
 }
 

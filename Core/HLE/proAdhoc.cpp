@@ -996,14 +996,14 @@ void sendChat(std::string chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
-	//if (friendFinderRunning) //need to check network inited and already connected to server or not is this correct?
-	//{
+	if (friendFinderRunning)
+	{
 		// Send Chat to Server 
 		if (!chatString.empty()) {
 		//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
 		message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
 		strcpy(chat.message, message.c_str());
-		//Send Chat Messages 
+		//Send Chat Messages
 		int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
 		NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 		name = g_Config.sNickName.c_str();
@@ -1012,7 +1012,12 @@ void sendChat(std::string chatString) {
 				ch->UpdateChat();
 			}
 		}
-	//}
+	}else {
+		chatLog.push_back("You're in Offline Mode, go to lobby or online hall"); // use this or osm better?
+		if (ch) {
+			ch->UpdateChat();
+		}
+	}
 }
 
 
@@ -1137,9 +1142,6 @@ int friendFinder(){
 							g_Config.iNewChat += 1;
 						}
 					}
-					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
-
 					// Move RX Buffer
 					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
 
