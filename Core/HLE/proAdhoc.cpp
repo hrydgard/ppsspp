@@ -986,10 +986,12 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 	free(node);
 }
 
-//@params chatmenu pass NULL on Hide , and pass ChatMenu On Create (EmuScreen.cpp)
+//@params chatmenu pass NULL on destroy, and pass ChatMenu On Create (EmuScreen.cpp)
 void setChatPointer(ChatMenu * chatmenu) {
-	//set chatscreen instance
-	ch = chatmenu;
+	if (chatmenu != NULL) {
+		delete ch; 
+	}
+	ch = chatmenu; //setChatPointer
 }
 
 void sendChat(std::string chatString) {
@@ -1012,8 +1014,9 @@ void sendChat(std::string chatString) {
 				ch->UpdateChat();
 			}
 		}
-	}else {
-		chatLog.push_back("You're in Offline Mode, go to lobby or online hall"); // use this or osm better?
+	}
+	else {
+		chatLog.push_back("You're in Offline Mode, go to lobby or online hall"); //need translation
 		if (ch) {
 			ch->UpdateChat();
 		}
@@ -1120,12 +1123,7 @@ int friendFinder(){
 				if (rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
 					// Cast Packet
 					SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
-
-					// Fix for Idiots that try to troll the "ME" Nametag
-					if (strcasecmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-
 					// Add Incoming Chat to HUD
-					//printf("Receive chat message %s", packet->base.message);
 					NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
 					incoming = "";
 					name = (char *)packet->name.data;

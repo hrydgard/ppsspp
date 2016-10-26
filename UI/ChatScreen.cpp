@@ -55,15 +55,12 @@ void ChatMenu::CreateViews() {
 
 	CreatePopupContents(box_);
 	root_->SetDefaultFocusView(box_);
-	this->UpdateChat();
+	UpdateChat();
 	g_Config.iNewChat = 0;
 }
 
 void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 	UpdateUIState(UISTATE_INGAME);
-	// Close when a subscreen got closed.
-	// TODO: a bug in screenmanager causes this not to work here.
-	// screenManager()->finishDialog(this, DR_OK);
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
@@ -84,7 +81,7 @@ std::vector<std::string> Split(const std::string& str)
 	int counter = 0;
 	int firstSentenceEnd = 0;
 	int secondSentenceEnd = 0;
-	NOTICE_LOG(HLE, "Splitted %s %i", str.c_str(),str.size());
+	//NOTICE_LOG(HLE, "Splitted %s %i", str.c_str(),str.size());
 	for (auto i = 0; i<str.length(); i++) {
 		if (isspace(str[i])) {
 			if (i < 35) {
@@ -131,7 +128,7 @@ void ChatMenu::UpdateChat() {
 				v->SetTextColor(0xFF000000 | color);
 			}
 		}
-		this->ScrollChat();
+		toBottom_ = true;
 	}
 }
 
@@ -142,29 +139,20 @@ bool ChatMenu::touch(const TouchInput &touch) {
 
 	if (!box_->GetBounds().Contains(touch.x, touch.y)){
 		screenManager()->finishDialog(this, DR_BACK);
-		setChatPointer(NULL); //fix the random crash
 	}
 
 	return UIDialogScreen::touch(touch);
 }
 
-void ChatMenu::update(InputState &input) {
-	PopupScreen::update(input);
-	this->ScrollChat();
-}
-
-void ChatMenu::sendMessage(const char *message, const char *value) {
-	// Always call the base class method first to handle the most common messages.
-	PopupScreen::sendMessage(message, value);
-	this->ScrollChat();
-}
-
-void ChatMenu::ScrollChat() {
-	if (scroll_) {
+void ChatMenu::postRender() {
+	if (scroll_ && toBottom_) {
 		scroll_->ScrollToBottom();
+		toBottom_ = false;
 	}
 }
 
 ChatMenu::~ChatMenu() {
 	setChatPointer(NULL);
+	scroll_ = NULL;
+	chatVert_ = NULL;
 }
