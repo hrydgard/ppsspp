@@ -762,10 +762,11 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	if (msg == "inputbox_completed") {
 		SplitString(value, ':', inputboxValue);
+		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
 		if (inputboxValue[0] == "IP")
-			g_Config.proAdhocServer = inputboxValue[1];
+			g_Config.proAdhocServer = setString;
 		if (inputboxValue[0] == "nickname")
-			g_Config.sNickName = inputboxValue[1];
+			g_Config.sNickName = setString;
 		inputboxValue.clear();
 	}
 	if (msg == "savestate_displayslot") {
