@@ -22,6 +22,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	
 #if defined(_WIN32) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
+#if defined(USING_WIN_UI)
 	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
 	{
 		std::wstring titleText = ConvertUTF8ToWString(n->T("Chat"));
@@ -31,6 +32,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 			chatEdit_->SetText(ConvertWStringToUTF8(inputChars));
 		}
 	}
+#endif
 
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
