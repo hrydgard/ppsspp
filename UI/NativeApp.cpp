@@ -858,8 +858,16 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 			g_Config.proAdhocServer = setString;
 		if (inputboxValue[0] == "nickname")
 			g_Config.sNickName = setString;
-		if (inputboxValue[0] == "Chat")
-			sendChat(setString);
+		if (inputboxValue[0] == "Chat") {
+			if (inputboxValue.size() > 2) 
+			{
+				std::string chatString = value;
+				chatString.erase(0, 5);
+				sendChat(chatString);
+			} else {
+				sendChat(setString);
+			}
+		}
 		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {

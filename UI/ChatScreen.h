@@ -11,7 +11,7 @@ public:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	bool touch(const TouchInput &touch) override;
 	void postRender() override;
-	void UpdateChat();
+	virtual void UpdateChat();
 private:
 	UI::EventReturn OnSubmit(UI::EventParams &e);
 	UI::TextEdit *chatEdit_;
