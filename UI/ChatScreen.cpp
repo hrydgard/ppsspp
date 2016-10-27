@@ -10,6 +10,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "i18n/i18n.h"
 #include <ctype.h>
+#include "util/text/utf8.h"
 
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
@@ -21,6 +22,16 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	
 #if defined(_WIN32) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
+	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+	{
+		std::wstring titleText = ConvertUTF8ToWString(n->T("Chat"));
+		std::wstring defaultText = ConvertUTF8ToWString(n->T("Chat Here"));
+		std::wstring inputChars;
+		if (System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) {
+			chatEdit_->SetText(ConvertWStringToUTF8(inputChars));
+		}
+	}
+
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #elif defined(__ANDROID__)
