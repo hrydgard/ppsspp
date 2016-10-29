@@ -62,7 +62,7 @@ set -e
 mkdir -p ${BUILD_DIR}
 pushd ${BUILD_DIR}
 
-cmake $CMAKE_ARGS .. | (grep -v "^-- " || true)
+cmake $CMAKE_ARGS ..
 
 make -j4 $MAKE_OPT
 popd
