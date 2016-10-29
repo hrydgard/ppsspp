@@ -97,7 +97,7 @@ if(NOT OPENGL_LIBRARIES)
 	include(FindOpenGL REQUIRED)
 endif()
 
-include(FindSDL2)
+find_package(SDL2)
 include(FindThreads)
 
 if(APPLE)
@@ -301,6 +301,9 @@ setup_target_project(Common Common)
 
 if(WIN32)
 	target_link_libraries(Common winmm)
+endif()
+if(TARGET SDL2::SDL2)
+	target_link_libraries(Common SDL2::SDL2)
 endif()
 
 if(NOT USING_GLES2)
@@ -751,16 +754,15 @@ elseif(USING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
-elseif(SDL2_FOUND)
+elseif(TARGET SDL2::SDL2)
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
-	include_directories(${SDL2_INCLUDE_DIR})
 	add_definitions(-DSDL)
 	set(nativeExtra ${nativeExtra}
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
 		ext/native/base/PCMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} ${SDL2_LIBRARY})
+	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
 		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
