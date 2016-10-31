@@ -56,10 +56,12 @@ SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
 uint32_t localip;
 std::vector<std::string> chatLog;
-ChatMenu * ch;
 std::string name = "";
 std::string incoming = "";
 std::string message = "";
+bool chatScreenVisible = false;
+bool updateChatScreen = false;
+int newChat = 0;
 
 int isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -986,14 +988,6 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 	free(node);
 }
 
-//@params chatmenu pass NULL on destroy, and pass ChatMenu On Create (EmuScreen.cpp)
-void setChatPointer(ChatMenu * chatmenu) {
-	if (chatmenu != NULL) {
-		delete ch; 
-	}
-	ch = chatmenu; //setChatPointer
-}
-
 void sendChat(std::string chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
 	I18NCategory *n = GetI18NCategory("Networking");
@@ -1011,19 +1005,18 @@ void sendChat(std::string chatString) {
 		NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
 		name = g_Config.sNickName.c_str();
 		chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
-			if (ch) {
-				ch->UpdateChat();
+			if (chatScreenVisible) {
+				updateChatScreen = true;
 			}
 		}
 	}
 	else {
 		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
-		if (ch) {
-			ch->UpdateChat();
+		if (chatScreenVisible) {
+			updateChatScreen = true;
 		}
 	}
 }
-
 
 std::vector<std::string> getChatLog() {
 	// this log used by chat screen
@@ -1133,12 +1126,12 @@ int friendFinder(){
 					incoming.append((char *)packet->base.message);
 					chatLog.push_back(incoming);
 					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-					if (ch) {
-						ch->UpdateChat();
+					if (chatScreenVisible) {
+						updateChatScreen = true;
 					}
 					else {
-						if (g_Config.iNewChat < 50) {
-							g_Config.iNewChat += 1;
+						if (newChat < 50) {
+							newChat += 1;
 						}
 					}
 					// Move RX Buffer
@@ -1169,8 +1162,8 @@ int friendFinder(){
 					//joined.append((char *)packet->ip);
 					chatLog.push_back(incoming);
 					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
-					if (ch) {
-						ch->UpdateChat();
+					if (chatScreenVisible) {
+						updateChatScreen = true;
 					}
 					// Update HUD User Count
 #ifdef LOCALHOST_AS_PEER

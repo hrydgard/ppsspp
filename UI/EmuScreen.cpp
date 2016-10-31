@@ -373,9 +373,7 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 	} else if (!strcmp(message, "chat screen")) {
 		releaseButtons();
-		ChatMenu * ch = new ChatMenu();
-		setChatPointer(ch);
-		screenManager()->push(ch);
+		screenManager()->push(new ChatMenu());
 	}
 }
 
@@ -785,7 +783,7 @@ void EmuScreen::CreateViews() {
 	}
 	if (g_Config.bEnableNetworkChat) {
 		//root_->Add(new Button(sc->T("Chat"), new AnchorLayoutParams(50, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
-		root_->Add(new ChoiceWithValueDisplay(&g_Config.iNewChat, sc->T("Chat"), new AnchorLayoutParams(130,WRAP_CONTENT,80, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
+		root_->Add(new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130,WRAP_CONTENT,80, NONE, NONE, 50, true)))->OnClick.Handle(this, &EmuScreen::OnChat);
 	}
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
@@ -807,9 +805,7 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 
 UI::EventReturn EmuScreen::OnChat(UI::EventParams &params) {
 	releaseButtons();
-	ChatMenu * ch = new ChatMenu(); // memory leak or not?
-	setChatPointer(ch);
-	screenManager()->push(ch);
+	screenManager()->push(new ChatMenu());
 	return UI::EVENT_DONE;
 }
 

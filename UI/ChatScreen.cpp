@@ -69,7 +69,8 @@ void ChatMenu::CreateViews() {
 	CreatePopupContents(box_);
 	root_->SetDefaultFocusView(box_);
 	UpdateChat();
-	g_Config.iNewChat = 0;
+	chatScreenVisible = true;
+	newChat = 0;
 }
 
 void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -142,6 +143,7 @@ void ChatMenu::UpdateChat() {
 			}
 		}
 		toBottom_ = true;
+		updateChatScreen = false;
 	}
 }
 
@@ -157,6 +159,13 @@ bool ChatMenu::touch(const TouchInput &touch) {
 	return UIDialogScreen::touch(touch);
 }
 
+void ChatMenu::update(InputState &input) {
+	PopupScreen::update(input);
+	if (updateChatScreen) {
+		UpdateChat();
+	}
+}
+
 void ChatMenu::postRender() {
 	if (scroll_ && toBottom_) {
 		scroll_->ScrollToBottom();
@@ -165,7 +174,5 @@ void ChatMenu::postRender() {
 }
 
 ChatMenu::~ChatMenu() {
-	setChatPointer(NULL);
-	scroll_ = NULL;
-	chatVert_ = NULL;
+	chatScreenVisible = false;
 }

@@ -425,7 +425,6 @@ public:
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;
-	int iNewChat;
 
 	int iPSPModel;
 	int iFirmwareVersion;
