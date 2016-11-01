@@ -274,8 +274,10 @@ UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
 void CwCheatScreen::processFileOn(std::string activatedCheat) {
 	std::fstream fs;
 	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].substr(4) == activatedCheat) {
-			cheatList[i] = "_C1 " + activatedCheat;
+		if (cheatList[i].length() >= 4) {
+			if (cheatList[i].substr(4) == activatedCheat) {
+				cheatList[i] = "_C1 " + activatedCheat;
+			}
 		}
 	}
 
@@ -293,8 +295,10 @@ void CwCheatScreen::processFileOn(std::string activatedCheat) {
 void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
 	std::fstream fs;
 	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].substr(4) == deactivatedCheat) {
-			cheatList[i] = "_C0 " + deactivatedCheat;
+		if (cheatList[i].length() >= 4) {
+			if (cheatList[i].substr(4) == deactivatedCheat) {
+				cheatList[i] = "_C0 " + deactivatedCheat;
+			}
 		}
 	}
 
