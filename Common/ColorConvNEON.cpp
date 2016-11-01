@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM_NEON)
 
 #include <arm_neon.h>
 #include "ColorConvNEON.h"
@@ -109,4 +109,4 @@ void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, const u32 numPixels) {
 	}
 }
 
-#endif // PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64)
+#endif // PPSSPP_ARCH(ARM_NEON)
