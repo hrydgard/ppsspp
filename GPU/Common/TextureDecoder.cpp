@@ -310,7 +310,7 @@ ReliableHash64Func DoReliableHash64 = &XXH64;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupTextureDecoder() {
-#if PPSSPP_ARCH(ARM_NEON)
+#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64)
 	if (cpu_info.bNEON) {
 		DoQuickTexHash = &QuickTexHashNEON;
 		StableQuickTexHash = &QuickTexHashNEON;

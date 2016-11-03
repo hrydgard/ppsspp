@@ -58,7 +58,7 @@ typedef u32 ReliableHashType;
 #endif
 
 // For ARM64, NEON is mandatory, so we also statically link.
-#elif defined(ARM64)
+#elif PPSSPP_ARCH(ARM64)
 #define DoQuickTexHash QuickTexHashNEON
 #define StableQuickTexHash QuickTexHashNEON
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON
