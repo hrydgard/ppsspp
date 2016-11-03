@@ -51,7 +51,7 @@ namespace MIPSComp {
 		continueMaxInstructions = 300;
 
 		useStaticAlloc = false;
-#ifdef ARM64
+#if PPSSPP_ARCH(ARM64)
 		useStaticAlloc = true;
 #endif
 	}
