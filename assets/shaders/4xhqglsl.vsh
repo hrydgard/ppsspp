@@ -13,8 +13,8 @@ varying vec4 v_texcoord6;
 
 void main()
 {
-  float x = u_pixelDelta.x*((u_texelDelta.x/u_pixelDelta.x)/2);
-  float y = u_pixelDelta.y*((u_texelDelta.y/u_pixelDelta.y)/2);
+  float x = u_pixelDelta.x*((u_texelDelta.x/u_pixelDelta.x)/2.0);
+  float y = u_pixelDelta.y*((u_texelDelta.y/u_pixelDelta.y)/2.0);
   vec2 dg1 = vec2( x,y);
   vec2 dg2 = vec2(-x,y);
   vec2 sd1 = dg1*0.5;
