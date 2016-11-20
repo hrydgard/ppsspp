@@ -108,6 +108,10 @@ keycode_t SDLJoystick::getKeycodeForButton(SDL_GameControllerButton button) {
 		return NKCODE_BUTTON_9; // select button
 	case SDL_CONTROLLER_BUTTON_GUIDE:
 		return NKCODE_BACK; // pause menu
+	case SDL_CONTROLLER_BUTTON_LEFTSTICK:
+		return NKCODE_BUTTON_THUMBL;
+	case SDL_CONTROLLER_BUTTON_RIGHTSTICK:
+		return NKCODE_BUTTON_THUMBR;
 	}
 	return NKCODE_UNKNOWN;
 }
