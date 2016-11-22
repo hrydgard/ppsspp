@@ -1640,6 +1640,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			
 			// Valid Ports
 			if (!isPTPPortInUse(sport) /*&& dport != 0*/) {
+				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+				if (sport == 0) sport = -(int)portOffset;
 				// Valid Arguments
 				if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket

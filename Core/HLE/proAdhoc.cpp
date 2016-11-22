@@ -54,6 +54,7 @@ std::thread friendFinderThread;
 recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
+uint32_t localip;
 
 int isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -1302,7 +1303,7 @@ int getLocalIp(sockaddr_in * SocketAddress){
 	}
 	return -1;
 #else
-	SocketAddress->sin_addr.s_addr = inet_addr("192.168.12.1");
+	memcpy(&SocketAddress->sin_addr, &localip, sizeof(uint32_t));
 	return 0;
 #endif
 }
@@ -1445,6 +1446,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		host->NotifyUserMessage(buffer, 8.0f);
 		return iResult;
 	}
+	//grab local ip for later use better than constant ip on non windows platform
+	localip = getLocalIp(metasocket);
 
 	// Prepare Login Packet
 	SceNetAdhocctlLoginPacketC2S packet;
