@@ -1082,10 +1082,11 @@ static u32 sceNetAdhocctlDisconnect() {
 			//peerlock.lock();
 
 			// Clear Peer List
-			//freeFriendsRecursive(friends);
+			freeFriendsRecursive(friends);
+			INFO_LOG(SCENET, "Cleared Peer List.");
 
 			// Delete Peer Reference
-			//friends = NULL;
+			friends = NULL;
 
 			// Clear Group List
 			//freeGroupsRecursive(networks);
