@@ -80,7 +80,7 @@ void MIPSEmitter::BREAK(u32 code) {
 	Write32Fields(26, 0x00, 6, code & 0xfffff, 0, 0x0d);
 }
 
-FixupBranch MIPSEmitter::J(std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::J(const std::function<void ()> &delaySlot) {
 	// 000010 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x02);
@@ -88,11 +88,11 @@ FixupBranch MIPSEmitter::J(std::function<void ()> delaySlot) {
 	return b;
 }
 
-void MIPSEmitter::J(const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::J(const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(J(delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::JAL(std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::JAL(const std::function<void ()> &delaySlot) {
 	// 000011 iiiiiiiiiiiiiiiiiiiiiiiiii (fix up)
 	FixupBranch b = MakeFixupBranch(BRANCH_26);
 	Write32Fields(26, 0x03);
@@ -100,25 +100,25 @@ FixupBranch MIPSEmitter::JAL(std::function<void ()> delaySlot) {
 	return b;
 }
 
-void MIPSEmitter::JAL(const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::JAL(const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(JAL(delaySlot), func);
 }
 
-void MIPSEmitter::JR(MIPSReg rs, std::function<void ()> delaySlot) {
+void MIPSEmitter::JR(MIPSReg rs, const std::function<void ()> &delaySlot) {
 	// 000000 sssss xxxxxxxxxx hint- 001000 (hint must be 0.)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x00, 21, rs, 0, 0x08);
 	ApplyDelaySlot(delaySlot);
 }
 
-void MIPSEmitter::JALR(MIPSReg rd, MIPSReg rs, std::function<void ()> delaySlot) {
+void MIPSEmitter::JALR(MIPSReg rd, MIPSReg rs, const std::function<void ()> &delaySlot) {
 	// 000000 sssss xxxxx ddddd hint- 001001 (hint must be 0.)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	Write32Fields(26, 0x00, 21, rs, 11, rd, 0, 0x09);
 	ApplyDelaySlot(delaySlot);
 }
 
-FixupBranch MIPSEmitter::BLTZ(MIPSReg rs, std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::BLTZ(MIPSReg rs, const std::function<void ()> &delaySlot) {
 	// 000001 sssss xxxxx iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
@@ -127,11 +127,11 @@ FixupBranch MIPSEmitter::BLTZ(MIPSReg rs, std::function<void ()> delaySlot) {
 	return b;
 }
 
-void MIPSEmitter::BLTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::BLTZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(BLTZ(rs, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, const std::function<void ()> &delaySlot) {
 	// 000100 sssss ttttt iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
@@ -140,11 +140,11 @@ FixupBranch MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, std::function<void ()> dela
 	return b;
 }
 
-void MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::BEQ(MIPSReg rs, MIPSReg rt, const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(BEQ(rs, rt, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, const std::function<void ()> &delaySlot) {
 	// 000101 sssss ttttt iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE && rt < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
@@ -153,11 +153,11 @@ FixupBranch MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, std::function<void ()> dela
 	return b;
 }
 
-void MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::BNE(MIPSReg rs, MIPSReg rt, const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(BNE(rs, rt, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BLEZ(MIPSReg rs, std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::BLEZ(MIPSReg rs, const std::function<void ()> &delaySlot) {
 	// 000110 sssss xxxxx iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
@@ -166,11 +166,11 @@ FixupBranch MIPSEmitter::BLEZ(MIPSReg rs, std::function<void ()> delaySlot) {
 	return b;
 }
 
-void MIPSEmitter::BLEZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::BLEZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(BLEZ(rs, delaySlot), func);
 }
 
-FixupBranch MIPSEmitter::BGTZ(MIPSReg rs, std::function<void ()> delaySlot) {
+FixupBranch MIPSEmitter::BGTZ(MIPSReg rs, const std::function<void ()> &delaySlot) {
 	// 000111 sssss xxxxx iiiiiiiiiiiiiii (fix up)
 	_dbg_assert_msg_(JIT, rs < F_BASE, "Bad emitter arguments");
 	FixupBranch b = MakeFixupBranch(BRANCH_16);
@@ -179,7 +179,7 @@ FixupBranch MIPSEmitter::BGTZ(MIPSReg rs, std::function<void ()> delaySlot) {
 	return b;
 }
 
-void MIPSEmitter::BGTZ(MIPSReg rs, const void *func, std::function<void ()> delaySlot) {
+void MIPSEmitter::BGTZ(MIPSReg rs, const void *func, const std::function<void ()> &delaySlot) {
 	SetJumpTarget(BGTZ(rs, delaySlot), func);
 }
 
@@ -230,7 +230,7 @@ bool MIPSEmitter::JInRange(const void *src, const void *dst) {
 	return (srcp - (srcp & 0x0fffffff)) == (dstp - (dstp & 0x0fffffff));
 }
 
-void MIPSEmitter::ApplyDelaySlot(std::function<void ()> delaySlot) {
+void MIPSEmitter::ApplyDelaySlot(const std::function<void ()> &delaySlot) {
 	if (delaySlot) {
 		delaySlot();
 	} else {
