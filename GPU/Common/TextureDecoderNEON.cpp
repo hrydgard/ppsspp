@@ -16,7 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+
 #if PPSSPP_ARCH(ARM_NEON)
+
+#include "ext/xxhash.h"
 
 #include <arm_neon.h>
 
@@ -182,6 +185,11 @@ void DoUnswizzleTex16NEON(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 p
 #endif
 
 u32 ReliableHash32NEON(const void *input, size_t len, u32 seed) {
+	if (((uintptr_t)input & 3) != 0) {
+		// Cannot handle misaligned data. Fall back to XXH32.
+		return XXH32(input, len, seed);
+	}
+
 	const u8 *p = (const u8 *)input;
 	const u8 *const bEnd = p + len;
 	U32 h32;
