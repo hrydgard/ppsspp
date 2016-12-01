@@ -494,6 +494,8 @@ void GPU_Vulkan::BeginHostFrame() {
 
 	if (resized_) {
 		CheckGPUFeatures();
+		// In case the GPU changed.
+		BuildReportingInfo();
 		UpdateCmdInfo();
 		drawEngine_.Resized();
 		textureCache_.NotifyConfigChanged();
@@ -524,7 +526,6 @@ void GPU_Vulkan::EndHostFrame() {
 }
 
 // Needs to be called on GPU thread, not reporting thread.
-// TODO
 void GPU_Vulkan::BuildReportingInfo() {
 	const auto &props = vulkan_->GetPhysicalDeviceProperties();
 	const auto &features = vulkan_->GetFeaturesAvailable();
@@ -1944,11 +1945,25 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 }
 
 void GPU_Vulkan::DeviceLost() {
-	// TODO
+	framebufferManager_->DeviceLost();
+	drawEngine_.DeviceLost();
+	pipelineManager_->DeviceLost();
+	textureCache_.DeviceLost();
+	depalShaderCache_.Clear();
+	shaderManager_->ClearShaders();
 }
 
 void GPU_Vulkan::DeviceRestore() {
-	// TODO
+	vulkan_ = (VulkanContext *)PSP_CoreParameter().graphicsContext->GetAPIContext();
+	CheckGPUFeatures();
+	BuildReportingInfo();
+	UpdateCmdInfo();
+
+	framebufferManager_->DeviceRestore(vulkan_);
+	drawEngine_.DeviceRestore(vulkan_);
+	pipelineManager_->DeviceRestore(vulkan_);
+	textureCache_.DeviceRestore(vulkan_);
+	shaderManager_->DeviceRestore(vulkan_);
 }
 
 void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {

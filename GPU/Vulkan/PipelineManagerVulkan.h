@@ -87,6 +87,9 @@ public:
 
 	void Clear();
 
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
+
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 

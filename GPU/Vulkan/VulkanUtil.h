@@ -79,6 +79,10 @@ public:
 	Vulkan2D(VulkanContext *vulkan);
 	~Vulkan2D();
 
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
+	void Shutdown();
+
 	VkPipeline GetPipeline(VkPipelineCache cache, VkRenderPass rp, VkShaderModule vs, VkShaderModule fs);
 
 	void BeginFrame();
@@ -95,6 +99,9 @@ public:
 	};
 
 private:
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
 	VulkanContext *vulkan_;
 	VkDescriptorSetLayout descriptorSetLayout_;
 	VkPipelineLayout pipelineLayout_;

@@ -29,7 +29,7 @@ public:
 	}
 
 	void Destroy(VulkanContext *vulkan) {
-		for (const BufInfo &info : buffers_) {
+		for (BufInfo &info : buffers_) {
 			vulkan->Delete().QueueDeleteBuffer(info.buffer);
 			vulkan->Delete().QueueDeleteDeviceMemory(info.deviceMemory);
 		}

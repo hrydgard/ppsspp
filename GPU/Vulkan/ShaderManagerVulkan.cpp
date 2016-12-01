@@ -81,7 +81,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, ShaderID id, c
 }
 
 VulkanFragmentShader::~VulkanFragmentShader() {
-	if (module_) {
+	if (module_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }
@@ -134,7 +134,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, ShaderID id, const
 }
 
 VulkanVertexShader::~VulkanVertexShader() {
-	if (module_) {
+	if (module_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteShaderModule(module_);
 	}
 }
@@ -435,6 +435,11 @@ void ShaderManagerVulkan::BoneUpdateUniforms(int dirtyUniforms) {
 			ConvertMatrix4x3To4x4(ub_bones.bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
+}
+
+void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
 }
 
 void ShaderManagerVulkan::Clear() {

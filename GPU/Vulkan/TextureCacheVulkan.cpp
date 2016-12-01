@@ -129,6 +129,17 @@ VkSampler SamplerCache::GetOrCreateSampler(const SamplerCacheKey &key) {
 	return sampler;
 }
 
+void SamplerCache::DeviceLost() {
+	for (auto iter : cache_) {
+		vulkan_->Delete().QueueDeleteSampler(iter.second);
+	}
+	cache_.clear();
+}
+
+void SamplerCache::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+}
+
 TextureCacheVulkan::TextureCacheVulkan(VulkanContext *vulkan)
 	: vulkan_(vulkan), samplerCache_(vulkan), secondCacheSizeEstimate_(0),
 	  clearCacheNextFrame_(false), lowMemoryMode_(false), texelsScaledThisFrame_(0) {
@@ -153,21 +164,45 @@ TextureCacheVulkan::~TextureCacheVulkan() {
 	}, allocator_);
 }
 
+void TextureCacheVulkan::DeviceLost() {
+	Clear(true);
+
+	if (allocator_) {
+		allocator_->Destroy();
+
+		// We have to delete on queue, so this can free its queued deletions.
+		vulkan_->Delete().QueueCallback([](void *ptr) {
+			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+			delete allocator;
+		}, allocator_);
+		allocator_ = nullptr;
+	}
+
+	samplerCache_.DeviceLost();
+
+	nextTexture_ = nullptr;
+}
+
+void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+
+	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
+	samplerCache_.DeviceRestore(vulkan);
+}
+
 void TextureCacheVulkan::DownloadFramebufferForClut(u32 clutAddr, u32 bytes) {
 
 }
 
 void TextureCacheVulkan::Clear(bool delete_them) {
 	lastBoundTexture = nullptr;
-	if (delete_them) {
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
-			delete iter->second.vkTex;
-		}
-		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
-			DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
-			delete iter->second.vkTex;
-		}
+	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
+		DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
+		delete iter->second.vkTex;
+	}
+	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+		DEBUG_LOG(G3D, "Deleting texture %p", iter->second.vkTex);
+		delete iter->second.vkTex;
 	}
 	if (cache.size() + secondCache.size()) {
 		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
@@ -1153,7 +1188,7 @@ bool TextureCacheVulkan::HandleTextureChange(TexCacheEntry *const entry, const c
 	return false;
 }
 
-void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry,VulkanPushBuffer *uploadBuffer) {
+void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, VulkanPushBuffer *uploadBuffer) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.

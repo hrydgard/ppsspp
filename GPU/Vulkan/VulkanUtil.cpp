@@ -48,6 +48,40 @@ void VulkanFBO::Create(VulkanContext *vulkan, VkRenderPass rp_compatible, int wi
 }
 
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
+	InitDeviceObjects();
+}
+
+Vulkan2D::~Vulkan2D() {
+	DestroyDeviceObjects();
+}
+
+void Vulkan2D::Shutdown() {
+	DestroyDeviceObjects();
+}
+
+void Vulkan2D::DestroyDeviceObjects() {
+	for (int i = 0; i < 2; i++) {
+		if (frameData_[i].descPool != VK_NULL_HANDLE) {
+			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
+		}
+	}
+	for (auto it : pipelines_) {
+		vulkan_->Delete().QueueDeletePipeline(it.second);
+	}
+	pipelines_.clear();
+
+	VkDevice device = vulkan_->GetDevice();
+	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
+		vkDestroyDescriptorSetLayout(device, descriptorSetLayout_, nullptr);
+		descriptorSetLayout_ = VK_NULL_HANDLE;
+	}
+	if (pipelineLayout_ != VK_NULL_HANDLE) {
+		vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
+		pipelineLayout_ = VK_NULL_HANDLE;
+	}
+}
+
+void Vulkan2D::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	bindings[0].descriptorCount = 1;
@@ -96,13 +130,13 @@ Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	assert(VK_SUCCESS == res);
 }
 
-Vulkan2D::~Vulkan2D() {
-	VkDevice device = vulkan_->GetDevice();
-	for (int i = 0; i < 2; i++) {
-		vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
-	}
-	vkDestroyDescriptorSetLayout(device, descriptorSetLayout_, nullptr);
-	vkDestroyPipelineLayout(device, pipelineLayout_, nullptr);
+void Vulkan2D::DeviceLost() {
+	DestroyDeviceObjects();
+}
+
+void Vulkan2D::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+	InitDeviceObjects();
 }
 
 void Vulkan2D::BeginFrame() {
