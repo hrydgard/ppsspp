@@ -72,11 +72,14 @@ int ChunkFile::readInt() {
 
 void ChunkFile::writeInt(int i) {
 	fwrite(&i, 1, 4, file);
-	pos+=4;
+	pos += 4;
 }
 
 //let's get into the business
 bool ChunkFile::descend(uint32_t id) {
+	if (numLevels > 30)
+		return false;
+
 	id = flipID(id);
 	if (read) {
 		bool found = false;

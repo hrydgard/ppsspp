@@ -588,6 +588,8 @@ public:
 	u8 morphcount;
 	u8 nweights;
 
+	u8 biggest;  // in practice, alignment.
+
 	friend class VertexDecoderJitCache;
 };
 
