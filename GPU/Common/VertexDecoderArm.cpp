@@ -66,6 +66,13 @@ static const float by32768 = 1.0f / 32768.0f;
 
 using namespace ArmGen;
 
+// NOTE: Avoid R9, it's dangerous on iOS.
+//
+// r0-r3: parameters
+// r4-r11: local vars. save, except R9.
+// r12: interprocedure scratch
+// r13: stack8
+
 static const ARMReg tempReg1 = R3;
 static const ARMReg tempReg2 = R4;
 static const ARMReg tempReg3 = R5;
@@ -194,7 +201,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
 	SetCC(CC_AL);
 
-	PUSH(6, R4, R5, R6, R7, R8, R_LR);
+	PUSH(8, R4, R5, R6, R7, R8, R10, R11, R_LR);
 	if (NEONSkinning || NEONMorphing) {
 		VPUSH(D8, 8);
 	}
@@ -304,7 +311,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	if (NEONSkinning || NEONMorphing) {
 		VPOP(D8, 8);
 	}
-	POP(6, R4, R5, R6, R7, R8, R_PC);
+	POP(8, R4, R5, R6, R7, R8, R10, R11, R_PC);
 
 	FlushLitPool();
 	FlushIcache();
