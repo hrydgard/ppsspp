@@ -19,6 +19,8 @@ UIScreen::~UIScreen() {
 }
 
 void UIScreen::DoRecreateViews() {
+	lock_guard guard(screenManager()->inputLock_);
+
 	if (recreateViews_) {
 		UI::PersistMap persisted;
 		bool persisting = root_ != nullptr;

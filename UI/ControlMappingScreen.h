@@ -82,6 +82,4 @@ protected:
 
 	UI::TextView *lastKeyEvent_;
 	UI::TextView *lastLastKeyEvent_;
-
-	recursive_mutex eventLock_;
 };

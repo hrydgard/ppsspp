@@ -17,6 +17,7 @@
 
 #include "base/basictypes.h"
 #include "base/logging.h"
+#include "base/mutex.h"
 #include "base/NativeApp.h"
 
 namespace UI {
@@ -125,6 +126,8 @@ public:
 	void sendMessage(const char *msg, const char *value);
 
 	Screen *topScreen() const;
+
+	recursive_mutex inputLock_;
 
 private:
 	void pop();
