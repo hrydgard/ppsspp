@@ -386,7 +386,7 @@ public:
 			(nt.status & THREADSTATUS_SUSPEND) ? "SUSPEND" : "", 
 			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
 			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
-			nt.waitType,
+			(int)nt.waitType,
 			nt.waitID,
 			waitInfo.waitValue);
 	}

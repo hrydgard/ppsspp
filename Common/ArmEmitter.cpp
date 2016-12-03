@@ -3036,7 +3036,7 @@ void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 	return;
 
 error:
-	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in %s: Size %i Type %i", __FUNCTION__, Size, type);
+	_dbg_assert_msg_(JIT, false, "Bad Size or type specified in %s: Size %i Type %i", __FUNCTION__, (int)Size, type);
 }
 
 void ARMXEmitter::VMOV_immf(ARMReg Vd, float value) {  // This only works with a select few values. I've hardcoded 1.0f.
