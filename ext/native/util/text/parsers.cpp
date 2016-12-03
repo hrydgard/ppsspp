@@ -28,7 +28,7 @@ int Version::ToInteger() const {
 }
 
 bool ParseMacAddress(std::string str, uint8_t macAddr[6]) {
-	int mac[6];
+	unsigned int mac[6];
 	if (6 != sscanf(str.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5])) {
 		return false;
 	}

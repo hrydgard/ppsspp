@@ -833,7 +833,7 @@ int main(int argc, char **argv) {
 			char locales[256];
 			int pixheight;
 			float vertOffset = 0;
-			sscanf(rest, "%s %s %s %i %f", fontname, fontfile, locales, &pixheight, &vertOffset);
+			sscanf(rest, "%255s %255s %255s %i %f", fontname, fontfile, locales, &pixheight, &vertOffset);
 			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
 			std::vector<CharRange> ranges;
@@ -846,7 +846,7 @@ int main(int argc, char **argv) {
       char imagename[256];
       char imagefile[256];
       char effectname[256];
-      sscanf(rest, "%s %s %s", imagename, imagefile, effectname);
+      sscanf(rest, "%255s %255s %255s", imagename, imagefile, effectname);
       Effect effect = GetEffect(effectname);
       printf("Image %s with effect %s (%i)\n", imagefile, effectname, (int)effect);
       ImageDesc desc;

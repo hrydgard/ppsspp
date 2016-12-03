@@ -332,7 +332,7 @@ void CtrlDisAsmView::paintEvent(QPaintEvent *)
 				}
 				if (mojs)
 				{
-					int offs;
+					unsigned int offs;
 					sscanf(mojs+3,"%08x",&offs);
 					branches[numBranches].src=rowY1 + rowHeight/2;
 					branches[numBranches].srcAddr=address/align;
