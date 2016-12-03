@@ -497,12 +497,12 @@ bool DisassembleSPIRV(std::vector<uint32_t> spirv, std::string *output) {
 		case spv::OpTypeVector:
 			source = spirv[i + 2];
 			source2 = spirv[i + 3];
-			ids[target].name = ids[source].name + StringFromFormat("%d", source2); break;
+			ids[target].name = ids[source].name + StringFromFormat("%d", source2);
 			break;
 		case spv::OpTypeArray:
 			source = spirv[i + 2];
 			source2 = spirv[i + 3];
-			ids[target].name = ids[source].name + "[" + ids[source2].name + "]"; break;
+			ids[target].name = ids[source].name + "[" + ids[source2].name + "]";
 			break;
 		case spv::OpTypeStruct:
 			{
