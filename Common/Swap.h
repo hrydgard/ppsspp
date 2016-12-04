@@ -78,7 +78,6 @@ inline unsigned short bswap16(unsigned short x) { return __loadshortbytereverse(
 #define bswap16 swap16
 #define bswap32 swap32
 #define bswap64 swap64
-#define
 # endif
 #else
 // TODO: speedup
