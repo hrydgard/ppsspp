@@ -375,11 +375,18 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		}
 	} else if (!strcmp(message, "chat screen")) {
 		releaseButtons();
-		//temporary workaround for hotkey its freeze the ui when open using hotkey and native keyboard is enable
-		if (g_Config.bBypassOSKWithKeyboard) osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
-		else
+#if defined(USING_WIN_UI)
+		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+		if (g_Config.bBypassOSKWithKeyboard) {
+			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
+		} else {
+			chatButtons->SetVisibility(UI::V_GONE);
+			screenManager()->push(new ChatMenu());
+		}
+#else
 		chatButtons->SetVisibility(UI::V_GONE);
 		screenManager()->push(new ChatMenu());
+#endif
 	}
 }
 
