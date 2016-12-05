@@ -1,3 +1,5 @@
+#define NOMINMAX
+#include <Windows.h>
 #include "Windows/TouchInputHandler.h"
 
 #include <algorithm>

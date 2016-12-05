@@ -10,21 +10,7 @@
 #define NOMINMAX
 #endif
 
-#ifdef _XBOX
-#include <xtl.h>
-
-extern "C" void _ReadWriteBarrier();
-#pragma intrinsic(_ReadWriteBarrier)
-
-extern "C" void _WriteBarrier();
-#pragma intrinsic(_WriteBarrier)
-
-extern "C" void _ReadBarrier();
-#pragma intrinsic(_ReadBarrier)
-
-#else
 #include <Windows.h>
-#endif
 
 #undef min
 #undef max

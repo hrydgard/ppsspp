@@ -1,6 +1,9 @@
 #include <map>
 #include <string>
 
+#include "CommonWindows.h"
+#include <shellapi.h>
+
 #include "resource.h"
 
 #include "i18n/i18n.h"

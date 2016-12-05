@@ -4,8 +4,8 @@
 
 #include "resource.h"
 
-#include "../Core/HW.h"
-#include "../Core/MemMap.h"
+#include "Core/HW.h"
+#include "Core/MemMap.h"
 //#include "hw\hw.h"
 #include "DlgDynaView.h"
 //#include "PowerPC/PowerPCDisasm.h"

@@ -15,9 +15,9 @@
 #include "../resource.h"
 #include "../../Globals.h"
 
-#include "../../Core/ARM/ARM.h"
+#include "Core/ARM/ARM.h"
 
-#include "Debugger_Registers.h"
+#include "Windows/Debugger/Debugger_Profiler.h"
 #ifdef THEMES
 #include "../XPTheme.h"
 #include "../W32Util/TabControl.h"
