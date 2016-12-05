@@ -295,17 +295,21 @@ set(CommonWindows
 	Common/stdafx.h)
 source_group(Windows FILES ${CommonWindows})
 
-set(CommonVulkan ${CommonExtra}
-	Common/Vulkan/SPIRVDisasm.cpp
-	Common/Vulkan/SPIRVDisasm.h
-	Common/Vulkan/VulkanContext.cpp
-	Common/Vulkan/VulkanContext.h
-	Common/Vulkan/VulkanImage.cpp
-	Common/Vulkan/VulkanImage.h
-	Common/Vulkan/VulkanLoader.cpp
-	Common/Vulkan/VulkanLoader.h
-	Common/Vulkan/VulkanMemory.cpp
-	Common/Vulkan/VulkanMemory.h)
+if(VULKAN)
+	set(CommonVulkan ${CommonExtra}
+		Common/Vulkan/SPIRVDisasm.cpp
+		Common/Vulkan/SPIRVDisasm.h
+		Common/Vulkan/VulkanContext.cpp
+		Common/Vulkan/VulkanContext.h
+		Common/Vulkan/VulkanImage.cpp
+		Common/Vulkan/VulkanImage.h
+		Common/Vulkan/VulkanLoader.cpp
+		Common/Vulkan/VulkanLoader.h
+		Common/Vulkan/VulkanMemory.cpp
+		Common/Vulkan/VulkanMemory.h)
+else()
+	set(CommonVulkan)
+endif()
 
 add_library(Common STATIC
 	${CommonX86}
