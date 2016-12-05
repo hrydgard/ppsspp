@@ -77,6 +77,17 @@ enum IOTimingMethods {
 	IOTIMING_REALISTIC = 2,
 };
 
+enum ChatPositions {
+	BOTTOM_LEFT = 0,
+	BOTTOM_CENTER = 1,
+	BOTOM_RIGHT = 2,
+	TOP_LEFT = 3,
+	TOP_CENTER = 4,
+	TOP_RIGHT = 5,
+	CENTER_LEFT = 6,
+	CENTER_RIGHT = 7,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -425,7 +436,10 @@ public:
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;
-
+	//for chat position , moveable buttons is better than this 
+	int iChatButtonPosition;
+	int iChatScreenPosition;
+	
 	int iPSPModel;
 	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!

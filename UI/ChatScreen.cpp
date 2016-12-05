@@ -23,17 +23,18 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #if defined(_WIN32) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
+	//freeze  the ui when using ctrl + C hotkey need workaround
 	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
 	{
 		std::wstring titleText = ConvertUTF8ToWString(n->T("Chat"));
 		std::wstring defaultText = ConvertUTF8ToWString(n->T("Chat Here"));
 		std::wstring inputChars;
 		if (System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) {
-			chatEdit_->SetText(ConvertWStringToUTF8(inputChars));
+			//chatEdit_->SetText(ConvertWStringToUTF8(inputChars));
+			sendChat(ConvertWStringToUTF8(inputChars));
 		}
 	}
 #endif
-
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #elif defined(__ANDROID__)
@@ -56,8 +57,26 @@ void ChatMenu::CreateViews() {
 
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
-	box_ = new LinearLayout(ORIENT_VERTICAL,
-		new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 250, true));
+	switch (g_Config.iChatScreenPosition) {
+	case 0:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 250, true));
+		break;
+	case 1:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), NONE, NONE, 250, true));
+		break;
+	case 2:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, NONE, 280, 250, true));
+		break;
+	case 3:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, 250, NONE, NONE, true));
+		break;
+	case 4:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), 250, NONE, NONE, true));
+		break;
+	case 5:
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, 250, 280, NONE, true));
+		break;
+	}
 
 	root_->Add(box_);
 	box_->SetBG(UI::Drawable(0x66303030));
@@ -67,7 +86,14 @@ void ChatMenu::CreateViews() {
 	box_->Add(title);
 
 	CreatePopupContents(box_);
+#if defined(_WIN32) || defined(USING_QT_UI)
+	//not work yet for tywald requests cant set the focus to chat edit after chat opened
 	root_->SetDefaultFocusView(box_);
+	box_->SubviewFocused(chatEdit_);
+	root_->SetFocus();
+#else
+	root_->SetDefaultFocusView(box_);
+#endif
 	UpdateChat();
 	chatScreenVisible = true;
 	newChat = 0;
