@@ -25,7 +25,7 @@
 
 // TODO: More NEON color conversion funcs.
 
-void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, u32 numPixels) {
 	const uint16x8_t mask0040 = vdupq_n_u16(0x00F0);
 
 	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
@@ -56,7 +56,7 @@ void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, const u32 numPixels
 	}
 }
 
-void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, u32 numPixels) {
 	const uint16x8_t maskB = vdupq_n_u16(0x003E);
 	const uint16x8_t maskG = vdupq_n_u16(0x07C0);
 
@@ -88,7 +88,7 @@ void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, const u32 numPixels
 	}
 }
 
-void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, const u32 numPixels) {
+void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, u32 numPixels) {
 	const uint16x8_t maskG = vdupq_n_u16(0x07E0);
 
 	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
