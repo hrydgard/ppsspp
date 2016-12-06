@@ -30,10 +30,8 @@ void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, u32 numPixels) {
 
 	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
 		u32 simdable = (numPixels / 8) * 8;
-		const u16 *srcp = src;
-		u16 *dstp = dst;
 		for (u32 i = 0; i < simdable; i += 8) {
-			uint16x8_t c = vld1q_u16(srcp);
+			uint16x8_t c = vld1q_u16(src);
 
 			const uint16x8_t a = vshrq_n_u16(c, 12);
 			const uint16x8_t b = vandq_u16(vshrq_n_u16(c, 4), mask0040);
@@ -41,18 +39,18 @@ void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, u32 numPixels) {
 			const uint16x8_t r = vshlq_n_u16(c, 12);
 
 			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), vorrq_u16(b, a));
-			vst1q_u16(dstp, res);
+			vst1q_u16(dst, res);
 
-			srcp += 8;
-			dstp += 8;
+			src += 8;
+			dst += 8;
 		}
 		numPixels -= simdable;
 	}
 
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > 0) {
-		// Note that we've already moved srcp/dstp forward.
-		ConvertRGBA4444ToABGR4444Basic(dstp, srcp, numPixels);
+		// Note that we've already moved src/dst forward.
+		ConvertRGBA4444ToABGR4444Basic(dst, src, numPixels);
 	}
 }
 
@@ -62,10 +60,8 @@ void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, u32 numPixels) {
 
 	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
 		u32 simdable = (numPixels / 8) * 8;
-		const u16 *srcp = src;
-		u16 *dstp = dst;
 		for (u32 i = 0; i < simdable; i += 8) {
-			uint16x8_t c = vld1q_u16(srcp);
+			uint16x8_t c = vld1q_u16(src);
 
 			const uint16x8_t a = vshrq_n_u16(c, 15);
 			const uint16x8_t b = vandq_u16(vshrq_n_u16(c, 9), maskB);
@@ -73,18 +69,18 @@ void ConvertRGBA5551ToABGR1555NEON(u16 *dst, const u16 *src, u32 numPixels) {
 			const uint16x8_t r = vshlq_n_u16(c, 11);
 
 			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), vorrq_u16(b, a));
-			vst1q_u16(dstp, res);
+			vst1q_u16(dst, res);
 
-			srcp += 8;
-			dstp += 8;
+			src += 8;
+			dst += 8;
 		}
 		numPixels -= simdable;
 	}
 
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > 0) {
-		// Note that we've already moved srcp/dstp forward.
-		ConvertRGBA5551ToABGR1555Basic(dstp, srcp, numPixels);
+		// Note that we've already moved src/dst forward.
+		ConvertRGBA5551ToABGR1555Basic(dst, src, numPixels);
 	}
 }
 
@@ -93,27 +89,25 @@ void ConvertRGB565ToBGR565NEON(u16 *dst, const u16 *src, u32 numPixels) {
 
 	if (((uintptr_t)dst & 15) == 0 && ((uintptr_t)src & 15) == 0) {
 		u32 simdable = (numPixels / 8) * 8;
-		const u16 *srcp = src;
-		u16 *dstp = dst;
 		for (u32 i = 0; i < simdable; i += 8) {
-			uint16x8_t c = vld1q_u16(srcp);
+			uint16x8_t c = vld1q_u16(src);
 
 			const uint16x8_t b = vshrq_n_u16(c, 11);
 			const uint16x8_t g = vandq_u16(c, maskG);
 			const uint16x8_t r = vshlq_n_u16(c, 11);
 
 			uint16x8_t res = vorrq_u16(vorrq_u16(r, g), b);
-			vst1q_u16(dstp, res);
+			vst1q_u16(dst, res);
 
-			srcp += 8;
-			dstp += 8;
+			src += 8;
+			dst += 8;
 		}
 		numPixels -= simdable;
 	}
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > 0) {
-		// Note that we've already moved srcp/dstp forward.
-		ConvertRGB565ToBGR565Basic(dstp, srcp, numPixels);
+		// Note that we've already moved src/dst forward.
+		ConvertRGB565ToBGR565Basic(dst, src, numPixels);
 	}
 }
 
