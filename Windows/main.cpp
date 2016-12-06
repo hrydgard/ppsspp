@@ -16,11 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
-#include <WinNls.h>
-#include <math.h>
-#include <Wbemidl.h>
+#include <cmath>
 
 #include "Common/CommonWindows.h"
+#include <Wbemidl.h>
+#include <shellapi.h>
+#include <mmsystem.h>
 
 #include "file/vfs.h"
 #include "file/zip_read.h"

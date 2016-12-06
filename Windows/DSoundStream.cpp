@@ -1,5 +1,7 @@
 #include "Common/CommonWindows.h"
+#include <mmreg.h>
 #include <dsound.h>
+#include <process.h>
 
 #include "thread/threadutil.h"
 #include "Core/Reporting.h"

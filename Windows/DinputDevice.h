@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
+#include <vector>
 #include <InitGuid.h>
 #define DIRECTINPUT_VERSION 0x0800
 #define DIRECTINPUT_RGBBUTTONS_MAX 128

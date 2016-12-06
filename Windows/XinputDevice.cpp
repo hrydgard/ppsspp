@@ -4,6 +4,7 @@
 #include "base/NativeApp.h"
 #include "Core/Config.h"
 #include "Common/KeyMap.h"
+#include "Common/Log.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "XinputDevice.h"

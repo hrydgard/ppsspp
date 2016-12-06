@@ -18,13 +18,14 @@
 #pragma once
 
 #include <functional>
+#include "CommonWindows.h"
 
 #include "gfx_es2/glsl_program.h"
 #include "Common/CommonWindows.h"
 #include "Globals.h"
 
 struct SimpleGLWindow {
-	static const PTCHAR windowClass;
+	static const wchar_t *windowClass;
 
 	enum Format {
 		FORMAT_565_REV = 0x00,

@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include "CommonWindows.h"
+
 class Dialog;
 
 class TabControl

@@ -17,7 +17,10 @@
 
 #include <set>
 #include <algorithm>
+#include <vector>
 #include "base/NativeApp.h"
+
+#include "Common/Log.h"
 #include "input/input_state.h"
 #include "Windows/RawInput.h"
 #include "Windows/KeyboardDevice.h"
