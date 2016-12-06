@@ -52,7 +52,7 @@ void ConvertRGBA4444ToABGR4444NEON(u16 *dst, const u16 *src, const u32 numPixels
 	// Finish off the rest, if there were any outside the simdable range.
 	if (numPixels > 0) {
 		// Note that we've already moved srcp/dstp forward.
-		ConvertRGBA4444ToABGR4444Basic(dstp, srcp, numPixels - simdable);
+		ConvertRGBA4444ToABGR4444Basic(dstp, srcp, numPixels);
 	}
 }
 
