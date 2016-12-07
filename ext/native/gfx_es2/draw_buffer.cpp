@@ -400,12 +400,17 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 }
 
 void DrawBuffer::MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
+	if (!text || (uint32_t)font >= atlas->num_fonts) {
+		*w = 0;
+		*h = 0;
+		return;
+	}
+
 	std::string toMeasure = std::string(text, count);
 	if (align & FLAG_WRAP_TEXT) {
 		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toMeasure.c_str(), bounds.w);
 		toMeasure = wrapper.Wrapped();
 	}
-
 	MeasureTextCount(font, toMeasure.c_str(), (int)toMeasure.length(), w, h);
 }
 

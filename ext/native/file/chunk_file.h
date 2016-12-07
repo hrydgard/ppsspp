@@ -56,7 +56,7 @@ private:
 		unsigned int ID;
 		int length;
 	};
-	ChunkInfo stack[8];
+	ChunkInfo stack[32];
 	int numLevels;
 
 	uint8_t *data;

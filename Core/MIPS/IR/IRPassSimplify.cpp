@@ -10,18 +10,34 @@
 void WriteInstWithConstants(const IRWriter &in, IRWriter &out, const u32 *constants, IRInst inst) {
 	// Remap constants to the new reality
 	const IRMeta *m = GetIRMeta(inst.op);
+	if (!m) {
+		ERROR_LOG(CPU, "Bad IR instruction %02x", (int)inst.op);
+		return;
+	}
 	switch (m->types[0]) {
 	case 'C':
+		if (!constants) {
+			ERROR_LOG(CPU, "Missing constant for type 0");
+			return;
+		}
 		inst.dest = out.AddConstant(constants[inst.dest]);
 		break;
 	}
 	switch (m->types[1]) {
 	case 'C':
+		if (!constants) {
+			ERROR_LOG(CPU, "Missing constants for type 1");
+			return;
+		}
 		inst.src1 = out.AddConstant(constants[inst.src1]);
 		break;
 	}
 	switch (m->types[2]) {
 	case 'C':
+		if (!constants) {
+			ERROR_LOG(CPU, "Missing constants for type 2");
+			return;
+		}
 		inst.src2 = out.AddConstant(constants[inst.src2]);
 		break;
 	}
