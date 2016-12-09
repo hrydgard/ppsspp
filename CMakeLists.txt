@@ -672,8 +672,10 @@ elseif(IOS)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
     set(CMAKE_AUTOMOC ON)
-
-	find_package(Qt5 COMPONENTS Multimedia OpenGL Gui Core)
+    find_package(Qt5 COMPONENTS OpenGL Gui Core)
+    if(NOT SDL2_FOUND)
+        find_package(Qt5 COMPONENTS Multimedia)
+    endif(NOT SDL2_FOUND)
     set(Qt_UI
       Qt/Debugger/debugger_disasm.ui
       Qt/Debugger/debugger_displaylist.ui
@@ -709,7 +711,7 @@ elseif(USING_QT_UI)
     )
     add_definitions(-DUSING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
-	set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia Qt5::OpenGL Qt5::Gui Qt5::Core)
+	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
 
     # Enable SDL if found
@@ -719,6 +721,8 @@ elseif(USING_QT_UI)
             SDL/SDLJoystick.h
             SDL/SDLJoystick.cpp)
         set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
+    else(SDL2_FOUND)
+        set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia)
     endif()
 
 elseif(TARGET SDL2::SDL2)
