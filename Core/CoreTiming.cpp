@@ -642,7 +642,7 @@ void Idle(int maxIdle)
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;
-	if (currentMIPS->downcount == 0)
+	if (currentMIPS->downcount <= 0)
 		currentMIPS->downcount = -1;
 }
 
