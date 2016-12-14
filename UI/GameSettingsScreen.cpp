@@ -263,15 +263,20 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *framebufferSlowEffects = graphicsSettings->Add(new CheckBox(&g_Config.bDisableSlowFramebufEffects, gr->T("Disable slower effects (speedup)")));
 	framebufferSlowEffects->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	// Seems solid, so we hide the setting.
-	// CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
+	CheckBox *vtxJit = graphicsSettings->Add(new CheckBox(&g_Config.bVertexDecoderJit, gr->T("Vertex Decoder JIT")));
 
-	// if (PSP_IsInited()) {
-		// vtxJit->SetEnabled(false);
-	// }
+	if (PSP_IsInited()) {
+		vtxJit->SetEnabled(false);
+	}
 
 	static const char *quality[] = { "Low", "Medium", "High"};
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
+	beziersChoice->OnChoice.Add([=](EventParams &e) {
+		if (&g_Config.iSplineBezierQuality != 0) {
+			settingInfo_->Show(gr->T("LowCurves Tip", "This option will significantly improve/reduce the quality of rendered splines and bezier curves"), e.v);
+		}
+		return UI::EVENT_CONTINUE;
+	});
 	beziersChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
@@ -304,6 +309,10 @@ void GameSettingsScreen::CreateViews() {
 	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
+	deposterize->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("Deposterize Tip", "Fixes small in-texture glitches that may happen when the texture is upscaled"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
@@ -331,7 +340,12 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
+	CheckBox *timerHack = graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
+	timerHack->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("TimerHack Tip", "Faster some games when emulation speed is slower , but may cause glitches/breaking"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+
 	CheckBox *alphaHack = graphicsSettings->Add(new CheckBox(&g_Config.bDisableAlphaTest, gr->T("Disable Alpha Test (PowerVR speedup)")));
 	alphaHack->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("DisableAlphaTest Tip", "Faster by sometimes drawing ugly boxes around things"), e.v);
@@ -346,8 +360,12 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gr->T("Always Depth Write")));
 	depthWrite->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gr->T("Texture Coord Speedhack")));
-	depthWrite->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	CheckBox *textureHack = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gr->T("Texture Coord Speedhack")));
+	textureHack->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("TextureCoordSpeedhack Tip", "Faster some games that benefit from software skinning further by reducing the number of draw calls"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+	textureHack->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
