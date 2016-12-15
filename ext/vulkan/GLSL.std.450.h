@@ -28,7 +28,7 @@
 #define GLSLstd450_H
 
 static const int GLSLstd450Version = 100;
-static const int GLSLstd450Revision = 1;
+static const int GLSLstd450Revision = 3;
 
 enum GLSLstd450 {
     GLSLstd450Bad = 0,              // Don't use
