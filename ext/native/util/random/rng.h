@@ -18,15 +18,15 @@ public:
 	uint32_t R32() {
 		m_z = 36969 * (m_z & 65535) + (m_z >> 16);
 		m_w = 18000 * (m_w & 65535) + (m_w >> 16);
-		return (m_z << 16) + m_w;
+		return ((m_z << 16) + m_w) & 0xFFFFFFFF;
 	}
 	float F() {
 		return (float)R32() / (float)(0xFFFFFFFF);
 	}
 
 	// public for easy save/load. Yes a bit ugly but better than moving DoState into native.
-	uint32_t m_w;
-	uint32_t m_z;
+	uint64_t m_w;
+	uint64_t m_z;
 };
 
 

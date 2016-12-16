@@ -237,7 +237,7 @@ void Shutdown()
 
 u64 GetTicks()
 {
-	return (u64)globalTimer + slicelength - currentMIPS->downcount;
+	return (u64)globalTimer + (slicelength - currentMIPS->downcount);
 }
 
 u64 GetIdleTicks()
@@ -314,7 +314,8 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 	Event *ne = GetNewEvent();
 	ne->userdata = userdata;
 	ne->type = event_type;
-	ne->time = GetTicks() + cyclesIntoFuture;
+        ne->time = GetTicks();
+        ne->time += cyclesIntoFuture;
 	AddEventToQueue(ne);
 }
 

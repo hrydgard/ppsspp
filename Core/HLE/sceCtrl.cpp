@@ -233,11 +233,11 @@ static int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek
 		availBufs = nBufs;
 	else
 	{
-		availBufs = (ctrlBuf - ctrlBufRead + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
+		availBufs = (ctrlBuf + NUM_CTRL_BUFFERS - ctrlBufRead) % NUM_CTRL_BUFFERS;
 		if (availBufs > nBufs)
 			availBufs = nBufs;
 	}
-	ctrlBufRead = (ctrlBuf - availBufs + NUM_CTRL_BUFFERS) % NUM_CTRL_BUFFERS;
+	ctrlBufRead = (ctrlBuf + NUM_CTRL_BUFFERS - availBufs) % NUM_CTRL_BUFFERS;
 
 	int done = 0;
 	auto data = PSPPointer<_ctrl_data>::Create(ctrlDataPtr);
