@@ -107,4 +107,6 @@ add_library(armips
 )
 
 target_include_directories(armips BEFORE PUBLIC ${ARMIPS_PATH})
-
+set_target_properties(armips PROPERTIES
+  EXCLUDE_FROM_ALL ON
+)

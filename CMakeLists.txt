@@ -354,6 +354,8 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
+target_link_libraries(Common Snappy::Snappy)
+
 if(WIN32)
 	include_directories(dx9sdk/Include)
 	target_link_libraries(Common winmm d3d9 dxguid dsound)
@@ -363,24 +365,11 @@ if(TARGET SDL2::SDL2)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-if(NOT USING_GLES2)
-    add_subdirectory(ext/glew)
-else()
+if(USING_GLES2)
 	find_package(X11)
 endif()
 
-find_package(Snappy)
-if(SNAPPY_FOUND)
-	add_definitions(-DSHARED_SNAPPY)
-else()
-	add_subdirectory(ext/snappy)
-endif()
-
-if(WIN32)
-	add_subdirectory(ext/cmake/armips)
-endif()
-
-add_subdirectory(ext/udis86)
+add_subdirectory(ext)
 
 add_library(vjson STATIC
 	ext/native/ext/vjson/json.cpp
@@ -607,9 +596,6 @@ include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	if(NOT SNAPPY_FOUND)
-		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -1049,7 +1035,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET glew)
   target_link_libraries(native glew)
 endif()
