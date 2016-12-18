@@ -714,15 +714,6 @@ endif()
 
 set(nativeExtra)
 set(nativeExtraLibs)
-if(ARMV7)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_neon.S)
-endif()
-if((X86 OR X86_64) AND NOT MIPS)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_sse.c)
-endif()
-
 
 if(ANDROID)
   set(nativeExtra ${nativeExtra}
@@ -956,6 +947,8 @@ add_library(native STATIC
 	ext/native/input/input_state.cpp
 	ext/native/math/fast/fast_math.c
 	ext/native/math/fast/fast_matrix.c
+	ext/native/math/fast/fast_matrix_neon.S
+	ext/native/math/fast/fast_matrix_sse.c
 	ext/native/math/curves.cpp
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp

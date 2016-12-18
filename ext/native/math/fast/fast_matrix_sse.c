@@ -1,6 +1,6 @@
-#include "base/arch.h"
+#include "ppsspp_config.h"
 
-#if defined(_M_IX86) || defined(_M_X64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <emmintrin.h>
 
