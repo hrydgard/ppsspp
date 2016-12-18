@@ -145,7 +145,7 @@
     <ClCompile Include="GEDebugger\TabVertices.cpp">
       <Filter>Windows\GE Debugger</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\native\ext\glew\glew.c" />
+    <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="MainWindowMenu.cpp">
       <Filter>Windows\UI</Filter>
     </ClCompile>

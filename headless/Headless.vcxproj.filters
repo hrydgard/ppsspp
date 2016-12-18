@@ -3,7 +3,7 @@
   <ItemGroup>
     <ClCompile Include="Headless.cpp" />
     <ClCompile Include="Compare.cpp" />
-    <ClCompile Include="..\ext\native\ext\glew\glew.c" />
+    <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="..\Windows\GPU\D3D9Context.cpp">
       <Filter>Windows</Filter>
     </ClCompile>

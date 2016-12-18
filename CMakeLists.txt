@@ -115,7 +115,7 @@ if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 endif()
 
 if(NOT OPENGL_LIBRARIES)
-	include(FindOpenGL REQUIRED)
+	find_package(OpenGL REQUIRED)
 endif()
 
 find_package(SDL2)
@@ -354,6 +354,8 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
+target_link_libraries(Common Snappy::Snappy)
+
 if(WIN32)
 	include_directories(dx9sdk/Include)
 	target_link_libraries(Common winmm d3d9 dxguid dsound)
@@ -363,36 +365,11 @@ if(TARGET SDL2::SDL2)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-if(NOT USING_GLES2)
-	include_directories(${OPENGL_INCLUDE_DIR})
-	find_package(GLEW)
-	if(NOT GLEW_FOUND)
-		add_definitions(-DGLEW_STATIC)
-		add_library(glew STATIC
-			ext/native/ext/glew/GL/glew.h
-			ext/native/ext/glew/GL/glxew.h
-			ext/native/ext/glew/GL/wglew.h
-			ext/native/ext/glew/glew.c)
-		target_link_libraries(glew ${OPENGL_LIBRARIES})
-		include_directories(ext/native/ext/glew)
-		set(GLEW_LIBRARIES glew)
-	endif()
-else()
+if(USING_GLES2)
 	find_package(X11)
 endif()
 
-find_package(Snappy)
-if(SNAPPY_FOUND)
-	add_definitions(-DSHARED_SNAPPY)
-else()
-	add_subdirectory(ext/snappy)
-endif()
-
-if(WIN32)
-	add_subdirectory(ext/cmake/armips)
-endif()
-
-add_subdirectory(ext/udis86)
+add_subdirectory(ext)
 
 add_library(vjson STATIC
 	ext/native/ext/vjson/json.cpp
@@ -619,9 +596,6 @@ include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	if(NOT SNAPPY_FOUND)
-		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -740,15 +714,6 @@ endif()
 
 set(nativeExtra)
 set(nativeExtraLibs)
-if(ARMV7)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_neon.S)
-endif()
-if((X86 OR X86_64) AND NOT MIPS)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_sse.c)
-endif()
-
 
 if(ANDROID)
   set(nativeExtra ${nativeExtra}
@@ -982,6 +947,8 @@ add_library(native STATIC
 	ext/native/input/input_state.cpp
 	ext/native/math/fast/fast_math.c
 	ext/native/math/fast/fast_matrix.c
+	ext/native/math/fast/fast_matrix_neon.S
+	ext/native/math/fast/fast_matrix_sse.c
 	ext/native/math/curves.cpp
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
@@ -1061,7 +1028,10 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+if(TARGET glew)
+  target_link_libraries(native glew)
+endif()
 
 if(ANDROID)
 	target_link_libraries(native log EGL OpenSLES)
@@ -1664,7 +1634,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${GPU_SOURCES}
 	Globals.h
 	git-version.cpp
-  ext/disarm.cpp
+	ext/disarm.cpp
 	git-version.cpp)
 
 if(ANDROID)
@@ -1675,7 +1645,7 @@ if(ANDROID)
 endif()	
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash glslang
-	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
 setup_target_project(${CoreLibName} Core)
 

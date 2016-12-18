@@ -36,11 +36,6 @@
 
 #include "Common.h"
 #include "FileUtil.h"
-#ifdef SHARED_SNAPPY
-#include <snappy-c.h>
-#else
-#include "../ext/snappy/snappy-c.h"
-#endif
 
 template <class T>
 struct LinkedListItem : public T
