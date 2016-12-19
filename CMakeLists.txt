@@ -1552,52 +1552,6 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
 
-if (NOT WIN32)
-	set(glslang_platform
-		ext/glslang/glslang/OSDependent/Unix/ossource.cpp)
-else()
-	set(glslang_platform
-		ext/glslang/glslang/OSDependent/Windows/ossource.cpp)
-endif()
-
-add_library(glslang
-	${glslang_platform}
-  ext/glslang/glslang/GenericCodeGen/CodeGen.cpp
-  ext/glslang/glslang/GenericCodeGen/Link.cpp
-  ext/glslang/glslang/MachineIndependent/Constant.cpp
-  ext/glslang/glslang/MachineIndependent/glslang_tab.cpp
-  ext/glslang/glslang/MachineIndependent/InfoSink.cpp
-  ext/glslang/glslang/MachineIndependent/Initialize.cpp
-  ext/glslang/glslang/MachineIndependent/Intermediate.cpp
-  ext/glslang/glslang/MachineIndependent/intermOut.cpp
-  ext/glslang/glslang/MachineIndependent/IntermTraverse.cpp
-  ext/glslang/glslang/MachineIndependent/limits.cpp
-  ext/glslang/glslang/MachineIndependent/linkValidate.cpp
-  ext/glslang/glslang/MachineIndependent/parseConst.cpp
-  ext/glslang/glslang/MachineIndependent/ParseHelper.cpp
-  ext/glslang/glslang/MachineIndependent/PoolAlloc.cpp
-  ext/glslang/glslang/MachineIndependent/reflection.cpp
-  ext/glslang/glslang/MachineIndependent/RemoveTree.cpp
-  ext/glslang/glslang/MachineIndependent/Scan.cpp
-  ext/glslang/glslang/MachineIndependent/ShaderLang.cpp
-  ext/glslang/glslang/MachineIndependent/SymbolTable.cpp
-  ext/glslang/glslang/MachineIndependent/Versions.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/Pp.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpAtom.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpContext.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpMemory.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpSymbols.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp
-	ext/glslang/glslang/OSDependent/osinclude.h
-  ext/glslang/SPIRV/disassemble.cpp
-  ext/glslang/SPIRV/doc.cpp
-  ext/glslang/SPIRV/GlslangToSpv.cpp
-  ext/glslang/SPIRV/InReadableOrder.cpp
-  ext/glslang/SPIRV/SpvBuilder.cpp
-  ext/glslang/SPIRV/SPVRemapper.cpp
-  ext/glslang/OGLCompilersDLL/InitializeDll.cpp)
-
 set(WindowsFiles
 	Windows/DSoundStream.cpp
 	Windows/DSoundStream.h
