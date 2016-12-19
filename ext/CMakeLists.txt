@@ -5,3 +5,4 @@ endif()
 
 add_subdirectory(snappy)
 add_subdirectory(udis86)
+add_subdirectory(glslang)
