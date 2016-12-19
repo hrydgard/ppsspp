@@ -41,12 +41,12 @@ endif()
 set(IOS_PLATFORM ${IOS_PLATFORM} CACHE STRING "Type of iOS Platform")
 
 # Check the platform selection and setup for developer root
-if(${IOS_PLATFORM} STREQUAL "OS")
+if(IOS_PLATFORM STREQUAL "OS")
   set(IOS_SDK_NAME "iphoneos")
-elseif(${IOS_PLATFORM} STREQUAL "SIMULATOR")
+elseif(IOS_PLATFORM STREQUAL "SIMULATOR")
   set(IOS_SDK_NAME "iphonesimulator")
 else()
-  message (FATAL_ERROR "Unsupported IOS_PLATFORM value selected. Please choose OS or leave default")
+  message (FATAL_ERROR "Unsupported IOS_PLATFORM value selected '${IOS_PLATFORM}'. Please choose OS or leave default")
 endif()
 
 # Setup iOS developer location unless specified manually with CMAKE_IOS_DEVELOPER_ROOT
@@ -64,12 +64,12 @@ set(CMAKE_IOS_SDK_ROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Location of the selecte
 set(CMAKE_OSX_SYSROOT ${CMAKE_IOS_SDK_ROOT} CACHE PATH "Sysroot used for iOS support")
 
 # set the architecture for iOS 
-if(${IOS_PLATFORM} STREQUAL "OS")
+if(IOS_PLATFORM STREQUAL "OS")
   # When ffmpeg has been rebuilt for arm64 use:
-  #set(IOS_ARCH "armv7;arm64")
-  set(IOS_ARCH "armv7")
+  set(IOS_ARCH "armv7;arm64")
+  #set(IOS_ARCH "armv7")
 else()
-  set(IOS_ARCH i386)
+  set(IOS_ARCH "i386;x86_64")
 endif()
 
 set(CMAKE_OSX_ARCHITECTURES "${IOS_ARCH}" CACHE string  "Build architecture for iOS")
