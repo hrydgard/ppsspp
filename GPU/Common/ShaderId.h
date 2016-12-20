@@ -37,7 +37,6 @@ enum {
 	VS_BIT_LIGHT3_ENABLE = 55,
 	VS_BIT_LIGHTING_ENABLE = 56,
 	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits, 1 free after
-	VS_BIT_TEXCOORD_FMTSCALE = 60,
 	VS_BIT_FLATSHADE = 62,  // 1 free after
 };
 

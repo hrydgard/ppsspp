@@ -294,11 +294,6 @@ void ShaderManagerVulkan::BaseUpdateUniforms(int dirtyUniforms) {
 		const int h = gstate.getTextureHeight(0);
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
-
-		static const float rescale[4] = { 1.0f, 2 * 127.5f / 128.f, 2 * 32767.5f / 32768.f, 1.0f };
-		const float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-
-		float uvscaleoff[4];
 		ub_base.uvScaleOffset[0] = widthFactor;
 		ub_base.uvScaleOffset[1] = heightFactor;
 		ub_base.uvScaleOffset[2] = 0.0f;

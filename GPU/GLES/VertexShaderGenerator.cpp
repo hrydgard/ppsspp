@@ -192,7 +192,6 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
 	}
-	int texFmtScale = id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2);
 
 	if (useHWTransform)
 		WRITE(p, "%s vec3 position;\n", attribute);
@@ -610,9 +609,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 						{
 							// prescale is false here.
 							if (hasTexcoord) {
-								static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-								const char *factor = rescaleuv[texFmtScale];
-								temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
+								temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 							} else {
 								temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 							}
