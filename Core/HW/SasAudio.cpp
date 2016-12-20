@@ -496,7 +496,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		// Resample to the correct pitch, writing exactly "grainSize" samples.
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
 		int16_t temp[256 * 4]{};
-		int tempPos = delay;
+		int tempPos = 0;
 
 		// Two passes: First read, then resample.
 		u32 sampleFrac = voice.sampleFrac;
@@ -520,10 +520,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 				sampleFrac -= PSP_SAS_PITCH_BASE;
 			}
 
-			const int16_t *s = voice.resampleHist;
-			const int16_t *altS = temp + (altSampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
+			const int16_t *oldS = voice.resampleHist;
+			const int16_t *s = temp + (altSampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
-			if (altS[0] != s[0] || altS[1] != s[1])
+			if (s[0] != oldS[0] || s[1] != oldS[1])
 				Crash();
 
 			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
@@ -553,10 +553,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[0] = temp[tempPos - 2];
 		voice.resampleHist[1] = temp[tempPos - 1];
 
-		voice.sampleFrac = sampleFrac;
 		altSampleFrac -= (tempPos - 2) * PSP_SAS_PITCH_BASE;
-		if (voice.sampleFrac != altSampleFrac)
+		if (sampleFrac != altSampleFrac)
 			Crash();
+		voice.sampleFrac = altSampleFrac;
 
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();

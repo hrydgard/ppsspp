@@ -250,7 +250,7 @@ struct SasVoice {
 	int pcmLoopPos;
 	int sampleRate;
 
-	int sampleFrac;
+	uint32_t sampleFrac;
 	int pitch;
 	bool loop;
 
