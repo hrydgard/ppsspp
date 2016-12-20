@@ -443,7 +443,6 @@ int TranslateNumBones(int bones);
 typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 struct VertexDecoderOptions {
-	bool expandAllUVtoFloat;
 	bool expandAllWeightsToFloat;
 	bool expand8BitNormalsToFloat;
 };
@@ -477,8 +476,6 @@ public:
 	void Step_WeightsU16Skin() const;
 	void Step_WeightsFloatSkin() const;
 
-	void Step_TcU8() const;
-	void Step_TcU16() const;
 	void Step_TcU8ToFloat() const;
 	void Step_TcU16ToFloat() const;
 	void Step_TcFloat() const;
@@ -633,9 +630,7 @@ public:
 	void Jit_WeightsU16Skin();
 	void Jit_WeightsFloatSkin();
 
-	void Jit_TcU8();
 	void Jit_TcU8ToFloat();
-	void Jit_TcU16();
 	void Jit_TcU16ToFloat();
 	void Jit_TcFloat();
 

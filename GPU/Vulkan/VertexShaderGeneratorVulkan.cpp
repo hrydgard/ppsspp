@@ -163,7 +163,6 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
 		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
 	}
-	int texFmtScale = id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2);
 
 	if (useHWTransform)
 		WRITE(p, "layout (location = %d) in vec3 position;\n", PspAttributeLocation::POSITION);
@@ -185,8 +184,6 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 			WRITE(p, "layout (location = %d) in vec3 color1;\n", PspAttributeLocation::COLOR1);
 	}
-
-	bool prescale = g_Config.bPrescaleUV && !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	WRITE(p, "layout (location = 1) %sout vec4 v_color0;\n", shading);
 	if (lmode) {
@@ -431,12 +428,14 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 			}
 		}
 
+		bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
+
 		// Step 3: UV generation
 		if (doTexture) {
 			switch (uvGenMode) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
-				if (prescale) {
+				if (scaleUV) {
 					if (hasTexcoord) {
 						WRITE(p, "  v_texcoord = texcoord;\n");
 					} else {
@@ -460,11 +459,9 @@ bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *uses
 					break;
 				case GE_PROJMAP_UV:  // Use unscaled UV as source
 				{
-					// prescale is false here.
+					// scaleUV is false here.
 					if (hasTexcoord) {
-						static const char *rescaleuv[4] = { "", " * 1.9921875", " * 1.999969482421875", "" }; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-						const char *factor = rescaleuv[texFmtScale];
-						temp_tc = StringFromFormat("vec4(texcoord.xy %s, 0.0, 1.0)", factor);
+						temp_tc = "vec4(texcoord.xy, 0.0, 1.0)";
 					} else {
 						temp_tc = "vec4(0.0, 0.0, 0.0, 1.0)";
 					}

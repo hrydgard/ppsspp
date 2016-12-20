@@ -536,55 +536,11 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		const int h = gstate.getTextureHeight(0);
 		const float widthFactor = (float)w * invW;
 		const float heightFactor = (float)h * invH;
-
-		static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-		const float factor = rescale[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
-
 		float uvscaleoff[4];
-
-		switch (gstate.getUVGenMode()) {
-		case GE_TEXMAP_TEXTURE_COORDS:
-			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
-		case GE_TEXMAP_UNKNOWN:
-			if (g_Config.bPrescaleUV) {
-				// We are here but are prescaling UV in the decoder? Let's do the same as in the other case
-				// except consider *Scale and *Off to be 1 and 0.
-				uvscaleoff[0] = widthFactor;
-				uvscaleoff[1] = heightFactor;
-				uvscaleoff[2] = 0.0f;
-				uvscaleoff[3] = 0.0f;
-			} else {
-				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
-				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
-				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;
-				uvscaleoff[3] = gstate_c.uv.vOff * heightFactor;
-			}
-			break;
-
-		// These two work the same whether or not we prescale UV.
-
-		case GE_TEXMAP_TEXTURE_MATRIX:
-			// We cannot bake the UV coord scale factor in here, as we apply a matrix multiplication
-			// before this is applied, and the matrix multiplication may contain translation. In this case
-			// the translation will be scaled which breaks faces in Hexyz Force for example.
-			// So I've gone back to applying the scale factor in the shader.
-			uvscaleoff[0] = widthFactor;
-			uvscaleoff[1] = heightFactor;
-			uvscaleoff[2] = 0.0f;
-			uvscaleoff[3] = 0.0f;
-			break;
-
-		case GE_TEXMAP_ENVIRONMENT_MAP:
-			// In this mode we only use uvscaleoff to scale to the texture size.
-			uvscaleoff[0] = widthFactor;
-			uvscaleoff[1] = heightFactor;
-			uvscaleoff[2] = 0.0f;
-			uvscaleoff[3] = 0.0f;
-			break;
-
-		default:
-			ERROR_LOG_REPORT(G3D, "Unexpected UV gen mode: %d", gstate.getUVGenMode());
-		}
+		uvscaleoff[0] = widthFactor;
+		uvscaleoff[1] = heightFactor;
+		uvscaleoff[2] = 0.0f;
+		uvscaleoff[3] = 0.0f;
 		glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 	}
 

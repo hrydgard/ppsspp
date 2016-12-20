@@ -97,8 +97,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
-	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
-	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcU8ToFloat, &VertexDecoderJitCache::Jit_TcU8ToFloat},
 	{&VertexDecoder::Step_TcU16ToFloat, &VertexDecoderJitCache::Jit_TcU16ToFloat},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
@@ -685,17 +683,6 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		}
 		ADD(PTRBITS, R(tempReg2), Imm8(4 * 16));
 	}
-}
-
-// Fill last two bytes with zeroes to align to 4 bytes. MOVZX does it for us, handy.
-void VertexDecoderJitCache::Jit_TcU8() {
-	MOVZX(32, 16, tempReg1, MDisp(srcReg, dec_->tcoff));
-	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
-}
-
-void VertexDecoderJitCache::Jit_TcU16() {
-	MOV(32, R(tempReg1), MDisp(srcReg, dec_->tcoff));
-	MOV(32, MDisp(dstReg, dec_->decFmt.uvoff), R(tempReg1));
 }
 
 void VertexDecoderJitCache::Jit_TcU8ToFloat() {

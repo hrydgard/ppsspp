@@ -85,10 +85,11 @@ static const CommandTableEntry commandTable[] = {
 
 	// Changes that dirty texture scaling.
 	{ GE_CMD_TEXMAPMODE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexMapMode },
-	{ GE_CMD_TEXSCALEU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleU },
-	{ GE_CMD_TEXSCALEV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleV },
-	{ GE_CMD_TEXOFFSETU, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetU },
-	{ GE_CMD_TEXOFFSETV, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetV },
+
+	{ GE_CMD_TEXSCALEU, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleU },
+	{ GE_CMD_TEXSCALEV, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexScaleV },
+	{ GE_CMD_TEXOFFSETU, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetU },
+	{ GE_CMD_TEXOFFSETV, FLAG_EXECUTEONCHANGE, &GPU_DX9::Execute_TexOffsetV },
 
 	// Changes that dirty the current texture. Really should be possible to avoid executing these if we compile
 	// by adding some more flags.
@@ -450,18 +451,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
 }
 
 void GPU_DX9::UpdateCmdInfo() {
-	if (g_Config.bPrescaleUV) {
-		cmdInfo_[GE_CMD_TEXSCALEU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXSCALEV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETU].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETV].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-	} else {
-		cmdInfo_[GE_CMD_TEXSCALEU].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXSCALEV].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETU].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_TEXOFFSETV].flags |= FLAG_FLUSHBEFOREONCHANGE;
-	}
-
 	if (g_Config.bSoftwareSkinning) {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPU_DX9::Execute_VertexTypeSkinning;

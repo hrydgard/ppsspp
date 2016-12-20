@@ -288,9 +288,7 @@ int CtrlVertexList::GetRowCount() {
 	if (!gpuDebug->GetCurrentSimpleVertices(rowCount_, vertices, indices)) {
 		rowCount_ = 0;
 	}
-	VertexDecoderOptions options;
-	memset(&options, 0, sizeof(options));
-	options.expandAllUVtoFloat = false;
+	VertexDecoderOptions options{};
 	decoder->SetVertexType(state.vertType, options);
 	return rowCount_;
 }
