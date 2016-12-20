@@ -3,6 +3,7 @@ if(NOT USING_GLES2)
   add_subdirectory(glew)
 endif()
 
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "let's not build binaries we don't need" FORCE)
 add_subdirectory(glslang)
 add_subdirectory(snappy)
 add_subdirectory(udis86)
