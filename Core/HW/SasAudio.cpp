@@ -502,13 +502,20 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		u32 sampleFrac = voice.sampleFrac;
 		temp[tempPos++] = voice.resampleHist[0];
 		temp[tempPos++] = voice.resampleHist[1];
+
+		int samplesToRead = 0;
 		for (int i = delay; i < grainSize; i++) {
 			while (sampleFrac >= PSP_SAS_PITCH_BASE) {
-				voice.ReadSamples(&temp[tempPos++], 1);
+				samplesToRead++;
 				sampleFrac -= PSP_SAS_PITCH_BASE;
 			}
 			sampleFrac += voice.pitch;
 		}
+		voice.ReadSamples(&temp[tempPos], samplesToRead);
+		tempPos += samplesToRead;
+
+		if (tempPos - 2 != samplesToRead)
+			Crash();
 
 		sampleFrac = voice.sampleFrac;
 		for (int i = delay; i < grainSize; i++) {
