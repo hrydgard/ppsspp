@@ -495,11 +495,27 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		// Resample to the correct pitch, writing exactly "grainSize" samples.
 		// TODO: Special case no-resample case (and 2x and 0.5x) for speed, it's not uncommon
+		int16_t temp[256 * 4];
+		int tempPos = 0;
+
+		// Two passes: First read, then resample.
 		u32 sampleFrac = voice.sampleFrac;
+		temp[tempPos++] = voice.resampleHist[0];
+		temp[tempPos++] = voice.resampleHist[1];
+		for (int i = delay; i < grainSize; i++) {
+			while (sampleFrac >= PSP_SAS_PITCH_BASE) {
+				voice.ReadSamples(&temp[tempPos++], 1);
+				sampleFrac -= PSP_SAS_PITCH_BASE;
+			}
+			sampleFrac += voice.pitch;
+		}
+
+		sampleFrac = voice.sampleFrac;
+		tempPos = 2;  // skip the two history samples in the read buffer for now
 		for (int i = delay; i < grainSize; i++) {
 			while (sampleFrac >= PSP_SAS_PITCH_BASE) {
 				voice.resampleHist[0] = voice.resampleHist[1];
-				voice.ReadSamples(&voice.resampleHist[1], 1);
+				voice.resampleHist[1] = temp[tempPos++];
 				sampleFrac -= PSP_SAS_PITCH_BASE;
 			}
 
@@ -525,6 +541,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
 			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
 		}
+
+		voice.resampleHist[0] = temp[tempPos - 2];
+		voice.resampleHist[1] = temp[tempPos - 1];
 
 		voice.sampleFrac = sampleFrac;
 
