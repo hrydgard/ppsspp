@@ -91,9 +91,6 @@ DrawEngineDX9::DrawEngineDX9()
 		dcid_(0),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
-
-	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = true;
 	decOptions_.expandAllWeightsToFloat = true;
 	decOptions_.expand8BitNormalsToFloat = true;
 

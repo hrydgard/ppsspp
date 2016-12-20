@@ -119,8 +119,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
-	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
-	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
 	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
@@ -561,21 +559,6 @@ void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 		VLDMIA(srcReg, false, weightRegs[0], dec_->nweights);
 	}
 	Jit_ApplyWeights();
-}
-
-// Fill last two bytes with zeroes to align to 4 bytes. LDRH does it for us, handy.
-void VertexDecoderJitCache::Jit_TcU8() {
-	LDRB(tempReg1, srcReg, dec_->tcoff);
-	LDRB(tempReg2, srcReg, dec_->tcoff + 1);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 8));
-	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
-}
-
-void VertexDecoderJitCache::Jit_TcU16() {
-	LDRH(tempReg1, srcReg, dec_->tcoff);
-	LDRH(tempReg2, srcReg, dec_->tcoff + 2);
-	ORR(tempReg1, tempReg1, Operand2(tempReg2, ST_LSL, 16));
-	STR(tempReg1, dstReg, dec_->decFmt.uvoff);
 }
 
 void VertexDecoderJitCache::Jit_TcFloat() {

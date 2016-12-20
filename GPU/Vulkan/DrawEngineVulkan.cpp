@@ -74,12 +74,9 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	fboTexNeedBind_(false),
 	fboTexBound_(false),
 	curFrame_(0),
-	nullTexture_(nullptr) {
+	nullTexture_(nullptr),
+	stats_{}  {
 
-	memset(&stats_, 0, sizeof(stats_));
-
-	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = false;  // this may be a good idea though.
 	decOptions_.expandAllWeightsToFloat = false;
 	decOptions_.expand8BitNormalsToFloat = false;
 

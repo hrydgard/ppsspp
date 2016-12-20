@@ -217,9 +217,7 @@ int TransformUnit::patchBufferSize_ = 0;
 
 void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	VertexDecoder vdecoder;
-	VertexDecoderOptions options;
-	memset(&options, 0, sizeof(options));
-	options.expandAllUVtoFloat = false;
+	VertexDecoderOptions options{};
 	vdecoder.SetVertexType(vertex_type, options);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
 
@@ -310,9 +308,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 {
 	// TODO: Cache VertexDecoder objects
 	VertexDecoder vdecoder;
-	VertexDecoderOptions options;
-	memset(&options, 0, sizeof(options));
-	options.expandAllUVtoFloat = false;
+	VertexDecoderOptions options{};
 	vdecoder.SetVertexType(vertex_type, options);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
 
@@ -569,9 +565,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	simpleVertices.resize(indexUpperBound + 1);
 
 	VertexDecoder vdecoder;
-	VertexDecoderOptions options;
-	memset(&options, 0, sizeof(options));
-	options.expandAllUVtoFloat = false;  // TODO: True should be fine here
+	VertexDecoderOptions options{};
 	vdecoder.SetVertexType(gstate.vertType, options);
 	DrawEngineCommon::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), &vdecoder, indexLowerBound, indexUpperBound, gstate.vertType);
 

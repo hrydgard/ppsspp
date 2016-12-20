@@ -264,14 +264,6 @@ void VertexDecoder::Step_WeightsFloatSkin() const
 	}
 }
 
-void VertexDecoder::Step_TcU8() const
-{
-	// u32 to write two bytes of zeroes for free.
-	u32 *uv = (u32*)(decoded_ + decFmt.uvoff);
-	const u16 *uvdata = (const u16*)(ptr_ + tcoff);
-	*uv = *uvdata;
-}
-
 void VertexDecoder::Step_TcU8ToFloat() const
 {
 	// u32 to write two bytes of zeroes for free.
@@ -279,14 +271,6 @@ void VertexDecoder::Step_TcU8ToFloat() const
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
 	uv[0] = uvdata[0] * (1.0f / 128.0f);
 	uv[1] = uvdata[1] * (1.0f / 128.0f);
-}
-
-void VertexDecoder::Step_TcU16() const
-{
-	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
-	// TODO: Fix big-endian without losing the optimization
-	const u32 *uvdata = (const u32*)(ptr_ + tcoff);
-	*uv = *uvdata;
 }
 
 void VertexDecoder::Step_TcU16ToFloat() const
@@ -903,13 +887,6 @@ static const StepFunction wtstep_skin[4] = {
 	&VertexDecoder::Step_WeightsFloatSkin,
 };
 
-static const StepFunction tcstep[4] = {
-	0,
-	&VertexDecoder::Step_TcU8,
-	&VertexDecoder::Step_TcU16,
-	&VertexDecoder::Step_TcFloat,
-};
-
 static const StepFunction tcstepToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
@@ -973,13 +950,6 @@ static const StepFunction tcstep_morph_remasterToFloat[4] = {
 	&VertexDecoder::Step_TcFloatMorph,
 };
 
-static const StepFunction tcstep_through[4] = {
-	0,
-	&VertexDecoder::Step_TcU8,
-	&VertexDecoder::Step_TcU16Through,
-	&VertexDecoder::Step_TcFloatThrough,
-};
-
 static const StepFunction tcstep_throughToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
@@ -987,26 +957,11 @@ static const StepFunction tcstep_throughToFloat[4] = {
 	&VertexDecoder::Step_TcFloatThrough,
 };
 
-// Some HD Remaster games double the u16 texture coordinates.
-static const StepFunction tcstep_remaster[4] = {
-	0,
-	&VertexDecoder::Step_TcU8,
-	&VertexDecoder::Step_TcU16Double,
-	&VertexDecoder::Step_TcFloat,
-};
-
 static const StepFunction tcstep_remasterToFloat[4] = {
 	0,
 	&VertexDecoder::Step_TcU8ToFloat,
 	&VertexDecoder::Step_TcU16DoubleToFloat,
 	&VertexDecoder::Step_TcFloat,
-};
-
-static const StepFunction tcstep_through_remaster[4] = {
-	0,
-	&VertexDecoder::Step_TcU8,
-	&VertexDecoder::Step_TcU16ThroughDouble,
-	&VertexDecoder::Step_TcFloatThrough,
 };
 
 static const StepFunction tcstep_through_remasterToFloat[4] = {
@@ -1180,34 +1135,14 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale[tc] : tcstep_prescale_morph[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
 		} else {
-			if (options.expandAllUVtoFloat) {
-				if (morphcount != 1 && !throughmode)
-					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remasterToFloat[tc] : tcstep_morphToFloat[tc];
-				else if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_remasterToFloat[tc] : tcstep_remasterToFloat[tc];
-				else
-					steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
-				decFmt.uvfmt = DEC_FLOAT_2;
-			} else {
-				if (morphcount != 1 && !throughmode)
-					steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remaster[tc] : tcstep_morph[tc];
-				else if (g_DoubleTextureCoordinates)
-					steps_[numSteps_++] = throughmode ? tcstep_through_remaster[tc] : tcstep_remaster[tc];
-				else
-					steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
-
-				switch (tc) {
-				case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
-					decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
-					break;
-				case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
-					decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
-					break;
-				case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
-					decFmt.uvfmt = DEC_FLOAT_2;
-					break;
-				}
-			}
+			// We now always expand UV to float.
+			if (morphcount != 1 && !throughmode)
+				steps_[numSteps_++] = g_DoubleTextureCoordinates ? tcstep_morph_remasterToFloat[tc] : tcstep_morphToFloat[tc];
+			else if (g_DoubleTextureCoordinates)
+				steps_[numSteps_++] = throughmode ? tcstep_through_remasterToFloat[tc] : tcstep_remasterToFloat[tc];
+			else
+				steps_[numSteps_++] = throughmode ? tcstep_throughToFloat[tc] : tcstepToFloat[tc];
+			decFmt.uvfmt = DEC_FLOAT_2;
 		}
 
 		decFmt.uvoff = decOff;

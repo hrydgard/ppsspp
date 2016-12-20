@@ -130,8 +130,6 @@ DrawEngineGLES::DrawEngineGLES()
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
-	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = false;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
