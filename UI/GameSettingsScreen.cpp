@@ -361,13 +361,6 @@ void GameSettingsScreen::CreateViews() {
 	CheckBox *depthWrite = graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gr->T("Always Depth Write")));
 	depthWrite->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	CheckBox *textureHack = graphicsSettings->Add(new CheckBox(&g_Config.bPrescaleUV, gr->T("Texture Coord Speedhack")));
-	textureHack->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("TextureCoordSpeedhack Tip", "Faster some games that benefit from software skinning further by reducing the number of draw calls"), e.v);
-		return UI::EVENT_CONTINUE;
-	});
-	textureHack->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
 	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);

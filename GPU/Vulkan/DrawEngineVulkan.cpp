@@ -71,7 +71,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	framebufferManager_(nullptr),
 	numDrawCalls(0),
 	vertexCountInDrawCalls(0),
-	uvScale(nullptr),
 	fboTexNeedBind_(false),
 	fboTexBound_(false),
 	curFrame_(0),
@@ -94,10 +93,6 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan)
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
-
-	if (g_Config.bPrescaleUV) {
-		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-	}
 
 	InitDeviceObjects();
 }
@@ -202,7 +197,6 @@ DrawEngineVulkan::~DrawEngineVulkan() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	DestroyDeviceObjects();
-	delete[] uvScale;
 }
 
 void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
@@ -358,9 +352,7 @@ void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		dc.indexUpperBound = vertexCount - 1;
 	}
 
-	if (uvScale) {
-		uvScale[numDrawCalls] = gstate_c.uv;
-	}
+	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
@@ -480,18 +472,12 @@ void DrawEngineVulkan::DecodeVerts(VulkanPushBuffer *push, uint32_t *bindOffset,
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, vkbuf);
 	}
 
-	if (uvScale) {
-		const UVScale origUV = gstate_c.uv;
-		for (int i = 0; i < numDrawCalls; i++) {
-			gstate_c.uv = uvScale[i];
-			DecodeVertsStep(dest, i, decodedVerts);  // Note that this can modify i
-		}
-		gstate_c.uv = origUV;
-	} else {
-		for (int i = 0; i < numDrawCalls; i++) {
-			DecodeVertsStep(dest, i, decodedVerts);  // Note that this can modify i
-		}
+	const UVScale origUV = gstate_c.uv;
+	for (int i = 0; i < numDrawCalls; i++) {
+		gstate_c.uv = uvScale[i];
+		DecodeVertsStep(dest, i, decodedVerts);  // Note that this can modify i
 	}
+	gstate_c.uv = origUV;
 
 	// Sanity check
 	if (indexGen.Prim() < 0) {

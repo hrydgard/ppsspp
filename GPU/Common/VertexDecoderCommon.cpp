@@ -1173,7 +1173,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = tcalign[tc];
 
 		// NOTE: That we check getUVGenMode here means that we must include it in the decoder ID!
-		if (g_Config.bPrescaleUV && !throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN)) {
+		if (!throughmode && (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN)) {
 			if (g_DoubleTextureCoordinates)
 				steps_[numSteps_++] = morphcount == 1 ? tcstep_prescale_remaster[tc] : tcstep_prescale_morph_remaster[tc];
 			else

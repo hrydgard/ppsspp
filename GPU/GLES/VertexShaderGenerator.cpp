@@ -221,7 +221,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 		// Add all the uniforms we'll need to transform properly.
 	}
 
-	bool prescale = g_Config.bPrescaleUV && !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
+	bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
@@ -584,7 +584,7 @@ void GenerateVertexShader(const ShaderID &id, char *buffer) {
 			switch (uvGenMode) {
 			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
 			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
-				if (prescale) {
+				if (scaleUV) {
 					if (hasTexcoord) {
 						WRITE(p, "  v_texcoord = texcoord * u_uvscaleoffset.xy;\n");
 					} else {

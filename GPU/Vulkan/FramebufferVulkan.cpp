@@ -1148,7 +1148,7 @@ bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 }
 
 void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	_assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
+	// _assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
 	// Discard the previous contents of this buffer where possible.
 	/*
