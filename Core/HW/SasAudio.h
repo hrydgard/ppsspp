@@ -33,10 +33,12 @@ enum {
 
 	PSP_SAS_PITCH_MIN = 0x0000,
 	PSP_SAS_PITCH_BASE = 0x1000,
+	PSP_SAS_PITCH_MASK = 0xFFF,
 	PSP_SAS_PITCH_BASE_SHIFT = 12,
 	PSP_SAS_PITCH_MAX = 0x4000,
 
 	PSP_SAS_VOL_MAX = 0x1000,
+	PSP_SAS_MAX_GRAIN = 1024,   // VERY conservative! 256 is quite common but don't think I've ever seen bigger.
 
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE = 0,
 	PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE = 1,
@@ -250,7 +252,7 @@ struct SasVoice {
 	int pcmLoopPos;
 	int sampleRate;
 
-	int sampleFrac;
+	uint32_t sampleFrac;
 	int pitch;
 	bool loop;
 
@@ -288,8 +290,6 @@ public:
 	int *sendBuffer;
 	s16 *sendBufferDownsampled;
 	s16 *sendBufferProcessed;
-
-	s16 *resampleBuffer;
 
 	FILE *audioDump;
 
