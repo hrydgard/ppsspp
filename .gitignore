@@ -47,6 +47,10 @@ PPSSPPControls.dat
 # Qt Linguist files
 *.qm
 
+#Android stuff
+.idea
+android/.idea
+
 Logs
 Memstick
 memstick
