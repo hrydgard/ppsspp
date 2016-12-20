@@ -511,25 +511,13 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		}
 
 		sampleFrac = voice.sampleFrac;
-		tempPos = 2;  // skip the two history samples in the read buffer for now
-		int altSampleFrac = voice.sampleFrac;
 		for (int i = delay; i < grainSize; i++) {
-			while (sampleFrac >= PSP_SAS_PITCH_BASE) {
-				voice.resampleHist[0] = voice.resampleHist[1];
-				voice.resampleHist[1] = temp[tempPos++];
-				sampleFrac -= PSP_SAS_PITCH_BASE;
-			}
-
-			const int16_t *oldS = voice.resampleHist;
-			const int16_t *s = temp + (altSampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
-
-			if (s[0] != oldS[0] || s[1] != oldS[1])
-				Crash();
+			const int16_t *s = temp + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
 			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
-			int sample = (s[0] * (PSP_SAS_PITCH_BASE - 1 - (int)sampleFrac) + s[1] * (int)sampleFrac) >> PSP_SAS_PITCH_BASE_SHIFT;
+			int f = sampleFrac & PSP_SAS_PITCH_MASK;
+			int sample = (s[0] * (PSP_SAS_PITCH_MASK - f) + s[1] * f) >> PSP_SAS_PITCH_BASE_SHIFT;
 			sampleFrac += voice.pitch;
-			altSampleFrac += voice.pitch;
 
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
 			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
@@ -553,10 +541,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[0] = temp[tempPos - 2];
 		voice.resampleHist[1] = temp[tempPos - 1];
 
-		altSampleFrac -= (tempPos - 2) * PSP_SAS_PITCH_BASE;
-		if (sampleFrac != altSampleFrac)
-			Crash();
-		voice.sampleFrac = altSampleFrac;
+		voice.sampleFrac = sampleFrac - (tempPos - 2) * PSP_SAS_PITCH_BASE;;
 
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();
