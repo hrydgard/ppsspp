@@ -1,4 +1,4 @@
-find_package(GLEW)
+#find_package(GLEW)
 if(NOT GLEW_FOUND)
   find_package(OpenGL REQUIRED)
   add_library(glew STATIC
