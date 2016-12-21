@@ -1919,89 +1919,8 @@ void GPU_DX9::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
-void GPU_DX9::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManagerDX9_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-		// We use a little hack for Download/Upload using a VRAM mirror.
-		// Since they're identical we don't need to copy.
-		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, src, size);
-		}
-	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-}
-
-void GPU_DX9::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManagerDX9_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	}
-}
-
 void GPU_DX9::PerformStencilUploadInternal(u32 dest, int size) {
 	framebufferManagerDX9_->NotifyStencilUpload(dest, size);
-}
-
-bool GPU_DX9::PerformMemoryCopy(u32 dest, u32 src, int size) {
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManagerDX9_->MayIntersectFramebuffer(src) || framebufferManagerDX9_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
-			ScheduleEvent(ev);
-
-			// This is a memcpy, so we need to wait for it to complete.
-			SyncThread();
-		} else {
-			PerformMemoryCopyInternal(dest, src, size);
-		}
-		return true;
-	}
-
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_DX9::PerformMemorySet(u32 dest, u8 v, int size) {
-	// This may indicate a memset, usually to 0, of a framebuffer.
-	if (framebufferManagerDX9_->MayIntersectFramebuffer(dest)) {
-		Memory::Memset(dest, v, size);
-
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
-			ScheduleEvent(ev);
-
-			// We don't need to wait for the framebuffer to be updated.
-		} else {
-			PerformMemorySetInternal(dest, v, size);
-		}
-		return true;
-	}
-
-	// Or perhaps a texture, let's invalidate.
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_DX9::PerformMemoryDownload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
-	}
-	return false;
-}
-
-bool GPU_DX9::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force an upload of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
-	}
-	return false;
 }
 
 bool GPU_DX9::PerformStencilUpload(u32 dest, int size) {

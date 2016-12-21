@@ -20,6 +20,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Core/MemMapHelpers.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 
@@ -1412,4 +1413,85 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
+}
+
+void GPUCommon::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
+	if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
+		// We use a little hack for Download/Upload using a VRAM mirror.
+		// Since they're identical we don't need to copy.
+		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
+			Memory::Memcpy(dest, src, size);
+		}
+	}
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+}
+
+void GPUCommon::PerformMemorySetInternal(u32 dest, u8 v, int size) {
+	if (!framebufferManager_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
+		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	}
+}
+
+bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size) {
+	// Track stray copies of a framebuffer in RAM. MotoGP does this.
+	if (framebufferManager_->MayIntersectFramebuffer(src) || framebufferManager_->MayIntersectFramebuffer(dest)) {
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
+			ev.fb_memcpy.dst = dest;
+			ev.fb_memcpy.src = src;
+			ev.fb_memcpy.size = size;
+			ScheduleEvent(ev);
+
+			// This is a memcpy, so we need to wait for it to complete.
+			SyncThread();
+		} else {
+			PerformMemoryCopyInternal(dest, src, size);
+		}
+		return true;
+	}
+
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
+	// This may indicate a memset, usually to 0, of a framebuffer.
+	if (framebufferManager_->MayIntersectFramebuffer(dest)) {
+		Memory::Memset(dest, v, size);
+
+		if (IsOnSeparateCPUThread()) {
+			GPUEvent ev(GPU_EVENT_FB_MEMSET);
+			ev.fb_memset.dst = dest;
+			ev.fb_memset.v = v;
+			ev.fb_memset.size = size;
+			ScheduleEvent(ev);
+
+			// We don't need to wait for the framebuffer to be updated.
+		} else {
+			PerformMemorySetInternal(dest, v, size);
+		}
+		return true;
+	}
+
+	// Or perhaps a texture, let's invalidate.
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
+	return false;
+}
+
+bool GPUCommon::PerformMemoryDownload(u32 dest, int size) {
+	// Cheat a bit to force a download of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
+	}
+	return false;
+}
+
+bool GPUCommon::PerformMemoryUpload(u32 dest, int size) {
+	// Cheat a bit to force an upload of the framebuffer.
+	// VRAM + 0x00400000 is simply a VRAM mirror.
+	if (Memory::IsVRAMAddress(dest)) {
+		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
+	}
+	return false;
 }

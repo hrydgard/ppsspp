@@ -2180,91 +2180,6 @@ void GPU_GLES::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
-void GPU_GLES::PerformMemoryCopyInternal(u32 dest, u32 src, int size) {
-	if (!framebufferManagerGL_->NotifyFramebufferCopy(src, dest, size, false, gstate_c.skipDrawReason)) {
-		// We use a little hack for Download/Upload using a VRAM mirror.
-		// Since they're identical we don't need to copy.
-		if (!Memory::IsVRAMAddress(dest) || (dest ^ 0x00400000) != src) {
-			Memory::Memcpy(dest, src, size);
-		}
-	}
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-}
-
-void GPU_GLES::PerformMemorySetInternal(u32 dest, u8 v, int size) {
-	if (!framebufferManagerGL_->NotifyFramebufferCopy(dest, dest, size, true, gstate_c.skipDrawReason)) {
-		InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	}
-}
-
-void GPU_GLES::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManagerGL_->NotifyStencilUpload(dest, size);
-}
-
-bool GPU_GLES::PerformMemoryCopy(u32 dest, u32 src, int size) {
-	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManagerGL_->MayIntersectFramebuffer(src) || framebufferManagerGL_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMCPY);
-			ev.fb_memcpy.dst = dest;
-			ev.fb_memcpy.src = src;
-			ev.fb_memcpy.size = size;
-			ScheduleEvent(ev);
-
-			// This is a memcpy, so we need to wait for it to complete.
-			SyncThread();
-		} else {
-			PerformMemoryCopyInternal(dest, src, size);
-		}
-		return true;
-	}
-
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_GLES::PerformMemorySet(u32 dest, u8 v, int size) {
-	// This may indicate a memset, usually to 0, of a framebuffer.
-	if (framebufferManagerGL_->MayIntersectFramebuffer(dest)) {
-		Memory::Memset(dest, v, size);
-
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_MEMSET);
-			ev.fb_memset.dst = dest;
-			ev.fb_memset.v = v;
-			ev.fb_memset.size = size;
-			ScheduleEvent(ev);
-
-			// We don't need to wait for the framebuffer to be updated.
-		} else {
-			PerformMemorySetInternal(dest, v, size);
-		}
-		return true;
-	}
-
-	// Or perhaps a texture, let's invalidate.
-	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
-	return false;
-}
-
-bool GPU_GLES::PerformMemoryDownload(u32 dest, int size) {
-	// Cheat a bit to force a download of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest ^ 0x00400000, dest, size);
-	}
-	return false;
-}
-
-bool GPU_GLES::PerformMemoryUpload(u32 dest, int size) {
-	// Cheat a bit to force an upload of the framebuffer.
-	// VRAM + 0x00400000 is simply a VRAM mirror.
-	if (Memory::IsVRAMAddress(dest)) {
-		return PerformMemoryCopy(dest, dest ^ 0x00400000, size);
-	}
-	return false;
-}
-
 bool GPU_GLES::PerformStencilUpload(u32 dest, int size) {
 	if (framebufferManagerGL_->MayIntersectFramebuffer(dest)) {
 		if (IsOnSeparateCPUThread()) {
@@ -2375,6 +2290,10 @@ bool GPU_GLES::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 #else
 	return false;
 #endif
+}
+
+void GPU_GLES::PerformStencilUploadInternal(u32 dest, int size) {
+	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 bool GPU_GLES::GetCurrentClut(GPUDebugBuffer &buffer) {

@@ -55,10 +55,6 @@ public:
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
-	bool PerformMemorySet(u32 dest, u8 v, int size) override;
-	bool PerformMemoryDownload(u32 dest, int size) override;
-	bool PerformMemoryUpload(u32 dest, int size) override;
 	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
@@ -164,8 +160,6 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
