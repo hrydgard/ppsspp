@@ -100,8 +100,6 @@ enum DoLightComputation {
 bool GenerateVulkanGLSLVertexShader(const ShaderID &id, char *buffer, bool *usesLighting) {
 	char *p = buffer;
 
-	// #define USE_FOR_LOOP
-
 	WRITE(p, "%s", vulkan_glsl_preamble);
 
 	bool highpFog = false;
