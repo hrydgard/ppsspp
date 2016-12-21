@@ -42,7 +42,6 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	}
 	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(VS_BIT_MATERIAL_UPDATE, 3) << " ";
 	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
-	if (id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2)) desc << "TCScale " << id.Bits(VS_BIT_TEXCOORD_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
 	// TODO: More...
@@ -119,11 +118,6 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
-		if (doTextureProjection && gstate.getUVProjMode() == GE_PROJMAP_UV) {
-			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, (vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT);  // two bits
-		} else {
-			id.SetBits(VS_BIT_TEXCOORD_FMTSCALE, 2, 3);  // float - no scaling
-		}
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);

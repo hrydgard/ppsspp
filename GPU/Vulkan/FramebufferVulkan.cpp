@@ -50,7 +50,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-const VkFormat framebufFormat = VK_FORMAT_R8G8B8A8_UNORM;
+const VkFormat framebufFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
 static const char tex_fs[] = R"(#version 400
 #extension GL_ARB_separate_shader_objects : enable
@@ -1148,7 +1148,7 @@ bool FramebufferManagerVulkan::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb
 }
 
 void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	_assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
+	// _assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 
 	// Discard the previous contents of this buffer where possible.
 	/*

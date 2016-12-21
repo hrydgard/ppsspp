@@ -265,7 +265,7 @@ private:
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 	int vertexCountInDrawCalls;
-	UVScale *uvScale;
+	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	bool fboTexNeedBind_;
 	bool fboTexBound_;

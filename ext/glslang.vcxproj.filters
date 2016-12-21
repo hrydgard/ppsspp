@@ -7,6 +7,9 @@
     <Filter Include="glslang">
       <UniqueIdentifier>{b58351f2-24d7-471d-b842-a8bf8f4f7e90}</UniqueIdentifier>
     </Filter>
+    <Filter Include="HLSL">
+      <UniqueIdentifier>{bebc5043-a1be-442e-b458-6ee3dbd2309b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="glslang\SPIRV\disassemble.cpp">
@@ -110,6 +113,39 @@
     <ClCompile Include="glslang\glslang\MachineIndependent\glslang_tab.cpp">
       <Filter>glslang</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\iomapper.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\ParseContextBase.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\propagateNoContraction.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\SPIRV\Logger.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslAttributes.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslGrammar.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslOpMap.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslParseables.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslScanContext.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslTokenStream.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -211,6 +247,60 @@
     <ClInclude Include="glslang\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="glslang\glslang\MachineIndependent\glslang_tab.cpp.h">
       <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\Include\revision.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\MachineIndependent\iomapper.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\MachineIndependent\LiveTraverser.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\MachineIndependent\parseVersions.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\MachineIndependent\propagateNoContraction.h">
+      <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\SPIRV\bitutils.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\SPIRV\GLSL.ext.AMD.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\SPIRV\GLSL.ext.KHR.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\SPIRV\hex_float.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\SPIRV\Logger.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslAttributes.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslGrammar.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslOpMap.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslParseables.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslParseHelper.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslScanContext.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslTokens.h">
+      <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslTokenStream.h">
+      <Filter>HLSL</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -126,13 +126,10 @@ DrawEngineGLES::DrawEngineGLES()
 		vertexCountInDrawCalls(0),
 		decodeCounter_(0),
 		dcid_(0),
-		uvScale(nullptr),
 		fboTexNeedBind_(false),
 		fboTexBound_(false) {
 	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	bufferDecimationCounter_ = VERTEXCACHE_NAME_DECIMATION_INTERVAL;
-	memset(&decOptions_, 0, sizeof(decOptions_));
-	decOptions_.expandAllUVtoFloat = false;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -142,9 +139,6 @@ DrawEngineGLES::DrawEngineGLES()
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
-	if (g_Config.bPrescaleUV) {
-		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-	}
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
@@ -160,7 +154,6 @@ DrawEngineGLES::~DrawEngineGLES() {
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
 
 	unregister_gl_resource_holder(this);
-	delete [] uvScale;
 }
 
 void DrawEngineGLES::RestoreVAO() {
@@ -327,9 +320,7 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 		dc.indexUpperBound = vertexCount - 1;
 	}
 
-	if (uvScale) {
-		uvScale[numDrawCalls] = gstate_c.uv;
-	}
+	uvScale[numDrawCalls] = gstate_c.uv;
 
 	numDrawCalls++;
 	vertexCountInDrawCalls += vertexCount;
@@ -349,18 +340,12 @@ void DrawEngineGLES::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, i
 }
 
 void DrawEngineGLES::DecodeVerts() {
-	if (uvScale) {
-		const UVScale origUV = gstate_c.uv;
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			gstate_c.uv = uvScale[decodeCounter_];
-			DecodeVertsStep();
-		}
-		gstate_c.uv = origUV;
-	} else {
-		for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-			DecodeVertsStep();
-		}
+	const UVScale origUV = gstate_c.uv;
+	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
+		gstate_c.uv = uvScale[decodeCounter_];
+		DecodeVertsStep();
 	}
+	gstate_c.uv = origUV;
 	// Sanity check
 	if (indexGen.Prim() < 0) {
 		ERROR_LOG_REPORT(G3D, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
@@ -396,26 +381,15 @@ void DrawEngineGLES::DecodeVertsStep() {
 		//    Expand the lower and upper bounds as we go.
 		int lastMatch = i;
 		const int total = numDrawCalls;
-		if (uvScale) {
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-				if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
-					break;
+		for (int j = i + 1; j < total; ++j) {
+			if (drawCalls[j].verts != dc.verts)
+				break;
+			if (memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0])) != 0)
+				break;
 
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
-		} else {
-			for (int j = i + 1; j < total; ++j) {
-				if (drawCalls[j].verts != dc.verts)
-					break;
-
-				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
-				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
-				lastMatch = j;
-			}
+			indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
+			indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
+			lastMatch = j;
 		}
 
 		// 2. Loop through the drawcalls, translating indices as we go.
@@ -543,9 +517,7 @@ ReliableHashType DrawEngineGLES::ComputeHash() {
 			i = lastMatch;
 		}
 	}
-	if (uvScale) {
-		fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
-	}
+	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 
 	return fullhash;
 }
@@ -1031,13 +1003,6 @@ void DrawEngineGLES::Resized() {
 		delete iter->second;
 	}
 	decoderMap_.clear();
-
-	if (g_Config.bPrescaleUV && !uvScale) {
-		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
-	} else if (!g_Config.bPrescaleUV && uvScale) {
-		delete uvScale;
-		uvScale = 0;
-	}
 }
 
 GLuint DrawEngineGLES::BindBuffer(const void *p, size_t sz) {

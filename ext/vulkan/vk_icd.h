@@ -6,24 +6,17 @@
  * Copyright (c) 2015-2016 Valve Corporation
  * Copyright (c) 2015-2016 LunarG, Inc.
  *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and/or associated documentation files (the "Materials"), to
- * deal in the Materials without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Materials, and to permit persons to whom the Materials are
- * furnished to do so, subject to the following conditions:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * The above copyright notice(s) and this permission notice shall be included in
- * all copies or substantial portions of the Materials.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- *
- * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
- * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
- * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE MATERIALS OR THE
- * USE OR OTHER DEALINGS IN THE MATERIALS.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -33,6 +26,12 @@
 #include "vulkan.h"
 
 /*
+ * Loader-ICD version negotiation API
+ */
+#define CURRENT_LOADER_ICD_INTERFACE_VERSION 3
+#define MIN_SUPPORTED_LOADER_ICD_INTERFACE_VERSION 0
+typedef VkResult (VKAPI_PTR *PFN_vkNegotiateLoaderICDInterfaceVersion)(uint32_t *pVersion);
+/*
  * The ICD must reserve space for a pointer for the loader's dispatch
  * table, at the start of <each object>.
  * The ICD must initialize this variable using the SET_LOADER_MAGIC_VALUE macro.
@@ -40,7 +39,7 @@
 
 #define ICD_LOADER_MAGIC 0x01CDC0DE
 
-typedef union _VK_LOADER_DATA {
+typedef union {
     uintptr_t loaderMagic;
     void *loaderData;
 } VK_LOADER_DATA;
@@ -59,7 +58,7 @@ static inline bool valid_loader_magic_value(void *pNewObject) {
  * Windows and Linux ICDs will treat VkSurfaceKHR as a pointer to a struct that
  * contains the platform-specific connection and surface information.
  */
-typedef enum _VkIcdWsiPlatform {
+typedef enum {
     VK_ICD_WSI_PLATFORM_MIR,
     VK_ICD_WSI_PLATFORM_WAYLAND,
     VK_ICD_WSI_PLATFORM_WIN32,
@@ -68,12 +67,12 @@ typedef enum _VkIcdWsiPlatform {
     VK_ICD_WSI_PLATFORM_DISPLAY
 } VkIcdWsiPlatform;
 
-typedef struct _VkIcdSurfaceBase {
+typedef struct {
     VkIcdWsiPlatform platform;
 } VkIcdSurfaceBase;
 
 #ifdef VK_USE_PLATFORM_MIR_KHR
-typedef struct _VkIcdSurfaceMir {
+typedef struct {
     VkIcdSurfaceBase base;
     MirConnection *connection;
     MirSurface *mirSurface;
@@ -81,7 +80,7 @@ typedef struct _VkIcdSurfaceMir {
 #endif // VK_USE_PLATFORM_MIR_KHR
 
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
-typedef struct _VkIcdSurfaceWayland {
+typedef struct {
     VkIcdSurfaceBase base;
     struct wl_display *display;
     struct wl_surface *surface;
@@ -89,7 +88,7 @@ typedef struct _VkIcdSurfaceWayland {
 #endif // VK_USE_PLATFORM_WAYLAND_KHR
 
 #ifdef VK_USE_PLATFORM_WIN32_KHR
-typedef struct _VkIcdSurfaceWin32 {
+typedef struct {
     VkIcdSurfaceBase base;
     HINSTANCE hinstance;
     HWND hwnd;
@@ -97,7 +96,7 @@ typedef struct _VkIcdSurfaceWin32 {
 #endif // VK_USE_PLATFORM_WIN32_KHR
 
 #ifdef VK_USE_PLATFORM_XCB_KHR
-typedef struct _VkIcdSurfaceXcb {
+typedef struct {
     VkIcdSurfaceBase base;
     xcb_connection_t *connection;
     xcb_window_t window;
@@ -105,14 +104,20 @@ typedef struct _VkIcdSurfaceXcb {
 #endif // VK_USE_PLATFORM_XCB_KHR
 
 #ifdef VK_USE_PLATFORM_XLIB_KHR
-typedef struct _VkIcdSurfaceXlib {
+typedef struct {
     VkIcdSurfaceBase base;
     Display *dpy;
     Window window;
 } VkIcdSurfaceXlib;
 #endif // VK_USE_PLATFORM_XLIB_KHR
 
-typedef struct _VkIcdSurfaceDisplay {
+#ifdef VK_USE_PLATFORM_ANDROID_KHR
+typedef struct {
+    ANativeWindow* window;
+} VkIcdSurfaceAndroid;
+#endif //VK_USE_PLATFORM_ANDROID_KHR
+
+typedef struct {
     VkIcdSurfaceBase base;
     VkDisplayModeKHR displayMode;
     uint32_t planeIndex;
@@ -122,4 +127,5 @@ typedef struct _VkIcdSurfaceDisplay {
     VkDisplayPlaneAlphaFlagBitsKHR alphaMode;
     VkExtent2D imageExtent;
 } VkIcdSurfaceDisplay;
+
 #endif // VKICD_H

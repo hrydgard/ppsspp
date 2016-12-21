@@ -46,12 +46,12 @@ namespace spv {
 
 typedef unsigned int Id;
 
-#define SPV_VERSION 0x10000
-#define SPV_REVISION 3
+#define SPV_VERSION 0x10100
+#define SPV_REVISION 4
 
 static const unsigned int MagicNumber = 0x07230203;
-static const unsigned int Version = 0x00010000;
-static const unsigned int Revision = 3;
+static const unsigned int Version = 0x00010100;
+static const unsigned int Revision = 4;
 static const unsigned int OpCodeMask = 0xffff;
 static const unsigned int WordCountShift = 16;
 
@@ -61,6 +61,7 @@ enum class SourceLanguage : unsigned {
     GLSL = 2,
     OpenCL_C = 3,
     OpenCL_CPP = 4,
+    Max = 0x7fffffff,
 };
 
 enum class ExecutionModel : unsigned {
@@ -71,18 +72,21 @@ enum class ExecutionModel : unsigned {
     Fragment = 4,
     GLCompute = 5,
     Kernel = 6,
+    Max = 0x7fffffff,
 };
 
 enum class AddressingModel : unsigned {
     Logical = 0,
     Physical32 = 1,
     Physical64 = 2,
+    Max = 0x7fffffff,
 };
 
 enum class MemoryModel : unsigned {
     Simple = 0,
     GLSL450 = 1,
     OpenCL = 2,
+    Max = 0x7fffffff,
 };
 
 enum class ExecutionMode : unsigned {
@@ -117,6 +121,11 @@ enum class ExecutionMode : unsigned {
     OutputTriangleStrip = 29,
     VecTypeHint = 30,
     ContractionOff = 31,
+    Initializer = 33,
+    Finalizer = 34,
+    SubgroupSize = 35,
+    SubgroupsPerWorkgroup = 36,
+    Max = 0x7fffffff,
 };
 
 enum class StorageClass : unsigned {
@@ -132,6 +141,7 @@ enum class StorageClass : unsigned {
     PushConstant = 9,
     AtomicCounter = 10,
     Image = 11,
+    Max = 0x7fffffff,
 };
 
 enum class Dim : unsigned {
@@ -142,6 +152,7 @@ enum class Dim : unsigned {
     Rect = 4,
     Buffer = 5,
     SubpassData = 6,
+    Max = 0x7fffffff,
 };
 
 enum class SamplerAddressingMode : unsigned {
@@ -150,11 +161,13 @@ enum class SamplerAddressingMode : unsigned {
     Clamp = 2,
     Repeat = 3,
     RepeatMirrored = 4,
+    Max = 0x7fffffff,
 };
 
 enum class SamplerFilterMode : unsigned {
     Nearest = 0,
     Linear = 1,
+    Max = 0x7fffffff,
 };
 
 enum class ImageFormat : unsigned {
@@ -198,6 +211,7 @@ enum class ImageFormat : unsigned {
     Rg8ui = 37,
     R16ui = 38,
     R8ui = 39,
+    Max = 0x7fffffff,
 };
 
 enum class ImageChannelOrder : unsigned {
@@ -220,6 +234,8 @@ enum class ImageChannelOrder : unsigned {
     sRGBx = 16,
     sRGBA = 17,
     sBGRA = 18,
+    ABGR = 19,
+    Max = 0x7fffffff,
 };
 
 enum class ImageChannelDataType : unsigned {
@@ -240,6 +256,7 @@ enum class ImageChannelDataType : unsigned {
     Float = 14,
     UnormInt24 = 15,
     UnormInt101010_2 = 16,
+    Max = 0x7fffffff,
 };
 
 enum class ImageOperandsShift : unsigned {
@@ -251,6 +268,7 @@ enum class ImageOperandsShift : unsigned {
     ConstOffsets = 5,
     Sample = 6,
     MinLod = 7,
+    Max = 0x7fffffff,
 };
 
 enum class ImageOperandsMask : unsigned {
@@ -271,6 +289,7 @@ enum class FPFastMathModeShift : unsigned {
     NSZ = 2,
     AllowRecip = 3,
     Fast = 4,
+    Max = 0x7fffffff,
 };
 
 enum class FPFastMathModeMask : unsigned {
@@ -287,17 +306,20 @@ enum class FPRoundingMode : unsigned {
     RTZ = 1,
     RTP = 2,
     RTN = 3,
+    Max = 0x7fffffff,
 };
 
 enum class LinkageType : unsigned {
     Export = 0,
     Import = 1,
+    Max = 0x7fffffff,
 };
 
 enum class AccessQualifier : unsigned {
     ReadOnly = 0,
     WriteOnly = 1,
     ReadWrite = 2,
+    Max = 0x7fffffff,
 };
 
 enum class FunctionParameterAttribute : unsigned {
@@ -309,6 +331,7 @@ enum class FunctionParameterAttribute : unsigned {
     NoCapture = 5,
     NoWrite = 6,
     NoReadWrite = 7,
+    Max = 0x7fffffff,
 };
 
 enum class Decoration : unsigned {
@@ -355,6 +378,8 @@ enum class Decoration : unsigned {
     NoContraction = 42,
     InputAttachmentIndex = 43,
     Alignment = 44,
+    MaxByteOffset = 45,
+    Max = 0x7fffffff,
 };
 
 enum class BuiltIn : unsigned {
@@ -399,11 +424,21 @@ enum class BuiltIn : unsigned {
     SubgroupLocalInvocationId = 41,
     VertexIndex = 42,
     InstanceIndex = 43,
+    SubgroupEqMaskKHR = 4416,
+    SubgroupGeMaskKHR = 4417,
+    SubgroupGtMaskKHR = 4418,
+    SubgroupLeMaskKHR = 4419,
+    SubgroupLtMaskKHR = 4420,
+    BaseVertex = 4424,
+    BaseInstance = 4425,
+    DrawIndex = 4426,
+    Max = 0x7fffffff,
 };
 
 enum class SelectionControlShift : unsigned {
     Flatten = 0,
     DontFlatten = 1,
+    Max = 0x7fffffff,
 };
 
 enum class SelectionControlMask : unsigned {
@@ -415,12 +450,17 @@ enum class SelectionControlMask : unsigned {
 enum class LoopControlShift : unsigned {
     Unroll = 0,
     DontUnroll = 1,
+    DependencyInfinite = 2,
+    DependencyLength = 3,
+    Max = 0x7fffffff,
 };
 
 enum class LoopControlMask : unsigned {
     MaskNone = 0,
     Unroll = 0x00000001,
     DontUnroll = 0x00000002,
+    DependencyInfinite = 0x00000004,
+    DependencyLength = 0x00000008,
 };
 
 enum class FunctionControlShift : unsigned {
@@ -428,6 +468,7 @@ enum class FunctionControlShift : unsigned {
     DontInline = 1,
     Pure = 2,
     Const = 3,
+    Max = 0x7fffffff,
 };
 
 enum class FunctionControlMask : unsigned {
@@ -449,6 +490,7 @@ enum class MemorySemanticsShift : unsigned {
     CrossWorkgroupMemory = 9,
     AtomicCounterMemory = 10,
     ImageMemory = 11,
+    Max = 0x7fffffff,
 };
 
 enum class MemorySemanticsMask : unsigned {
@@ -469,6 +511,7 @@ enum class MemoryAccessShift : unsigned {
     Volatile = 0,
     Aligned = 1,
     Nontemporal = 2,
+    Max = 0x7fffffff,
 };
 
 enum class MemoryAccessMask : unsigned {
@@ -484,22 +527,26 @@ enum class Scope : unsigned {
     Workgroup = 2,
     Subgroup = 3,
     Invocation = 4,
+    Max = 0x7fffffff,
 };
 
 enum class GroupOperation : unsigned {
     Reduce = 0,
     InclusiveScan = 1,
     ExclusiveScan = 2,
+    Max = 0x7fffffff,
 };
 
 enum class KernelEnqueueFlags : unsigned {
     NoWait = 0,
     WaitKernel = 1,
     WaitWorkGroup = 2,
+    Max = 0x7fffffff,
 };
 
 enum class KernelProfilingInfoShift : unsigned {
     CmdExecTime = 0,
+    Max = 0x7fffffff,
 };
 
 enum class KernelProfilingInfoMask : unsigned {
@@ -564,6 +611,12 @@ enum class Capability : unsigned {
     StorageImageReadWithoutFormat = 55,
     StorageImageWriteWithoutFormat = 56,
     MultiViewport = 57,
+    SubgroupDispatch = 58,
+    NamedBarrier = 59,
+    PipeStorage = 60,
+    SubgroupBallotKHR = 4423,
+    DrawParameters = 4427,
+    Max = 0x7fffffff,
 };
 
 enum class Op : unsigned {
@@ -861,6 +914,19 @@ enum class Op : unsigned {
     OpAtomicFlagTestAndSet = 318,
     OpAtomicFlagClear = 319,
     OpImageSparseRead = 320,
+    OpSizeOf = 321,
+    OpTypePipeStorage = 322,
+    OpConstantPipeStorage = 323,
+    OpCreatePipeFromPipeStorage = 324,
+    OpGetKernelLocalSizeForSubgroupCount = 325,
+    OpGetKernelMaxNumSubgroups = 326,
+    OpTypeNamedBarrier = 327,
+    OpNamedBarrierInitialize = 328,
+    OpMemoryNamedBarrier = 329,
+    OpModuleProcessed = 330,
+    OpSubgroupBallotKHR = 4421,
+    OpSubgroupFirstInvocationKHR = 4422,
+    Max = 0x7fffffff,
 };
 
 // Overload operator| for mask bit combining

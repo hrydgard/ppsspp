@@ -115,7 +115,7 @@ if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 endif()
 
 if(NOT OPENGL_LIBRARIES)
-	include(FindOpenGL REQUIRED)
+	find_package(OpenGL REQUIRED)
 endif()
 
 find_package(SDL2)
@@ -354,6 +354,8 @@ add_library(Common STATIC
 include_directories(Common)
 setup_target_project(Common Common)
 
+target_link_libraries(Common Snappy::Snappy)
+
 if(WIN32)
 	include_directories(dx9sdk/Include)
 	target_link_libraries(Common winmm d3d9 dxguid dsound)
@@ -363,36 +365,11 @@ if(TARGET SDL2::SDL2)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-if(NOT USING_GLES2)
-	include_directories(${OPENGL_INCLUDE_DIR})
-	find_package(GLEW)
-	if(NOT GLEW_FOUND)
-		add_definitions(-DGLEW_STATIC)
-		add_library(glew STATIC
-			ext/native/ext/glew/GL/glew.h
-			ext/native/ext/glew/GL/glxew.h
-			ext/native/ext/glew/GL/wglew.h
-			ext/native/ext/glew/glew.c)
-		target_link_libraries(glew ${OPENGL_LIBRARIES})
-		include_directories(ext/native/ext/glew)
-		set(GLEW_LIBRARIES glew)
-	endif()
-else()
+if(USING_GLES2)
 	find_package(X11)
 endif()
 
-find_package(Snappy)
-if(SNAPPY_FOUND)
-	add_definitions(-DSHARED_SNAPPY)
-else()
-	add_subdirectory(ext/snappy)
-endif()
-
-if(WIN32)
-	add_subdirectory(ext/cmake/armips)
-endif()
-
-add_subdirectory(ext/udis86)
+add_subdirectory(ext)
 
 add_library(vjson STATIC
 	ext/native/ext/vjson/json.cpp
@@ -407,170 +384,51 @@ add_library(rg_etc1 STATIC
 include_directories(ext/native/ext/rg_etc1)
 
 if(USE_FFMPEG)
-	if(USE_SYSTEM_FFMPEG)
-		find_package(FFMPEG)
-	else()
-		set(FFMPEG_FOUND OFF)
-	endif()
-	if(NOT FFMPEG_FOUND)
-		if(NOT DEFINED FFMPEG_BUILDDIR)
-			if(ANDROID)
-				if(ARMV7)
-					set(PLATFORM_ARCH "android/armv7")
-				elseif(ARM)
-					set(PLATFORM_ARCH "android/arm")
-				elseif(X86_64)   # Before X86 since both may be defined... gah
-					set(PLATFORM_ARCH "android/x86_64")
-				elseif(X86)
-					set(PLATFORM_ARCH "android/x86")
-				elseif(ARM64)
-				  set(PLATFORM_ARCH "android/arm64")
-				endif()
-			elseif(IOS)
-				set(PLATFORM_ARCH "ios/universal")
-			elseif(MACOSX)
-				set(PLATFORM_ARCH "macosx/x86_64")
-			elseif(LINUX)
-				if(ARMV7)
-					set(PLATFORM_ARCH "linux/armv7")
-				elseif(ARM)
-					set(PLATFORM_ARCH "linux/arm")
-				elseif(MIPS)
-					set(PLATFORM_ARCH "linux/mips32")
-				elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-					set(PLATFORM_ARCH "linux/x86_64")
-				else()
-					set(PLATFORM_ARCH "linux/x86")
-				endif()
-			elseif(WIN32)
-				if(X86_64)
-					set(PLATFORM_ARCH "Windows/x86_64")
-				elseif(X86)
-					set(PLATFORM_ARCH "Windows/x86")
-				endif()
-			endif()
-			# Using static libraries
-			if (DEFINED PLATFORM_ARCH)
-				include_directories(ffmpeg/${PLATFORM_ARCH}/include)
-				link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
-				if(WIN32)
-					set(FFMPEG_LIBRARIES avformat avcodec avutil swresample swscale)
-				else()
-					set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
-				endif()
-			else()
-				# Manual definition of system library locations by the user.
-				if (DEFINED FFMPEG_INCLUDE_PATH)
-					include_directories(ffmpeg ${FFMPEG_INCLUDE_PATH})
-				endif()
-				if (DEFINED AVFORMAT_PATH)
-					add_library(libavformat STATIC IMPORTED)
-					set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${AVFORMAT_PATH})
-					SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavformat)
-				endif()
-				if (DEFINED AVCODEC_PATH)
-					add_library(libavcodec STATIC IMPORTED)
-					set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${AVCODEC_PATH})
-					SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavcodec)
-				endif()
-				if (DEFINED AVUTIL_PATH)
-					add_library(libavutil STATIC IMPORTED)
-					set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${AVUTIL_PATH})
-					SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libavutil)
-				endif()
-				if (DEFINED SWRESAMPLE_PATH)
-					add_library(libswresample STATIC IMPORTED)
-					set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${SWRESAMPLE_PATH})
-					SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswresample)
-				endif()
-				if (DEFINED SWSCALE_PATH)
-					add_library(libswscale STATIC IMPORTED)
-					set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${SWSCALE_PATH})
-					SET (FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} libswscale)
-				endif()
-			endif(DEFINED PLATFORM_ARCH)
-		else(NOT DEFINED FFMPEG_BUILDDIR)
-			# Using shared libraries
-			include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+  if(NOT FFMPEG_DIR)
+    if(NOT USE_SYSTEM_FFMPEG)
+      if(ANDROID)
+        if(ARMV7)
+          set(PLATFORM_ARCH "android/armv7")
+        elseif(ARM)
+          set(PLATFORM_ARCH "android/arm")
+        elseif(X86)
+          set(PLATFORM_ARCH "android/x86")
+        else()
+          set(PLATFORM_ARCH "android/x86_64")
+        endif()
+      elseif(IOS)
+        set(PLATFORM_ARCH "ios/universal")
+      elseif(MACOSX)
+        set(PLATFORM_ARCH "macosx/x86_64")
+      elseif(LINUX)
+        if(ARMV7)
+          set(PLATFORM_ARCH "linux/armv7")
+        elseif(ARM)
+          set(PLATFORM_ARCH "linux/arm")
+        elseif(MIPS)
+          set(PLATFORM_ARCH "linux/mips32")
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+          set(PLATFORM_ARCH "linux/x86_64")
+        else()
+          set(PLATFORM_ARCH "linux/x86")
+        endif()
+      elseif(WIN32)
+        if(X86_64)
+          set(PLATFORM_ARCH "Windows/x86_64")
+        elseif(X86)
+          set(PLATFORM_ARCH "Windows/x86")
+        endif()
+      endif()
+      if(PLATFORM_ARCH)
+        set(FFMPEG_DIR "ffmpeg/${PLATFORM_ARCH}")
+      else()
+        message("Couldn't find an internal FFmpeg build, using system FFmpeg instead")
+      endif()
+    endif()
+  endif()
 
-			add_library(libavformat STATIC IMPORTED)
-			set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
-			add_library(libavcodec STATIC IMPORTED)
-			set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
-			add_library(libavutil STATIC IMPORTED)
-			set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
-			add_library(libswresample STATIC IMPORTED)
-			set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
-			add_library(libswscale STATIC IMPORTED)
-			set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
-
-			SET (FFMPEG_LIBRARIES
-				libavformat
-				libavcodec
-				libavutil
-				libswresample
-				libswscale
-			)
-		endif(NOT DEFINED FFMPEG_BUILDDIR)
-	endif(NOT FFMPEG_FOUND)
-
-	find_library(ICONV_LIBRARY NAMES iconv)
-	if (ICONV_LIBRARY)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} ${ICONV_LIBRARY})
-	endif()
-
-	if(APPLE)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
-		if (NOT IOS)
-			set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
-		endif()
-	endif(APPLE)
-
-	if(FFMPEG_FOUND)
-		set(nativeExtraLibs ${nativeExtraLibs} ${FFMPEG_LIBRARIES})
-	else()
-		set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
-	endif()
-	target_link_libraries(Common ${FFMPEG_LIBRARIES})
-	add_definitions(-DUSE_FFMPEG)
+  find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
 endif(USE_FFMPEG)
-
-# Modification to show where we are pulling the ffmpeg libraries from.
-if(USE_FFMPEG AND DEFINED FFMPEG_LIBRARIES)
-	message(STATUS "FFMPEG library locations:")
-	if(FFMPEG_FOUND)
-		message(STATUS "  libavcodec location: ${FFMPEG_avcodec_LIBRARY}")
-		message(STATUS "  libavformat location: ${FFMPEG_avformat_LIBRARY}")
-		message(STATUS "  libavutil location: ${FFMPEG_avutil_LIBRARY}")
-		message(STATUS "  libswresample location: ${FFMPEG_swresample_LIBRARY}")
-		message(STATUS "  libswscale location: ${FFMPEG_swscale_LIBRARY}")
-	elseif(DEFINED PLATFORM_ARCH)
-		set(TEMP ${CMAKE_SOURCE_DIR}/ffmpeg/${PLATFORM_ARCH}/lib)
-		message(STATUS "  libavcodec location: ${TEMP}/libavcodec.a")
-		message(STATUS "  libavformat location: ${TEMP}/libavformat.a")
-		message(STATUS "  libavutil location: ${TEMP}/libavutil.a")
-		message(STATUS "  libswresample location: ${TEMP}/libswresample.a")
-		message(STATUS "  libswscale location: ${TEMP}/libswscale.a")
-	else()
-		get_target_property(TEMP libavcodec IMPORTED_LOCATION)
-		message(STATUS "  libavcodec location: ${TEMP}")
-		get_target_property(TEMP libavformat IMPORTED_LOCATION)
-		message(STATUS "  libavformat location: ${TEMP}")
-		get_target_property(TEMP libavutil IMPORTED_LOCATION)
-		message(STATUS "  libavutil location: ${TEMP}")
-		get_target_property(TEMP libswresample IMPORTED_LOCATION)
-		message(STATUS "  libswresample location: ${TEMP}")
-		get_target_property(TEMP libswscale IMPORTED_LOCATION)
-		message(STATUS "  libswscale location: ${TEMP}")
-	endif()
-else()
-	message(STATUS "ERROR: No FFMPEG library locations")
-endif()
-
-if(USE_FFMPEG AND NOT DEFINED FFMPEG_LIBRARIES)
-	message(WARNING "FFMPEG_BUILDDIR variable or manual path definition is required to enable FFmpeg. Disabling it.")
-	unset(USE_FFMPEG)
-endif()
 
 find_package(ZLIB)
 if(ZLIB_FOUND)
@@ -619,9 +477,6 @@ include_directories(ext/cityhash)
 
 if (NOT MSVC)
 	# These can be fast even for debug.
-	if(NOT SNAPPY_FOUND)
-		set_target_properties(snappy PROPERTIES COMPILE_FLAGS "-O3")
-	endif()
 	set_target_properties(udis86 PROPERTIES COMPILE_FLAGS "-O3")
 	set_target_properties(cityhash PROPERTIES COMPILE_FLAGS "-O3")
 	if(NOT ZLIB_FOUND)
@@ -740,15 +595,6 @@ endif()
 
 set(nativeExtra)
 set(nativeExtraLibs)
-if(ARMV7)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_neon.S)
-endif()
-if((X86 OR X86_64) AND NOT MIPS)
-	set(nativeExtra ${nativeExtra}
-		ext/native/math/fast/fast_matrix_sse.c)
-endif()
-
 
 if(ANDROID)
   set(nativeExtra ${nativeExtra}
@@ -982,6 +828,8 @@ add_library(native STATIC
 	ext/native/input/input_state.cpp
 	ext/native/math/fast/fast_math.c
 	ext/native/math/fast/fast_matrix.c
+	ext/native/math/fast/fast_matrix_neon.S
+	ext/native/math/fast/fast_matrix_sse.c
 	ext/native/math/curves.cpp
 	ext/native/math/curves.h
 	ext/native/math/expression_parser.cpp
@@ -1061,7 +909,10 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson snappy udis86 ${RT_LIB} ${GLEW_LIBRARIES} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+if(TARGET glew)
+  target_link_libraries(native glew)
+endif()
 
 if(ANDROID)
 	target_link_libraries(native log EGL OpenSLES)
@@ -1664,7 +1515,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${GPU_SOURCES}
 	Globals.h
 	git-version.cpp
-  ext/disarm.cpp
+	ext/disarm.cpp
 	git-version.cpp)
 
 if(ANDROID)
@@ -1675,7 +1526,18 @@ if(ANDROID)
 endif()	
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash glslang
-	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
+
+if(FFmpeg_FOUND)
+  target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)
+  target_link_libraries(${CoreLibName}
+    FFmpeg::avcodec
+    FFmpeg::avformat
+    FFmpeg::avutil
+    FFmpeg::swresample
+    FFmpeg::swscale
+  )
+endif()
 
 setup_target_project(${CoreLibName} Core)
 
@@ -1689,52 +1551,6 @@ add_custom_command(OUTPUT something_that_never_exists
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE)
 add_dependencies(${CoreLibName} GitVersion)
-
-if (NOT WIN32)
-	set(glslang_platform
-		ext/glslang/glslang/OSDependent/Unix/ossource.cpp)
-else()
-	set(glslang_platform
-		ext/glslang/glslang/OSDependent/Windows/ossource.cpp)
-endif()
-
-add_library(glslang
-	${glslang_platform}
-  ext/glslang/glslang/GenericCodeGen/CodeGen.cpp
-  ext/glslang/glslang/GenericCodeGen/Link.cpp
-  ext/glslang/glslang/MachineIndependent/Constant.cpp
-  ext/glslang/glslang/MachineIndependent/glslang_tab.cpp
-  ext/glslang/glslang/MachineIndependent/InfoSink.cpp
-  ext/glslang/glslang/MachineIndependent/Initialize.cpp
-  ext/glslang/glslang/MachineIndependent/Intermediate.cpp
-  ext/glslang/glslang/MachineIndependent/intermOut.cpp
-  ext/glslang/glslang/MachineIndependent/IntermTraverse.cpp
-  ext/glslang/glslang/MachineIndependent/limits.cpp
-  ext/glslang/glslang/MachineIndependent/linkValidate.cpp
-  ext/glslang/glslang/MachineIndependent/parseConst.cpp
-  ext/glslang/glslang/MachineIndependent/ParseHelper.cpp
-  ext/glslang/glslang/MachineIndependent/PoolAlloc.cpp
-  ext/glslang/glslang/MachineIndependent/reflection.cpp
-  ext/glslang/glslang/MachineIndependent/RemoveTree.cpp
-  ext/glslang/glslang/MachineIndependent/Scan.cpp
-  ext/glslang/glslang/MachineIndependent/ShaderLang.cpp
-  ext/glslang/glslang/MachineIndependent/SymbolTable.cpp
-  ext/glslang/glslang/MachineIndependent/Versions.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/Pp.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpAtom.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpContext.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpMemory.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpScanner.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpSymbols.cpp
-  ext/glslang/glslang/MachineIndependent/preprocessor/PpTokens.cpp
-	ext/glslang/glslang/OSDependent/osinclude.h
-  ext/glslang/SPIRV/disassemble.cpp
-  ext/glslang/SPIRV/doc.cpp
-  ext/glslang/SPIRV/GlslangToSpv.cpp
-  ext/glslang/SPIRV/InReadableOrder.cpp
-  ext/glslang/SPIRV/SpvBuilder.cpp
-  ext/glslang/SPIRV/SPVRemapper.cpp
-  ext/glslang/OGLCompilersDLL/InitializeDll.cpp)
 
 set(WindowsFiles
 	Windows/DSoundStream.cpp

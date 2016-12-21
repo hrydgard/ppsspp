@@ -864,13 +864,13 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
+	if ((origVertType & GE_VTYPE_TC_MASK) != 0) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
 		gstate_c.uv.vScale = 1.0f;
-		gstate_c.uv.uOff = 0;
-		gstate_c.uv.vOff = 0;
+		gstate_c.uv.uOff = 0.0f;
+		gstate_c.uv.vOff = 0.0f;
 	}
 
 	int generatedBytesRead;
@@ -878,7 +878,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
+	if ((origVertType & GE_VTYPE_TC_MASK) != 0) {
 		gstate_c.uv = prevUVScale;
 	}
 }
@@ -979,7 +979,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
 	UVScale prevUVScale;
-	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
+	if (origVertType & GE_VTYPE_TC_MASK) {
 		// We scaled during Normalize already so let's turn it off when drawing.
 		prevUVScale = gstate_c.uv;
 		gstate_c.uv.uScale = 1.0f;
@@ -993,7 +993,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	DispatchFlush();
 
-	if (g_Config.bPrescaleUV && (origVertType & GE_VTYPE_TC_MASK) != 0) {
+	if (origVertType & GE_VTYPE_TC_MASK) {
 		gstate_c.uv = prevUVScale;
 	}
 }

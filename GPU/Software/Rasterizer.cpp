@@ -1189,18 +1189,6 @@ void DrawTriangleSlice(
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
-	float texScaleU = gstate_c.uv.uScale;
-	float texScaleV = gstate_c.uv.vScale;
-	float texOffsetU = gstate_c.uv.uOff;
-	float texOffsetV = gstate_c.uv.vOff;
-
-	if (g_Config.bPrescaleUV) {
-		// Already applied during vertex decode.
-		texScaleU = 1.0f;
-		texScaleV = 1.0f;
-		texOffsetU = 0.0f;
-		texOffsetV = 0.0f;
-	}
 
 	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
 	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
@@ -1294,8 +1282,6 @@ void DrawTriangleSlice(
 						// Texture coordinate interpolation must definitely be perspective-correct.
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
-						s = s * texScaleU + texOffsetU;
-						t = t * texScaleV + texOffsetV;
 						ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 					}
 				}
@@ -1421,27 +1407,7 @@ void DrawPoint(const VertexData &v0)
 			}
 		}
 
-		if (gstate.isModeThrough()) {
-			// TODO: Is it really this simple?
-			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
-		} else {
-			float texScaleU = gstate_c.uv.uScale;
-			float texScaleV = gstate_c.uv.vScale;
-			float texOffsetU = gstate_c.uv.uOff;
-			float texOffsetV = gstate_c.uv.vOff;
-
-			if (g_Config.bPrescaleUV) {
-				// Already applied during vertex decode.
-				texScaleU = 1.0f;
-				texScaleV = 1.0f;
-				texOffsetU = 0.0f;
-				texOffsetV = 0.0f;
-			}
-
-			s = s * texScaleU + texOffsetU;
-			t = t * texScaleV + texOffsetV;
-			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
-		}
+		ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 	}
 
 	if (!clearMode)
@@ -1516,19 +1482,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	float texScaleU = gstate_c.uv.uScale;
-	float texScaleV = gstate_c.uv.vScale;
-	float texOffsetU = gstate_c.uv.uOff;
-	float texOffsetV = gstate_c.uv.vOff;
-
-	if (g_Config.bPrescaleUV) {
-		// Already applied during vertex decode.
-		texScaleU = 1.0f;
-		texScaleV = 1.0f;
-		texOffsetU = 0.0f;
-		texOffsetV = 0.0f;
-	}
-
 	float x = a.x;
 	float y = a.y;
 	float z = a.z;
@@ -1553,14 +1506,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1)
 		float t = tc.t();
 
 		if (gstate.isTextureMapEnabled() && !clearMode) {
-			if (gstate.isModeThrough()) {
-				// TODO: Is it really this simple?
-				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
-			} else {
-				s = s * texScaleU + texOffsetU;
-				t = t * texScaleV + texOffsetV;
-				ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
-			}
+			ApplyTexturing(prim_color, s, t, maxTexLevel, magFilt, texptr, texbufwidthbits);
 		}
 
 		if (!clearMode)

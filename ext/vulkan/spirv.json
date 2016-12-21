@@ -51,8 +51,8 @@
                 ]
             ],
             "MagicNumber": 119734787,
-            "Version": 65536,
-            "Revision": 3,
+            "Version": 65792,
+            "Revision": 4,
             "OpCodeMask": 65535,
             "WordCountShift": 16
         },
@@ -139,7 +139,11 @@
                     "OutputLineStrip": 28,
                     "OutputTriangleStrip": 29,
                     "VecTypeHint": 30,
-                    "ContractionOff": 31
+                    "ContractionOff": 31,
+                    "Initializer": 33,
+                    "Finalizer": 34,
+                    "SubgroupSize": 35,
+                    "SubgroupsPerWorkgroup": 36
                 }
             },
             {
@@ -266,7 +270,8 @@
                     "sRGB": 15,
                     "sRGBx": 16,
                     "sRGBA": 17,
-                    "sBGRA": 18
+                    "sBGRA": 18,
+                    "ABGR": 19
                 }
             },
             {
@@ -412,7 +417,8 @@
                     "LinkageAttributes": 41,
                     "NoContraction": 42,
                     "InputAttachmentIndex": 43,
-                    "Alignment": 44
+                    "Alignment": 44,
+                    "MaxByteOffset": 45
                 }
             },
             {
@@ -460,7 +466,15 @@
                     "SubgroupId": 40,
                     "SubgroupLocalInvocationId": 41,
                     "VertexIndex": 42,
-                    "InstanceIndex": 43
+                    "InstanceIndex": 43,
+                    "SubgroupEqMaskKHR": 4416,
+                    "SubgroupGeMaskKHR": 4417,
+                    "SubgroupGtMaskKHR": 4418,
+                    "SubgroupLeMaskKHR": 4419,
+                    "SubgroupLtMaskKHR": 4420,
+                    "BaseVertex": 4424,
+                    "BaseInstance": 4425,
+                    "DrawIndex": 4426
                 }
             },
             {
@@ -478,7 +492,9 @@
                 "Values":
                 {
                     "Unroll": 0,
-                    "DontUnroll": 1
+                    "DontUnroll": 1,
+                    "DependencyInfinite": 2,
+                    "DependencyLength": 3
                 }
             },
             {
@@ -619,7 +635,12 @@
                     "GeometryStreams": 54,
                     "StorageImageReadWithoutFormat": 55,
                     "StorageImageWriteWithoutFormat": 56,
-                    "MultiViewport": 57
+                    "MultiViewport": 57,
+                    "SubgroupDispatch": 58,
+                    "NamedBarrier": 59,
+                    "PipeStorage": 60,
+                    "SubgroupBallotKHR": 4423,
+                    "DrawParameters": 4427
                 }
             },
             {
@@ -920,7 +941,19 @@
                     "OpNoLine": 317,
                     "OpAtomicFlagTestAndSet": 318,
                     "OpAtomicFlagClear": 319,
-                    "OpImageSparseRead": 320
+                    "OpImageSparseRead": 320,
+                    "OpSizeOf": 321,
+                    "OpTypePipeStorage": 322,
+                    "OpConstantPipeStorage": 323,
+                    "OpCreatePipeFromPipeStorage": 324,
+                    "OpGetKernelLocalSizeForSubgroupCount": 325,
+                    "OpGetKernelMaxNumSubgroups": 326,
+                    "OpTypeNamedBarrier": 327,
+                    "OpNamedBarrierInitialize": 328,
+                    "OpMemoryNamedBarrier": 329,
+                    "OpModuleProcessed": 330,
+                    "OpSubgroupBallotKHR": 4421,
+                    "OpSubgroupFirstInvocationKHR": 4422
                 }
             }
         ]

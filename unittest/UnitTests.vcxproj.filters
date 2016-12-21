@@ -7,7 +7,7 @@
     <ClCompile Include="TestX64Emitter.cpp" />
     <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
-    <ClCompile Include="..\ext\native\ext\glew\glew.c" />
+    <ClCompile Include="..\ext\glew\glew.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />
