@@ -51,11 +51,8 @@ public:
 	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void CopyDisplayToOutput() override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
@@ -160,8 +157,6 @@ private:
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 	void ReinitializeInternal();
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();

@@ -1888,56 +1888,6 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 	);
 }
 
-void GPU_DX9::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
-	ev.invalidate_cache.addr = addr;
-	ev.invalidate_cache.size = size;
-	ev.invalidate_cache.type = type;
-	ScheduleEvent(ev);
-}
-
-void GPU_DX9::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
-	if (size > 0)
-		textureCache_.Invalidate(addr, size, type);
-	else
-		textureCache_.InvalidateAll(type);
-
-	if (type != GPU_INVALIDATE_ALL && framebufferManagerDX9_->MayIntersectFramebuffer(addr)) {
-		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
-		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
-			framebufferManagerDX9_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
-		}
-	}
-}
-
-void GPU_DX9::NotifyVideoUpload(u32 addr, int size, int width, int format) {
-	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManagerDX9_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	}
-	textureCache_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
-}
-
-void GPU_DX9::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManagerDX9_->NotifyStencilUpload(dest, size);
-}
-
-bool GPU_DX9::PerformStencilUpload(u32 dest, int size) {
-	if (framebufferManagerDX9_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
-		return true;
-	}
-	return false;
-}
-
 void GPU_DX9::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
 }

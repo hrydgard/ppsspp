@@ -2149,52 +2149,6 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		shaderManager_->NumPrograms());
 }
 
-void GPU_GLES::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
-	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
-	ev.invalidate_cache.addr = addr;
-	ev.invalidate_cache.size = size;
-	ev.invalidate_cache.type = type;
-	ScheduleEvent(ev);
-}
-
-void GPU_GLES::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
-	if (size > 0)
-		textureCacheGL_->Invalidate(addr, size, type);
-	else
-		textureCacheGL_->InvalidateAll(type);
-
-	if (type != GPU_INVALIDATE_ALL && framebufferManagerGL_->MayIntersectFramebuffer(addr)) {
-		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
-		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
-			framebufferManagerGL_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
-		}
-	}
-}
-
-void GPU_GLES::NotifyVideoUpload(u32 addr, int size, int width, int format) {
-	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManagerGL_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	}
-	textureCacheGL_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
-	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
-}
-
-bool GPU_GLES::PerformStencilUpload(u32 dest, int size) {
-	if (framebufferManagerGL_->MayIntersectFramebuffer(dest)) {
-		if (IsOnSeparateCPUThread()) {
-			GPUEvent ev(GPU_EVENT_FB_STENCIL_UPLOAD);
-			ev.fb_stencil_upload.dst = dest;
-			ev.fb_stencil_upload.size = size;
-			ScheduleEvent(ev);
-		} else {
-			PerformStencilUploadInternal(dest, size);
-		}
-		return true;
-	}
-	return false;
-}
-
 void GPU_GLES::ClearCacheNextFrame() {
 	textureCacheGL_->ClearNextFrame();
 }
@@ -2290,10 +2244,6 @@ bool GPU_GLES::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 #else
 	return false;
 #endif
-}
-
-void GPU_GLES::PerformStencilUploadInternal(u32 dest, int size) {
-	framebufferManager_->NotifyStencilUpload(dest, size);
 }
 
 bool GPU_GLES::GetCurrentClut(GPUDebugBuffer &buffer) {

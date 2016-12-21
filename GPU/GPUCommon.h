@@ -65,6 +65,10 @@ public:
 	bool PerformMemoryDownload(u32 dest, int size) override;
 	bool PerformMemoryUpload(u32 dest, int size) override;
 
+	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
+	bool PerformStencilUpload(u32 dest, int size) override;
+
 	void Execute_OffsetAddr(u32 op, u32 diff);
 	void Execute_Origin(u32 op, u32 diff);
 	void Execute_Jump(u32 op, u32 diff);
@@ -145,9 +149,6 @@ public:
 	}
 
 protected:
-	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
-	void PerformMemorySetInternal(u32 dest, u8 v, int size);
-
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);
@@ -172,6 +173,11 @@ protected:
 	void DoBlockTransfer(u32 skipDrawReason);
 
 	void AdvanceVerts(u32 vertType, int count, int bytesRead);
+
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
+	void PerformStencilUploadInternal(u32 dest, int size);
+	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
@@ -213,6 +219,7 @@ protected:
 	bool resized_;
 
 private:
+
 	// For CPU/GPU sync.
 #ifdef __ANDROID__
 	alignas(16) std::atomic<u64> curTickEst_;

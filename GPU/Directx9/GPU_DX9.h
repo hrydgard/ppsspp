@@ -48,9 +48,6 @@ public:
 	void CopyDisplayToOutput() override;
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
-	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
-	bool PerformStencilUpload(u32 dest, int size) override;
 	void ClearCacheNextFrame() override;
 	void DeviceLost() override;  // Only happens on Android. Drop all textures and shaders.
 	void DeviceRestore() override;
@@ -158,14 +155,12 @@ private:
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	void ApplyDrawState(int prim);
+	// void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal();
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
-	void PerformStencilUploadInternal(u32 dest, int size);
-	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 textureCache_;
