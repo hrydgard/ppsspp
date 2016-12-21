@@ -42,15 +42,11 @@ public:
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
 
-	void InitClear() override;
-	void Reinitialize() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void Execute_Generic(u32 op, u32 diff);
 	void ExecuteOp(u32 op, u32 diff) override;
 
-	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput() override;
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void ClearCacheNextFrame() override;

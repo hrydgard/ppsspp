@@ -60,6 +60,8 @@ public:
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
 
+	void CopyDisplayToOutput() override;
+	void InitClear() override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformMemoryDownload(u32 dest, int size) override;

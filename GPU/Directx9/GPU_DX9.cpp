@@ -400,18 +400,20 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
 
 	framebufferManagerDX9_ = new FramebufferManagerDX9();
 	framebufferManager_ = framebufferManagerDX9_;
+	textureCacheDX9_ = new TextureCacheDX9();
+	textureCache_ = textureCacheDX9_;
 
 	shaderManager_ = new ShaderManagerDX9();
 	drawEngine_.SetShaderManager(shaderManager_);
-	drawEngine_.SetTextureCache(&textureCache_);
+	drawEngine_.SetTextureCache(textureCacheDX9_);
 	drawEngine_.SetFramebufferManager(framebufferManagerDX9_);
 	framebufferManagerDX9_->Init();
-	framebufferManagerDX9_->SetTextureCache(&textureCache_);
+	framebufferManagerDX9_->SetTextureCache(textureCacheDX9_);
 	framebufferManagerDX9_->SetShaderManager(shaderManager_);
 	framebufferManagerDX9_->SetTransformDrawEngine(&drawEngine_);
-	textureCache_.SetFramebufferManager(framebufferManagerDX9_);
-	textureCache_.SetDepalShaderCache(&depalShaderCache_);
-	textureCache_.SetShaderManager(shaderManager_);
+	textureCacheDX9_->SetFramebufferManager(framebufferManagerDX9_);
+	textureCacheDX9_->SetDepalShaderCache(&depalShaderCache_);
+	textureCacheDX9_->SetShaderManager(shaderManager_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -450,7 +452,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.
 	dxstate.Restore();
-	textureCache_.NotifyConfigChanged();
+	textureCache_->NotifyConfigChanged();
 }
 
 void GPU_DX9::UpdateCmdInfo() {
@@ -522,16 +524,12 @@ void GPU_DX9::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
-	textureCache_.Clear(false);
+	textureCacheDX9_->Clear(false);
 	framebufferManagerDX9_->DeviceLost();
 }
 
 void GPU_DX9::DeviceRestore() {
 	// Nothing needed.
-}
-
-void GPU_DX9::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
 }
 
 void GPU_DX9::InitClearInternal() {
@@ -560,7 +558,7 @@ void GPU_DX9::BeginFrameInternal() {
 	if (resized_) {
 		UpdateCmdInfo();
 		drawEngine_.Resized();
-		textureCache_.NotifyConfigChanged();
+		textureCacheDX9_->NotifyConfigChanged();
 		resized_ = false;
 	}
 
@@ -573,7 +571,7 @@ void GPU_DX9::BeginFrameInternal() {
 		lastVsync_ = desiredVSyncInterval;
 	}
 
-	textureCache_.StartFrame();
+	textureCacheDX9_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
@@ -627,10 +625,6 @@ bool GPU_DX9::FramebufferReallyDirty() {
 		return dirty;
 	}
 	return true;
-}
-
-void GPU_DX9::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
 }
 
 void GPU_DX9::CopyDisplayToOutputInternal() {
@@ -1063,7 +1057,7 @@ void GPU_DX9::Execute_TexLevel(u32 op, u32 diff) {
 
 void GPU_DX9::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+	textureCacheDX9_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -1880,7 +1874,7 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManagerDX9_->NumVFBs(),
-		(int)textureCache_.NumLoadedTextures(),
+		(int)textureCacheDX9_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		shaderManager_->NumVertexShaders(),
@@ -1889,7 +1883,7 @@ void GPU_DX9::GetStats(char *buffer, size_t bufsize) {
 }
 
 void GPU_DX9::ClearCacheNextFrame() {
-	textureCache_.ClearNextFrame();
+	textureCacheDX9_->ClearNextFrame();
 }
 
 void GPU_DX9::ClearShaderCache() {
@@ -1906,7 +1900,7 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ) {
-		textureCache_.Clear(true);
+		textureCacheDX9_->Clear(true);
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
@@ -1932,8 +1926,8 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 		return false;
 	}
 
-	textureCache_.SetTexture(true);
-	textureCache_.ApplyTexture();
+	textureCacheDX9_->SetTexture(true);
+	textureCacheDX9_->ApplyTexture();
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -2017,7 +2011,7 @@ bool GPU_DX9::GetCurrentTexture(GPUDebugBuffer &buffer, int level) {
 }
 
 bool GPU_DX9::GetCurrentClut(GPUDebugBuffer &buffer) {
-	return textureCache_.GetCurrentClutBuffer(buffer);
+	return textureCacheDX9_->GetCurrentClutBuffer(buffer);
 }
 
 bool GPU_DX9::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

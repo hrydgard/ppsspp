@@ -56,6 +56,14 @@ void GPUCommon::EndHostFrame() {
 
 }
 
+void GPUCommon::InitClear() {
+	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+}
+
+void GPUCommon::CopyDisplayToOutput() {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
 void GPUCommon::Reinitialize() {
 	easy_guard guard(listLock);
 	memset(dls, 0, sizeof(dls));
@@ -72,6 +80,7 @@ void GPUCommon::Reinitialize() {
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
 	UpdateTickEstimate(0);
+	ScheduleEvent(GPU_EVENT_REINITIALIZE);
 }
 
 void GPUCommon::PopDLQueue() {

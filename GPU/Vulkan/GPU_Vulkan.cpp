@@ -601,15 +601,6 @@ void GPU_Vulkan::BuildReportingInfo() {
 	Reporting::UpdateConfig();
 }
 
-void GPU_Vulkan::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
-}
-
-void GPU_Vulkan::Reinitialize() {
-	GPUCommon::Reinitialize();
-	ScheduleEvent(GPU_EVENT_REINITIALIZE);
-}
-
 void GPU_Vulkan::ReinitializeInternal() {
 	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
@@ -652,10 +643,6 @@ void GPU_Vulkan::UpdateCmdInfo() {
 	// }
 }
 
-void GPU_Vulkan::ReapplyGfxStateInternal() {
-	GPUCommon::ReapplyGfxStateInternal();
-}
-
 void GPU_Vulkan::BeginFrameInternal() {
 }
 
@@ -692,10 +679,6 @@ bool GPU_Vulkan::FramebufferReallyDirty() {
 		return dirty;
 	}
 	return true;
-}
-
-void GPU_Vulkan::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
 }
 
 void GPU_Vulkan::CopyDisplayToOutputInternal() {

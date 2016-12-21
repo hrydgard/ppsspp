@@ -39,13 +39,11 @@ public:
 	~GPU_DX9();
 
 	void CheckGPUFeatures();
-	void InitClear() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	void ReapplyGfxStateInternal() override;
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
-	void CopyDisplayToOutput() override;
 	void BeginFrame() override;
 	void GetStats(char *buffer, size_t bufsize) override;
 	void ClearCacheNextFrame() override;
@@ -57,7 +55,7 @@ public:
 
 	void ClearShaderCache() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCache_.DecodeTexture(dest, state);
+		return textureCacheDX9_->DecodeTexture(dest, state);
 	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
@@ -163,7 +161,7 @@ private:
 	void CopyDisplayToOutputInternal();
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
-	TextureCacheDX9 textureCache_;
+	TextureCacheDX9 *textureCacheDX9_;
 	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManager_;

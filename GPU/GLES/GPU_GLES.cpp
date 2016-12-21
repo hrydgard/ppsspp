@@ -664,15 +664,6 @@ void GPU_GLES::DeviceRestore() {
 	UpdateVsyncInterval(true);
 }
 
-void GPU_GLES::InitClear() {
-	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
-}
-
-void GPU_GLES::Reinitialize() {
-	GPUCommon::Reinitialize();
-	ScheduleEvent(GPU_EVENT_REINITIALIZE);
-}
-
 void GPU_GLES::ReinitializeInternal() {
 	textureCacheGL_->Clear(true);
 	depalShaderCache_.Clear();
@@ -812,10 +803,6 @@ bool GPU_GLES::FramebufferReallyDirty() {
 		return dirty;
 	}
 	return true;
-}
-
-void GPU_GLES::CopyDisplayToOutput() {
-	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
 }
 
 void GPU_GLES::CopyDisplayToOutputInternal() {
