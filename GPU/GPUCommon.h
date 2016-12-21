@@ -151,6 +151,11 @@ public:
 	}
 
 protected:
+	virtual void InitClearInternal() {}
+	virtual void BeginFrameInternal() {}
+	virtual void CopyDisplayToOutputInternal() {}
+	virtual void ReinitializeInternal() {}
+
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);

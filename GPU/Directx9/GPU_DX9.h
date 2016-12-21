@@ -143,7 +143,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
@@ -156,9 +155,10 @@ private:
 	// void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
+
+	void InitClearInternal() override;
+	void BeginFrameInternal() override;
+	void CopyDisplayToOutputInternal() override;
 
 	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 *textureCacheDX9_;

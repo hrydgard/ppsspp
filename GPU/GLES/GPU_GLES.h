@@ -149,7 +149,6 @@ public:
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
@@ -159,10 +158,12 @@ private:
 	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
-	void ReinitializeInternal();
+
+	void InitClearInternal() override;
+	void BeginFrameInternal() override;
+	void CopyDisplayToOutputInternal() override;
+	void ReinitializeInternal() override;
+
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 

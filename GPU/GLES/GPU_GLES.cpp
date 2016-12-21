@@ -863,45 +863,6 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
-void GPU_GLES::ProcessEvent(GPUEvent ev) {
-	switch (ev.type) {
-	case GPU_EVENT_INIT_CLEAR:
-		InitClearInternal();
-		break;
-
-	case GPU_EVENT_BEGIN_FRAME:
-		BeginFrameInternal();
-		break;
-
-	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
-		CopyDisplayToOutputInternal();
-		break;
-
-	case GPU_EVENT_INVALIDATE_CACHE:
-		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
-		break;
-
-	case GPU_EVENT_FB_MEMCPY:
-		PerformMemoryCopyInternal(ev.fb_memcpy.dst, ev.fb_memcpy.src, ev.fb_memcpy.size);
-		break;
-
-	case GPU_EVENT_FB_MEMSET:
-		PerformMemorySetInternal(ev.fb_memset.dst, ev.fb_memset.v, ev.fb_memset.size);
-		break;
-
-	case GPU_EVENT_FB_STENCIL_UPLOAD:
-		PerformStencilUploadInternal(ev.fb_stencil_upload.dst, ev.fb_stencil_upload.size);
-		break;
-
-	case GPU_EVENT_REINITIALIZE:
-		ReinitializeInternal();
-		break;
-
-	default:
-		GPUCommon::ProcessEvent(ev);
-	}
-}
-
 inline void GPU_GLES::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {

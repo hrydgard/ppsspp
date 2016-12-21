@@ -137,10 +137,8 @@ public:
 	bool GetCurrentSimpleVertices(int count, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) override;
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
-
 protected:
 	void FastRunLoop(DisplayList &list) override;
-	void ProcessEvent(GPUEvent ev) override;
 	void FastLoadBoneMatrix(u32 target) override;
 	void FinishDeferred() override;
 
@@ -150,10 +148,10 @@ private:
 	}
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
-	void InitClearInternal();
-	void BeginFrameInternal();
-	void CopyDisplayToOutputInternal();
-	void ReinitializeInternal();
+	void InitClearInternal() override;
+	void BeginFrameInternal() override;
+	void CopyDisplayToOutputInternal() override;
+	void ReinitializeInternal() override;
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
 	static CommandInfo cmdInfo_[256];
