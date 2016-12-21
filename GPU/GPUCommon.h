@@ -34,6 +34,8 @@ public:
 		interruptsEnabled_ = enable;
 	}
 
+	void Resized() override;
+
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	bool InterpretList(DisplayList &list) override;
@@ -200,6 +202,7 @@ protected:
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
+	bool resized_;
 
 private:
 	// For CPU/GPU sync.

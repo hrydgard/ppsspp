@@ -236,6 +236,8 @@ public:
 	void SetRenderSize(VirtualFramebuffer *vfb);
 	void SetSafeSize(u16 w, u16 h);
 
+	virtual void Resized() = 0;
+
 protected:
 	void UpdateSize();
 

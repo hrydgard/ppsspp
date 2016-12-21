@@ -26,7 +26,8 @@
 GPUCommon::GPUCommon() :
 	dumpNextFrame_(false),
 	dumpThisFrame_(false),
-	framebufferManager_(nullptr)
+	framebufferManager_(nullptr),
+	resized_(false)
 {
 	// This assert failed on GCC x86 32-bit (but not MSVC 32-bit!) before adding the
 	// "padding" field at the end. This is important for save state compatibility.
@@ -96,6 +97,11 @@ bool GPUCommon::BusyDrawing() {
 		}
 	}
 	return false;
+}
+
+void GPUCommon::Resized() {
+	resized_ = true;
+	framebufferManager_->Resized();
 }
 
 u32 GPUCommon::DrawSync(int mode) {

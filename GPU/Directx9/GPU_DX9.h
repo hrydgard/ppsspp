@@ -37,6 +37,7 @@ class GPU_DX9 : public GPUCommon {
 public:
 	GPU_DX9(GraphicsContext *gfxCtx);
 	~GPU_DX9();
+
 	void CheckGPUFeatures();
 	void InitClear() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -61,8 +62,6 @@ public:
 	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
-	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	void Resized() override;
 	void ClearShaderCache() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
 		return textureCache_.DecodeTexture(dest, state);
@@ -182,7 +181,6 @@ private:
 
 	static CommandInfo cmdInfo_[256];
 
-	bool resized_;
 	int lastVsync_;
 
 	std::string reportingPrimaryInfo_;

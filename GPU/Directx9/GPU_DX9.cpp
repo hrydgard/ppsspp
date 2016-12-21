@@ -394,7 +394,7 @@ static const CommandTableEntry commandTable[] = {
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx)
-: resized_(false), gfxCtx_(gfxCtx) {
+: gfxCtx_(gfxCtx) {
 	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	dxstate.SetVSyncInterval(g_Config.bVSync);
 
@@ -2021,11 +2021,6 @@ bool GPU_DX9::PerformStencilUpload(u32 dest, int size) {
 
 void GPU_DX9::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
-}
-
-void GPU_DX9::Resized() {
-	resized_ = true;
-	framebufferManagerDX9_->Resized();
 }
 
 void GPU_DX9::ClearShaderCache() {

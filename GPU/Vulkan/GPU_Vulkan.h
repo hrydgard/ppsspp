@@ -67,8 +67,6 @@ public:
 	void DumpNextFrame() override;
 	void DoState(PointerWrap &p) override;
 
-	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
-	void Resized() override;
 	void ClearShaderCache() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
 		return false;
@@ -188,7 +186,6 @@ private:
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
 
-	bool resized_;
 	int lastVsync_;
 	VkCommandBuffer curCmd_;
 

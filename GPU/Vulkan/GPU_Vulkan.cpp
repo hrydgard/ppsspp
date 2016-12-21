@@ -393,7 +393,6 @@ static const CommandTableEntry commandTable[] = {
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	: vulkan_((VulkanContext *)ctx->GetAPIContext()),
 		drawEngine_(vulkan_),
-		resized_(false),
 		gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
@@ -2133,11 +2132,6 @@ bool GPU_Vulkan::PerformStencilUpload(u32 dest, int size) {
 
 void GPU_Vulkan::ClearCacheNextFrame() {
 	textureCacheVulkan_->ClearNextFrame();
-}
-
-void GPU_Vulkan::Resized() {
-	resized_ = true;
-	framebufferManagerVulkan_->Resized();
 }
 
 void GPU_Vulkan::ClearShaderCache() {

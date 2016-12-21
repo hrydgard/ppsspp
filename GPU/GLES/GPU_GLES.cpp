@@ -397,7 +397,7 @@ static const CommandTableEntry commandTable[] = {
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
 GPU_GLES::GPU_GLES(GraphicsContext *ctx)
-: resized_(false), gfxCtx_(ctx) {
+: gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
@@ -2282,11 +2282,6 @@ bool GPU_GLES::PerformStencilUpload(u32 dest, int size) {
 
 void GPU_GLES::ClearCacheNextFrame() {
 	textureCacheGL_->ClearNextFrame();
-}
-
-void GPU_GLES::Resized() {
-	resized_ = true;
-	framebufferManagerGL_->Resized();
 }
 
 void GPU_GLES::ClearShaderCache() {
