@@ -393,7 +393,6 @@ static const CommandTableEntry commandTable[] = {
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	: vulkan_((VulkanContext *)ctx->GetAPIContext()),
 		drawEngine_(vulkan_),
-		textureCache_(vulkan_),
 		resized_(false),
 		gfxCtx_(ctx) {
 	UpdateVsyncInterval(true);
@@ -401,18 +400,22 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 
 	shaderManager_ = new ShaderManagerVulkan(vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
-	framebufferManager_ = new FramebufferManagerVulkan(vulkan_);
-	drawEngine_.SetTextureCache(&textureCache_);
-	drawEngine_.SetFramebufferManager(framebufferManager_);
+	framebufferManagerVulkan_ = new FramebufferManagerVulkan(vulkan_);
+	framebufferManager_ = framebufferManagerVulkan_;
+	textureCacheVulkan_ = new TextureCacheVulkan(vulkan_);
+	textureCache_ = textureCacheVulkan_;
+
+	drawEngine_.SetTextureCache(textureCacheVulkan_);
+	drawEngine_.SetFramebufferManager(framebufferManagerVulkan_);
 	drawEngine_.SetShaderManager(shaderManager_);
 	drawEngine_.SetPipelineManager(pipelineManager_);
-	framebufferManager_->Init();
-	framebufferManager_->SetTextureCache(&textureCache_);
-	framebufferManager_->SetDrawEngine(&drawEngine_);
-	textureCache_.SetFramebufferManager(framebufferManager_);
-	textureCache_.SetDepalShaderCache(&depalShaderCache_);
-	textureCache_.SetShaderManager(shaderManager_);
-	textureCache_.SetTransformDrawEngine(&drawEngine_);
+	framebufferManagerVulkan_->Init();
+	framebufferManagerVulkan_->SetTextureCache(textureCacheVulkan_);
+	framebufferManagerVulkan_->SetDrawEngine(&drawEngine_);
+	textureCacheVulkan_->SetFramebufferManager(framebufferManagerVulkan_);
+	textureCacheVulkan_->SetDepalShaderCache(&depalShaderCache_);
+	textureCacheVulkan_->SetShaderManager(shaderManager_);
+	textureCacheVulkan_->SetTransformDrawEngine(&drawEngine_);
 
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
@@ -448,13 +451,12 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *ctx)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	textureCache_.NotifyConfigChanged();
+	textureCacheVulkan_->NotifyConfigChanged();
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
-	framebufferManager_->DestroyAllFBOs(true);
+	framebufferManagerVulkan_->DestroyAllFBOs(true);
 	depalShaderCache_.Clear();
-	delete framebufferManager_;
 	delete pipelineManager_;
 	delete shaderManager_;
 }
@@ -495,14 +497,14 @@ void GPU_Vulkan::BeginHostFrame() {
 		BuildReportingInfo();
 		UpdateCmdInfo();
 		drawEngine_.Resized();
-		textureCache_.NotifyConfigChanged();
+		textureCacheVulkan_->NotifyConfigChanged();
 	}
 	resized_ = false;
 
-	textureCache_.StartFrame();
+	textureCacheVulkan_->StartFrame();
 	depalShaderCache_.Decimate();
 
-	framebufferManager_->BeginFrameVulkan();
+	framebufferManagerVulkan_->BeginFrameVulkan();
 
 	shaderManager_->DirtyShader();
 	shaderManager_->DirtyUniform(DIRTY_ALL);
@@ -518,8 +520,8 @@ void GPU_Vulkan::BeginHostFrame() {
 
 void GPU_Vulkan::EndHostFrame() {
 	drawEngine_.EndFrame();
-	framebufferManager_->EndFrame();
-	textureCache_.EndFrame();
+	framebufferManagerVulkan_->EndFrame();
+	textureCacheVulkan_->EndFrame();
 }
 
 // Needs to be called on GPU thread, not reporting thread.
@@ -610,10 +612,10 @@ void GPU_Vulkan::Reinitialize() {
 }
 
 void GPU_Vulkan::ReinitializeInternal() {
-	textureCache_.Clear(true);
+	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManager_->DestroyAllFBOs(true);
-	framebufferManager_->Resized();
+	framebufferManagerVulkan_->DestroyAllFBOs(true);
+	framebufferManagerVulkan_->Resized();
 }
 
 void GPU_Vulkan::InitClearInternal() {
@@ -703,7 +705,7 @@ void GPU_Vulkan::CopyDisplayToOutputInternal() {
 
 	shaderManager_->DirtyLastShader();
 
-	framebufferManager_->CopyDisplayToOutput();
+	framebufferManagerVulkan_->CopyDisplayToOutput();
 
 	gstate_c.textureChanged = TEXCHANGE_UPDATED;
 }
@@ -1107,7 +1109,7 @@ void GPU_Vulkan::Execute_TexLevel(u32 op, u32 diff) {
 
 void GPU_Vulkan::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.textureChanged |= TEXCHANGE_PARAMSONLY;
-	textureCache_.LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+	textureCacheVulkan_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 
@@ -1936,10 +1938,10 @@ void GPU_Vulkan::FastLoadBoneMatrix(u32 target) {
 }
 
 void GPU_Vulkan::DeviceLost() {
-	framebufferManager_->DeviceLost();
+	framebufferManagerVulkan_->DeviceLost();
 	drawEngine_.DeviceLost();
 	pipelineManager_->DeviceLost();
-	textureCache_.DeviceLost();
+	textureCacheVulkan_->DeviceLost();
 	depalShaderCache_.Clear();
 	shaderManager_->ClearShaders();
 }
@@ -1950,10 +1952,10 @@ void GPU_Vulkan::DeviceRestore() {
 	BuildReportingInfo();
 	UpdateCmdInfo();
 
-	framebufferManager_->DeviceRestore(vulkan_);
+	framebufferManagerVulkan_->DeviceRestore(vulkan_);
 	drawEngine_.DeviceRestore(vulkan_);
 	pipelineManager_->DeviceRestore(vulkan_);
-	textureCache_.DeviceRestore(vulkan_);
+	textureCacheVulkan_->DeviceRestore(vulkan_);
 	shaderManager_->DeviceRestore(vulkan_);
 }
 
@@ -1985,7 +1987,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
 		(int)framebufferManager_->NumVFBs(),
-		(int)textureCache_.NumLoadedTextures(),
+		(int)textureCacheVulkan_->NumLoadedTextures(),
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		shaderManager_->GetNumVertexShaders(),
@@ -1995,95 +1997,6 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		drawStats.pushVertexSpaceUsed,
 		drawStats.pushIndexSpaceUsed
 	);
-}
-
-void GPU_Vulkan::DoBlockTransfer(u32 skipDrawReason) {
-	// TODO: This is used a lot to copy data around between render targets and textures,
-	// and also to quickly load textures from RAM to VRAM. So we should do checks like the following:
-	//  * Does dstBasePtr point to an existing texture? If so maybe reload it immediately.
-	//
-	//  * Does srcBasePtr point to a render target, and dstBasePtr to a texture? If so
-	//    either copy between rt and texture or reassign the texture to point to the render target
-	//
-	// etc....
-
-	u32 srcBasePtr = gstate.getTransferSrcAddress();
-	u32 srcStride = gstate.getTransferSrcStride();
-
-	u32 dstBasePtr = gstate.getTransferDstAddress();
-	u32 dstStride = gstate.getTransferDstStride();
-
-	int srcX = gstate.getTransferSrcX();
-	int srcY = gstate.getTransferSrcY();
-
-	int dstX = gstate.getTransferDstX();
-	int dstY = gstate.getTransferDstY();
-
-	int width = gstate.getTransferWidth();
-	int height = gstate.getTransferHeight();
-
-	int bpp = gstate.getTransferBpp();
-
-	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
-
-	if (!Memory::IsValidAddress(srcBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad source transfer address %08x!", srcBasePtr);
-		return;
-	}
-
-	if (!Memory::IsValidAddress(dstBasePtr)) {
-		ERROR_LOG_REPORT(G3D, "BlockTransfer: Bad destination transfer address %08x!", dstBasePtr);
-		return;
-	}
-
-	// Check that the last address of both source and dest are valid addresses
-
-	u32 srcLastAddr = srcBasePtr + ((srcY + height - 1) * srcStride + (srcX + width - 1)) * bpp;
-	u32 dstLastAddr = dstBasePtr + ((dstY + height - 1) * dstStride + (dstX + width - 1)) * bpp;
-
-	if (!Memory::IsValidAddress(srcLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of source of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-	if (!Memory::IsValidAddress(dstLastAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bottom-right corner of destination of block transfer is at an invalid address: %08x", srcLastAddr);
-		return;
-	}
-
-	// Tell the framebuffer manager to take action if possible. If it does the entire thing, let's just return.
-	if (!framebufferManager_->NotifyBlockTransferBefore(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason)) {
-		// Do the copy! (Hm, if we detect a drawn video frame (see below) then we could maybe skip this?)
-		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
-		// entirely by walking a couple of pointers...
-		if (srcStride == dstStride && (u32)width == srcStride) {
-			// Common case in God of War, let's do it all in one chunk.
-			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
-			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-			memcpy(dst, src, width * height * bpp);
-		} else {
-			for (int y = 0; y < height; y++) {
-				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
-				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
-
-				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
-				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
-				memcpy(dst, src, width * bpp);
-			}
-		}
-
-		textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
-	}
-
-#ifndef MOBILE_DEVICE
-	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
-	CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-#endif
-
-	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
-	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
 void GPU_Vulkan::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
@@ -2096,9 +2009,9 @@ void GPU_Vulkan::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 
 void GPU_Vulkan::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
-		textureCache_.Invalidate(addr, size, type);
+		textureCacheVulkan_->Invalidate(addr, size, type);
 	else
-		textureCache_.InvalidateAll(type);
+		textureCacheVulkan_->InvalidateAll(type);
 
 	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
 		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
@@ -2181,7 +2094,7 @@ void GPU_Vulkan::NotifyVideoUpload(u32 addr, int size, int width, int format) {
 		// TODO
 		//framebufferManager_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
 	}
-	textureCache_.NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
+	textureCacheVulkan_->NotifyVideoUpload(addr, size, width, (GEBufferFormat)format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
@@ -2219,12 +2132,12 @@ bool GPU_Vulkan::PerformStencilUpload(u32 dest, int size) {
 }
 
 void GPU_Vulkan::ClearCacheNextFrame() {
-	textureCache_.ClearNextFrame();
+	textureCacheVulkan_->ClearNextFrame();
 }
 
 void GPU_Vulkan::Resized() {
 	resized_ = true;
-	framebufferManager_->Resized();
+	framebufferManagerVulkan_->Resized();
 }
 
 void GPU_Vulkan::ClearShaderCache() {
@@ -2232,7 +2145,7 @@ void GPU_Vulkan::ClearShaderCache() {
 }
 
 std::vector<FramebufferInfo> GPU_Vulkan::GetFramebufferList() {
-	return framebufferManager_->GetFramebufferList();
+	return framebufferManagerVulkan_->GetFramebufferList();
 }
 
 void GPU_Vulkan::DoState(PointerWrap &p) {
@@ -2242,11 +2155,11 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_.Clear(true);
+		textureCacheVulkan_->Clear(true);
 		depalShaderCache_.Clear();
 
 		gstate_c.textureChanged = TEXCHANGE_UPDATED;
-		framebufferManager_->DestroyAllFBOs(true);
+		framebufferManagerVulkan_->DestroyAllFBOs(true);
 		shaderManager_->ClearShaders();
 		pipelineManager_->Clear();
 	}

@@ -63,10 +63,6 @@ TextureCacheCommon::~TextureCacheCommon() {
 	FreeAlignedMemory(clutBufRaw_);
 }
 
-bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
-	return false;
-}
-
 int TextureCacheCommon::AttachedDrawingHeight() {
 	if (nextTexture_) {
 		if (nextTexture_->framebuffer) {

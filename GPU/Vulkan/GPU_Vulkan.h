@@ -161,7 +161,6 @@ private:
 	void Flush() {
 		drawEngine_.Flush(nullptr);
 	}
-	void DoBlockTransfer(u32 skipDrawReason);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal();
@@ -178,8 +177,8 @@ private:
 
 	GraphicsContext *gfxCtx_;
 	VulkanContext *vulkan_;
-	FramebufferManagerVulkan *framebufferManager_;
-	TextureCacheVulkan textureCache_;
+	FramebufferManagerVulkan *framebufferManagerVulkan_;
+	TextureCacheVulkan *textureCacheVulkan_;
 	DepalShaderCacheVulkan depalShaderCache_;
 	DrawEngineVulkan drawEngine_;
 

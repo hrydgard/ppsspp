@@ -14,6 +14,9 @@
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
+class FramebufferManagerCommon;
+class TextureCacheCommon;
+
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
 	GPUCommon();
@@ -156,6 +159,8 @@ protected:
 	virtual void FinishDeferred() {
 	}
 
+	void DoBlockTransfer(u32 skipDrawReason);
+
 	void AdvanceVerts(u32 vertType, int count, int bytesRead);
 
 	// Allows early unlocking with a guard.  Do not double unlock.
@@ -169,6 +174,9 @@ protected:
 		recursive_mutex &mtx_;
 		bool locked_;
 	};
+
+	FramebufferManagerCommon *framebufferManager_;
+	TextureCacheCommon *textureCache_;
 
 	typedef std::list<int> DisplayListQueue;
 

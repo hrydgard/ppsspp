@@ -163,7 +163,6 @@ private:
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	void DoBlockTransfer(u32 skipDrawReason);
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
@@ -175,7 +174,7 @@ private:
 	void PerformStencilUploadInternal(u32 dest, int size);
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
-	FramebufferManagerDX9 framebufferManager_;
+	FramebufferManagerDX9 *framebufferManagerDX9_;
 	TextureCacheDX9 textureCache_;
 	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;

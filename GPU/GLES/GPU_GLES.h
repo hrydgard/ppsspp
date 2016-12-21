@@ -70,7 +70,7 @@ public:
 	void ClearShaderCache() override;
 	void CleanupBeforeUI() override;
 	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCache_.DecodeTexture(dest, state);
+		return textureCacheGL_->DecodeTexture(dest, state);
 	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
@@ -168,7 +168,6 @@ private:
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	void DoBlockTransfer(u32 skipDrawReason);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClearInternal();
@@ -184,8 +183,8 @@ private:
 
 	static CommandInfo cmdInfo_[256];
 
-	FramebufferManager framebufferManager_;
-	TextureCache textureCache_;
+	FramebufferManager *framebufferManagerGL_;
+	TextureCache *textureCacheGL_;
 	DepalShaderCache depalShaderCache_;
 	DrawEngineGLES drawEngine_;
 	FragmentTestCache fragmentTestCache_;
