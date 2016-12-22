@@ -14,6 +14,9 @@
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
+class FramebufferManagerCommon;
+class TextureCacheCommon;
+
 class GPUCommon : public GPUThreadEventQueue, public GPUDebugInterface {
 public:
 	GPUCommon();
@@ -30,6 +33,8 @@ public:
 	void EnableInterrupts(bool enable) override {
 		interruptsEnabled_ = enable;
 	}
+
+	void Resized() override;
 
 	void ExecuteOp(u32 op, u32 diff) override;
 	void PreExecuteOp(u32 op, u32 diff) override;
@@ -54,6 +59,17 @@ public:
 	u32  Continue() override;
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
+
+	void CopyDisplayToOutput() override;
+	void InitClear() override;
+	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
+	bool PerformMemorySet(u32 dest, u8 v, int size) override;
+	bool PerformMemoryDownload(u32 dest, int size) override;
+	bool PerformMemoryUpload(u32 dest, int size) override;
+
+	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
+	void NotifyVideoUpload(u32 addr, int size, int width, int format) override;
+	bool PerformStencilUpload(u32 dest, int size) override;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
 	void Execute_Origin(u32 op, u32 diff);
@@ -135,6 +151,11 @@ public:
 	}
 
 protected:
+	virtual void InitClearInternal() {}
+	virtual void BeginFrameInternal() {}
+	virtual void CopyDisplayToOutputInternal() {}
+	virtual void ReinitializeInternal() {}
+
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
 	void SlowRunLoop(DisplayList &list);
@@ -156,7 +177,14 @@ protected:
 	virtual void FinishDeferred() {
 	}
 
+	void DoBlockTransfer(u32 skipDrawReason);
+
 	void AdvanceVerts(u32 vertType, int count, int bytesRead);
+
+	void PerformMemoryCopyInternal(u32 dest, u32 src, int size);
+	void PerformMemorySetInternal(u32 dest, u8 v, int size);
+	void PerformStencilUploadInternal(u32 dest, int size);
+	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
 
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
@@ -169,6 +197,9 @@ protected:
 		recursive_mutex &mtx_;
 		bool locked_;
 	};
+
+	FramebufferManagerCommon *framebufferManager_;
+	TextureCacheCommon *textureCache_;
 
 	typedef std::list<int> DisplayListQueue;
 
@@ -192,8 +223,10 @@ protected:
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
+	bool resized_;
 
 private:
+
 	// For CPU/GPU sync.
 #ifdef __ANDROID__
 	alignas(16) std::atomic<u64> curTickEst_;

@@ -63,7 +63,7 @@ public:
 	void DestroyAllFBOs(bool forceDelete);
 
 	void EndFrame();
-	void Resized();
+	void Resized() override;
 	void DeviceLost();
 	void CopyDisplayToOutput();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old);

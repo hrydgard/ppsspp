@@ -86,7 +86,7 @@ public:
 
 	virtual void Init() override;
 	void EndFrame();
-	void Resized();
+	void Resized() override;
 	void DeviceLost();
 	void CopyDisplayToOutput();
 	void SetLineWidth();

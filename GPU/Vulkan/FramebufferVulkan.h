@@ -102,7 +102,7 @@ public:
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
 
-	void Resized();
+	void Resized() override;
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 	void CopyDisplayToOutput();
