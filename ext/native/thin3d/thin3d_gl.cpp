@@ -229,8 +229,8 @@ private:
 // invoke Compile again to recreate the shader then link them together.
 class Thin3DGLShader : public Thin3DShader {
 public:
-	Thin3DGLShader(bool isFragmentShader) : shader_(0), type_(0) {
-		type_ = isFragmentShader ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
+	Thin3DGLShader(ShaderStage stage) : shader_(0), type_(0) {
+		type_ = stage == ShaderStage::FRAGMENT ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
 	}
 
 	bool Compile(const char *source);
@@ -400,9 +400,7 @@ public:
 		s->Apply();
 	}
 
-	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		if (enable) {
@@ -760,18 +758,8 @@ void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures
 }
 
 
-Thin3DShader *Thin3DGLContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DGLShader *shader = new Thin3DGLShader(false);
-	if (shader->Compile(glsl_source)) {
-		return shader;
-	} else {
-		shader->Release();
-		return nullptr;
-	}
-}
-
-Thin3DShader *Thin3DGLContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DGLShader *shader = new Thin3DGLShader(true);
+Thin3DShader *Thin3DGLContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	Thin3DGLShader *shader = new Thin3DGLShader(stage);
 	if (shader->Compile(glsl_source)) {
 		return shader;
 	} else {

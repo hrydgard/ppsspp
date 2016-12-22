@@ -299,6 +299,20 @@ public:
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
+enum class ShaderStage {
+	VERTEX,
+	FRAGMENT,
+};
+
+enum class ShaderLanguage {
+	GLSL_ES_200,
+	GLSL_ES_300,
+	GLSL_410,
+	GLSL_VULKAN,
+	HLSL_D3D9,
+	HLSL_D3D11,
+};
+
 struct T3DBlendStateDesc {
 	bool enabled;
 	T3DBlendEquation eqCol;
@@ -348,8 +362,7 @@ public:
 	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
 
 	// The implementation makes the choice of which shader code to use.
-	virtual Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
-	virtual Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
+	virtual Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;

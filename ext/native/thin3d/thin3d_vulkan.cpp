@@ -188,8 +188,8 @@ private:
 // invoke Compile again to recreate the shader then link them together.
 class Thin3DVKShader : public Thin3DShader {
 public:
-	Thin3DVKShader(bool isFragmentShader) : module_(VK_NULL_HANDLE), ok_(false) {
-		stage_ = isFragmentShader ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
+	Thin3DVKShader(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false) {
+		stage_ = stage == ShaderStage::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
 	}
 	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
@@ -377,8 +377,7 @@ public:
 	}
 
 	// The implementation makes the choice of which shader code to use.
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
 		scissorEnabled_ = enable;
@@ -1005,19 +1004,8 @@ void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures
 	}
 }
 
-Thin3DShader *Thin3DVKContext::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(false);
-	if (shader->Compile(vulkan_, vulkan_source)) {
-		return shader;
-	} else {
-		ELOG("Failed to compile shader: %s", vulkan_source);
-		shader->Release();
-		return nullptr;
-	}
-}
-
-Thin3DShader *Thin3DVKContext::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(true);
+Thin3DShader *Thin3DVKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	Thin3DVKShader *shader = new Thin3DVKShader(stage);
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {

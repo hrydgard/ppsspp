@@ -224,7 +224,7 @@ private:
 
 class Thin3DDX9Shader : public Thin3DShader {
 public:
-	Thin3DDX9Shader(bool isPixelShader) : isPixelShader_(isPixelShader), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
+	Thin3DDX9Shader(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
 	~Thin3DDX9Shader() {
 		if (vshader_)
 			vshader_->Release();
@@ -233,9 +233,9 @@ public:
 		if (constantTable_)
 			constantTable_->Release();
 	}
-	bool Compile(LPDIRECT3DDEVICE9 device, const char *source, const char *profile);
+	bool Compile(LPDIRECT3DDEVICE9 device, const char *source);
 	void Apply(LPDIRECT3DDEVICE9 device) {
-		if (isPixelShader_) {
+		if (stage_ == ShaderStage::FRAGMENT) {
 			device->SetPixelShader(pshader_);
 		} else {
 			device->SetVertexShader(vshader_);
@@ -245,7 +245,7 @@ public:
 	void SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]);
 
 private:
-	bool isPixelShader_;
+	ShaderStage stage_;
 	LPDIRECT3DVERTEXSHADER9 vshader_;
 	LPDIRECT3DPIXELSHADER9 pshader_;
 	LPD3DXCONSTANTTABLE constantTable_;
@@ -433,9 +433,7 @@ public:
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DTexture *CreateTexture() override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
-
-	Thin3DShader *CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
-	Thin3DShader *CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
+	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	void SetBlendState(Thin3DBlendState *state) {
@@ -502,19 +500,9 @@ Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 Thin3DDX9Context::~Thin3DDX9Context() {
 }
 
-Thin3DShader *Thin3DDX9Context::CreateVertexShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DDX9Shader *shader = new Thin3DDX9Shader(false);
-	if (shader->Compile(device_, hlsl_source, "vs_2_0")) {
-		return shader;
-	} else {
-		delete shader;
-		return NULL;
-	}
-}
-
-Thin3DShader *Thin3DDX9Context::CreateFragmentShader(const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DDX9Shader *shader = new Thin3DDX9Shader(true);
-	if (shader->Compile(device_, hlsl_source, "ps_2_0")) {
+Thin3DShader *Thin3DDX9Context::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	Thin3DDX9Shader *shader = new Thin3DDX9Shader(stage);
+	if (shader->Compile(device_, hlsl_source)) {
 		return shader;
 	} else {
 		delete shader;
@@ -737,12 +725,13 @@ void Thin3DDX9Context::SetViewports(int count, T3DViewport *viewports) {
 	device_->SetViewport(&vp);
 }
 
-bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, const char *profile) {
+bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
 	LPD3DXMACRO defines = NULL;
 	LPD3DXINCLUDE includes = NULL;
 	DWORD flags = 0;
 	LPD3DXBUFFER codeBuffer;
 	LPD3DXBUFFER errorBuffer;
+	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, &constantTable_);
 	if (FAILED(hr)) {
 		const char *error = (const char *)errorBuffer->GetBufferPointer();
@@ -758,7 +747,7 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source, cons
 	}
 
 	bool success = false;
-	if (isPixelShader_) {
+	if (stage_ == ShaderStage::FRAGMENT) {
 		HRESULT result = device->CreatePixelShader((DWORD *)codeBuffer->GetBufferPointer(), &pshader_);
 		success = SUCCEEDED(result);
 	} else {
