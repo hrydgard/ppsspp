@@ -467,7 +467,7 @@ public:
 		bs->Apply(device_);
 	}
 
-	void SetTextures(int start, int count, Thin3DTexture **textures);
+	void BindTextures(int start, int count, Thin3DTexture **textures);
 
 	// Raster state
 	void SetScissorEnabled(bool enable);
@@ -603,7 +603,7 @@ Thin3DTexture *Thin3DDX9Context::CreateTexture(T3DTextureType type, T3DDataForma
 	return tex;
 }
 
-void Thin3DDX9Context::SetTextures(int start, int count, Thin3DTexture **textures) {
+void Thin3DDX9Context::BindTextures(int start, int count, Thin3DTexture **textures) {
 	for (int i = start; i < start + count; i++) {
 		Thin3DDX9Texture *tex = static_cast<Thin3DDX9Texture *>(textures[i - start]);
 		tex->SetToSampler(device_, i);

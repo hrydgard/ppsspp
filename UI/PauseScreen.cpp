@@ -91,7 +91,7 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	if (texture_) {
 		dc.Flush();
-		dc.GetThin3DContext()->SetTexture(0, texture_);
+		dc.GetThin3DContext()->BindTexture(0, texture_);
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
 		dc.Flush();
 		dc.RebindTexture();

@@ -287,7 +287,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		cache_[entryHash] = entry;
 	}
 
-	thin3d_->SetTexture(0, entry->texture);
+	thin3d_->BindTexture(0, entry->texture);
 
 	// Okay, the texture is bound, let's draw.
 	float w = entry->bmWidth * fontScaleX_;
@@ -398,7 +398,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	if (iter != cache_.end()) {
 		entry = iter->second;
 		entry->lastUsedFrame = frameCount_;
-		thin3d_->SetTexture(0, entry->texture);
+		thin3d_->BindTexture(0, entry->texture);
 	} else {
 		QFont *font = fontMap_.find(fontHash_)->second;
 		QFontMetrics fm(*font);

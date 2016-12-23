@@ -47,7 +47,7 @@ void UIContext::Begin() {
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
 	thin3d_->SetRasterState(rasterNoCull_);
-	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->BindTexture(0, uitexture_);
 	thin3d_->SetScissorEnabled(false);
 	UIBegin(uishader_);
 }
@@ -61,7 +61,7 @@ void UIContext::BeginNoTex() {
 }
 
 void UIContext::RebindTexture() const {
-	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {

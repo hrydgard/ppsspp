@@ -218,7 +218,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	int indexes[] = {0, 1, 2, 0, 2, 3};
 	idata->SetData((const uint8_t *)indexes, sizeof(indexes));
 
-	thin3d->SetTexture(0, fbTex);
+	thin3d->BindTexture(0, fbTex);
 	Thin3DShaderSet *texColor = thin3d->GetShaderSetPreset(SS_TEXTURE_COLOR_2D);
 
 	static const float identity4x4[16] = {

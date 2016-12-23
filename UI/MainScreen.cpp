@@ -251,7 +251,7 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		dc.Draw()->Flush();
-		dc.GetThin3DContext()->SetTexture(0, texture);
+		dc.GetThin3DContext()->BindTexture(0, texture);
 		if (holdStart_ != 0.0) {
 			double time_held = time_now_d() - holdStart_;
 			int holdFrameCount = (int)(time_held * 60.0f);
@@ -1013,9 +1013,9 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 	}
 
 	if (ginfo->pic1Texture) {
-		dc.GetThin3DContext()->SetTexture(0, ginfo->pic1Texture);
+		dc.GetThin3DContext()->BindTexture(0, ginfo->pic1Texture);
 	} else if (ginfo->pic0Texture) {
-		dc.GetThin3DContext()->SetTexture(0, ginfo->pic0Texture);
+		dc.GetThin3DContext()->BindTexture(0, ginfo->pic0Texture);
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;

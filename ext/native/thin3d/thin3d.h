@@ -382,10 +382,10 @@ public:
 	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
 	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
 	virtual void SetRasterState(Thin3DRasterState *state) = 0;
-	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
 
-	void SetTexture(int stage, Thin3DTexture *texture) {
-		SetTextures(stage, 1, &texture);
+	virtual void BindTextures(int start, int count, Thin3DTexture **textures) = 0;
+	void BindTexture(int stage, Thin3DTexture *texture) {
+		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
 	// Raster state

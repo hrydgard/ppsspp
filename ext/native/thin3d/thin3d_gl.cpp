@@ -447,7 +447,7 @@ public:
 #endif
 	}
 
-	void SetTextures(int start, int count, Thin3DTexture **textures) override;
+	void BindTextures(int start, int count, Thin3DTexture **textures) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
@@ -794,7 +794,7 @@ Thin3DShaderSet *Thin3DGLContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 	}
 }
 
-void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures) {
+void Thin3DGLContext::BindTextures(int start, int count, Thin3DTexture **textures) {
 	for (int i = start; i < start + count; i++) {
 		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);

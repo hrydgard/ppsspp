@@ -419,7 +419,7 @@ public:
 
 	void SetViewports(int count, T3DViewport *viewports) override;
 
-	void SetTextures(int start, int count, Thin3DTexture **textures) override;
+	void BindTextures(int start, int count, Thin3DTexture **textures) override;
 
 	void SetSamplerStates(int start, int count, Thin3DSamplerState **state) override;
 
@@ -1018,7 +1018,7 @@ Thin3DShaderSet *Thin3DVKContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 	}
 }
 
-void Thin3DVKContext::SetTextures(int start, int count, Thin3DTexture **textures) {
+void Thin3DVKContext::BindTextures(int start, int count, Thin3DTexture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<Thin3DVKTexture *>(textures[i]);
 	}
