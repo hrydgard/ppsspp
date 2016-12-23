@@ -236,12 +236,12 @@ bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
 }
 
 
-inline VkFormat ConvertVertexDataTypeToVk(T3DVertexDataType type) {
+inline VkFormat ConvertVertexDataTypeToVk(T3DDataFormat type) {
 	switch (type) {
-	case FLOATx2: return VK_FORMAT_R32G32_SFLOAT;
-	case FLOATx3: return VK_FORMAT_R32G32B32_SFLOAT;
-	case FLOATx4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-	case UNORM8x4: return VK_FORMAT_R8G8B8A8_UNORM;
+	case T3DDataFormat::FLOATx2: return VK_FORMAT_R32G32_SFLOAT;
+	case T3DDataFormat::FLOATx3: return VK_FORMAT_R32G32B32_SFLOAT;
+	case T3DDataFormat::FLOATx4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+	case T3DDataFormat::UNORM8x4: return VK_FORMAT_R8G8B8A8_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
@@ -361,7 +361,7 @@ public:
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
-	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
 	// Bound state objects
@@ -482,12 +482,12 @@ private:
 	VulkanPushBuffer *push_;
 };
 
-VkFormat FormatToVulkan(T3DImageFormat fmt, int *bpp) {
+VkFormat FormatToVulkan(T3DDataFormat fmt, int *bpp) {
 	switch (fmt) {
-	case RGBA8888: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
-	case RGBA4444: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
-	case D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
-	case D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
+	case T3DDataFormat::R8A8G8B8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
+	case T3DDataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case T3DDataFormat::D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
+	case T3DDataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
@@ -539,7 +539,7 @@ public:
 	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
 
-	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
+	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
 	}
@@ -548,7 +548,7 @@ public:
 		Destroy();
 	}
 
-	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
+	bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override {
 		format_ = format;
 		mipLevels_ = mipLevels;
 		width_ = width;
@@ -578,7 +578,7 @@ private:
 
 	int mipLevels_;
 
-	T3DImageFormat format_;
+	T3DDataFormat format_;
 };
 
 Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
@@ -828,10 +828,10 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 
 	VkPipelineRasterizationStateCreateInfo raster = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	switch (curCullMode_) {
-	case NO_CULL: raster.cullMode = VK_CULL_MODE_NONE; break;
-	case CW: raster.cullMode = VK_CULL_MODE_BACK_BIT; break;
+	case T3DCullMode::NO_CULL: raster.cullMode = VK_CULL_MODE_NONE; break;
+	case T3DCullMode::CW: raster.cullMode = VK_CULL_MODE_BACK_BIT; break;
 	default:
-	case CCW: raster.cullMode = VK_CULL_MODE_FRONT_BIT; break;
+	case T3DCullMode::CCW: raster.cullMode = VK_CULL_MODE_FRONT_BIT; break;
 	}
 	raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	raster.polygonMode = VK_POLYGON_MODE_FILL;
@@ -933,7 +933,7 @@ Thin3DTexture *Thin3DVKContext::CreateTexture() {
 	return new Thin3DVKTexture(vulkan_);
 }
 
-Thin3DTexture *Thin3DVKContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+Thin3DTexture *Thin3DVKContext::CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DVKTexture(vulkan_, type, format, width, height, depth, mipLevels);
 }
 

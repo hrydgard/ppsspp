@@ -50,12 +50,12 @@ static Thin3DBuffer *idata = nullptr;
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
-	fbTex = thin3d->CreateTexture(LINEAR2D, RGBA8888, 480, 272, 1, 1);
+	fbTex = thin3d->CreateTexture(LINEAR2D, T3DDataFormat::R8A8G8B8_UNORM, 480, 272, 1, 1);
 
 	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, T3DDataFormat::FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, T3DDataFormat::FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, T3DDataFormat::UNORM8x4, 20));
 
 	Thin3DShader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 	vformat = thin3d->CreateVertexFormat(components, 24, vshader);
@@ -124,7 +124,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	}
 	thin3d->SetSamplerStates(0, 1, &sampler);
 	thin3d->SetDepthStencilState(depth);
-	thin3d->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
 	thin3d->SetScissorEnabled(false);
 
 	float u0 = 0.0f;

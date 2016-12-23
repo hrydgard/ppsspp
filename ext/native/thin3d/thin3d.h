@@ -86,14 +86,6 @@ enum T3DBufferUsage : int {
 	DYNAMIC = 16,
 };
 
-enum T3DVertexDataType : uint8_t {
-	INVALID,
-	FLOATx2,
-	FLOATx3,
-	FLOATx4,
-	UNORM8x4,
-};
-
 enum T3DSemantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
@@ -160,11 +152,16 @@ enum T3DTextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum T3DImageFormat : uint8_t {
-	IMG_UNKNOWN,
+enum class T3DDataFormat : uint8_t {
+	UNKNOWN,
 	LUMINANCE,
-	RGBA8888,
-	RGBA4444,
+	R8A8G8B8_UNORM,
+	R4G4B4A4_UNORM,
+	FLOATx2,
+	FLOATx3,
+	FLOATx4,
+	UNORM8x4,
+
 	DXT1,
 	ETC1,  // Needs simulation on many platforms
 	D16,
@@ -176,7 +173,7 @@ enum T3DRenderState : uint8_t {
 	CULL_MODE,
 };
 
-enum T3DCullMode : uint8_t {
+enum class T3DCullMode : uint8_t {
 	NO_CULL,
 	CW,
 	CCW,
@@ -256,7 +253,7 @@ public:
 	bool LoadFromFile(const std::string &filename, T3DImageType type = T3DImageType::DETECT);
 	bool LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type = T3DImageType::DETECT);
 
-	virtual bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
@@ -270,16 +267,16 @@ protected:
 };
 
 struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(T3DVertexDataType::INVALID), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DVertexDataType dataType, uint8_t offset) {
+	Thin3DVertexComponent() : name(nullptr), type(T3DDataFormat::UNKNOWN), semantic(255), offset(255) {}
+	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DDataFormat dataType, uint8_t offset) {
 		this->name = name;
 		this->semantic = semantic;
 		this->type = dataType;
 		this->offset = offset;
 	}
 	const char *name;
-	T3DVertexDataType type;
 	uint8_t semantic;
+	T3DDataFormat type;
 	uint8_t offset;
 };
 
@@ -348,7 +345,7 @@ public:
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
 
 	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
 	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DImageType fileType);

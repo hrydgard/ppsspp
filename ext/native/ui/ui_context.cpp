@@ -42,7 +42,7 @@ void UIContext::Begin() {
 	thin3d_->SetBlendState(blend_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
 	thin3d_->SetTexture(0, uitexture_);
 	thin3d_->SetScissorEnabled(false);
 	UIBegin(uishader_);
@@ -51,7 +51,7 @@ void UIContext::Begin() {
 void UIContext::BeginNoTex() {
 	thin3d_->SetBlendState(blend_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
+	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
 
 	UIBegin(uishadernotex_);
 }

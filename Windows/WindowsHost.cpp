@@ -47,6 +47,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
+#include "Windows/GPU/D3D11Context.h"
 
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -112,6 +113,9 @@ bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx
 		break;
 	case GPU_BACKEND_DIRECT3D9:
 		graphicsContext = new D3D9Context();
+		break;
+	case GPU_BACKEND_DIRECT3D11:
+		graphicsContext = new D3D11Context();
 		break;
 	case GPU_BACKEND_VULKAN:
 		graphicsContext = new WindowsVulkanContext();

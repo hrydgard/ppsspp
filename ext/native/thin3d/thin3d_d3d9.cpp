@@ -267,9 +267,9 @@ class Thin3DDX9Texture : public Thin3DTexture {
 public:
 	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(T3DTextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	}
-	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels);
+	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels);
 	~Thin3DDX9Texture();
-	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
@@ -285,17 +285,17 @@ private:
 	LPDIRECT3DCUBETEXTURE9 cubeTex_;
 };
 
-D3DFORMAT FormatToD3D(T3DImageFormat fmt) {
+D3DFORMAT FormatToD3D(T3DDataFormat fmt) {
 	switch (fmt) {
-	case RGBA8888: return D3DFMT_A8R8G8B8;
-	case RGBA4444: return D3DFMT_A4R4G4B4;
-	case D24S8: return D3DFMT_D24S8;
-	case D16: return D3DFMT_D16;
+	case T3DDataFormat::R8A8G8B8_UNORM: return D3DFMT_A8R8G8B8;
+	case T3DDataFormat::R4G4B4A4_UNORM: return D3DFMT_A4R4G4B4;
+	case T3DDataFormat::D24S8: return D3DFMT_D24S8;
+	case T3DDataFormat::D16: return D3DFMT_D16;
 	default: return D3DFMT_UNKNOWN;
 	}
 }
 
-Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels)
+Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels)
 	: device_(device), deviceEx_(deviceEx), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	Create(type, format, width, height, depth, mipLevels);
 }
@@ -312,7 +312,7 @@ Thin3DDX9Texture::~Thin3DDX9Texture() {
 	}
 }
 
-bool Thin3DDX9Texture::Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+bool Thin3DDX9Texture::Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
 	width_ = width;
 	height_ = height;
 	depth_ = depth;
@@ -432,7 +432,7 @@ public:
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DTexture *CreateTexture() override;
-	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
@@ -562,7 +562,7 @@ Thin3DTexture *Thin3DDX9Context::CreateTexture() {
 	return tex;
 }
 
-Thin3DTexture *Thin3DDX9Context::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+Thin3DTexture *Thin3DDX9Context::CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
 	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
 	return tex;
 }
@@ -602,12 +602,12 @@ void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {
 	}
 }
 
-static int VertexDataTypeToD3DType(T3DVertexDataType type) {
+static int VertexDataTypeToD3DType(T3DDataFormat type) {
 	switch (type) {
-	case T3DVertexDataType::FLOATx2: return D3DDECLTYPE_FLOAT2;
-	case T3DVertexDataType::FLOATx3: return D3DDECLTYPE_FLOAT3;
-	case T3DVertexDataType::FLOATx4: return D3DDECLTYPE_FLOAT4;
-	case T3DVertexDataType::UNORM8x4: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
+	case T3DDataFormat::FLOATx2: return D3DDECLTYPE_FLOAT2;
+	case T3DDataFormat::FLOATx3: return D3DDECLTYPE_FLOAT3;
+	case T3DDataFormat::FLOATx4: return D3DDECLTYPE_FLOAT4;
+	case T3DDataFormat::UNORM8x4: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
 	default: return D3DDECLTYPE_UNUSED;
 	}
 }

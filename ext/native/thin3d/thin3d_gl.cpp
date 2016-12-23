@@ -363,7 +363,7 @@ public:
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
-	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
 	// Bound state objects
@@ -516,7 +516,7 @@ public:
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
 	}
-	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
+	Thin3DGLTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
 		generatedMips_ = false;
 		canWrap_ = true;
 		width_ = width;
@@ -530,7 +530,7 @@ public:
 		Destroy();
 	}
 
-	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
+	bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override {
 		generatedMips_ = false;
 		canWrap_ = true;
 		format_ = format;
@@ -589,7 +589,7 @@ private:
 	GLuint tex_;
 	GLuint target_;
 
-	T3DImageFormat format_;
+	T3DDataFormat format_;
 	int mipLevels_;
 	bool generatedMips_;
 	bool canWrap_;
@@ -599,7 +599,7 @@ Thin3DTexture *Thin3DGLContext::CreateTexture() {
 	return new Thin3DGLTexture();
 }
 
-Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
 }
 
@@ -618,12 +618,12 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 	int format;
 	int type;
 	switch (format_) {
-	case RGBA8888:
+	case T3DDataFormat::R8A8G8B8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case RGBA4444:
+	case T3DDataFormat::R4G4B4A4_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
@@ -966,20 +966,22 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 	if (b != lastBase_) {
 		for (size_t i = 0; i < components_.size(); i++) {
 			switch (components_[i].type) {
-			case FLOATx2:
+			case T3DDataFormat::FLOATx2:
 				glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case FLOATx3:
+			case T3DDataFormat::FLOATx3:
 				glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case FLOATx4:
+			case T3DDataFormat::FLOATx4:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case UNORM8x4:
+			case T3DDataFormat::UNORM8x4:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case INVALID:
-				ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
+			case T3DDataFormat::UNKNOWN:
+			default:
+				ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+				break;
 			}
 		}
 		if (id_ != 0) {
