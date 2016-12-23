@@ -424,3 +424,4 @@ Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 class VulkanContext;
 
 Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);
+Thin3DContext *T3DCreateD3D11Context();
