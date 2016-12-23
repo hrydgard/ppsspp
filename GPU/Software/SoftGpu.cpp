@@ -44,6 +44,7 @@ u32 clut[4096];
 
 static Thin3DVertexFormat *vformat = nullptr;
 static Thin3DDepthStencilState *depth = nullptr;
+static Thin3DRasterState *rasterNoCull = nullptr;
 static Thin3DBuffer *vdata = nullptr;
 static Thin3DBuffer *idata = nullptr;
 
@@ -66,6 +67,9 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Thin3DContext *_thin3D)
 
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
+
+	T3DRasterStateDesc rasterDesc{};
+	rasterNoCull = thin3d->CreateRasterState(rasterDesc);
 
 	framebufferDirty_ = true;
 	// TODO: Is there a default?
@@ -94,6 +98,8 @@ SoftGPU::~SoftGPU() {
 	idata = nullptr;
 	depth->Release();
 	depth = nullptr;
+	rasterNoCull->Release();
+	rasterNoCull = nullptr;
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -124,7 +130,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight)
 	}
 	thin3d->SetSamplerStates(0, 1, &sampler);
 	thin3d->SetDepthStencilState(depth);
-	thin3d->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
+	thin3d->SetRasterState(rasterNoCull);
 	thin3d->SetScissorEnabled(false);
 
 	float u0 = 0.0f;

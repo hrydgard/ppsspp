@@ -136,6 +136,8 @@ static VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugRep
 		return false;
 	if (msgCode == 44 && startsWith(pMsg, "At Draw time the active render"))
 		return false;
+	if (msgCode == 11)
+		return false;
 
 #ifdef _WIN32
 	OutputDebugStringA(message.str().c_str());

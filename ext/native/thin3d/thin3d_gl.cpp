@@ -170,6 +170,23 @@ public:
 	}
 };
 
+class Thin3DGLRasterState : public Thin3DRasterState {
+public:
+	void Apply() {
+		if (!cullEnable) {
+			glDisable(GL_CULL_FACE);
+			return;
+		}
+		glEnable(GL_CULL_FACE);
+		glFrontFace(frontFace);
+		glCullFace(cullMode);
+	}
+
+	GLboolean cullEnable;
+	GLenum cullMode;
+	GLenum frontFace;
+};
+
 class Thin3DGLBuffer : public Thin3DBuffer, GfxResourceHolder {
 public:
 	Thin3DGLBuffer(size_t size, uint32_t flags) {
@@ -360,6 +377,7 @@ public:
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) override;
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
 	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
+	Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
@@ -400,6 +418,11 @@ public:
 		s->Apply();
 	}
 
+	void SetRasterState(Thin3DRasterState *state) override {
+		Thin3DGLRasterState *rs = static_cast<Thin3DGLRasterState *>(state);
+		rs->Apply();
+	}
+
 	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
@@ -425,8 +448,6 @@ public:
 	}
 
 	void SetTextures(int start, int count, Thin3DTexture **textures) override;
-
-	void SetRenderState(T3DRenderState rs, uint32_t value) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
@@ -722,6 +743,35 @@ Thin3DSamplerState *Thin3DGLContext::CreateSamplerState(const T3DSamplerStateDes
 	return samps;
 }
 
+Thin3DRasterState *Thin3DGLContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+	Thin3DGLRasterState *rs = new Thin3DGLRasterState();
+	if (desc.cull == T3DCullMode::NO_CULL) {
+		rs->cullEnable = GL_FALSE;
+		return rs;
+	}
+	rs->cullEnable = GL_TRUE;
+	switch (desc.facing) {
+	case T3DFacing::CW:
+		rs->frontFace = GL_CW;
+		break;
+	case T3DFacing::CCW:
+		rs->frontFace = GL_CCW;
+		break;
+	}
+	switch (desc.cull) {
+	case T3DCullMode::FRONT:
+		rs->cullMode = GL_FRONT;
+		break;
+	case T3DCullMode::BACK:
+		rs->cullMode = GL_BACK;
+		break;
+	case T3DCullMode::FRONT_AND_BACK:
+		rs->cullMode = GL_FRONT_AND_BACK;
+		break;
+	}
+	return rs;
+}
+
 Thin3DBuffer *Thin3DGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DGLBuffer(size, usageFlags);
 }
@@ -857,18 +907,6 @@ void Thin3DGLShaderSet::Apply() {
 
 void Thin3DGLShaderSet::Unapply() {
 	glUseProgram(0);
-}
-
-void Thin3DGLContext::SetRenderState(T3DRenderState rs, uint32_t value) {
-	switch (rs) {
-	case T3DRenderState::CULL_MODE:
-		switch (value) {
-		case T3DCullMode::NO_CULL: glDisable(GL_CULL_FACE); break;
-		case T3DCullMode::CCW: glEnable(GL_CULL_FACE); glCullFace(GL_CCW); break;   // TODO: Should be GL_FRONT
-		case T3DCullMode::CW: glEnable(GL_CULL_FACE); glCullFace(GL_CW); break;
-		}
-		break;
-	}
 }
 
 void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {

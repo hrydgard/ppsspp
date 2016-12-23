@@ -18,6 +18,7 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 	// Not releasing blend_, it's a preset. Should really make them AddRef, though..
 	depth_->Release();
+	rasterNoCull_->Release();
 }
 
 void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
@@ -25,7 +26,10 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
 	sampler_ = thin3d_->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
 	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
-
+	T3DRasterStateDesc desc;
+	desc.cull = T3DCullMode::NO_CULL;
+	desc.facing = T3DFacing::CCW;
+	rasterNoCull_ = thin3d_->CreateRasterState(desc);
 	uishader_ = uishader;
 	uishadernotex_ = uishadernotex;
 	uitexture_ = uitexture;
@@ -42,7 +46,7 @@ void UIContext::Begin() {
 	thin3d_->SetBlendState(blend_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
+	thin3d_->SetRasterState(rasterNoCull_);
 	thin3d_->SetTexture(0, uitexture_);
 	thin3d_->SetScissorEnabled(false);
 	UIBegin(uishader_);
@@ -51,7 +55,7 @@ void UIContext::Begin() {
 void UIContext::BeginNoTex() {
 	thin3d_->SetBlendState(blend_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, (uint32_t)T3DCullMode::NO_CULL);
+	thin3d_->SetRasterState(rasterNoCull_);
 
 	UIBegin(uishadernotex_);
 }

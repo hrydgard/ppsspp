@@ -152,6 +152,30 @@ public:
 	}
 };
 
+class Thin3DVKRasterState : public Thin3DRasterState {
+public:
+	Thin3DVKRasterState(VulkanContext *vulkan, const T3DRasterStateDesc &desc) {
+		cullFace = desc.cull;
+		frontFace = desc.facing;
+	}
+	T3DFacing frontFace;
+	T3DCullMode cullFace;
+
+	void ToVulkan(VkPipelineRasterizationStateCreateInfo *info) {
+		memset(info, 0, sizeof(*info));
+		info->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		info->frontFace = frontFace == T3DFacing::CCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+		switch (cullFace) {
+		case T3DCullMode::BACK: info->cullMode = VK_CULL_MODE_BACK_BIT; break;
+		case T3DCullMode::FRONT: info->cullMode = VK_CULL_MODE_FRONT_BIT; break;
+		case T3DCullMode::FRONT_AND_BACK: info->cullMode = VK_CULL_MODE_FRONT_AND_BACK; break;
+		case T3DCullMode::NO_CULL: info->cullMode = VK_CULL_MODE_NONE; break;
+		}
+		info->polygonMode = VK_POLYGON_MODE_FILL;
+		info->lineWidth = 1.0f;
+	}
+};
+
 // Very simplistic buffer that will simply copy its contents into our "pushbuffer" when it's time to draw,
 // to avoid synchronization issues.
 class Thin3DVKBuffer : public Thin3DBuffer {
@@ -317,7 +341,7 @@ struct PipelineKey {
 	Thin3DVKBlendState *blend;
 	Thin3DVKShaderSet *shaderSet;
 	VkPrimitiveTopology topology;
-	T3DCullMode cullMode;
+	Thin3DVKRasterState *raster;
 
 	// etc etc
 
@@ -326,7 +350,7 @@ struct PipelineKey {
 		if (blend < other.blend) return true; else if (blend > other.blend) return false;
 		if (shaderSet < other.shaderSet) return true; else if (shaderSet > other.shaderSet) return false;
 		if (topology < other.topology) return true; else if (topology > other.topology) return false;
-		if (cullMode < other.cullMode) return true; else if (cullMode > other.cullMode) return false;
+		if (raster < other.raster) return true; else if (raster > other.raster) return false;
 		// etc etc
 		return false;
 	}
@@ -361,6 +385,7 @@ public:
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
+	Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
@@ -374,6 +399,12 @@ public:
 	void SetDepthStencilState(Thin3DDepthStencilState *state) override {
 		Thin3DVKDepthStencilState *s = static_cast<Thin3DVKDepthStencilState *>(state);
 		curDepthStencilState_ = s;
+	}
+
+	// Bound state objects
+	void SetRasterState(Thin3DRasterState *state) override {
+		Thin3DVKRasterState *s = static_cast<Thin3DVKRasterState *>(state);
+		curRasterState_ = s;
 	}
 
 	// The implementation makes the choice of which shader code to use.
@@ -391,8 +422,6 @@ public:
 	void SetTextures(int start, int count, Thin3DTexture **textures) override;
 
 	void SetSamplerStates(int start, int count, Thin3DSamplerState **state) override;
-
-	void SetRenderState(T3DRenderState rs, uint32_t value) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
@@ -438,7 +467,7 @@ private:
 	Thin3DVKShaderSet *curShaderSet_;
 	VkPrimitiveTopology curPrim_;
 	Thin3DVKVertexFormat *curVertexFormat_;
-	T3DCullMode curCullMode_;
+	Thin3DVKRasterState *curRasterState_; 
 
 	// We keep a pipeline state cache.
 	std::map<PipelineKey, VkPipeline> pipelines_;
@@ -519,6 +548,10 @@ private:
 
 Thin3DSamplerState *Thin3DVKContext::CreateSamplerState(const T3DSamplerStateDesc &desc) {
 	return new Thin3DVKSamplerState(vulkan_, desc);
+}
+
+Thin3DRasterState *Thin3DVKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+	return new Thin3DVKRasterState(vulkan_, desc);
 }
 
 void Thin3DVKContext::SetSamplerStates(int start, int count, Thin3DSamplerState **state) {
@@ -781,7 +814,7 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	key.depthStencil = curDepthStencilState_;
 	key.shaderSet = curShaderSet_;
 	key.topology = curPrim_;
-	key.cullMode = curCullMode_;
+	key.raster = curRasterState_;
 
 	auto iter = pipelines_.find(key);
 	if (iter != pipelines_.end()) {
@@ -826,21 +859,8 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	dynamicInfo.dynamicStateCount = ARRAY_SIZE(dynamics);
 	dynamicInfo.pDynamicStates = dynamics;
 
-	VkPipelineRasterizationStateCreateInfo raster = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
-	switch (curCullMode_) {
-	case T3DCullMode::NO_CULL: raster.cullMode = VK_CULL_MODE_NONE; break;
-	case T3DCullMode::CW: raster.cullMode = VK_CULL_MODE_BACK_BIT; break;
-	default:
-	case T3DCullMode::CCW: raster.cullMode = VK_CULL_MODE_FRONT_BIT; break;
-	}
-	raster.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	raster.polygonMode = VK_POLYGON_MODE_FILL;
-	raster.rasterizerDiscardEnable = false;
-	raster.lineWidth = 1.0f;
-	raster.depthBiasClamp = 0.0f;
-	raster.depthBiasEnable = false;
-	raster.depthClampEnable = false;
-	raster.depthBiasSlopeFactor = 0.0;
+	VkPipelineRasterizationStateCreateInfo raster;
+	curRasterState_->ToVulkan(&raster);
 
 	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	ms.pNext = nullptr;
@@ -1039,14 +1059,6 @@ void Thin3DVKShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
 		memcpy(ubo_ + loc, value, 16 * sizeof(float));
-	}
-}
-
-void Thin3DVKContext::SetRenderState(T3DRenderState rs, uint32_t value) {
-	switch (rs) {
-	case T3DRenderState::CULL_MODE:
-		curCullMode_ = (T3DCullMode)value;
-		break;
 	}
 }
 

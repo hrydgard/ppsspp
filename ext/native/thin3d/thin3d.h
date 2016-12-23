@@ -173,12 +173,6 @@ enum T3DRenderState : uint8_t {
 	CULL_MODE,
 };
 
-enum class T3DCullMode : uint8_t {
-	NO_CULL,
-	CW,
-	CCW,
-};
-
 enum T3DImageType {
 	PNG,
 	JPEG,
@@ -296,6 +290,10 @@ public:
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
+class Thin3DRasterState : public Thin3DObject {
+public:
+};
+
 enum class ShaderStage {
 	VERTEX,
 	FRAGMENT,
@@ -331,6 +329,23 @@ struct T3DSamplerStateDesc {
 	T3DTextureFilter mipFilt;
 };
 
+enum class T3DCullMode : uint8_t {
+	NO_CULL,
+	FRONT,
+	BACK,
+	FRONT_AND_BACK,  // Not supported on D3D9
+};
+
+enum class T3DFacing {
+	CCW,
+	CW,
+};
+
+struct T3DRasterStateDesc {
+	T3DCullMode cull;
+	T3DFacing facing;
+};
+
 class Thin3DContext : public Thin3DObject {
 public:
 	virtual ~Thin3DContext();
@@ -340,6 +355,7 @@ public:
 	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
+	virtual Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
@@ -365,6 +381,7 @@ public:
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
 	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
 	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
+	virtual void SetRasterState(Thin3DRasterState *state) = 0;
 	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
 
 	void SetTexture(int stage, Thin3DTexture *texture) {
@@ -375,9 +392,6 @@ public:
 	virtual void SetScissorEnabled(bool enable) = 0;
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, T3DViewport *viewports) = 0;
-
-	// Single render states that aren't worth state blocks. May have to convert some of these state blocks on D3D11 though...
-	virtual void SetRenderState(T3DRenderState rs, uint32_t value) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
 	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
