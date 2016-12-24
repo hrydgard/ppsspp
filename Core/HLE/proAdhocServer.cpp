@@ -78,11 +78,408 @@ int create_listen_socket(uint16_t port);
 int server_loop(int server);
 
 void __AdhocServerInit() {
-	// I'm too lazy to copy the whole list here, we should read these from database.db
+	
+	// Crosslink database for cross region Adhoc play 
+	
+	// Ace Combat X2 - Joint Assault
 	crosslinks.push_back(db_crosslink{ "ULES01408", "ULUS10511" });
 	crosslinks.push_back(db_crosslink{ "NPJH50263", "ULUS10511" });
+
+	// Armored Core 3 Portable
+	crosslinks.push_back(db_crosslink{ "ULJM05492", "NPUH10023" });
+
+	// BlazBlue - Continuum Shift 2
+	crosslinks.push_back(db_crosslink{ "NPJH50401", "ULUS10579" });
+
+	// Blood Bowl
+	crosslinks.push_back(db_crosslink{ "ULES01230", "ULUS10516" });
+
+	// Bomberman 
+	crosslinks.push_back(db_crosslink{ "ULJM05034", "ULUS10121" });
+	crosslinks.push_back(db_crosslink{ "ULES00469", "ULUS10121" });
+	crosslinks.push_back(db_crosslink{ "ULJM05316", "ULUS10121" });
+
+	// Bomberman Land
+	crosslinks.push_back(db_crosslink{ "ULJM05181", "ULUS10319" });
+	crosslinks.push_back(db_crosslink{ "ULJM05319", "ULUS10319" });
+	crosslinks.push_back(db_crosslink{ "ULES00959", "ULUS10319" });
+
+	// Call of Duty - Roads to Victory
+	crosslinks.push_back(db_crosslink{ "ULES00643", "ULUS10218" });
+
+	// Dissidia 012 Duodecim Final Fantasy
+	crosslinks.push_back(db_crosslink{ "ULES01505", "ULUS10566" });
+	crosslinks.push_back(db_crosslink{ "NPJH50377", "ULUS10566" });
+
+	// Dissidia Final Fantasy
+	crosslinks.push_back(db_crosslink{ "ULES01270", "ULUS10437" });
+	crosslinks.push_back(db_crosslink{ "ULJM05262", "ULUS10437" });
+
+	// Dragon Ball Z - Shin Budokai
+	crosslinks.push_back(db_crosslink{ "ULJS00049", "ULUS10081" });
+	crosslinks.push_back(db_crosslink{ "ULKS46085", "ULUS10081" });
+	crosslinks.push_back(db_crosslink{ "ULES00309", "ULUS10081" });
+
+	// Dragon Ball Z - Shin Budokai 2
+	crosslinks.push_back(db_crosslink{ "ULJS00107", "ULUS10234" });
+	crosslinks.push_back(db_crosslink{ "ULES00789", "ULUS10234" });
+
+	// Dragon Ball Z - Tenkaichi Tag Team
+	crosslinks.push_back(db_crosslink{ "ULES01456", "ULUS10537" });
+
+	// Dungeon Siege - Throne of Agony
+	crosslinks.push_back(db_crosslink{ "ULES00569", "ULUS10177" });
+
+	// Everybody's Tennis
+	crosslinks.push_back(db_crosslink{ "UCJS10101", "UCUS98701" });
+	crosslinks.push_back(db_crosslink{ "UCES01420", "UCUS98701" });
+
+	// Fat Princess - Fistful of Cake
+	crosslinks.push_back(db_crosslink{ "UCES01312", "UCUS98740" });
+	crosslinks.push_back(db_crosslink{ "NPHG00025", "UCUS98740" });
+
+	// God Eater Burst
+	crosslinks.push_back(db_crosslink{ "ULES01519", "ULUS10563" });
+	crosslinks.push_back(db_crosslink{ "NPJH50352", "ULUS10563" });
+
+	// Gran Turismo
+	crosslinks.push_back(db_crosslink{ "UCES01245", "UCUS98632" });
+	crosslinks.push_back(db_crosslink{ "UCES00543", "UCUS98645" });
+
+	// Gundam VS Gundam - Next Plus
+	crosslinks.push_back(db_crosslink{ "ULJS00250", "NPJH50107" });
+	crosslinks.push_back(db_crosslink{ "ULJS19048", "NPJH50107" });
+	
+	// Hatsune Miku - Project Diva Extend
+	crosslinks.push_back(db_crosslink{ "NPJH50465", "ULJM05933" });
+
+	// Hot Pixel
+	crosslinks.push_back(db_crosslink{ "ULES00642", "ULUS10298" });
+
+	// Lord of Arcana
+	crosslinks.push_back(db_crosslink{ "ULJM05767", "ULES01507" });
+	crosslinks.push_back(db_crosslink{ "ULUS10479", "ULES01507" });
+
+	// M.A.C.H. - Modified Air Combat Heroes
+	crosslinks.push_back(db_crosslink{ "ULES00565", "ULUS10180" });
+	crosslinks.push_back(db_crosslink{ "ULES00566", "ULUS10180" });
+	crosslinks.push_back(db_crosslink{ "ULJM05202", "ULUS10180" });
+
+	// Metal Gear Solid - Peace Walker
+	crosslinks.push_back(db_crosslink{ "ULES01372", "NPJH50045" });
+	crosslinks.push_back(db_crosslink{ "ULUS10509", "NPJH50045" });
+	
+	// Metal Gear Solid - Portable Ops
+	crosslinks.push_back(db_crosslink{ "ULES00645", "ULUS10202" });
+	crosslinks.push_back(db_crosslink{ "ULJM05193", "ULUS10202" });
+
+	// Metal Gear Solid - Portable Ops +
+	crosslinks.push_back(db_crosslink{ "ULES01003", "ULUS10290" });
+	crosslinks.push_back(db_crosslink{ "ULJM05261", "ULUS10290" });
+
+	// Midnight Club - LA Remix
+	crosslinks.push_back(db_crosslink{ "ULES01144", "ULUS10383" });
+	crosslinks.push_back(db_crosslink{ "ULJS00180", "ULUS10383" });
+
+	// Mod Nation Racers
+	crosslinks.push_back(db_crosslink{ "UCES01327", "UCUS98741" });
+	crosslinks.push_back(db_crosslink{ "UCJS10112", "UCUS98741" });
+	crosslinks.push_back(db_crosslink{ "UCAS40306", "UCUS98741" });
+
+	// Monster Hunter Freedom
+	crosslinks.push_back(db_crosslink{ "ULJM05066", "ULUS10084" });
+	crosslinks.push_back(db_crosslink{ "ULES00318", "ULUS10084" });
+
+	// Monster Hunter Freedom 2
+	crosslinks.push_back(db_crosslink{ "ULJM05156", "ULUS10266" });
+	crosslinks.push_back(db_crosslink{ "ULES00851", "ULUS10266" });
+
+	// Monster Hunter Freedom Unite
+	crosslinks.push_back(db_crosslink{ "ULES01213", "ULUS10391" });
+	crosslinks.push_back(db_crosslink{ "ULJM05500", "ULUS10391" });
+
+	// N+
+	crosslinks.push_back(db_crosslink{ "ULES01026", "ULUS10340" });
+
+	// Need for Speed - Undercover
+	crosslinks.push_back(db_crosslink{ "ULJM05403", "ULUS10376" });
+	crosslinks.push_back(db_crosslink{ "ULJM05612", "ULUS10376" });
+	crosslinks.push_back(db_crosslink{ "ULES01145", "ULUS10376" });
+
+	// Outrun 2006 - Coast 2 Coast
+	crosslinks.push_back(db_crosslink{ "ULES00262", "ULUS10064" });
+
+	// Pangya! - Fantasy Golf
+	crosslinks.push_back(db_crosslink{ "ULJM05440", "ULUS10438" });
+	crosslinks.push_back(db_crosslink{ "ULKS46164", "ULUS10438" });
+	
+	// PRO Evolution Soccer 2012
+	crosslinks.push_back(db_crosslink{ "ULES01540", "ULUS10586" });
+	crosslinks.push_back(db_crosslink{ "ULES01541", "ULUS10586" });
+	crosslinks.push_back(db_crosslink{ "ULES01542", "ULUS10586" });
+	crosslinks.push_back(db_crosslink{ "ULAS42289", "ULUS10586" });
+
+	// Patapon 2
+	crosslinks.push_back(db_crosslink{ "UCJS10089", "UCUS98732" });
+	crosslinks.push_back(db_crosslink{ "PSPJ30000", "UCUS98732" });
+	crosslinks.push_back(db_crosslink{ "UCES01177", "UCUS98732" });
+	crosslinks.push_back(db_crosslink{ "UCJS18036", "UCUS98732" });
+
+	// Patapon 3
+	crosslinks.push_back(db_crosslink{ "UCES01421", "UCUS98751" });
+	crosslinks.push_back(db_crosslink{ "NPJG00122", "UCUS98751" });
+
+	// Phantasy Star Portable
+	crosslinks.push_back(db_crosslink{ "ULJM05309", "ULUS10410" });
+	crosslinks.push_back(db_crosslink{ "ULES01218", "ULUS10410" });
+	crosslinks.push_back(db_crosslink{ "ULJM08023", "ULUS10410" });
+
+	// Phantasy Star Portable 2
+	crosslinks.push_back(db_crosslink{ "ULJM05493", "ULUS10529" });
+	crosslinks.push_back(db_crosslink{ "ULJM08030", "ULUS10529" });
+	crosslinks.push_back(db_crosslink{ "ULES01439", "ULUS10529" });
+
+	// Resistance - Retribution
+	crosslinks.push_back(db_crosslink{ "UCES01184", "UCJS10090" });
+	crosslinks.push_back(db_crosslink{ "UCUS98668", "UCJS10090" });
+
+	// Rocky Balboa
+	crosslinks.push_back(db_crosslink{ "ULUS10233", "ULES00670" });
+
+	// SOCOM - Fireteam Bravo
+	crosslinks.push_back(db_crosslink{ "UCES00038", "UCUS98615" });
+	crosslinks.push_back(db_crosslink{ "UCJS10102", "UCUS98615" });
+
+	// SOCOM - Fireteam Bravo 3
+	crosslinks.push_back(db_crosslink{ "UCES01242", "UCUS98716" });
+	crosslinks.push_back(db_crosslink{ "NPJG00035", "UCUS98716" });
+
+	// Shrek - Smash and Crash Racing
+	crosslinks.push_back(db_crosslink{ "ULES00618", "ULUS10194" });
+
+	// Smash Court Tennis 3
+	crosslinks.push_back(db_crosslink{ "ULJS00098", "UCES00758" });
+	crosslinks.push_back(db_crosslink{ "ULUS10269", "UCES00758" });
+
+	// Soul Calibur - Broken Destiny
+	crosslinks.push_back(db_crosslink{ "ULES01298", "ULUS10457" });
+	crosslinks.push_back(db_crosslink{ "ULJS00202", "ULUS10457" });
+	
+	// Split Second - Velocity
+	crosslinks.push_back(db_crosslink{ "ULES01402", "ULUS10513" });
+	crosslinks.push_back(db_crosslink{ "ULJM05812", "ULUS10513" });
+
+	// Street Fighter Alpha 3 MAX
+	crosslinks.push_back(db_crosslink{ "ULJM05082", "ULUS10062" });
+	crosslinks.push_back(db_crosslink{ "ULES00235", "ULUS10062" });
+	crosslinks.push_back(db_crosslink{ "ULJM05225", "ULUS10062" });
+
+	// Taiko no Tatsujin Portable DX"
+	crosslinks.push_back(db_crosslink{ "ULJS00383", "NPJH50426" });
+	
+	// Tekken 6
+	crosslinks.push_back(db_crosslink{ "ULES01376", "ULUS10466" });
+	crosslinks.push_back(db_crosslink{ "NPJH50184", "ULUS10466" });
+	crosslinks.push_back(db_crosslink{ "ULJS00224", "ULUS10466" });
+
+	// TRON - Evolution
+	crosslinks.push_back(db_crosslink{ "ULES01495", "ULUS10548" });
+
+	// Untold Legends - Brotherhood of the Blade
+	crosslinks.push_back(db_crosslink{ "ULES00046", "ULUS10003" });
+	crosslinks.push_back(db_crosslink{ "ULJM05087", "ULUS10003" });
+	crosslinks.push_back(db_crosslink{ "ULKS46015", "ULUS10003" });
+
+	// Untold Legends - The Warrior's Code
+	crosslinks.push_back(db_crosslink{ "ULES00301", "ULUS10086" });
+	crosslinks.push_back(db_crosslink{ "ULJM05179", "ULUS10086" });
+	crosslinks.push_back(db_crosslink{ "ULKS46069", "ULUS10086" });
+
+	// Virtua Tennis 3
+	crosslinks.push_back(db_crosslink{ "ULES00763", "ULUS10246" });
+
+	// World Series of Poker 2008 - Battle for the Bracelets
+	crosslinks.push_back(db_crosslink{ "ULES00991", "ULUS10321" });
+
+	// Worms Battle Islands
+	crosslinks.push_back(db_crosslink{ "NPEH00019", "NPUH10045" });
+
+	// Worms Open Warfare
+	crosslinks.push_back(db_crosslink{ "ULES00268", "ULUS10065" });
+	
+	// Worms Open Warfare 2
+	crosslinks.push_back(db_crosslink{ "ULES00819", "ULUS10260" });
+
+	// Yu-Gi-Oh! 5D's Tag Force 5
+	crosslinks.push_back(db_crosslink{ "ULUS10555", "ULJM05734" });
+	crosslinks.push_back(db_crosslink{ "ULES01474", "ULJM05734" });
+
+	// Database Product name will update if new game region played on my server to list possible crosslinks
 	productids.push_back(db_productid{ "ULUS10511", "Ace Combat X2 - Joint Assault" });
+	productids.push_back(db_productid{ "ULUS10245", "Alien Syndrome" });
 	productids.push_back(db_productid{ "NPUH10023", "Armored Core 3 Portable" });
+	productids.push_back(db_productid{ "ULES00719", "Asphalt - Urban GT 2" });
+	productids.push_back(db_productid{ "ULUS10579", "BlazBlue - Continuum Shift 2" });
+	productids.push_back(db_productid{ "ULUS10519", "BlazBlue Calamity Trigger" });
+	productids.push_back(db_productid{ "UCJS10110", "Bleach Heat The Soul 7" });
+	productids.push_back(db_productid{ "ULUS10516", "Blood Bowl" });
+	productids.push_back(db_productid{ "ULUS10121", "Bomberman" });
+	productids.push_back(db_productid{ "ULUS10319", "Bomberman Land" });
+	productids.push_back(db_productid{ "ULES00703", "Burnout Dominator" });
+	productids.push_back(db_productid{ "ULES00125", "Burnout Legends" });
+	productids.push_back(db_productid{ "ULJM05538", "Busou Shinki - Battle Masters" });
+	productids.push_back(db_productid{ "ULUS10057", "Bust A Move Deluxe" });
+	productids.push_back(db_productid{ "ULUS10218", "Call of Duty - Roads to Victory" });
+	productids.push_back(db_productid{ "ULUS10351", "Code Lyoko - Quest for Infinity" });
+	productids.push_back(db_productid{ "NPJH50583", "Conception - Please have my children!" });
+	productids.push_back(db_productid{ "ULUS10044", "Crash Tag Team Racing" });
+	productids.push_back(db_productid{ "ULUS10100", "Def Jam Fight For NY - The Takeover" });
+	productids.push_back(db_productid{ "NPJH50588", "Digimon World Re:Digitize" });
+	productids.push_back(db_productid{ "ULUS10566", "Dissidia 012 Duodecim Final Fantasy" });
+	productids.push_back(db_productid{ "ULUS10437", "Dissidia Final Fantasy" });
+	productids.push_back(db_productid{ "ULUS10081", "Dragon Ball Z - Shin Budokai" });
+	productids.push_back(db_productid{ "ULUS10234", "Dragon Ball Z - Shin Budokai 2" });
+	productids.push_back(db_productid{ "ULUS10537", "Dragon Ball Z - Tenkaichi Tag Team" });
+	//maybe we can crosslinks this 2 region to ULUS10537 not having the game to test
+	productids.push_back(db_productid{ "ULJS00311", "Dragon Ball Z - Tenkaichi Tag Team" });
+	productids.push_back(db_productid{ "NPJH90135", "Dragon Ball Z - Tenkaichi Tag Team" });
+	productids.push_back(db_productid{ "ULJM05127", "Dragon Quest & Final Fantasy in Itadaki Street Special" });
+	productids.push_back(db_productid{ "ULES00847", "Dungeon Explorer - Warriors of Ancient Arts" });
+	productids.push_back(db_productid{ "ULUS10177", "Dungeon Siege - Throne of Agony" });
+	productids.push_back(db_productid{ "ULUS10170", "Dynasty Warrior 2" });
+	//looks like can be crosslinked too
+	productids.push_back(db_productid{ "ULES01221", "Dynasty Warriors - Strike Force" });
+	productids.push_back(db_productid{ "ULUS10416", "Dynasty Warriors - Strike Force" });
+	productids.push_back(db_productid{ "UCUS98701", "Everybody's Tennis" });
+	productids.push_back(db_productid{ "UCUS98740", "Fat Princess - Fistful of Cake" });
+	productids.push_back(db_productid{ "ULJM05360", "Fate Tiger Colosseum Upper" });
+	productids.push_back(db_productid{ "ULUS10297", "Final Fantasy Tactics - The War of the Lions" });
+	productids.push_back(db_productid{ "ULES00850", "Final Fantasy Tactics - War of the Lions" });
+	productids.push_back(db_productid{ "NPJH50443", "Final Fantasy Type 0" });
+	productids.push_back(db_productid{ "NPJH50468", "Frontier Gate" });
+	productids.push_back(db_productid{ "NPJH50721", "Frontier Gate Boost+" });
+	productids.push_back(db_productid{ "ULES01432", "Full Metal Alchemist - Brotherhood" });
+	productids.push_back(db_productid{ "ULUS10490", "GTA Chinatown Wars" });
+	productids.push_back(db_productid{ "ULUS10160", "GTA Vice City Stories" });
+	productids.push_back(db_productid{ "ULUS10210", "Ghost Rider" });
+	productids.push_back(db_productid{ "ULJS00237", "God Eater" });
+	productids.push_back(db_productid{ "NPJH50832", "God Eater 2" });
+	productids.push_back(db_productid{ "ULUS10563", "God Eater Burst" });
+	productids.push_back(db_productid{ "UCUS98632", "Gran Turismo" });
+	productids.push_back(db_productid{ "NPJH50107", "Gundam VS Gundam - Next Plus" });
+	productids.push_back(db_productid{ "ULJM05933", "Hatsune Miku - Project Diva Extend" });
+	productids.push_back(db_productid{ "ULUS10298", "Hot Pixel" });
+	productids.push_back(db_productid{ "ULJM05709", "K-ON! Houkago Live" });
+	productids.push_back(db_productid{ "NPJH50221", "Kateikyoushi Hitman Reborn! Kizuna no Tag Battle" });
+	productids.push_back(db_productid{ "ULJS00165", "Kidou Senshi Gundam - Gundam vs. Gundam" });
+	productids.push_back(db_productid{ "UCUS98646", "Killzone Liberation" });
+	productids.push_back(db_productid{ "ULJM05775", "Kingdom Hearts - Birth by Sleep Final Mix" });
+	productids.push_back(db_productid{ "ULUS10487", "LEGO Indiana Jones 2" });
+	productids.push_back(db_productid{ "NPJH50503", "Lord of Apocalypse" });
+	productids.push_back(db_productid{ "ULES01507", "Lord of Arcana" });
+	productids.push_back(db_productid{ "ULUS10180", "M.A.C.H. - Modified Air Combat Heroes" });
+	productids.push_back(db_productid{ "UCUS98758", "MLB11 - The Show" });
+	productids.push_back(db_productid{ "ULUS10581", "Madden NFL 12" });
+	productids.push_back(db_productid{ "ULJS00385", "Mahou Shoujo Nanoha A's Portable - The Gears of Destiny" });
+	productids.push_back(db_productid{ "ULUS10408", "Mana Khemia Student Alliance" });
+	productids.push_back(db_productid{ "ULUS10141", "Medal Of Honor Heroes" });
+	productids.push_back(db_productid{ "NPJH50045", "Metal Gear Solid - Peace Walker" });
+	productids.push_back(db_productid{ "ULUS10202", "Metal Gear Solid - Portable Ops" });
+	productids.push_back(db_productid{ "ULUS10290", "Metal Gear Solid - Portable Ops +" });
+	productids.push_back(db_productid{ "ULUS10154", "Metal Slug Anthology" });
+	productids.push_back(db_productid{ "ULUS10495", "Metal Slug XX" });
+	productids.push_back(db_productid{ "ULES01429", "Metal Slug XX" });
+	productids.push_back(db_productid{ "ULES00368", "Micro Machines V4" });
+	productids.push_back(db_productid{ "ULUS10383", "Midnight Club - LA Remix" });
+	productids.push_back(db_productid{ "UCUS98741", "Mod Nation Racers" });
+	productids.push_back(db_productid{ "ULUS10084", "Monster Hunter Freedom" });
+	productids.push_back(db_productid{ "ULUS10266", "Monster Hunter Freedom 2" });
+	productids.push_back(db_productid{ "ULUS10391", "Monster Hunter Freedom Unite" });
+	productids.push_back(db_productid{ "ULJM05800", "Monster Hunter Portable 3rd" });
+	productids.push_back(db_productid{ "ULJM06097", "Musou Orochi 2 Special" });
+	productids.push_back(db_productid{ "ULUS10340", "N+" });
+	productids.push_back(db_productid{ "ULES01578", "NBA 2K13" });
+	productids.push_back(db_productid{ "ULUS10598", "NBA 2K13" });
+	productids.push_back(db_productid{ "ULUS10349", "Naruto - Ultimate Ninja Heroes 2" });
+	productids.push_back(db_productid{ "ULUS10518", "Naruto - Ultimate Ninja Heroes 3" });
+	productids.push_back(db_productid{ "ULJS00236", "Naruto - Accel 3" });
+	productids.push_back(db_productid{ "ULUS10582", "Naruto Shippuden - Ultimate Ninja Impact" });
+	productids.push_back(db_productid{ "ULES01537", "Naruto Shippuden - Ultimate Ninja Impact" });
+	productids.push_back(db_productid{ "ULUS10571", "Naruto Shippuden - Kizuna Drive" });
+	productids.push_back(db_productid{ "ULES00196", "Need For Speed - Most Wanted" });
+	productids.push_back(db_productid{ "ULUS10036", "Need For Speed - Most Wanted" });
+	productids.push_back(db_productid{ "ULUS10376", "Need for Speed - Undercover" });
+	productids.push_back(db_productid{ "ULKS46004", "Need for Speed - Underground Rivals" });
+	productids.push_back(db_productid{ "ULES01340", "Obscure - The Aftermath" });
+	productids.push_back(db_productid{ "ULUS10064", "Outrun 2006 - Coast 2 Coast" });
+	productids.push_back(db_productid{ "ULUS10586", "PRO Evolution Soccer 2012" });
+	productids.push_back(db_productid{ "ULUS10149", "Pac Man - World Rally" });
+	productids.push_back(db_productid{ "ULUS10438", "Pangya! - Fantasy Golf" });
+	productids.push_back(db_productid{ "UCUS98732", "Patapon 2" });
+	productids.push_back(db_productid{ "UCUS98751", "Patapon 3" });
+	productids.push_back(db_productid{ "ULUS10410", "Phantasy Star Portable" });
+	productids.push_back(db_productid{ "ULUS10529", "Phantasy Star Portable 2" });
+	//looks like this japan version can crosslink to ULUS10529
+	productids.push_back(db_productid{ "NPJH50332", "Phantasy Star Portable 2" });
+	productids.push_back(db_productid{ "ULJM05732", "Phantasy Star Portable 2 - Infinity" });
+	productids.push_back(db_productid{ "ULES01596", "Pro Evolution Soccer 2014" });
+	productids.push_back(db_productid{ "ULES01595", "Pro Evolution Soccer 2015" });
+	productids.push_back(db_productid{ "NPJH50520", "Pro Yakyuu Spirits 2012" });
+	productids.push_back(db_productid{ "NPJH50838", "Pro Yakyuu Spirits 2014" });
+	productids.push_back(db_productid{ "NPJH50492", "Puyo Puyo!! 20th Anniversary" });
+	productids.push_back(db_productid{ "ULUS10292", "Renegrade Squadron" });
+	productids.push_back(db_productid{ "UCJS10090", "Resistance - Retribution" });
+	productids.push_back(db_productid{ "ULES00670", "Rocky Balboa" });
+	productids.push_back(db_productid{ "ULJS00360", "Rurouni Kenshin - Meiji Kenkaku Romantan Saisen" });
+	productids.push_back(db_productid{ "UCUS98615", "SOCOM - Fireteam Bravo" });
+	productids.push_back(db_productid{ "UCUS98645", "SOCOM - Fireteam Bravo 2" });
+	productids.push_back(db_productid{ "UCUS98716", "SOCOM - Fireteam Bravo 3" });
+	productids.push_back(db_productid{ "NPJH50460", "Sengoku Basara - Chronicles Heroes" });
+	productids.push_back(db_productid{ "ULJM05436", "Sengoku Basara - Battle Heroes" });
+	productids.push_back(db_productid{ "ULJM05637", "Shin Sangoku Musou - Multi Raid 2" });
+	productids.push_back(db_productid{ "ULJM05035", "Shinobido - Tales of the Ninja" });
+	productids.push_back(db_productid{ "ULUS10194", "Shrek - Smash and Crash Racing" });
+	productids.push_back(db_productid{ "UCES00758", "Smash Court Tennis 3" });
+	productids.push_back(db_productid{ "ULUS10195", "Sonic Rivals" });
+	productids.push_back(db_productid{ "ULUS10457", "Soul Calibur - Broken Destiny" });
+	productids.push_back(db_productid{ "ULUS10513", "Split Second - Velocity" });
+	productids.push_back(db_productid{ "ULES00183", "Star Wars Battle Front 2" });
+	productids.push_back(db_productid{ "ULUS10062", "Street Fighter Alpha 3 MAX" });
+	productids.push_back(db_productid{ "NPUH10020", "Strikers 1945 Plus Portable" });
+	productids.push_back(db_productid{ "ULUS10548", "TRON - Evolution" });
+	productids.push_back(db_productid{ "NPJH50426", "Taiko no Tatsujin Portable DX" });
+	productids.push_back(db_productid{ "ULUS10466", "Tekken 6" });
+	productids.push_back(db_productid{ "NPJH50691", "Tokusatsu University" });
+	//looks like can be crosslinked
+	productids.push_back(db_productid{ "ULUS10445", "Tom Clancy's Ghost Recon - Predator" });
+	productids.push_back(db_productid{ "ULES01350", "Tom Clancy's Ghost Recon - Predator" });
+	productids.push_back(db_productid{ "NPJH50789", "Toukiden" });
+	productids.push_back(db_productid{ "NPJH50878", "Toukiden - Kiwami" });
+	productids.push_back(db_productid{ "UCUS98601", "Twisted Metal - Head On" });
+	productids.push_back(db_productid{ "ULUS10508", "UFC Undisputed 2010" });
+	productids.push_back(db_productid{ "ULJS00069", "Ultraman Fighting Evo Zero" });
+	productids.push_back(db_productid{ "ULUS10003", "Untold Legends - Brotherhood of the Blade" });
+	productids.push_back(db_productid{ "ULUS10086", "Untold Legends - The Warrior's Code" });
+	productids.push_back(db_productid{ "ULUS10515", "Valkryia Chronicles 2" });
+	productids.push_back(db_productid{ "ULUS10087", "Viewtiful Joe" });
+	productids.push_back(db_productid{ "ULUS10246", "Virtua Tennis 3" });
+	productids.push_back(db_productid{ "ULUS82741", "WWE 2K14" });
+	productids.push_back(db_productid{ "ULUS10543", "WWE Smackdown vs. Raw 2011" });
+	productids.push_back(db_productid{ "ULUS10423", "Warriors Orochi 2" });
+	productids.push_back(db_productid{ "ULJM05553", "Warship Gunner 2 Portable" });
+	productids.push_back(db_productid{ "ULJS00155", "Way Of The Samurai" });
+	productids.push_back(db_productid{ "UCES00465", "Wipeout Pulse" });
+	productids.push_back(db_productid{ "ULUS10321", "World Series of Poker 2008 - Battle for the Bracelets" });
+	productids.push_back(db_productid{ "NPUH10045", "Worms Battle Islands" });
+	productids.push_back(db_productid{ "ULUS10065", "Worms Open Warfare" });
+	productids.push_back(db_productid{ "ULUS10260", "Worms Open Warfare 2" });
+	productids.push_back(db_productid{ "ULJM05734", "Yu-Gi-Oh! 5D's Tag Force 5" });
+	productids.push_back(db_productid{ "ULJM05940", "Yu-Gi-Oh! 5D's Tag Force 6" });
+	productids.push_back(db_productid{ "NPJH00142", "Yu-Gi-Oh! Arc-V Tag Force" });
+	productids.push_back(db_productid{ "ULJM05151", "Yu-Gi-Oh! GX Tag Force" });
+	productids.push_back(db_productid{ "ULJM05373", "Yu-Gi-Oh! GX Tag Force 3" });
+	productids.push_back(db_productid{ "NPUG80086", "flOw" });
+
 }
 
 /**
