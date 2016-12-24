@@ -525,8 +525,8 @@ class Thin3DVKSamplerState : public Thin3DSamplerState {
 public:
 	Thin3DVKSamplerState(VulkanContext *vulkan, const T3DSamplerStateDesc &desc) : vulkan_(vulkan) {
 		VkSamplerCreateInfo s = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-		s.addressModeU = desc.wrapS ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		s.addressModeV = desc.wrapT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		s.addressModeU = desc.wrapS == T3DTextureWrap::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		s.addressModeV = desc.wrapT == T3DTextureWrap::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 		s.magFilter = desc.magFilt == T3DTextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.minFilter = desc.minFilt == T3DTextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
 		s.mipmapMode = desc.mipFilt == T3DTextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;

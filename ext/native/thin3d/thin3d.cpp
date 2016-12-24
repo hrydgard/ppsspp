@@ -146,23 +146,6 @@ static const char * const vulkan_vsTexCol =
 
 
 void Thin3DContext::CreatePresets() {
-	// Build prebuilt objects
-	T3DBlendStateDesc off = { false };
-	T3DBlendStateDesc additive = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc standard_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc premul_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-
-	bsPresets_[BS_OFF] = CreateBlendState(off);
-	bsPresets_[BS_ADDITIVE] = CreateBlendState(additive);
-	bsPresets_[BS_STANDARD_ALPHA] = CreateBlendState(standard_alpha);
-	bsPresets_[BS_PREMUL_ALPHA] = CreateBlendState(premul_alpha);
-
-	T3DSamplerStateDesc nearest = { CLAMP, CLAMP, NEAREST, NEAREST, NEAREST };
-	T3DSamplerStateDesc linear = { CLAMP, CLAMP, LINEAR, LINEAR, NEAREST };
-
-	sampsPresets_[SAMPS_NEAREST] = CreateSamplerState(nearest);
-	sampsPresets_[SAMPS_LINEAR] = CreateSamplerState(linear);
-
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
 	vsPresets_[VS_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
@@ -184,19 +167,9 @@ Thin3DContext::~Thin3DContext() {
 			fsPresets_[i]->Release();
 		}
 	}
-	for (int i = 0; i < BS_MAX_PRESET; i++) {
-		if (bsPresets_[i]) {
-			bsPresets_[i]->Release();
-		}
-	}
 	for (int i = 0; i < SS_MAX_PRESET; i++) {
 		if (ssPresets_[i]) {
 			ssPresets_[i]->Release();
-		}
-	}
-	for (int i = 0; i < SAMPS_MAX_PRESET; i++) {
-		if (sampsPresets_[i]) {
-			sampsPresets_[i]->Release();
 		}
 	}
 }

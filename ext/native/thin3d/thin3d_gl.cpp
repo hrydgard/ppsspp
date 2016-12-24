@@ -735,11 +735,11 @@ Thin3DBlendState *Thin3DGLContext::CreateBlendState(const T3DBlendStateDesc &des
 
 Thin3DSamplerState *Thin3DGLContext::CreateSamplerState(const T3DSamplerStateDesc &desc) {
 	Thin3DGLSamplerState *samps = new Thin3DGLSamplerState();
-	samps->wrapS = texWrapToGL[desc.wrapS];
-	samps->wrapT = texWrapToGL[desc.wrapT];
-	samps->magFilt = texFilterToGL[desc.magFilt];
-	samps->minFilt = texFilterToGL[desc.minFilt];
-	samps->mipMinFilt = texMipFilterToGL[desc.minFilt][desc.mipFilt];
+	samps->wrapS = texWrapToGL[(int)desc.wrapS];
+	samps->wrapT = texWrapToGL[(int)desc.wrapT];
+	samps->magFilt = texFilterToGL[(int)desc.magFilt];
+	samps->minFilt = texFilterToGL[(int)desc.minFilt];
+	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilt][(int)desc.mipFilt];
 	return samps;
 }
 

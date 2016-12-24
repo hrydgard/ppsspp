@@ -68,12 +68,12 @@ enum T3DBlendFactor : int {
 	FIXED_COLOR,
 };
 
-enum T3DTextureWrap : int {
+enum class T3DTextureWrap : int {
 	REPEAT,
 	CLAMP,
 };
 
-enum T3DTextureFilter : int {
+enum class T3DTextureFilter : int {
 	NEAREST,
 	LINEAR,
 };
@@ -120,20 +120,6 @@ enum T3DShaderSetPreset : int {
 	SS_COLOR_2D,
 	SS_TEXTURE_COLOR_2D,
 	SS_MAX_PRESET,
-};
-
-enum T3DBlendStatePreset : int {
-	BS_OFF,
-	BS_STANDARD_ALPHA,
-	BS_PREMUL_ALPHA,
-	BS_ADDITIVE,
-	BS_MAX_PRESET,
-};
-
-enum T3DSamplerStatePreset : int {
-	SAMPS_NEAREST,
-	SAMPS_LINEAR,
-	SAMPS_MAX_PRESET,
 };
 
 enum T3DClear : int {
@@ -310,23 +296,23 @@ enum class ShaderLanguage {
 
 struct T3DBlendStateDesc {
 	bool enabled;
-	T3DBlendEquation eqCol;
 	T3DBlendFactor srcCol;
 	T3DBlendFactor dstCol;
-	T3DBlendEquation eqAlpha;
+	T3DBlendEquation eqCol;
 	T3DBlendFactor srcAlpha;
 	T3DBlendFactor dstAlpha;
+	T3DBlendEquation eqAlpha;
 	bool logicEnabled;
 	T3DLogicOp logicOp;
 	// int colorMask;
 };
 
 struct T3DSamplerStateDesc {
-	T3DTextureWrap wrapS;
-	T3DTextureWrap wrapT;
 	T3DTextureFilter magFilt;
 	T3DTextureFilter minFilt;
 	T3DTextureFilter mipFilt;
+	T3DTextureWrap wrapS;
+	T3DTextureWrap wrapT;
 };
 
 enum class T3DCullMode : uint8_t {
@@ -368,8 +354,6 @@ public:
 	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
-	Thin3DSamplerState *GetSamplerStatePreset(T3DSamplerStatePreset preset) { return sampsPresets_[preset]; }
 	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
 	Thin3DShader *GetFshaderPreset(T3DFragmentShaderPreset preset) { return vsPresets_[preset]; }
 	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
@@ -419,9 +403,7 @@ protected:
 
 	Thin3DShader *vsPresets_[VS_MAX_PRESET];
 	Thin3DShader *fsPresets_[FS_MAX_PRESET];
-	Thin3DBlendState *bsPresets_[BS_MAX_PRESET];
 	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
-	Thin3DSamplerState *sampsPresets_[SAMPS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;

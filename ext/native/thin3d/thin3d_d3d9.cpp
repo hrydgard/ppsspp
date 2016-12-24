@@ -564,11 +564,11 @@ Thin3DBlendState *Thin3DDX9Context::CreateBlendState(const T3DBlendStateDesc &de
 
 Thin3DSamplerState *Thin3DDX9Context::CreateSamplerState(const T3DSamplerStateDesc &desc) {
 	Thin3DDX9SamplerState *samps = new Thin3DDX9SamplerState();
-	samps->wrapS = texWrapToD3D9[desc.wrapS];
-	samps->wrapT = texWrapToD3D9[desc.wrapT];
-	samps->magFilt = texFilterToD3D9[desc.magFilt];
-	samps->minFilt = texFilterToD3D9[desc.minFilt];
-	samps->mipFilt = texFilterToD3D9[desc.mipFilt];
+	samps->wrapS = texWrapToD3D9[(int)desc.wrapS];
+	samps->wrapT = texWrapToD3D9[(int)desc.wrapT];
+	samps->magFilt = texFilterToD3D9[(int)desc.magFilt];
+	samps->minFilt = texFilterToD3D9[(int)desc.minFilt];
+	samps->mipFilt = texFilterToD3D9[(int)desc.mipFilt];
 	return samps;
 }
 
