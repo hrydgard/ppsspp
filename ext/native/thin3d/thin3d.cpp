@@ -146,23 +146,6 @@ static const char * const vulkan_vsTexCol =
 
 
 void Thin3DContext::CreatePresets() {
-	// Build prebuilt objects
-	T3DBlendStateDesc off = { false };
-	T3DBlendStateDesc additive = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc standard_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-	T3DBlendStateDesc premul_alpha = { true, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ONE_MINUS_SRC_ALPHA, T3DBlendEquation::ADD, T3DBlendFactor::ONE, T3DBlendFactor::ZERO };
-
-	bsPresets_[BS_OFF] = CreateBlendState(off);
-	bsPresets_[BS_ADDITIVE] = CreateBlendState(additive);
-	bsPresets_[BS_STANDARD_ALPHA] = CreateBlendState(standard_alpha);
-	bsPresets_[BS_PREMUL_ALPHA] = CreateBlendState(premul_alpha);
-
-	T3DSamplerStateDesc nearest = { CLAMP, CLAMP, NEAREST, NEAREST, NEAREST };
-	T3DSamplerStateDesc linear = { CLAMP, CLAMP, LINEAR, LINEAR, NEAREST };
-
-	sampsPresets_[SAMPS_NEAREST] = CreateSamplerState(nearest);
-	sampsPresets_[SAMPS_LINEAR] = CreateSamplerState(linear);
-
 	vsPresets_[VS_TEXTURE_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsTexCol, hlslVsTexCol, vulkan_vsTexCol);
 	vsPresets_[VS_COLOR_2D] = CreateShader(ShaderStage::VERTEX, glsl_vsCol, hlslVsCol, vulkan_vsCol);
 
@@ -184,29 +167,19 @@ Thin3DContext::~Thin3DContext() {
 			fsPresets_[i]->Release();
 		}
 	}
-	for (int i = 0; i < BS_MAX_PRESET; i++) {
-		if (bsPresets_[i]) {
-			bsPresets_[i]->Release();
-		}
-	}
 	for (int i = 0; i < SS_MAX_PRESET; i++) {
 		if (ssPresets_[i]) {
 			ssPresets_[i]->Release();
 		}
 	}
-	for (int i = 0; i < SAMPS_MAX_PRESET; i++) {
-		if (sampsPresets_[i]) {
-			sampsPresets_[i]->Release();
-		}
-	}
 }
 
-static T3DImageFormat ZimToT3DFormat(int zim) {
+static T3DDataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
-	case ZIM_ETC1: return T3DImageFormat::ETC1;
-	case ZIM_RGBA8888: return T3DImageFormat::RGBA8888;
-	case ZIM_LUMINANCE: return T3DImageFormat::LUMINANCE;
-	default: return T3DImageFormat::RGBA8888;
+	case ZIM_ETC1: return T3DDataFormat::ETC1;
+	case ZIM_RGBA8888: return T3DDataFormat::R8A8G8B8_UNORM;
+	case ZIM_LUMINANCE: return T3DDataFormat::LUMINANCE;
+	default: return T3DDataFormat::R8A8G8B8_UNORM;
 	}
 }
 
@@ -222,7 +195,7 @@ static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DImageFormat *fmt, uint8_t *image[16], int *zim_flags) {
+static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DDataFormat *fmt, uint8_t *image[16], int *zim_flags) {
 	if (type == DETECT) {
 		type = DetectImageFileType(data, size);
 	}
@@ -245,7 +218,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 	case PNG:
 		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
 			*num_levels = 1;
-			*fmt = RGBA8888;
+			*fmt = T3DDataFormat::R8A8G8B8_UNORM;
 		}
 		break;
 
@@ -255,7 +228,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 			if (jpegBuf) {
 				*num_levels = 1;
-				*fmt = RGBA8888;
+				*fmt = T3DDataFormat::R8A8G8B8_UNORM;
 				image[0] = (uint8_t *)jpegBuf;
 			}
 		}
@@ -275,7 +248,7 @@ bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DIm
 
 	int num_levels;
 	int zim_flags;
-	T3DImageFormat fmt;
+	T3DDataFormat fmt;
 
 	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return false;
@@ -331,7 +304,7 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int
 	int width[16], height[16];
 	int num_levels = 0;
 	int zim_flags = 0;
-	T3DImageFormat fmt;
+	T3DDataFormat fmt;
 	uint8_t *image[16] = { nullptr };
 
 	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags)) {

@@ -229,7 +229,7 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		dc.Draw()->Flush();
-		dc.GetThin3DContext()->SetTexture(0, texture);
+		dc.GetThin3DContext()->BindTexture(0, texture);
 		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 	}

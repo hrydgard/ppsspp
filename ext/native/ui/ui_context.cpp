@@ -18,14 +18,20 @@ UIContext::~UIContext() {
 	delete textDrawer_;
 	// Not releasing blend_, it's a preset. Should really make them AddRef, though..
 	depth_->Release();
+	sampler_->Release();
+	rasterNoCull_->Release();
+	blendNormal_->Release();
 }
 
 void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DShaderSet *uishadernotex, Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	thin3d_ = thin3d;
-	blend_ = thin3d_->GetBlendStatePreset(T3DBlendStatePreset::BS_STANDARD_ALPHA);
-	sampler_ = thin3d_->GetSamplerStatePreset(T3DSamplerStatePreset::SAMPS_LINEAR);
+	blendNormal_ = thin3d_->CreateBlendState({ true, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA });
+	sampler_ = thin3d_->CreateSamplerState({ T3DTextureFilter::LINEAR, T3DTextureFilter::LINEAR,T3DTextureFilter::LINEAR });
 	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
-
+	T3DRasterStateDesc desc;
+	desc.cull = T3DCullMode::NO_CULL;
+	desc.facing = T3DFacing::CCW;
+	rasterNoCull_ = thin3d_->CreateRasterState(desc);
 	uishader_ = uishader;
 	uishadernotex_ = uishadernotex;
 	uitexture_ = uitexture;
@@ -39,25 +45,24 @@ void UIContext::Init(Thin3DContext *thin3d, Thin3DShaderSet *uishader, Thin3DSha
 }
 
 void UIContext::Begin() {
-	thin3d_->SetBlendState(blend_);
+	thin3d_->SetBlendState(blendNormal_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
 	thin3d_->SetDepthStencilState(depth_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->SetRasterState(rasterNoCull_);
+	thin3d_->BindTexture(0, uitexture_);
 	thin3d_->SetScissorEnabled(false);
 	UIBegin(uishader_);
 }
 
 void UIContext::BeginNoTex() {
-	thin3d_->SetBlendState(blend_);
+	thin3d_->SetBlendState(blendNormal_);
 	thin3d_->SetSamplerStates(0, 1, &sampler_);
-	thin3d_->SetRenderState(T3DRenderState::CULL_MODE, T3DCullMode::NO_CULL);
-
+	thin3d_->SetRasterState(rasterNoCull_);
 	UIBegin(uishadernotex_);
 }
 
 void UIContext::RebindTexture() const {
-	thin3d_->SetTexture(0, uitexture_);
+	thin3d_->BindTexture(0, uitexture_);
 }
 
 void UIContext::Flush() {

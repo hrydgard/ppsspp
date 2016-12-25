@@ -68,12 +68,12 @@ enum T3DBlendFactor : int {
 	FIXED_COLOR,
 };
 
-enum T3DTextureWrap : int {
+enum class T3DTextureWrap : int {
 	REPEAT,
 	CLAMP,
 };
 
-enum T3DTextureFilter : int {
+enum class T3DTextureFilter : int {
 	NEAREST,
 	LINEAR,
 };
@@ -84,14 +84,6 @@ enum T3DBufferUsage : int {
 	GENERIC = 4,
 
 	DYNAMIC = 16,
-};
-
-enum T3DVertexDataType : uint8_t {
-	INVALID,
-	FLOATx2,
-	FLOATx3,
-	FLOATx4,
-	UNORM8x4,
 };
 
 enum T3DSemantic : int {
@@ -130,20 +122,6 @@ enum T3DShaderSetPreset : int {
 	SS_MAX_PRESET,
 };
 
-enum T3DBlendStatePreset : int {
-	BS_OFF,
-	BS_STANDARD_ALPHA,
-	BS_PREMUL_ALPHA,
-	BS_ADDITIVE,
-	BS_MAX_PRESET,
-};
-
-enum T3DSamplerStatePreset : int {
-	SAMPS_NEAREST,
-	SAMPS_LINEAR,
-	SAMPS_MAX_PRESET,
-};
-
 enum T3DClear : int {
 	COLOR = 1,
 	DEPTH = 2,
@@ -160,11 +138,16 @@ enum T3DTextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum T3DImageFormat : uint8_t {
-	IMG_UNKNOWN,
+enum class T3DDataFormat : uint8_t {
+	UNKNOWN,
 	LUMINANCE,
-	RGBA8888,
-	RGBA4444,
+	R8A8G8B8_UNORM,
+	R4G4B4A4_UNORM,
+	FLOATx2,
+	FLOATx3,
+	FLOATx4,
+	UNORM8x4,
+
 	DXT1,
 	ETC1,  // Needs simulation on many platforms
 	D16,
@@ -174,12 +157,6 @@ enum T3DImageFormat : uint8_t {
 
 enum T3DRenderState : uint8_t {
 	CULL_MODE,
-};
-
-enum T3DCullMode : uint8_t {
-	NO_CULL,
-	CW,
-	CCW,
 };
 
 enum T3DImageType {
@@ -256,7 +233,7 @@ public:
 	bool LoadFromFile(const std::string &filename, T3DImageType type = T3DImageType::DETECT);
 	bool LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type = T3DImageType::DETECT);
 
-	virtual bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
@@ -270,16 +247,16 @@ protected:
 };
 
 struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(T3DVertexDataType::INVALID), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DVertexDataType dataType, uint8_t offset) {
+	Thin3DVertexComponent() : name(nullptr), type(T3DDataFormat::UNKNOWN), semantic(255), offset(255) {}
+	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DDataFormat dataType, uint8_t offset) {
 		this->name = name;
 		this->semantic = semantic;
 		this->type = dataType;
 		this->offset = offset;
 	}
 	const char *name;
-	T3DVertexDataType type;
 	uint8_t semantic;
+	T3DDataFormat type;
 	uint8_t offset;
 };
 
@@ -299,6 +276,10 @@ public:
 	virtual void SetMatrix4x4(const char *name, const float value[16]) = 0;
 };
 
+class Thin3DRasterState : public Thin3DObject {
+public:
+};
+
 enum class ShaderStage {
 	VERTEX,
 	FRAGMENT,
@@ -315,23 +296,40 @@ enum class ShaderLanguage {
 
 struct T3DBlendStateDesc {
 	bool enabled;
-	T3DBlendEquation eqCol;
 	T3DBlendFactor srcCol;
 	T3DBlendFactor dstCol;
-	T3DBlendEquation eqAlpha;
+	T3DBlendEquation eqCol;
 	T3DBlendFactor srcAlpha;
 	T3DBlendFactor dstAlpha;
+	T3DBlendEquation eqAlpha;
 	bool logicEnabled;
 	T3DLogicOp logicOp;
 	// int colorMask;
 };
 
 struct T3DSamplerStateDesc {
-	T3DTextureWrap wrapS;
-	T3DTextureWrap wrapT;
 	T3DTextureFilter magFilt;
 	T3DTextureFilter minFilt;
 	T3DTextureFilter mipFilt;
+	T3DTextureWrap wrapS;
+	T3DTextureWrap wrapT;
+};
+
+enum class T3DCullMode : uint8_t {
+	NO_CULL,
+	FRONT,
+	BACK,
+	FRONT_AND_BACK,  // Not supported on D3D9
+};
+
+enum class T3DFacing {
+	CCW,
+	CW,
+};
+
+struct T3DRasterStateDesc {
+	T3DCullMode cull;
+	T3DFacing facing;
 };
 
 class Thin3DContext : public Thin3DObject {
@@ -343,20 +341,19 @@ public:
 	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
 	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
 	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
+	virtual Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
 	virtual Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) = 0;
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
 
 	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
 	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DImageType fileType);
 	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	Thin3DBlendState *GetBlendStatePreset(T3DBlendStatePreset preset) { return bsPresets_[preset]; }
-	Thin3DSamplerState *GetSamplerStatePreset(T3DSamplerStatePreset preset) { return sampsPresets_[preset]; }
 	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
 	Thin3DShader *GetFshaderPreset(T3DFragmentShaderPreset preset) { return vsPresets_[preset]; }
 	Thin3DShaderSet *GetShaderSetPreset(T3DShaderSetPreset preset) { return ssPresets_[preset]; }
@@ -368,19 +365,17 @@ public:
 	virtual void SetBlendState(Thin3DBlendState *state) = 0;
 	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
 	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
-	virtual void SetTextures(int start, int count, Thin3DTexture **textures) = 0;
+	virtual void SetRasterState(Thin3DRasterState *state) = 0;
 
-	void SetTexture(int stage, Thin3DTexture *texture) {
-		SetTextures(stage, 1, &texture);
+	virtual void BindTextures(int start, int count, Thin3DTexture **textures) = 0;
+	void BindTexture(int stage, Thin3DTexture *texture) {
+		BindTextures(stage, 1, &texture);
 	}  // from sampler 0 and upwards
 
 	// Raster state
 	virtual void SetScissorEnabled(bool enable) = 0;
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, T3DViewport *viewports) = 0;
-
-	// Single render states that aren't worth state blocks. May have to convert some of these state blocks on D3D11 though...
-	virtual void SetRenderState(T3DRenderState rs, uint32_t value) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
 	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
@@ -408,9 +403,7 @@ protected:
 
 	Thin3DShader *vsPresets_[VS_MAX_PRESET];
 	Thin3DShader *fsPresets_[FS_MAX_PRESET];
-	Thin3DBlendState *bsPresets_[BS_MAX_PRESET];
 	Thin3DShaderSet *ssPresets_[SS_MAX_PRESET];
-	Thin3DSamplerState *sampsPresets_[SAMPS_MAX_PRESET];
 
 	int targetWidth_;
 	int targetHeight_;
@@ -431,3 +424,4 @@ Thin3DContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 class VulkanContext;
 
 Thin3DContext *T3DCreateVulkanContext(VulkanContext *context);
+Thin3DContext *T3DCreateD3D11Context();

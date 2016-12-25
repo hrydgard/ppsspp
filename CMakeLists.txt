@@ -752,9 +752,11 @@ if(VULKAN)
   set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS} ext/native/thin3d/thin3d_vulkan.cpp)
 endif()
 if(WIN32)
-  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS} ext/native/thin3d/thin3d_d3d9.cpp)
-  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS} ext/native/thin3d/d3dx9_loader.cpp)
-  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS} ext/native/thin3d/d3dx9_loader.h)
+  set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
+    ext/native/thin3d/thin3d_d3d9.cpp
+    ext/native/thin3d/thin3d_d3d11.cpp
+    ext/native/thin3d/d3dx9_loader.cpp
+    ext/native/thin3d/d3dx9_loader.h)
 endif()
 
 add_library(native STATIC

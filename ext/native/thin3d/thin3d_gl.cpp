@@ -170,6 +170,23 @@ public:
 	}
 };
 
+class Thin3DGLRasterState : public Thin3DRasterState {
+public:
+	void Apply() {
+		if (!cullEnable) {
+			glDisable(GL_CULL_FACE);
+			return;
+		}
+		glEnable(GL_CULL_FACE);
+		glFrontFace(frontFace);
+		glCullFace(cullMode);
+	}
+
+	GLboolean cullEnable;
+	GLenum cullMode;
+	GLenum frontFace;
+};
+
 class Thin3DGLBuffer : public Thin3DBuffer, GfxResourceHolder {
 public:
 	Thin3DGLBuffer(size_t size, uint32_t flags) {
@@ -360,10 +377,11 @@ public:
 	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) override;
 	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
 	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
+	Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
-	Thin3DTexture *CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
 	// Bound state objects
@@ -400,6 +418,11 @@ public:
 		s->Apply();
 	}
 
+	void SetRasterState(Thin3DRasterState *state) override {
+		Thin3DGLRasterState *rs = static_cast<Thin3DGLRasterState *>(state);
+		rs->Apply();
+	}
+
 	Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) override;
 
 	void SetScissorEnabled(bool enable) override {
@@ -424,9 +447,7 @@ public:
 #endif
 	}
 
-	void SetTextures(int start, int count, Thin3DTexture **textures) override;
-
-	void SetRenderState(T3DRenderState rs, uint32_t value) override;
+	void BindTextures(int start, int count, Thin3DTexture **textures) override;
 
 	// TODO: Add more sophisticated draws.
 	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
@@ -516,7 +537,7 @@ public:
 		glGenTextures(1, &tex_);
 		register_gl_resource_holder(this);
 	}
-	Thin3DGLTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
+	Thin3DGLTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) : tex_(0), target_(TypeToTarget(type)), format_(format), mipLevels_(mipLevels) {
 		generatedMips_ = false;
 		canWrap_ = true;
 		width_ = width;
@@ -530,7 +551,7 @@ public:
 		Destroy();
 	}
 
-	bool Create(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) override {
+	bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override {
 		generatedMips_ = false;
 		canWrap_ = true;
 		format_ = format;
@@ -589,7 +610,7 @@ private:
 	GLuint tex_;
 	GLuint target_;
 
-	T3DImageFormat format_;
+	T3DDataFormat format_;
 	int mipLevels_;
 	bool generatedMips_;
 	bool canWrap_;
@@ -599,7 +620,7 @@ Thin3DTexture *Thin3DGLContext::CreateTexture() {
 	return new Thin3DGLTexture();
 }
 
-Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DImageFormat format, int width, int height, int depth, int mipLevels) {
+Thin3DTexture *Thin3DGLContext::CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
 }
 
@@ -618,12 +639,12 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 	int format;
 	int type;
 	switch (format_) {
-	case RGBA8888:
+	case T3DDataFormat::R8A8G8B8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
 		break;
-	case RGBA4444:
+	case T3DDataFormat::R4G4B4A4_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
@@ -714,12 +735,41 @@ Thin3DBlendState *Thin3DGLContext::CreateBlendState(const T3DBlendStateDesc &des
 
 Thin3DSamplerState *Thin3DGLContext::CreateSamplerState(const T3DSamplerStateDesc &desc) {
 	Thin3DGLSamplerState *samps = new Thin3DGLSamplerState();
-	samps->wrapS = texWrapToGL[desc.wrapS];
-	samps->wrapT = texWrapToGL[desc.wrapT];
-	samps->magFilt = texFilterToGL[desc.magFilt];
-	samps->minFilt = texFilterToGL[desc.minFilt];
-	samps->mipMinFilt = texMipFilterToGL[desc.minFilt][desc.mipFilt];
+	samps->wrapS = texWrapToGL[(int)desc.wrapS];
+	samps->wrapT = texWrapToGL[(int)desc.wrapT];
+	samps->magFilt = texFilterToGL[(int)desc.magFilt];
+	samps->minFilt = texFilterToGL[(int)desc.minFilt];
+	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilt][(int)desc.mipFilt];
 	return samps;
+}
+
+Thin3DRasterState *Thin3DGLContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+	Thin3DGLRasterState *rs = new Thin3DGLRasterState();
+	if (desc.cull == T3DCullMode::NO_CULL) {
+		rs->cullEnable = GL_FALSE;
+		return rs;
+	}
+	rs->cullEnable = GL_TRUE;
+	switch (desc.facing) {
+	case T3DFacing::CW:
+		rs->frontFace = GL_CW;
+		break;
+	case T3DFacing::CCW:
+		rs->frontFace = GL_CCW;
+		break;
+	}
+	switch (desc.cull) {
+	case T3DCullMode::FRONT:
+		rs->cullMode = GL_FRONT;
+		break;
+	case T3DCullMode::BACK:
+		rs->cullMode = GL_BACK;
+		break;
+	case T3DCullMode::FRONT_AND_BACK:
+		rs->cullMode = GL_FRONT_AND_BACK;
+		break;
+	}
+	return rs;
 }
 
 Thin3DBuffer *Thin3DGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
@@ -744,7 +794,7 @@ Thin3DShaderSet *Thin3DGLContext::CreateShaderSet(Thin3DShader *vshader, Thin3DS
 	}
 }
 
-void Thin3DGLContext::SetTextures(int start, int count, Thin3DTexture **textures) {
+void Thin3DGLContext::BindTextures(int start, int count, Thin3DTexture **textures) {
 	for (int i = start; i < start + count; i++) {
 		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
@@ -859,18 +909,6 @@ void Thin3DGLShaderSet::Unapply() {
 	glUseProgram(0);
 }
 
-void Thin3DGLContext::SetRenderState(T3DRenderState rs, uint32_t value) {
-	switch (rs) {
-	case T3DRenderState::CULL_MODE:
-		switch (value) {
-		case T3DCullMode::NO_CULL: glDisable(GL_CULL_FACE); break;
-		case T3DCullMode::CCW: glEnable(GL_CULL_FACE); glCullFace(GL_CCW); break;   // TODO: Should be GL_FRONT
-		case T3DCullMode::CW: glEnable(GL_CULL_FACE); glCullFace(GL_CW); break;
-		}
-		break;
-	}
-}
-
 void Thin3DGLContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
 	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
 	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
@@ -966,20 +1004,22 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 	if (b != lastBase_) {
 		for (size_t i = 0; i < components_.size(); i++) {
 			switch (components_[i].type) {
-			case FLOATx2:
+			case T3DDataFormat::FLOATx2:
 				glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case FLOATx3:
+			case T3DDataFormat::FLOATx3:
 				glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case FLOATx4:
+			case T3DDataFormat::FLOATx4:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case UNORM8x4:
+			case T3DDataFormat::UNORM8x4:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case INVALID:
-				ELOG("Thin3DGLVertexFormat: Invalid component type applied.");
+			case T3DDataFormat::UNKNOWN:
+			default:
+				ELOG("Thin3DGLVertexFormat: Invalid or unknown component type applied.");
+				break;
 			}
 		}
 		if (id_ != 0) {

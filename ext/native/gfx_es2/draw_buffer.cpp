@@ -40,9 +40,9 @@ void DrawBuffer::Init(Thin3DContext *t3d) {
 	inited_ = true;
 
 	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, UNORM8x4, 20));
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, T3DDataFormat::FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, T3DDataFormat::FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, T3DDataFormat::UNORM8x4, 20));
 
 	Thin3DShader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
