@@ -42,9 +42,9 @@ void DrawBuffer::Init(Draw::DrawContext *t3d) {
 	inited_ = true;
 
 	std::vector<VertexComponent> components;
-	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
-	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
-	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
+	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0));
+	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12));
+	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20));
 
 	Shader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 

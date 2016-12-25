@@ -55,12 +55,12 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D)
 	: gfxCtx_(gfxCtx), thin3d(_thin3D)
 {
 	using namespace Draw;
-	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8A8G8B8_UNORM, 480, 272, 1, 1);
+	fbTex = thin3d->CreateTexture(LINEAR2D, DataFormat::R8G8B8A8_UNORM, 480, 272, 1, 1);
 
 	std::vector<VertexComponent> components;
-	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
-	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
-	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
+	components.push_back(VertexComponent("Position", SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0));
+	components.push_back(VertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12));
+	components.push_back(VertexComponent("Color0", SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20));
 
 	Shader *vshader = thin3d->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 	vformat = thin3d->CreateVertexFormat(components, 24, vshader);

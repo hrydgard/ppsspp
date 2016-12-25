@@ -179,9 +179,9 @@ DrawContext::~DrawContext() {
 static DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
 	case ZIM_ETC1: return DataFormat::ETC1;
-	case ZIM_RGBA8888: return DataFormat::R8A8G8B8_UNORM;
+	case ZIM_RGBA8888: return DataFormat::R8G8B8A8_UNORM;
 	case ZIM_LUMINANCE: return DataFormat::LUMINANCE;
-	default: return DataFormat::R8A8G8B8_UNORM;
+	default: return DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -220,7 +220,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	case PNG:
 		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
 			*num_levels = 1;
-			*fmt = DataFormat::R8A8G8B8_UNORM;
+			*fmt = DataFormat::R8G8B8A8_UNORM;
 		}
 		break;
 
@@ -230,7 +230,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 			if (jpegBuf) {
 				*num_levels = 1;
-				*fmt = DataFormat::R8A8G8B8_UNORM;
+				*fmt = DataFormat::R8G8B8A8_UNORM;
 				image[0] = (uint8_t *)jpegBuf;
 			}
 		}

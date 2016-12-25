@@ -102,7 +102,7 @@ static const char *glsl_fragment_prelude =
 "precision mediump float;\n"
 "#endif\n";
 
-class Thin3DGLBlendState : public BlendState {
+class OpenGLBlendState : public BlendState {
 public:
 	bool enabled;
 	GLuint eqCol, eqAlpha;
@@ -135,8 +135,10 @@ public:
 	}
 };
 
-class Thin3DGLSamplerState : public SamplerState {
+class OpenGLSamplerState : public SamplerState {
 public:
+	// Old school. Should also support using a sampler object.
+
 	GLint wrapS;
 	GLint wrapT;
 	GLint magFilt;
@@ -161,7 +163,7 @@ public:
 	}
 };
 
-class Thin3DGLDepthStencilState : public DepthStencilState {
+class OpenGLDepthStencilState : public DepthStencilState {
 public:
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
@@ -180,7 +182,7 @@ public:
 	}
 };
 
-class Thin3DGLRasterState : public RasterState {
+class OpenGLRasterState : public RasterState {
 public:
 	void Apply() {
 		if (!cullEnable) {
@@ -197,9 +199,9 @@ public:
 	GLenum frontFace;
 };
 
-class Thin3DGLBuffer : public Buffer, GfxResourceHolder {
+class OpenGLBuffer : public Buffer, GfxResourceHolder {
 public:
-	Thin3DGLBuffer(size_t size, uint32_t flags) {
+	OpenGLBuffer(size_t size, uint32_t flags) {
 		glGenBuffers(1, &buffer_);
 		target_ = (flags & BufferUsageFlag::INDEXDATA) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
 		usage_ = 0;
@@ -210,7 +212,7 @@ public:
 		knownSize_ = 0;
 		register_gl_resource_holder(this);
 	}
-	~Thin3DGLBuffer() override {
+	~OpenGLBuffer() override {
 		unregister_gl_resource_holder(this);
 		glDeleteBuffers(1, &buffer_);
 	}
@@ -254,9 +256,9 @@ private:
 
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class Thin3DGLShader : public Shader {
+class OpenGLShader : public Shader {
 public:
-	Thin3DGLShader(ShaderStage stage) : shader_(0), type_(0) {
+	OpenGLShader(ShaderStage stage) : shader_(0), type_(0) {
 		type_ = stage == ShaderStage::FRAGMENT ? GL_FRAGMENT_SHADER : GL_VERTEX_SHADER;
 	}
 
@@ -270,7 +272,7 @@ public:
 		shader_ = 0;
 	}
 
-	~Thin3DGLShader() {
+	~OpenGLShader() {
 		glDeleteShader(shader_);
 	}
 
@@ -281,7 +283,7 @@ private:
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool Thin3DGLShader::Compile(const char *source) {
+bool OpenGLShader::Compile(const char *source) {
 	source_ = source;
 	shader_ = glCreateShader(type_);
 
@@ -310,9 +312,9 @@ bool Thin3DGLShader::Compile(const char *source) {
 	return ok_;
 }
 
-class Thin3DGLVertexFormat : public InputLayout, GfxResourceHolder {
+class OpenGLVertexFormat : public InputLayout, GfxResourceHolder {
 public:
-	~Thin3DGLVertexFormat();
+	~OpenGLVertexFormat();
 
 	void Apply(const void *base = nullptr);
 	void Unapply();
@@ -337,13 +339,13 @@ struct UniformInfo {
 
 // TODO: Fold BlendState into this? Seems likely to be right for DX12 etc.
 // TODO: Add Uniform Buffer support.
-class Thin3DGLShaderSet : public ShaderSet, GfxResourceHolder {
+class OpenGLShaderSet : public ShaderSet, GfxResourceHolder {
 public:
-	Thin3DGLShaderSet() {
+	OpenGLShaderSet() {
 		program_ = 0;
 		register_gl_resource_holder(this);
 	}
-	~Thin3DGLShaderSet() {
+	~OpenGLShaderSet() {
 		unregister_gl_resource_holder(this);
 		vshader->Release();
 		fshader->Release();
@@ -371,18 +373,18 @@ public:
 		Link();
 	}
 
-	Thin3DGLShader *vshader;
-	Thin3DGLShader *fshader;
+	OpenGLShader *vshader;
+	OpenGLShader *fshader;
 
 private:
 	GLuint program_;
 	std::map<std::string, UniformInfo> uniforms_;
 };
 
-class Thin3DGLContext : public DrawContext {
+class OpenGLContext : public DrawContext {
 public:
-	Thin3DGLContext();
-	virtual ~Thin3DGLContext();
+	OpenGLContext();
+	virtual ~OpenGLContext();
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -396,7 +398,7 @@ public:
 
 	// Bound state objects
 	void SetBlendState(BlendState *state) override {
-		Thin3DGLBlendState *s = static_cast<Thin3DGLBlendState *>(state);
+		OpenGLBlendState *s = static_cast<OpenGLBlendState *>(state);
 		s->Apply();
 	}
 
@@ -406,7 +408,7 @@ public:
 		}
 		for (int i = 0; i < count; ++i) {
 			int index = i + start;
-			Thin3DGLSamplerState *s = static_cast<Thin3DGLSamplerState *>(states[index]);
+			OpenGLSamplerState *s = static_cast<OpenGLSamplerState *>(states[index]);
 
 			if (samplerStates_[index]) {
 				samplerStates_[index]->Release();
@@ -424,12 +426,12 @@ public:
 
 	// Bound state objects
 	void SetDepthStencilState(DepthStencilState *state) override {
-		Thin3DGLDepthStencilState *s = static_cast<Thin3DGLDepthStencilState *>(state);
+		OpenGLDepthStencilState *s = static_cast<OpenGLDepthStencilState *>(state);
 		s->Apply();
 	}
 
 	void SetRasterState(RasterState *state) override {
-		Thin3DGLRasterState *rs = static_cast<Thin3DGLRasterState *>(state);
+		OpenGLRasterState *rs = static_cast<OpenGLRasterState *>(state);
 		rs->Apply();
 	}
 
@@ -496,15 +498,15 @@ public:
 		}
 	}
 
-	std::vector<Thin3DGLSamplerState *> samplerStates_;
+	std::vector<OpenGLSamplerState *> samplerStates_;
 };
 
-Thin3DGLContext::Thin3DGLContext() {
+OpenGLContext::OpenGLContext() {
 	CreatePresets();
 }
 
-Thin3DGLContext::~Thin3DGLContext() {
-	for (Thin3DGLSamplerState *s : samplerStates_) {
+OpenGLContext::~OpenGLContext() {
+	for (OpenGLSamplerState *s : samplerStates_) {
 		if (s) {
 			s->Release();
 		}
@@ -512,8 +514,8 @@ Thin3DGLContext::~Thin3DGLContext() {
 	samplerStates_.clear();
 }
 
-InputLayout *Thin3DGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
-	Thin3DGLVertexFormat *fmt = new Thin3DGLVertexFormat();
+InputLayout *OpenGLContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+	OpenGLVertexFormat *fmt = new OpenGLVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
 	fmt->Compile();
@@ -626,11 +628,11 @@ private:
 	bool canWrap_;
 };
 
-Texture *Thin3DGLContext::CreateTexture() {
+Texture *OpenGLContext::CreateTexture() {
 	return new Thin3DGLTexture();
 }
 
-Texture *Thin3DGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
+Texture *OpenGLContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DGLTexture(type, format, width, height, depth, mipLevels);
 }
 
@@ -649,7 +651,7 @@ void Thin3DGLTexture::SetImageData(int x, int y, int z, int width, int height, i
 	int format;
 	int type;
 	switch (format_) {
-	case DataFormat::R8A8G8B8_UNORM:
+	case DataFormat::R8G8B8A8_UNORM:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_BYTE;
@@ -688,13 +690,12 @@ void Thin3DGLTexture::Finalize(int zim_flags) {
 }
 
 
-Thin3DGLVertexFormat::~Thin3DGLVertexFormat() {
+OpenGLVertexFormat::~OpenGLVertexFormat() {
 	if (id_) {
 		glDeleteVertexArrays(1, &id_);
 	}
 }
-
-void Thin3DGLVertexFormat::Compile() {
+void OpenGLVertexFormat::Compile() {
 	int sem = 0;
 	for (int i = 0; i < (int)components_.size(); i++) {
 		sem |= 1 << components_[i].semantic;
@@ -711,24 +712,24 @@ void Thin3DGLVertexFormat::Compile() {
 	lastBase_ = -1;
 }
 
-void Thin3DGLVertexFormat::GLLost() {
+void OpenGLVertexFormat::GLLost() {
 	id_ = 0;
 }
 
-void Thin3DGLVertexFormat::GLRestore() {
+void OpenGLVertexFormat::GLRestore() {
 	Compile();
 }
 
-DepthStencilState *Thin3DGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
-	Thin3DGLDepthStencilState *ds = new Thin3DGLDepthStencilState();
+DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
+	OpenGLDepthStencilState *ds = new OpenGLDepthStencilState();
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToGL[(int)desc.depthCompare];
 	return ds;
 }
 
-BlendState *Thin3DGLContext::CreateBlendState(const BlendStateDesc &desc) {
-	Thin3DGLBlendState *bs = new Thin3DGLBlendState();
+BlendState *OpenGLContext::CreateBlendState(const BlendStateDesc &desc) {
+	OpenGLBlendState *bs = new OpenGLBlendState();
 	bs->enabled = desc.enabled;
 	bs->eqCol = blendEqToGL[(int)desc.eqCol];
 	bs->srcCol = blendFactorToGL[(int)desc.srcCol];
@@ -743,18 +744,18 @@ BlendState *Thin3DGLContext::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
-SamplerState *Thin3DGLContext::CreateSamplerState(const SamplerStateDesc &desc) {
-	Thin3DGLSamplerState *samps = new Thin3DGLSamplerState();
-	samps->wrapS = texWrapToGL[(int)desc.wrapS];
-	samps->wrapT = texWrapToGL[(int)desc.wrapT];
-	samps->magFilt = texFilterToGL[(int)desc.magFilt];
-	samps->minFilt = texFilterToGL[(int)desc.minFilt];
-	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilt][(int)desc.mipFilt];
+SamplerState *OpenGLContext::CreateSamplerState(const SamplerStateDesc &desc) {
+	OpenGLSamplerState *samps = new OpenGLSamplerState();
+	samps->wrapS = texWrapToGL[(int)desc.wrapU];
+	samps->wrapT = texWrapToGL[(int)desc.wrapV];
+	samps->magFilt = texFilterToGL[(int)desc.magFilter];
+	samps->minFilt = texFilterToGL[(int)desc.minFilter];
+	samps->mipMinFilt = texMipFilterToGL[(int)desc.minFilter][(int)desc.mipFilter];
 	return samps;
 }
 
-RasterState *Thin3DGLContext::CreateRasterState(const T3DRasterStateDesc &desc) {
-	Thin3DGLRasterState *rs = new Thin3DGLRasterState();
+RasterState *OpenGLContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+	OpenGLRasterState *rs = new OpenGLRasterState();
 	if (desc.cull == CullMode::NONE) {
 		rs->cullEnable = GL_FALSE;
 		return rs;
@@ -782,20 +783,20 @@ RasterState *Thin3DGLContext::CreateRasterState(const T3DRasterStateDesc &desc) 
 	return rs;
 }
 
-Buffer *Thin3DGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
-	return new Thin3DGLBuffer(size, usageFlags);
+Buffer *OpenGLContext::CreateBuffer(size_t size, uint32_t usageFlags) {
+	return new OpenGLBuffer(size, usageFlags);
 }
 
-ShaderSet *Thin3DGLContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *OpenGLContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
 	}
-	Thin3DGLShaderSet *shaderSet = new Thin3DGLShaderSet();
+	OpenGLShaderSet *shaderSet = new OpenGLShaderSet();
 	vshader->AddRef();
 	fshader->AddRef();
-	shaderSet->vshader = static_cast<Thin3DGLShader *>(vshader);
-	shaderSet->fshader = static_cast<Thin3DGLShader *>(fshader);
+	shaderSet->vshader = static_cast<OpenGLShader *>(vshader);
+	shaderSet->fshader = static_cast<OpenGLShader *>(fshader);
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {
@@ -804,7 +805,7 @@ ShaderSet *Thin3DGLContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	}
 }
 
-void Thin3DGLContext::BindTextures(int start, int count, Texture **textures) {
+void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		Thin3DGLTexture *glTex = static_cast<Thin3DGLTexture *>(textures[i]);
 		glActiveTexture(GL_TEXTURE0 + i);
@@ -818,8 +819,8 @@ void Thin3DGLContext::BindTextures(int start, int count, Texture **textures) {
 }
 
 
-Shader *Thin3DGLContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DGLShader *shader = new Thin3DGLShader(stage);
+Shader *OpenGLContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	OpenGLShader *shader = new OpenGLShader(stage);
 	if (shader->Compile(glsl_source)) {
 		return shader;
 	} else {
@@ -828,7 +829,7 @@ Shader *Thin3DGLContext::CreateShader(ShaderStage stage, const char *glsl_source
 	}
 }
 
-bool Thin3DGLShaderSet::Link() {
+bool OpenGLShaderSet::Link() {
 	program_ = glCreateProgram();
 	glAttachShader(program_, vshader->GetShader());
 	glAttachShader(program_, fshader->GetShader());
@@ -876,7 +877,7 @@ bool Thin3DGLShaderSet::Link() {
 	return true;
 }
 
-int Thin3DGLShaderSet::GetUniformLoc(const char *name) {
+int OpenGLShaderSet::GetUniformLoc(const char *name) {
 	auto iter = uniforms_.find(name);
 	int loc = -1;
 	if (iter != uniforms_.end()) {
@@ -890,7 +891,7 @@ int Thin3DGLShaderSet::GetUniformLoc(const char *name) {
 	return loc;
 }
 
-void Thin3DGLShaderSet::SetVector(const char *name, float *value, int n) {
+void OpenGLShaderSet::SetVector(const char *name, float *value, int n) {
 	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
@@ -903,7 +904,7 @@ void Thin3DGLShaderSet::SetVector(const char *name, float *value, int n) {
 	}
 }
 
-void Thin3DGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
+void OpenGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	glUseProgram(program_);
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
@@ -911,18 +912,18 @@ void Thin3DGLShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	}
 }
 
-void Thin3DGLShaderSet::Apply() {
+void OpenGLShaderSet::Apply() {
 	glUseProgram(program_);
 }
 
-void Thin3DGLShaderSet::Unapply() {
+void OpenGLShaderSet::Unapply() {
 	glUseProgram(0);
 }
 
-void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
-	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
-	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
-	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
+void OpenGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
+	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
@@ -934,11 +935,11 @@ void Thin3DGLContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *fo
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
-	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
-	Thin3DGLBuffer *vbuf = static_cast<Thin3DGLBuffer *>(vdata);
-	Thin3DGLBuffer *ibuf = static_cast<Thin3DGLBuffer *>(idata);
-	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
+void OpenGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+	OpenGLBuffer *vbuf = static_cast<OpenGLBuffer *>(vdata);
+	OpenGLBuffer *ibuf = static_cast<OpenGLBuffer *>(idata);
+	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	vbuf->Bind();
 	fmt->Apply();
@@ -952,9 +953,9 @@ void Thin3DGLContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLay
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
-	Thin3DGLShaderSet *ss = static_cast<Thin3DGLShaderSet *>(shaderSet);
-	Thin3DGLVertexFormat *fmt = static_cast<Thin3DGLVertexFormat *>(format);
+void OpenGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+	OpenGLShaderSet *ss = static_cast<OpenGLShaderSet *>(shaderSet);
+	OpenGLVertexFormat *fmt = static_cast<OpenGLVertexFormat *>(format);
 
 	fmt->Apply(vdata);
 	ss->Apply();
@@ -967,7 +968,7 @@ void Thin3DGLContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *
 	fmt->Unapply();
 }
 
-void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	float col[4];
 	Uint8x4ToFloat4(col, colorval);
 	GLuint glMask = 0;
@@ -991,10 +992,10 @@ void Thin3DGLContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 }
 
 DrawContext *T3DCreateGLContext() {
-	return new Thin3DGLContext();
+	return new OpenGLContext();
 }
 
-void Thin3DGLVertexFormat::Apply(const void *base) {
+void OpenGLVertexFormat::Apply(const void *base) {
 	if (id_ != 0) {
 		glBindVertexArray(id_);
 	}
@@ -1014,16 +1015,16 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 	if (b != lastBase_) {
 		for (size_t i = 0; i < components_.size(); i++) {
 			switch (components_[i].type) {
-			case DataFormat::FLOATx2:
+			case DataFormat::R32G32_FLOAT:
 				glVertexAttribPointer(components_[i].semantic, 2, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case DataFormat::FLOATx3:
+			case DataFormat::R32G32B32_FLOAT:
 				glVertexAttribPointer(components_[i].semantic, 3, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case DataFormat::FLOATx4:
+			case DataFormat::R32G32B32A32_FLOAT:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_FLOAT, GL_FALSE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
-			case DataFormat::UNORM8x4:
+			case DataFormat::R8G8B8A8_UNORM:
 				glVertexAttribPointer(components_[i].semantic, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride_, (void *)(b + (intptr_t)components_[i].offset));
 				break;
 			case DataFormat::UNKNOWN:
@@ -1038,7 +1039,7 @@ void Thin3DGLVertexFormat::Apply(const void *base) {
 	}
 }
 
-void Thin3DGLVertexFormat::Unapply() {
+void OpenGLVertexFormat::Unapply() {
 	if (id_ == 0) {
 		for (int i = 0; i < (int)SEM_MAX; i++) {
 			if (semanticsMask_ & (1 << i)) {

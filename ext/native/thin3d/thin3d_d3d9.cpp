@@ -83,16 +83,18 @@ static const D3DPRIMITIVETYPE primToD3D9[] = {
 	D3DPT_POINTLIST,
 };
 
-inline int PrimCountDivisor(Primitive prim) {
-	switch (prim) {
-	case Primitive::POINT_LIST: return 1;
-	case Primitive::LINE_LIST: return 2;
-	case Primitive::LINE_STRIP: return 2;
-	case Primitive::TRIANGLE_LIST: return 3;
-	case Primitive::TRIANGLE_STRIP: return 3;
-	case Primitive::TRIANGLE_FAN: return 3;
-	}
-}
+static const int primCountDivisor[] = {
+	1,
+	2,
+	3,
+	3,
+	3,
+	1,
+	1,
+	1,
+	1,
+	1,
+};
 
 class Thin3DDX9DepthStencilState : public DepthStencilState {
 public:
@@ -107,8 +109,7 @@ public:
 	}
 };
 
-
-class Thin3DDX9RasterState : public RasterState {
+class D3D9RasterState : public RasterState {
 public:
 	DWORD cullMode;
 
@@ -117,8 +118,7 @@ public:
 	}
 };
 
-
-class Thin3DDX9BlendState : public BlendState {
+class D3D9BlendState : public BlendState {
 public:
 	bool enabled;
 	D3DBLENDOP eqCol, eqAlpha;
@@ -137,7 +137,7 @@ public:
 	}
 };
 
-class Thin3DDX9SamplerState : public SamplerState {
+class D3D9SamplerState : public SamplerState {
 public:
 	D3DTEXTUREADDRESS wrapS, wrapT;
 	D3DTEXTUREFILTERTYPE magFilt, minFilt, mipFilt;
@@ -249,10 +249,10 @@ private:
 	int stride_;
 };
 
-class Thin3DDX9Shader : public Shader {
+class D3D9Shader : public Shader {
 public:
-	Thin3DDX9Shader(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
-	~Thin3DDX9Shader() {
+	D3D9Shader(ShaderStage stage) : stage_(stage), vshader_(NULL), pshader_(NULL), constantTable_(NULL) {}
+	~D3D9Shader() {
 		if (vshader_)
 			vshader_->Release();
 		if (pshader_)
@@ -278,11 +278,11 @@ private:
 	LPD3DXCONSTANTTABLE constantTable_;
 };
 
-class Thin3DDX9ShaderSet : public ShaderSet {
+class D3D9ShaderSet : public ShaderSet {
 public:
-	Thin3DDX9ShaderSet(LPDIRECT3DDEVICE9 device) : device_(device) {}
-	Thin3DDX9Shader *vshader;
-	Thin3DDX9Shader *pshader;
+	D3D9ShaderSet(LPDIRECT3DDEVICE9 device) : device_(device) {}
+	D3D9Shader *vshader;
+	D3D9Shader *pshader;
 	void Apply(LPDIRECT3DDEVICE9 device);
 	void SetVector(const char *name, float *value, int n) { vshader->SetVector(device_, name, value, n); pshader->SetVector(device_, name, value, n); }
 	void SetMatrix4x4(const char *name, const float value[16]) { vshader->SetMatrix4x4(device_, name, value); }  // pshaders don't usually have matrices
@@ -290,12 +290,12 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 };
 
-class Thin3DDX9Texture : public Texture {
+class D3D9Texture : public Texture {
 public:
-	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(TextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
+	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx) : device_(device), deviceEx_(deviceEx), type_(TextureType::UNKNOWN), fmt_(D3DFMT_UNKNOWN), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	}
-	Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels);
-	~Thin3DDX9Texture();
+	D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels);
+	~D3D9Texture();
 	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) override;
 	void AutoGenMipmaps() override {}
@@ -314,7 +314,7 @@ private:
 
 D3DFORMAT FormatToD3D(DataFormat fmt) {
 	switch (fmt) {
-	case DataFormat::R8A8G8B8_UNORM: return D3DFMT_A8R8G8B8;
+	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM: return D3DFMT_A4R4G4B4;
 	case DataFormat::D24S8: return D3DFMT_D24S8;
 	case DataFormat::D16: return D3DFMT_D16;
@@ -322,12 +322,12 @@ D3DFORMAT FormatToD3D(DataFormat fmt) {
 	}
 }
 
-Thin3DDX9Texture::Thin3DDX9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
+D3D9Texture::D3D9Texture(LPDIRECT3DDEVICE9 device, LPDIRECT3DDEVICE9EX deviceEx, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
 	: device_(device), deviceEx_(deviceEx), type_(type), tex_(NULL), volTex_(NULL), cubeTex_(NULL) {
 	Create(type, format, width, height, depth, mipLevels);
 }
 
-Thin3DDX9Texture::~Thin3DDX9Texture() {
+D3D9Texture::~D3D9Texture() {
 	if (tex_) {
 		tex_->Release();
 	}
@@ -339,7 +339,7 @@ Thin3DDX9Texture::~Thin3DDX9Texture() {
 	}
 }
 
-bool Thin3DDX9Texture::Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
+bool D3D9Texture::Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
 	width_ = width;
 	height_ = height;
 	depth_ = depth;
@@ -383,7 +383,7 @@ inline uint32_t Shuffle8888(uint32_t x) {
 }
 
 
-void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (!tex_) {
 		return;
 	}
@@ -430,7 +430,7 @@ void Thin3DDX9Texture::SetImageData(int x, int y, int z, int width, int height, 
 	}
 }
 
-void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
+void D3D9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	switch (type_) {
 	case LINEAR1D:
 	case LINEAR2D:
@@ -447,10 +447,10 @@ void Thin3DDX9Texture::SetToSampler(LPDIRECT3DDEVICE9 device, int sampler) {
 	}
 }
 
-class Thin3DDX9Context : public DrawContext {
+class D3D9Context : public DrawContext {
 public:
-	Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-	~Thin3DDX9Context();
+	D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
+	~D3D9Context();
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc);
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -465,12 +465,12 @@ public:
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
 	void SetBlendState(BlendState *state) {
-		Thin3DDX9BlendState *bs = static_cast<Thin3DDX9BlendState *>(state);
+		D3D9BlendState *bs = static_cast<D3D9BlendState *>(state);
 		bs->Apply(device_);
 	}
 	void SetSamplerStates(int start, int count, SamplerState **states) {
 		for (int i = 0; i < count; ++i) {
-			Thin3DDX9SamplerState *s = static_cast<Thin3DDX9SamplerState *>(states[start + i]);
+			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[start + i]);
 			s->Apply(device_, start + i);
 		}
 	}
@@ -479,7 +479,7 @@ public:
 		bs->Apply(device_);
 	}
 	void SetRasterState(RasterState *state) {
-		Thin3DDX9RasterState *bs = static_cast<Thin3DDX9RasterState *>(state);
+		D3D9RasterState *bs = static_cast<D3D9RasterState *>(state);
 		bs->Apply(device_);
 	}
 
@@ -518,7 +518,7 @@ private:
 	char shadeLangVersion_[64];
 };
 
-Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
+D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx)
 	: d3d_(d3d), d3dEx_(d3dEx), adapterId_(adapterId), device_(device), deviceEx_(deviceEx) {
 	CreatePresets();
 	d3d->GetAdapterIdentifier(adapterId, 0, &identifier_);
@@ -529,11 +529,11 @@ Thin3DDX9Context::Thin3DDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int ada
 	}
 }
 
-Thin3DDX9Context::~Thin3DDX9Context() {
+D3D9Context::~D3D9Context() {
 }
 
-Shader *Thin3DDX9Context::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DDX9Shader *shader = new Thin3DDX9Shader(stage);
+Shader *D3D9Context::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	D3D9Shader *shader = new D3D9Shader(stage);
 	if (shader->Compile(device_, hlsl_source)) {
 		return shader;
 	} else {
@@ -542,18 +542,18 @@ Shader *Thin3DDX9Context::CreateShader(ShaderStage stage, const char *glsl_sourc
 	}
 }
 
-ShaderSet *Thin3DDX9Context::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *D3D9Context::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
 	}
-	Thin3DDX9ShaderSet *shaderSet = new Thin3DDX9ShaderSet(device_);
-	shaderSet->vshader = static_cast<Thin3DDX9Shader *>(vshader);
-	shaderSet->pshader = static_cast<Thin3DDX9Shader *>(fshader);
+	D3D9ShaderSet *shaderSet = new D3D9ShaderSet(device_);
+	shaderSet->vshader = static_cast<D3D9Shader *>(vshader);
+	shaderSet->pshader = static_cast<D3D9Shader *>(fshader);
 	return shaderSet;
 }
 
-DepthStencilState *Thin3DDX9Context::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
+DepthStencilState *D3D9Context::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
 	Thin3DDX9DepthStencilState *ds = new Thin3DDX9DepthStencilState();
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
@@ -561,13 +561,13 @@ DepthStencilState *Thin3DDX9Context::CreateDepthStencilState(const DepthStencilS
 	return ds;
 }
 
-InputLayout *Thin3DDX9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+InputLayout *D3D9Context::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
 	Thin3DDX9VertexFormat *fmt = new Thin3DDX9VertexFormat(device_, components, stride);
 	return fmt;
 }
 
-BlendState *Thin3DDX9Context::CreateBlendState(const BlendStateDesc &desc) {
-	Thin3DDX9BlendState *bs = new Thin3DDX9BlendState();
+BlendState *D3D9Context::CreateBlendState(const BlendStateDesc &desc) {
+	D3D9BlendState *bs = new D3D9BlendState();
 	bs->enabled = desc.enabled;
 	bs->eqCol = blendEqToD3D9[(int)desc.eqCol];
 	bs->srcCol = blendFactorToD3D9[(int)desc.srcCol];
@@ -579,18 +579,18 @@ BlendState *Thin3DDX9Context::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
-SamplerState *Thin3DDX9Context::CreateSamplerState(const SamplerStateDesc &desc) {
-	Thin3DDX9SamplerState *samps = new Thin3DDX9SamplerState();
-	samps->wrapS = texWrapToD3D9[(int)desc.wrapS];
-	samps->wrapT = texWrapToD3D9[(int)desc.wrapT];
-	samps->magFilt = texFilterToD3D9[(int)desc.magFilt];
-	samps->minFilt = texFilterToD3D9[(int)desc.minFilt];
-	samps->mipFilt = texFilterToD3D9[(int)desc.mipFilt];
+SamplerState *D3D9Context::CreateSamplerState(const SamplerStateDesc &desc) {
+	D3D9SamplerState *samps = new D3D9SamplerState();
+	samps->wrapS = texWrapToD3D9[(int)desc.wrapU];
+	samps->wrapT = texWrapToD3D9[(int)desc.wrapV];
+	samps->magFilt = texFilterToD3D9[(int)desc.magFilter];
+	samps->minFilt = texFilterToD3D9[(int)desc.minFilter];
+	samps->mipFilt = texFilterToD3D9[(int)desc.mipFilter];
 	return samps;
 }
 
-RasterState *Thin3DDX9Context::CreateRasterState(const T3DRasterStateDesc &desc) {
-	Thin3DDX9RasterState *rs = new Thin3DDX9RasterState();
+RasterState *D3D9Context::CreateRasterState(const T3DRasterStateDesc &desc) {
+	D3D9RasterState *rs = new D3D9RasterState();
 	rs->cullMode = D3DCULL_NONE;
 	if (desc.cull == CullMode::NONE) {
 		return rs;
@@ -610,19 +610,19 @@ RasterState *Thin3DDX9Context::CreateRasterState(const T3DRasterStateDesc &desc)
 	return rs;
 }
 
-Texture *Thin3DDX9Context::CreateTexture() {
-	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_);
+Texture *D3D9Context::CreateTexture() {
+	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_);
 	return tex;
 }
 
-Texture *Thin3DDX9Context::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	Thin3DDX9Texture *tex = new Thin3DDX9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
+Texture *D3D9Context::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
+	D3D9Texture *tex = new D3D9Texture(device_, deviceEx_, type, format, width, height, depth, mipLevels);
 	return tex;
 }
 
-void Thin3DDX9Context::BindTextures(int start, int count, Texture **textures) {
+void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		Thin3DDX9Texture *tex = static_cast<Thin3DDX9Texture *>(textures[i - start]);
+		D3D9Texture *tex = static_cast<D3D9Texture *>(textures[i - start]);
 		tex->SetToSampler(device_, i);
 	}
 }
@@ -657,10 +657,10 @@ static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) 
 
 static int VertexDataTypeToD3DType(DataFormat type) {
 	switch (type) {
-	case DataFormat::FLOATx2: return D3DDECLTYPE_FLOAT2;
-	case DataFormat::FLOATx3: return D3DDECLTYPE_FLOAT3;
-	case DataFormat::FLOATx4: return D3DDECLTYPE_FLOAT4;
-	case DataFormat::UNORM8x4: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
+	case DataFormat::R32G32_FLOAT: return D3DDECLTYPE_FLOAT2;
+	case DataFormat::R32G32B32_FLOAT: return D3DDECLTYPE_FLOAT3;
+	case DataFormat::R32G32B32A32_FLOAT: return D3DDECLTYPE_FLOAT4;
+	case DataFormat::R8G8B8A8_UNORM: return D3DDECLTYPE_UBYTE4N;  // D3DCOLOR?
 	default: return D3DDECLTYPE_UNUSED;
 	}
 }
@@ -687,19 +687,19 @@ Thin3DDX9VertexFormat::Thin3DDX9VertexFormat(LPDIRECT3DDEVICE9 device, const std
 	stride_ = stride;
 }
 
-Buffer *Thin3DDX9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
+Buffer *D3D9Context::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DDX9Buffer(device_, size, usageFlags);
 }
 
-void Thin3DDX9ShaderSet::Apply(LPDIRECT3DDEVICE9 device) {
+void D3D9ShaderSet::Apply(LPDIRECT3DDEVICE9 device) {
 	vshader->Apply(device);
 	pshader->Apply(device);
 }
 
-void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void D3D9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
+	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
 
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ss->Apply(device_);
@@ -707,22 +707,22 @@ void Thin3DDX9Context::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *f
 	device_->DrawPrimitive(primToD3D9[(int)prim], offset, vertexCount / 3);
 }
 
-void Thin3DDX9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void D3D9Context::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	Thin3DDX9Buffer *vbuf = static_cast<Thin3DDX9Buffer *>(vdata);
 	Thin3DDX9Buffer *ibuf = static_cast<Thin3DDX9Buffer *>(idata);
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
+	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
 	vbuf->BindAsVertexBuf(device_, fmt->GetStride(), offset);
 	ibuf->BindAsIndexBuf(device_);
-	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / PrimCountDivisor(prim));
+	device_->DrawIndexedPrimitive(primToD3D9[(int)prim], 0, 0, vertexCount, 0, vertexCount / primCountDivisor[(int)prim]);
 }
 
-void Thin3DDX9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void D3D9Context::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	Thin3DDX9VertexFormat *fmt = static_cast<Thin3DDX9VertexFormat *>(format);
-	Thin3DDX9ShaderSet *ss = static_cast<Thin3DDX9ShaderSet*>(shaderSet);
+	D3D9ShaderSet *ss = static_cast<D3D9ShaderSet*>(shaderSet);
 
 	ss->Apply(device_);
 	fmt->Apply(device_);
@@ -733,7 +733,7 @@ static uint32_t SwapRB(uint32_t c) {
 	return (c & 0xFF00FF00) | ((c >> 16) & 0xFF) | ((c << 16) & 0xFF0000);
 }
 
-void Thin3DDX9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	UINT d3dMask = 0;
 	if (mask & ClearFlag::COLOR) d3dMask |= D3DCLEAR_TARGET;
 	if (mask & ClearFlag::DEPTH) d3dMask |= D3DCLEAR_ZBUFFER;
@@ -742,11 +742,11 @@ void Thin3DDX9Context::Clear(int mask, uint32_t colorval, float depthVal, int st
 	device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
 }
 
-void Thin3DDX9Context::SetScissorEnabled(bool enable) {
+void D3D9Context::SetScissorEnabled(bool enable) {
 	device_->SetRenderState(D3DRS_SCISSORTESTENABLE, enable);
 }
 
-void Thin3DDX9Context::SetScissorRect(int left, int top, int width, int height) {
+void D3D9Context::SetScissorRect(int left, int top, int width, int height) {
 	RECT rc;
 	rc.left = left;
 	rc.top = top;
@@ -755,7 +755,7 @@ void Thin3DDX9Context::SetScissorRect(int left, int top, int width, int height) 
 	device_->SetScissorRect(&rc);
 }
 
-void Thin3DDX9Context::SetViewports(int count, Viewport *viewports) {
+void D3D9Context::SetViewports(int count, Viewport *viewports) {
 	D3DVIEWPORT9 vp;
 	vp.X = (DWORD)viewports[0].TopLeftX;
 	vp.Y = (DWORD)viewports[0].TopLeftY;
@@ -766,7 +766,7 @@ void Thin3DDX9Context::SetViewports(int count, Viewport *viewports) {
 	device_->SetViewport(&vp);
 }
 
-bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
+bool D3D9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
 	LPD3DXMACRO defines = NULL;
 	LPD3DXINCLUDE includes = NULL;
 	DWORD flags = 0;
@@ -815,14 +815,14 @@ bool Thin3DDX9Shader::Compile(LPDIRECT3DDEVICE9 device, const char *source) {
 	return true;
 }
 
-void Thin3DDX9Shader::SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n) {
+void D3D9Shader::SetVector(LPDIRECT3DDEVICE9 device, const char *name, float *value, int n) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value, n);
 	}
 }
 
-void Thin3DDX9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
+void D3D9Shader::SetMatrix4x4(LPDIRECT3DDEVICE9 device, const char *name, const float value[16]) {
 	D3DXHANDLE handle = constantTable_->GetConstantByName(NULL, name);
 	if (handle) {
 		constantTable_->SetFloatArray(device, handle, value, 16);
@@ -835,7 +835,7 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 		ELOG("Failed to load D3DX9!");
 		return NULL;
 	}
-	return new Thin3DDX9Context(d3d, d3dEx, adapterId, device, deviceEx);
+	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 
 }  // namespace Draw

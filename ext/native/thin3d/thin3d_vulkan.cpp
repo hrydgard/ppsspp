@@ -120,7 +120,7 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 }
 
 
-class Thin3DVKBlendState : public BlendState {
+class VKBlendState : public BlendState {
 public:
 	bool blendEnabled;
 	VkBlendOp eqCol, eqAlpha;
@@ -146,7 +146,7 @@ public:
 	}
 };
 
-class Thin3DVKDepthStencilState : public DepthStencilState {
+class VKDepthStencilState : public DepthStencilState {
 public:
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
@@ -163,9 +163,9 @@ public:
 	}
 };
 
-class Thin3DVKRasterState : public RasterState {
+class VKRasterState : public RasterState {
 public:
-	Thin3DVKRasterState(VulkanContext *vulkan, const T3DRasterStateDesc &desc) {
+	VKRasterState(VulkanContext *vulkan, const T3DRasterStateDesc &desc) {
 		cullFace = desc.cull;
 		frontFace = desc.facing;
 	}
@@ -221,14 +221,14 @@ private:
 
 // Not registering this as a resource holder, instead ShaderSet is registered. It will
 // invoke Compile again to recreate the shader then link them together.
-class Thin3DVKShader : public Shader {
+class VKShader : public Shader {
 public:
-	Thin3DVKShader(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false) {
+	VKShader(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false) {
 		stage_ = stage == ShaderStage::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT : VK_SHADER_STAGE_VERTEX_BIT;
 	}
 	bool Compile(VulkanContext *vulkan, const char *source);
 	const std::string &GetSource() const { return source_; }
-	~Thin3DVKShader() {
+	~VKShader() {
 		if (module_) {
 			vkDestroyShaderModule(device_, module_, nullptr);
 		}
@@ -243,7 +243,7 @@ private:
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
-bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
+bool VKShader::Compile(VulkanContext *vulkan, const char *source) {
 	// We'll need this to free it later.
 	device_ = vulkan->GetDevice();
 	this->source_ = source;
@@ -273,15 +273,15 @@ bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
 
 inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
 	switch (type) {
-	case DataFormat::FLOATx2: return VK_FORMAT_R32G32_SFLOAT;
-	case DataFormat::FLOATx3: return VK_FORMAT_R32G32B32_SFLOAT;
-	case DataFormat::FLOATx4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-	case DataFormat::UNORM8x4: return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
+	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
+	case DataFormat::R32G32B32A32_FLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
 
-class Thin3DVKVertexFormat : public InputLayout {
+class VKVertexFormat : public InputLayout {
 public:
 	void ToVulkan(VkPipelineVertexInputStateCreateInfo *info, VkVertexInputAttributeDescription *attrDescs, VkVertexInputBindingDescription *bindDescs) {
 		memset(info, 0, sizeof(*info));
@@ -311,14 +311,14 @@ public:
 	int stride_;
 };
 
-class Thin3DVKShaderSet : public ShaderSet {
+class VKShaderSet : public ShaderSet {
 public:
-	Thin3DVKShaderSet() {
+	VKShaderSet() {
 		// HACK! Hardcoded
 		uboSize_ = 16 * sizeof(float);  // WorldViewProj
 		ubo_ = new uint8_t[uboSize_];
 	}
-	~Thin3DVKShaderSet() {
+	~VKShaderSet() {
 		vshader->Release();
 		fshader->Release();
 		delete[] ubo_;
@@ -339,8 +339,8 @@ public:
 		return uboSize_;
 	}
 
-	Thin3DVKShader *vshader;
-	Thin3DVKShader *fshader;
+	VKShader *vshader;
+	VKShader *fshader;
 
 private:
 	uint8_t *ubo_;
@@ -348,11 +348,11 @@ private:
 };
 
 struct PipelineKey {
-	Thin3DVKDepthStencilState *depthStencil;
-	Thin3DVKBlendState *blend;
-	Thin3DVKShaderSet *shaderSet;
+	VKDepthStencilState *depthStencil;
+	VKBlendState *blend;
+	VKShaderSet *shaderSet;
 	VkPrimitiveTopology topology;
-	Thin3DVKRasterState *raster;
+	VKRasterState *raster;
 
 	// etc etc
 
@@ -369,12 +369,12 @@ struct PipelineKey {
 
 
 
-class Thin3DVKTexture;
-class Thin3DVKSamplerState;
+class VKTexture;
+class VKSamplerState;
 
 struct DescriptorSetKey {
-	Thin3DVKTexture *texture_;
-	Thin3DVKSamplerState *sampler_;
+	VKTexture *texture_;
+	VKSamplerState *sampler_;
 	VkBuffer buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
@@ -385,10 +385,10 @@ struct DescriptorSetKey {
 	}
 };
 
-class Thin3DVKContext : public DrawContext {
+class VKContext : public DrawContext {
 public:
-	Thin3DVKContext(VulkanContext *vulkan);
-	virtual ~Thin3DVKContext();
+	VKContext(VulkanContext *vulkan);
+	virtual ~VKContext();
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -402,19 +402,19 @@ public:
 
 	// Bound state objects
 	void SetBlendState(BlendState *state) override {
-		Thin3DVKBlendState *s = static_cast<Thin3DVKBlendState *>(state);
+		VKBlendState *s = static_cast<VKBlendState *>(state);
 		curBlendState_ = s;
 	}
 
 	// Bound state objects
 	void SetDepthStencilState(DepthStencilState *state) override {
-		Thin3DVKDepthStencilState *s = static_cast<Thin3DVKDepthStencilState *>(state);
+		VKDepthStencilState *s = static_cast<VKDepthStencilState *>(state);
 		curDepthStencilState_ = s;
 	}
 
 	// Bound state objects
 	void SetRasterState(RasterState *state) override {
-		Thin3DVKRasterState *s = static_cast<Thin3DVKRasterState *>(state);
+		VKRasterState *s = static_cast<VKRasterState *>(state);
 		curRasterState_ = s;
 	}
 
@@ -473,12 +473,12 @@ private:
 	VulkanContext *vulkan_;
 
 	// These are used to compose the pipeline cache key.
-	Thin3DVKBlendState *curBlendState_;
-	Thin3DVKDepthStencilState *curDepthStencilState_;
-	Thin3DVKShaderSet *curShaderSet_;
+	VKBlendState *curBlendState_;
+	VKDepthStencilState *curDepthStencilState_;
+	VKShaderSet *curShaderSet_;
 	VkPrimitiveTopology curPrim_;
-	Thin3DVKVertexFormat *curVertexFormat_;
-	Thin3DVKRasterState *curRasterState_; 
+	VKVertexFormat *curVertexFormat_;
+	VKRasterState *curRasterState_; 
 
 	// We keep a pipeline state cache.
 	std::map<PipelineKey, VkPipeline> pipelines_;
@@ -502,8 +502,8 @@ private:
 	VkRect2D noScissor_;  // Simply a scissor covering the screen.
 
 	enum {MAX_BOUND_TEXTURES = 1};
-	Thin3DVKTexture *boundTextures_[MAX_BOUND_TEXTURES];
-	Thin3DVKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
+	VKTexture *boundTextures_[MAX_BOUND_TEXTURES];
+	VKSamplerState *boundSamplers_[MAX_BOUND_TEXTURES];
 
 	VkCommandBuffer cmd_; // The current one
 
@@ -524,7 +524,7 @@ private:
 
 VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
 	switch (fmt) {
-	case DataFormat::R8A8G8B8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::R8G8B8A8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
 	case DataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
 	case DataFormat::D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
 	case DataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
@@ -532,21 +532,32 @@ VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
 	}
 }
 
-class Thin3DVKSamplerState : public SamplerState {
-public:
-	Thin3DVKSamplerState(VulkanContext *vulkan, const SamplerStateDesc &desc) : vulkan_(vulkan) {
-		VkSamplerCreateInfo s = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-		s.addressModeU = desc.wrapS == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		s.addressModeV = desc.wrapT == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		s.magFilter = desc.magFilt == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-		s.minFilter = desc.minFilt == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-		s.mipmapMode = desc.mipFilt == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
-		s.maxLod = 0.0;  // TODO: Actually support mipmaps
+inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode mode) {
+	switch (mode) {
+	case TextureAddressMode::CLAMP_TO_BORDER: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	case TextureAddressMode::CLAMP_TO_EDGE: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	case TextureAddressMode::REPEAT_MIRROR: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+	default:
+	case TextureAddressMode::REPEAT: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	}
+}
 
+class VKSamplerState : public SamplerState {
+public:
+	VKSamplerState(VulkanContext *vulkan, const SamplerStateDesc &desc) : vulkan_(vulkan) {
+		VkSamplerCreateInfo s = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+		s.addressModeU = AddressModeToVulkan(desc.wrapU);
+		s.addressModeV = AddressModeToVulkan(desc.wrapV);
+		s.addressModeW = AddressModeToVulkan(desc.wrapW);
+		s.anisotropyEnable = desc.maxAniso > 1.0f;
+		s.magFilter = desc.magFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+		s.minFilter = desc.minFilter == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+		s.mipmapMode = desc.mipFilter == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		s.maxLod = desc.maxLod;
 		VkResult res = vkCreateSampler(vulkan_->GetDevice(), &s, nullptr, &sampler_);
 		assert(VK_SUCCESS == res);
 	}
-	~Thin3DVKSamplerState() {
+	~VKSamplerState() {
 		vkDestroySampler(vulkan_->GetDevice(), sampler_, nullptr);
 	}
 
@@ -557,17 +568,17 @@ private:
 	VkSampler sampler_;
 };
 
-SamplerState *Thin3DVKContext::CreateSamplerState(const SamplerStateDesc &desc) {
-	return new Thin3DVKSamplerState(vulkan_, desc);
+SamplerState *VKContext::CreateSamplerState(const SamplerStateDesc &desc) {
+	return new VKSamplerState(vulkan_, desc);
 }
 
-RasterState *Thin3DVKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
-	return new Thin3DVKRasterState(vulkan_, desc);
+RasterState *VKContext::CreateRasterState(const T3DRasterStateDesc &desc) {
+	return new VKRasterState(vulkan_, desc);
 }
 
-void Thin3DVKContext::SetSamplerStates(int start, int count, SamplerState **state) {
+void VKContext::SetSamplerStates(int start, int count, SamplerState **state) {
 	for (int i = start; i < start + count; i++) {
-		boundSamplers_[i] = (Thin3DVKSamplerState *)state[i];
+		boundSamplers_[i] = (VKSamplerState *)state[i];
 	}
 }
 
@@ -578,17 +589,17 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-class Thin3DVKTexture : public Texture {
+class VKTexture : public Texture {
 public:
-	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
+	VKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
 
-	Thin3DVKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
+	VKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
 	}
 
-	~Thin3DVKTexture() {
+	~VKTexture() {
 		Destroy();
 	}
 
@@ -625,7 +636,7 @@ private:
 	DataFormat format_;
 };
 
-Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
+VKContext::VKContext(VulkanContext *vulkan)
 	: viewportDirty_(false), scissorDirty_(false), vulkan_(vulkan), frameNum_(0) {
 	device_ = vulkan->GetDevice();
 
@@ -701,7 +712,7 @@ Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
 	pipelineCache_ = vulkan_->CreatePipelineCache();
 }
 
-Thin3DVKContext::~Thin3DVKContext() {
+VKContext::~VKContext() {
 	for (auto x : pipelines_) {
 		vkDestroyPipeline(device_, x.second, nullptr);
 	}
@@ -718,7 +729,7 @@ Thin3DVKContext::~Thin3DVKContext() {
 	vkDestroyPipelineCache(device_, pipelineCache_, nullptr);
 }
 
-void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
+void VKContext::Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
 	VkClearValue clearVal[2] = {};
 	Uint8x4ToFloat4(colorval, clearVal[0].color.float32);
 
@@ -748,7 +759,7 @@ void Thin3DVKContext::Begin(bool clear, uint32_t colorval, float depthVal, int s
 	viewportDirty_ = true;
 }
 
-void Thin3DVKContext::End() {
+void VKContext::End() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
 	vulkan_->EndSurfaceRenderPass();
@@ -760,7 +771,7 @@ void Thin3DVKContext::End() {
 	DirtyDynamicState();
 }
 
-VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
+VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	DescriptorSetKey key;
 
 	FrameData *frame = &frame_[frameNum_ & 1];
@@ -819,7 +830,7 @@ VkDescriptorSet Thin3DVKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	return descSet;
 }
 
-VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
+VkPipeline VKContext::GetOrCreatePipeline() {
 	PipelineKey key;
 	key.blend = curBlendState_;
 	key.depthStencil = curDepthStencilState_;
@@ -915,7 +926,7 @@ VkPipeline Thin3DVKContext::GetOrCreatePipeline() {
 	return pipeline;
 }
 
-void Thin3DVKContext::SetScissorRect(int left, int top, int width, int height) {
+void VKContext::SetScissorRect(int left, int top, int width, int height) {
 	scissor_.offset.x = left;
 	scissor_.offset.y = top;
 	scissor_.extent.width = width;
@@ -923,7 +934,7 @@ void Thin3DVKContext::SetScissorRect(int left, int top, int width, int height) {
 	scissorDirty_ = true;
 }
 
-void Thin3DVKContext::SetViewports(int count, Viewport *viewports) {
+void VKContext::SetViewports(int count, Viewport *viewports) {
 	viewport_.x = viewports[0].TopLeftX;
 	viewport_.y = viewports[0].TopLeftY;
 	viewport_.width = viewports[0].Width;
@@ -933,7 +944,7 @@ void Thin3DVKContext::SetViewports(int count, Viewport *viewports) {
 	viewportDirty_ = true;
 }
 
-void Thin3DVKContext::ApplyDynamicState() {
+void VKContext::ApplyDynamicState() {
 	if (scissorDirty_) {
 		if (scissorEnabled_) {
 			vkCmdSetScissor(cmd_, 0, 1, &scissor_);
@@ -948,27 +959,27 @@ void Thin3DVKContext::ApplyDynamicState() {
 	}
 }
 
-void Thin3DVKContext::DirtyDynamicState() {
+void VKContext::DirtyDynamicState() {
 	scissorDirty_ = true;
 	viewportDirty_ = true;
 }
 
-InputLayout *Thin3DVKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
-	Thin3DVKVertexFormat *fmt = new Thin3DVKVertexFormat();
+InputLayout *VKContext::CreateVertexFormat(const std::vector<VertexComponent> &components, int stride, Shader *vshader) {
+	VKVertexFormat *fmt = new VKVertexFormat();
 	fmt->components_ = components;
 	fmt->stride_ = stride;
 	return fmt;
 }
 
-Texture *Thin3DVKContext::CreateTexture() {
-	return new Thin3DVKTexture(vulkan_);
+Texture *VKContext::CreateTexture() {
+	return new VKTexture(vulkan_);
 }
 
-Texture *Thin3DVKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
-	return new Thin3DVKTexture(vulkan_, type, format, width, height, depth, mipLevels);
+Texture *VKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
+	return new VKTexture(vulkan_, type, format, width, height, depth, mipLevels);
 }
 
-void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void VKTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	int bpp;
 	VkFormat vulkanFormat = FormatToVulkan(format_, &bpp);
 	int bytesPerPixel = bpp / 8;
@@ -981,20 +992,20 @@ void Thin3DVKTexture::SetImageData(int x, int y, int z, int width, int height, i
 	vkTex_->Unlock();
 }
 
-void Thin3DVKTexture::Finalize(int zim_flags) {
+void VKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
-DepthStencilState *Thin3DVKContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
-	Thin3DVKDepthStencilState *ds = new Thin3DVKDepthStencilState();
+DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
+	VKDepthStencilState *ds = new VKDepthStencilState();
 	ds->depthTestEnabled = desc.depthTestEnabled;
 	ds->depthWriteEnabled = desc.depthWriteEnabled;
 	ds->depthComp = compToVK[(int)desc.depthCompare];
 	return ds;
 }
 
-BlendState *Thin3DVKContext::CreateBlendState(const BlendStateDesc &desc) {
-	Thin3DVKBlendState *bs = new Thin3DVKBlendState();
+BlendState *VKContext::CreateBlendState(const BlendStateDesc &desc) {
+	VKBlendState *bs = new VKBlendState();
 	bs->blendEnabled = desc.enabled;
 	bs->eqCol = blendEqToGL[(int)desc.eqCol];
 	bs->srcCol = blendFactorToVk[(int)desc.srcCol];
@@ -1007,20 +1018,20 @@ BlendState *Thin3DVKContext::CreateBlendState(const BlendStateDesc &desc) {
 	return bs;
 }
 
-Buffer *Thin3DVKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
+Buffer *VKContext::CreateBuffer(size_t size, uint32_t usageFlags) {
 	return new Thin3DVKBuffer(size, usageFlags);
 }
 
-ShaderSet *Thin3DVKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
+ShaderSet *VKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	if (!vshader || !fshader) {
 		ELOG("ShaderSet requires both a valid vertex and a fragment shader: %p %p", vshader, fshader);
 		return NULL;
 	}
-	Thin3DVKShaderSet *shaderSet = new Thin3DVKShaderSet();
+	VKShaderSet *shaderSet = new VKShaderSet();
 	vshader->AddRef();
 	fshader->AddRef();
-	shaderSet->vshader = static_cast<Thin3DVKShader *>(vshader);
-	shaderSet->fshader = static_cast<Thin3DVKShader *>(fshader);
+	shaderSet->vshader = static_cast<VKShader *>(vshader);
+	shaderSet->fshader = static_cast<VKShader *>(fshader);
 	if (shaderSet->Link()) {
 		return shaderSet;
 	} else {
@@ -1029,14 +1040,14 @@ ShaderSet *Thin3DVKContext::CreateShaderSet(Shader *vshader, Shader *fshader) {
 	}
 }
 
-void Thin3DVKContext::BindTextures(int start, int count, Texture **textures) {
+void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		boundTextures_[i] = static_cast<Thin3DVKTexture *>(textures[i]);
+		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
 	}
 }
 
-Shader *Thin3DVKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
-	Thin3DVKShader *shader = new Thin3DVKShader(stage);
+Shader *VKContext::CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) {
+	VKShader *shader = new VKShader(stage);
 	if (shader->Compile(vulkan_, vulkan_source)) {
 		return shader;
 	} else {
@@ -1046,12 +1057,12 @@ Shader *Thin3DVKContext::CreateShader(ShaderStage stage, const char *glsl_source
 	}
 }
 
-bool Thin3DVKShaderSet::Link() {
+bool VKShaderSet::Link() {
 	// There is no link step. However, we will create and cache Pipeline objects in the device context.
 	return true;
 }
 
-int Thin3DVKShaderSet::GetUniformLoc(const char *name) {
+int VKShaderSet::GetUniformLoc(const char *name) {
 	int loc = -1;
 
 	// HACK! As we only use one uniform we hardcode it.
@@ -1062,11 +1073,11 @@ int Thin3DVKShaderSet::GetUniformLoc(const char *name) {
 	return loc;
 }
 
-void Thin3DVKShaderSet::SetVector(const char *name, float *value, int n) {
+void VKShaderSet::SetVector(const char *name, float *value, int n) {
 	// TODO: Implement
 }
 
-void Thin3DVKShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
+void VKShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	int loc = GetUniformLoc(name);
 	if (loc != -1) {
 		memcpy(ubo_ + loc, value, 16 * sizeof(float));
@@ -1091,12 +1102,12 @@ inline VkPrimitiveTopology PrimToVK(Primitive prim) {
 	}
 }
 
-void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
+void VKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
-	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
+	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curVertexFormat_ = (VKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
 
 	VkBuffer vulkanVbuf;
@@ -1114,12 +1125,12 @@ void Thin3DVKContext::Draw(Primitive prim, ShaderSet *shaderSet, InputLayout *fo
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
+void VKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLayout *format, Buffer *vdata, Buffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
-	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
+	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curVertexFormat_ = (VKVertexFormat *)format;
 
 	Thin3DVKBuffer *ibuf = static_cast<Thin3DVKBuffer *>(idata);
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
@@ -1143,12 +1154,12 @@ void Thin3DVKContext::DrawIndexed(Primitive prim, ShaderSet *shaderSet, InputLay
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void Thin3DVKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
+void VKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
 	curPrim_ = PrimToVK(prim);
-	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
-	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
+	curShaderSet_ = (VKShaderSet *)shaderSet;
+	curVertexFormat_ = (VKVertexFormat *)format;
 
 	VkBuffer vulkanVbuf, vulkanUBObuf;
 	size_t vbBindOffset = push_->Push(vdata, vertexCount * curVertexFormat_->stride_, &vulkanVbuf);
@@ -1166,7 +1177,7 @@ void Thin3DVKContext::DrawUP(Primitive prim, ShaderSet *shaderSet, InputLayout *
 	vkCmdDraw(cmd_, vertexCount, 1, 0, 0);
 }
 
-void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
+void VKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
 	if (mask & ClearFlag::COLOR) {
 		VkClearColorValue col;
 		Uint8x4ToFloat4(colorval, col.float32);
@@ -1183,7 +1194,7 @@ void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 }
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *vulkan) {
-	return new Thin3DVKContext(vulkan);
+	return new VKContext(vulkan);
 }
 
 void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 available, VkBool32 enabled) {
@@ -1192,7 +1203,7 @@ void AddFeature(std::vector<std::string> &features, const char *name, VkBool32 a
 	features.push_back(buf);
 }
 
-std::vector<std::string> Thin3DVKContext::GetFeatureList() {
+std::vector<std::string> VKContext::GetFeatureList() {
 	const VkPhysicalDeviceFeatures &available = vulkan_->GetFeaturesAvailable();
 	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetFeaturesEnabled();
 	std::vector<std::string> features;

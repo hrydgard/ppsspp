@@ -84,11 +84,6 @@ enum BlendFactor : int {
 	FIXED_COLOR,
 };
 
-enum class TextureAddressMode : int {
-	REPEAT,
-	CLAMP,
-};
-
 enum class TextureFilter : int {
 	NEAREST,
 	LINEAR,
@@ -167,12 +162,11 @@ enum TextureType : uint8_t {
 enum class DataFormat : uint8_t {
 	UNKNOWN,
 	LUMINANCE,
-	R8A8G8B8_UNORM,
+	R8G8B8A8_UNORM,
 	R4G4B4A4_UNORM,
-	FLOATx2,
-	FLOATx3,
-	FLOATx4,
-	UNORM8x4,
+	R32G32_FLOAT,
+	R32G32B32_FLOAT,
+	R32G32B32A32_FLOAT,
 
 	DXT1,
 	ETC1,  // Needs simulation on many platforms
@@ -340,12 +334,32 @@ struct BlendStateDesc {
 	// int colorMask;
 };
 
+enum BorderColor {
+	DONT_CARE,
+	TRANSPARENT_BLACK,
+	OPAQUE_BLACK,
+	OPAQUE_WHITE,
+};
+
+enum class TextureAddressMode {
+	REPEAT,
+	REPEAT_MIRROR,
+	CLAMP_TO_EDGE,
+	CLAMP_TO_BORDER,
+};
+
 struct SamplerStateDesc {
-	TextureFilter magFilt;
-	TextureFilter minFilt;
-	TextureFilter mipFilt;
-	TextureAddressMode wrapS;
-	TextureAddressMode wrapT;
+	TextureFilter magFilter;
+	TextureFilter minFilter;
+	TextureFilter mipFilter;
+	float maxAniso;
+	TextureAddressMode wrapU;
+	TextureAddressMode wrapV;
+	TextureAddressMode wrapW;
+	float maxLod;
+	bool shadowCompareEnabled;
+	Comparison shadowCompareFunc;
+	BorderColor borderColor;
 };
 
 enum class CullMode : uint8_t {
