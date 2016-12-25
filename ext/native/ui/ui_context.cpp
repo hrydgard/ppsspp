@@ -26,12 +26,12 @@ UIContext::~UIContext() {
 void UIContext::Init(Draw::Thin3DContext *thin3d, Draw::Thin3DShaderSet *uishader, Draw::Thin3DShaderSet *uishadernotex, Draw::Thin3DTexture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
 	using namespace Draw;
 	thin3d_ = thin3d;
-	blendNormal_ = thin3d_->CreateBlendState({ true, T3DBlendFactor::SRC_ALPHA, T3DBlendFactor::ONE_MINUS_SRC_ALPHA });
-	sampler_ = thin3d_->CreateSamplerState({ T3DTextureFilter::LINEAR, T3DTextureFilter::LINEAR,T3DTextureFilter::LINEAR });
-	depth_ = thin3d_->CreateDepthStencilState(false, false, T3DComparison::LESS);
+	blendNormal_ = thin3d_->CreateBlendState({ true, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA });
+	sampler_ = thin3d_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR,TextureFilter::LINEAR });
+	depth_ = thin3d_->CreateDepthStencilState(false, false, Comparison::LESS);
 	T3DRasterStateDesc desc;
-	desc.cull = T3DCullMode::NO_CULL;
-	desc.facing = T3DFacing::CCW;
+	desc.cull = CullMode::NONE;
+	desc.facing = Facing::CCW;
 	rasterNoCull_ = thin3d_->CreateRasterState(desc);
 	uishader_ = uishader;
 	uishadernotex_ = uishadernotex;

@@ -14,7 +14,7 @@ namespace Draw {
 	class Thin3DShaderSet;
 	class Thin3DDepthStencilState;
 	class Thin3DTexture;
-	class Thin3DBlendState;
+	class BlendState;
 	class Thin3DSamplerState;
 	class Thin3DRasterState;
 }
@@ -89,7 +89,7 @@ private:
 	Draw::Thin3DDepthStencilState *depth_;
 	Draw::Thin3DSamplerState *sampler_;
 	Draw::Thin3DRasterState *rasterNoCull_;
-	Draw::Thin3DBlendState *blendNormal_;
+	Draw::BlendState *blendNormal_;
 	Draw::Thin3DShaderSet *uishader_;
 	Draw::Thin3DShaderSet *uishadernotex_;
 	Draw::Thin3DTexture *uitexture_;

@@ -42,15 +42,15 @@ void DrawBuffer::Init(Draw::Thin3DContext *t3d) {
 	inited_ = true;
 
 	std::vector<Thin3DVertexComponent> components;
-	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, T3DDataFormat::FLOATx3, 0));
-	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, T3DDataFormat::FLOATx2, 12));
-	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, T3DDataFormat::UNORM8x4, 20));
+	components.push_back(Thin3DVertexComponent("Position", SEM_POSITION, DataFormat::FLOATx3, 0));
+	components.push_back(Thin3DVertexComponent("TexCoord0", SEM_TEXCOORD0, DataFormat::FLOATx2, 12));
+	components.push_back(Thin3DVertexComponent("Color0", SEM_COLOR0, DataFormat::UNORM8x4, 20));
 
 	Thin3DShader *vshader = t3d_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
 
 	vformat_ = t3d_->CreateVertexFormat(components, 24, vshader);
 	if (vformat_->RequiresBuffer()) {
-		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), T3DBufferUsage::DYNAMIC | T3DBufferUsage::VERTEXDATA);
+		vbuf_ = t3d_->CreateBuffer(MAX_VERTS * sizeof(Vertex), BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	} else {
 		vbuf_ = nullptr;
 	}
@@ -90,9 +90,9 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	if (vbuf_) {
 		vbuf_->SubData((const uint8_t *)verts_, 0, sizeof(Vertex) * count_);
 		int offset = 0;
-		t3d_->Draw(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, vbuf_, count_, offset);
+		t3d_->Draw(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, shaderSet_, vformat_, vbuf_, count_, offset);
 	} else {
-		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? PRIM_TRIANGLES : PRIM_LINES, shaderSet_, vformat_, (const void *)verts_, count_);
+		t3d_->DrawUP(mode_ == DBMODE_NORMAL ? Primitive::TRIANGLE_LIST : Primitive::LINE_LIST, shaderSet_, vformat_, (const void *)verts_, count_);
 	}
 	count_ = 0;
 }

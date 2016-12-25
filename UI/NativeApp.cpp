@@ -579,7 +579,7 @@ void NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d.Init(thin3d);
 	ui_draw2d_front.Init(thin3d);
 
-	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", T3DImageType::ZIM);
+	uiTexture = thin3d->CreateTextureFromFile("ui_atlas.zim", ImageFileType::ZIM);
 	if (!uiTexture) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");

@@ -28,7 +28,10 @@ class VulkanContext;
 
 namespace Draw {
 
-enum T3DBlendEquation : int {
+// Useful in UBOs
+typedef int bool32;
+
+enum BlendOp : int {
 	ADD,
 	SUBTRACT,
 	REV_SUBTRACT,
@@ -36,7 +39,7 @@ enum T3DBlendEquation : int {
 	MAX,
 };
 
-enum T3DComparison : int {
+enum Comparison : int {
 	NEVER,
 	LESS,
 	EQUAL,
@@ -48,7 +51,7 @@ enum T3DComparison : int {
 };
 
 // Had to prefix with LOGIC, too many clashes
-enum T3DLogicOp : int {
+enum class LogicOp : int {
 	LOGIC_CLEAR,
 	LOGIC_SET,
 	LOGIC_COPY,
@@ -67,7 +70,7 @@ enum T3DLogicOp : int {
 	LOGIC_OR_INVERTED,
 };
 
-enum T3DBlendFactor : int {
+enum BlendFactor : int {
 	ZERO,
 	ONE,
 	SRC_COLOR,
@@ -81,17 +84,17 @@ enum T3DBlendFactor : int {
 	FIXED_COLOR,
 };
 
-enum class T3DTextureWrap : int {
+enum class TextureAddressMode : int {
 	REPEAT,
 	CLAMP,
 };
 
-enum class T3DTextureFilter : int {
+enum class TextureFilter : int {
 	NEAREST,
 	LINEAR,
 };
 
-enum T3DBufferUsage : int {
+enum BufferUsageFlag : int {
 	VERTEXDATA = 1,
 	INDEXDATA = 2,
 	GENERIC = 4,
@@ -99,7 +102,7 @@ enum T3DBufferUsage : int {
 	DYNAMIC = 16,
 };
 
-enum T3DSemantic : int {
+enum Semantic : int {
 	SEM_POSITION,
 	SEM_COLOR0,
 	SEM_TEXCOORD0,
@@ -110,10 +113,19 @@ enum T3DSemantic : int {
 	SEM_MAX,
 };
 
-enum T3DPrimitive : int {
-	PRIM_POINTS,
-	PRIM_LINES,
-	PRIM_TRIANGLES,
+enum class Primitive {
+	POINT_LIST,
+	LINE_LIST,
+	LINE_STRIP,
+	TRIANGLE_LIST,
+	TRIANGLE_STRIP,
+	TRIANGLE_FAN,
+	PATCH_LIST,
+	// These are for geometry shaders only.
+	LINE_LIST_ADJ,
+	LINE_STRIP_ADJ,
+	TRIANGLE_LIST_ADJ,
+	TRIANGLE_STRIP_ADJ,
 };
 
 enum T3DVertexShaderPreset : int {
@@ -135,13 +147,13 @@ enum T3DShaderSetPreset : int {
 	SS_MAX_PRESET,
 };
 
-enum T3DClear : int {
+enum ClearFlag : int {
 	COLOR = 1,
 	DEPTH = 2,
 	STENCIL = 4,
 };
 
-enum T3DTextureType : uint8_t {
+enum TextureType : uint8_t {
 	UNKNOWN,
 	LINEAR1D,
 	LINEAR2D,
@@ -151,7 +163,7 @@ enum T3DTextureType : uint8_t {
 	ARRAY2D,
 };
 
-enum class T3DDataFormat : uint8_t {
+enum class DataFormat : uint8_t {
 	UNKNOWN,
 	LUMINANCE,
 	R8A8G8B8_UNORM,
@@ -168,11 +180,7 @@ enum class T3DDataFormat : uint8_t {
 	D24X8,
 };
 
-enum T3DRenderState : uint8_t {
-	CULL_MODE,
-};
-
-enum T3DImageType {
+enum ImageFileType {
 	PNG,
 	JPEG,
 	ZIM,
@@ -180,7 +188,7 @@ enum T3DImageType {
 	TYPE_UNKNOWN,
 };
 
-enum T3DInfo {
+enum InfoField {
 	APINAME,
 	APIVERSION,
 	VENDORSTRING,
@@ -190,7 +198,7 @@ enum T3DInfo {
 };
 
 // Binary compatible with D3D11 viewport.
-struct T3DViewport {
+struct Viewport {
 	float TopLeftX;
 	float TopLeftY;
 	float Width;
@@ -223,7 +231,7 @@ private:
 	int refcount_;
 };
 
-class Thin3DBlendState : public Thin3DObject {
+class BlendState : public Thin3DObject {
 public:
 };
 
@@ -243,10 +251,10 @@ public:
 
 class Thin3DTexture : public Thin3DObject {
 public:
-	bool LoadFromFile(const std::string &filename, T3DImageType type = T3DImageType::DETECT);
-	bool LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type = T3DImageType::DETECT);
+	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT);
+	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT);
 
-	virtual bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 	virtual void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) = 0;
 	virtual void AutoGenMipmaps() = 0;
 	virtual void Finalize(int zim_flags) = 0;  // TODO: Tidy up
@@ -260,8 +268,8 @@ protected:
 };
 
 struct Thin3DVertexComponent {
-	Thin3DVertexComponent() : name(nullptr), type(T3DDataFormat::UNKNOWN), semantic(255), offset(255) {}
-	Thin3DVertexComponent(const char *name, T3DSemantic semantic, T3DDataFormat dataType, uint8_t offset) {
+	Thin3DVertexComponent() : name(nullptr), type(DataFormat::UNKNOWN), semantic(255), offset(255) {}
+	Thin3DVertexComponent(const char *name, Semantic semantic, DataFormat dataType, uint8_t offset) {
 		this->name = name;
 		this->semantic = semantic;
 		this->type = dataType;
@@ -269,7 +277,7 @@ struct Thin3DVertexComponent {
 	}
 	const char *name;
 	uint8_t semantic;
-	T3DDataFormat type;
+	DataFormat type;
 	uint8_t offset;
 };
 
@@ -296,6 +304,10 @@ public:
 enum class ShaderStage {
 	VERTEX,
 	FRAGMENT,
+	GEOMETRY,
+	CONTROL,  // HULL
+	EVALUATION,  // DOMAIN
+	COMPUTE,
 };
 
 enum class ShaderLanguage {
@@ -307,42 +319,42 @@ enum class ShaderLanguage {
 	HLSL_D3D11,
 };
 
-struct T3DBlendStateDesc {
+struct BlendStateDesc {
 	bool enabled;
-	T3DBlendFactor srcCol;
-	T3DBlendFactor dstCol;
-	T3DBlendEquation eqCol;
-	T3DBlendFactor srcAlpha;
-	T3DBlendFactor dstAlpha;
-	T3DBlendEquation eqAlpha;
+	BlendFactor srcCol;
+	BlendFactor dstCol;
+	BlendOp eqCol;
+	BlendFactor srcAlpha;
+	BlendFactor dstAlpha;
+	BlendOp eqAlpha;
 	bool logicEnabled;
-	T3DLogicOp logicOp;
+	LogicOp logicOp;
 	// int colorMask;
 };
 
 struct T3DSamplerStateDesc {
-	T3DTextureFilter magFilt;
-	T3DTextureFilter minFilt;
-	T3DTextureFilter mipFilt;
-	T3DTextureWrap wrapS;
-	T3DTextureWrap wrapT;
+	TextureFilter magFilt;
+	TextureFilter minFilt;
+	TextureFilter mipFilt;
+	TextureAddressMode wrapS;
+	TextureAddressMode wrapT;
 };
 
-enum class T3DCullMode : uint8_t {
-	NO_CULL,
+enum class CullMode : uint8_t {
+	NONE,
 	FRONT,
 	BACK,
 	FRONT_AND_BACK,  // Not supported on D3D9
 };
 
-enum class T3DFacing {
+enum class Facing {
 	CCW,
 	CW,
 };
 
 struct T3DRasterStateDesc {
-	T3DCullMode cull;
-	T3DFacing facing;
+	CullMode cull;
+	Facing facing;
 };
 
 class Thin3DContext : public Thin3DObject {
@@ -351,8 +363,8 @@ public:
 
 	virtual std::vector<std::string> GetFeatureList() { return std::vector<std::string>(); }
 
-	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) = 0;
-	virtual Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) = 0;
+	virtual Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) = 0;
+	virtual BlendState *CreateBlendState(const BlendStateDesc &desc) = 0;
 	virtual Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) = 0;
 	virtual Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) = 0;
 	virtual Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
@@ -360,11 +372,11 @@ public:
 	virtual Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) = 0;
 
 	virtual Thin3DTexture *CreateTexture() = 0;  // To be later filled in by ->LoadFromFile or similar.
-	virtual Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) = 0;
+	virtual Thin3DTexture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) = 0;
 
 	// Common Thin3D function, uses CreateTexture
-	Thin3DTexture *CreateTextureFromFile(const char *filename, T3DImageType fileType);
-	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType fileType);
+	Thin3DTexture *CreateTextureFromFile(const char *filename, ImageFileType fileType);
+	Thin3DTexture *CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType fileType);
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
 	Thin3DShader *GetVshaderPreset(T3DVertexShaderPreset preset) { return fsPresets_[preset]; }
@@ -375,7 +387,7 @@ public:
 	virtual Thin3DShader *CreateShader(ShaderStage stage, const char *glsl_source, const char *hlsl_source, const char *vulkan_source) = 0;
 
 	// Bound state objects. Too cumbersome to add them all as parameters to Draw.
-	virtual void SetBlendState(Thin3DBlendState *state) = 0;
+	virtual void SetBlendState(BlendState *state) = 0;
 	virtual void SetSamplerStates(int start, int count, Thin3DSamplerState **state) = 0;
 	virtual void SetDepthStencilState(Thin3DDepthStencilState *state) = 0;
 	virtual void SetRasterState(Thin3DRasterState *state) = 0;
@@ -388,12 +400,12 @@ public:
 	// Raster state
 	virtual void SetScissorEnabled(bool enable) = 0;
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
-	virtual void SetViewports(int count, T3DViewport *viewports) = 0;
+	virtual void SetViewports(int count, Viewport *viewports) = 0;
 
 	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
-	virtual void Draw(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
-	virtual void DrawUP(T3DPrimitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
+	virtual void Draw(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) = 0;
+	virtual void DrawUP(Primitive prim, Thin3DShaderSet *pipeline, Thin3DVertexFormat *format, const void *vdata, int vertexCount) = 0;
 	
 	// Render pass management. Default implementations here.
 	virtual void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) {
@@ -409,7 +421,7 @@ public:
 		targetHeight_ = h;
 	}
 
-	virtual std::string GetInfoString(T3DInfo info) const = 0;
+	virtual std::string GetInfoString(InfoField info) const = 0;
 
 protected:
 	void CreatePresets();

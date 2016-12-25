@@ -992,9 +992,9 @@ void EmuScreen::render() {
 
 	if (!useBufferedRendering) {
 		Thin3DContext *thin3d = screenManager()->getThin3DContext();
-		thin3d->Clear(T3DClear::COLOR | T3DClear::DEPTH | T3DClear::STENCIL, 0xFF000000, 0.0f, 0);
+		thin3d->Clear(ClearFlag::COLOR | ClearFlag::DEPTH | ClearFlag::STENCIL, 0xFF000000, 0.0f, 0);
 
-		T3DViewport viewport;
+		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
 		viewport.Width = pixel_xres;
@@ -1037,7 +1037,7 @@ void EmuScreen::render() {
 		// This sets up some important states but not the viewport.
 		screenManager()->getUIContext()->Begin();
 
-		T3DViewport viewport;
+		Viewport viewport;
 		viewport.TopLeftX = 0;
 		viewport.TopLeftY = 0;
 		viewport.Width = pixel_xres;

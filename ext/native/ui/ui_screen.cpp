@@ -65,7 +65,7 @@ void UIScreen::preRender() {
 	}
 	thin3d->Begin(true, 0xFF000000, 0.0f, 0);
 
-	Draw::T3DViewport viewport;
+	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
 	viewport.Width = pixel_xres;

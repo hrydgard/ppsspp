@@ -176,16 +176,16 @@ Thin3DContext::~Thin3DContext() {
 	}
 }
 
-static T3DDataFormat ZimToT3DFormat(int zim) {
+static DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
-	case ZIM_ETC1: return T3DDataFormat::ETC1;
-	case ZIM_RGBA8888: return T3DDataFormat::R8A8G8B8_UNORM;
-	case ZIM_LUMINANCE: return T3DDataFormat::LUMINANCE;
-	default: return T3DDataFormat::R8A8G8B8_UNORM;
+	case ZIM_ETC1: return DataFormat::ETC1;
+	case ZIM_RGBA8888: return DataFormat::R8A8G8B8_UNORM;
+	case ZIM_LUMINANCE: return DataFormat::LUMINANCE;
+	default: return DataFormat::R8A8G8B8_UNORM;
 	}
 }
 
-static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
+static ImageFileType DetectImageFileType(const uint8_t *data, size_t size) {
 	if (!memcmp(data, "ZIMG", 4)) {
 		return ZIM;
 	} else if (!memcmp(data, "\x89\x50\x4E\x47", 4)) {
@@ -197,7 +197,7 @@ static T3DImageType DetectImageFileType(const uint8_t *data, size_t size) {
 	}
 }
 
-static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType type, int width[16], int height[16], int *num_levels, T3DDataFormat *fmt, uint8_t *image[16], int *zim_flags) {
+static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType type, int width[16], int height[16], int *num_levels, DataFormat *fmt, uint8_t *image[16], int *zim_flags) {
 	if (type == DETECT) {
 		type = DetectImageFileType(data, size);
 	}
@@ -220,7 +220,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 	case PNG:
 		if (1 == pngLoadPtr((const unsigned char *)data, size, &width[0], &height[0], &image[0], false)) {
 			*num_levels = 1;
-			*fmt = T3DDataFormat::R8A8G8B8_UNORM;
+			*fmt = DataFormat::R8A8G8B8_UNORM;
 		}
 		break;
 
@@ -230,7 +230,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 			unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(data, (int)size, &width[0], &height[0], &actual_components, 4);
 			if (jpegBuf) {
 				*num_levels = 1;
-				*fmt = T3DDataFormat::R8A8G8B8_UNORM;
+				*fmt = DataFormat::R8A8G8B8_UNORM;
 				image[0] = (uint8_t *)jpegBuf;
 			}
 		}
@@ -244,13 +244,13 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, T3DImageType typ
 	return *num_levels > 0;
 }
 
-bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DImageType type) {
+bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type) {
 	int width[16], height[16];
 	uint8_t *image[16] = { nullptr };
 
 	int num_levels;
 	int zim_flags;
-	T3DDataFormat fmt;
+	DataFormat fmt;
 
 	if (!LoadTextureLevels(data, dataSize, type, width, height, &num_levels, &fmt, image, &zim_flags)) {
 		return false;
@@ -275,7 +275,7 @@ bool Thin3DTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, T3DIm
 	return true;
 }
 
-bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type) {
+bool Thin3DTexture::LoadFromFile(const std::string &filename, ImageFileType type) {
 	filename_ = "";
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
@@ -292,7 +292,7 @@ bool Thin3DTexture::LoadFromFile(const std::string &filename, T3DImageType type)
 	return retval;
 }
 
-Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DImageType type) {
+Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, ImageFileType type) {
 	Thin3DTexture *tex = CreateTexture();
 	if (!tex->LoadFromFile(filename, type)) {
 		tex->Release();
@@ -302,11 +302,11 @@ Thin3DTexture *Thin3DContext::CreateTextureFromFile(const char *filename, T3DIma
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
-Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, T3DImageType type) {
+Thin3DTexture *Thin3DContext::CreateTextureFromFileData(const uint8_t *data, int size, ImageFileType type) {
 	int width[16], height[16];
 	int num_levels = 0;
 	int zim_flags = 0;
-	T3DDataFormat fmt;
+	DataFormat fmt;
 	uint8_t *image[16] = { nullptr };
 
 	if (!LoadTextureLevels(data, size, type, width, height, &num_levels, &fmt, image, &zim_flags)) {

@@ -100,7 +100,16 @@ static const VkLogicOp logicOpToVK[] = {
 static const VkPrimitiveTopology primToVK[] = {
 	VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
 	VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
 	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN,
+	VK_PRIMITIVE_TOPOLOGY_PATCH_LIST,
+	// These are for geometry shaders only.
+	VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY,
+	VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY,
+	VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY,
 };
 
 static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
@@ -111,7 +120,7 @@ static inline void Uint8x4ToFloat4(uint32_t u, float f[4]) {
 }
 
 
-class Thin3DVKBlendState : public Thin3DBlendState {
+class Thin3DVKBlendState : public BlendState {
 public:
 	bool blendEnabled;
 	VkBlendOp eqCol, eqAlpha;
@@ -160,18 +169,18 @@ public:
 		cullFace = desc.cull;
 		frontFace = desc.facing;
 	}
-	T3DFacing frontFace;
-	T3DCullMode cullFace;
+	Facing frontFace;
+	CullMode cullFace;
 
 	void ToVulkan(VkPipelineRasterizationStateCreateInfo *info) {
 		memset(info, 0, sizeof(*info));
 		info->sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		info->frontFace = frontFace == T3DFacing::CCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+		info->frontFace = frontFace == Facing::CCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
 		switch (cullFace) {
-		case T3DCullMode::BACK: info->cullMode = VK_CULL_MODE_BACK_BIT; break;
-		case T3DCullMode::FRONT: info->cullMode = VK_CULL_MODE_FRONT_BIT; break;
-		case T3DCullMode::FRONT_AND_BACK: info->cullMode = VK_CULL_MODE_FRONT_AND_BACK; break;
-		case T3DCullMode::NO_CULL: info->cullMode = VK_CULL_MODE_NONE; break;
+		case CullMode::BACK: info->cullMode = VK_CULL_MODE_BACK_BIT; break;
+		case CullMode::FRONT: info->cullMode = VK_CULL_MODE_FRONT_BIT; break;
+		case CullMode::FRONT_AND_BACK: info->cullMode = VK_CULL_MODE_FRONT_AND_BACK; break;
+		case CullMode::NONE: info->cullMode = VK_CULL_MODE_NONE; break;
 		}
 		info->polygonMode = VK_POLYGON_MODE_FILL;
 		info->lineWidth = 1.0f;
@@ -262,12 +271,12 @@ bool Thin3DVKShader::Compile(VulkanContext *vulkan, const char *source) {
 }
 
 
-inline VkFormat ConvertVertexDataTypeToVk(T3DDataFormat type) {
+inline VkFormat ConvertVertexDataTypeToVk(DataFormat type) {
 	switch (type) {
-	case T3DDataFormat::FLOATx2: return VK_FORMAT_R32G32_SFLOAT;
-	case T3DDataFormat::FLOATx3: return VK_FORMAT_R32G32B32_SFLOAT;
-	case T3DDataFormat::FLOATx4: return VK_FORMAT_R32G32B32A32_SFLOAT;
-	case T3DDataFormat::UNORM8x4: return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::FLOATx2: return VK_FORMAT_R32G32_SFLOAT;
+	case DataFormat::FLOATx3: return VK_FORMAT_R32G32B32_SFLOAT;
+	case DataFormat::FLOATx4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+	case DataFormat::UNORM8x4: return VK_FORMAT_R8G8B8A8_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
@@ -381,18 +390,18 @@ public:
 	Thin3DVKContext(VulkanContext *vulkan);
 	virtual ~Thin3DVKContext();
 
-	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) override;
-	Thin3DBlendState *CreateBlendState(const T3DBlendStateDesc &desc) override;
+	Thin3DDepthStencilState *CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) override;
+	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	Thin3DBuffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Thin3DShaderSet *CreateShaderSet(Thin3DShader *vshader, Thin3DShader *fshader) override;
 	Thin3DVertexFormat *CreateVertexFormat(const std::vector<Thin3DVertexComponent> &components, int stride, Thin3DShader *vshader) override;
 	Thin3DSamplerState *CreateSamplerState(const T3DSamplerStateDesc &desc) override;
 	Thin3DRasterState *CreateRasterState(const T3DRasterStateDesc &desc) override;
-	Thin3DTexture *CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override;
+	Thin3DTexture *CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override;
 	Thin3DTexture *CreateTexture() override;
 
 	// Bound state objects
-	void SetBlendState(Thin3DBlendState *state) override {
+	void SetBlendState(BlendState *state) override {
 		Thin3DVKBlendState *s = static_cast<Thin3DVKBlendState *>(state);
 		curBlendState_ = s;
 	}
@@ -419,23 +428,23 @@ public:
 
 	void SetScissorRect(int left, int top, int width, int height) override;
 
-	void SetViewports(int count, T3DViewport *viewports) override;
+	void SetViewports(int count, Viewport *viewports) override;
 
 	void BindTextures(int start, int count, Thin3DTexture **textures) override;
 
 	void SetSamplerStates(int start, int count, Thin3DSamplerState **state) override;
 
 	// TODO: Add more sophisticated draws.
-	void Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
-	void DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
-	void DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
+	void Draw(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) override;
+	void DrawIndexed(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) override;
+	void DrawUP(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) override;
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
 	void Begin(bool clear, uint32_t colorval, float depthVal, int stencilVal) override;
 	void End() override;
 
-	std::string GetInfoString(T3DInfo info) const override {
+	std::string GetInfoString(InfoField info) const override {
 		// TODO: Make these actually query the right information
 		switch (info) {
 		case APINAME: return "Vulkan";
@@ -513,12 +522,12 @@ private:
 	VulkanPushBuffer *push_;
 };
 
-VkFormat FormatToVulkan(T3DDataFormat fmt, int *bpp) {
+VkFormat FormatToVulkan(DataFormat fmt, int *bpp) {
 	switch (fmt) {
-	case T3DDataFormat::R8A8G8B8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
-	case T3DDataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
-	case T3DDataFormat::D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
-	case T3DDataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
+	case DataFormat::R8A8G8B8_UNORM: *bpp = 32; return VK_FORMAT_R8G8B8A8_UNORM;
+	case DataFormat::R4G4B4A4_UNORM: *bpp = 16; return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
+	case DataFormat::D24S8: *bpp = 32; return VK_FORMAT_D24_UNORM_S8_UINT;
+	case DataFormat::D16: *bpp = 16; return VK_FORMAT_D16_UNORM;
 	default: return VK_FORMAT_UNDEFINED;
 	}
 }
@@ -527,11 +536,11 @@ class Thin3DVKSamplerState : public Thin3DSamplerState {
 public:
 	Thin3DVKSamplerState(VulkanContext *vulkan, const T3DSamplerStateDesc &desc) : vulkan_(vulkan) {
 		VkSamplerCreateInfo s = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-		s.addressModeU = desc.wrapS == T3DTextureWrap::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		s.addressModeV = desc.wrapT == T3DTextureWrap::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		s.magFilter = desc.magFilt == T3DTextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-		s.minFilter = desc.minFilt == T3DTextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-		s.mipmapMode = desc.mipFilt == T3DTextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		s.addressModeU = desc.wrapS == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		s.addressModeV = desc.wrapT == TextureAddressMode::REPEAT ? VK_SAMPLER_ADDRESS_MODE_REPEAT : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		s.magFilter = desc.magFilt == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+		s.minFilter = desc.minFilt == TextureFilter::LINEAR ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+		s.mipmapMode = desc.mipFilt == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 		s.maxLod = 0.0;  // TODO: Actually support mipmaps
 
 		VkResult res = vkCreateSampler(vulkan_->GetDevice(), &s, nullptr, &sampler_);
@@ -574,7 +583,7 @@ public:
 	Thin3DVKTexture(VulkanContext *vulkan) : vulkan_(vulkan), vkTex_(nullptr) {
 	}
 
-	Thin3DVKTexture(VulkanContext *vulkan, T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels)
+	Thin3DVKTexture(VulkanContext *vulkan, TextureType type, DataFormat format, int width, int height, int depth, int mipLevels)
 		: vulkan_(vulkan), format_(format), mipLevels_(mipLevels) {
 		Create(type, format, width, height, depth, mipLevels);
 	}
@@ -583,7 +592,7 @@ public:
 		Destroy();
 	}
 
-	bool Create(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) override {
+	bool Create(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) override {
 		format_ = format;
 		mipLevels_ = mipLevels;
 		width_ = width;
@@ -613,7 +622,7 @@ private:
 
 	int mipLevels_;
 
-	T3DDataFormat format_;
+	DataFormat format_;
 };
 
 Thin3DVKContext::Thin3DVKContext(VulkanContext *vulkan)
@@ -914,7 +923,7 @@ void Thin3DVKContext::SetScissorRect(int left, int top, int width, int height) {
 	scissorDirty_ = true;
 }
 
-void Thin3DVKContext::SetViewports(int count, T3DViewport *viewports) {
+void Thin3DVKContext::SetViewports(int count, Viewport *viewports) {
 	viewport_.x = viewports[0].TopLeftX;
 	viewport_.y = viewports[0].TopLeftY;
 	viewport_.width = viewports[0].Width;
@@ -955,7 +964,7 @@ Thin3DTexture *Thin3DVKContext::CreateTexture() {
 	return new Thin3DVKTexture(vulkan_);
 }
 
-Thin3DTexture *Thin3DVKContext::CreateTexture(T3DTextureType type, T3DDataFormat format, int width, int height, int depth, int mipLevels) {
+Thin3DTexture *Thin3DVKContext::CreateTexture(TextureType type, DataFormat format, int width, int height, int depth, int mipLevels) {
 	return new Thin3DVKTexture(vulkan_, type, format, width, height, depth, mipLevels);
 }
 
@@ -976,7 +985,7 @@ void Thin3DVKTexture::Finalize(int zim_flags) {
 	// TODO
 }
 
-Thin3DDepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, T3DComparison depthCompare) {
+Thin3DDepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTestEnabled, bool depthWriteEnabled, Comparison depthCompare) {
 	Thin3DVKDepthStencilState *ds = new Thin3DVKDepthStencilState();
 	ds->depthTestEnabled = depthTestEnabled;
 	ds->depthWriteEnabled = depthWriteEnabled;
@@ -984,7 +993,7 @@ Thin3DDepthStencilState *Thin3DVKContext::CreateDepthStencilState(bool depthTest
 	return ds;
 }
 
-Thin3DBlendState *Thin3DVKContext::CreateBlendState(const T3DBlendStateDesc &desc) {
+BlendState *Thin3DVKContext::CreateBlendState(const BlendStateDesc &desc) {
 	Thin3DVKBlendState *bs = new Thin3DVKBlendState();
 	bs->blendEnabled = desc.enabled;
 	bs->eqCol = blendEqToGL[desc.eqCol];
@@ -994,7 +1003,7 @@ Thin3DBlendState *Thin3DVKContext::CreateBlendState(const T3DBlendStateDesc &des
 	bs->srcAlpha = blendFactorToVk[desc.srcAlpha];
 	bs->dstAlpha = blendFactorToVk[desc.dstAlpha];
 	bs->logicEnabled = desc.logicEnabled;
-	bs->logicOp = logicOpToVK[desc.logicOp];
+	bs->logicOp = logicOpToVK[(int)desc.logicOp];
 	return bs;
 }
 
@@ -1064,10 +1073,28 @@ void Thin3DVKShaderSet::SetMatrix4x4(const char *name, const float value[16]) {
 	}
 }
 
-void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
+inline VkPrimitiveTopology PrimToVK(Primitive prim) {
+	switch (prim) {
+	case Primitive::POINT_LIST: return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+	case Primitive::LINE_LIST: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	case Primitive::LINE_LIST_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY;
+	case Primitive::LINE_STRIP: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+	case Primitive::LINE_STRIP_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
+	case Primitive::TRIANGLE_LIST: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	case Primitive::TRIANGLE_LIST_ADJ: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY;
+	case Primitive::TRIANGLE_STRIP: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+	case Primitive::TRIANGLE_STRIP_ADJ: return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY;
+	case Primitive::TRIANGLE_FAN: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
+	case Primitive::PATCH_LIST: return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
+	default:
+		return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
+	}
+}
+
+void Thin3DVKContext::Draw(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	curPrim_ = primToVK[prim];
+	curPrim_ = PrimToVK(prim);
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 	Thin3DVKBuffer *vbuf = static_cast<Thin3DVKBuffer *>(vdata);
@@ -1087,10 +1114,10 @@ void Thin3DVKContext::Draw(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3D
 	vkCmdDraw(cmd_, vertexCount, 1, offset, 0);
 }
 
-void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
+void Thin3DVKContext::DrawIndexed(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, Thin3DBuffer *vdata, Thin3DBuffer *idata, int vertexCount, int offset) {
 	ApplyDynamicState();
 	
-	curPrim_ = primToVK[prim];
+	curPrim_ = PrimToVK(prim);
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 
@@ -1116,10 +1143,10 @@ void Thin3DVKContext::DrawIndexed(T3DPrimitive prim, Thin3DShaderSet *shaderSet,
 	vkCmdDrawIndexed(cmd_, vertexCount, 1, 0, offset, 0);
 }
 
-void Thin3DVKContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
+void Thin3DVKContext::DrawUP(Primitive prim, Thin3DShaderSet *shaderSet, Thin3DVertexFormat *format, const void *vdata, int vertexCount) {
 	ApplyDynamicState();
 
-	curPrim_ = primToVK[prim];
+	curPrim_ = PrimToVK(prim);
 	curShaderSet_ = (Thin3DVKShaderSet *)shaderSet;
 	curVertexFormat_ = (Thin3DVKVertexFormat *)format;
 
@@ -1140,7 +1167,7 @@ void Thin3DVKContext::DrawUP(T3DPrimitive prim, Thin3DShaderSet *shaderSet, Thin
 }
 
 void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) {
-	if (mask & T3DClear::COLOR) {
+	if (mask & ClearFlag::COLOR) {
 		VkClearColorValue col;
 		Uint8x4ToFloat4(colorval, col.float32);
 
@@ -1150,7 +1177,7 @@ void Thin3DVKContext::Clear(int mask, uint32_t colorval, float depthVal, int ste
 		vkCmdClearColorAttachment(cmdBuf_, 0, imageLayout_, &col, 1, nullptr);
 		*/
 	}
-	if (mask & (T3DClear::DEPTH | T3DClear::STENCIL)) {
+	if (mask & (ClearFlag::DEPTH | ClearFlag::STENCIL)) {
 
 	}
 }
